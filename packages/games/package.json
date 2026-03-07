@@ -1,0 +1,11 @@
+{
+  "name": "@ks/games",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@ks/domain": "workspace:*"
+  }
+}

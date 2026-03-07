@@ -1,0 +1,22 @@
+{
+  "name": "ks",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "clients/*",
+    "services/*"
+  ],
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "bunx tsc -b",
+    "lint": "oxlint .",
+    "lint:fix": "oxlint --fix .",
+    "format": "oxfmt .",
+    "format:check": "oxfmt --check ."
+  },
+  "devDependencies": {
+    "oxfmt": "latest",
+    "oxlint": "latest",
+    "typescript": "^5.6.3"
+  }
+}

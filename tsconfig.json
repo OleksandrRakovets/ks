@@ -1,0 +1,13 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/domain" },
+    { "path": "packages/games" },
+    { "path": "packages/i18n" },
+    { "path": "packages/themes" },
+    { "path": "packages/ui" },
+    { "path": "packages/offline" },
+    { "path": "services/worker" },
+    { "path": "clients/rr7" }
+  ]
+}

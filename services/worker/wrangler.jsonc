@@ -1,0 +1,22 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+
+  "name": "ks",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-03-07",
+
+  "durable_objects": {
+    "bindings": [{ "name": "MATCH_ROOM", "class_name": "MatchRoom" }],
+  },
+
+  "migrations": [{ "tag": "v1", "new_classes": ["MatchRoom"] }],
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "ks",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "./migrations",
+    },
+  ],
+}

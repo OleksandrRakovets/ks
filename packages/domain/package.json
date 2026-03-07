@@ -1,0 +1,11 @@
+{
+  "name": "@ks/domain",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "zod": "latest"
+  }
+}

@@ -1,0 +1,17 @@
+import { resources, type SupportedLocale } from '@ks/i18n'
+import i18n from 'i18next'
+import { initReactI18next } from 'react-i18next'
+
+function pickLocale(): SupportedLocale {
+  const override = localStorage.getItem('ks.locale')
+  return override === 'en' ? 'en' : 'uk'
+}
+
+void i18n.use(initReactI18next).init({
+  resources,
+  lng: pickLocale(),
+  fallbackLng: 'uk',
+  interpolation: { escapeValue: false },
+})
+
+export { i18n }
