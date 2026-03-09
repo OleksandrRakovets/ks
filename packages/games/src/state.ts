@@ -1,4 +1,4 @@
-import type { GameId, MatchConfig, MatchSnapshot, Seat } from '@ks/domain'
+import type { GameKey, MatchConfig, MatchSnapshot, Seat } from '@ks/domain'
 
 export type MatchState = {
   config?: MatchConfig
@@ -27,7 +27,7 @@ export function toSnapshot(state: MatchState, latestSeq: number): MatchSnapshot 
   }
   return {
     matchId: state.config.matchId,
-    gameId: state.config.gameId,
+    gameKey: state.config.gameKey,
     targets: state.config.targets,
     participants: state.config.participants,
     status: state.status === 'finished' ? 'finished' : 'active',
@@ -38,7 +38,7 @@ export function toSnapshot(state: MatchState, latestSeq: number): MatchSnapshot 
   }
 }
 
-export function getGameId(state: MatchState): GameId {
+export function getGameKey(state: MatchState): GameKey {
   if (!state.config) throw new Error('Missing match config')
-  return state.config.gameId
+  return state.config.gameKey
 }

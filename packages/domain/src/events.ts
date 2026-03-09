@@ -1,7 +1,7 @@
 import { z } from 'zod/v4'
 
 import { EventIdSchema, MatchIdSchema, ClientIdSchema } from './ids'
-import { SeatSchema, MatchConfigSchema } from './match'
+import { GameKeySchema, MatchConfigSchema, SeatSchema } from './match'
 
 const BaseClientEventSchema = z.object({
   eventId: EventIdSchema,
@@ -19,6 +19,15 @@ export const MatchCreatedEventSchema = BaseClientEventSchema.extend({
 export const FrameStartedEventSchema = BaseClientEventSchema.extend({
   type: z.literal('frame.started'),
   payload: z.object({ frameIndex: z.number().int().positive() }),
+})
+
+export const GameCommandEventSchema = BaseClientEventSchema.extend({
+  type: z.literal('game.command'),
+  payload: z.object({
+    gameKey: GameKeySchema,
+    commandType: z.string().min(1).max(64),
+    command: z.unknown(),
+  }),
 })
 
 export const ScoreDeltaEventSchema = BaseClientEventSchema.extend({
@@ -56,6 +65,7 @@ export const MatchEndedEventSchema = BaseClientEventSchema.extend({
 export const ClientEventSchema = z.discriminatedUnion('type', [
   MatchCreatedEventSchema,
   FrameStartedEventSchema,
+  GameCommandEventSchema,
   ScoreDeltaEventSchema,
   ScoreSetEventSchema,
   FrameAwardedEventSchema,

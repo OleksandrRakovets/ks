@@ -3,7 +3,7 @@
 CREATE TABLE IF NOT EXISTS matches (
   match_id TEXT PRIMARY KEY,
   control_secret TEXT NOT NULL,
-  game_id TEXT NOT NULL,
+  game_key TEXT NOT NULL,
   config_json TEXT NOT NULL,
   status TEXT NOT NULL,
   created_at INTEGER NOT NULL,
@@ -26,6 +26,13 @@ CREATE TABLE IF NOT EXISTS events (
 );
 
 CREATE INDEX IF NOT EXISTS events_match_id_seq ON events(match_id, seq);
+
+CREATE TABLE IF NOT EXISTS match_snapshots (
+  match_id TEXT PRIMARY KEY,
+  latest_seq INTEGER NOT NULL,
+  state_json TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
 
 CREATE TABLE IF NOT EXISTS players (
   player_id TEXT PRIMARY KEY,

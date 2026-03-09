@@ -1,4 +1,5 @@
 import { keys } from '@ks/i18n'
+import { gameKeys, registry, type RegisteredGameKey } from '@ks/games'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -8,7 +9,7 @@ export function AdminCreateMatch() {
   const { t } = useTranslation()
   const [adminUser, setAdminUser] = useState('admin')
   const [adminPass, setAdminPass] = useState('admin')
-  const [gameId, setGameId] = useState<'free-pyramid' | 'combined-pyramid-old'>('free-pyramid')
+  const [gameKey, setGameKey] = useState<RegisteredGameKey>('free-pyramid')
   const [nameA, setNameA] = useState('Player A')
   const [nameB, setNameB] = useState('Player B')
   const [frameTargetA, setFrameTargetA] = useState(8)
@@ -45,17 +46,20 @@ export function AdminCreateMatch() {
           </div>
 
           <div className="grid gap-2">
-            <label htmlFor="gameId" className="text-sm text-white/80">
+            <label htmlFor="gameKey" className="text-sm text-white/80">
               {t(keys.match.create.game)}
             </label>
             <select
-              id="gameId"
-              value={gameId}
-              onChange={(e) => setGameId(e.target.value as any)}
+              id="gameKey"
+              value={gameKey}
+              onChange={(e) => setGameKey(e.target.value as RegisteredGameKey)}
               className="rounded-lg bg-black/20 px-3 py-2 ring-1 ring-white/10 outline-none focus:ring-2 focus:ring-[var(--ks-accent)]"
             >
-              <option value="free-pyramid">Free pyramid</option>
-              <option value="combined-pyramid-old">Combined pyramid (old)</option>
+              {gameKeys.map((key) => (
+                <option key={key} value={key}>
+                  {registry[key].meta.label}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -131,7 +135,7 @@ export function AdminCreateMatch() {
                 const res = await createMatch({
                   adminUser,
                   adminPass,
-                  gameId,
+                  gameKey,
                   targets: {
                     frameTargetPointsBySeat: { A: frameTargetA, B: frameTargetB },
                     matchTargetFramesBySeat: { A: framesToWinA, B: framesToWinB },

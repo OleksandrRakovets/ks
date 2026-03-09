@@ -1,12 +1,47 @@
-import type { StoredEvent } from '@ks/domain'
+import type { MatchSnapshot, StoredEvent } from '@ks/domain'
 
-import { applyEvent, emptyState } from '@ks/games'
+import { applyEvent, emptyState, isRegisteredGameKey, registry, type RegisteredGameKey } from '@ks/games'
 import { keys } from '@ks/i18n'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useParams } from 'react-router-dom'
 
-import { getSnapshot, makeAwardFrameEvent, makeScoreDeltaEvent, makeStartFrameEvent, postEvents } from '../api/ks'
+import { getSnapshot, makeAwardFrameEvent, makeShotRecordedEvent, makeStartFrameEvent, postEvents } from '../api/ks'
+
+function PyramidShotControls(props: {
+  matchId: string
+  controlSecret: string
+  gameKey: RegisteredGameKey
+  seat: 'A' | 'B'
+  canScore: boolean
+}) {
+  return (
+    <div className="mt-2 flex gap-2">
+      <button
+        type="button"
+        className="flex-1 rounded-lg bg-white/10 px-3 py-2"
+        disabled={!props.canScore}
+        aria-disabled={!props.canScore}
+        onClick={() =>
+          postEvents(props.matchId, props.controlSecret, [makeShotRecordedEvent(props.matchId, props.gameKey, props.seat, 1)])
+        }
+      >
+        +1
+      </button>
+      <button
+        type="button"
+        className="flex-1 rounded-lg bg-white/10 px-3 py-2"
+        disabled={!props.canScore}
+        aria-disabled={!props.canScore}
+        onClick={() =>
+          postEvents(props.matchId, props.controlSecret, [makeShotRecordedEvent(props.matchId, props.gameKey, props.seat, -1)])
+        }
+      >
+        -1
+      </button>
+    </div>
+  )
+}
 
 export function ControlMatch() {
   const { t } = useTranslation()
@@ -14,7 +49,7 @@ export function ControlMatch() {
   const matchId = params.matchId ?? ''
   const controlSecret = params.controlSecret ?? ''
 
-  const [snapshot, setSnapshot] = useState<any>(null)
+  const [snapshot, setSnapshot] = useState<MatchSnapshot | null>(null)
   const [events, setEvents] = useState<StoredEvent[]>([])
   const [error, setError] = useState<string | null>(null)
   const lastSeqRef = useRef(0)
@@ -70,6 +105,9 @@ export function ControlMatch() {
   const pointsB = (cur ?? snapCur)?.pointsBySeat?.B ?? 0
   const targetA = snapshot?.targets?.frameTargetPointsBySeat?.A ?? 0
   const targetB = snapshot?.targets?.frameTargetPointsBySeat?.B ?? 0
+  const maybeGameKey = derived?.config?.gameKey ?? snapshot?.gameKey
+  const gameKey: RegisteredGameKey = maybeGameKey && isRegisteredGameKey(maybeGameKey) ? maybeGameKey : 'free-pyramid'
+  const inputMode = registry[gameKey].meta.inputMode
   const winnerSeat = (cur ?? snapCur)?.winnerSeat
   const canAwardA = targetA > 0 && pointsA >= targetA && !winnerSeat
   const canAwardB = targetB > 0 && pointsB >= targetB && !winnerSeat
@@ -96,26 +134,15 @@ export function ControlMatch() {
             <div className="rounded-xl border border-white/10 bg-white/5 p-4">
               <div className="text-sm text-white/70">A</div>
               <div className="mt-1 text-4xl font-semibold tabular-nums">{pointsA}</div>
-              <div className="mt-2 flex gap-2">
-                <button
-                  type="button"
-                  className="flex-1 rounded-lg bg-white/10 px-3 py-2"
-                  disabled={!canScore}
-                  aria-disabled={!canScore}
-                  onClick={() => postEvents(matchId, controlSecret, [makeScoreDeltaEvent(matchId, 'A', 1)])}
-                >
-                  +1
-                </button>
-                <button
-                  type="button"
-                  className="flex-1 rounded-lg bg-white/10 px-3 py-2"
-                  disabled={!canScore}
-                  aria-disabled={!canScore}
-                  onClick={() => postEvents(matchId, controlSecret, [makeScoreDeltaEvent(matchId, 'A', -1)])}
-                >
-                  -1
-                </button>
-              </div>
+              {inputMode === 'pyramid-basic' ? (
+                <PyramidShotControls
+                  matchId={matchId}
+                  controlSecret={controlSecret}
+                  gameKey={gameKey}
+                  seat="A"
+                  canScore={canScore}
+                />
+              ) : null}
               {canAwardA ? (
                 <button
                   type="button"
@@ -130,26 +157,15 @@ export function ControlMatch() {
             <div className="rounded-xl border border-white/10 bg-white/5 p-4">
               <div className="text-sm text-white/70">B</div>
               <div className="mt-1 text-4xl font-semibold tabular-nums">{pointsB}</div>
-              <div className="mt-2 flex gap-2">
-                <button
-                  type="button"
-                  className="flex-1 rounded-lg bg-white/10 px-3 py-2"
-                  disabled={!canScore}
-                  aria-disabled={!canScore}
-                  onClick={() => postEvents(matchId, controlSecret, [makeScoreDeltaEvent(matchId, 'B', 1)])}
-                >
-                  +1
-                </button>
-                <button
-                  type="button"
-                  className="flex-1 rounded-lg bg-white/10 px-3 py-2"
-                  disabled={!canScore}
-                  aria-disabled={!canScore}
-                  onClick={() => postEvents(matchId, controlSecret, [makeScoreDeltaEvent(matchId, 'B', -1)])}
-                >
-                  -1
-                </button>
-              </div>
+              {inputMode === 'pyramid-basic' ? (
+                <PyramidShotControls
+                  matchId={matchId}
+                  controlSecret={controlSecret}
+                  gameKey={gameKey}
+                  seat="B"
+                  canScore={canScore}
+                />
+              ) : null}
               {canAwardB ? (
                 <button
                   type="button"

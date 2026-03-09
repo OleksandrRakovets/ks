@@ -3,7 +3,7 @@ import { describe, expect, test } from 'bun:test'
 
 import { applyEvent, emptyState } from '../src'
 
-function baseEvent(matchId: string, type: ClientEvent['type'], payload: any): any {
+function baseEvent(matchId: string, type: ClientEvent['type'], payload: unknown): ClientEvent {
   return {
     eventId: newEventId(),
     matchId,
@@ -12,14 +12,14 @@ function baseEvent(matchId: string, type: ClientEvent['type'], payload: any): an
     at: Date.now(),
     type,
     payload,
-  }
+  } as ClientEvent
 }
 
-function makeConfig(gameId: MatchConfig['gameId']): MatchConfig {
+function makeConfig(gameKey: MatchConfig['gameKey']): MatchConfig {
   const matchId = newMatchId()
   return {
     matchId,
-    gameId,
+    gameKey,
     targets: {
       frameTargetPointsBySeat: { A: 8, B: 8 },
       matchTargetFramesBySeat: { A: 3, B: 3 },
@@ -37,8 +37,22 @@ describe('free-pyramid', () => {
     let s = emptyState()
     s = applyEvent(s, baseEvent(config.matchId, 'match.created', config))
     s = applyEvent(s, baseEvent(config.matchId, 'frame.started', { frameIndex: 1 }))
-    s = applyEvent(s, baseEvent(config.matchId, 'score.delta', { seat: 'A', delta: 1 }))
-    s = applyEvent(s, baseEvent(config.matchId, 'score.delta', { seat: 'A', delta: -10 }))
+    s = applyEvent(
+      s,
+      baseEvent(config.matchId, 'game.command', {
+        gameKey: config.gameKey,
+        commandType: 'shot.recorded',
+        command: { seat: 'A', points: 1 },
+      }),
+    )
+    s = applyEvent(
+      s,
+      baseEvent(config.matchId, 'game.command', {
+        gameKey: config.gameKey,
+        commandType: 'shot.recorded',
+        command: { seat: 'A', points: -10 },
+      }),
+    )
     expect(s.frames[0]?.pointsBySeat.A).toBe(0)
   })
 })
@@ -49,7 +63,14 @@ describe('combined-pyramid-old', () => {
     let s = emptyState()
     s = applyEvent(s, baseEvent(config.matchId, 'match.created', config))
     s = applyEvent(s, baseEvent(config.matchId, 'frame.started', { frameIndex: 1 }))
-    s = applyEvent(s, baseEvent(config.matchId, 'score.delta', { seat: 'A', delta: -2 }))
+    s = applyEvent(
+      s,
+      baseEvent(config.matchId, 'game.command', {
+        gameKey: config.gameKey,
+        commandType: 'shot.recorded',
+        command: { seat: 'A', points: -2 },
+      }),
+    )
     expect(s.frames[0]?.pointsBySeat.A).toBe(-2)
   })
 })

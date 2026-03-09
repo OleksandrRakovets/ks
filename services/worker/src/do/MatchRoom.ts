@@ -1,4 +1,4 @@
-import { ClientEventSchema, MatchConfigSchema, newEventId, type ClientEvent } from '@ks/domain'
+import { ClientEventSchema, ClientIdSchema, MatchConfigSchema, MatchIdSchema, newEventId, type ClientEvent, type StoredEvent } from '@ks/domain'
 import { applyEvent, emptyState, type MatchState, toSnapshot } from '@ks/games'
 import { Hono } from 'hono'
 import { z } from 'zod/v4'
@@ -8,6 +8,7 @@ import type { Env } from '../env'
 import { badRequest, json, unauthorized } from '../http/utils'
 import { eventExists, getLatestSeq, insertStoredEvent, listEventsAfter } from '../repos/events'
 import { getMatch, markMatchEnded } from '../repos/matches'
+import { deleteMatchSnapshot, getMatchSnapshot, putLatestMatchSnapshot } from '../repos/snapshots'
 
 const InitBodySchema = z.object({
   controlSecret: z.string().min(16),
@@ -56,9 +57,11 @@ export class MatchRoom implements DurableObject {
       if (latest > 0) return json({ ok: true, alreadyInitialized: true })
 
       const now = Date.now()
+      const parsedMatchId = MatchIdSchema.parse(matchId)
+      const serverClientId = ClientIdSchema.parse('server0000')
       const base = {
-        matchId: matchId as any,
-        clientId: 'server0000' as any,
+        matchId: parsedMatchId,
+        clientId: serverClientId,
         clientSeq: 0,
         at: now,
       }
@@ -68,14 +71,14 @@ export class MatchRoom implements DurableObject {
         eventId: newEventId(),
         type: 'match.created',
         payload: parsed.data.config,
-      } as any
+      }
 
       const started: ClientEvent = {
         ...base,
         eventId: newEventId(),
         type: 'frame.started',
         payload: { frameIndex: 1 },
-      } as any
+      }
 
       await this.appendAndBroadcast(matchId, [created, started])
       return json({ ok: true })
@@ -83,6 +86,10 @@ export class MatchRoom implements DurableObject {
 
     this.app.get('/snapshot', async (c) => {
       const matchId = await this.matchIdFromRequest(c.req.raw)
+      const row = await getMatch(this.env, matchId)
+      if (!row) return badRequest('Unknown match')
+
+      await this.pruneSnapshotIfExpired(matchId, row.status, row.lock_at)
       const { derived, latestSeq } = await this.loadDerived(matchId)
       return json({ ok: true, snapshot: toSnapshot(derived, latestSeq) })
     })
@@ -98,6 +105,7 @@ export class MatchRoom implements DurableObject {
       if (row.control_secret !== parsed.data.controlSecret) return unauthorized()
 
       if (row.lock_at && Date.now() >= row.lock_at) {
+        await this.pruneSnapshotIfExpired(matchId, row.status, row.lock_at)
         return json({ ok: false, error: 'Match is locked' }, { status: 423 })
       }
 
@@ -171,8 +179,21 @@ export class MatchRoom implements DurableObject {
     const cached = await this.state.storage.get<MatchState>('derivedState')
     if (cached) return { derived: cached, latestSeq }
 
-    const events = await listEventsAfter(this.env, matchId, 0)
+    const persistedSnapshot = await getMatchSnapshot(this.env, matchId)
     let derived = emptyState()
+    let replayAfter = 0
+
+    if (persistedSnapshot && persistedSnapshot.latest_seq <= latestSeq) {
+      try {
+        derived = JSON.parse(persistedSnapshot.state_json) as MatchState
+        replayAfter = persistedSnapshot.latest_seq
+      } catch {
+        derived = emptyState()
+        replayAfter = 0
+      }
+    }
+
+    const events = await listEventsAfter(this.env, matchId, replayAfter)
     for (const ev of events) {
       derived = applyEvent(derived, ev)
     }
@@ -220,6 +241,14 @@ export class MatchRoom implements DurableObject {
           const lockAt = endedAt + 10 * 60 * 1000
           await markMatchEnded(this.env, matchId, endedAt, lockAt)
         }
+
+        if (this.shouldPersistSnapshot(parsed.data.type, seq)) {
+          await putLatestMatchSnapshot(this.env, {
+            matchId,
+            latestSeq: seq,
+            state: derived,
+          })
+        }
       }
 
       await this.state.storage.put('seq', seq)
@@ -228,7 +257,21 @@ export class MatchRoom implements DurableObject {
     })
   }
 
-  private async broadcast(storedEvent: any): Promise<void> {
+  private shouldPersistSnapshot(eventType: ClientEvent['type'], seq: number): boolean {
+    if (seq % 10 === 0) return true
+    if (eventType === 'frame.awarded') return true
+    if (eventType === 'match.ended') return true
+    return false
+  }
+
+  private async pruneSnapshotIfExpired(matchId: string, status: string, lockAt: number | null): Promise<void> {
+    if (status !== 'finished') return
+    if (!lockAt) return
+    if (Date.now() < lockAt) return
+    await deleteMatchSnapshot(this.env, matchId)
+  }
+
+  private async broadcast(storedEvent: StoredEvent): Promise<void> {
     const line = `event: ev\ndata: ${JSON.stringify(storedEvent)}\n\n`
     const bytes = this.encoder.encode(line)
     for (const client of this.clients) {

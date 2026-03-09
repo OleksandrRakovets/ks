@@ -5,7 +5,7 @@ import type { Env } from '../env'
 export type MatchRow = {
   match_id: string
   control_secret: string
-  game_id: string
+  game_key: string
   config_json: string
   status: string
   created_at: number
@@ -23,9 +23,9 @@ export async function insertMatch(
   },
 ): Promise<void> {
   await env.DB.prepare(
-    'INSERT INTO matches (match_id, control_secret, game_id, config_json, status, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+    'INSERT INTO matches (match_id, control_secret, game_key, config_json, status, created_at) VALUES (?, ?, ?, ?, ?, ?)',
   )
-    .bind(args.matchId, args.controlSecret, args.config.gameId, JSON.stringify(args.config), 'active', args.now)
+    .bind(args.matchId, args.controlSecret, args.config.gameKey, JSON.stringify(args.config), 'active', args.now)
     .run()
 }
 

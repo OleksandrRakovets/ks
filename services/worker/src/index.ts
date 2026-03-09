@@ -1,4 +1,5 @@
-import { newMatchId, stripOptionalPrefix, type MatchConfig } from '@ks/domain'
+import { PlayerIdSchema, newMatchId, stripOptionalPrefix, type MatchConfig } from '@ks/domain'
+import { isRegisteredGameKey } from '@ks/games'
 import { Hono } from 'hono'
 import { z } from 'zod/v4'
 
@@ -12,7 +13,7 @@ import { insertMatch } from './repos/matches'
 export { MatchRoom }
 
 const CreateMatchBodySchema = z.object({
-  gameId: z.enum(['free-pyramid', 'combined-pyramid-old']),
+  gameKey: z.string().refine((value) => isRegisteredGameKey(value), 'Unsupported game key'),
   targets: z.object({
     frameTargetPointsBySeat: z.object({
       A: z.number().int().positive(),
@@ -25,11 +26,11 @@ const CreateMatchBodySchema = z.object({
   }),
   participants: z
     .array(
-      z.object({
-        seat: z.enum(['A', 'B']),
-        savedPlayerId: z.string().optional(),
-        displayName: z.string().min(1).max(64),
-      }),
+        z.object({
+          seat: z.enum(['A', 'B']),
+          savedPlayerId: PlayerIdSchema.optional(),
+          displayName: z.string().min(1).max(64),
+        }),
     )
     .length(2),
 })
@@ -44,7 +45,9 @@ function randomSecret(): string {
 
 const app = new Hono<{ Bindings: Env }>()
 
-function forwardToMatchRoom(stub: DurableObjectStub, matchId: string, url: string, req: Request<any, any>): Promise<Response> {
+type ForwardRequest = Pick<Request, 'headers' | 'method' | 'body' | 'redirect'>
+
+function forwardToMatchRoom(stub: DurableObjectStub, matchId: string, url: string, req: ForwardRequest): Promise<Response> {
   const headers = new Headers(req.headers)
   headers.set('x-ks-match-id', matchId)
   return stub.fetch(
@@ -72,9 +75,9 @@ app.post('/api/admin/matches', async (c) => {
 
   const config: MatchConfig = {
     matchId,
-    gameId: parsed.data.gameId,
-    targets: parsed.data.targets as any,
-    participants: parsed.data.participants as any,
+    gameKey: parsed.data.gameKey,
+    targets: parsed.data.targets,
+    participants: parsed.data.participants,
   }
 
   await insertMatch(c.env, { matchId, controlSecret, config, now })

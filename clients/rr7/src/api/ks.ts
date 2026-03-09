@@ -1,4 +1,12 @@
-import { newClientId, newEventId, type ClientEvent, type MatchSnapshot } from '@ks/domain'
+import {
+  ClientIdSchema,
+  MatchIdSchema,
+  newClientId,
+  newEventId,
+  type ClientEvent,
+  type MatchSnapshot,
+} from '@ks/domain'
+import type { RegisteredGameKey } from '@ks/games'
 
 import { getJson, postJson } from './http'
 
@@ -21,7 +29,7 @@ function nextClientSeq(matchId: string): number {
 export async function createMatch(args: {
   adminUser: string
   adminPass: string
-  gameId: 'free-pyramid' | 'combined-pyramid-old'
+  gameKey: RegisteredGameKey
   targets: {
     frameTargetPointsBySeat: { A: number; B: number }
     matchTargetFramesBySeat: { A: number; B: number }
@@ -37,7 +45,7 @@ export async function createMatch(args: {
   }>(
     '/api/admin/matches',
     {
-      gameId: args.gameId,
+      gameKey: args.gameKey,
       targets: args.targets,
       participants: args.participants,
     },
@@ -55,25 +63,31 @@ export async function postEvents(matchId: string, controlSecret: string, events:
   await postJson(`/api/matches/${matchId}/events`, { controlSecret, events })
 }
 
-export function makeScoreDeltaEvent(matchId: string, seat: 'A' | 'B', delta: number): ClientEvent {
-  const clientId = getOrCreateClientId()
+export function makeShotRecordedEvent(matchId: string, gameKey: RegisteredGameKey, seat: 'A' | 'B', points: number): ClientEvent {
+  const parsedMatchId = MatchIdSchema.parse(matchId)
+  const parsedClientId = ClientIdSchema.parse(getOrCreateClientId())
   return {
     eventId: newEventId(),
-    matchId: matchId as any,
-    clientId: clientId as any,
+    matchId: parsedMatchId,
+    clientId: parsedClientId,
     clientSeq: nextClientSeq(matchId),
     at: Date.now(),
-    type: 'score.delta',
-    payload: { seat, delta },
+    type: 'game.command',
+    payload: {
+      gameKey,
+      commandType: 'shot.recorded',
+      command: { seat, points },
+    },
   } as ClientEvent
 }
 
 export function makeAwardFrameEvent(matchId: string, seat: 'A' | 'B', frameIndex: number): ClientEvent {
-  const clientId = getOrCreateClientId()
+  const parsedMatchId = MatchIdSchema.parse(matchId)
+  const parsedClientId = ClientIdSchema.parse(getOrCreateClientId())
   return {
     eventId: newEventId(),
-    matchId: matchId as any,
-    clientId: clientId as any,
+    matchId: parsedMatchId,
+    clientId: parsedClientId,
     clientSeq: nextClientSeq(matchId),
     at: Date.now(),
     type: 'frame.awarded',
@@ -82,11 +96,12 @@ export function makeAwardFrameEvent(matchId: string, seat: 'A' | 'B', frameIndex
 }
 
 export function makeStartFrameEvent(matchId: string, frameIndex: number): ClientEvent {
-  const clientId = getOrCreateClientId()
+  const parsedMatchId = MatchIdSchema.parse(matchId)
+  const parsedClientId = ClientIdSchema.parse(getOrCreateClientId())
   return {
     eventId: newEventId(),
-    matchId: matchId as any,
-    clientId: clientId as any,
+    matchId: parsedMatchId,
+    clientId: parsedClientId,
     clientSeq: nextClientSeq(matchId),
     at: Date.now(),
     type: 'frame.started',

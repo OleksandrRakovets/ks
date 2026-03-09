@@ -118,3 +118,73 @@ This keeps storage small while preserving correctness.
 - Cleaner separation of kernel vs game-specific logic.
 - Lower risk of cross-layer hardcoded drift.
 - Slightly higher upfront modeling effort, repaid by easier future game additions.
+
+## Amendments (2026-03-09)
+
+### Amendment A - Layer split for reuse and cycle safety
+
+To support non-browser flows and avoid package cycles, refine the architecture into three reusable layers:
+
+1. `packages/core`
+   - Contracts and shared primitives only.
+   - IDs, shared schema/value-object contracts, generic envelopes.
+   - No runtime/storage concerns.
+   - No dependency on other internal packages.
+
+2. `packages/gameplay`
+   - Pure match kernel + game registry + pluggable game definitions.
+   - Deterministic JS in/out logic.
+   - Owns command interpretation (`game.command`, `shot.recorded`) and projections.
+   - Depends on `packages/core`.
+   - Must not depend on `packages/domain`.
+
+3. `packages/domain`
+   - Business use-cases/services across entities (matches, players, scoreboards).
+   - Orchestrates gameplay + persistence ports.
+   - Runtime-agnostic service layer (no hardcoded route actions).
+   - Depends on `packages/core` and `packages/gameplay`.
+
+Runtime (RR7 framework worker) owns Cloudflare bindings and passes connections/adapters into domain services, per Decision 0001.
+
+### Amendment B - Allowed dependency direction
+
+Required dependency DAG:
+
+`core <- gameplay <- domain <- runtime-app`
+
+Guardrails:
+
+- Forbid `gameplay -> domain` imports.
+- Allow `domain -> gameplay` imports.
+- Keep route modules thin orchestration layers.
+
+### Amendment C - Flow mapping
+
+Case 1 (HTTP + D1/DO path):
+
+- RR7 action/loader (with bindings) -> domain service -> gameplay kernel/game handler -> persistence/events/snapshot updates.
+
+Case 2 (simulation script):
+
+- Script -> gameplay kernel/game handler (optionally domain with in-memory adapters).
+
+Case 3 (game-only tools):
+
+- Tool/script -> gameplay game handler directly.
+
+### Amendment D - Schema sharing standard (`zod/v4`)
+
+For shared validation and cross-package schema composition:
+
+- Standardize all schema imports on `zod/v4`.
+- `packages/core` is the source of shared schemas/contracts exported for reuse.
+- Any package that defines or composes schemas must declare a direct `zod` dependency.
+- Prefer passing exported schemas from `core` across package boundaries rather than duplicating equivalent schemas.
+- Keep all internal packages on one Zod major/minor line to avoid schema interop drift.
+
+Implementation todo (ordered):
+
+1. Enforce one resolved Zod version across workspaces (root-level pin/override).
+2. Enforce one schema import path (`zod/v4`) via tooling/checks.
+3. Ensure packages that define or compose schemas declare a direct `zod` dependency so they can safely compose schemas exported from `packages/core`.
+4. After 1-3 are implemented, document this schema-sharing rule in `AGENTS.md` for future agents.

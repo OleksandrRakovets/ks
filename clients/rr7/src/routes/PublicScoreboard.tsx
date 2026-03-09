@@ -1,8 +1,8 @@
-import type { StoredEvent } from '@ks/domain'
+import type { MatchSnapshot, StoredEvent } from '@ks/domain'
 
 import { applyEvent, emptyState } from '@ks/games'
 import { themes } from '@ks/themes'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 
 import { getSnapshot } from '../api/ks'
@@ -12,7 +12,7 @@ export function PublicScoreboard() {
   const [sp] = useSearchParams()
   const matchId = params.matchId ?? ''
 
-  const [snapshot, setSnapshot] = useState<any>(null)
+  const [snapshot, setSnapshot] = useState<MatchSnapshot | null>(null)
   const [events, setEvents] = useState<StoredEvent[]>([])
   const lastSeqRef = useRef(0)
   const [error, setError] = useState<string | null>(null)
@@ -65,15 +65,18 @@ export function PublicScoreboard() {
   const framesA = state?.framesWonBySeat.A ?? snapshot?.framesWonBySeat?.A ?? 0
   const framesB = state?.framesWonBySeat.B ?? snapshot?.framesWonBySeat?.B ?? 0
   const frameIndex = state?.currentFrameIndex ?? snapshot?.currentFrameIndex ?? 1
-  const nameA = snapshot?.participants?.find((p: any) => p.seat === 'A')?.displayName ?? 'A'
-  const nameB = snapshot?.participants?.find((p: any) => p.seat === 'B')?.displayName ?? 'B'
+  const nameA = snapshot?.participants?.find((p) => p.seat === 'A')?.displayName ?? 'A'
+  const nameB = snapshot?.participants?.find((p) => p.seat === 'B')?.displayName ?? 'B'
 
   if (error) {
     return <div className="p-6 text-red-200">{error}</div>
   }
 
   return (
-    <div className="min-h-dvh px-6 py-6" style={Object.fromEntries(Object.entries(themeVars).map(([k, v]) => [k, v])) as any}>
+    <div
+      className="min-h-dvh px-6 py-6"
+      style={Object.fromEntries(Object.entries(themeVars).map(([k, v]) => [k, v])) as CSSProperties}
+    >
       <div className="mx-auto w-full max-w-3xl">
         <div className="rounded-2xl border border-white/10 bg-black/25 p-5">
           <div className="flex items-center justify-between gap-6">
