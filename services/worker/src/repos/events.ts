@@ -1,4 +1,4 @@
-import type { ClientEvent, StoredEvent } from '@ks/domain'
+import type { ClientEvent, StoredEvent } from '@ks/core'
 
 import type { Env } from '../env'
 

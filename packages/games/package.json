@@ -6,6 +6,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@ks/domain": "workspace:*"
+    "@ks/core": "workspace:*",
+    "zod": "4.3.6"
   }
 }

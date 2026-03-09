@@ -1,6 +1,7 @@
 {
   "files": [],
   "references": [
+    { "path": "packages/core" },
     { "path": "packages/domain" },
     { "path": "packages/games" },
     { "path": "packages/i18n" },

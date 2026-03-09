@@ -1,4 +1,4 @@
-import type { MatchSnapshot, StoredEvent } from '@ks/domain'
+import type { MatchSnapshot, StoredEvent } from '@ks/core'
 
 import { applyEvent, emptyState } from '@ks/games'
 import { themes } from '@ks/themes'

@@ -5,7 +5,7 @@ import {
   newEventId,
   type ClientEvent,
   type MatchSnapshot,
-} from '@ks/domain'
+} from '@ks/core'
 import type { RegisteredGameKey } from '@ks/games'
 
 import { getJson, postJson } from './http'

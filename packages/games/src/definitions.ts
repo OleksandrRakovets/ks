@@ -1,4 +1,7 @@
-import type { Seat } from '@ks/domain'
+import { SeatSchema } from '@ks/core'
+import { z } from 'zod/v4'
+
+import type { Seat } from '@ks/core'
 
 import type { MatchState } from './state'
 
@@ -23,19 +26,20 @@ type ShotRecordedCommand = {
   points: number
 }
 
-function parseShotRecordedCommand(command: unknown): ShotRecordedCommand {
-  if (typeof command !== 'object' || !command) {
-    throw new Error('Invalid shot.recorded command payload')
-  }
+const ShotRecordedCommandSchema = z.object({
+  seat: SeatSchema,
+  points: z.number().int(),
+})
 
-  const record = command as { seat?: unknown; points?: unknown }
-  if ((record.seat !== 'A' && record.seat !== 'B') || typeof record.points !== 'number' || !Number.isInteger(record.points)) {
+function parseShotRecordedCommand(command: unknown): ShotRecordedCommand {
+  const parsed = ShotRecordedCommandSchema.safeParse(command)
+  if (!parsed.success) {
     throw new Error('Invalid shot.recorded command payload')
   }
 
   return {
-    seat: record.seat,
-    points: record.points,
+    seat: parsed.data.seat,
+    points: parsed.data.points,
   }
 }
 

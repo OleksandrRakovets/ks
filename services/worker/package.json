@@ -5,13 +5,14 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "typecheck": "bunx tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@ks/core": "workspace:*",
     "@ks/domain": "workspace:*",
     "@ks/games": "workspace:*",
     "hono": "^4.6.12",
-    "zod": "latest"
+    "zod": "4.3.6"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250303.0",

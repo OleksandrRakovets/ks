@@ -24,6 +24,7 @@ Primary goal: improve architecture/design skills. Shipping speed is secondary.
 - Prefer a single framework worker runtime for production unless explicitly changed.
 - Keep route handlers thin; move business logic into shared domain-level services.
 - Reuse shared schemas/types for both client and server validation.
+- Standardize schema imports on `zod/v4`; packages that define or compose schemas must declare a direct `zod` dependency, and workspace Zod version must stay pinned.
 - Avoid internal same-process HTTP hops by default unless there is a clear benefit.
 
 ## Game Vertical Direction

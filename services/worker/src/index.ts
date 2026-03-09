@@ -1,4 +1,4 @@
-import { PlayerIdSchema, newMatchId, stripOptionalPrefix, type MatchConfig } from '@ks/domain'
+import { PlayerIdSchema, newMatchId, stripOptionalPrefix, type MatchConfig } from '@ks/core'
 import { isRegisteredGameKey } from '@ks/games'
 import { Hono } from 'hono'
 import { z } from 'zod/v4'

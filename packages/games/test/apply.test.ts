@@ -1,4 +1,4 @@
-import { newClientId, newEventId, newMatchId, type ClientEvent, type MatchConfig } from '@ks/domain'
+import { newClientId, newEventId, newMatchId, type ClientEvent, type MatchConfig } from '@ks/core'
 import { describe, expect, test } from 'bun:test'
 
 import { applyEvent, emptyState } from '../src'

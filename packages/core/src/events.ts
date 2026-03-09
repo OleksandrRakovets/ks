@@ -1,6 +1,6 @@
 import { z } from 'zod/v4'
 
-import { EventIdSchema, MatchIdSchema, ClientIdSchema } from './ids'
+import { ClientIdSchema, EventIdSchema, MatchIdSchema } from './ids'
 import { GameKeySchema, MatchConfigSchema, SeatSchema } from './match'
 
 const BaseClientEventSchema = z.object({

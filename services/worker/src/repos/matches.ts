@@ -1,4 +1,4 @@
-import type { MatchConfig } from '@ks/domain'
+import type { MatchConfig } from '@ks/core'
 
 import type { Env } from '../env'
 

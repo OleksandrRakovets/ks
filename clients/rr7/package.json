@@ -6,10 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "typecheck": "bunx tsc -b",
+    "typecheck": "tsc -b",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@ks/core": "workspace:*",
     "@ks/domain": "workspace:*",
     "@ks/games": "workspace:*",
     "@ks/i18n": "workspace:*",

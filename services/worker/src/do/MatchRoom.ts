@@ -1,5 +1,13 @@
-import { ClientEventSchema, ClientIdSchema, MatchConfigSchema, MatchIdSchema, newEventId, type ClientEvent, type StoredEvent } from '@ks/domain'
-import { applyEvent, emptyState, type MatchState, toSnapshot } from '@ks/games'
+import {
+  ClientEventSchema,
+  ClientIdSchema,
+  MatchConfigSchema,
+  MatchIdSchema,
+  newEventId,
+  type ClientEvent,
+  type StoredEvent,
+} from '@ks/core'
+import { applyMatchEvent, emptyMatchState, snapshotFromMatchState, type MatchState } from '@ks/domain'
 import { Hono } from 'hono'
 import { z } from 'zod/v4'
 
@@ -91,7 +99,7 @@ export class MatchRoom implements DurableObject {
 
       await this.pruneSnapshotIfExpired(matchId, row.status, row.lock_at)
       const { derived, latestSeq } = await this.loadDerived(matchId)
-      return json({ ok: true, snapshot: toSnapshot(derived, latestSeq) })
+      return json({ ok: true, snapshot: snapshotFromMatchState(derived, latestSeq) })
     })
 
     this.app.post('/events', async (c) => {
@@ -180,7 +188,7 @@ export class MatchRoom implements DurableObject {
     if (cached) return { derived: cached, latestSeq }
 
     const persistedSnapshot = await getMatchSnapshot(this.env, matchId)
-    let derived = emptyState()
+    let derived = emptyMatchState()
     let replayAfter = 0
 
     if (persistedSnapshot && persistedSnapshot.latest_seq <= latestSeq) {
@@ -188,14 +196,14 @@ export class MatchRoom implements DurableObject {
         derived = JSON.parse(persistedSnapshot.state_json) as MatchState
         replayAfter = persistedSnapshot.latest_seq
       } catch {
-        derived = emptyState()
+        derived = emptyMatchState()
         replayAfter = 0
       }
     }
 
     const events = await listEventsAfter(this.env, matchId, replayAfter)
     for (const ev of events) {
-      derived = applyEvent(derived, ev)
+      derived = applyMatchEvent(derived, ev)
     }
     await this.state.storage.put('derivedState', derived)
     return { derived, latestSeq }
@@ -222,7 +230,7 @@ export class MatchRoom implements DurableObject {
 
         let nextDerived: MatchState
         try {
-          nextDerived = applyEvent(structuredClone(derived), parsed.data)
+          nextDerived = applyMatchEvent(structuredClone(derived), parsed.data)
         } catch {
           continue
         }

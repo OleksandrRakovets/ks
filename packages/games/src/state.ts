@@ -1,4 +1,4 @@
-import type { GameKey, MatchConfig, MatchSnapshot, Seat } from '@ks/domain'
+import type { GameKey, MatchConfig, MatchSnapshot, Seat } from '@ks/core'
 
 export type MatchState = {
   config?: MatchConfig

@@ -1,4 +1,4 @@
-import type { ClientEvent, Seat } from '@ks/domain'
+import type { ClientEvent, Seat } from '@ks/core'
 
 import { getGameDefinition, type GameEffect } from './definitions'
 import { emptyState, type MatchState } from './state'
