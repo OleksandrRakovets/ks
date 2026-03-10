@@ -1,5 +1,5 @@
 import { SeatSchema } from '@ks/core'
-import { z } from 'zod/v4'
+import { z } from 'zod'
 
 import type { Seat } from '@ks/core'
 

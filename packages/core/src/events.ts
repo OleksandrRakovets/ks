@@ -1,4 +1,4 @@
-import { z } from 'zod/v4'
+import { z } from 'zod'
 
 import { ClientIdSchema, EventIdSchema, MatchIdSchema } from './ids'
 import { GameKeySchema, MatchConfigSchema, SeatSchema } from './match'

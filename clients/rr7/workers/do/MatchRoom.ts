@@ -9,7 +9,7 @@ import {
 } from '@ks/core'
 import { applyMatchEvent, emptyMatchState, snapshotFromMatchState, type MatchState } from '@ks/domain'
 import { Hono } from 'hono'
-import { z } from 'zod/v4'
+import { z } from 'zod'
 
 import type { Env } from '../env'
 

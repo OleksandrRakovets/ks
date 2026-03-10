@@ -28,7 +28,7 @@
 - Formatting preferences configured:
   - print width via `.editorconfig` (`max_line_length = 128`)
   - no semicolons, single quotes, import sorting, Tailwind class sorting
-- Zod switched to v4 import path style (`zod/v4`).
+- Zod standardized to direct imports (`zod`).
 
 ## Important fixes applied during pass
 

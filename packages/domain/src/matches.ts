@@ -1,6 +1,6 @@
 import { MatchIdSchema, PlayerIdSchema, newMatchId, stripOptionalPrefix, type MatchConfig } from '@ks/core'
 import { isRegisteredGameKey } from '@ks/games'
-import { z } from 'zod/v4'
+import { z } from 'zod'
 
 export const CreateMatchRequestSchema = z
   .object({

@@ -172,11 +172,11 @@ Case 3 (game-only tools):
 
 - Tool/script -> gameplay game handler directly.
 
-### Amendment D - Schema sharing standard (`zod/v4`)
+### Amendment D - Schema sharing standard (`zod`)
 
 For shared validation and cross-package schema composition:
 
-- Standardize all schema imports on `zod/v4`.
+- Standardize all schema imports on `zod`.
 - `packages/core` is the source of shared schemas/contracts exported for reuse.
 - Any package that defines or composes schemas must declare a direct `zod` dependency.
 - Prefer passing exported schemas from `core` across package boundaries rather than duplicating equivalent schemas.
@@ -185,6 +185,6 @@ For shared validation and cross-package schema composition:
 Implementation todo (ordered):
 
 1. Enforce one resolved Zod version across workspaces (root-level pin/override).
-2. Enforce one schema import path (`zod/v4`) via tooling/checks.
+2. Enforce one schema import path (`zod`) via tooling/checks.
 3. Ensure packages that define or compose schemas declare a direct `zod` dependency so they can safely compose schemas exported from `packages/core`.
 4. After 1-3 are implemented, document this schema-sharing rule in `AGENTS.md` for future agents.

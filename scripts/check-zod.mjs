@@ -78,40 +78,44 @@ for (const workspacePath of workspacePaths) {
   }
 
   const files = listSourceFiles(workspacePath)
-  let usesZodV4 = false
+  let usesZod = false
 
   for (const filePath of files) {
     const content = readFileSync(filePath, 'utf8')
 
     const hasInvalidImport =
-      /from\s+['"]zod['"]/.test(content) ||
-      /import\s*\(\s*['"]zod['"]\s*\)/.test(content) ||
-      /require\(\s*['"]zod['"]\s*\)/.test(content)
+      /from\s+['"]zod\/v4['"]/.test(content) ||
+      /import\s*\(\s*['"]zod\/v4['"]\s*\)/.test(content) ||
+      /require\(\s*['"]zod\/v4['"]\s*\)/.test(content)
 
     if (hasInvalidImport) {
       invalidImportMatches.push(relative(ROOT, filePath))
     }
 
-    if (/from\s+['"]zod\/v4['"]/.test(content) || /import\s*\(\s*['"]zod\/v4['"]\s*\)/.test(content)) {
-      usesZodV4 = true
+    if (
+      /from\s+['"]zod['"]/.test(content) ||
+      /import\s*\(\s*['"]zod['"]\s*\)/.test(content) ||
+      /require\(\s*['"]zod['"]\s*\)/.test(content)
+    ) {
+      usesZod = true
     }
   }
 
-  if (usesZodV4 && !zodVersion) {
+  if (usesZod && !zodVersion) {
     missingDependencyPackages.push(packageName)
   }
 }
 
 if (invalidImportMatches.length || missingDependencyPackages.length || mismatchedVersionPackages.length) {
   if (invalidImportMatches.length) {
-    console.error('Invalid zod import path found (use zod/v4):')
+    console.error('Invalid zod import path found (use zod):')
     for (const match of invalidImportMatches) {
       console.error(`- ${match}`)
     }
   }
 
   if (missingDependencyPackages.length) {
-    console.error('Packages using zod/v4 without direct zod dependency:')
+    console.error('Packages using zod without direct zod dependency:')
     for (const packageName of missingDependencyPackages) {
       console.error(`- ${packageName}`)
     }
