@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Implemented
 
 ## Context
 
@@ -40,7 +40,6 @@ TanStack is local-only DX comparison and will not touch production DB.
 - Keep DB access behind small repository abstractions used by domain services.
 - Prefer additive event history / explicit corrections for score changes.
 
-## First Implementation Slice (future session)
+## Implementation Follow-up
 
-- Add one vertical feature end-to-end using this pattern:
-  `NewPlayer` form + server action using shared `NewPlayerSchema`.
+- Vertical features (for example `NewPlayer`) are tracked separately from this decision and can be delivered incrementally.
