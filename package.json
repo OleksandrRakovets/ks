@@ -6,7 +6,7 @@
     "clients/*"
   ],
   "scripts": {
-    "dev": "PATH=\"$HOME/.bun/bin:$PATH\" bun run --cwd clients/rr7 dev",
+    "dev": "bun run --cwd clients/rr7 dev",
     "test": "bun test",
     "typecheck": "tsc -b",
     "check:boundaries": "node ./scripts/check-boundaries.mjs",

@@ -1,4 +1,5 @@
 import { SeatSchema } from '@ks/core'
+import invariant from 'tiny-invariant'
 import { z } from 'zod'
 
 import type { Seat } from '@ks/core'
@@ -33,9 +34,7 @@ const ShotRecordedCommandSchema = z.object({
 
 function parseShotRecordedCommand(command: unknown): ShotRecordedCommand {
   const parsed = ShotRecordedCommandSchema.safeParse(command)
-  if (!parsed.success) {
-    throw new Error('Invalid shot.recorded command payload')
-  }
+  invariant(parsed.success, 'Invalid shot.recorded command payload')
 
   return {
     seat: parsed.data.seat,
@@ -45,18 +44,14 @@ function parseShotRecordedCommand(command: unknown): ShotRecordedCommand {
 
 function currentFrame(state: MatchState): MatchState['frames'][number] {
   const frame = state.frames[state.frames.length - 1]
-  if (!frame || frame.frameIndex !== state.currentFrameIndex || frame.winnerSeat) {
-    throw new Error('No active frame for command')
-  }
+  invariant(frame && frame.frameIndex === state.currentFrameIndex && !frame.winnerSeat, 'No active frame for command')
   return frame
 }
 
 function makePyramidDefinition(args: { allowNegative: boolean }): GameDefinition {
   return {
     reduceCommand: (state, input) => {
-      if (input.commandType !== 'shot.recorded') {
-        throw new Error(`Unsupported commandType: ${input.commandType}`)
-      }
+      invariant(input.commandType === 'shot.recorded', `Unsupported commandType: ${input.commandType}`)
 
       const command = parseShotRecordedCommand(input.command)
 
@@ -84,8 +79,6 @@ const definitions: Record<string, GameDefinition> = {
 
 export function getGameDefinition(gameKey: string): GameDefinition {
   const definition = definitions[gameKey]
-  if (!definition) {
-    throw new Error(`Unsupported game key: ${gameKey}`)
-  }
+  invariant(definition, `Unsupported game key: ${gameKey}`)
   return definition
 }

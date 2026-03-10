@@ -16,6 +16,8 @@ export type AppEnv = {
   ADMIN_PASS: string
 }
 
+import invariant from 'tiny-invariant'
+
 export type AppLoadContext = {
   cloudflare?: {
     env: AppEnv
@@ -25,8 +27,6 @@ export type AppLoadContext = {
 
 export function requireEnv(context: AppLoadContext): AppEnv {
   const env = context.cloudflare?.env
-  if (!env) {
-    throw new Error('Missing cloudflare env in route context')
-  }
+  invariant(env, 'Missing cloudflare env in route context')
   return env
 }

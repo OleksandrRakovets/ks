@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import invariant from 'tiny-invariant'
 
 import { MatchIdSchema, PlayerIdSchema } from './ids'
 
@@ -44,9 +45,7 @@ const MatchConfigWireSchema = z
 
 export const MatchConfigSchema = MatchConfigWireSchema.transform(({ gameKey, gameId, ...rest }) => {
   const resolvedGameKey = gameKey ?? gameId
-  if (!resolvedGameKey) {
-    throw new Error('gameKey is required')
-  }
+  invariant(resolvedGameKey, 'gameKey is required')
 
   return {
     ...rest,

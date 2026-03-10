@@ -1,3 +1,5 @@
+import invariant from 'tiny-invariant'
+
 import type { GameKey, MatchConfig, MatchSnapshot, Seat } from '@ks/core'
 
 export type MatchState = {
@@ -22,9 +24,7 @@ export function emptyState(): MatchState {
 }
 
 export function toSnapshot(state: MatchState, latestSeq: number): MatchSnapshot {
-  if (!state.config) {
-    throw new Error('Cannot snapshot without config')
-  }
+  invariant(state.config, 'Cannot snapshot without config')
   return {
     matchId: state.config.matchId,
     gameKey: state.config.gameKey,
@@ -39,6 +39,6 @@ export function toSnapshot(state: MatchState, latestSeq: number): MatchSnapshot 
 }
 
 export function getGameKey(state: MatchState): GameKey {
-  if (!state.config) throw new Error('Missing match config')
+  invariant(state.config, 'Missing match config')
   return state.config.gameKey
 }

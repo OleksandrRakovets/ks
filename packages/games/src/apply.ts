@@ -1,16 +1,13 @@
 import type { ClientEvent, Seat } from '@ks/core'
+import invariant from 'tiny-invariant'
 
 import { getGameDefinition, type GameEffect } from './definitions'
 import { emptyState, type MatchState } from './state'
 
 function getOrCreateCurrentFrame(state: MatchState): MatchState['frames'][number] {
   const current = state.frames[state.frames.length - 1]
-  if (!current || current.frameIndex !== state.currentFrameIndex) {
-    throw new Error('No active frame')
-  }
-  if (current.winnerSeat) {
-    throw new Error('Frame already awarded')
-  }
+  invariant(current && current.frameIndex === state.currentFrameIndex, 'No active frame')
+  invariant(!current.winnerSeat, 'Frame already awarded')
   return current
 }
 
@@ -38,7 +35,7 @@ function applyGameEffect(state: MatchState, effect: GameEffect): void {
 }
 
 function applyLegacyScoreDelta(state: MatchState, seat: Seat, delta: number): void {
-  if (!state.config) throw new Error('Missing match config')
+  invariant(state.config, 'Missing match config')
 
   const definition = getGameDefinition(state.config.gameKey)
   const { effects } = definition.reduceCommand(state, {
@@ -70,34 +67,32 @@ export function applyEvent(prev: MatchState, event: ClientEvent): MatchState {
       }
     }
     case 'frame.started': {
-      if (state.status !== 'active') throw new Error('Cannot start frame when not active')
-      if (!state.config) throw new Error('Missing match config')
+      invariant(state.status === 'active', 'Cannot start frame when not active')
+      invariant(state.config, 'Missing match config')
 
       const { frameIndex } = event.payload
       const last = state.frames[state.frames.length - 1]
-      if (last && !last.winnerSeat) throw new Error('Cannot start a new frame while current is unawarded')
-      if (frameIndex !== state.currentFrameIndex + 1) throw new Error('Frame index must be sequential')
+      invariant(!last || last.winnerSeat, 'Cannot start a new frame while current is unawarded')
+      invariant(frameIndex === state.currentFrameIndex + 1, 'Frame index must be sequential')
 
       state.currentFrameIndex = frameIndex
       state.frames.push({ frameIndex, pointsBySeat: { A: 0, B: 0 } })
       return state
     }
     case 'score.delta': {
-      if (state.status !== 'active') throw new Error('Cannot score when not active')
+      invariant(state.status === 'active', 'Cannot score when not active')
       applyLegacyScoreDelta(state, event.payload.seat, event.payload.delta)
       return state
     }
     case 'score.set': {
-      if (state.status !== 'active') throw new Error('Cannot score when not active')
+      invariant(state.status === 'active', 'Cannot score when not active')
       applyLegacyScoreSet(state, event.payload.seat, event.payload.value)
       return state
     }
     case 'game.command': {
-      if (state.status !== 'active') throw new Error('Cannot apply game command when not active')
-      if (!state.config) throw new Error('Missing match config')
-      if (event.payload.gameKey !== state.config.gameKey) {
-        throw new Error('Game command key does not match match config')
-      }
+      invariant(state.status === 'active', 'Cannot apply game command when not active')
+      invariant(state.config, 'Missing match config')
+      invariant(event.payload.gameKey === state.config.gameKey, 'Game command key does not match match config')
 
       const definition = getGameDefinition(event.payload.gameKey)
       const { effects } = definition.reduceCommand(state, {
@@ -110,21 +105,21 @@ export function applyEvent(prev: MatchState, event: ClientEvent): MatchState {
       return state
     }
     case 'frame.awarded': {
-      if (state.status !== 'active') throw new Error('Cannot award frame when not active')
+      invariant(state.status === 'active', 'Cannot award frame when not active')
       const frame = state.frames.find((f) => f.frameIndex === event.payload.frameIndex)
-      if (!frame) throw new Error('Unknown frame')
-      if (frame.winnerSeat) throw new Error('Frame already awarded')
+      invariant(frame, 'Unknown frame')
+      invariant(!frame.winnerSeat, 'Frame already awarded')
       frame.winnerSeat = event.payload.winnerSeat
       state.framesWonBySeat[event.payload.winnerSeat] += 1
       return state
     }
     case 'frame.reopened': {
-      if (state.status !== 'active') throw new Error('Cannot reopen frame when not active')
+      invariant(state.status === 'active', 'Cannot reopen frame when not active')
       const frameIndex = state.frames.findIndex((f) => f.frameIndex === event.payload.frameIndex)
-      if (frameIndex < 0) throw new Error('Unknown frame')
+      invariant(frameIndex >= 0, 'Unknown frame')
 
       const frame = state.frames[frameIndex]
-      if (!frame) throw new Error('Unknown frame')
+      invariant(frame, 'Unknown frame')
       if (!frame.winnerSeat) return state
       state.framesWonBySeat[frame.winnerSeat] = Math.max(0, state.framesWonBySeat[frame.winnerSeat] - 1)
 

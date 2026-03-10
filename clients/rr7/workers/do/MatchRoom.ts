@@ -9,6 +9,7 @@ import {
 } from '@ks/core'
 import { applyMatchEvent, emptyMatchState, snapshotFromMatchState, type MatchState } from '@ks/domain'
 import { Hono } from 'hono'
+import invariant from 'tiny-invariant'
 import { z } from 'zod'
 
 import type { Env } from '../env'
@@ -176,7 +177,7 @@ export class MatchRoom implements DurableObject {
 
   private async matchIdFromRequest(req: Request): Promise<string> {
     const matchId = req.headers.get('x-ks-match-id')
-    if (!matchId) throw new Error('Missing x-ks-match-id')
+    invariant(matchId, 'Missing x-ks-match-id')
     await this.state.storage.put('matchId', matchId)
     return matchId
   }
