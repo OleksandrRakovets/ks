@@ -8,7 +8,6 @@
     { "path": "packages/themes" },
     { "path": "packages/ui" },
     { "path": "packages/offline" },
-    { "path": "services/worker" },
     { "path": "clients/rr7" }
   ]
 }

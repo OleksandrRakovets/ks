@@ -1,11 +1,13 @@
 import {
   ClientIdSchema,
+  CreateMatchRequestSchema,
   MatchIdSchema,
   newClientId,
   newEventId,
   type ClientEvent,
+  type CreateMatchRequest,
   type MatchSnapshot,
-} from '@ks/core'
+} from '@ks/domain'
 import type { RegisteredGameKey } from '@ks/games'
 
 import { getJson, postJson } from './http'
@@ -29,13 +31,16 @@ function nextClientSeq(matchId: string): number {
 export async function createMatch(args: {
   adminUser: string
   adminPass: string
-  gameKey: RegisteredGameKey
-  targets: {
-    frameTargetPointsBySeat: { A: number; B: number }
-    matchTargetFramesBySeat: { A: number; B: number }
-  }
-  participants: { seat: 'A' | 'B'; displayName: string }[]
+  gameKey: CreateMatchRequest['gameKey']
+  targets: CreateMatchRequest['targets']
+  participants: CreateMatchRequest['participants']
 }): Promise<{ matchId: string; publicUrl: string; controlUrl: string }> {
+  const payload = CreateMatchRequestSchema.parse({
+    gameKey: args.gameKey,
+    targets: args.targets,
+    participants: args.participants,
+  })
+
   const auth = btoa(`${args.adminUser}:${args.adminPass}`)
   const res = await postJson<{
     ok: boolean
@@ -44,11 +49,7 @@ export async function createMatch(args: {
     controlUrl: string
   }>(
     '/api/admin/matches',
-    {
-      gameKey: args.gameKey,
-      targets: args.targets,
-      participants: args.participants,
-    },
+    payload,
     { headers: { authorization: `Basic ${auth}` } },
   )
   return { matchId: res.matchId, publicUrl: res.publicUrl, controlUrl: res.controlUrl }

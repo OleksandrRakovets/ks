@@ -1,7 +1,3 @@
-import type { MatchConfig } from '@ks/core'
-
-import type { Env } from '../env'
-
 export type MatchRow = {
   match_id: string
   control_secret: string
@@ -13,21 +9,7 @@ export type MatchRow = {
   lock_at: number | null
 }
 
-export async function insertMatch(
-  env: Env,
-  args: {
-    matchId: string
-    controlSecret: string
-    config: MatchConfig
-    now: number
-  },
-): Promise<void> {
-  await env.DB.prepare(
-    'INSERT INTO matches (match_id, control_secret, game_key, config_json, status, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-  )
-    .bind(args.matchId, args.controlSecret, args.config.gameKey, JSON.stringify(args.config), 'active', args.now)
-    .run()
-}
+import type { Env } from '../env'
 
 export async function getMatch(env: Env, matchId: string): Promise<MatchRow | null> {
   const row = await env.DB.prepare('SELECT * FROM matches WHERE match_id = ?').bind(matchId).first<MatchRow>()

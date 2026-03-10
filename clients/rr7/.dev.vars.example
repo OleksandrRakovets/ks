@@ -1,5 +1,5 @@
 # Local development variables for `wrangler dev`.
-# Copy to `services/worker/.dev.vars` (ignored by git).
+# Copy to `clients/rr7/.dev.vars` (ignored by git).
 
 ADMIN_USER=admin
 ADMIN_PASS=admin

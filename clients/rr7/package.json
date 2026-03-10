@@ -16,12 +16,14 @@
     "@ks/games": "workspace:*",
     "@ks/i18n": "workspace:*",
     "@ks/themes": "workspace:*",
+    "hono": "^4.6.12",
     "i18next": "^25.2.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-i18next": "^15.2.0",
     "react-router": "^7.13.1",
-    "isbot": "^5.1.31"
+    "isbot": "^5.1.31",
+    "zod": "4.3.6"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.13.7",

@@ -7,6 +7,7 @@
   },
   "dependencies": {
     "@ks/core": "workspace:*",
-    "@ks/games": "workspace:*"
+    "@ks/games": "workspace:*",
+    "zod": "4.3.6"
   }
 }

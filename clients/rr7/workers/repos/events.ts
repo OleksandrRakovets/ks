@@ -34,15 +34,15 @@ export async function listEventsAfter(env: Env, matchId: string, sinceSeq: numbe
 
   return (res.results ?? []).map((r) => ({
     seq: r.seq,
-    eventId: r.event_id as any,
-    matchId: matchId as any,
-    clientId: r.client_id as any,
+    eventId: r.event_id as StoredEvent['eventId'],
+    matchId: matchId as StoredEvent['matchId'],
+    clientId: r.client_id as StoredEvent['clientId'],
     clientSeq: r.client_seq,
     at: r.at,
     receivedAt: r.received_at,
-    type: r.type as any,
+    type: r.type as StoredEvent['type'],
     payload: JSON.parse(r.payload_json),
-  })) as StoredEvent[]
+  }))
 }
 
 export async function insertStoredEvent(

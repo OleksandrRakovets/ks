@@ -14,7 +14,3 @@ export function badRequest(message: string): Response {
 export function unauthorized(): Response {
   return new Response('Unauthorized', { status: 401 })
 }
-
-export function notFound(): Response {
-  return new Response('Not found', { status: 404 })
-}

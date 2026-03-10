@@ -13,7 +13,7 @@ import { z } from 'zod/v4'
 
 import type { Env } from '../env'
 
-import { badRequest, json, unauthorized } from '../http/utils'
+import { badRequest, json, unauthorized } from '../http-utils'
 import { eventExists, getLatestSeq, insertStoredEvent, listEventsAfter } from '../repos/events'
 import { getMatch, markMatchEnded } from '../repos/matches'
 import { deleteMatchSnapshot, getMatchSnapshot, putLatestMatchSnapshot } from '../repos/snapshots'
@@ -139,7 +139,6 @@ export class MatchRoom implements DurableObject {
             controller.enqueue(this.encoder.encode(line))
           }
 
-          // backlog
           const backlog = await listEventsAfter(this.env, matchId, startSeq)
           sendLine(`event: ready\ndata: ${JSON.stringify({ latestSeq })}\n\n`)
           for (const ev of backlog) {
