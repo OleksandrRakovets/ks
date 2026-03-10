@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
+    "dev": "wrangler dev --port 7529",
     "deploy": "wrangler deploy",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

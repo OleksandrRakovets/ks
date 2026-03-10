@@ -3,7 +3,7 @@ import type { MatchSnapshot, StoredEvent } from '@ks/core'
 import { applyEvent, emptyState } from '@ks/games'
 import { themes } from '@ks/themes'
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { useParams, useSearchParams } from 'react-router-dom'
+import { useParams, useSearchParams } from 'react-router'
 
 import { getSnapshot } from '../api/ks'
 

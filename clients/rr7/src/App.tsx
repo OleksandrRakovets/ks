@@ -1,4 +1,4 @@
-import { createBrowserRouter, RouterProvider } from 'react-router-dom'
+import { createBrowserRouter, RouterProvider } from 'react-router'
 
 import { AdminCreateMatch } from './routes/AdminCreateMatch'
 import { ControlMatch } from './routes/ControlMatch'

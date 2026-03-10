@@ -1,19 +1,35 @@
-# dependencies
+# Dependencies
 node_modules/
 
-# builds
+# Build Outputs
 dist/
+dist-ssr/
 build/
-.react-router/
 
-# tooling
+# React Router
+.react-router/
+**/worker-configuration.d.ts
+
+# Tooling
 .wrangler/
 **/.wrangler/
 **/*.tsbuildinfo
 .vite/
 .opencode/
 
-# env
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Local Config
+*.local
+
+# Env Files
 .env
 .env.local
 .env.*.local
@@ -22,5 +38,15 @@ build/
 .dev.vars
 **/.dev.vars
 
-# misc
+# Editor Files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Misc
 .DS_Store

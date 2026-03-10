@@ -1,13 +1,19 @@
+import { cloudflare } from '@cloudflare/vite-plugin'
+import { reactRouter } from '@react-router/dev/vite'
 import tailwindcss from '@tailwindcss/vite'
-import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
+import tsconfigPaths from 'vite-tsconfig-paths'
 
-// https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [cloudflare({ viteEnvironment: { name: 'ssr' } }), tailwindcss(), reactRouter(), tsconfigPaths()],
   server: {
-    proxy: {
-      '/api': 'http://127.0.0.1:8787',
-    },
+    port: 7529,
+    strictPort: true,
+    host: true,
+  },
+  preview: {
+    port: 7529,
+    strictPort: true,
+    host: true,
   },
 })

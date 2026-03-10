@@ -3,6 +3,9 @@ import i18n from 'i18next'
 import { initReactI18next } from 'react-i18next'
 
 function pickLocale(): SupportedLocale {
+  if (typeof localStorage === 'undefined') {
+    return 'uk'
+  }
   const override = localStorage.getItem('ks.locale')
   return override === 'en' ? 'en' : 'uk'
 }

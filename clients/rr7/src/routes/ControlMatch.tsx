@@ -4,7 +4,7 @@ import { applyEvent, emptyState, isRegisteredGameKey, registry, type RegisteredG
 import { keys } from '@ks/i18n'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useParams } from 'react-router-dom'
+import { useParams } from 'react-router'
 
 import { getSnapshot, makeAwardFrameEvent, makeShotRecordedEvent, makeStartFrameEvent, postEvents } from '../api/ks'
 
