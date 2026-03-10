@@ -1,42 +1,57 @@
-import type { MatchSnapshot, StoredEvent } from '@ks/core'
+import { ClientEventSchema, type MatchSnapshot } from '@ks/core'
+import { isRegisteredGameKey, registry, type RegisteredGameKey } from '@ks/games'
+import { useEffect } from 'react'
+import { useFetcher, useLoaderData, useParams, useRevalidator } from 'react-router'
 
-import { applyEvent, emptyState, isRegisteredGameKey, registry, type RegisteredGameKey } from '@ks/games'
-import { keys } from '@ks/i18n'
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { useTranslation } from 'react-i18next'
-import { useParams } from 'react-router'
+import { makeAwardFrameEvent, makeShotRecordedEvent, makeStartFrameEvent } from '../lib/ks'
+import { requireEnv } from '../server/context'
+import { fetchMatchSnapshot, postMatchEvents } from '../server/match-room'
 
-import { getSnapshot, makeAwardFrameEvent, makeShotRecordedEvent, makeStartFrameEvent, postEvents } from '../lib/ks'
+import type { ActionFunctionArgs, LoaderFunctionArgs } from 'react-router'
+
+export async function loader({ params, context }: LoaderFunctionArgs) {
+  const env = requireEnv(context)
+  const matchId = params.matchId
+  if (!matchId) throw new Response('Missing matchId', { status: 400 })
+
+  const res = await fetchMatchSnapshot(env, matchId)
+  const body = (await res.json()) as { ok: boolean; snapshot: MatchSnapshot }
+  if (!body.ok) throw new Response('Failed to load snapshot', { status: 500 })
+  return { snapshot: body.snapshot }
+}
+
+export async function action({ params, request, context }: ActionFunctionArgs) {
+  const env = requireEnv(context)
+  const matchId = params.matchId
+  if (!matchId) throw new Response('Missing matchId', { status: 400 })
+
+  const form = await request.formData()
+  const controlSecret = String(form.get('controlSecret') ?? '')
+  const rawEvent = String(form.get('event') ?? '')
+  const parsedEvent = ClientEventSchema.safeParse(JSON.parse(rawEvent))
+  if (!parsedEvent.success) {
+    return { ok: false as const, error: 'Invalid event payload' }
+  }
+
+  const res = await postMatchEvents(env, matchId, controlSecret, [parsedEvent.data])
+  const payload = (await res.json()) as { ok: boolean; error?: string }
+  if (!payload.ok) {
+    return { ok: false as const, error: payload.error ?? 'Failed to append event' }
+  }
+  return { ok: true as const }
+}
 
 function PyramidShotControls(props: {
-  matchId: string
-  controlSecret: string
-  gameKey: RegisteredGameKey
   seat: 'A' | 'B'
   canScore: boolean
+  onShot: (seat: 'A' | 'B', points: number) => void
 }) {
   return (
     <div className="mt-2 flex gap-2">
-      <button
-        type="button"
-        className="flex-1 rounded-lg bg-white/10 px-3 py-2"
-        disabled={!props.canScore}
-        aria-disabled={!props.canScore}
-        onClick={() =>
-          postEvents(props.matchId, props.controlSecret, [makeShotRecordedEvent(props.matchId, props.gameKey, props.seat, 1)])
-        }
-      >
+      <button type="button" className="flex-1 rounded-lg bg-white/10 px-3 py-2" disabled={!props.canScore} onClick={() => props.onShot(props.seat, 1)}>
         +1
       </button>
-      <button
-        type="button"
-        className="flex-1 rounded-lg bg-white/10 px-3 py-2"
-        disabled={!props.canScore}
-        aria-disabled={!props.canScore}
-        onClick={() =>
-          postEvents(props.matchId, props.controlSecret, [makeShotRecordedEvent(props.matchId, props.gameKey, props.seat, -1)])
-        }
-      >
+      <button type="button" className="flex-1 rounded-lg bg-white/10 px-3 py-2" disabled={!props.canScore} onClick={() => props.onShot(props.seat, -1)}>
         -1
       </button>
     </div>
@@ -44,78 +59,34 @@ function PyramidShotControls(props: {
 }
 
 export default function ControlMatchRoute() {
-  const { t } = useTranslation()
+  const { snapshot } = useLoaderData<typeof loader>()
   const params = useParams()
   const matchId = params.matchId ?? ''
   const controlSecret = params.controlSecret ?? ''
-
-  const [snapshot, setSnapshot] = useState<MatchSnapshot | null>(null)
-  const [events, setEvents] = useState<StoredEvent[]>([])
-  const [error, setError] = useState<string | null>(null)
-  const lastSeqRef = useRef(0)
-
-  const derived = useMemo(() => {
-    if (!events.length) return null
-    let s = emptyState()
-    for (const ev of events) s = applyEvent(s, ev)
-    return s
-  }, [events])
+  const fetcher = useFetcher<typeof action>()
+  const revalidator = useRevalidator()
 
   useEffect(() => {
-    if (!matchId) return
-    let alive = true
-    void (async () => {
-      try {
-        const snap = await getSnapshot(matchId)
-        if (!alive) return
-        setSnapshot(snap)
-      } catch (e) {
-        if (!alive) return
-        setError(e instanceof Error ? e.message : String(e))
-      }
-    })()
-    return () => {
-      alive = false
-    }
-  }, [matchId])
+    const timer = setInterval(() => revalidator.revalidate(), 1500)
+    return () => clearInterval(timer)
+  }, [revalidator])
 
-  useEffect(() => {
-    if (!matchId) return
-    const url = `/api/matches/${matchId}/stream?since=0`
-    const es = new EventSource(url)
-    es.addEventListener('ev', (msg) => {
-      const data = JSON.parse((msg as MessageEvent).data) as StoredEvent
-      if (data.seq <= lastSeqRef.current) return
-      lastSeqRef.current = data.seq
-      setEvents((prev) => [...prev, data])
-    })
-    es.addEventListener('ready', () => {
-      // noop
-    })
-    es.onerror = () => {
-      // browser auto-reconnects
-    }
-    return () => es.close()
-  }, [matchId])
-
-  const cur = derived?.frames?.[derived.frames.length - 1]
-  const snapCur = snapshot?.frames?.[snapshot.frames.length - 1]
-  const frameIndex = derived?.currentFrameIndex ?? snapshot?.currentFrameIndex ?? 1
-  const pointsA = (cur ?? snapCur)?.pointsBySeat?.A ?? 0
-  const pointsB = (cur ?? snapCur)?.pointsBySeat?.B ?? 0
-  const targetA = snapshot?.targets?.frameTargetPointsBySeat?.A ?? 0
-  const targetB = snapshot?.targets?.frameTargetPointsBySeat?.B ?? 0
-  const maybeGameKey = derived?.config?.gameKey ?? snapshot?.gameKey
-  const gameKey: RegisteredGameKey = maybeGameKey && isRegisteredGameKey(maybeGameKey) ? maybeGameKey : 'free-pyramid'
+  const cur = snapshot.frames[snapshot.frames.length - 1]
+  const frameIndex = snapshot.currentFrameIndex
+  const pointsA = cur?.pointsBySeat.A ?? 0
+  const pointsB = cur?.pointsBySeat.B ?? 0
+  const targetA = snapshot.targets.frameTargetPointsBySeat.A
+  const targetB = snapshot.targets.frameTargetPointsBySeat.B
+  const maybeGameKey = snapshot.gameKey
+  const gameKey: RegisteredGameKey = isRegisteredGameKey(maybeGameKey) ? maybeGameKey : 'free-pyramid'
   const inputMode = registry[gameKey].meta.inputMode
-  const winnerSeat = (cur ?? snapCur)?.winnerSeat
+  const winnerSeat = cur?.winnerSeat
   const canAwardA = targetA > 0 && pointsA >= targetA && !winnerSeat
   const canAwardB = targetB > 0 && pointsB >= targetB && !winnerSeat
   const canScore = !winnerSeat
-  const canStartNextFrame = Boolean(winnerSeat)
 
-  if (error) {
-    return <div className="p-6 text-red-200">{error}</div>
+  function submitEvent(event: unknown) {
+    fetcher.submit({ controlSecret, event: JSON.stringify(event) }, { method: 'post' })
   }
 
   return (
@@ -124,7 +95,7 @@ export default function ControlMatchRoute() {
         <div className="flex items-end justify-between gap-4">
           <div>
             <div className="text-sm text-white/70">{matchId}</div>
-            <h1 className="text-2xl font-semibold tracking-tight">{t(keys.match.control.title)}</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">Control Match</h1>
           </div>
           <div className="text-right text-sm text-white/70">Frame {frameIndex}</div>
         </div>
@@ -134,74 +105,24 @@ export default function ControlMatchRoute() {
             <div className="rounded-xl border border-white/10 bg-white/5 p-4">
               <div className="text-sm text-white/70">A</div>
               <div className="mt-1 text-4xl font-semibold tabular-nums">{pointsA}</div>
-              {inputMode === 'pyramid-basic' ? (
-                <PyramidShotControls
-                  matchId={matchId}
-                  controlSecret={controlSecret}
-                  gameKey={gameKey}
-                  seat="A"
-                  canScore={canScore}
-                />
-              ) : null}
-              {canAwardA ? (
-                <button
-                  type="button"
-                  className="mt-3 w-full rounded-lg bg-[var(--ks-accent)] px-3 py-2 font-semibold text-black"
-                  onClick={() => postEvents(matchId, controlSecret, [makeAwardFrameEvent(matchId, 'A', frameIndex)])}
-                >
-                  {t(keys.match.control.awardFrame)}
-                </button>
-              ) : null}
+              {inputMode === 'pyramid-basic' ? <PyramidShotControls seat="A" canScore={canScore} onShot={(seat, points) => submitEvent(makeShotRecordedEvent(matchId, gameKey, seat, points))} /> : null}
+              {canAwardA ? <button type="button" className="mt-3 w-full rounded-lg bg-[var(--ks-accent)] px-3 py-2 font-semibold text-black" onClick={() => submitEvent(makeAwardFrameEvent(matchId, 'A', frameIndex))}>Award frame</button> : null}
             </div>
-
             <div className="rounded-xl border border-white/10 bg-white/5 p-4">
               <div className="text-sm text-white/70">B</div>
               <div className="mt-1 text-4xl font-semibold tabular-nums">{pointsB}</div>
-              {inputMode === 'pyramid-basic' ? (
-                <PyramidShotControls
-                  matchId={matchId}
-                  controlSecret={controlSecret}
-                  gameKey={gameKey}
-                  seat="B"
-                  canScore={canScore}
-                />
-              ) : null}
-              {canAwardB ? (
-                <button
-                  type="button"
-                  className="mt-3 w-full rounded-lg bg-[var(--ks-accent)] px-3 py-2 font-semibold text-black"
-                  onClick={() => postEvents(matchId, controlSecret, [makeAwardFrameEvent(matchId, 'B', frameIndex)])}
-                >
-                  {t(keys.match.control.awardFrame)}
-                </button>
-              ) : null}
+              {inputMode === 'pyramid-basic' ? <PyramidShotControls seat="B" canScore={canScore} onShot={(seat, points) => submitEvent(makeShotRecordedEvent(matchId, gameKey, seat, points))} /> : null}
+              {canAwardB ? <button type="button" className="mt-3 w-full rounded-lg bg-[var(--ks-accent)] px-3 py-2 font-semibold text-black" onClick={() => submitEvent(makeAwardFrameEvent(matchId, 'B', frameIndex))}>Award frame</button> : null}
             </div>
           </div>
 
-          {canStartNextFrame ? (
-            <button
-              type="button"
-              className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-left text-sm"
-              onClick={() => postEvents(matchId, controlSecret, [makeStartFrameEvent(matchId, frameIndex + 1)])}
-            >
+          {winnerSeat ? (
+            <button type="button" className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-left text-sm" onClick={() => submitEvent(makeStartFrameEvent(matchId, frameIndex + 1))}>
               Start next frame
             </button>
           ) : null}
 
-          <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-            <div className="text-sm text-white/70">Event log</div>
-            <div className="mt-3 grid gap-2 text-sm">
-              {events.slice(-20).map((e) => (
-                <div key={`${e.seq}-${e.eventId}`} className="flex items-center justify-between gap-3">
-                  <div className="text-white/80">
-                    <span className="text-white/50">#{e.seq}</span> {e.type}
-                  </div>
-                  <div className="text-white/50">{new Date(e.receivedAt).toLocaleTimeString()}</div>
-                </div>
-              ))}
-              {!events.length ? <div className="text-white/50">Waiting for stream...</div> : null}
-            </div>
-          </div>
+          {fetcher.data?.ok === false ? <div className="text-sm text-red-200">{fetcher.data.error}</div> : null}
         </div>
       </div>
     </div>

@@ -1,76 +1,48 @@
-import type { MatchSnapshot, StoredEvent } from '@ks/core'
+import type { MatchSnapshot } from '@ks/core'
 
-import { applyEvent, emptyState } from '@ks/games'
 import { themes } from '@ks/themes'
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { useParams, useSearchParams } from 'react-router'
+import { useEffect, type CSSProperties } from 'react'
+import { useLoaderData, useParams, useRevalidator, useSearchParams } from 'react-router'
 
-import { getSnapshot } from '../lib/ks'
+import { requireEnv } from '../server/context'
+import { fetchMatchSnapshot } from '../server/match-room'
+
+import type { LoaderFunctionArgs } from 'react-router'
+
+export async function loader({ params, context }: LoaderFunctionArgs) {
+  const env = requireEnv(context)
+  const matchId = params.matchId
+  if (!matchId) throw new Response('Missing matchId', { status: 400 })
+
+  const res = await fetchMatchSnapshot(env, matchId)
+  const body = (await res.json()) as { ok: boolean; snapshot: MatchSnapshot }
+  if (!body.ok) throw new Response('Failed to load snapshot', { status: 500 })
+  return { snapshot: body.snapshot }
+}
 
 export default function PublicScoreboardRoute() {
+  const { snapshot } = useLoaderData<typeof loader>()
   const params = useParams()
   const [sp] = useSearchParams()
+  const revalidator = useRevalidator()
   const matchId = params.matchId ?? ''
 
-  const [snapshot, setSnapshot] = useState<MatchSnapshot | null>(null)
-  const [events, setEvents] = useState<StoredEvent[]>([])
-  const lastSeqRef = useRef(0)
-  const [error, setError] = useState<string | null>(null)
-
   useEffect(() => {
     if (!matchId) return
-    let alive = true
-    void (async () => {
-      try {
-        const snap = await getSnapshot(matchId)
-        if (!alive) return
-        setSnapshot(snap)
-      } catch (e) {
-        if (!alive) return
-        setError(e instanceof Error ? e.message : String(e))
-      }
-    })()
-    return () => {
-      alive = false
-    }
-  }, [matchId])
-
-  useEffect(() => {
-    if (!matchId) return
-    const url = `/api/matches/${matchId}/stream?since=0`
-    const es = new EventSource(url)
-    es.addEventListener('ev', (msg) => {
-      const data = JSON.parse((msg as MessageEvent).data) as StoredEvent
-      if (data.seq <= lastSeqRef.current) return
-      lastSeqRef.current = data.seq
-      setEvents((prev) => [...prev, data])
-    })
-    return () => es.close()
-  }, [matchId])
-
-  const state = useMemo(() => {
-    if (!snapshot) return null
-    if (events.length === 0) return null
-    let s = emptyState()
-    for (const ev of events) s = applyEvent(s, ev)
-    return s
-  }, [events, snapshot])
+    const timer = setInterval(() => revalidator.revalidate(), 1500)
+    return () => clearInterval(timer)
+  }, [matchId, revalidator])
 
   const themeId = (sp.get('theme') ?? 'club') as keyof typeof themes
   const themeVars = themes[themeId] ?? themes.club
-
-  const cur = state?.frames?.[state.frames.length - 1] ?? snapshot?.frames?.[snapshot.frames.length - 1]
+  const cur = snapshot.frames[snapshot.frames.length - 1]
   const pointsA = cur?.pointsBySeat?.A ?? 0
   const pointsB = cur?.pointsBySeat?.B ?? 0
-  const framesA = state?.framesWonBySeat.A ?? snapshot?.framesWonBySeat?.A ?? 0
-  const framesB = state?.framesWonBySeat.B ?? snapshot?.framesWonBySeat?.B ?? 0
-  const frameIndex = state?.currentFrameIndex ?? snapshot?.currentFrameIndex ?? 1
-  const nameA = snapshot?.participants?.find((p) => p.seat === 'A')?.displayName ?? 'A'
-  const nameB = snapshot?.participants?.find((p) => p.seat === 'B')?.displayName ?? 'B'
-
-  if (error) {
-    return <div className="p-6 text-red-200">{error}</div>
-  }
+  const framesA = snapshot.framesWonBySeat?.A ?? 0
+  const framesB = snapshot.framesWonBySeat?.B ?? 0
+  const frameIndex = snapshot.currentFrameIndex ?? 1
+  const nameA = snapshot.participants?.find((p) => p.seat === 'A')?.displayName ?? 'A'
+  const nameB = snapshot.participants?.find((p) => p.seat === 'B')?.displayName ?? 'B'
 
   return (
     <div

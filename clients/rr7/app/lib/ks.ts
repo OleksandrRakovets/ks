@@ -1,16 +1,11 @@
 import {
   ClientIdSchema,
-  CreateMatchRequestSchema,
   MatchIdSchema,
   newClientId,
   newEventId,
   type ClientEvent,
-  type CreateMatchRequest,
-  type MatchSnapshot,
 } from '@ks/domain'
 import type { RegisteredGameKey } from '@ks/games'
-
-import { getJson, postJson } from './http'
 
 function getOrCreateClientId(): string {
   const existing = localStorage.getItem('ks.clientId')
@@ -26,42 +21,6 @@ function nextClientSeq(matchId: string): number {
   const next = cur + 1
   localStorage.setItem(key, String(next))
   return next
-}
-
-export async function createMatch(args: {
-  adminUser: string
-  adminPass: string
-  gameKey: CreateMatchRequest['gameKey']
-  targets: CreateMatchRequest['targets']
-  participants: CreateMatchRequest['participants']
-}): Promise<{ matchId: string; publicUrl: string; controlUrl: string }> {
-  const payload = CreateMatchRequestSchema.parse({
-    gameKey: args.gameKey,
-    targets: args.targets,
-    participants: args.participants,
-  })
-
-  const auth = btoa(`${args.adminUser}:${args.adminPass}`)
-  const res = await postJson<{
-    ok: boolean
-    matchId: string
-    publicUrl: string
-    controlUrl: string
-  }>(
-    '/api/admin/matches',
-    payload,
-    { headers: { authorization: `Basic ${auth}` } },
-  )
-  return { matchId: res.matchId, publicUrl: res.publicUrl, controlUrl: res.controlUrl }
-}
-
-export async function getSnapshot(matchId: string): Promise<MatchSnapshot> {
-  const res = await getJson<{ ok: boolean; snapshot: MatchSnapshot }>(`/api/matches/${matchId}`)
-  return res.snapshot
-}
-
-export async function postEvents(matchId: string, controlSecret: string, events: ClientEvent[]): Promise<void> {
-  await postJson(`/api/matches/${matchId}/events`, { controlSecret, events })
 }
 
 export function makeShotRecordedEvent(matchId: string, gameKey: RegisteredGameKey, seat: 'A' | 'B', points: number): ClientEvent {
