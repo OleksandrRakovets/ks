@@ -1,5 +1,4 @@
 import type { ClientEvent, MatchSnapshot } from '@ks/core'
-
 import { applyEvent, emptyState, toSnapshot, type MatchState } from '@ks/gameplay'
 
 export type { MatchState }

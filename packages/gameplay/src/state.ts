@@ -1,5 +1,4 @@
 import type { GameKey, MatchConfig, MatchSnapshot, Seat } from '@ks/core'
-
 import invariant from 'tiny-invariant'
 
 export type MatchState = {

@@ -1,13 +1,11 @@
 import type { MatchSnapshot } from '@ks/core'
-
 import { themes } from '@ks/themes'
 import { useEffect, type CSSProperties } from 'react'
 import { useLoaderData, useParams, useRevalidator, useSearchParams } from 'react-router'
+import type { LoaderFunctionArgs } from 'react-router'
 
 import { requireEnv } from '../server/context'
 import { fetchMatchSnapshot } from '../server/match-room'
-
-import type { LoaderFunctionArgs } from 'react-router'
 
 export async function loader({ params, context }: LoaderFunctionArgs) {
   const env = requireEnv(context)

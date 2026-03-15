@@ -1,6 +1,5 @@
-import type { ClientEvent } from '@ks/core'
-
 import { normalizeMatchId, type MatchWriteRepository } from '@ks/competition'
+import type { ClientEvent } from '@ks/core'
 
 import type { AppEnv } from './context'
 

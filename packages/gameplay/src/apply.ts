@@ -1,5 +1,4 @@
 import type { ClientEvent, Seat } from '@ks/core'
-
 import invariant from 'tiny-invariant'
 
 import { getGameDefinition, type GameEffect } from './definitions'

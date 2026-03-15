@@ -86,7 +86,7 @@ This keeps storage small while preserving correctness.
 1. Registry and keys
    - Add `packages/gameplay/src/registry.ts` with game list/meta.
    - Replace hardcoded unions/options in:
-      - `packages/competition/src/match.ts`
+     - `packages/competition/src/match.ts`
      - `services/worker/src/index.ts`
      - `clients/rr7/src/api/ks.ts`
      - `clients/rr7/src/routes/AdminCreateMatch.tsx`

@@ -1,5 +1,4 @@
 import type { Seat } from '@ks/core'
-
 import { SeatSchema } from '@ks/core'
 import invariant from 'tiny-invariant'
 import { z } from 'zod'

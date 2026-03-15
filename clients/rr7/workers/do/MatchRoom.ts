@@ -13,7 +13,6 @@ import invariant from 'tiny-invariant'
 import { z } from 'zod'
 
 import type { Env } from '../env'
-
 import { badRequest, json, unauthorized } from '../http-utils'
 import { eventExists, getLatestSeq, insertStoredEvent, listEventsAfter } from '../repos/events'
 import { getMatch, markMatchEnded } from '../repos/matches'

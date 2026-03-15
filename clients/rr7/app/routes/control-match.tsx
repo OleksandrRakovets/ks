@@ -1,8 +1,7 @@
-import type { ActionFunctionArgs, LoaderFunctionArgs } from 'react-router'
-
 import { ClientEventSchema, type MatchSnapshot } from '@ks/core'
 import { isRegisteredGameKey, registry, type RegisteredGameKey } from '@ks/gameplay'
 import { useEffect } from 'react'
+import type { ActionFunctionArgs, LoaderFunctionArgs } from 'react-router'
 import { useFetcher, useLoaderData, useParams, useRevalidator } from 'react-router'
 
 import { makeAwardFrameEvent, makeShotRecordedEvent, makeStartFrameEvent } from '../lib/ks'
