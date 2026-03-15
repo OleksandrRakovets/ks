@@ -14,6 +14,7 @@ void i18n.use(initReactI18next).init({
   resources,
   lng: pickLocale(),
   fallbackLng: 'uk',
+  showSupportNotice: !import.meta.env.DEV,
   interpolation: { escapeValue: false },
 })
 
