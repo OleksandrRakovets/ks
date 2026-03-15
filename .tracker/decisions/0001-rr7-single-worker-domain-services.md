@@ -17,7 +17,7 @@ TanStack is local-only DX comparison and will not touch production DB.
 ## Decision
 
 1. Production runtime is a single RR7 framework worker (UI + loaders/actions + CF bindings).
-2. Business logic lives in shared domain-level services (in/near `packages/domain`), not in route modules.
+2. Business logic lives in shared domain-level services (in/near `packages/competition`), not in route modules.
 3. Route modules stay thin orchestration layers.
 4. No internal HTTP hop by default (no action -> `fetch('/api/...')` for same-process writes).
 5. Shared zod schemas in domain validate:

@@ -1,13 +1,13 @@
+import type { ActionFunctionArgs, LoaderFunctionArgs } from 'react-router'
+
 import { ClientEventSchema, type MatchSnapshot } from '@ks/core'
-import { isRegisteredGameKey, registry, type RegisteredGameKey } from '@ks/games'
+import { isRegisteredGameKey, registry, type RegisteredGameKey } from '@ks/gameplay'
 import { useEffect } from 'react'
 import { useFetcher, useLoaderData, useParams, useRevalidator } from 'react-router'
 
 import { makeAwardFrameEvent, makeShotRecordedEvent, makeStartFrameEvent } from '../lib/ks'
 import { requireEnv } from '../server/context'
 import { fetchMatchSnapshot, postMatchEvents } from '../server/match-room'
-
-import type { ActionFunctionArgs, LoaderFunctionArgs } from 'react-router'
 
 export async function loader({ params, context }: LoaderFunctionArgs) {
   const env = requireEnv(context)
@@ -41,17 +41,23 @@ export async function action({ params, request, context }: ActionFunctionArgs) {
   return { ok: true as const }
 }
 
-function PyramidShotControls(props: {
-  seat: 'A' | 'B'
-  canScore: boolean
-  onShot: (seat: 'A' | 'B', points: number) => void
-}) {
+function PyramidShotControls(props: { seat: 'A' | 'B'; canScore: boolean; onShot: (seat: 'A' | 'B', points: number) => void }) {
   return (
     <div className="mt-2 flex gap-2">
-      <button type="button" className="flex-1 rounded-lg bg-white/10 px-3 py-2" disabled={!props.canScore} onClick={() => props.onShot(props.seat, 1)}>
+      <button
+        type="button"
+        className="flex-1 rounded-lg bg-white/10 px-3 py-2"
+        disabled={!props.canScore}
+        onClick={() => props.onShot(props.seat, 1)}
+      >
         +1
       </button>
-      <button type="button" className="flex-1 rounded-lg bg-white/10 px-3 py-2" disabled={!props.canScore} onClick={() => props.onShot(props.seat, -1)}>
+      <button
+        type="button"
+        className="flex-1 rounded-lg bg-white/10 px-3 py-2"
+        disabled={!props.canScore}
+        onClick={() => props.onShot(props.seat, -1)}
+      >
         -1
       </button>
     </div>
@@ -105,19 +111,51 @@ export default function ControlMatchRoute() {
             <div className="rounded-xl border border-white/10 bg-white/5 p-4">
               <div className="text-sm text-white/70">A</div>
               <div className="mt-1 text-4xl font-semibold tabular-nums">{pointsA}</div>
-              {inputMode === 'pyramid-basic' ? <PyramidShotControls seat="A" canScore={canScore} onShot={(seat, points) => submitEvent(makeShotRecordedEvent(matchId, gameKey, seat, points))} /> : null}
-              {canAwardA ? <button type="button" className="mt-3 w-full rounded-lg bg-[var(--ks-accent)] px-3 py-2 font-semibold text-black" onClick={() => submitEvent(makeAwardFrameEvent(matchId, 'A', frameIndex))}>Award frame</button> : null}
+              {inputMode === 'pyramid-basic' ? (
+                <PyramidShotControls
+                  seat="A"
+                  canScore={canScore}
+                  onShot={(seat, points) => submitEvent(makeShotRecordedEvent(matchId, gameKey, seat, points))}
+                />
+              ) : null}
+              {canAwardA ? (
+                <button
+                  type="button"
+                  className="mt-3 w-full rounded-lg bg-[var(--ks-accent)] px-3 py-2 font-semibold text-black"
+                  onClick={() => submitEvent(makeAwardFrameEvent(matchId, 'A', frameIndex))}
+                >
+                  Award frame
+                </button>
+              ) : null}
             </div>
             <div className="rounded-xl border border-white/10 bg-white/5 p-4">
               <div className="text-sm text-white/70">B</div>
               <div className="mt-1 text-4xl font-semibold tabular-nums">{pointsB}</div>
-              {inputMode === 'pyramid-basic' ? <PyramidShotControls seat="B" canScore={canScore} onShot={(seat, points) => submitEvent(makeShotRecordedEvent(matchId, gameKey, seat, points))} /> : null}
-              {canAwardB ? <button type="button" className="mt-3 w-full rounded-lg bg-[var(--ks-accent)] px-3 py-2 font-semibold text-black" onClick={() => submitEvent(makeAwardFrameEvent(matchId, 'B', frameIndex))}>Award frame</button> : null}
+              {inputMode === 'pyramid-basic' ? (
+                <PyramidShotControls
+                  seat="B"
+                  canScore={canScore}
+                  onShot={(seat, points) => submitEvent(makeShotRecordedEvent(matchId, gameKey, seat, points))}
+                />
+              ) : null}
+              {canAwardB ? (
+                <button
+                  type="button"
+                  className="mt-3 w-full rounded-lg bg-[var(--ks-accent)] px-3 py-2 font-semibold text-black"
+                  onClick={() => submitEvent(makeAwardFrameEvent(matchId, 'B', frameIndex))}
+                >
+                  Award frame
+                </button>
+              ) : null}
             </div>
           </div>
 
           {winnerSeat ? (
-            <button type="button" className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-left text-sm" onClick={() => submitEvent(makeStartFrameEvent(matchId, frameIndex + 1))}>
+            <button
+              type="button"
+              className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-left text-sm"
+              onClick={() => submitEvent(makeStartFrameEvent(matchId, frameIndex + 1))}
+            >
               Start next frame
             </button>
           ) : null}

@@ -14,9 +14,9 @@
       "name": "@ks/client-rr7",
       "version": "0.0.0",
       "dependencies": {
+        "@ks/competition": "workspace:*",
         "@ks/core": "workspace:*",
-        "@ks/domain": "workspace:*",
-        "@ks/games": "workspace:*",
+        "@ks/gameplay": "workspace:*",
         "@ks/i18n": "workspace:*",
         "@ks/themes": "workspace:*",
         "hono": "^4.6.12",
@@ -44,6 +44,14 @@
         "wrangler": "^4.40.2",
       },
     },
+    "packages/competition": {
+      "name": "@ks/competition",
+      "dependencies": {
+        "@ks/core": "workspace:*",
+        "@ks/gameplay": "workspace:*",
+        "zod": "4.3.6",
+      },
+    },
     "packages/core": {
       "name": "@ks/core",
       "dependencies": {
@@ -51,16 +59,8 @@
         "zod": "4.3.6",
       },
     },
-    "packages/domain": {
-      "name": "@ks/domain",
-      "dependencies": {
-        "@ks/core": "workspace:*",
-        "@ks/games": "workspace:*",
-        "zod": "4.3.6",
-      },
-    },
-    "packages/games": {
-      "name": "@ks/games",
+    "packages/gameplay": {
+      "name": "@ks/gameplay",
       "dependencies": {
         "@ks/core": "workspace:*",
         "tiny-invariant": "^1.3.3",
@@ -69,9 +69,6 @@
     },
     "packages/i18n": {
       "name": "@ks/i18n",
-    },
-    "packages/offline": {
-      "name": "@ks/offline",
     },
     "packages/themes": {
       "name": "@ks/themes",
@@ -282,15 +279,13 @@
 
     "@ks/client-rr7": ["@ks/client-rr7@workspace:clients/rr7"],
 
+    "@ks/competition": ["@ks/competition@workspace:packages/competition"],
+
     "@ks/core": ["@ks/core@workspace:packages/core"],
 
-    "@ks/domain": ["@ks/domain@workspace:packages/domain"],
-
-    "@ks/games": ["@ks/games@workspace:packages/games"],
+    "@ks/gameplay": ["@ks/gameplay@workspace:packages/gameplay"],
 
     "@ks/i18n": ["@ks/i18n@workspace:packages/i18n"],
-
-    "@ks/offline": ["@ks/offline@workspace:packages/offline"],
 
     "@ks/themes": ["@ks/themes@workspace:packages/themes"],
 

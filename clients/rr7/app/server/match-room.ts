@@ -1,6 +1,6 @@
-import { normalizeMatchId, type MatchWriteRepository } from '@ks/domain'
-
 import type { ClientEvent } from '@ks/core'
+
+import { normalizeMatchId, type MatchWriteRepository } from '@ks/competition'
 
 import type { AppEnv } from './context'
 
@@ -15,7 +15,12 @@ export async function fetchMatchSnapshot(env: AppEnv, rawMatchId: string): Promi
   )
 }
 
-export async function postMatchEvents(env: AppEnv, rawMatchId: string, controlSecret: string, events: ClientEvent[]): Promise<Response> {
+export async function postMatchEvents(
+  env: AppEnv,
+  rawMatchId: string,
+  controlSecret: string,
+  events: ClientEvent[],
+): Promise<Response> {
   const matchId = normalizeMatchId(rawMatchId)
   const id = env.MATCH_ROOM.idFromName(matchId)
   const stub = env.MATCH_ROOM.get(id)

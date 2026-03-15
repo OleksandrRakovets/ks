@@ -1,11 +1,6 @@
-import {
-  ClientIdSchema,
-  MatchIdSchema,
-  newClientId,
-  newEventId,
-  type ClientEvent,
-} from '@ks/domain'
-import type { RegisteredGameKey } from '@ks/games'
+import type { RegisteredGameKey } from '@ks/gameplay'
+
+import { ClientIdSchema, MatchIdSchema, newClientId, newEventId, type ClientEvent } from '@ks/competition'
 
 function getOrCreateClientId(): string {
   const existing = localStorage.getItem('ks.clientId')
@@ -23,7 +18,12 @@ function nextClientSeq(matchId: string): number {
   return next
 }
 
-export function makeShotRecordedEvent(matchId: string, gameKey: RegisteredGameKey, seat: 'A' | 'B', points: number): ClientEvent {
+export function makeShotRecordedEvent(
+  matchId: string,
+  gameKey: RegisteredGameKey,
+  seat: 'A' | 'B',
+  points: number,
+): ClientEvent {
   const parsedMatchId = MatchIdSchema.parse(matchId)
   const parsedClientId = ClientIdSchema.parse(getOrCreateClientId())
   return {

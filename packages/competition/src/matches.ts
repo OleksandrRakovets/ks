@@ -1,5 +1,5 @@
 import { MatchIdSchema, PlayerIdSchema, newMatchId, stripOptionalPrefix, type MatchConfig } from '@ks/core'
-import { isRegisteredGameKey } from '@ks/games'
+import { isRegisteredGameKey } from '@ks/gameplay'
 import { z } from 'zod'
 
 export const CreateMatchRequestSchema = z
@@ -59,7 +59,10 @@ function randomSecret(): string {
   return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
 }
 
-export async function createMatchService(repo: MatchWriteRepository, input: CreateMatchRequest): Promise<{
+export async function createMatchService(
+  repo: MatchWriteRepository,
+  input: CreateMatchRequest,
+): Promise<{
   matchId: string
   publicUrl: string
   controlUrl: string

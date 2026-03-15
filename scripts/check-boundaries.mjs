@@ -52,26 +52,26 @@ const failures = []
 for (const file of listSourceFiles(join(ROOT, 'packages/core'))) {
   const imports = collectImports(readFileSync(file, 'utf8'))
   for (const specifier of imports) {
-    if (specifier.startsWith('@ks/domain') || specifier.startsWith('@ks/games')) {
-      failures.push(`${relative(ROOT, file)} imports ${specifier} (core must not depend on domain/gameplay)`)
+    if (specifier.startsWith('@ks/competition') || specifier.startsWith('@ks/gameplay')) {
+      failures.push(`${relative(ROOT, file)} imports ${specifier} (core must not depend on competition/gameplay)`)
     }
   }
 }
 
-for (const file of listSourceFiles(join(ROOT, 'packages/games'))) {
+for (const file of listSourceFiles(join(ROOT, 'packages/gameplay'))) {
   const imports = collectImports(readFileSync(file, 'utf8'))
   for (const specifier of imports) {
-    if (specifier.startsWith('@ks/domain')) {
-      failures.push(`${relative(ROOT, file)} imports ${specifier} (gameplay must not depend on domain)`)
+    if (specifier.startsWith('@ks/competition')) {
+      failures.push(`${relative(ROOT, file)} imports ${specifier} (gameplay must not depend on competition)`)
     }
   }
 }
 
-for (const file of listSourceFiles(join(ROOT, 'packages/domain'))) {
+for (const file of listSourceFiles(join(ROOT, 'packages/competition'))) {
   const imports = collectImports(readFileSync(file, 'utf8'))
   for (const specifier of imports) {
     if (specifier.startsWith('@ks/worker') || specifier.startsWith('@ks/client')) {
-      failures.push(`${relative(ROOT, file)} imports ${specifier} (domain must stay runtime-agnostic)`)
+      failures.push(`${relative(ROOT, file)} imports ${specifier} (competition must stay runtime-agnostic)`)
     }
   }
 }

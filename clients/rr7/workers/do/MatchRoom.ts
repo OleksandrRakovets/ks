@@ -1,3 +1,4 @@
+import { applyMatchEvent, emptyMatchState, snapshotFromMatchState, type MatchState } from '@ks/competition'
 import {
   ClientEventSchema,
   ClientIdSchema,
@@ -7,7 +8,6 @@ import {
   type ClientEvent,
   type StoredEvent,
 } from '@ks/core'
-import { applyMatchEvent, emptyMatchState, snapshotFromMatchState, type MatchState } from '@ks/domain'
 import { Hono } from 'hono'
 import invariant from 'tiny-invariant'
 import { z } from 'zod'

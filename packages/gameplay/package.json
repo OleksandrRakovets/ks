@@ -1,5 +1,5 @@
 {
-  "name": "@ks/games",
+  "name": "@ks/gameplay",
   "private": true,
   "type": "module",
   "exports": {

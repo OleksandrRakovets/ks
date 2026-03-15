@@ -2,12 +2,11 @@
   "files": [],
   "references": [
     { "path": "packages/core" },
-    { "path": "packages/domain" },
-    { "path": "packages/games" },
+    { "path": "packages/competition" },
+    { "path": "packages/gameplay" },
     { "path": "packages/i18n" },
     { "path": "packages/themes" },
     { "path": "packages/ui" },
-    { "path": "packages/offline" },
     { "path": "clients/rr7" }
   ]
 }

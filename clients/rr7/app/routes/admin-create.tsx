@@ -1,12 +1,12 @@
-import { createMatchService, CreateMatchRequestSchema } from '@ks/domain'
-import { gameKeys, registry, type RegisteredGameKey } from '@ks/games'
+import type { ActionFunctionArgs } from 'react-router'
+
+import { createMatchService, CreateMatchRequestSchema } from '@ks/competition'
+import { gameKeys, registry, type RegisteredGameKey } from '@ks/gameplay'
 import { Form, useActionData, useNavigation } from 'react-router'
 
 import { requireBasicAuth } from '../server/auth'
 import { requireEnv } from '../server/context'
 import { makeMatchWriteRepository } from '../server/match-room'
-
-import type { ActionFunctionArgs } from 'react-router'
 
 export async function action({ request, context }: ActionFunctionArgs) {
   const env = requireEnv(context)
@@ -71,7 +71,12 @@ export default function AdminCreateRoute() {
             <label htmlFor="gameKey" className="text-sm text-white/80">
               Game
             </label>
-            <select id="gameKey" name="gameKey" defaultValue={'free-pyramid' satisfies RegisteredGameKey} className="rounded-lg bg-black/20 px-3 py-2 ring-1 ring-white/10">
+            <select
+              id="gameKey"
+              name="gameKey"
+              defaultValue={'free-pyramid' satisfies RegisteredGameKey}
+              className="rounded-lg bg-black/20 px-3 py-2 ring-1 ring-white/10"
+            >
               {gameKeys.map((key) => (
                 <option key={key} value={key}>
                   {registry[key].meta.label}
@@ -87,24 +92,58 @@ export default function AdminCreateRoute() {
 
           <div className="grid grid-cols-2 gap-3">
             <div className="grid grid-cols-2 gap-2">
-              <input type="number" name="frameTargetA" defaultValue={8} className="rounded-lg bg-black/20 px-3 py-2 ring-1 ring-white/10" />
-              <input type="number" name="frameTargetB" defaultValue={8} className="rounded-lg bg-black/20 px-3 py-2 ring-1 ring-white/10" />
+              <input
+                type="number"
+                name="frameTargetA"
+                defaultValue={8}
+                className="rounded-lg bg-black/20 px-3 py-2 ring-1 ring-white/10"
+              />
+              <input
+                type="number"
+                name="frameTargetB"
+                defaultValue={8}
+                className="rounded-lg bg-black/20 px-3 py-2 ring-1 ring-white/10"
+              />
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <input type="number" name="framesToWinA" defaultValue={3} className="rounded-lg bg-black/20 px-3 py-2 ring-1 ring-white/10" />
-              <input type="number" name="framesToWinB" defaultValue={3} className="rounded-lg bg-black/20 px-3 py-2 ring-1 ring-white/10" />
+              <input
+                type="number"
+                name="framesToWinA"
+                defaultValue={3}
+                className="rounded-lg bg-black/20 px-3 py-2 ring-1 ring-white/10"
+              />
+              <input
+                type="number"
+                name="framesToWinB"
+                defaultValue={3}
+                className="rounded-lg bg-black/20 px-3 py-2 ring-1 ring-white/10"
+              />
             </div>
           </div>
 
-          <button type="submit" disabled={busy} className="mt-2 rounded-lg bg-[var(--ks-accent)] px-4 py-2 font-semibold text-black">
+          <button
+            type="submit"
+            disabled={busy}
+            className="mt-2 rounded-lg bg-[var(--ks-accent)] px-4 py-2 font-semibold text-black"
+          >
             {busy ? 'Creating...' : 'Create Match'}
           </button>
 
           {actionData?.ok === false ? <div className="text-sm text-red-200">{actionData.error}</div> : null}
           {actionData?.ok ? (
             <div className="grid gap-2 text-sm">
-              <div>Public: <a className="underline" href={actionData.publicUrl}>{actionData.publicUrl}</a></div>
-              <div>Control: <a className="underline" href={actionData.controlUrl}>{actionData.controlUrl}</a></div>
+              <div>
+                Public:{' '}
+                <a className="underline" href={actionData.publicUrl}>
+                  {actionData.publicUrl}
+                </a>
+              </div>
+              <div>
+                Control:{' '}
+                <a className="underline" href={actionData.controlUrl}>
+                  {actionData.controlUrl}
+                </a>
+              </div>
             </div>
           ) : null}
         </Form>

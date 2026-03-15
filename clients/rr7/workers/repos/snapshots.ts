@@ -1,4 +1,4 @@
-import type { MatchState } from '@ks/games'
+import type { MatchState } from '@ks/gameplay'
 
 import type { Env } from '../env'
 
@@ -14,7 +14,10 @@ export async function getMatchSnapshot(env: Env, matchId: string): Promise<Match
   return row ?? null
 }
 
-export async function putLatestMatchSnapshot(env: Env, args: { matchId: string; latestSeq: number; state: MatchState }): Promise<void> {
+export async function putLatestMatchSnapshot(
+  env: Env,
+  args: { matchId: string; latestSeq: number; state: MatchState },
+): Promise<void> {
   await env.DB.prepare(
     [
       'INSERT INTO match_snapshots (match_id, latest_seq, state_json, created_at)',

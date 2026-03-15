@@ -1,6 +1,6 @@
-import { applyEvent, emptyState, toSnapshot, type MatchState } from '@ks/games'
-
 import type { ClientEvent, MatchSnapshot } from '@ks/core'
+
+import { applyEvent, emptyState, toSnapshot, type MatchState } from '@ks/gameplay'
 
 export type { MatchState }
 
@@ -24,7 +24,11 @@ export function deriveMatchState(events: ClientEvent[], baseState: MatchState = 
   return state
 }
 
-export function deriveMatchSnapshot(events: ClientEvent[], latestSeq: number, baseState: MatchState = emptyState()): MatchSnapshot {
+export function deriveMatchSnapshot(
+  events: ClientEvent[],
+  latestSeq: number,
+  baseState: MatchState = emptyState(),
+): MatchSnapshot {
   const state = deriveMatchState(events, baseState)
   return toSnapshot(state, latestSeq)
 }

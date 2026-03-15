@@ -17,10 +17,10 @@ We need an architecture that can support:
 
 ## Decision
 
-1. Introduce a game registry in `packages/games/registry.ts` as the single source of truth for game keys and metadata.
+1. Introduce a game registry in `packages/gameplay/registry.ts` as the single source of truth for game keys and metadata.
 2. Use one game write event model: `game.command`, with `commandType: 'shot.recorded'` as the primary command for all games.
 3. Keep match kernel responsibilities generic (lifecycle, sequencing, frame boundaries, status, lock rules).
-4. Move game semantics into pluggable game definitions in `packages/games`.
+4. Move game semantics into pluggable game definitions in `packages/gameplay`.
 5. UI picks input controls by `registry[gameKey].meta.inputMode`.
 
 ## Match vs Game boundary
@@ -84,20 +84,20 @@ This keeps storage small while preserving correctness.
 ## Steps to migrate current code
 
 1. Registry and keys
-   - Add `packages/games/src/registry.ts` with game list/meta.
+   - Add `packages/gameplay/src/registry.ts` with game list/meta.
    - Replace hardcoded unions/options in:
-     - `packages/domain/src/match.ts`
+      - `packages/competition/src/match.ts`
      - `services/worker/src/index.ts`
      - `clients/rr7/src/api/ks.ts`
      - `clients/rr7/src/routes/AdminCreateMatch.tsx`
 
 2. Command event path
-   - Add `game.command` schema in `packages/domain/src/events.ts`.
+   - Add `game.command` schema in `packages/competition/src/events.ts`.
    - Keep existing events readable during transition.
 
 3. Pluggable game reducers
-   - Add `GameDefinition` interface in `packages/games`.
-   - Move special-case logic from `packages/games/src/apply.ts` into per-game definition modules.
+   - Add `GameDefinition` interface in `packages/gameplay`.
+   - Move special-case logic from `packages/gameplay/src/apply.ts` into per-game definition modules.
    - Keep kernel reducer focused on shared lifecycle rules.
 
 4. Worker integration
@@ -136,9 +136,9 @@ To support non-browser flows and avoid package cycles, refine the architecture i
    - Deterministic JS in/out logic.
    - Owns command interpretation (`game.command`, `shot.recorded`) and projections.
    - Depends on `packages/core`.
-   - Must not depend on `packages/domain`.
+   - Must not depend on `packages/competition`.
 
-3. `packages/domain`
+3. `packages/competition`
    - Business use-cases/services across entities (matches, players, scoreboards).
    - Orchestrates gameplay + persistence ports.
    - Runtime-agnostic service layer (no hardcoded route actions).
@@ -150,23 +150,23 @@ Runtime (RR7 framework worker) owns Cloudflare bindings and passes connections/a
 
 Required dependency DAG:
 
-`core <- gameplay <- domain <- runtime-app`
+`core <- gameplay <- competition <- runtime-app`
 
 Guardrails:
 
-- Forbid `gameplay -> domain` imports.
-- Allow `domain -> gameplay` imports.
+- Forbid `gameplay -> competition` imports.
+- Allow `competition -> gameplay` imports.
 - Keep route modules thin orchestration layers.
 
 ### Amendment C - Flow mapping
 
 Case 1 (HTTP + D1/DO path):
 
-- RR7 action/loader (with bindings) -> domain service -> gameplay kernel/game handler -> persistence/events/snapshot updates.
+- RR7 action/loader (with bindings) -> competition service -> gameplay kernel/game handler -> persistence/events/snapshot updates.
 
 Case 2 (simulation script):
 
-- Script -> gameplay kernel/game handler (optionally domain with in-memory adapters).
+- Script -> gameplay kernel/game handler (optionally competition with in-memory adapters).
 
 Case 3 (game-only tools):
 

@@ -11,9 +11,9 @@
     "typecheck": "wrangler types && react-router typegen && tsc -b"
   },
   "dependencies": {
+    "@ks/competition": "workspace:*",
     "@ks/core": "workspace:*",
-    "@ks/domain": "workspace:*",
-    "@ks/games": "workspace:*",
+    "@ks/gameplay": "workspace:*",
     "@ks/i18n": "workspace:*",
     "@ks/themes": "workspace:*",
     "hono": "^4.6.12",
