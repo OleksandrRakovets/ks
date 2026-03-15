@@ -1,12 +1,16 @@
-import { z } from 'zod'
 import invariant from 'tiny-invariant'
+import { z } from 'zod'
 
 import { MatchIdSchema, PlayerIdSchema } from './ids'
 
 export const SeatSchema = z.enum(['A', 'B'])
 export type Seat = z.infer<typeof SeatSchema>
 
-export const GameKeySchema = z.string().min(1).max(64).regex(/^[a-z0-9-]+$/)
+export const GameKeySchema = z
+  .string()
+  .min(1)
+  .max(64)
+  .regex(/^[a-z0-9-]+$/)
 export type GameKey = z.infer<typeof GameKeySchema>
 
 // Backward-compatible aliases while old references are being migrated.
@@ -17,7 +21,7 @@ export const BySeatNumberSchema = z.object({ A: z.number().int(), B: z.number().
 
 export const MatchTargetsSchema = z.object({
   frameTargetPointsBySeat: BySeatNumberSchema,
-  matchTargetFramesBySeat: BySeatNumberSchema,
+  matchTargetFrames: z.number().int().positive(),
 })
 
 export const MatchParticipantSchema = z.object({

@@ -1,5 +1,6 @@
-import { newClientId, newEventId, newMatchId, type ClientEvent, type MatchConfig } from '@ks/core'
 import { describe, expect, test } from 'bun:test'
+
+import { newClientId, newEventId, newMatchId, type ClientEvent, type MatchConfig } from '@ks/core'
 
 import { applyEvent, emptyState } from '../src'
 
@@ -22,7 +23,7 @@ function makeConfig(gameKey: MatchConfig['gameKey']): MatchConfig {
     gameKey,
     targets: {
       frameTargetPointsBySeat: { A: 8, B: 8 },
-      matchTargetFramesBySeat: { A: 3, B: 3 },
+      matchTargetFrames: 3,
     },
     participants: [
       { seat: 'A', displayName: 'A' },

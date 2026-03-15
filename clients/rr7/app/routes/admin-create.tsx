@@ -1,7 +1,6 @@
-import type { ActionFunctionArgs } from 'react-router'
-
 import { createMatchService, CreateMatchRequestSchema } from '@ks/competition'
 import { gameKeys, registry, type RegisteredGameKey } from '@ks/gameplay'
+import type { ActionFunctionArgs } from 'react-router'
 import { Form, useActionData, useNavigation } from 'react-router'
 
 import { requireBasicAuth } from '../server/auth'
@@ -29,10 +28,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
         A: Number(formData.get('frameTargetA') ?? 0),
         B: Number(formData.get('frameTargetB') ?? 0),
       },
-      matchTargetFramesBySeat: {
-        A: Number(formData.get('framesToWinA') ?? 0),
-        B: Number(formData.get('framesToWinB') ?? 0),
-      },
+      matchTargetFrames: Number(formData.get('matchTargetFrames') ?? 0),
     },
     participants: [
       { seat: 'A' as const, displayName: String(formData.get('nameA') ?? '') },
@@ -90,31 +86,38 @@ export default function AdminCreateRoute() {
             <input name="nameB" defaultValue="Player B" className="rounded-lg bg-black/20 px-3 py-2 ring-1 ring-white/10" />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="grid grid-cols-2 gap-2">
-              <input
-                type="number"
-                name="frameTargetA"
-                defaultValue={8}
-                className="rounded-lg bg-black/20 px-3 py-2 ring-1 ring-white/10"
-              />
-              <input
-                type="number"
-                name="frameTargetB"
-                defaultValue={8}
-                className="rounded-lg bg-black/20 px-3 py-2 ring-1 ring-white/10"
-              />
+          <div className="grid gap-3">
+            <div className="grid gap-2">
+              <div className="text-sm text-white/80">Frame target points by seat</div>
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="number"
+                  min={1}
+                  name="frameTargetA"
+                  defaultValue={8}
+                  aria-label="Frame target points A"
+                  className="rounded-lg bg-black/20 px-3 py-2 ring-1 ring-white/10"
+                />
+                <input
+                  type="number"
+                  min={1}
+                  name="frameTargetB"
+                  defaultValue={8}
+                  aria-label="Frame target points B"
+                  className="rounded-lg bg-black/20 px-3 py-2 ring-1 ring-white/10"
+                />
+              </div>
             </div>
-            <div className="grid grid-cols-2 gap-2">
+
+            <div className="grid gap-2">
+              <label htmlFor="matchTargetFrames" className="text-sm text-white/80">
+                Match target frames
+              </label>
               <input
+                id="matchTargetFrames"
                 type="number"
-                name="framesToWinA"
-                defaultValue={3}
-                className="rounded-lg bg-black/20 px-3 py-2 ring-1 ring-white/10"
-              />
-              <input
-                type="number"
-                name="framesToWinB"
+                min={1}
+                name="matchTargetFrames"
                 defaultValue={3}
                 className="rounded-lg bg-black/20 px-3 py-2 ring-1 ring-white/10"
               />

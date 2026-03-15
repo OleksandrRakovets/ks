@@ -10,10 +10,7 @@ export const CreateMatchRequestSchema = z
         A: z.number().int().positive(),
         B: z.number().int().positive(),
       }),
-      matchTargetFramesBySeat: z.object({
-        A: z.number().int().positive(),
-        B: z.number().int().positive(),
-      }),
+      matchTargetFrames: z.number().int().positive(),
     }),
     participants: z
       .array(
