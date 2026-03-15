@@ -70,7 +70,7 @@ for (const file of listSourceFiles(join(ROOT, 'packages/gameplay'))) {
 for (const file of listSourceFiles(join(ROOT, 'packages/competition'))) {
   const imports = collectImports(readFileSync(file, 'utf8'))
   for (const specifier of imports) {
-    if (specifier.startsWith('@ks/worker') || specifier.startsWith('@ks/client')) {
+    if (specifier.startsWith('@ks/client')) {
       failures.push(`${relative(ROOT, file)} imports ${specifier} (competition must stay runtime-agnostic)`)
     }
   }

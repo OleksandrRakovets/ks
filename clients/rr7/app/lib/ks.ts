@@ -1,6 +1,5 @@
-import type { RegisteredGameKey } from '@ks/gameplay'
-
 import { ClientIdSchema, MatchIdSchema, newClientId, newEventId, type ClientEvent } from '@ks/competition'
+import type { RegisteredGameKey } from '@ks/gameplay'
 
 function getOrCreateClientId(): string {
   const existing = localStorage.getItem('ks.clientId')
