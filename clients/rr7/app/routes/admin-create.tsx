@@ -1,7 +1,8 @@
 import { createMatchService, CreateMatchRequestSchema } from '@ks/competition'
 import { gameKeys, registry, type RegisteredGameKey } from '@ks/gameplay'
+import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@ks/ui'
 import type { ActionFunctionArgs } from 'react-router'
-import { Form, useActionData, useNavigation } from 'react-router'
+import { Form, useActionData, useNavigation, useSearchParams } from 'react-router'
 
 import { requireBasicAuth } from '../server/auth'
 import { requireEnv } from '../server/context'
@@ -48,108 +49,87 @@ export async function action({ request, context }: ActionFunctionArgs) {
 export default function AdminCreateRoute() {
   const actionData = useActionData<typeof action>()
   const navigation = useNavigation()
+  const [searchParams] = useSearchParams()
   const busy = navigation.state !== 'idle'
+  const flavorClass = searchParams.get('flavor') === 'latte' ? 'latte' : 'dark'
 
   return (
-    <div className="min-h-dvh px-4 py-6">
+    <div className={`${flavorClass} min-h-dvh bg-background px-4 py-6 text-foreground`}>
       <div className="mx-auto w-full max-w-xl">
-        <h1 className="text-2xl font-semibold tracking-tight">Create Match</h1>
-        <Form method="post" className="mt-6 grid gap-4 rounded-xl border border-white/10 bg-white/5 p-4">
-          <div className="grid gap-2">
-            <div className="text-sm text-white/80">Admin</div>
-            <div className="grid grid-cols-2 gap-2">
-              <input name="adminUser" defaultValue="admin" className="rounded-lg bg-black/20 px-3 py-2 ring-1 ring-white/10" />
-              <input name="adminPass" defaultValue="admin" className="rounded-lg bg-black/20 px-3 py-2 ring-1 ring-white/10" />
-            </div>
-          </div>
-
-          <div className="grid gap-2">
-            <label htmlFor="gameKey" className="text-sm text-white/80">
-              Game
-            </label>
-            <select
-              id="gameKey"
-              name="gameKey"
-              defaultValue={'free-pyramid' satisfies RegisteredGameKey}
-              className="rounded-lg bg-black/20 px-3 py-2 ring-1 ring-white/10"
-            >
-              {gameKeys.map((key) => (
-                <option key={key} value={key}>
-                  {registry[key].meta.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <input name="nameA" defaultValue="Player A" className="rounded-lg bg-black/20 px-3 py-2 ring-1 ring-white/10" />
-            <input name="nameB" defaultValue="Player B" className="rounded-lg bg-black/20 px-3 py-2 ring-1 ring-white/10" />
-          </div>
-
-          <div className="grid gap-3">
-            <div className="grid gap-2">
-              <div className="text-sm text-white/80">Frame target points by seat</div>
-              <div className="grid grid-cols-2 gap-2">
-                <input
-                  type="number"
-                  min={1}
-                  name="frameTargetA"
-                  defaultValue={8}
-                  aria-label="Frame target points A"
-                  className="rounded-lg bg-black/20 px-3 py-2 ring-1 ring-white/10"
-                />
-                <input
-                  type="number"
-                  min={1}
-                  name="frameTargetB"
-                  defaultValue={8}
-                  aria-label="Frame target points B"
-                  className="rounded-lg bg-black/20 px-3 py-2 ring-1 ring-white/10"
-                />
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle className="text-2xl">Create Match</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Form method="post" className="grid gap-4">
+              <div className="grid gap-2">
+                <Label>Admin</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <Input name="adminUser" defaultValue="admin" />
+                  <Input name="adminPass" defaultValue="admin" />
+                </div>
               </div>
-            </div>
 
-            <div className="grid gap-2">
-              <label htmlFor="matchTargetFrames" className="text-sm text-white/80">
-                Match target frames
-              </label>
-              <input
-                id="matchTargetFrames"
-                type="number"
-                min={1}
-                name="matchTargetFrames"
-                defaultValue={3}
-                className="rounded-lg bg-black/20 px-3 py-2 ring-1 ring-white/10"
-              />
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={busy}
-            className="mt-2 rounded-lg bg-[var(--ks-accent)] px-4 py-2 font-semibold text-black"
-          >
-            {busy ? 'Creating...' : 'Create Match'}
-          </button>
-
-          {actionData?.ok === false ? <div className="text-sm text-red-200">{actionData.error}</div> : null}
-          {actionData?.ok ? (
-            <div className="grid gap-2 text-sm">
-              <div>
-                Public:{' '}
-                <a className="underline" href={actionData.publicUrl}>
-                  {actionData.publicUrl}
-                </a>
+              <div className="grid gap-2">
+                <Label htmlFor="gameKey">Game</Label>
+                <select
+                  id="gameKey"
+                  name="gameKey"
+                  defaultValue={'free-pyramid' satisfies RegisteredGameKey}
+                  className="h-8 rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                >
+                  {gameKeys.map((key) => (
+                    <option key={key} value={key}>
+                      {registry[key].meta.label}
+                    </option>
+                  ))}
+                </select>
               </div>
-              <div>
-                Control:{' '}
-                <a className="underline" href={actionData.controlUrl}>
-                  {actionData.controlUrl}
-                </a>
+
+              <div className="grid grid-cols-2 gap-3">
+                <Input name="nameA" defaultValue="Player A" />
+                <Input name="nameB" defaultValue="Player B" />
               </div>
-            </div>
-          ) : null}
-        </Form>
+
+              <div className="grid gap-3">
+                <div className="grid gap-2">
+                  <Label>Frame target points by seat</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input type="number" min={1} name="frameTargetA" defaultValue={8} aria-label="Frame target points A" />
+                    <Input type="number" min={1} name="frameTargetB" defaultValue={8} aria-label="Frame target points B" />
+                  </div>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="matchTargetFrames">Match target frames</Label>
+                  <Input id="matchTargetFrames" type="number" min={1} name="matchTargetFrames" defaultValue={3} />
+                </div>
+              </div>
+
+              <Button type="submit" disabled={busy} className="mt-2">
+                {busy ? 'Creating...' : 'Create Match'}
+              </Button>
+
+              {actionData?.ok === false ? <div className="text-sm text-destructive">{actionData.error}</div> : null}
+              {actionData?.ok ? (
+                <div className="grid gap-2 text-sm">
+                  <div>
+                    Public:{' '}
+                    <a className="text-primary underline" href={actionData.publicUrl}>
+                      {actionData.publicUrl}
+                    </a>
+                  </div>
+                  <div>
+                    Control:{' '}
+                    <a className="text-primary underline" href={actionData.controlUrl}>
+                      {actionData.controlUrl}
+                    </a>
+                  </div>
+                </div>
+              ) : null}
+            </Form>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )
