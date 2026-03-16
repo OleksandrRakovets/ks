@@ -7,6 +7,7 @@
   ],
   "scripts": {
     "dev": "bun run --cwd clients/rr7 dev",
+    "db:migrate:local": "bun run --cwd clients/rr7 db:migrate:local",
     "test": "bun test",
     "typecheck": "tsc -b",
     "check:boundaries": "node ./scripts/check-boundaries.mjs",

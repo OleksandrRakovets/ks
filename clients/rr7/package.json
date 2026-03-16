@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "react-router dev",
+    "db:migrate:local": "wrangler d1 migrations apply ks --local",
     "build": "react-router build",
     "preview": "react-router build && vite preview",
     "cf-typegen": "wrangler types",
