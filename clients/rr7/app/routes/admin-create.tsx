@@ -4,23 +4,13 @@ import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '
 import type { ActionFunctionArgs } from 'react-router'
 import { Form, useActionData, useNavigation, useSearchParams } from 'react-router'
 
-import { requireBasicAuth } from '../server/auth'
+import { useRootLocale } from '../root'
 import { requireEnv } from '../server/context'
 import { makeMatchWriteRepository } from '../server/match-room'
 
 export async function action({ request, context }: ActionFunctionArgs) {
   const env = requireEnv(context)
   const formData = await request.formData()
-
-  const adminUser = String(formData.get('adminUser') ?? '')
-  const adminPass = String(formData.get('adminPass') ?? '')
-  const auth = btoa(`${adminUser}:${adminPass}`)
-  const authRequest = new Request('https://local/authorize', {
-    headers: { authorization: `Basic ${auth}` },
-  })
-  if (!requireBasicAuth(authRequest, env)) {
-    return { ok: false as const, error: 'Unauthorized' }
-  }
 
   const payload = {
     gameKey: String(formData.get('gameKey') ?? ''),
@@ -49,6 +39,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
 export default function AdminCreateRoute() {
   const actionData = useActionData<typeof action>()
   const navigation = useNavigation()
+  const locale = useRootLocale()
   const [searchParams] = useSearchParams()
   const busy = navigation.state !== 'idle'
   const flavorClass = searchParams.get('flavor') === 'latte' ? 'latte' : 'dark'
@@ -63,14 +54,6 @@ export default function AdminCreateRoute() {
           <CardContent>
             <Form method="post" className="grid gap-4">
               <div className="grid gap-2">
-                <Label>Admin</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  <Input name="adminUser" defaultValue="admin" />
-                  <Input name="adminPass" defaultValue="admin" />
-                </div>
-              </div>
-
-              <div className="grid gap-2">
                 <Label htmlFor="gameKey">Game</Label>
                 <select
                   id="gameKey"
@@ -80,7 +63,7 @@ export default function AdminCreateRoute() {
                 >
                   {gameKeys.map((key) => (
                     <option key={key} value={key}>
-                      {registry[key].meta.label}
+                      {registry[key].meta.title[locale]}
                     </option>
                   ))}
                 </select>

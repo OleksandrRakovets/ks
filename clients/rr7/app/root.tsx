@@ -1,6 +1,7 @@
 import type { SupportedLocale } from '@ks/i18n'
 import type { LoaderFunctionArgs } from 'react-router'
-import { Links, Meta, Outlet, Scripts, ScrollRestoration, useLoaderData } from 'react-router'
+import { Links, Meta, Outlet, Scripts, ScrollRestoration, useLoaderData, useRouteLoaderData } from 'react-router'
+import invariant from 'tiny-invariant'
 
 const LOCALE_COOKIE_NAME = 'ks.locale'
 
@@ -21,6 +22,14 @@ function localeFromCookie(cookieHeader: string | null): SupportedLocale {
 
 export function loader({ request }: LoaderFunctionArgs) {
   return { locale: localeFromCookie(request.headers.get('cookie')) }
+}
+
+export type RootLoaderData = ReturnType<typeof loader>
+
+export function useRootLocale(): SupportedLocale {
+  const data = useRouteLoaderData<RootLoaderData>('root')
+  invariant(data, 'Missing root loader data')
+  return data.locale
 }
 
 export function Layout({ children }: { children: React.ReactNode }) {

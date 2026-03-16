@@ -33,6 +33,25 @@ export async function postMatchEvents(
   })
 }
 
+export async function streamMatchEvents(env: AppEnv, rawMatchId: string, since?: string | null): Promise<Response> {
+  const matchId = normalizeMatchId(rawMatchId)
+  const id = env.MATCH_ROOM.idFromName(matchId)
+  const stub = env.MATCH_ROOM.get(id)
+  const query = new URLSearchParams()
+  if (since && since.length > 0) {
+    query.set('since', since)
+  }
+  const target = query.size > 0 ? `https://do/stream?${query.toString()}` : 'https://do/stream'
+  return stub.fetch(
+    new Request(target, {
+      headers: {
+        accept: 'text/event-stream',
+        'x-ks-match-id': matchId,
+      },
+    }),
+  )
+}
+
 export function makeMatchWriteRepository(env: AppEnv): MatchWriteRepository {
   return {
     insertMatch: async (args) => {

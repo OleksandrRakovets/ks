@@ -1,6 +1,6 @@
 import type { MatchSnapshot } from '@ks/core'
 import { themes } from '@ks/themes'
-import { useEffect, type CSSProperties } from 'react'
+import { useEffect, useRef, type CSSProperties } from 'react'
 import { useLoaderData, useParams, useRevalidator, useSearchParams } from 'react-router'
 import type { LoaderFunctionArgs } from 'react-router'
 
@@ -23,12 +23,51 @@ export default function PublicScoreboardRoute() {
   const params = useParams()
   const [sp] = useSearchParams()
   const revalidator = useRevalidator()
+  const latestSeqRef = useRef(snapshot.latestSeq)
   const matchId = params.matchId ?? ''
 
   useEffect(() => {
+    latestSeqRef.current = snapshot.latestSeq
+  }, [snapshot.latestSeq])
+
+  useEffect(() => {
     if (!matchId) return
-    const timer = setInterval(() => revalidator.revalidate(), 1500)
-    return () => clearInterval(timer)
+
+    const stream = new EventSource(`/api/m/${matchId}/stream`)
+
+    const handleReady = (event: Event) => {
+      if (!(event instanceof MessageEvent)) return
+      try {
+        const parsed = JSON.parse(event.data) as { latestSeq?: number }
+        if (typeof parsed.latestSeq === 'number' && parsed.latestSeq > latestSeqRef.current) {
+          revalidator.revalidate()
+        }
+      } catch (error) {
+        console.error('Malformed SSE ready event payload', error)
+      }
+    }
+
+    const handleEvent = (event: Event) => {
+      if (!(event instanceof MessageEvent)) return
+      try {
+        const parsed = JSON.parse(event.data) as { seq?: number }
+        if (typeof parsed.seq !== 'number') return
+        if (parsed.seq <= latestSeqRef.current) return
+        latestSeqRef.current = parsed.seq
+        revalidator.revalidate()
+      } catch (error) {
+        console.error('Malformed SSE match event payload', error)
+      }
+    }
+
+    stream.addEventListener('ready', handleReady)
+    stream.addEventListener('ev', handleEvent)
+
+    return () => {
+      stream.removeEventListener('ready', handleReady)
+      stream.removeEventListener('ev', handleEvent)
+      stream.close()
+    }
   }, [matchId, revalidator])
 
   const themeId = (sp.get('theme') ?? 'club') as keyof typeof themes

@@ -1,15 +1,26 @@
 export type GameInputMode = 'pyramid-basic'
 
+export type LocalizedGameTitle = {
+  uk: string
+  en: string
+}
+
 export const registry = {
   'free-pyramid': {
     meta: {
-      label: 'Free pyramid',
+      title: {
+        uk: 'Вільна піраміда',
+        en: 'Free pyramid',
+      } satisfies LocalizedGameTitle,
       inputMode: 'pyramid-basic',
     },
   },
   'combined-pyramid-old': {
     meta: {
-      label: 'Combined pyramid (old)',
+      title: {
+        uk: 'Комбінована піраміда (старі правила)',
+        en: 'Combined pyramid (old rules)',
+      } satisfies LocalizedGameTitle,
       inputMode: 'pyramid-basic',
     },
   },
