@@ -1,18 +1,20 @@
-import { createMatchService, CreateMatchRequestSchema } from '@ks/competition'
+import { createMatchService, CreateMatchRequestSchema, type CreateMatchRequest } from '@ks/competition'
 import { gameKeys, registry, type RegisteredGameKey } from '@ks/gameplay'
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@ks/ui'
-import type { ActionFunctionArgs } from 'react-router'
 import { Form, useActionData, useNavigation, useSearchParams } from 'react-router'
 
 import { useRootLocale } from '../root'
 import { requireEnv } from '../server/context'
 import { makeMatchWriteRepository } from '../server/match-room'
+import type { Route } from './+types/admin-create'
 
-export async function action({ request, context }: ActionFunctionArgs) {
+type AdminCreateActionResult = ({ ok: true } & Awaited<ReturnType<typeof createMatchService>>) | { ok: false; error: string }
+
+export async function action({ request, context }: Route.ActionArgs): Promise<AdminCreateActionResult> {
   const env = requireEnv(context)
   const formData = await request.formData()
 
-  const payload = {
+  const payload: CreateMatchRequest = {
     gameKey: String(formData.get('gameKey') ?? ''),
     targets: {
       frameTargetPointsBySeat: {
@@ -22,18 +24,18 @@ export async function action({ request, context }: ActionFunctionArgs) {
       matchTargetFrames: Number(formData.get('matchTargetFrames') ?? 0),
     },
     participants: [
-      { seat: 'A' as const, displayName: String(formData.get('nameA') ?? '') },
-      { seat: 'B' as const, displayName: String(formData.get('nameB') ?? '') },
+      { seat: 'A', displayName: String(formData.get('nameA') ?? '') },
+      { seat: 'B', displayName: String(formData.get('nameB') ?? '') },
     ],
   }
 
   const parsed = CreateMatchRequestSchema.safeParse(payload)
   if (!parsed.success) {
-    return { ok: false as const, error: 'Invalid form data' }
+    return { ok: false, error: 'Invalid form data' }
   }
 
   const result = await createMatchService(makeMatchWriteRepository(env), parsed.data)
-  return { ok: true as const, ...result }
+  return { ok: true, ...result }
 }
 
 export default function AdminCreateRoute() {

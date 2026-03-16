@@ -22,6 +22,10 @@ const previewFlavors = {
 
 type FlavorId = keyof typeof previewFlavors
 
+function isFlavorId(value: string): value is FlavorId {
+  return value in previewFlavors
+}
+
 export default function TopSecretPreviewUiRoute() {
   const [searchParams, setSearchParams] = useSearchParams()
   const flavorId = searchParams.get('flavor') === 'latte' ? 'latte' : 'mocha'
@@ -53,7 +57,11 @@ export default function TopSecretPreviewUiRoute() {
               <select
                 id="flavor"
                 value={flavorId}
-                onChange={(event) => setFlavor(event.target.value as FlavorId)}
+                onChange={(event) => {
+                  if (isFlavorId(event.target.value)) {
+                    setFlavor(event.target.value)
+                  }
+                }}
                 className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
               >
                 {Object.entries(previewFlavors).map(([key, value]) => (

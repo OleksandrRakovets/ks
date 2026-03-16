@@ -1,5 +1,5 @@
-import type { LoaderFunctionArgs } from 'react-router'
+import type { Route } from './+types/favicon'
 
-export function loader(_args: LoaderFunctionArgs) {
+export function loader(_args: Route.LoaderArgs) {
   return new Response(null, { status: 204 })
 }

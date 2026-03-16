@@ -47,37 +47,43 @@ export type MatchId = Brand<string, 'MatchId'>
 export type EventId = Brand<string, 'EventId'>
 export type ClientId = Brand<string, 'ClientId'>
 
-export const PlayerIdSchema = z
-  .string()
-  .regex(ULID_RE)
-  .transform((v) => v as PlayerId)
-export const MatchIdSchema = z
-  .string()
-  .regex(ULID_RE)
-  .transform((v) => v as MatchId)
-export const EventIdSchema = z
-  .string()
-  .regex(ULID_RE)
-  .transform((v) => v as EventId)
-export const ClientIdSchema = z
-  .string()
-  .min(8)
-  .transform((v) => v as ClientId)
+function toBrand<B extends string>(value: string): Brand<string, B> {
+  return value as Brand<string, B>
+}
+
+function ulidBrandedSchema<B extends string>() {
+  return z
+    .string()
+    .regex(ULID_RE)
+    .transform((value) => toBrand<B>(value))
+}
+
+function minLengthBrandedSchema<B extends string>(minLength: number) {
+  return z
+    .string()
+    .min(minLength)
+    .transform((value) => toBrand<B>(value))
+}
+
+export const PlayerIdSchema = ulidBrandedSchema<'PlayerId'>()
+export const MatchIdSchema = ulidBrandedSchema<'MatchId'>()
+export const EventIdSchema = ulidBrandedSchema<'EventId'>()
+export const ClientIdSchema = minLengthBrandedSchema<'ClientId'>(8)
 
 export function newPlayerId(): PlayerId {
-  return ulidWeb() as PlayerId
+  return PlayerIdSchema.parse(ulidWeb())
 }
 
 export function newMatchId(): MatchId {
-  return ulidWeb() as MatchId
+  return MatchIdSchema.parse(ulidWeb())
 }
 
 export function newEventId(): EventId {
-  return ulidWeb() as EventId
+  return EventIdSchema.parse(ulidWeb())
 }
 
 export function newClientId(): ClientId {
-  return ulidWeb() as ClientId
+  return ClientIdSchema.parse(ulidWeb())
 }
 
 export function formatPrefixedId(prefix: 'm' | 'p' | 'e' | 'c', id: string): string {

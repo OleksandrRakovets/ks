@@ -1,5 +1,14 @@
-import type { GameKey, MatchConfig, MatchSnapshot, Seat } from '@ks/core'
+import {
+  BySeatNumberSchema,
+  MatchConfigSchema,
+  SeatSchema,
+  type GameKey,
+  type MatchConfig,
+  type MatchSnapshot,
+  type Seat,
+} from '@ks/core'
 import invariant from 'tiny-invariant'
+import { z } from 'zod'
 
 export type MatchState = {
   config?: MatchConfig
@@ -12,6 +21,20 @@ export type MatchState = {
   framesWonBySeat: { A: number; B: number }
   currentFrameIndex: number
 }
+
+const MatchStateFrameSchema = z.object({
+  frameIndex: z.number().int().positive(),
+  pointsBySeat: BySeatNumberSchema,
+  winnerSeat: SeatSchema.optional(),
+})
+
+export const MatchStateSchema = z.object({
+  config: MatchConfigSchema.optional(),
+  status: z.enum(['empty', 'active', 'finished']),
+  frames: z.array(MatchStateFrameSchema),
+  framesWonBySeat: BySeatNumberSchema,
+  currentFrameIndex: z.number().int().nonnegative(),
+})
 
 export function emptyState(): MatchState {
   return {

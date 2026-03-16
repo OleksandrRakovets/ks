@@ -1,7 +1,8 @@
 import type { ClientEvent, MatchSnapshot } from '@ks/core'
-import { applyEvent, emptyState, toSnapshot, type MatchState } from '@ks/gameplay'
+import { MatchStateSchema, applyEvent, emptyState, toSnapshot, type MatchState } from '@ks/gameplay'
 
 export type { MatchState }
+export { MatchStateSchema }
 
 export function emptyMatchState(): MatchState {
   return emptyState()

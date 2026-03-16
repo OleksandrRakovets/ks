@@ -1,4 +1,4 @@
-import { applyMatchEvent, emptyMatchState, snapshotFromMatchState, type MatchState } from '@ks/competition'
+import { MatchStateSchema, applyMatchEvent, emptyMatchState, snapshotFromMatchState, type MatchState } from '@ks/competition'
 import {
   ClientEventSchema,
   ClientIdSchema,
@@ -36,6 +36,14 @@ function sseHeaders(): HeadersInit {
   }
 }
 
+function tryParseJson(raw: string): unknown | null {
+  try {
+    return JSON.parse(raw)
+  } catch {
+    return null
+  }
+}
+
 export class MatchRoom implements DurableObject {
   private state: DurableObjectState
   private env: Env
@@ -43,7 +51,7 @@ export class MatchRoom implements DurableObject {
   private encoder = new TextEncoder()
   private clients = new Set<{
     controller: ReadableStreamDefaultController<Uint8Array>
-    pingTimer: number
+    pingTimer: ReturnType<typeof setInterval>
   }>()
 
   constructor(state: DurableObjectState, env: Env) {
@@ -130,7 +138,7 @@ export class MatchRoom implements DurableObject {
 
       let client: {
         controller: ReadableStreamDefaultController<Uint8Array>
-        pingTimer: number
+        pingTimer: ReturnType<typeof setInterval>
       } | null = null
 
       const stream = new ReadableStream<Uint8Array>({
@@ -153,7 +161,7 @@ export class MatchRoom implements DurableObject {
               } catch {
                 // if enqueue fails, cancel will run later
               }
-            }, 25000) as unknown as number,
+            }, 25000),
           }
           this.clients.add(client)
         },
@@ -191,12 +199,13 @@ export class MatchRoom implements DurableObject {
     let replayAfter = 0
 
     if (persistedSnapshot && persistedSnapshot.latest_seq <= latestSeq) {
-      try {
-        derived = JSON.parse(persistedSnapshot.state_json) as MatchState
-        replayAfter = persistedSnapshot.latest_seq
-      } catch {
-        derived = emptyMatchState()
-        replayAfter = 0
+      const decoded = tryParseJson(persistedSnapshot.state_json)
+      if (decoded !== null) {
+        const parsed = MatchStateSchema.safeParse(decoded)
+        if (parsed.success) {
+          derived = parsed.data
+          replayAfter = persistedSnapshot.latest_seq
+        }
       }
     }
 
@@ -222,7 +231,7 @@ export class MatchRoom implements DurableObject {
         const parsed = ClientEventSchema.safeParse(ev)
         if (!parsed.success) continue
 
-        const eventId = parsed.data.eventId as unknown as string
+        const eventId = parsed.data.eventId
         if (await eventExists(this.env, matchId, eventId)) {
           continue
         }

@@ -1,26 +1,28 @@
-import { ClientEventSchema, type MatchSnapshot } from '@ks/core'
+import { ClientEventSchema, PostEventsResponseSchema, SnapshotResponseSchema } from '@ks/core'
 import { deriveMatchControlDecisions, isRegisteredGameKey, registry, type RegisteredGameKey } from '@ks/gameplay'
 import { Button, Card, CardContent } from '@ks/ui'
 import { useEffect } from 'react'
-import type { ActionFunctionArgs, LoaderFunctionArgs } from 'react-router'
 import { useFetcher, useLoaderData, useParams, useRevalidator, useSearchParams } from 'react-router'
 
 import { makeAwardFrameEvent, makeEndMatchEvent, makeShotRecordedEvent, makeStartFrameEvent } from '../lib/ks'
 import { requireEnv } from '../server/context'
 import { fetchMatchSnapshot, postMatchEvents } from '../server/match-room'
+import type { Route } from './+types/control-match'
 
-export async function loader({ params, context }: LoaderFunctionArgs) {
+type ControlMatchActionResult = { ok: true } | { ok: false; error: string }
+
+export async function loader({ params, context }: Route.LoaderArgs) {
   const env = requireEnv(context)
   const matchId = params.matchId
   if (!matchId) throw new Response('Missing matchId', { status: 400 })
 
   const res = await fetchMatchSnapshot(env, matchId)
-  const body = (await res.json()) as { ok: boolean; snapshot: MatchSnapshot }
+  const body = SnapshotResponseSchema.parse(await res.json())
   if (!body.ok) throw new Response('Failed to load snapshot', { status: 500 })
   return { snapshot: body.snapshot }
 }
 
-export async function action({ params, request, context }: ActionFunctionArgs) {
+export async function action({ params, request, context }: Route.ActionArgs): Promise<ControlMatchActionResult> {
   const env = requireEnv(context)
   const matchId = params.matchId
   if (!matchId) throw new Response('Missing matchId', { status: 400 })
@@ -28,20 +30,27 @@ export async function action({ params, request, context }: ActionFunctionArgs) {
   const form = await request.formData()
   const controlSecret = String(form.get('controlSecret') ?? '')
   const rawEvent = String(form.get('event') ?? '')
-  const parsedEvent = ClientEventSchema.safeParse(JSON.parse(rawEvent))
+  let decodedEvent: unknown
+  try {
+    decodedEvent = JSON.parse(rawEvent)
+  } catch {
+    return { ok: false, error: 'Invalid event payload' }
+  }
+
+  const parsedEvent = ClientEventSchema.safeParse(decodedEvent)
   if (!parsedEvent.success) {
-    return { ok: false as const, error: 'Invalid event payload' }
+    return { ok: false, error: 'Invalid event payload' }
   }
 
   const res = await postMatchEvents(env, matchId, controlSecret, [parsedEvent.data])
-  const payload = (await res.json()) as { ok: boolean; error?: string; accepted?: { seq: number; eventId: string }[] }
+  const payload = PostEventsResponseSchema.parse(await res.json())
   if (!payload.ok) {
-    return { ok: false as const, error: payload.error ?? 'Failed to append event' }
+    return { ok: false, error: payload.error }
   }
-  if (!payload.accepted || payload.accepted.length === 0) {
-    return { ok: false as const, error: 'Event rejected by match rules' }
+  if (payload.accepted.length === 0) {
+    return { ok: false, error: 'Event rejected by match rules' }
   }
-  return { ok: true as const }
+  return { ok: true }
 }
 
 function PyramidShotControls(props: { seat: 'A' | 'B'; canScore: boolean; onShot: (seat: 'A' | 'B', points: number) => void }) {

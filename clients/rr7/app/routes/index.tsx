@@ -1,7 +1,8 @@
 import { redirect } from 'react-router'
-import type { LoaderFunctionArgs } from 'react-router'
 
-export function loader(_args: LoaderFunctionArgs) {
+import type { Route } from './+types/index'
+
+export function loader(_args: Route.LoaderArgs) {
   return redirect('/admin/create')
 }
 

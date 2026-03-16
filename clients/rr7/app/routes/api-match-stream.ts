@@ -1,9 +1,8 @@
-import type { LoaderFunctionArgs } from 'react-router'
-
 import { requireEnv } from '../server/context'
 import { streamMatchEvents } from '../server/match-room'
+import type { Route } from './+types/api-match-stream'
 
-export async function loader({ params, request, context }: LoaderFunctionArgs) {
+export async function loader({ params, request, context }: Route.LoaderArgs) {
   const env = requireEnv(context)
   const matchId = params.matchId
   if (!matchId) throw new Response('Missing matchId', { status: 400 })

@@ -13,7 +13,7 @@ declare module 'react-router' {
 }
 
 const requestHandler = createRequestHandler(
-  () => import('virtual:react-router/server-build') as unknown as import('react-router').ServerBuild,
+  () => import('virtual:react-router/server-build').then((mod) => mod.default),
   process.env.NODE_ENV,
 )
 

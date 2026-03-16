@@ -1,6 +1,14 @@
-import type { ClientEvent, StoredEvent } from '@ks/core'
+import { StoredEventSchema, type ClientEvent, type StoredEvent } from '@ks/core'
 
 import type { Env } from '../env'
+
+function tryParseJson(raw: string): unknown | null {
+  try {
+    return JSON.parse(raw)
+  } catch {
+    return null
+  }
+}
 
 export async function eventExists(env: Env, matchId: string, eventId: string): Promise<boolean> {
   const row = await env.DB.prepare('SELECT 1 AS one FROM events WHERE match_id = ? AND event_id = ?')
@@ -32,17 +40,26 @@ export async function listEventsAfter(env: Env, matchId: string, sinceSeq: numbe
       received_at: number
     }>()
 
-  return (res.results ?? []).map((r) => ({
-    seq: r.seq,
-    eventId: r.event_id as StoredEvent['eventId'],
-    matchId: matchId as StoredEvent['matchId'],
-    clientId: r.client_id as StoredEvent['clientId'],
-    clientSeq: r.client_seq,
-    at: r.at,
-    receivedAt: r.received_at,
-    type: r.type as StoredEvent['type'],
-    payload: JSON.parse(r.payload_json),
-  }))
+  return (res.results ?? [])
+    .map((r) => {
+      const payload = tryParseJson(r.payload_json)
+      if (payload === null) return null
+
+      const parsed = StoredEventSchema.safeParse({
+        seq: r.seq,
+        eventId: r.event_id,
+        matchId,
+        clientId: r.client_id,
+        clientSeq: r.client_seq,
+        at: r.at,
+        receivedAt: r.received_at,
+        type: r.type,
+        payload,
+      })
+
+      return parsed.success ? parsed.data : null
+    })
+    .flatMap((parsed) => (parsed ? [parsed] : []))
 }
 
 export async function insertStoredEvent(
@@ -55,16 +72,6 @@ export async function insertStoredEvent(
   await env.DB.prepare(
     'INSERT INTO events (match_id, seq, event_id, type, payload_json, client_id, client_seq, at, received_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
   )
-    .bind(
-      matchId,
-      seq,
-      ev.eventId as unknown as string,
-      ev.type,
-      JSON.stringify(ev.payload ?? {}),
-      ev.clientId as unknown as string,
-      ev.clientSeq,
-      ev.at,
-      receivedAt,
-    )
+    .bind(matchId, seq, ev.eventId, ev.type, JSON.stringify(ev.payload ?? {}), ev.clientId, ev.clientSeq, ev.at, receivedAt)
     .run()
 }

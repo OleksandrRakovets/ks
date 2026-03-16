@@ -75,7 +75,11 @@ export const ClientEventSchema = z.discriminatedUnion('type', [
 
 export type ClientEvent = z.infer<typeof ClientEventSchema>
 
-export type StoredEvent = ClientEvent & {
-  seq: number
-  receivedAt: number
-}
+export const StoredEventSchema = ClientEventSchema.and(
+  z.object({
+    seq: z.number().int().positive(),
+    receivedAt: z.number().int().nonnegative(),
+  }),
+)
+
+export type StoredEvent = z.infer<typeof StoredEventSchema>

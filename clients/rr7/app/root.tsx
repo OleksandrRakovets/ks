@@ -1,7 +1,8 @@
 import type { SupportedLocale } from '@ks/i18n'
-import type { LoaderFunctionArgs } from 'react-router'
 import { Links, Meta, Outlet, Scripts, ScrollRestoration, useLoaderData, useRouteLoaderData } from 'react-router'
 import invariant from 'tiny-invariant'
+
+import type { Route } from './+types/root'
 
 const LOCALE_COOKIE_NAME = 'ks.locale'
 
@@ -20,7 +21,7 @@ function localeFromCookie(cookieHeader: string | null): SupportedLocale {
   return 'uk'
 }
 
-export function loader({ request }: LoaderFunctionArgs) {
+export function loader({ request }: Route.LoaderArgs) {
   return { locale: localeFromCookie(request.headers.get('cookie')) }
 }
 

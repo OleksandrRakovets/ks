@@ -59,20 +59,22 @@ export const MatchConfigSchema = MatchConfigWireSchema.transform(({ gameKey, gam
 
 export type MatchConfig = z.infer<typeof MatchConfigSchema>
 
-export type FrameState = {
-  frameIndex: number
-  pointsBySeat: { A: number; B: number }
-  winnerSeat?: Seat
-}
+export const FrameStateSchema = z.object({
+  frameIndex: z.number().int().positive(),
+  pointsBySeat: BySeatNumberSchema,
+  winnerSeat: SeatSchema.optional(),
+})
+export type FrameState = z.infer<typeof FrameStateSchema>
 
-export type MatchSnapshot = {
-  matchId: string
-  gameKey: GameKey
-  targets: MatchConfig['targets']
-  participants: MatchConfig['participants']
-  status: 'active' | 'finished'
-  currentFrameIndex: number
-  framesWonBySeat: { A: number; B: number }
-  frames: FrameState[]
-  latestSeq: number
-}
+export const MatchSnapshotSchema = z.object({
+  matchId: MatchIdSchema,
+  gameKey: GameKeySchema,
+  targets: MatchTargetsSchema,
+  participants: z.array(MatchParticipantSchema).length(2),
+  status: z.enum(['active', 'finished']),
+  currentFrameIndex: z.number().int().nonnegative(),
+  framesWonBySeat: BySeatNumberSchema,
+  frames: z.array(FrameStateSchema),
+  latestSeq: z.number().int().nonnegative(),
+})
+export type MatchSnapshot = z.infer<typeof MatchSnapshotSchema>
