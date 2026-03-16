@@ -1,11 +1,11 @@
 import { ClientEventSchema, type MatchSnapshot } from '@ks/core'
-import { isRegisteredGameKey, registry, type RegisteredGameKey } from '@ks/gameplay'
+import { deriveMatchControlDecisions, isRegisteredGameKey, registry, type RegisteredGameKey } from '@ks/gameplay'
 import { Button, Card, CardContent } from '@ks/ui'
 import { useEffect } from 'react'
 import type { ActionFunctionArgs, LoaderFunctionArgs } from 'react-router'
 import { useFetcher, useLoaderData, useParams, useRevalidator, useSearchParams } from 'react-router'
 
-import { makeAwardFrameEvent, makeShotRecordedEvent, makeStartFrameEvent } from '../lib/ks'
+import { makeAwardFrameEvent, makeEndMatchEvent, makeShotRecordedEvent, makeStartFrameEvent } from '../lib/ks'
 import { requireEnv } from '../server/context'
 import { fetchMatchSnapshot, postMatchEvents } from '../server/match-room'
 
@@ -34,9 +34,12 @@ export async function action({ params, request, context }: ActionFunctionArgs) {
   }
 
   const res = await postMatchEvents(env, matchId, controlSecret, [parsedEvent.data])
-  const payload = (await res.json()) as { ok: boolean; error?: string }
+  const payload = (await res.json()) as { ok: boolean; error?: string; accepted?: { seq: number; eventId: string }[] }
   if (!payload.ok) {
     return { ok: false as const, error: payload.error ?? 'Failed to append event' }
+  }
+  if (!payload.accepted || payload.accepted.length === 0) {
+    return { ok: false as const, error: 'Event rejected by match rules' }
   }
   return { ok: true as const }
 }
@@ -85,15 +88,13 @@ export default function ControlMatchRoute() {
   const frameIndex = snapshot.currentFrameIndex
   const pointsA = cur?.pointsBySeat.A ?? 0
   const pointsB = cur?.pointsBySeat.B ?? 0
-  const targetA = snapshot.targets.frameTargetPointsBySeat.A
-  const targetB = snapshot.targets.frameTargetPointsBySeat.B
   const maybeGameKey = snapshot.gameKey
   const gameKey: RegisteredGameKey = isRegisteredGameKey(maybeGameKey) ? maybeGameKey : 'free-pyramid'
   const inputMode = registry[gameKey].meta.inputMode
-  const winnerSeat = cur?.winnerSeat
-  const canAwardA = targetA > 0 && pointsA >= targetA && !winnerSeat
-  const canAwardB = targetB > 0 && pointsB >= targetB && !winnerSeat
-  const canScore = !winnerSeat
+  const decisions = deriveMatchControlDecisions(snapshot)
+  const canAwardA = decisions.canAwardBySeat.A
+  const canAwardB = decisions.canAwardBySeat.B
+  const canScore = decisions.canScore
 
   function submitEvent(event: unknown) {
     fetcher.submit({ controlSecret, event: JSON.stringify(event) }, { method: 'post' })
@@ -150,7 +151,7 @@ export default function ControlMatchRoute() {
             </Card>
           </div>
 
-          {winnerSeat ? (
+          {decisions.canStartNextFrame ? (
             <Button
               type="button"
               variant="secondary"
@@ -158,6 +159,17 @@ export default function ControlMatchRoute() {
               onClick={() => submitEvent(makeStartFrameEvent(matchId, frameIndex + 1))}
             >
               Start next frame
+            </Button>
+          ) : null}
+
+          {decisions.canEndMatch ? (
+            <Button
+              type="button"
+              variant="secondary"
+              className="h-auto justify-start rounded-xl px-4 py-3 text-left text-sm"
+              onClick={() => submitEvent(makeEndMatchEvent(matchId))}
+            >
+              End match
             </Button>
           ) : null}
 

@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 
 import { newClientId, newEventId, newMatchId, type ClientEvent, type MatchConfig } from '@ks/core'
 
-import { applyEvent, emptyState } from '../src'
+import { applyEvent, deriveMatchControlDecisions, emptyState, toSnapshot } from '../src'
 
 function baseEvent(matchId: string, type: ClientEvent['type'], payload: unknown): ClientEvent {
   return {
@@ -16,14 +16,14 @@ function baseEvent(matchId: string, type: ClientEvent['type'], payload: unknown)
   } as ClientEvent
 }
 
-function makeConfig(gameKey: MatchConfig['gameKey']): MatchConfig {
+function makeConfig(gameKey: MatchConfig['gameKey'], matchTargetFrames = 3): MatchConfig {
   const matchId = newMatchId()
   return {
     matchId,
     gameKey,
     targets: {
       frameTargetPointsBySeat: { A: 8, B: 8 },
-      matchTargetFrames: 3,
+      matchTargetFrames,
     },
     participants: [
       { seat: 'A', displayName: 'A' },
@@ -83,4 +83,72 @@ test('frame award increments framesWon', () => {
   s = applyEvent(s, baseEvent(config.matchId, 'frame.started', { frameIndex: 1 }))
   s = applyEvent(s, baseEvent(config.matchId, 'frame.awarded', { frameIndex: 1, winnerSeat: 'A' }))
   expect(s.framesWonBySeat.A).toBe(1)
+})
+
+test('free-pyramid allows break above frame target before frame award', () => {
+  const config = makeConfig('free-pyramid')
+  let s = emptyState()
+  s = applyEvent(s, baseEvent(config.matchId, 'match.created', config))
+  s = applyEvent(s, baseEvent(config.matchId, 'frame.started', { frameIndex: 1 }))
+  s = applyEvent(
+    s,
+    baseEvent(config.matchId, 'game.command', {
+      gameKey: config.gameKey,
+      commandType: 'shot.recorded',
+      command: { seat: 'A', points: 8 },
+    }),
+  )
+  s = applyEvent(
+    s,
+    baseEvent(config.matchId, 'game.command', {
+      gameKey: config.gameKey,
+      commandType: 'shot.recorded',
+      command: { seat: 'A', points: 2 },
+    }),
+  )
+
+  expect(s.frames[0]?.pointsBySeat.A).toBe(10)
+  const snapshot = toSnapshot(s, 4)
+  const decisions = deriveMatchControlDecisions(snapshot)
+  expect(decisions.canAwardBySeat.A).toBe(true)
+  expect(decisions.canScore).toBe(true)
+})
+
+test('can start next frame before match target is reached', () => {
+  const config = makeConfig('free-pyramid', 2)
+  let s = emptyState()
+  s = applyEvent(s, baseEvent(config.matchId, 'match.created', config))
+  s = applyEvent(s, baseEvent(config.matchId, 'frame.started', { frameIndex: 1 }))
+  s = applyEvent(s, baseEvent(config.matchId, 'frame.awarded', { frameIndex: 1, winnerSeat: 'A' }))
+  s = applyEvent(s, baseEvent(config.matchId, 'frame.started', { frameIndex: 2 }))
+  expect(s.currentFrameIndex).toBe(2)
+})
+
+test('cannot start next frame after match target is reached', () => {
+  const config = makeConfig('free-pyramid', 1)
+  let s = emptyState()
+  s = applyEvent(s, baseEvent(config.matchId, 'match.created', config))
+  s = applyEvent(s, baseEvent(config.matchId, 'frame.started', { frameIndex: 1 }))
+  s = applyEvent(s, baseEvent(config.matchId, 'frame.awarded', { frameIndex: 1, winnerSeat: 'A' }))
+
+  expect(() => applyEvent(s, baseEvent(config.matchId, 'frame.started', { frameIndex: 2 }))).toThrow(
+    'Cannot start new frame after match target is reached',
+  )
+})
+
+test('final frame still requires explicit match.ended event', () => {
+  const config = makeConfig('free-pyramid', 1)
+  let s = emptyState()
+  s = applyEvent(s, baseEvent(config.matchId, 'match.created', config))
+  s = applyEvent(s, baseEvent(config.matchId, 'frame.started', { frameIndex: 1 }))
+  s = applyEvent(s, baseEvent(config.matchId, 'frame.awarded', { frameIndex: 1, winnerSeat: 'A' }))
+  expect(s.status).toBe('active')
+
+  const snapshot = toSnapshot(s, 3)
+  const decisionsBeforeEnd = deriveMatchControlDecisions(snapshot)
+  expect(decisionsBeforeEnd.canStartNextFrame).toBe(false)
+  expect(decisionsBeforeEnd.canEndMatch).toBe(true)
+
+  s = applyEvent(s, baseEvent(config.matchId, 'match.ended', { reason: 'target-reached' }))
+  expect(s.status).toBe('finished')
 })

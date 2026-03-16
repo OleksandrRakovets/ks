@@ -67,3 +67,17 @@ export function makeStartFrameEvent(matchId: string, frameIndex: number): Client
     payload: { frameIndex },
   } as ClientEvent
 }
+
+export function makeEndMatchEvent(matchId: string): ClientEvent {
+  const parsedMatchId = MatchIdSchema.parse(matchId)
+  const parsedClientId = ClientIdSchema.parse(getOrCreateClientId())
+  return {
+    eventId: newEventId(),
+    matchId: parsedMatchId,
+    clientId: parsedClientId,
+    clientSeq: nextClientSeq(matchId),
+    at: Date.now(),
+    type: 'match.ended',
+    payload: { reason: 'target-reached' },
+  } as ClientEvent
+}

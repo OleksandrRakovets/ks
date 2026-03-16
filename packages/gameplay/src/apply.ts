@@ -70,6 +70,10 @@ export function applyEvent(prev: MatchState, event: ClientEvent): MatchState {
       invariant(state.status === 'active', 'Cannot start frame when not active')
       invariant(state.config, 'Missing match config')
 
+      const matchTargetFrames = state.config.targets.matchTargetFrames
+      const isMatchTargetReached = state.framesWonBySeat.A >= matchTargetFrames || state.framesWonBySeat.B >= matchTargetFrames
+      invariant(!isMatchTargetReached, 'Cannot start new frame after match target is reached')
+
       const { frameIndex } = event.payload
       const last = state.frames[state.frames.length - 1]
       invariant(!last || last.winnerSeat, 'Cannot start a new frame while current is unawarded')
