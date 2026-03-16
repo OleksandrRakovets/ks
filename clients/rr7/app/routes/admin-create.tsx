@@ -1,5 +1,5 @@
 import { createMatchService, CreateMatchRequestSchema, type CreateMatchRequest } from '@ks/competition'
-import { gameKeys, registry, type RegisteredGameKey } from '@ks/gameplay'
+import { registry } from '@ks/gameplay'
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@ks/ui'
 import { Form, useActionData, useNavigation, useSearchParams } from 'react-router'
 
@@ -60,12 +60,11 @@ export default function AdminCreateRoute() {
                 <select
                   id="gameKey"
                   name="gameKey"
-                  defaultValue={'free-pyramid' satisfies RegisteredGameKey}
                   className="h-8 rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
                 >
-                  {gameKeys.map((key) => (
+                  {Object.entries(registry).map(([key, game]) => (
                     <option key={key} value={key}>
-                      {registry[key].meta.title[locale]}
+                      {game.meta.title[locale]}
                     </option>
                   ))}
                 </select>

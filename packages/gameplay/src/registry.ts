@@ -28,8 +28,6 @@ export const registry = {
 
 export type RegisteredGameKey = keyof typeof registry
 
-export const gameKeys = Object.keys(registry) as RegisteredGameKey[]
-
 export function isRegisteredGameKey(value: string): value is RegisteredGameKey {
   return value in registry
 }

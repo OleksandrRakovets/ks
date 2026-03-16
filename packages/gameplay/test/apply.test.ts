@@ -1,11 +1,15 @@
 import { describe, expect, test } from 'bun:test'
 
-import { newClientId, newEventId, newMatchId, type ClientEvent, type MatchConfig } from '@ks/core'
+import { ClientEventSchema, newClientId, newEventId, newMatchId, type ClientEvent, type MatchConfig } from '@ks/core'
 
 import { applyEvent, deriveMatchControlDecisions, emptyState, toSnapshot } from '../src'
 
-function baseEvent(matchId: string, type: ClientEvent['type'], payload: unknown): ClientEvent {
-  return {
+function baseEvent<TType extends ClientEvent['type']>(
+  matchId: string,
+  type: TType,
+  payload: Extract<ClientEvent, { type: TType }>['payload'],
+): ClientEvent {
+  return ClientEventSchema.parse({
     eventId: newEventId(),
     matchId,
     clientId: newClientId(),
@@ -13,7 +17,7 @@ function baseEvent(matchId: string, type: ClientEvent['type'], payload: unknown)
     at: Date.now(),
     type,
     payload,
-  } as ClientEvent
+  })
 }
 
 function makeConfig(gameKey: MatchConfig['gameKey'], matchTargetFrames = 3): MatchConfig {
