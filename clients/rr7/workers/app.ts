@@ -1,4 +1,5 @@
 import { createRequestHandler } from 'react-router'
+import type { ServerBuild } from 'react-router'
 
 import { MatchRoom } from './do/MatchRoom'
 import type { Env } from './env'
@@ -13,7 +14,10 @@ declare module 'react-router' {
 }
 
 const requestHandler = createRequestHandler(
-  () => import('virtual:react-router/server-build').then((mod) => mod.default),
+  () =>
+    import('virtual:react-router/server-build').then(
+      (mod) => (mod as { default?: ServerBuild }).default ?? (mod as unknown as ServerBuild),
+    ),
   process.env.NODE_ENV,
 )
 

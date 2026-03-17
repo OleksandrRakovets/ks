@@ -34,7 +34,7 @@ export default function PublicScoreboardRoute() {
   const { snapshot } = useLoaderData<typeof loader>()
   const params = useParams()
   const [sp] = useSearchParams()
-  const revalidator = useRevalidator()
+  const { revalidate } = useRevalidator()
   const latestSeqRef = useRef(snapshot.latestSeq)
   const matchId = params.matchId ?? ''
 
@@ -45,7 +45,7 @@ export default function PublicScoreboardRoute() {
   useEffect(() => {
     if (!matchId) return
 
-    const stream = new EventSource(`/api/m/${matchId}/stream`)
+    const stream = new EventSource(`/api/m/${matchId}/stream?since=${latestSeqRef.current}`)
 
     const handleReady = (event: Event) => {
       if (!(event instanceof MessageEvent)) return
@@ -62,7 +62,7 @@ export default function PublicScoreboardRoute() {
       }
 
       if (parsed.data.latestSeq > latestSeqRef.current) {
-        revalidator.revalidate()
+        revalidate()
       }
     }
 
@@ -82,7 +82,7 @@ export default function PublicScoreboardRoute() {
 
       if (parsed.data.seq <= latestSeqRef.current) return
       latestSeqRef.current = parsed.data.seq
-      revalidator.revalidate()
+      revalidate()
     }
 
     stream.addEventListener('ready', handleReady)
@@ -93,7 +93,7 @@ export default function PublicScoreboardRoute() {
       stream.removeEventListener('ev', handleEvent)
       stream.close()
     }
-  }, [matchId, revalidator])
+  }, [matchId, revalidate])
 
   const rawThemeId = sp.get('theme')
   const themeId = rawThemeId && isThemeId(rawThemeId) ? rawThemeId : 'club'
