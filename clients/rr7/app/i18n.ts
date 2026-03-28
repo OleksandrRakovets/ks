@@ -34,7 +34,6 @@ void i18n.use(initReactI18next).init({
   resources,
   lng: pickLocale(),
   fallbackLng: 'uk',
-  showSupportNotice: false,
   interpolation: { escapeValue: false },
 })
 
