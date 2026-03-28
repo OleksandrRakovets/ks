@@ -3,7 +3,6 @@
   "compilerOptions": {
     "composite": true,
     "noEmit": true,
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./app/*"],
       "@ks/ui": ["../../packages/ui/src/index.ts"],

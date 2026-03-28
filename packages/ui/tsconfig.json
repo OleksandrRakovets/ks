@@ -3,7 +3,6 @@
   "compilerOptions": {
     "composite": true,
     "jsx": "react-jsx",
-    "baseUrl": ".",
     "paths": {
       "@ks/ui": ["./src/index.ts"],
       "@ks/ui/*": ["./src/*"]
