@@ -1,7 +1,9 @@
 import { ClientEventSchema, PostEventsResponseSchema, SnapshotResponseSchema } from '@ks/core'
 import { deriveMatchControlDecisions, isRegisteredGameKey, registry, type RegisteredGameKey } from '@ks/gameplay'
+import { keys } from '@ks/i18n'
 import { Button, Card, CardContent } from '@ks/ui'
 import { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useFetcher, useLoaderData, useParams, useRevalidator, useSearchParams } from 'react-router'
 
 import { makeAwardFrameEvent, makeEndMatchEvent, makeShotRecordedEvent, makeStartFrameEvent } from '../lib/ks'
@@ -9,7 +11,13 @@ import { requireEnv } from '../server/context'
 import { fetchMatchSnapshot, postMatchEvents } from '../server/match-room'
 import type { Route } from './+types/control-match'
 
-type ControlMatchActionResult = { ok: true } | { ok: false; error: string }
+type ControlMatchActionResult =
+  | { ok: true }
+  | {
+      ok: false
+      error?: string
+      errorKey?: typeof keys.match.control.invalidEventPayload | typeof keys.match.control.eventRejectedByRules
+    }
 
 export async function loader({ params, context }: Route.LoaderArgs) {
   const env = requireEnv(context)
@@ -34,12 +42,12 @@ export async function action({ params, request, context }: Route.ActionArgs): Pr
   try {
     decodedEvent = JSON.parse(rawEvent)
   } catch {
-    return { ok: false, error: 'Invalid event payload' }
+    return { ok: false, errorKey: keys.match.control.invalidEventPayload }
   }
 
   const parsedEvent = ClientEventSchema.safeParse(decodedEvent)
   if (!parsedEvent.success) {
-    return { ok: false, error: 'Invalid event payload' }
+    return { ok: false, errorKey: keys.match.control.invalidEventPayload }
   }
 
   const res = await postMatchEvents(env, matchId, controlSecret, [parsedEvent.data])
@@ -48,7 +56,7 @@ export async function action({ params, request, context }: Route.ActionArgs): Pr
     return { ok: false, error: payload.error }
   }
   if (payload.accepted.length === 0) {
-    return { ok: false, error: 'Event rejected by match rules' }
+    return { ok: false, errorKey: keys.match.control.eventRejectedByRules }
   }
   return { ok: true }
 }
@@ -79,6 +87,7 @@ function PyramidShotControls(props: { seat: 'A' | 'B'; canScore: boolean; onShot
 }
 
 export default function ControlMatchRoute() {
+  const { t } = useTranslation()
   const { snapshot } = useLoaderData<typeof loader>()
   const params = useParams()
   const matchId = params.matchId ?? ''
@@ -115,9 +124,11 @@ export default function ControlMatchRoute() {
         <div className="flex items-end justify-between gap-4">
           <div>
             <div className="text-sm text-muted-foreground">{matchId}</div>
-            <h1 className="text-2xl font-semibold tracking-tight">Control Match</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">{t(keys.match.control.title)}</h1>
           </div>
-          <div className="text-right text-sm text-muted-foreground">Frame {frameIndex}</div>
+          <div className="text-right text-sm text-muted-foreground">
+            {t(keys.match.scoreboard.frame)} {frameIndex}
+          </div>
         </div>
 
         <div className="mt-6 grid gap-4">
@@ -135,7 +146,7 @@ export default function ControlMatchRoute() {
                 ) : null}
                 {canAwardA ? (
                   <Button className="mt-3 w-full" onClick={() => submitEvent(makeAwardFrameEvent(matchId, 'A', frameIndex))}>
-                    Award frame
+                    {t(keys.match.control.awardFrame)}
                   </Button>
                 ) : null}
               </CardContent>
@@ -153,7 +164,7 @@ export default function ControlMatchRoute() {
                 ) : null}
                 {canAwardB ? (
                   <Button className="mt-3 w-full" onClick={() => submitEvent(makeAwardFrameEvent(matchId, 'B', frameIndex))}>
-                    Award frame
+                    {t(keys.match.control.awardFrame)}
                   </Button>
                 ) : null}
               </CardContent>
@@ -167,7 +178,7 @@ export default function ControlMatchRoute() {
               className="h-auto justify-start rounded-xl px-4 py-3 text-left text-sm"
               onClick={() => submitEvent(makeStartFrameEvent(matchId, frameIndex + 1))}
             >
-              Start next frame
+              {t(keys.match.control.startNextFrame)}
             </Button>
           ) : null}
 
@@ -178,11 +189,15 @@ export default function ControlMatchRoute() {
               className="h-auto justify-start rounded-xl px-4 py-3 text-left text-sm"
               onClick={() => submitEvent(makeEndMatchEvent(matchId))}
             >
-              End match
+              {t(keys.match.control.endMatch)}
             </Button>
           ) : null}
 
-          {fetcher.data?.ok === false ? <div className="text-sm text-destructive">{fetcher.data.error}</div> : null}
+          {fetcher.data?.ok === false ? (
+            <div className="text-sm text-destructive">
+              {fetcher.data.errorKey ? t(fetcher.data.errorKey) : fetcher.data.error}
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
