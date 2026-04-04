@@ -95,5 +95,4 @@ describe('projection: control', () => {
       'concede-frame',
     ])
   })
-
 })

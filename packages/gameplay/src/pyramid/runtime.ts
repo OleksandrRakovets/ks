@@ -2,7 +2,12 @@ import { BySeatNumberSchema, SeatSchema } from '@ks/core'
 import invariant from 'tiny-invariant'
 import { z } from 'zod'
 
-import { GameControlProjectionSchema, GameScoreboardProjectionSchema, GameSummaryProjectionSchema, type GameProjectionKey } from '../abstract-runtime'
+import {
+  GameControlProjectionSchema,
+  GameScoreboardProjectionSchema,
+  GameSummaryProjectionSchema,
+  type GameProjectionKey,
+} from '../abstract-runtime'
 import { GameplayRuntime } from '../abstract-runtime'
 import type { GameInputMode } from '../registry'
 

@@ -65,7 +65,6 @@ describe('reducer: basic', () => {
       winner: 'A',
     })
   })
-
 })
 
 describe('reducer: foul handling', () => {

@@ -1,6 +1,11 @@
 import { z } from 'zod'
 
-import { GameCommandPresetSchema, GameControlProjectionSchema, GameScoreboardProjectionSchema, GameSummaryProjectionSchema } from '../abstract-runtime'
+import {
+  GameCommandPresetSchema,
+  GameControlProjectionSchema,
+  GameScoreboardProjectionSchema,
+  GameSummaryProjectionSchema,
+} from '../abstract-runtime'
 
 // First-pass Strila draft.
 //

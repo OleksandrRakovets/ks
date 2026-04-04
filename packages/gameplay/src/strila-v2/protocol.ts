@@ -33,7 +33,11 @@ function isThirdConsecutiveCueBallPot(previous: StrilaFrameState, command: Stril
 }
 
 function isRespottedBlackOpeningIllegalPot(previous: StrilaFrameState, command: StrilaCommand): boolean {
-  return previous.phase.type === 'respotted-black-opening' && command.type === 'record-pot' && !(command.pottedBalls.length === 1 && command.pottedBalls[0] === 7)
+  return (
+    previous.phase.type === 'respotted-black-opening' &&
+    command.type === 'record-pot' &&
+    !(command.pottedBalls.length === 1 && command.pottedBalls[0] === 7)
+  )
 }
 
 export function projectStrilaProtocolEntries(args: {
