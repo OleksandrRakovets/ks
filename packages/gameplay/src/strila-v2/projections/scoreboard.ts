@@ -6,11 +6,14 @@ export function deriveStrilaScoreboardView(state: StrilaFrameState): StrilaScore
 
   return StrilaScoreboardViewSchema.parse({
     gameKey: 'strila-v2',
+    projection: 'scoreboard',
     score: state.score,
-    objectBalls: computeStrilaObjectBalls(state.coloredBallsOnTable),
-    ballsRemaining: state.coloredBallsOnTable,
-    pointsAvailable: computeStrilaPointsAvailable(state.coloredBallsOnTable),
-    phase: state.phase.type,
-    winner,
+    details: {
+      objectBalls: computeStrilaObjectBalls(state.coloredBallsOnTable),
+      ballsRemaining: state.coloredBallsOnTable,
+      pointsAvailable: computeStrilaPointsAvailable(state.coloredBallsOnTable),
+      phase: state.phase.type,
+      winner,
+    },
   })
 }

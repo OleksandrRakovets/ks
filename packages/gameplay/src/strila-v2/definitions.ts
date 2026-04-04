@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { GameCommandPresetSchema, GameControlProjectionSchema, GameScoreboardProjectionSchema, GameSummaryProjectionSchema } from '../abstract-runtime'
+
 // First-pass Strila draft.
 //
 // This file is intentionally a lightweight TypeScript model to iterate on before
@@ -168,57 +170,48 @@ export const StrilaActiveBallsViewSchema = z.object({
   inactive: z.array(StrilaColoredBallSchema),
 })
 
-// Control actions are UI-facing actions exposed by deriveControlView. They are
-// intentionally separate from persisted protocol commands, even if some names
-// may line up closely.
-export const StrilaControlActionIdSchema = z.enum([
-  'break-off',
-  'record-pot',
-  'record-miss',
-  'foul-committed',
-  'choose-play-from-position',
-  'choose-pass-position',
-  'choose-ball-in-hand',
-  'award-frame',
-  'concede-frame',
-])
-
-export const StrilaControlActionSchema = z.object({
-  id: StrilaControlActionIdSchema,
+export const StrilaControlCommandSchema = GameCommandPresetSchema.extend({
   label: z.string().min(1),
-  effectSummary: z.string().min(1).optional(),
-  warning: z.string().min(1).optional(),
-  helpText: z.string().min(1).optional(),
 })
-export type StrilaControlAction = z.infer<typeof StrilaControlActionSchema>
+export type StrilaControlCommand = z.infer<typeof StrilaControlCommandSchema>
 
-export const StrilaControlViewSchema = z.object({
-  gameKey: z.literal('strila-v2'),
+export const StrilaControlDetailsSchema = z.object({
   phase: StrilaPhaseTypeSchema,
   actor: StrilaSeatSchema.optional(),
   situationTitle: z.string().min(1),
   situationSummary: z.string().min(1).optional(),
-  score: StrilaScoreSchema,
   activeBalls: StrilaActiveBallsViewSchema,
-  availableActions: z.array(StrilaControlActionSchema),
+})
+
+export const StrilaControlViewSchema = GameControlProjectionSchema.extend({
+  gameKey: z.literal('strila-v2'),
+  score: StrilaScoreSchema,
+  availableCommands: z.array(StrilaControlCommandSchema),
+  details: StrilaControlDetailsSchema,
 })
 export type StrilaControlView = z.infer<typeof StrilaControlViewSchema>
 
-export const StrilaScoreboardViewSchema = z.object({
-  gameKey: z.literal('strila-v2'),
-  score: StrilaScoreSchema,
+export const StrilaScoreboardDetailsSchema = z.object({
   objectBalls: z.array(StrilaColoredBallSchema),
   ballsRemaining: z.array(StrilaColoredBallSchema),
   pointsAvailable: z.number().int().nonnegative(),
   phase: StrilaPhaseTypeSchema,
   winner: StrilaSeatSchema.optional(),
 })
-export type StrilaScoreboardView = z.infer<typeof StrilaScoreboardViewSchema>
 
-export const StrilaSummaryViewSchema = z.object({
+export const StrilaScoreboardViewSchema = GameScoreboardProjectionSchema.extend({
   gameKey: z.literal('strila-v2'),
   score: StrilaScoreSchema,
-  phase: StrilaPhaseTypeSchema,
+  details: StrilaScoreboardDetailsSchema,
+})
+export type StrilaScoreboardView = z.infer<typeof StrilaScoreboardViewSchema>
+
+export const StrilaSummaryViewSchema = GameSummaryProjectionSchema.extend({
+  gameKey: z.literal('strila-v2'),
+  score: StrilaScoreSchema,
+  details: z.object({
+    phase: StrilaPhaseTypeSchema,
+  }),
 })
 
 export const StrilaAutomaticFoulReasonSchema = z.enum([

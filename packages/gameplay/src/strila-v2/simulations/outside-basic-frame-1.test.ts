@@ -1,44 +1,77 @@
 import { expect, test } from 'bun:test'
 
-import { applyAction, createInitialState, parseState } from '../interface'
+import { applyGameCommand, createInitialGameState } from '../../index'
+import { StrilaFrameStateSchema, type StrilaFrameState } from '../definitions'
 import { deriveStrilaControlView } from '../projections/control'
 import { deriveStrilaScoreboardView } from '../projections/scoreboard'
 
-test('simulation: outside: basic frame 1', () => {
-  let state = createInitialState()
-  let snapshot = parseState(state)
-  expect(deriveStrilaControlView(snapshot).availableActions.map((entry) => entry.id)).toEqual(['break-off'])
+function parseState(state: unknown): StrilaFrameState {
+  return StrilaFrameStateSchema.parse(state)
+}
 
-  let step = applyAction(state, { action: 'break-off', actor: 'A' })
-  expect(step.actionRequest).toEqual({ action: 'break-off', actor: 'A' })
-  expect(deriveStrilaControlView(step.state).availableActions.map((entry) => entry.id)).toEqual([
+test('simulation: outside: basic frame 1', () => {
+  let state = parseState(createInitialGameState('strila-v2'))
+  expect(deriveStrilaControlView(state).availableCommands.map((entry) => entry.commandType)).toEqual(['break-off'])
+
+  let step = applyGameCommand({ gameKey: 'strila-v2', state, commandType: 'break-off', command: { actor: 'A' } })
+  expect(step.protocolEntries).toEqual([{ source: 'player', command: { type: 'break-off', actor: 'A' } }])
+  expect(deriveStrilaControlView(parseState(step.state)).availableCommands.map((entry) => entry.commandType)).toEqual([
     'record-pot',
     'foul-committed',
     'concede-frame',
   ])
-  state = step.state
+  state = parseState(step.state)
 
-  step = applyAction(state, { action: 'record-pot', actor: 'A', pottedBalls: [1] })
-  expect(step.actionRequest).toEqual({ action: 'record-pot', actor: 'A', pottedBalls: [1] })
-  expect(step.protocolEntries).toEqual([
-    { source: 'player', command: { type: 'record-pot', actor: 'A', pottedBalls: [1] } },
+  step = applyGameCommand({
+    gameKey: 'strila-v2',
+    state,
+    commandType: 'record-pot',
+    command: { actor: 'A', pottedBalls: [1] },
+  })
+  expect(step.protocolEntries).toEqual([{ source: 'player', command: { type: 'record-pot', actor: 'A', pottedBalls: [1] } }])
+  expect(deriveStrilaScoreboardView(parseState(step.state)).details.objectBalls).toEqual([2, 3])
+  state = parseState(step.state)
+
+  step = applyGameCommand({ gameKey: 'strila-v2', state, commandType: 'foul-committed', command: { actor: 'A' } })
+  expect(deriveStrilaControlView(parseState(step.state)).availableCommands).toEqual([
+    {
+      commandType: 'choose-foul-response',
+      command: { actor: 'B', choice: 'play-from-position' },
+      label: 'Play from position',
+      effectSummary: '+1 point',
+    },
+    {
+      commandType: 'choose-foul-response',
+      command: { actor: 'B', choice: 'pass-position' },
+      label: 'Pass position',
+      effectSummary: '+1 point',
+    },
+    {
+      commandType: 'choose-foul-response',
+      command: { actor: 'B', choice: 'ball-in-hand' },
+      label: 'Ball in hand',
+    },
+    {
+      commandType: 'concede-frame',
+      command: { actor: 'B' },
+      label: 'Concede frame',
+    },
   ])
-  expect(deriveStrilaScoreboardView(step.state).objectBalls).toEqual([2, 3])
-  state = step.state
-
-  step = applyAction(state, { action: 'foul-committed', actor: 'A' })
-  expect(step.actionRequest).toEqual({ action: 'foul-committed', actor: 'A' })
-  expect(deriveStrilaControlView(step.state).availableActions.map((entry) => entry.id)).toEqual([
-    'choose-play-from-position',
-    'choose-pass-position',
-    'choose-ball-in-hand',
+  expect(deriveStrilaControlView(parseState(step.state)).availableCommands.map((entry) => entry.commandType)).toEqual([
+    'choose-foul-response',
+    'choose-foul-response',
+    'choose-foul-response',
     'concede-frame',
   ])
-  state = step.state
+  state = parseState(step.state)
 
-  step = applyAction(state, { action: 'choose-ball-in-hand', actor: 'B' })
-  expect(step.actionRequest).toEqual({ action: 'choose-ball-in-hand', actor: 'B' })
-  expect(deriveStrilaControlView(step.state).availableActions.map((entry) => entry.id)).toEqual([
+  step = applyGameCommand({
+    gameKey: 'strila-v2',
+    state,
+    commandType: 'choose-foul-response',
+    command: { actor: 'B', choice: 'ball-in-hand' },
+  })
+  expect(deriveStrilaControlView(parseState(step.state)).availableCommands.map((entry) => entry.commandType)).toEqual([
     'record-pot',
     'record-miss',
     'foul-committed',

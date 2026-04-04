@@ -25,11 +25,15 @@ test('simulation: internal: basic frame 1', () => {
   })
   expect(deriveStrilaScoreboardView(next)).toEqual({
     gameKey: 'strila-v2',
+    projection: 'scoreboard',
     score: { A: 0, B: 0 },
-    objectBalls: [1, 2],
-    ballsRemaining: [1, 2, 3, 4, 5, 6, 7],
-    pointsAvailable: 14,
-    phase: 'open-play',
+    details: {
+      objectBalls: [1, 2],
+      ballsRemaining: [1, 2, 3, 4, 5, 6, 7],
+      pointsAvailable: 14,
+      phase: 'open-play',
+      winner: undefined,
+    },
   })
 
   ;({ next } = applyCommand(next, { type: 'record-pot', actor: 'A', pottedBalls: [1] }))
@@ -120,12 +124,15 @@ test('simulation: internal: basic frame 1', () => {
   })
   expect(deriveStrilaScoreboardView(next)).toEqual({
     gameKey: 'strila-v2',
+    projection: 'scoreboard',
     score: { A: 4, B: 9 },
-    objectBalls: [6],
-    ballsRemaining: [6, 7],
-    pointsAvailable: 4,
-    phase: 'winner-determined',
-    winner: 'B',
+    details: {
+      objectBalls: [6],
+      ballsRemaining: [6, 7],
+      pointsAvailable: 4,
+      phase: 'winner-determined',
+      winner: 'B',
+    },
   })
   expect(protocolEntries).toEqual([
     { source: 'player', command: { type: 'record-pot', actor: 'B', pottedBalls: [4] } },
@@ -146,11 +153,14 @@ test('simulation: internal: basic frame 1', () => {
   })
   expect(deriveStrilaScoreboardView(next)).toEqual({
     gameKey: 'strila-v2',
+    projection: 'scoreboard',
     score: { A: 4, B: 9 },
-    objectBalls: [6],
-    ballsRemaining: [6, 7],
-    pointsAvailable: 4,
-    phase: 'frame-over',
-    winner: 'B',
+    details: {
+      objectBalls: [6],
+      ballsRemaining: [6, 7],
+      pointsAvailable: 4,
+      phase: 'frame-over',
+      winner: 'B',
+    },
   })
 })

@@ -1,5 +1,2 @@
-export * from './state'
-export * from './apply'
-export * from './registry'
-export * from './definitions'
-export * from './control'
+export { createInitialGameState, applyGameCommand, deriveGameProjection, parseGameKey } from './gameplay'
+export { getGameMeta, isRegisteredGameKey, listGameKeys, type RegisteredGameKey } from './registry'

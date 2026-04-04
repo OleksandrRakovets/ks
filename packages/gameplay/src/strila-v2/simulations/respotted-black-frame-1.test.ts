@@ -85,11 +85,15 @@ test('simulation: internal: respotted black frame 1', () => {
   expect(next.phase).toEqual({ type: 'respotted-black-opening', actor: 'B' })
   expect(deriveStrilaScoreboardView(next)).toEqual({
     gameKey: 'strila-v2',
+    projection: 'scoreboard',
     score: { A: 8, B: 8 },
-    objectBalls: [7],
-    ballsRemaining: [7],
-    pointsAvailable: 2,
-    phase: 'respotted-black-opening',
+    details: {
+      objectBalls: [7],
+      ballsRemaining: [7],
+      pointsAvailable: 2,
+      phase: 'respotted-black-opening',
+      winner: undefined,
+    },
   })
   expect(protocolEntries).toEqual([
     { source: 'player', command: { type: 'record-pot', actor: 'B', pottedBalls: [0] } },
@@ -107,12 +111,15 @@ test('simulation: internal: respotted black frame 1', () => {
   })
   expect(deriveStrilaScoreboardView(next)).toEqual({
     gameKey: 'strila-v2',
+    projection: 'scoreboard',
     score: { A: 10, B: 8 },
-    objectBalls: [],
-    ballsRemaining: [],
-    pointsAvailable: 2,
-    phase: 'winner-determined',
-    winner: 'A',
+    details: {
+      objectBalls: [],
+      ballsRemaining: [],
+      pointsAvailable: 2,
+      phase: 'winner-determined',
+      winner: 'A',
+    },
   })
   expect(protocolEntries).toEqual([
     { source: 'player', command: { type: 'record-pot', actor: 'A', pottedBalls: [7] } },
