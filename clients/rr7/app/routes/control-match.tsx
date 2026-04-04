@@ -1,5 +1,6 @@
 import { ClientEventSchema, PostEventsResponseSchema, SnapshotResponseSchema } from '@ks/core'
-import { deriveMatchControlDecisions, isRegisteredGameKey, registry, type RegisteredGameKey } from '@ks/gameplay'
+import { deriveMatchControlDecisions } from '@ks/competition'
+import { isRegisteredGameKey, registry, type RegisteredGameKey } from '@ks/gameplay'
 import { keys } from '@ks/i18n'
 import { Button, Card, CardContent } from '@ks/ui'
 import { useEffect } from 'react'
@@ -8,6 +9,7 @@ import { useFetcher, useLoaderData, useParams, useRevalidator, useSearchParams }
 
 import { makeAwardFrameEvent, makeEndMatchEvent, makeShotRecordedEvent, makeStartFrameEvent } from '../lib/ks'
 import { requireEnv } from '../server/context'
+import { localeFromCookie } from '../server/locale'
 import { fetchMatchSnapshot, postMatchEvents } from '../server/match-room'
 import type { Route } from './+types/control-match'
 
@@ -19,15 +21,15 @@ type ControlMatchActionResult =
       errorKey?: typeof keys.match.control.invalidEventPayload | typeof keys.match.control.eventRejectedByRules
     }
 
-export async function loader({ params, context }: Route.LoaderArgs) {
+export async function loader({ params, request, context }: Route.LoaderArgs) {
   const env = requireEnv(context)
   const matchId = params.matchId
   if (!matchId) throw new Response('Missing matchId', { status: 400 })
 
-  const res = await fetchMatchSnapshot(env, matchId)
+  const res = await fetchMatchSnapshot(env, matchId, localeFromCookie(request.headers.get('cookie')))
   const body = SnapshotResponseSchema.parse(await res.json())
   if (!body.ok) throw new Response('Failed to load snapshot', { status: 500 })
-  return { snapshot: body.snapshot }
+  return { snapshot: body.snapshot, participants: body.participants }
 }
 
 export async function action({ params, request, context }: Route.ActionArgs): Promise<ControlMatchActionResult> {
@@ -88,7 +90,7 @@ function PyramidShotControls(props: { seat: 'A' | 'B'; canScore: boolean; onShot
 
 export default function ControlMatchRoute() {
   const { t } = useTranslation()
-  const { snapshot } = useLoaderData<typeof loader>()
+  const { snapshot, participants } = useLoaderData<typeof loader>()
   const params = useParams()
   const matchId = params.matchId ?? ''
   const controlSecret = params.controlSecret ?? ''
@@ -135,7 +137,7 @@ export default function ControlMatchRoute() {
           <div className="grid grid-cols-2 gap-3">
             <Card>
               <CardContent className="p-4">
-                <div className="text-sm text-muted-foreground">A</div>
+                <div className="text-sm text-muted-foreground">{participants.A.shortDisplayName}</div>
                 <div className="mt-1 text-4xl font-semibold tabular-nums">{pointsA}</div>
                 {inputMode === 'pyramid-basic' ? (
                   <PyramidShotControls
@@ -153,7 +155,7 @@ export default function ControlMatchRoute() {
             </Card>
             <Card>
               <CardContent className="p-4">
-                <div className="text-sm text-muted-foreground">B</div>
+                <div className="text-sm text-muted-foreground">{participants.B.shortDisplayName}</div>
                 <div className="mt-1 text-4xl font-semibold tabular-nums">{pointsB}</div>
                 {inputMode === 'pyramid-basic' ? (
                   <PyramidShotControls

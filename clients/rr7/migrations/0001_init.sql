@@ -5,10 +5,16 @@ CREATE TABLE IF NOT EXISTS matches (
   control_secret TEXT NOT NULL,
   game_key TEXT NOT NULL,
   config_json TEXT NOT NULL,
+  latest_seq INTEGER NOT NULL,
+  seat_a_player_ref TEXT NOT NULL,
+  seat_b_player_ref TEXT NOT NULL,
   status TEXT NOT NULL,
   created_at INTEGER NOT NULL,
   ended_at INTEGER,
-  lock_at INTEGER
+  lock_at INTEGER,
+  CHECK (seat_a_player_ref != seat_b_player_ref),
+  CHECK (seat_a_player_ref GLOB 'gp_*' OR seat_a_player_ref GLOB 'vp_*'),
+  CHECK (seat_b_player_ref GLOB 'gp_*' OR seat_b_player_ref GLOB 'vp_*')
 );
 
 CREATE TABLE IF NOT EXISTS events (
@@ -34,8 +40,20 @@ CREATE TABLE IF NOT EXISTS match_snapshots (
   created_at INTEGER NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS players (
-  player_id TEXT PRIMARY KEY,
-  display_name TEXT NOT NULL,
+CREATE TABLE IF NOT EXISTS guest_players (
+  guest_player_id TEXT PRIMARY KEY,
+  first_name_uk TEXT NOT NULL,
+  last_name_uk TEXT NOT NULL,
+  first_name_en TEXT NOT NULL,
+  last_name_en TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS verified_players (
+  verified_player_id TEXT PRIMARY KEY,
+  first_name_uk TEXT NOT NULL,
+  last_name_uk TEXT NOT NULL,
+  first_name_en TEXT NOT NULL,
+  last_name_en TEXT NOT NULL,
   created_at INTEGER NOT NULL
 );

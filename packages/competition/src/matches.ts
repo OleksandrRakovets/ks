@@ -1,4 +1,4 @@
-import { MatchIdSchema, PlayerIdSchema, newMatchId, stripOptionalPrefix, type MatchConfig } from '@ks/core'
+import { MatchIdSchema, MatchSeatAssignmentSchema, newMatchId, stripOptionalPrefix, type MatchConfig } from '@ks/core'
 import { isRegisteredGameKey } from '@ks/gameplay'
 import { z } from 'zod'
 
@@ -12,15 +12,7 @@ export const CreateMatchRequestSchema = z
       }),
       matchTargetFrames: z.number().int().positive(),
     }),
-    participants: z
-      .array(
-        z.object({
-          seat: z.enum(['A', 'B']),
-          savedPlayerId: PlayerIdSchema.optional(),
-          displayName: z.string().min(1).max(64),
-        }),
-      )
-      .length(2),
+    participants: z.array(MatchSeatAssignmentSchema).length(2),
   })
   .superRefine((value, ctx) => {
     if (!isRegisteredGameKey(value.gameKey)) {
@@ -44,7 +36,14 @@ export const CreateMatchRequestSchema = z
 export type CreateMatchRequest = z.infer<typeof CreateMatchRequestSchema>
 
 export type MatchWriteRepository = {
-  insertMatch(args: { matchId: string; controlSecret: string; config: MatchConfig; now: number }): Promise<void>
+  insertMatch(args: {
+    matchId: string
+    controlSecret: string
+    config: MatchConfig
+    seatAPlayerRef: string
+    seatBPlayerRef: string
+    now: number
+  }): Promise<void>
   initMatchRoom(args: { matchId: string; controlSecret: string; config: MatchConfig }): Promise<void>
 }
 
@@ -54,6 +53,18 @@ function randomSecret(): string {
   let bin = ''
   for (const b of bytes) bin += String.fromCharCode(b)
   return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
+}
+
+function assignmentsBySeat(participants: CreateMatchRequest['participants']): { A: string; B: string } {
+  const seatA = participants.find((participant) => participant.seat === 'A')
+  const seatB = participants.find((participant) => participant.seat === 'B')
+  if (!seatA || !seatB) {
+    throw new Error('Participants must include one A and one B seat')
+  }
+  return {
+    A: seatA.playerRef,
+    B: seatB.playerRef,
+  }
 }
 
 export async function createMatchService(
@@ -67,18 +78,20 @@ export async function createMatchService(
   const matchId = newMatchId()
   const controlSecret = randomSecret()
   const now = Date.now()
+  const seatAssignments = assignmentsBySeat(input.participants)
 
   const config: MatchConfig = {
     matchId,
     gameKey: input.gameKey,
     targets: input.targets,
-    participants: input.participants,
   }
 
   await repo.insertMatch({
     matchId,
     controlSecret,
     config,
+    seatAPlayerRef: seatAssignments.A,
+    seatBPlayerRef: seatAssignments.B,
     now,
   })
 

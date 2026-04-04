@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 import { StoredEventSchema } from './events'
 import { EventIdSchema } from './ids'
-import { MatchSnapshotSchema } from './match'
+import { HydratedMatchParticipantsSchema, MatchSnapshotSchema } from './match'
 
 export const ErrorResponseSchema = z.object({
   ok: z.literal(false),
@@ -13,6 +13,7 @@ export const SnapshotResponseSchema = z.union([
   z.object({
     ok: z.literal(true),
     snapshot: MatchSnapshotSchema,
+    participants: HydratedMatchParticipantsSchema,
   }),
   ErrorResponseSchema,
 ])

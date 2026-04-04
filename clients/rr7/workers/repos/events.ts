@@ -1,6 +1,7 @@
 import { StoredEventSchema, type ClientEvent, type StoredEvent } from '@ks/core'
 
 import type { Env } from '../env'
+import { getMatchLatestSeq } from './matches'
 
 function tryParseJson(raw: string): unknown | null {
   try {
@@ -18,10 +19,7 @@ export async function eventExists(env: Env, matchId: string, eventId: string): P
 }
 
 export async function getLatestSeq(env: Env, matchId: string): Promise<number> {
-  const row = await env.DB.prepare('SELECT MAX(seq) as max_seq FROM events WHERE match_id = ?')
-    .bind(matchId)
-    .first<{ max_seq: number | null }>()
-  return row?.max_seq ?? 0
+  return getMatchLatestSeq(env, matchId)
 }
 
 export async function listEventsAfter(env: Env, matchId: string, sinceSeq: number): Promise<StoredEvent[]> {

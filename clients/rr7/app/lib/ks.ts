@@ -8,7 +8,7 @@ import {
   newClientId,
   newEventId,
   type ClientEvent,
-} from '@ks/competition'
+} from '@ks/core'
 import type { RegisteredGameKey } from '@ks/gameplay'
 
 function getOrCreateClientId(): string {

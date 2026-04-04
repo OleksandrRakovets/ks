@@ -42,7 +42,9 @@ function ulidWeb(): string {
   return `${encodeTime(Date.now())}${encodeRandom()}`
 }
 
-export type PlayerId = Brand<string, 'PlayerId'>
+export type GuestPlayerId = Brand<string, 'GuestPlayerId'>
+export type VerifiedPlayerId = Brand<string, 'VerifiedPlayerId'>
+export type PlayerRef = Brand<string, 'PlayerRef'>
 export type MatchId = Brand<string, 'MatchId'>
 export type EventId = Brand<string, 'EventId'>
 export type ClientId = Brand<string, 'ClientId'>
@@ -65,13 +67,22 @@ function minLengthBrandedSchema<B extends string>(minLength: number) {
     .transform((value) => toBrand<B>(value))
 }
 
-export const PlayerIdSchema = ulidBrandedSchema<'PlayerId'>()
+export const GuestPlayerIdSchema = ulidBrandedSchema<'GuestPlayerId'>()
+export const VerifiedPlayerIdSchema = ulidBrandedSchema<'VerifiedPlayerId'>()
+export const PlayerRefSchema = z
+  .string()
+  .regex(/^(gp|vp)_[0-9A-HJKMNP-TV-Z]{26}$/)
+  .transform((value) => toBrand<'PlayerRef'>(value))
 export const MatchIdSchema = ulidBrandedSchema<'MatchId'>()
 export const EventIdSchema = ulidBrandedSchema<'EventId'>()
 export const ClientIdSchema = minLengthBrandedSchema<'ClientId'>(8)
 
-export function newPlayerId(): PlayerId {
-  return PlayerIdSchema.parse(ulidWeb())
+export function newGuestPlayerId(): GuestPlayerId {
+  return GuestPlayerIdSchema.parse(ulidWeb())
+}
+
+export function newVerifiedPlayerId(): VerifiedPlayerId {
+  return VerifiedPlayerIdSchema.parse(ulidWeb())
 }
 
 export function newMatchId(): MatchId {
@@ -86,8 +97,12 @@ export function newClientId(): ClientId {
   return ClientIdSchema.parse(ulidWeb())
 }
 
-export function formatPrefixedId(prefix: 'm' | 'p' | 'e' | 'c', id: string): string {
+export function formatPrefixedId(prefix: 'm' | 'e' | 'c', id: string): string {
   return `${prefix}_${id}`
+}
+
+export function formatPlayerRef(kind: 'gp' | 'vp', id: string): PlayerRef {
+  return PlayerRefSchema.parse(`${kind}_${id}`)
 }
 
 export function stripOptionalPrefix(value: string): string {

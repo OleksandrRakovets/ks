@@ -1,7 +1,7 @@
 import invariant from 'tiny-invariant'
 import { z } from 'zod'
 
-import { MatchIdSchema, PlayerIdSchema } from './ids'
+import { MatchIdSchema, PlayerRefSchema } from './ids'
 
 export const SeatSchema = z.enum(['A', 'B'])
 export type Seat = z.infer<typeof SeatSchema>
@@ -24,10 +24,20 @@ export const MatchTargetsSchema = z.object({
   matchTargetFrames: z.number().int().positive(),
 })
 
-export const MatchParticipantSchema = z.object({
+export const MatchSeatAssignmentSchema = z.object({
   seat: SeatSchema,
-  savedPlayerId: PlayerIdSchema.optional(),
-  displayName: z.string().min(1).max(64),
+  playerRef: PlayerRefSchema,
+})
+
+export const HydratedMatchParticipantSchema = z.object({
+  playerRef: PlayerRefSchema,
+  displayName: z.string().min(1).max(128),
+  shortDisplayName: z.string().min(1).max(128),
+})
+
+export const HydratedMatchParticipantsSchema = z.object({
+  A: HydratedMatchParticipantSchema,
+  B: HydratedMatchParticipantSchema,
 })
 
 const MatchConfigWireSchema = z
@@ -36,7 +46,6 @@ const MatchConfigWireSchema = z
     gameKey: GameKeySchema.optional(),
     gameId: GameKeySchema.optional(),
     targets: MatchTargetsSchema,
-    participants: z.array(MatchParticipantSchema).length(2),
   })
   .superRefine((value, ctx) => {
     if (!value.gameKey && !value.gameId) {
@@ -70,7 +79,6 @@ export const MatchSnapshotSchema = z.object({
   matchId: MatchIdSchema,
   gameKey: GameKeySchema,
   targets: MatchTargetsSchema,
-  participants: z.array(MatchParticipantSchema).length(2),
   status: z.enum(['active', 'finished']),
   currentFrameIndex: z.number().int().nonnegative(),
   framesWonBySeat: BySeatNumberSchema,

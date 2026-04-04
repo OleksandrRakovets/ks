@@ -3,19 +3,20 @@ import { themes } from '@ks/themes'
 import { useEffect, useRef } from 'react'
 import { useLoaderData, useParams, useRevalidator, useSearchParams } from 'react-router'
 
+import { localeFromCookie } from '../server/locale'
 import { requireEnv } from '../server/context'
 import { fetchMatchSnapshot } from '../server/match-room'
 import type { Route } from './+types/public-scoreboard'
 
-export async function loader({ params, context }: Route.LoaderArgs) {
+export async function loader({ params, request, context }: Route.LoaderArgs) {
   const env = requireEnv(context)
   const matchId = params.matchId
   if (!matchId) throw new Response('Missing matchId', { status: 400 })
 
-  const res = await fetchMatchSnapshot(env, matchId)
+  const res = await fetchMatchSnapshot(env, matchId, localeFromCookie(request.headers.get('cookie')))
   const body = SnapshotResponseSchema.parse(await res.json())
   if (!body.ok) throw new Response('Failed to load snapshot', { status: 500 })
-  return { snapshot: body.snapshot }
+  return { snapshot: body.snapshot, participants: body.participants }
 }
 
 function isThemeId(value: string): value is keyof typeof themes {
@@ -31,7 +32,7 @@ function tryParseJson(raw: string): unknown | null {
 }
 
 export default function PublicScoreboardRoute() {
-  const { snapshot } = useLoaderData<typeof loader>()
+  const { snapshot, participants } = useLoaderData<typeof loader>()
   const params = useParams()
   const [sp] = useSearchParams()
   const { revalidate } = useRevalidator()
@@ -104,8 +105,8 @@ export default function PublicScoreboardRoute() {
   const framesA = snapshot.framesWonBySeat?.A ?? 0
   const framesB = snapshot.framesWonBySeat?.B ?? 0
   const frameIndex = snapshot.currentFrameIndex ?? 1
-  const nameA = snapshot.participants?.find((p) => p.seat === 'A')?.displayName ?? 'A'
-  const nameB = snapshot.participants?.find((p) => p.seat === 'B')?.displayName ?? 'B'
+  const nameA = participants.A.shortDisplayName
+  const nameB = participants.B.shortDisplayName
 
   return (
     <div className="min-h-dvh px-6 py-6" style={themeVars}>

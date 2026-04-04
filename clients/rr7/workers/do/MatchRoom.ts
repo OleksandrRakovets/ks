@@ -15,7 +15,7 @@ import { z } from 'zod'
 import type { Env } from '../env'
 import { badRequest, json, unauthorized } from '../http-utils'
 import { eventExists, getLatestSeq, insertStoredEvent, listEventsAfter } from '../repos/events'
-import { getMatch, markMatchEnded } from '../repos/matches'
+import { getMatch, markMatchEnded, setMatchLatestSeq } from '../repos/matches'
 import { deleteMatchSnapshot, getMatchSnapshot, putLatestMatchSnapshot } from '../repos/snapshots'
 
 const InitBodySchema = z.object({
@@ -245,6 +245,7 @@ export class MatchRoom implements DurableObject {
 
         const nextSeq = seq + 1
         await insertStoredEvent(this.env, matchId, nextSeq, parsed.data, receivedAt)
+        await setMatchLatestSeq(this.env, matchId, nextSeq)
 
         seq = nextSeq
         derived = nextDerived

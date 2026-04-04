@@ -3,6 +3,7 @@ export type AppEnv = {
     prepare: (sql: string) => {
       bind: (...args: unknown[]) => {
         run: () => Promise<unknown>
+        first: <T>() => Promise<T | null>
       }
     }
   }

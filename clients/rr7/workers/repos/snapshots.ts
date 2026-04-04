@@ -1,4 +1,4 @@
-import type { MatchState } from '@ks/gameplay'
+import type { MatchState } from '@ks/competition'
 
 import type { Env } from '../env'
 

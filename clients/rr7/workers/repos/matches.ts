@@ -3,6 +3,9 @@ export type MatchRow = {
   control_secret: string
   game_key: string
   config_json: string
+  latest_seq: number
+  seat_a_player_ref: string
+  seat_b_player_ref: string
   status: string
   created_at: number
   ended_at: number | null
@@ -20,4 +23,13 @@ export async function markMatchEnded(env: Env, matchId: string, endedAt: number,
   await env.DB.prepare('UPDATE matches SET status = ?, ended_at = ?, lock_at = ? WHERE match_id = ?')
     .bind('finished', endedAt, lockAt, matchId)
     .run()
+}
+
+export async function getMatchLatestSeq(env: Env, matchId: string): Promise<number> {
+  const row = await env.DB.prepare('SELECT latest_seq FROM matches WHERE match_id = ?').bind(matchId).first<{ latest_seq: number }>()
+  return row?.latest_seq ?? 0
+}
+
+export async function setMatchLatestSeq(env: Env, matchId: string, latestSeq: number): Promise<void> {
+  await env.DB.prepare('UPDATE matches SET latest_seq = ? WHERE match_id = ?').bind(latestSeq, matchId).run()
 }

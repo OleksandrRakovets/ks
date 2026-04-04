@@ -204,7 +204,6 @@ export function snapshotFromMatchState(state: MatchState, latestSeq: number): Ma
     matchId: config.matchId,
     gameKey: config.gameKey,
     targets: config.targets,
-    participants: config.participants,
     status: state.status === 'finished' ? 'finished' : 'active',
     currentFrameIndex: state.currentFrameIndex,
     framesWonBySeat: state.framesWonBySeat,

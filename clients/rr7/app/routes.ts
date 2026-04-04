@@ -5,7 +5,6 @@ export default [
   route('api/m/:matchId/stream', 'routes/api-match-stream.ts'),
   layout('routes/layout-base.tsx', [
     index('routes/index.tsx'),
-    route('admin/create', 'routes/admin-create.tsx'),
     route('top-secret/preview/ui', 'routes/top-secret-preview-ui.tsx'),
     route('c/:matchId/:controlSecret', 'routes/control-match.tsx'),
   ]),

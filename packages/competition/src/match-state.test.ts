@@ -29,10 +29,6 @@ function makeConfig(gameKey: MatchConfig['gameKey'], matchTargetFrames = 3): Mat
       frameTargetPointsBySeat: { A: 8, B: 8 },
       matchTargetFrames,
     },
-    participants: [
-      { seat: 'A', displayName: 'A' },
-      { seat: 'B', displayName: 'B' },
-    ],
   }
 }
 
