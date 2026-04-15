@@ -261,6 +261,8 @@ export function reduceStrilaCommand(state: StrilaFrameState, command: StrilaComm
             },
           }
       }
+
+      invariant(false, `Unsupported phase for record-miss: ${state.phase.type}`)
     }
 
     case 'foul-committed': {

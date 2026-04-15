@@ -32,11 +32,13 @@ type PyramidMeta = {
 }
 // TODO: declare winner as well, but allow the break to continue
 export class PyramidGameplayRuntime extends GameplayRuntime {
-  constructor(
-    readonly meta: PyramidMeta,
-    private readonly args: { allowNegative: boolean },
-  ) {
+  readonly meta: PyramidMeta
+  private readonly args: { allowNegative: boolean }
+
+  constructor(meta: PyramidMeta, args: { allowNegative: boolean }) {
     super()
+    this.meta = meta
+    this.args = args
   }
 
   createInitialState(): PyramidFrameState {
