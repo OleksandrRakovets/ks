@@ -39,6 +39,16 @@ function createPyramidEntry(args: {
 }
 
 export const registry = {
+  'strila-v2': {
+    meta: {
+      title: {
+        uk: 'Стріла',
+        en: 'Strila',
+      },
+      inputMode: 'strila-basic',
+    },
+    runtime: new StrilaGameplayRuntime(),
+  },
   'free-pyramid': createPyramidEntry({
     gameKey: 'free-pyramid',
     title: {
@@ -51,7 +61,7 @@ export const registry = {
   'free-pyramid-long': createPyramidEntry({
     gameKey: 'free-pyramid-long',
     title: {
-      uk: 'Вільна піраміда (довга)',
+      uk: 'Вільна піраміда з продовженням',
       en: 'Free pyramid (long)',
     },
     inputMode: 'pyramid-basic',
@@ -75,16 +85,6 @@ export const registry = {
     inputMode: 'pyramid-basic',
     allowNegative: true,
   }),
-  'strila-v2': {
-    meta: {
-      title: {
-        uk: 'Стріла',
-        en: 'Strila',
-      },
-      inputMode: 'strila-basic',
-    },
-    runtime: new StrilaGameplayRuntime(),
-  },
 } as const
 
 export type RegisteredGameKey = keyof typeof registry

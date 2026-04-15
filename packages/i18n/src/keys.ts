@@ -32,6 +32,23 @@ export const keys = {
       frame: 'match.scoreboard.frame',
       points: 'match.scoreboard.points',
     },
+    sparring: {
+      title: 'match.sparring.title',
+      subtitle: 'match.sparring.subtitle',
+      setupTitle: 'match.sparring.setupTitle',
+      playerA: 'match.sparring.playerA',
+      playerB: 'match.sparring.playerB',
+      matchTargetFrames: 'match.sparring.matchTargetFrames',
+      handicapAdvanced: 'match.sparring.handicapAdvanced',
+      seatATargetPoints: 'match.sparring.seatATargetPoints',
+      seatBTargetPoints: 'match.sparring.seatBTargetPoints',
+      createMatch: 'match.sparring.createMatch',
+      creatingMatch: 'match.sparring.creatingMatch',
+      errorBothNamesRequired: 'match.sparring.errorBothNamesRequired',
+      errorNamesMustDiffer: 'match.sparring.errorNamesMustDiffer',
+      errorMatchTargetFramesRequired: 'match.sparring.errorMatchTargetFramesRequired',
+      errorHandicapMustBePositiveInt: 'match.sparring.errorHandicapMustBePositiveInt',
+    },
   },
 } as const
 

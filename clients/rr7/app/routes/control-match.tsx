@@ -1,5 +1,5 @@
-import { ClientEventSchema, PostEventsResponseSchema, SnapshotResponseSchema } from '@ks/core'
 import { deriveMatchControlDecisions } from '@ks/competition'
+import { ClientEventSchema, PostEventsResponseSchema, SnapshotResponseSchema } from '@ks/core'
 import { isRegisteredGameKey, registry, type RegisteredGameKey } from '@ks/gameplay'
 import { keys } from '@ks/i18n'
 import { Button, Card, CardContent } from '@ks/ui'
@@ -8,10 +8,10 @@ import { useTranslation } from 'react-i18next'
 import { useFetcher, useLoaderData, useParams, useRevalidator, useSearchParams } from 'react-router'
 
 import { makeAwardFrameEvent, makeEndMatchEvent, makeShotRecordedEvent, makeStartFrameEvent } from '../lib/ks'
+import type { AppLoadContext } from '../server/context'
 import { requireEnv } from '../server/context'
 import { localeFromCookie } from '../server/locale'
 import { fetchMatchSnapshot, postMatchEvents } from '../server/match-room'
-import type { Route } from './+types/control-match'
 
 type ControlMatchActionResult =
   | { ok: true }
@@ -21,7 +21,15 @@ type ControlMatchActionResult =
       errorKey?: typeof keys.match.control.invalidEventPayload | typeof keys.match.control.eventRejectedByRules
     }
 
-export async function loader({ params, request, context }: Route.LoaderArgs) {
+export async function loader({
+  params,
+  request,
+  context,
+}: {
+  params: { matchId?: string }
+  request: Request
+  context: AppLoadContext
+}) {
   const env = requireEnv(context)
   const matchId = params.matchId
   if (!matchId) throw new Response('Missing matchId', { status: 400 })
@@ -32,7 +40,15 @@ export async function loader({ params, request, context }: Route.LoaderArgs) {
   return { snapshot: body.snapshot, participants: body.participants }
 }
 
-export async function action({ params, request, context }: Route.ActionArgs): Promise<ControlMatchActionResult> {
+export async function action({
+  params,
+  request,
+  context,
+}: {
+  params: { matchId?: string }
+  request: Request
+  context: AppLoadContext
+}): Promise<ControlMatchActionResult> {
   const env = requireEnv(context)
   const matchId = params.matchId
   if (!matchId) throw new Response('Missing matchId', { status: 400 })
