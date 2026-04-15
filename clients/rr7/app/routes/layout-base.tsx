@@ -4,5 +4,9 @@ import '../i18n'
 import '../base.css'
 
 export default function LayoutBase() {
-  return <Outlet />
+  return (
+    <div className="mx-auto flex min-h-screen w-7xl">
+      <Outlet />
+    </div>
+  )
 }

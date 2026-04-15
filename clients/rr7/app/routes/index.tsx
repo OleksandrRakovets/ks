@@ -1,11 +1,11 @@
-import { redirect } from 'react-router'
+// export function loader(_args: Route.LoaderArgs) {
+//   return redirect('/admin/create')
+// }
 
-import type { Route } from './+types/index'
-
-export function loader(_args: Route.LoaderArgs) {
-  return redirect('/admin/create')
-}
-
-export default function IndexRedirect() {
-  return null
+export default function Index() {
+  return (
+    <main className="flex flex-1 items-center justify-center">
+      <h1 className="inline-block pb-32 font-[Georgia] text-5xl">Скоро все буде!</h1>
+    </main>
+  )
 }

@@ -6,7 +6,7 @@ export default [
   layout('routes/layout-base.tsx', [
     index('routes/index.tsx'),
     route('top-secret/preview/ui', 'routes/top-secret-preview-ui.tsx'),
-    route('c/:matchId/:controlSecret', 'routes/control-match.tsx'),
+    // route('c/:matchId/:controlSecret', 'routes/control-match.tsx'),
   ]),
-  layout('routes/layout-scoreboard.tsx', [route('m/:matchId', 'routes/public-scoreboard.tsx')]),
+  // layout('routes/layout-scoreboard.tsx', [route('m/:matchId', 'routes/public-scoreboard.tsx')]),
 ] satisfies RouteConfig
