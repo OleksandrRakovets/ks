@@ -5,7 +5,7 @@ import '../base.css'
 
 export default function LayoutBase() {
   return (
-    <div className="mx-auto flex min-h-screen w-full lg:w-7xl">
+    <div className="mx-auto flex min-h-dvh w-full lg:w-7xl">
       <Outlet />
     </div>
   )

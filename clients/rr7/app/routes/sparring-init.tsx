@@ -1,7 +1,7 @@
 import { createMatchService } from '@ks/competition'
 import { isRegisteredGameKey, registry } from '@ks/gameplay'
 import { keys } from '@ks/i18n'
-import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Label } from '@ks/ui'
+import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Label, NumberInput } from '@ks/ui'
 import { useTranslation } from 'react-i18next'
 import { Form, redirect, useActionData, useLoaderData, useNavigation } from 'react-router'
 
@@ -154,10 +154,9 @@ export default function SparringInitRoute() {
 
               <div className="grid gap-2">
                 <Label htmlFor="matchTargetFrames">{t(keys.match.sparring.matchTargetFrames)}</Label>
-                <Input
+                <NumberInput
                   id="matchTargetFrames"
                   name="matchTargetFrames"
-                  type="number"
                   inputMode="numeric"
                   min={1}
                   defaultValue={3}
@@ -172,11 +171,11 @@ export default function SparringInitRoute() {
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
                   <div className="grid gap-2">
                     <Label htmlFor="targetA">{t(keys.match.sparring.seatATargetPoints)}</Label>
-                    <Input id="targetA" name="targetA" type="number" inputMode="numeric" min={1} defaultValue={8} />
+                    <NumberInput id="targetA" name="targetA" inputMode="numeric" min={1} defaultValue={8} />
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="targetB">{t(keys.match.sparring.seatBTargetPoints)}</Label>
-                    <Input id="targetB" name="targetB" type="number" inputMode="numeric" min={1} defaultValue={8} />
+                    <NumberInput id="targetB" name="targetB" inputMode="numeric" min={1} defaultValue={8} />
                   </div>
                 </div>
               </details>
