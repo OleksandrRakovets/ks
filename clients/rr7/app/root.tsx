@@ -9,22 +9,17 @@ import {
   useRouteError,
   useRouteLoaderData,
 } from 'react-router'
-import invariant from 'tiny-invariant'
 
 import type { Route } from './+types/root'
 
 const LOCALE_COOKIE_NAME = 'ks.locale'
-
-function normalizeLocale(value: string | null | undefined): SupportedLocale {
-  return value === 'en' ? 'en' : 'uk'
-}
 
 function localeFromCookie(cookieHeader: string | null): SupportedLocale {
   if (!cookieHeader) return 'uk'
   for (const part of cookieHeader.split(';')) {
     const [rawKey, rawValue] = part.trim().split('=')
     if (rawKey === LOCALE_COOKIE_NAME) {
-      return normalizeLocale(rawValue)
+      return rawValue === 'en' ? 'en' : 'uk'
     }
   }
   return 'uk'
@@ -38,13 +33,11 @@ export type RootLoaderData = ReturnType<typeof loader>
 
 export function useRootLocale(): SupportedLocale {
   const data = useRouteLoaderData<RootLoaderData>('root')
-  invariant(data, 'Missing root loader data')
-  return data.locale
+  return data?.locale ?? 'uk'
 }
 
 export function Layout({ children }: { children: React.ReactNode }) {
-  const data = useRouteLoaderData<RootLoaderData>('root')
-  const locale = data?.locale ?? 'uk'
+  const locale = useRootLocale()
 
   return (
     <html lang={locale}>
