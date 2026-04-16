@@ -113,6 +113,19 @@ function makePyramidMachine(gameKey: Exclude<ReturnType<typeof listGameKeys>[num
         sample: 'Ordinary +1 score update',
       },
       {
+        fromPhase: phaseOfState(openPlay),
+        commandType: 'foul.commit',
+        toPhase: phaseOfState(
+          applyGameCommand({
+            gameKey,
+            state: openPlay,
+            commandType: 'foul.commit',
+            command: { seat: 'A' },
+          }).state,
+        ),
+        sample: 'Foul applies game-specific penalty',
+      },
+      {
         fromPhase: phaseOfState(atTarget),
         commandType: 'frame.award',
         toPhase: phaseOfState(frameOver),
@@ -198,14 +211,14 @@ function makeStrilaMachine(): GeneratedGameStateMachine {
     {
       state: {
         ...samples['open-play'],
-        score: { A: 8, B: 8 },
+        score: { A: 6, B: 8 },
         targetPointsBySeat: { A: 9, B: 9 },
         coloredBallsOnTable: [1],
         phase: { type: 'open-play', actor: 'A', cueBallPotsInRun: 0 },
       },
       commandType: 'pot.record',
       command: { actor: 'A', pottedBalls: [1] },
-      sample: 'Last colored ball at 8:8 enters respotted black',
+      sample: 'Last colored ball reaches 8:8 and enters respotted black',
     },
     {
       state: {

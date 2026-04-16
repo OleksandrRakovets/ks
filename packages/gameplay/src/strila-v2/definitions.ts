@@ -160,7 +160,7 @@ export const STRILA_PHASE_COMMANDS: Record<StrilaPhase['type'], readonly StrilaC
   'ball-in-hand': ['pot.record', 'miss.record', 'foul.commit', 'frame.concede'],
   'respotted-black-opening': ['pot.record', 'miss.record', 'foul.commit', 'frame.concede'],
   'respotted-black-play': ['pot.record', 'foul.commit', 'frame.concede'],
-  'winner-determined': ['pot.record', 'frame.award', 'frame.concede'],
+  'winner-determined': ['pot.record', 'frame.award'],
   'frame-over': [],
 }
 
