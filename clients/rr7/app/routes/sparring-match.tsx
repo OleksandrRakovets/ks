@@ -397,7 +397,10 @@ export default function SparringMatchRoute() {
     }),
     [participants.A.displayName, participants.B.displayName],
   )
-  const protocolRows = useMemo(() => deriveProtocolRows(protocolEntries, seatNames), [protocolEntries, seatNames])
+  const protocolRows = useMemo(() => {
+    const rows = deriveProtocolRows(protocolEntries, seatNames)
+    return snapshot.status === 'active' ? [...rows].reverse() : rows
+  }, [protocolEntries, seatNames, snapshot.status])
   function submitControlCommand(args: { commandType: string; command: Record<string, unknown> }) {
     localSubmitInFlightRef.current = true
     fetcher.submit(
