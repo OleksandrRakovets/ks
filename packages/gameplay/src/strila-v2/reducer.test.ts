@@ -6,8 +6,8 @@ import { createEmptyStrilaFrameState, reduceStrilaCommand } from './reducer'
 const DEFAULT_TARGETS = { A: 9, B: 9 } as const
 
 describe('reducer: basic', () => {
-  test('break-off enters open-play for actor', () => {
-    const next = reduceStrilaCommand(createEmptyStrilaFrameState(), { type: 'break-off', actor: 'A' })
+  test('frame.commence enters open-play for actor', () => {
+    const next = reduceStrilaCommand(createEmptyStrilaFrameState(), { type: 'frame.commence', actor: 'A' })
 
     expect(next.phase).toEqual({
       type: 'open-play',
@@ -18,7 +18,7 @@ describe('reducer: basic', () => {
     expect(next.coloredBallsOnTable).toEqual([1, 2, 3, 4, 5, 6, 7])
   })
 
-  test('target reached becomes winner-determined until award-frame', () => {
+  test('target reached becomes winner-determined until frame.award', () => {
     const state: StrilaFrameState = {
       score: { A: 8, B: 0 },
       targetPointsBySeat: DEFAULT_TARGETS,
@@ -31,7 +31,7 @@ describe('reducer: basic', () => {
     }
 
     const afterPot = reduceStrilaCommand(state, {
-      type: 'record-pot',
+      type: 'pot.record',
       actor: 'A',
       pottedBalls: [6],
     })
@@ -46,7 +46,7 @@ describe('reducer: basic', () => {
     })
   })
 
-  test('award-frame closes a winner-determined frame', () => {
+  test('frame.award closes a winner-determined frame', () => {
     const state: StrilaFrameState = {
       score: { A: 10, B: 0 },
       targetPointsBySeat: DEFAULT_TARGETS,
@@ -60,7 +60,7 @@ describe('reducer: basic', () => {
     }
 
     const afterAward = reduceStrilaCommand(state, {
-      type: 'award-frame',
+      type: 'frame.award',
       actor: 'A',
     })
 
@@ -73,26 +73,26 @@ describe('reducer: basic', () => {
 
 describe('reducer: foul handling', () => {
   test('foul then ball-in-hand then miss returns to opponent open-play', () => {
-    let state = reduceStrilaCommand(createEmptyStrilaFrameState(), { type: 'break-off', actor: 'A' })
-    state = reduceStrilaCommand(state, { type: 'foul-committed', actor: 'A' })
+    let state = reduceStrilaCommand(createEmptyStrilaFrameState(), { type: 'frame.commence', actor: 'A' })
+    state = reduceStrilaCommand(state, { type: 'foul.commit', actor: 'A' })
     expect(state.phase).toEqual({
-      type: 'foul-response',
+      type: 'penalty-selection',
       chooser: 'B',
       offender: 'A',
       forcedBallInHand: false,
     })
 
     state = reduceStrilaCommand(state, {
-      type: 'choose-foul-response',
+      type: 'penalty.select',
       actor: 'B',
       choice: 'ball-in-hand',
     })
     expect(state.phase).toEqual({
-      type: 'opponent-foul-ball-in-hand',
+      type: 'ball-in-hand',
       actor: 'B',
     })
 
-    state = reduceStrilaCommand(state, { type: 'record-miss', actor: 'B' })
+    state = reduceStrilaCommand(state, { type: 'miss.record', actor: 'B' })
     expect(state.phase).toEqual({
       type: 'open-play',
       actor: 'A',
@@ -101,10 +101,10 @@ describe('reducer: foul handling', () => {
   })
 
   test('foul response play-from-position awards one point to chooser and keeps actor', () => {
-    let state = reduceStrilaCommand(createEmptyStrilaFrameState(), { type: 'break-off', actor: 'A' })
-    state = reduceStrilaCommand(state, { type: 'foul-committed', actor: 'A' })
+    let state = reduceStrilaCommand(createEmptyStrilaFrameState(), { type: 'frame.commence', actor: 'A' })
+    state = reduceStrilaCommand(state, { type: 'foul.commit', actor: 'A' })
     state = reduceStrilaCommand(state, {
-      type: 'choose-foul-response',
+      type: 'penalty.select',
       actor: 'B',
       choice: 'play-from-position',
     })
@@ -118,10 +118,10 @@ describe('reducer: foul handling', () => {
   })
 
   test('foul response pass-position awards one point to chooser and returns actor to offender', () => {
-    let state = reduceStrilaCommand(createEmptyStrilaFrameState(), { type: 'break-off', actor: 'A' })
-    state = reduceStrilaCommand(state, { type: 'foul-committed', actor: 'A' })
+    let state = reduceStrilaCommand(createEmptyStrilaFrameState(), { type: 'frame.commence', actor: 'A' })
+    state = reduceStrilaCommand(state, { type: 'foul.commit', actor: 'A' })
     state = reduceStrilaCommand(state, {
-      type: 'choose-foul-response',
+      type: 'penalty.select',
       actor: 'B',
       choice: 'pass-position',
     })
@@ -135,16 +135,16 @@ describe('reducer: foul handling', () => {
   })
 
   test('opponent-foul ball-in-hand cue ball and colored ball together becomes a foul', () => {
-    const started = reduceStrilaCommand(createEmptyStrilaFrameState(), { type: 'break-off', actor: 'A' })
-    const foulResponse = reduceStrilaCommand(started, { type: 'foul-committed', actor: 'A' })
+    const started = reduceStrilaCommand(createEmptyStrilaFrameState(), { type: 'frame.commence', actor: 'A' })
+    const foulResponse = reduceStrilaCommand(started, { type: 'foul.commit', actor: 'A' })
     const state = reduceStrilaCommand(foulResponse, {
-      type: 'choose-foul-response',
+      type: 'penalty.select',
       actor: 'B',
       choice: 'ball-in-hand',
     })
 
     const next = reduceStrilaCommand(state, {
-      type: 'record-pot',
+      type: 'pot.record',
       actor: 'B',
       pottedBalls: [0, 3],
     })
@@ -152,7 +152,7 @@ describe('reducer: foul handling', () => {
     expect(next.score).toEqual({ A: 0, B: 0 })
     expect(next.coloredBallsOnTable).toEqual(state.coloredBallsOnTable)
     expect(next.phase).toEqual({
-      type: 'foul-response',
+      type: 'penalty-selection',
       chooser: 'A',
       offender: 'B',
       forcedBallInHand: false,
@@ -172,7 +172,7 @@ describe('reducer: foul handling', () => {
     }
 
     const next = reduceStrilaCommand(state, {
-      type: 'record-pot',
+      type: 'pot.record',
       actor: 'A',
       pottedBalls: [0],
     })
@@ -180,7 +180,7 @@ describe('reducer: foul handling', () => {
     expect(next.score).toEqual({ A: 2, B: 0 })
     expect(next.coloredBallsOnTable).toEqual([5, 7])
     expect(next.phase).toEqual({
-      type: 'foul-response',
+      type: 'penalty-selection',
       chooser: 'B',
       offender: 'A',
       forcedBallInHand: false,
@@ -198,7 +198,7 @@ describe('reducer: respotted black', () => {
     }
 
     const next = reduceStrilaCommand(state, {
-      type: 'record-pot',
+      type: 'pot.record',
       actor: 'A',
       pottedBalls: [7],
     })
@@ -217,7 +217,7 @@ describe('reducer: respotted black', () => {
     }
 
     const next = reduceStrilaCommand(state, {
-      type: 'record-pot',
+      type: 'pot.record',
       actor: 'A',
       pottedBalls: [6],
     })
@@ -240,7 +240,7 @@ describe('reducer: respotted black', () => {
     }
 
     const next = reduceStrilaCommand(state, {
-      type: 'record-pot',
+      type: 'pot.record',
       actor: 'A',
       pottedBalls: [7],
     })
@@ -264,7 +264,7 @@ describe('reducer: respotted black', () => {
     }
 
     const next = reduceStrilaCommand(state, {
-      type: 'record-pot',
+      type: 'pot.record',
       actor: 'A',
       pottedBalls: [0],
     })
@@ -288,7 +288,7 @@ describe('reducer: respotted black', () => {
     }
 
     const next = reduceStrilaCommand(state, {
-      type: 'record-pot',
+      type: 'pot.record',
       actor: 'A',
       pottedBalls: [0, 7],
     })
@@ -312,7 +312,7 @@ describe('reducer: respotted black', () => {
     }
 
     const next = reduceStrilaCommand(state, {
-      type: 'record-pot',
+      type: 'pot.record',
       actor: 'A',
       pottedBalls: [0],
     })
@@ -336,7 +336,7 @@ describe('reducer: respotted black', () => {
     }
 
     const next = reduceStrilaCommand(state, {
-      type: 'record-pot',
+      type: 'pot.record',
       actor: 'B',
       pottedBalls: [7],
     })
@@ -360,7 +360,7 @@ describe('reducer: respotted black', () => {
     }
 
     const next = reduceStrilaCommand(state, {
-      type: 'foul-committed',
+      type: 'foul.commit',
       actor: 'A',
     })
 
@@ -381,7 +381,7 @@ describe('reducer: respotted black', () => {
     }
 
     const next = reduceStrilaCommand(state, {
-      type: 'record-miss',
+      type: 'miss.record',
       actor: 'A',
     })
 
@@ -391,7 +391,7 @@ describe('reducer: respotted black', () => {
     })
   })
 
-  test('record-pot rejects colored ball not on table', () => {
+  test('pot.record rejects colored ball not on table', () => {
     const state: StrilaFrameState = {
       score: { A: 0, B: 0 },
       targetPointsBySeat: DEFAULT_TARGETS,
@@ -401,7 +401,7 @@ describe('reducer: respotted black', () => {
 
     expect(() =>
       reduceStrilaCommand(state, {
-        type: 'record-pot',
+        type: 'pot.record',
         actor: 'A',
         pottedBalls: [1],
       }),
@@ -409,10 +409,10 @@ describe('reducer: respotted black', () => {
   })
 
   test('handicap target lets A win at 6 after three pots', () => {
-    let state = reduceStrilaCommand(createEmptyStrilaFrameState({ A: 6, B: 9 }), { type: 'break-off', actor: 'A' })
-    state = reduceStrilaCommand(state, { type: 'record-pot', actor: 'A', pottedBalls: [1] })
-    state = reduceStrilaCommand(state, { type: 'record-pot', actor: 'A', pottedBalls: [2] })
-    state = reduceStrilaCommand(state, { type: 'record-pot', actor: 'A', pottedBalls: [3] })
+    let state = reduceStrilaCommand(createEmptyStrilaFrameState({ A: 6, B: 9 }), { type: 'frame.commence', actor: 'A' })
+    state = reduceStrilaCommand(state, { type: 'pot.record', actor: 'A', pottedBalls: [1] })
+    state = reduceStrilaCommand(state, { type: 'pot.record', actor: 'A', pottedBalls: [2] })
+    state = reduceStrilaCommand(state, { type: 'pot.record', actor: 'A', pottedBalls: [3] })
 
     expect(state.score).toEqual({ A: 6, B: 0 })
     expect(state.phase).toEqual({

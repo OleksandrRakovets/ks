@@ -57,19 +57,19 @@ function makePyramidMachine(gameKey: Exclude<ReturnType<typeof listGameKeys>[num
   const openPlay = applyGameCommand({
     gameKey,
     state: initial,
-    commandType: 'break-off',
+    commandType: 'frame.commence',
     command: { seat: 'A' },
   }).state
   const atTarget = applyGameCommand({
     gameKey,
     state: openPlay,
-    commandType: 'shot.recorded',
+    commandType: 'pot.record',
     command: { seat: 'A', points: meta.defaultFrameTargetPointsBySeat.A },
   }).state
   const frameOver = applyGameCommand({
     gameKey,
     state: atTarget,
-    commandType: 'award-frame',
+    commandType: 'frame.award',
     command: { seat: 'A' },
   }).state
 
@@ -95,18 +95,18 @@ function makePyramidMachine(gameKey: Exclude<ReturnType<typeof listGameKeys>[num
     transitions: [
       {
         fromPhase: phaseOfState(initial),
-        commandType: 'break-off',
+        commandType: 'frame.commence',
         toPhase: phaseOfState(openPlay),
         sample: 'A opens the frame',
       },
       {
         fromPhase: phaseOfState(openPlay),
-        commandType: 'shot.recorded',
+        commandType: 'pot.record',
         toPhase: phaseOfState(
           applyGameCommand({
             gameKey,
             state: openPlay,
-            commandType: 'shot.recorded',
+            commandType: 'pot.record',
             command: { seat: 'A', points: 1 },
           }).state,
         ),
@@ -114,7 +114,7 @@ function makePyramidMachine(gameKey: Exclude<ReturnType<typeof listGameKeys>[num
       },
       {
         fromPhase: phaseOfState(atTarget),
-        commandType: 'award-frame',
+        commandType: 'frame.award',
         toPhase: phaseOfState(frameOver),
         sample: 'Explicit close after reaching target',
       },
@@ -127,39 +127,39 @@ function makeStrilaPhaseSamples(): Record<StrilaPhase['type'], any> {
   const openPlay = applyGameCommand({
     gameKey: 'strila-v2',
     state: initial,
-    commandType: 'break-off',
+    commandType: 'frame.commence',
     command: { actor: 'A' },
   }).state
   const foulResponse = applyGameCommand({
     gameKey: 'strila-v2',
     state: openPlay,
-    commandType: 'foul-committed',
+    commandType: 'foul.commit',
     command: { actor: 'A' },
   }).state
   const opponentBallInHand = applyGameCommand({
     gameKey: 'strila-v2',
     state: foulResponse,
-    commandType: 'choose-foul-response',
+    commandType: 'penalty.select',
     command: { actor: 'B', choice: 'ball-in-hand' },
   }).state
   const winnerDetermined = applyGameCommand({
     gameKey: 'strila-v2',
     state: openPlay,
-    commandType: 'concede-frame',
+    commandType: 'frame.concede',
     command: { actor: 'B' },
   }).state
   const frameOver = applyGameCommand({
     gameKey: 'strila-v2',
     state: winnerDetermined,
-    commandType: 'award-frame',
+    commandType: 'frame.award',
     command: { actor: 'A' },
   }).state
 
   return {
     'not-started': initial,
     'open-play': openPlay,
-    'foul-response': foulResponse,
-    'opponent-foul-ball-in-hand': opponentBallInHand,
+    'penalty-selection': foulResponse,
+    'ball-in-hand': opponentBallInHand,
     'respotted-black-opening': {
       score: { A: 8, B: 8 },
       targetPointsBySeat: { A: 9, B: 9 },
@@ -182,16 +182,16 @@ function makeStrilaMachine(): GeneratedGameStateMachine {
   const transitions: TransitionRow[] = []
 
   const scenarios = [
-    { state: samples['not-started'], commandType: 'break-off', command: { actor: 'A' }, sample: 'A starts the frame' },
+    { state: samples['not-started'], commandType: 'frame.commence', command: { actor: 'A' }, sample: 'A starts the frame' },
     {
       state: samples['open-play'],
-      commandType: 'record-pot',
+      commandType: 'pot.record',
       command: { actor: 'A', pottedBalls: [1] },
       sample: 'Ordinary colored pot',
     },
     {
       state: { ...samples['open-play'], score: { A: 4, B: 0 }, targetPointsBySeat: { A: 6, B: 9 } },
-      commandType: 'record-pot',
+      commandType: 'pot.record',
       command: { actor: 'A', pottedBalls: [1] },
       sample: 'Target reached by handicap',
     },
@@ -203,7 +203,7 @@ function makeStrilaMachine(): GeneratedGameStateMachine {
         coloredBallsOnTable: [1],
         phase: { type: 'open-play', actor: 'A', cueBallPotsInRun: 0 },
       },
-      commandType: 'record-pot',
+      commandType: 'pot.record',
       command: { actor: 'A', pottedBalls: [1] },
       sample: 'Last colored ball at 8:8 enters respotted black',
     },
@@ -212,93 +212,93 @@ function makeStrilaMachine(): GeneratedGameStateMachine {
         ...samples['open-play'],
         phase: { type: 'open-play', actor: 'A', cueBallPotsInRun: 2 },
       },
-      commandType: 'record-pot',
+      commandType: 'pot.record',
       command: { actor: 'A', pottedBalls: [0] },
       sample: 'Third consecutive cue-ball pot is an automatic foul',
     },
-    { state: samples['open-play'], commandType: 'foul-committed', command: { actor: 'A' }, sample: 'Open-play foul' },
-    { state: samples['open-play'], commandType: 'concede-frame', command: { actor: 'B' }, sample: 'Opponent concedes' },
+    { state: samples['open-play'], commandType: 'foul.commit', command: { actor: 'A' }, sample: 'Open-play foul' },
+    { state: samples['open-play'], commandType: 'frame.concede', command: { actor: 'B' }, sample: 'Opponent concedes' },
     {
-      state: samples['foul-response'],
-      commandType: 'choose-foul-response',
+      state: samples['penalty-selection'],
+      commandType: 'penalty.select',
       command: { actor: 'B', choice: 'play-from-position' },
       sample: 'Chooser takes a point and plays',
     },
     {
-      state: samples['foul-response'],
-      commandType: 'choose-foul-response',
+      state: samples['penalty-selection'],
+      commandType: 'penalty.select',
       command: { actor: 'B', choice: 'ball-in-hand' },
       sample: 'Chooser takes ball in hand',
     },
     {
-      state: samples['opponent-foul-ball-in-hand'],
-      commandType: 'record-pot',
+      state: samples['ball-in-hand'],
+      commandType: 'pot.record',
       command: { actor: 'B', pottedBalls: [1] },
       sample: 'Legal ball-in-hand pot',
     },
     {
-      state: samples['opponent-foul-ball-in-hand'],
-      commandType: 'record-pot',
+      state: samples['ball-in-hand'],
+      commandType: 'pot.record',
       command: { actor: 'B', pottedBalls: [0, 1] },
       sample: 'Illegal cue-plus-colored ball-in-hand pot',
     },
     {
-      state: samples['opponent-foul-ball-in-hand'],
-      commandType: 'record-miss',
+      state: samples['ball-in-hand'],
+      commandType: 'miss.record',
       command: { actor: 'B' },
       sample: 'Ball-in-hand miss',
     },
     {
-      state: samples['opponent-foul-ball-in-hand'],
-      commandType: 'foul-committed',
+      state: samples['ball-in-hand'],
+      commandType: 'foul.commit',
       command: { actor: 'B' },
       sample: 'Ball-in-hand foul',
     },
     {
       state: samples['respotted-black-opening'],
-      commandType: 'record-pot',
+      commandType: 'pot.record',
       command: { actor: 'A', pottedBalls: [7] },
       sample: 'Legal black opener pot wins',
     },
     {
       state: samples['respotted-black-opening'],
-      commandType: 'record-pot',
+      commandType: 'pot.record',
       command: { actor: 'A', pottedBalls: [0] },
       sample: 'Illegal opener pot loses by automatic foul',
     },
     {
       state: samples['respotted-black-opening'],
-      commandType: 'record-miss',
+      commandType: 'miss.record',
       command: { actor: 'A' },
       sample: 'Opening miss hands over black play',
     },
     {
       state: samples['respotted-black-opening'],
-      commandType: 'foul-committed',
+      commandType: 'foul.commit',
       command: { actor: 'A' },
       sample: 'Opening foul loses frame',
     },
     {
       state: samples['respotted-black-play'],
-      commandType: 'record-pot',
+      commandType: 'pot.record',
       command: { actor: 'A', pottedBalls: [7] },
       sample: 'Black play pot wins',
     },
     {
       state: samples['respotted-black-play'],
-      commandType: 'foul-committed',
+      commandType: 'foul.commit',
       command: { actor: 'A' },
       sample: 'Black play foul loses frame',
     },
     {
       state: samples['winner-determined'],
-      commandType: 'record-pot',
+      commandType: 'pot.record',
       command: { actor: 'A', pottedBalls: [7] },
       sample: 'Winner keeps extending the break',
     },
     {
       state: samples['winner-determined'],
-      commandType: 'award-frame',
+      commandType: 'frame.award',
       command: { actor: 'A' },
       sample: 'Operator explicitly closes frame',
     },

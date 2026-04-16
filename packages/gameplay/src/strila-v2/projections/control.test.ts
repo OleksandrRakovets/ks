@@ -6,7 +6,7 @@ import { deriveStrilaControlView } from './control'
 const DEFAULT_TARGETS = { A: 9, B: 9 } as const
 
 describe('projection: control', () => {
-  test('not-started exposes break-off', () => {
+  test('not-started exposes frame.commence', () => {
     const state: StrilaFrameState = {
       score: { A: 0, B: 0 },
       targetPointsBySeat: DEFAULT_TARGETS,
@@ -19,50 +19,50 @@ describe('projection: control', () => {
       projection: 'control',
       score: { A: 0, B: 0 },
       availableCommands: [
-        { commandType: 'break-off', command: { actor: 'A' }, label: 'Break-off (A)' },
-        { commandType: 'break-off', command: { actor: 'B' }, label: 'Break-off (B)' },
+        { commandType: 'frame.commence', command: { actor: 'A' }, label: 'Break-off (A)' },
+        { commandType: 'frame.commence', command: { actor: 'B' }, label: 'Break-off (B)' },
       ],
       details: {
         phase: 'not-started',
         situationTitle: 'Break-off',
-        situationSummary: 'Record the opening break-off shot.',
+        situationSummary: 'Record the opening shot.',
         activeBalls: { active: [1, 2], inactive: [3, 4, 5, 6, 7] },
       },
     })
   })
 
-  test('foul-response exposes the three response choices', () => {
+  test('penalty-selection exposes the three response choices', () => {
     const state: StrilaFrameState = {
       score: { A: 4, B: 0 },
       targetPointsBySeat: DEFAULT_TARGETS,
       coloredBallsOnTable: [2, 3, 4, 5, 6, 7],
-      phase: { type: 'foul-response', chooser: 'B', offender: 'A', forcedBallInHand: false },
+      phase: { type: 'penalty-selection', chooser: 'B', offender: 'A', forcedBallInHand: false },
     }
 
     const view = deriveStrilaControlView(state)
     expect(view.details.actor).toBe('B')
     expect(view.availableCommands).toEqual([
       {
-        commandType: 'choose-foul-response',
+        commandType: 'penalty.select',
         command: { actor: 'B', choice: 'play-from-position' },
         label: 'Play from position',
         effectSummary: '+1 point',
       },
       {
-        commandType: 'choose-foul-response',
+        commandType: 'penalty.select',
         command: { actor: 'B', choice: 'pass-position' },
         label: 'Pass position',
         effectSummary: '+1 point',
       },
       {
-        commandType: 'choose-foul-response',
+        commandType: 'penalty.select',
         command: { actor: 'B', choice: 'ball-in-hand' },
         label: 'Ball in hand',
       },
     ])
   })
 
-  test('winner-determined keeps award-frame and record-pot', () => {
+  test('winner-determined keeps frame.award and pot.record', () => {
     const state: StrilaFrameState = {
       score: { A: 4, B: 9 },
       targetPointsBySeat: DEFAULT_TARGETS,
@@ -72,7 +72,7 @@ describe('projection: control', () => {
 
     const view = deriveStrilaControlView(state)
     expect(view.details.actor).toBe('B')
-    expect(view.availableCommands.map((entry) => entry.commandType)).toEqual(['record-pot', 'award-frame'])
+    expect(view.availableCommands.map((entry) => entry.commandType)).toEqual(['pot.record', 'frame.award'])
   })
 
   test('respotted-black-opening explains the restriction', () => {
@@ -87,16 +87,16 @@ describe('projection: control', () => {
     expect(view.details.actor).toBe('A')
     expect(view.details.activeBalls).toEqual({ active: [7], inactive: [] })
     expect(view.availableCommands[0]).toEqual({
-      commandType: 'record-pot',
+      commandType: 'pot.record',
       command: { actor: 'A' },
       label: 'Record pot',
       helpText: 'A black pot wins. Any other potted result is treated as a foul.',
     })
     expect(view.availableCommands.map((entry) => entry.commandType)).toEqual([
-      'record-pot',
-      'record-miss',
-      'foul-committed',
-      'concede-frame',
+      'pot.record',
+      'miss.record',
+      'foul.commit',
+      'frame.concede',
     ])
   })
 })

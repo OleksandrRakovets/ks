@@ -27,11 +27,11 @@ const BALL_LABELS: Record<number, string> = {
   7: 'Black',
 }
 
-const DUPLICATED_ACTOR_COMMANDS = new Set(['record-miss', 'foul-committed', 'concede-frame'])
+const DUPLICATED_ACTOR_COMMANDS = new Set(['miss.record', 'foul.commit', 'frame.concede'])
 
 function splitCommands(projection: MatchControlRendererProps['projection']) {
-  const recordPot = projection.availableCommands.find((entry) => entry.commandType === 'record-pot')
-  const rest = projection.availableCommands.filter((entry) => entry.commandType !== 'record-pot')
+  const recordPot = projection.availableCommands.find((entry) => entry.commandType === 'pot.record')
+  const rest = projection.availableCommands.filter((entry) => entry.commandType !== 'pot.record')
   return { recordPot, rest }
 }
 

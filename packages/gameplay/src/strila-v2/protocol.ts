@@ -10,14 +10,14 @@ function opponentOf(seat: StrilaSeat): StrilaSeat {
   return seat === 'A' ? 'B' : 'A'
 }
 
-function hasActor(command: StrilaCommand): command is Exclude<StrilaCommand, { type: 'break-off' }> {
-  return command.type !== 'break-off'
+function hasActor(command: StrilaCommand): command is Exclude<StrilaCommand, { type: 'frame.commence' }> {
+  return command.type !== 'frame.commence'
 }
 
 function isMixedBallInHandPot(previous: StrilaFrameState, command: StrilaCommand): boolean {
   return (
-    previous.phase.type === 'opponent-foul-ball-in-hand' &&
-    command.type === 'record-pot' &&
+    previous.phase.type === 'ball-in-hand' &&
+    command.type === 'pot.record' &&
     command.pottedBalls.includes(0) &&
     command.pottedBalls.some((ball) => ball !== 0)
   )
@@ -27,7 +27,7 @@ function isThirdConsecutiveCueBallPot(previous: StrilaFrameState, command: Stril
   return (
     previous.phase.type === 'open-play' &&
     previous.phase.cueBallPotsInRun === 2 &&
-    command.type === 'record-pot' &&
+    command.type === 'pot.record' &&
     command.pottedBalls.includes(0)
   )
 }
@@ -35,7 +35,7 @@ function isThirdConsecutiveCueBallPot(previous: StrilaFrameState, command: Stril
 function isRespottedBlackOpeningIllegalPot(previous: StrilaFrameState, command: StrilaCommand): boolean {
   return (
     previous.phase.type === 'respotted-black-opening' &&
-    command.type === 'record-pot' &&
+    command.type === 'pot.record' &&
     !(command.pottedBalls.length === 1 && command.pottedBalls[0] === 7)
   )
 }
@@ -69,7 +69,7 @@ export function projectStrilaProtocolEntries(args: {
       source: 'system',
       systemType: 'automatic-foul',
       offender: command.actor,
-      reason: 'illegal-opponent-foul-ball-in-hand-pot',
+      reason: 'illegal-ball-in-hand-pot',
     })
   }
 

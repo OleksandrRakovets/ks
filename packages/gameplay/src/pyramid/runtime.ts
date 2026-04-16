@@ -101,9 +101,9 @@ export class PyramidGameplayRuntime extends GameplayRuntime {
     const state = this.parseState(input.state)
     invariant(state.phase !== 'frame-over', 'Cannot apply pyramid command after frame-over')
 
-    if (input.commandType === 'break-off') {
+    if (input.commandType === 'frame.commence') {
       BreakOffCommandSchema.parse(input.command)
-      invariant(state.phase === 'not-started', 'Pyramid break-off is only allowed before open play starts')
+      invariant(state.phase === 'not-started', 'Pyramid frame.commence is only allowed before open play starts')
 
       return {
         state: {
@@ -113,8 +113,8 @@ export class PyramidGameplayRuntime extends GameplayRuntime {
       }
     }
 
-    if (input.commandType === 'shot.recorded') {
-      invariant(state.phase === 'open-play', 'Cannot record pyramid shot before break-off')
+    if (input.commandType === 'pot.record') {
+      invariant(state.phase === 'open-play', 'Cannot record pyramid shot before frame.commence')
       const command = ShotRecordedCommandSchema.parse(input.command)
       const current = state.pointsBySeat[command.seat]
       const next = current + command.points
@@ -136,8 +136,8 @@ export class PyramidGameplayRuntime extends GameplayRuntime {
       }
     }
 
-    if (input.commandType === 'foul.committed') {
-      invariant(state.phase === 'open-play', 'Cannot record pyramid foul before break-off')
+    if (input.commandType === 'foul.commit') {
+      invariant(state.phase === 'open-play', 'Cannot record pyramid foul before frame.commence')
       const command = FoulCommittedCommandSchema.parse(input.command)
 
       if (this.args.foulPenalty === 'opponent-plus-one') {
@@ -180,7 +180,7 @@ export class PyramidGameplayRuntime extends GameplayRuntime {
       }
     }
 
-    invariant(input.commandType === 'award-frame', `Unsupported commandType: ${input.commandType}`)
+    invariant(input.commandType === 'frame.award', `Unsupported commandType: ${input.commandType}`)
     const command = AwardFrameCommandSchema.parse(input.command)
     invariant(
       state.pointsBySeat[command.seat] >= state.targetPointsBySeat[command.seat],
@@ -207,8 +207,8 @@ export class PyramidGameplayRuntime extends GameplayRuntime {
             projection: 'control',
             score: state.pointsBySeat,
             availableCommands: [
-              command('break-off', { seat: 'A' }, 'Break-off (A)'),
-              command('break-off', { seat: 'B' }, 'Break-off (B)'),
+              command('frame.commence', { seat: 'A' }, 'Break-off (A)'),
+              command('frame.commence', { seat: 'B' }, 'Break-off (B)'),
             ],
             details: {
               ...pyramidDetails(state),
@@ -224,16 +224,16 @@ export class PyramidGameplayRuntime extends GameplayRuntime {
             projection: 'control',
             score: state.pointsBySeat,
             availableCommands: [
-              ...this.args.shotPointOptions.map((points) => command('shot.recorded', { points }, `+${points}`)),
-              command('foul.committed', {}, 'Foul', {
+              ...this.args.shotPointOptions.map((points) => command('pot.record', { points }, `+${points}`)),
+              command('foul.commit', {}, 'Foul', {
                 effectSummary:
                   this.args.foulPenalty === 'opponent-plus-one' ? 'Opponent +1 point' : 'Offender -1 point (negative allowed)',
               }),
               ...(state.pointsBySeat.A >= state.targetPointsBySeat.A
-                ? [command('award-frame', { seat: 'A' }, 'Award frame')]
+                ? [command('frame.award', { seat: 'A' }, 'Award frame')]
                 : []),
               ...(state.pointsBySeat.B >= state.targetPointsBySeat.B
-                ? [command('award-frame', { seat: 'B' }, 'Award frame')]
+                ? [command('frame.award', { seat: 'B' }, 'Award frame')]
                 : []),
             ],
             details: {

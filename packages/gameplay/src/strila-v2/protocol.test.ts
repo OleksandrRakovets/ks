@@ -14,7 +14,7 @@ describe('protocol projection', () => {
       coloredBallsOnTable: [7],
       phase: { type: 'open-play', actor: 'A', cueBallPotsInRun: 0 },
     }
-    const command: StrilaCommand = { type: 'record-pot', actor: 'A', pottedBalls: [7] }
+    const command: StrilaCommand = { type: 'pot.record', actor: 'A', pottedBalls: [7] }
     const next = reduceStrilaCommand(previous, command)
 
     expect(projectStrilaProtocolEntries({ previous, command, next })).toEqual([
@@ -30,7 +30,7 @@ describe('protocol projection', () => {
       coloredBallsOnTable: [5, 7],
       phase: { type: 'open-play', actor: 'A', cueBallPotsInRun: 2 },
     }
-    const command: StrilaCommand = { type: 'record-pot', actor: 'A', pottedBalls: [0] }
+    const command: StrilaCommand = { type: 'pot.record', actor: 'A', pottedBalls: [0] }
     const next = reduceStrilaCommand(previous, command)
 
     expect(projectStrilaProtocolEntries({ previous, command, next })).toEqual([
@@ -51,7 +51,7 @@ describe('protocol projection', () => {
       coloredBallsOnTable: [7],
       phase: { type: 'respotted-black-opening', actor: 'A' },
     }
-    const command: StrilaCommand = { type: 'record-pot', actor: 'A', pottedBalls: [0] }
+    const command: StrilaCommand = { type: 'pot.record', actor: 'A', pottedBalls: [0] }
     const next = reduceStrilaCommand(previous, command)
 
     expect(projectStrilaProtocolEntries({ previous, command, next })).toEqual([
@@ -72,9 +72,9 @@ describe('protocol projection', () => {
   })
 
   test('target reached winner determination', () => {
-    let previous = reduceStrilaCommand(createEmptyStrilaFrameState(DEFAULT_TARGETS), { type: 'break-off', actor: 'A' })
-    previous = reduceStrilaCommand(previous, { type: 'record-pot', actor: 'A', pottedBalls: [1, 2, 3, 4] })
-    const command: StrilaCommand = { type: 'record-pot', actor: 'A', pottedBalls: [5] }
+    let previous = reduceStrilaCommand(createEmptyStrilaFrameState(DEFAULT_TARGETS), { type: 'frame.commence', actor: 'A' })
+    previous = reduceStrilaCommand(previous, { type: 'pot.record', actor: 'A', pottedBalls: [1, 2, 3, 4] })
+    const command: StrilaCommand = { type: 'pot.record', actor: 'A', pottedBalls: [5] }
     const next = reduceStrilaCommand(previous, command)
 
     expect(projectStrilaProtocolEntries({ previous, command, next })).toEqual([

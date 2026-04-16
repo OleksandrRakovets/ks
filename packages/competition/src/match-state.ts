@@ -103,7 +103,7 @@ function applyLegacyScoreDelta(state: MatchState, seat: Seat, delta: number): vo
   const result = applyGameCommand({
     gameKey,
     state: frame.gameState,
-    commandType: 'shot.recorded',
+    commandType: 'pot.record',
     command: { seat, points: delta },
   })
 

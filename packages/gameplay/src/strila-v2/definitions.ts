@@ -48,8 +48,8 @@ export const StrilaWinnerDeterminedReasonSchema = z.enum([
 export const StrilaPhaseTypeSchema = z.enum([
   'not-started',
   'open-play',
-  'foul-response',
-  'opponent-foul-ball-in-hand',
+  'penalty-selection',
+  'ball-in-hand',
   'respotted-black-opening',
   'respotted-black-play',
   'winner-determined',
@@ -64,13 +64,13 @@ export const StrilaPhaseSchema = z.discriminatedUnion('type', [
     cueBallPotsInRun: z.union([z.literal(0), z.literal(1), z.literal(2)]),
   }),
   z.object({
-    type: z.literal('foul-response'),
+    type: z.literal('penalty-selection'),
     chooser: StrilaSeatSchema,
     offender: StrilaSeatSchema,
     forcedBallInHand: z.boolean(),
   }),
   z.object({
-    type: z.literal('opponent-foul-ball-in-hand'),
+    type: z.literal('ball-in-hand'),
     actor: StrilaSeatSchema,
   }),
   z.object({
@@ -99,7 +99,7 @@ export type StrilaPhase = z.infer<typeof StrilaPhaseSchema>
 // - baulk / second-baulk origin is intentionally not represented in state,
 // - marker/secretary visit tracking is deferred to higher-level competition mode,
 // - `actor` means only the seat currently expected to log the next action,
-// - after `foul-committed`, the game stays in `foul-response` until the
+// - after `foul.commit`, the game stays in `penalty-selection` until the
 //   opponent chooses the response,
 // - `respotted-black-opening` is kept separate so the control view can explain
 //   the first-shot-only restriction.
@@ -116,9 +116,9 @@ export type StrilaFrameState = z.infer<typeof StrilaFrameStateSchema>
 export const StrilaFoulResponseChoiceSchema = z.enum(['play-from-position', 'pass-position', 'ball-in-hand'])
 
 export const StrilaCommandSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('break-off'), actor: StrilaSeatSchema }),
+  z.object({ type: z.literal('frame.commence'), actor: StrilaSeatSchema }),
   z.object({
-    type: z.literal('record-pot'),
+    type: z.literal('pot.record'),
     actor: StrilaSeatSchema,
     pottedBalls: z
       .array(StrilaBallSchema)
@@ -141,26 +141,26 @@ export const StrilaCommandSchema = z.discriminatedUnion('type', [
   }),
   // First-pass escape hatch for the special post-foul ball-in-hand shot.
   // Do not generalize this to ordinary open-play misses in v1.
-  z.object({ type: z.literal('record-miss'), actor: StrilaSeatSchema }),
-  z.object({ type: z.literal('foul-committed'), actor: StrilaSeatSchema }),
+  z.object({ type: z.literal('miss.record'), actor: StrilaSeatSchema }),
+  z.object({ type: z.literal('foul.commit'), actor: StrilaSeatSchema }),
   z.object({
-    type: z.literal('choose-foul-response'),
+    type: z.literal('penalty.select'),
     actor: StrilaSeatSchema,
     choice: StrilaFoulResponseChoiceSchema,
   }),
-  z.object({ type: z.literal('award-frame'), actor: StrilaSeatSchema }),
-  z.object({ type: z.literal('concede-frame'), actor: StrilaSeatSchema }),
+  z.object({ type: z.literal('frame.award'), actor: StrilaSeatSchema }),
+  z.object({ type: z.literal('frame.concede'), actor: StrilaSeatSchema }),
 ])
 export type StrilaCommand = z.infer<typeof StrilaCommandSchema>
 
 export const STRILA_PHASE_COMMANDS: Record<StrilaPhase['type'], readonly StrilaCommand['type'][]> = {
-  'not-started': ['break-off'],
-  'open-play': ['record-pot', 'foul-committed', 'concede-frame'],
-  'foul-response': ['choose-foul-response'],
-  'opponent-foul-ball-in-hand': ['record-pot', 'record-miss', 'foul-committed', 'concede-frame'],
-  'respotted-black-opening': ['record-pot', 'record-miss', 'foul-committed', 'concede-frame'],
-  'respotted-black-play': ['record-pot', 'foul-committed', 'concede-frame'],
-  'winner-determined': ['record-pot', 'award-frame', 'concede-frame'],
+  'not-started': ['frame.commence'],
+  'open-play': ['pot.record', 'foul.commit', 'frame.concede'],
+  'penalty-selection': ['penalty.select'],
+  'ball-in-hand': ['pot.record', 'miss.record', 'foul.commit', 'frame.concede'],
+  'respotted-black-opening': ['pot.record', 'miss.record', 'foul.commit', 'frame.concede'],
+  'respotted-black-play': ['pot.record', 'foul.commit', 'frame.concede'],
+  'winner-determined': ['pot.record', 'frame.award', 'frame.concede'],
   'frame-over': [],
 }
 
@@ -223,7 +223,7 @@ export const StrilaSummaryViewSchema = GameSummaryProjectionSchema.extend({
 
 export const StrilaAutomaticFoulReasonSchema = z.enum([
   'third-consecutive-cue-ball-pot',
-  'illegal-opponent-foul-ball-in-hand-pot',
+  'illegal-ball-in-hand-pot',
   'respotted-black-opening-illegal-pot',
 ])
 

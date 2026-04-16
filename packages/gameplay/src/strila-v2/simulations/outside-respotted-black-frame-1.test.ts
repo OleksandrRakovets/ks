@@ -15,20 +15,20 @@ test('simulation: outside: respotted black frame 1', () => {
 
   expect(deriveStrilaScoreboardView(state).details.objectBalls).toEqual([7])
   expect(deriveStrilaControlView(state).availableCommands.map((entry) => entry.commandType)).toEqual([
-    'record-pot',
-    'record-miss',
-    'foul-committed',
-    'concede-frame',
+    'pot.record',
+    'miss.record',
+    'foul.commit',
+    'frame.concede',
   ])
 
   const step = applyGameCommand({
     gameKey: 'strila-v2',
     state,
-    commandType: 'record-pot',
+    commandType: 'pot.record',
     command: { actor: 'A', pottedBalls: [7] },
   })
   expect(step.protocolEntries).toEqual([
-    { source: 'player', command: { type: 'record-pot', actor: 'A', pottedBalls: [7] } },
+    { source: 'player', command: { type: 'pot.record', actor: 'A', pottedBalls: [7] } },
     {
       source: 'system',
       systemType: 'winner-determined',
@@ -37,8 +37,8 @@ test('simulation: outside: respotted black frame 1', () => {
     },
   ])
   expect(deriveStrilaControlView(step.state as StrilaFrameState).availableCommands.map((entry) => entry.commandType)).toEqual([
-    'record-pot',
-    'award-frame',
+    'pot.record',
+    'frame.award',
   ])
   expect(deriveStrilaScoreboardView(step.state as StrilaFrameState).details.winner).toBe('A')
 })

@@ -19,7 +19,7 @@ function validateStrilaCommandInPhase(command: StrilaCommand, phase: StrilaPhase
   return null
 }
 
-type RecordPotCommand = Extract<StrilaCommand, { type: 'record-pot' }>
+type RecordPotCommand = Extract<StrilaCommand, { type: 'pot.record' }>
 
 function opponentOf(seat: StrilaSeat): StrilaSeat {
   return seat === 'A' ? 'B' : 'A'
@@ -61,7 +61,7 @@ function nextCueBallPotStreak(prev: 0 | 1 | 2, pottedBalls: RecordPotCommand['po
 }
 
 function isIllegalOpponentFoulBallInHandPot(command: RecordPotCommand, state: StrilaFrameState): boolean {
-  if (state.phase.type !== 'opponent-foul-ball-in-hand') return false
+  if (state.phase.type !== 'ball-in-hand') return false
 
   const cueBallPotted = command.pottedBalls.includes(0)
   const coloredBallsPotted = command.pottedBalls.some((ball) => ball !== 0)
@@ -76,7 +76,7 @@ function makeFoulResponse(state: StrilaFrameState, actor: StrilaSeat): StrilaFra
   return {
     ...state,
     phase: {
-      type: 'foul-response',
+      type: 'penalty-selection',
       chooser: opponentOf(actor),
       offender: actor,
       forcedBallInHand: false,
@@ -140,13 +140,13 @@ export function reduceStrilaCommand(state: StrilaFrameState, command: StrilaComm
     throw new Error(validationError)
   }
 
-  if (command.type === 'record-pot') {
+  if (command.type === 'pot.record') {
     const missingBall = findPottedColoredBallMissingFromTable(state, command)
     invariant(missingBall === null, `Potted ball ${missingBall} is not on the table`)
   }
 
   switch (command.type) {
-    case 'break-off': {
+    case 'frame.commence': {
       invariant(state.phase.type === 'not-started', 'Frame can only be started from not-started phase')
       return {
         phase: {
@@ -160,7 +160,7 @@ export function reduceStrilaCommand(state: StrilaFrameState, command: StrilaComm
       }
     }
 
-    case 'record-pot': {
+    case 'pot.record': {
       if (state.phase.type === 'respotted-black-opening') {
         /* One nuance: the reducer currently seeds respotted-black-opening.actor from the current shooter when the 8:8 state is reached. That closes the “actor-less phase” gap, but it is still not a true representation of the rulebook draw/lot. If you want exact rules later, the next step would be to introduce an explicit command for assigning the respotted-black opener. */
         if (!isValidRespottedBlackOpeningPot(command)) {
@@ -234,10 +234,10 @@ export function reduceStrilaCommand(state: StrilaFrameState, command: StrilaComm
       return resolveNonRespottedFrameOutcome(nextState) ?? nextState
     }
 
-    case 'record-miss': {
+    case 'miss.record': {
       switch (state.phase.type) {
         case 'open-play':
-        case 'opponent-foul-ball-in-hand':
+        case 'ball-in-hand':
           return {
             ...state,
             phase: {
@@ -266,10 +266,10 @@ export function reduceStrilaCommand(state: StrilaFrameState, command: StrilaComm
           }
       }
 
-      invariant(false, `Unsupported phase for record-miss: ${state.phase.type}`)
+      invariant(false, `Unsupported phase for miss.record: ${state.phase.type}`)
     }
 
-    case 'foul-committed': {
+    case 'foul.commit': {
       if (state.phase.type === 'respotted-black-opening' || state.phase.type === 'respotted-black-play') {
         return {
           ...state,
@@ -282,15 +282,15 @@ export function reduceStrilaCommand(state: StrilaFrameState, command: StrilaComm
       return makeFoulResponse(state, command.actor)
     }
 
-    case 'choose-foul-response': {
-      invariant(state.phase.type === 'foul-response', 'Foul response can only be chosen in foul-response phase')
+    case 'penalty.select': {
+      invariant(state.phase.type === 'penalty-selection', 'Penalty can only be chosen in penalty-selection phase')
       invariant(command.actor === state.phase.chooser, 'Only chooser may respond to the foul')
 
       if (command.choice === 'ball-in-hand') {
         return {
           ...state,
           phase: {
-            type: 'opponent-foul-ball-in-hand',
+            type: 'ball-in-hand',
             actor: command.actor,
           },
         }
@@ -308,8 +308,8 @@ export function reduceStrilaCommand(state: StrilaFrameState, command: StrilaComm
       }
     }
 
-    case 'award-frame': {
-      invariant(state.phase.type === 'winner-determined', 'award-frame is only supported in winner-determined phase')
+    case 'frame.award': {
+      invariant(state.phase.type === 'winner-determined', 'frame.award is only supported in winner-determined phase')
       return {
         ...state,
         phase: {
@@ -319,17 +319,17 @@ export function reduceStrilaCommand(state: StrilaFrameState, command: StrilaComm
       }
     }
 
-    case 'concede-frame': {
+    case 'frame.concede': {
       if (state.phase.type !== 'frame-over') {
         return {
           ...state,
           phase: makeWinnerDetermined(
-            state.phase.type === 'foul-response'
+            state.phase.type === 'penalty-selection'
               ? state.phase.offender === command.actor
                 ? state.phase.chooser
                 : state.phase.offender
               : opponentOf(command.actor),
-            state.phase.type === 'foul-response'
+            state.phase.type === 'penalty-selection'
               ? state.phase.offender === command.actor
                 ? state.phase.chooser
                 : state.phase.offender

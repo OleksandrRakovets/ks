@@ -201,7 +201,7 @@ function protocolLabel(event: StoredEvent, seatNames: { A: string; B: string }):
   const seatLabel = (seat: 'A' | 'B') => seatNames[seat]
 
   if (event.type === 'game.command') {
-    if (event.payload.commandType === 'record-pot') {
+    if (event.payload.commandType === 'pot.record') {
       const command = event.payload.command as { actor?: unknown; pottedBalls?: unknown }
       const actor = command.actor === 'A' || command.actor === 'B' ? command.actor : '?'
       const pottedBalls = Array.isArray(command.pottedBalls)

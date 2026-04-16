@@ -10,13 +10,13 @@ export const StrilaUndoCommandSchema = z.object({
 export type StrilaUndoCommand = z.infer<typeof StrilaUndoCommandSchema>
 
 export const StrilaUndoableCommandTypeSchema = z.enum([
-  'break-off',
-  'record-pot',
-  'record-miss',
-  'foul-committed',
-  'choose-foul-response',
-  'award-frame',
-  'concede-frame',
+  'frame.commence',
+  'pot.record',
+  'miss.record',
+  'foul.commit',
+  'penalty.select',
+  'frame.award',
+  'frame.concede',
 ])
 export type StrilaUndoableCommandType = z.infer<typeof StrilaUndoableCommandTypeSchema>
 

@@ -12,10 +12,10 @@ function seatFromCommand(command: Record<string, unknown>): 'A' | 'B' | null {
 }
 
 export function PyramidControlRenderer(props: MatchControlRendererProps) {
-  const shotCommands = props.projection.availableCommands.filter((entry) => entry.commandType === 'shot.recorded')
-  const foulCommand = props.projection.availableCommands.find((entry) => entry.commandType === 'foul.committed')
+  const shotCommands = props.projection.availableCommands.filter((entry) => entry.commandType === 'pot.record')
+  const foulCommand = props.projection.availableCommands.find((entry) => entry.commandType === 'foul.commit')
   const otherCommands = props.projection.availableCommands.filter(
-    (entry) => entry.commandType !== 'shot.recorded' && entry.commandType !== 'foul.committed',
+    (entry) => entry.commandType !== 'pot.record' && entry.commandType !== 'foul.commit',
   )
   const seatAName = props.participants.A.shortDisplayName
   const seatBName = props.participants.B.shortDisplayName
@@ -34,7 +34,7 @@ export function PyramidControlRenderer(props: MatchControlRendererProps) {
   function submitShot(seat: 'A' | 'B', points: number) {
     const base = shotCommands[0]?.command ?? { seat }
     props.onSubmitCommand({
-      commandType: 'shot.recorded',
+      commandType: 'pot.record',
       command: {
         ...base,
         seat,
@@ -46,7 +46,7 @@ export function PyramidControlRenderer(props: MatchControlRendererProps) {
   function submitFoul(seat: 'A' | 'B') {
     const base = foulCommand?.command ?? { seat }
     props.onSubmitCommand({
-      commandType: 'foul.committed',
+      commandType: 'foul.commit',
       command: {
         ...base,
         seat,

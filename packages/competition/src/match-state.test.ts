@@ -42,7 +42,7 @@ describe('free-pyramid', () => {
       s,
       baseEvent(config.matchId, 'game.command', {
         gameKey: config.gameKey,
-        commandType: 'break-off',
+        commandType: 'frame.commence',
         command: { seat: 'A' },
       }),
     )
@@ -50,7 +50,7 @@ describe('free-pyramid', () => {
       s,
       baseEvent(config.matchId, 'game.command', {
         gameKey: config.gameKey,
-        commandType: 'shot.recorded',
+        commandType: 'pot.record',
         command: { seat: 'A', points: 1 },
       }),
     )
@@ -58,7 +58,7 @@ describe('free-pyramid', () => {
       s,
       baseEvent(config.matchId, 'game.command', {
         gameKey: config.gameKey,
-        commandType: 'shot.recorded',
+        commandType: 'pot.record',
         command: { seat: 'A', points: -10 },
       }),
     )
@@ -94,7 +94,7 @@ describe('combined-pyramid-old', () => {
       s,
       baseEvent(config.matchId, 'game.command', {
         gameKey: config.gameKey,
-        commandType: 'break-off',
+        commandType: 'frame.commence',
         command: { seat: 'A' },
       }),
     )
@@ -102,7 +102,7 @@ describe('combined-pyramid-old', () => {
       s,
       baseEvent(config.matchId, 'game.command', {
         gameKey: config.gameKey,
-        commandType: 'shot.recorded',
+        commandType: 'pot.record',
         command: { seat: 'A', points: -2 },
       }),
     )
@@ -119,7 +119,7 @@ test('frame award increments framesWon', () => {
   expect(s.framesWonBySeat.A).toBe(1)
 })
 
-test('strila award-frame closes the match frame through gameplay', () => {
+test('strila frame.award closes the match frame through gameplay', () => {
   const config = makeConfig('strila-v2')
   let s = emptyMatchState()
   s = applyMatchEvent(s, baseEvent(config.matchId, 'match.created', config))
@@ -128,7 +128,7 @@ test('strila award-frame closes the match frame through gameplay', () => {
     s,
     baseEvent(config.matchId, 'game.command', {
       gameKey: config.gameKey,
-      commandType: 'break-off',
+      commandType: 'frame.commence',
       command: { actor: 'A' },
     }),
   )
@@ -136,7 +136,7 @@ test('strila award-frame closes the match frame through gameplay', () => {
     s,
     baseEvent(config.matchId, 'game.command', {
       gameKey: config.gameKey,
-      commandType: 'concede-frame',
+      commandType: 'frame.concede',
       command: { actor: 'B' },
     }),
   )
@@ -147,7 +147,7 @@ test('strila award-frame closes the match frame through gameplay', () => {
     s,
     baseEvent(config.matchId, 'game.command', {
       gameKey: config.gameKey,
-      commandType: 'award-frame',
+      commandType: 'frame.award',
       command: { actor: 'A' },
     }),
   )
@@ -167,7 +167,7 @@ test('strila handicap target lets A reach winner-determined at 6', () => {
     s,
     baseEvent(config.matchId, 'game.command', {
       gameKey: config.gameKey,
-      commandType: 'break-off',
+      commandType: 'frame.commence',
       command: { actor: 'A' },
     }),
   )
@@ -175,7 +175,7 @@ test('strila handicap target lets A reach winner-determined at 6', () => {
     s,
     baseEvent(config.matchId, 'game.command', {
       gameKey: config.gameKey,
-      commandType: 'record-pot',
+      commandType: 'pot.record',
       command: { actor: 'A', pottedBalls: [1] },
     }),
   )
@@ -183,7 +183,7 @@ test('strila handicap target lets A reach winner-determined at 6', () => {
     s,
     baseEvent(config.matchId, 'game.command', {
       gameKey: config.gameKey,
-      commandType: 'record-pot',
+      commandType: 'pot.record',
       command: { actor: 'A', pottedBalls: [2] },
     }),
   )
@@ -191,7 +191,7 @@ test('strila handicap target lets A reach winner-determined at 6', () => {
     s,
     baseEvent(config.matchId, 'game.command', {
       gameKey: config.gameKey,
-      commandType: 'record-pot',
+      commandType: 'pot.record',
       command: { actor: 'A', pottedBalls: [3] },
     }),
   )
@@ -203,7 +203,7 @@ test('strila handicap target lets A reach winner-determined at 6', () => {
     s,
     baseEvent(config.matchId, 'game.command', {
       gameKey: config.gameKey,
-      commandType: 'award-frame',
+      commandType: 'frame.award',
       command: { actor: 'A' },
     }),
   )
@@ -212,7 +212,7 @@ test('strila handicap target lets A reach winner-determined at 6', () => {
   expect(s.framesWonBySeat.A).toBe(1)
 })
 
-test('free-pyramid award-frame closes the match frame through gameplay', () => {
+test('free-pyramid frame.award closes the match frame through gameplay', () => {
   const config = makeConfig('free-pyramid')
   let s = emptyMatchState()
   s = applyMatchEvent(s, baseEvent(config.matchId, 'match.created', config))
@@ -221,7 +221,7 @@ test('free-pyramid award-frame closes the match frame through gameplay', () => {
     s,
     baseEvent(config.matchId, 'game.command', {
       gameKey: config.gameKey,
-      commandType: 'break-off',
+      commandType: 'frame.commence',
       command: { seat: 'A' },
     }),
   )
@@ -229,7 +229,7 @@ test('free-pyramid award-frame closes the match frame through gameplay', () => {
     s,
     baseEvent(config.matchId, 'game.command', {
       gameKey: config.gameKey,
-      commandType: 'shot.recorded',
+      commandType: 'pot.record',
       command: { seat: 'A', points: 8 },
     }),
   )
@@ -237,7 +237,7 @@ test('free-pyramid award-frame closes the match frame through gameplay', () => {
     s,
     baseEvent(config.matchId, 'game.command', {
       gameKey: config.gameKey,
-      commandType: 'shot.recorded',
+      commandType: 'pot.record',
       command: { seat: 'A', points: 2 },
     }),
   )
@@ -248,7 +248,7 @@ test('free-pyramid award-frame closes the match frame through gameplay', () => {
     s,
     baseEvent(config.matchId, 'game.command', {
       gameKey: config.gameKey,
-      commandType: 'award-frame',
+      commandType: 'frame.award',
       command: { seat: 'A' },
     }),
   )
@@ -266,7 +266,7 @@ test('free-pyramid allows break above frame target before frame award', () => {
     s,
     baseEvent(config.matchId, 'game.command', {
       gameKey: config.gameKey,
-      commandType: 'break-off',
+      commandType: 'frame.commence',
       command: { seat: 'A' },
     }),
   )
@@ -274,7 +274,7 @@ test('free-pyramid allows break above frame target before frame award', () => {
     s,
     baseEvent(config.matchId, 'game.command', {
       gameKey: config.gameKey,
-      commandType: 'shot.recorded',
+      commandType: 'pot.record',
       command: { seat: 'A', points: 8 },
     }),
   )
@@ -282,7 +282,7 @@ test('free-pyramid allows break above frame target before frame award', () => {
     s,
     baseEvent(config.matchId, 'game.command', {
       gameKey: config.gameKey,
-      commandType: 'shot.recorded',
+      commandType: 'pot.record',
       command: { seat: 'A', points: 2 },
     }),
   )

@@ -8,7 +8,7 @@ test('simulation: internal: basic frame 1', () => {
   let next = createEmptyStrilaFrameState({ A: 9, B: 9 })
 
   ;({ next } = applyCommand(next, {
-    type: 'break-off',
+    type: 'frame.commence',
     actor: 'A',
   }))
   expect(next.phase).toEqual({
@@ -29,7 +29,7 @@ test('simulation: internal: basic frame 1', () => {
     },
   })
 
-  ;({ next } = applyCommand(next, { type: 'record-pot', actor: 'A', pottedBalls: [1] }))
+  ;({ next } = applyCommand(next, { type: 'pot.record', actor: 'A', pottedBalls: [1] }))
   expect(next.score).toEqual({ A: 2, B: 0 })
   expect(next.coloredBallsOnTable).toEqual([2, 3, 4, 5, 6, 7])
   expect(next.phase).toEqual({
@@ -38,7 +38,7 @@ test('simulation: internal: basic frame 1', () => {
     cueBallPotsInRun: 0,
   })
 
-  ;({ next } = applyCommand(next, { type: 'record-pot', actor: 'A', pottedBalls: [0] }))
+  ;({ next } = applyCommand(next, { type: 'pot.record', actor: 'A', pottedBalls: [0] }))
   expect(next.score).toEqual({ A: 3, B: 0 })
   expect(next.coloredBallsOnTable).toEqual([2, 3, 4, 5, 6, 7])
   expect(next.phase).toEqual({
@@ -47,7 +47,7 @@ test('simulation: internal: basic frame 1', () => {
     cueBallPotsInRun: 1,
   })
 
-  ;({ next } = applyCommand(next, { type: 'record-pot', actor: 'A', pottedBalls: [0] }))
+  ;({ next } = applyCommand(next, { type: 'pot.record', actor: 'A', pottedBalls: [0] }))
   expect(next.score).toEqual({ A: 4, B: 0 })
   expect(next.coloredBallsOnTable).toEqual([2, 3, 4, 5, 6, 7])
   expect(next.phase).toEqual({
@@ -57,17 +57,17 @@ test('simulation: internal: basic frame 1', () => {
   })
 
   let protocolEntries
-  ;({ next, protocolEntries } = applyCommand(next, { type: 'record-pot', actor: 'A', pottedBalls: [0] }))
+  ;({ next, protocolEntries } = applyCommand(next, { type: 'pot.record', actor: 'A', pottedBalls: [0] }))
   expect(next.score).toEqual({ A: 4, B: 0 })
   expect(next.coloredBallsOnTable).toEqual([2, 3, 4, 5, 6, 7])
   expect(next.phase).toEqual({
-    type: 'foul-response',
+    type: 'penalty-selection',
     chooser: 'B',
     offender: 'A',
     forcedBallInHand: false,
   })
   expect(protocolEntries).toEqual([
-    { source: 'player', command: { type: 'record-pot', actor: 'A', pottedBalls: [0] } },
+    { source: 'player', command: { type: 'pot.record', actor: 'A', pottedBalls: [0] } },
     {
       source: 'system',
       systemType: 'automatic-foul',
@@ -77,7 +77,7 @@ test('simulation: internal: basic frame 1', () => {
   ])
 
   ;({ next } = applyCommand(next, {
-    type: 'choose-foul-response',
+    type: 'penalty.select',
     actor: 'B',
     choice: 'play-from-position',
   }))
@@ -88,7 +88,7 @@ test('simulation: internal: basic frame 1', () => {
     cueBallPotsInRun: 0,
   })
 
-  ;({ next } = applyCommand(next, { type: 'record-pot', actor: 'B', pottedBalls: [2, 3] }))
+  ;({ next } = applyCommand(next, { type: 'pot.record', actor: 'B', pottedBalls: [2, 3] }))
   expect(next.score).toEqual({ A: 4, B: 5 })
   expect(next.coloredBallsOnTable).toEqual([4, 5, 6, 7])
   expect(next.phase).toEqual({
@@ -97,7 +97,7 @@ test('simulation: internal: basic frame 1', () => {
     cueBallPotsInRun: 0,
   })
 
-  ;({ next } = applyCommand(next, { type: 'record-pot', actor: 'B', pottedBalls: [5] }))
+  ;({ next } = applyCommand(next, { type: 'pot.record', actor: 'B', pottedBalls: [5] }))
   expect(next.score).toEqual({ A: 4, B: 7 })
   expect(next.coloredBallsOnTable).toEqual([4, 6, 7])
   expect(next.phase).toEqual({
@@ -106,7 +106,7 @@ test('simulation: internal: basic frame 1', () => {
     cueBallPotsInRun: 0,
   })
 
-  ;({ next, protocolEntries } = applyCommand(next, { type: 'record-pot', actor: 'B', pottedBalls: [4] }))
+  ;({ next, protocolEntries } = applyCommand(next, { type: 'pot.record', actor: 'B', pottedBalls: [4] }))
   expect(next.score).toEqual({ A: 4, B: 9 })
   expect(next.coloredBallsOnTable).toEqual([6, 7])
   expect(next.phase).toEqual({
@@ -128,7 +128,7 @@ test('simulation: internal: basic frame 1', () => {
     },
   })
   expect(protocolEntries).toEqual([
-    { source: 'player', command: { type: 'record-pot', actor: 'B', pottedBalls: [4] } },
+    { source: 'player', command: { type: 'pot.record', actor: 'B', pottedBalls: [4] } },
     {
       source: 'system',
       systemType: 'winner-determined',
@@ -137,7 +137,7 @@ test('simulation: internal: basic frame 1', () => {
     },
   ])
 
-  ;({ next } = applyCommand(next, { type: 'award-frame', actor: 'B' }))
+  ;({ next } = applyCommand(next, { type: 'frame.award', actor: 'B' }))
   expect(next.score).toEqual({ A: 4, B: 9 })
   expect(next.coloredBallsOnTable).toEqual([6, 7])
   expect(next.phase).toEqual({

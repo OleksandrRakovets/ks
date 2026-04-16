@@ -69,7 +69,7 @@ describe('gameplay runtime api', () => {
     ;({ state } = applyGameCommand({
       gameKey: 'free-pyramid',
       state,
-      commandType: 'break-off',
+      commandType: 'frame.commence',
       command: { seat: 'A' },
     }))
 
@@ -82,7 +82,7 @@ describe('gameplay runtime api', () => {
     ;({ state } = applyGameCommand({
       gameKey: 'free-pyramid',
       state,
-      commandType: 'shot.recorded',
+      commandType: 'pot.record',
       command: { seat: 'A', points: 3 },
     }))
 
@@ -97,7 +97,7 @@ describe('gameplay runtime api', () => {
     const { state } = applyGameCommand({
       gameKey: 'free-pyramid',
       state: { pointsBySeat: { A: 1, B: 0 }, targetPointsBySeat: { A: 8, B: 8 }, phase: 'open-play' },
-      commandType: 'shot.recorded',
+      commandType: 'pot.record',
       command: { seat: 'A', points: -5 },
     })
 
@@ -112,7 +112,7 @@ describe('gameplay runtime api', () => {
     const { state } = applyGameCommand({
       gameKey: 'combined-pyramid-old',
       state: { pointsBySeat: { A: 1, B: 0 }, targetPointsBySeat: { A: 8, B: 8 }, phase: 'open-play' },
-      commandType: 'shot.recorded',
+      commandType: 'pot.record',
       command: { seat: 'A', points: -5 },
     })
 
@@ -127,7 +127,7 @@ describe('gameplay runtime api', () => {
     const { state } = applyGameCommand({
       gameKey: 'combined-pyramid',
       state: { pointsBySeat: { A: 1, B: 0 }, targetPointsBySeat: { A: 8, B: 8 }, phase: 'open-play' },
-      commandType: 'shot.recorded',
+      commandType: 'pot.record',
       command: { seat: 'A', points: -5 },
     })
 
@@ -142,7 +142,7 @@ describe('gameplay runtime api', () => {
     const { state } = applyGameCommand({
       gameKey: 'free-pyramid',
       state: { pointsBySeat: { A: 3, B: 2 }, targetPointsBySeat: { A: 8, B: 8 }, phase: 'open-play' },
-      commandType: 'foul.committed',
+      commandType: 'foul.commit',
       command: { seat: 'A' },
     })
 
@@ -157,7 +157,7 @@ describe('gameplay runtime api', () => {
     const { state } = applyGameCommand({
       gameKey: 'combined-pyramid-old',
       state: { pointsBySeat: { A: 0, B: 4 }, targetPointsBySeat: { A: 8, B: 8 }, phase: 'open-play' },
-      commandType: 'foul.committed',
+      commandType: 'foul.commit',
       command: { seat: 'A' },
     })
 
@@ -183,7 +183,7 @@ describe('gameplay runtime api', () => {
     })
   })
 
-  test('free pyramid control starts with break-off choices', () => {
+  test('free pyramid control starts with frame.commence choices', () => {
     expect(
       deriveGameProjection({
         gameKey: 'free-pyramid',
@@ -195,8 +195,8 @@ describe('gameplay runtime api', () => {
       projection: 'control',
       score: { A: 0, B: 0 },
       availableCommands: [
-        { commandType: 'break-off', command: { seat: 'A' }, label: 'Break-off (A)' },
-        { commandType: 'break-off', command: { seat: 'B' }, label: 'Break-off (B)' },
+        { commandType: 'frame.commence', command: { seat: 'A' }, label: 'Break-off (A)' },
+        { commandType: 'frame.commence', command: { seat: 'B' }, label: 'Break-off (B)' },
       ],
       details: {
         phase: 'not-started',
@@ -207,7 +207,7 @@ describe('gameplay runtime api', () => {
     })
   })
 
-  test('free pyramid control keeps scoring after target and exposes award-frame', () => {
+  test('free pyramid control keeps scoring after target and exposes frame.award', () => {
     expect(
       deriveGameProjection({
         gameKey: 'free-pyramid',
@@ -219,16 +219,16 @@ describe('gameplay runtime api', () => {
       projection: 'control',
       score: { A: 10, B: 2 },
       availableCommands: [
-        { commandType: 'shot.recorded', command: { points: 1 }, label: '+1' },
-        { commandType: 'shot.recorded', command: { points: 2 }, label: '+2' },
-        { commandType: 'shot.recorded', command: { points: 4 }, label: '+4' },
+        { commandType: 'pot.record', command: { points: 1 }, label: '+1' },
+        { commandType: 'pot.record', command: { points: 2 }, label: '+2' },
+        { commandType: 'pot.record', command: { points: 4 }, label: '+4' },
         {
-          commandType: 'foul.committed',
+          commandType: 'foul.commit',
           command: {},
           label: 'Foul',
           effectSummary: 'Opponent +1 point',
         },
-        { commandType: 'award-frame', command: { seat: 'A' }, label: 'Award frame' },
+        { commandType: 'frame.award', command: { seat: 'A' }, label: 'Award frame' },
       ],
       details: {
         phase: 'open-play',
@@ -251,10 +251,10 @@ describe('gameplay runtime api', () => {
       projection: 'control',
       score: { A: 2, B: 1 },
       availableCommands: [
-        { commandType: 'shot.recorded', command: { points: 1 }, label: '+1' },
-        { commandType: 'shot.recorded', command: { points: 2 }, label: '+2' },
+        { commandType: 'pot.record', command: { points: 1 }, label: '+1' },
+        { commandType: 'pot.record', command: { points: 2 }, label: '+2' },
         {
-          commandType: 'foul.committed',
+          commandType: 'foul.commit',
           command: {},
           label: 'Foul',
           effectSummary: 'Offender -1 point (negative allowed)',
@@ -269,11 +269,11 @@ describe('gameplay runtime api', () => {
     })
   })
 
-  test('free pyramid award-frame closes gameplay state', () => {
+  test('free pyramid frame.award closes gameplay state', () => {
     const { state } = applyGameCommand({
       gameKey: 'free-pyramid',
       state: { pointsBySeat: { A: 10, B: 2 }, targetPointsBySeat: { A: 8, B: 8 }, phase: 'open-play' },
-      commandType: 'award-frame',
+      commandType: 'frame.award',
       command: { seat: 'A' },
     })
 
@@ -298,7 +298,7 @@ describe('gameplay runtime api', () => {
     ;({ state } = applyGameCommand({
       gameKey: 'strila-v2',
       state,
-      commandType: 'break-off',
+      commandType: 'frame.commence',
       command: { actor: 'A' },
     }))
 

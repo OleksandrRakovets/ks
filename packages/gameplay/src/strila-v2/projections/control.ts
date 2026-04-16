@@ -34,13 +34,13 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
         projection: 'control',
         score: state.score,
         availableCommands: [
-          command('break-off', { actor: 'A' }, 'Break-off (A)'),
-          command('break-off', { actor: 'B' }, 'Break-off (B)'),
+          command('frame.commence', { actor: 'A' }, 'Break-off (A)'),
+          command('frame.commence', { actor: 'B' }, 'Break-off (B)'),
         ],
         details: {
           phase: state.phase.type,
           situationTitle: 'Break-off',
-          situationSummary: 'Record the opening break-off shot.',
+          situationSummary: 'Record the opening shot.',
           activeBalls,
         },
       })
@@ -51,9 +51,9 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
         projection: 'control',
         score: state.score,
         availableCommands: [
-          command('record-pot', { actor: state.phase.actor }, 'Record pot'),
-          command('foul-committed', { actor: state.phase.actor }, 'Foul committed'),
-          command('concede-frame', { actor: state.phase.actor }, 'Concede frame'),
+          command('pot.record', { actor: state.phase.actor }, 'Record pot'),
+          command('foul.commit', { actor: state.phase.actor }, 'Foul committed'),
+          command('frame.concede', { actor: state.phase.actor }, 'Concede frame'),
         ],
         details: {
           phase: state.phase.type,
@@ -64,41 +64,41 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
         },
       })
 
-    case 'foul-response':
+    case 'penalty-selection':
       return StrilaControlViewSchema.parse({
         gameKey: 'strila-v2',
         projection: 'control',
         score: state.score,
         availableCommands: [
-          command('choose-foul-response', { actor: state.phase.chooser, choice: 'play-from-position' }, 'Play from position', {
+          command('penalty.select', { actor: state.phase.chooser, choice: 'play-from-position' }, 'Play from position', {
             effectSummary: '+1 point',
           }),
-          command('choose-foul-response', { actor: state.phase.chooser, choice: 'pass-position' }, 'Pass position', {
+          command('penalty.select', { actor: state.phase.chooser, choice: 'pass-position' }, 'Pass position', {
             effectSummary: '+1 point',
           }),
-          command('choose-foul-response', { actor: state.phase.chooser, choice: 'ball-in-hand' }, 'Ball in hand'),
+          command('penalty.select', { actor: state.phase.chooser, choice: 'ball-in-hand' }, 'Ball in hand'),
         ],
         details: {
           phase: state.phase.type,
           actor: state.phase.chooser,
-          situationTitle: 'Choose foul response',
+          situationTitle: 'Select penalty',
           situationSummary: 'Opponent committed a foul. Choose the response.',
           activeBalls,
         },
       })
 
-    case 'opponent-foul-ball-in-hand':
+    case 'ball-in-hand':
       return StrilaControlViewSchema.parse({
         gameKey: 'strila-v2',
         projection: 'control',
         score: state.score,
         availableCommands: [
-          command('record-pot', { actor: state.phase.actor }, 'Record pot', {
+          command('pot.record', { actor: state.phase.actor }, 'Record pot', {
             warning: 'Cue ball and colored balls together count as a foul.',
           }),
-          command('record-miss', { actor: state.phase.actor }, 'Record miss'),
-          command('foul-committed', { actor: state.phase.actor }, 'Foul committed'),
-          command('concede-frame', { actor: state.phase.actor }, 'Concede frame'),
+          command('miss.record', { actor: state.phase.actor }, 'Record miss'),
+          command('foul.commit', { actor: state.phase.actor }, 'Foul committed'),
+          command('frame.concede', { actor: state.phase.actor }, 'Concede frame'),
         ],
         details: {
           phase: state.phase.type,
@@ -115,12 +115,12 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
         projection: 'control',
         score: state.score,
         availableCommands: [
-          command('record-pot', { actor: state.phase.actor }, 'Record pot', {
+          command('pot.record', { actor: state.phase.actor }, 'Record pot', {
             helpText: 'A black pot wins. Any other potted result is treated as a foul.',
           }),
-          command('record-miss', { actor: state.phase.actor }, 'Record miss'),
-          command('foul-committed', { actor: state.phase.actor }, 'Foul committed'),
-          command('concede-frame', { actor: state.phase.actor }, 'Concede frame'),
+          command('miss.record', { actor: state.phase.actor }, 'Record miss'),
+          command('foul.commit', { actor: state.phase.actor }, 'Foul committed'),
+          command('frame.concede', { actor: state.phase.actor }, 'Concede frame'),
         ],
         details: {
           phase: state.phase.type,
@@ -137,9 +137,9 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
         projection: 'control',
         score: state.score,
         availableCommands: [
-          command('record-pot', { actor: state.phase.actor }, 'Record pot'),
-          command('foul-committed', { actor: state.phase.actor }, 'Foul committed'),
-          command('concede-frame', { actor: state.phase.actor }, 'Concede frame'),
+          command('pot.record', { actor: state.phase.actor }, 'Record pot'),
+          command('foul.commit', { actor: state.phase.actor }, 'Foul committed'),
+          command('frame.concede', { actor: state.phase.actor }, 'Concede frame'),
         ],
         details: {
           phase: state.phase.type,
@@ -156,8 +156,8 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
         projection: 'control',
         score: state.score,
         availableCommands: [
-          command('record-pot', { actor: state.phase.actor }, 'Record pot'),
-          command('award-frame', { actor: state.phase.actor }, 'Award frame'),
+          command('pot.record', { actor: state.phase.actor }, 'Record pot'),
+          command('frame.award', { actor: state.phase.actor }, 'Award frame'),
         ],
         details: {
           phase: state.phase.type,
