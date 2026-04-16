@@ -1,11 +1,33 @@
 import { normalizeMatchId, type MatchWriteRepository } from '@ks/competition'
 import { MatchSnapshotSchema, StoredEventSchema, type StoredEvent } from '@ks/core'
 import type { ClientEvent } from '@ks/core'
+import { isRegisteredGameKey, registry } from '@ks/gameplay'
 import type { SupportedLocale } from '@ks/i18n'
 import { z } from 'zod'
 
 import type { AppEnv } from './context'
 import { hydrateParticipant } from './players'
+
+type MatchListRow = {
+  match_id: string
+  game_key: string
+  status: string
+  created_at: number
+  seat_a_player_ref: string
+  seat_b_player_ref: string
+}
+
+export type HydratedMatchListEntry = {
+  matchId: string
+  gameKey: string
+  gameTitle: string
+  status: 'active' | 'finished'
+  createdAt: number
+  participants: {
+    A: Awaited<ReturnType<typeof hydrateParticipant>>
+    B: Awaited<ReturnType<typeof hydrateParticipant>>
+  }
+}
 
 const DoSnapshotResponseSchema = z.union([
   z.object({
@@ -68,6 +90,32 @@ export async function getMatchControlSecret(env: AppEnv, rawMatchId: string): Pr
     .bind(matchId)
     .first<{ control_secret: string }>()
   return row?.control_secret ?? null
+}
+
+export async function listMatches(env: AppEnv, locale: SupportedLocale): Promise<HydratedMatchListEntry[]> {
+  const res = await env.DB.prepare(
+    [
+      'SELECT match_id, game_key, status, created_at, seat_a_player_ref, seat_b_player_ref',
+      'FROM matches',
+      'ORDER BY created_at DESC',
+    ].join(' '),
+  )
+    .bind()
+    .all<MatchListRow>()
+
+  return await Promise.all(
+    (res.results ?? []).map(async (row) => ({
+      matchId: row.match_id,
+      gameKey: row.game_key,
+      gameTitle: isRegisteredGameKey(row.game_key) ? registry[row.game_key].meta.title[locale] : row.game_key,
+      status: row.status === 'finished' ? 'finished' : 'active',
+      createdAt: row.created_at,
+      participants: {
+        A: await hydrateParticipant(env, row.seat_a_player_ref, locale),
+        B: await hydrateParticipant(env, row.seat_b_player_ref, locale),
+      },
+    })),
+  )
 }
 
 export async function listStoredEvents(env: AppEnv, rawMatchId: string): Promise<StoredEvent[]> {
