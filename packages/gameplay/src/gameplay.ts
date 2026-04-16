@@ -1,7 +1,7 @@
 import { GameKeySchema } from '@ks/core'
 import invariant from 'tiny-invariant'
 
-import { GameProjectionKeySchema, type GameProjectionKey } from './abstract-runtime'
+import { GameProjectionKeySchema, type GameCreateStateArgs, type GameProjectionKey } from './abstract-runtime'
 import { getGameplayRuntime, isRegisteredGameKey, type RegisteredGameKey } from './registry'
 
 export function parseGameKey(value: unknown): RegisteredGameKey {
@@ -10,8 +10,8 @@ export function parseGameKey(value: unknown): RegisteredGameKey {
   return gameKey
 }
 
-export function createInitialGameState(gameKey: RegisteredGameKey): unknown {
-  return getGameplayRuntime(gameKey).createInitialState()
+export function createInitialGameState(gameKey: RegisteredGameKey, args: GameCreateStateArgs): unknown {
+  return getGameplayRuntime(gameKey).createInitialState(args)
 }
 
 export function applyGameCommand(args: { gameKey: RegisteredGameKey; state: unknown; commandType: string; command: unknown }): {

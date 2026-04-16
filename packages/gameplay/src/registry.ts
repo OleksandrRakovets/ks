@@ -14,6 +14,7 @@ import { StrilaGameplayRuntime } from './strila-v2/runtime'
 export type GameMeta = {
   title: LocalizedGameTitle
   inputMode: GameInputMode
+  defaultFrameTargetPointsBySeat: { A: number; B: number }
 }
 
 function createPyramidEntry(args: {
@@ -21,11 +22,13 @@ function createPyramidEntry(args: {
   title: LocalizedGameTitle
   inputMode: GameInputMode
   allowNegative: boolean
+  defaultFrameTargetPointsBySeat: { A: number; B: number }
 }): { meta: GameMeta; runtime: GameplayRuntime } {
   return {
     meta: {
       title: args.title,
       inputMode: args.inputMode,
+      defaultFrameTargetPointsBySeat: args.defaultFrameTargetPointsBySeat,
     },
     runtime: new PyramidGameplayRuntime(
       {
@@ -39,6 +42,17 @@ function createPyramidEntry(args: {
 }
 
 export const registry = {
+  'strila-v2': {
+    meta: {
+      title: {
+        uk: 'Стріла',
+        en: 'Strila',
+      },
+      inputMode: 'strila-basic',
+      defaultFrameTargetPointsBySeat: { A: 9, B: 9 },
+    },
+    runtime: new StrilaGameplayRuntime(),
+  },
   'free-pyramid': createPyramidEntry({
     gameKey: 'free-pyramid',
     title: {
@@ -47,15 +61,17 @@ export const registry = {
     },
     inputMode: 'pyramid-basic',
     allowNegative: false,
+    defaultFrameTargetPointsBySeat: { A: 8, B: 8 },
   }),
   'free-pyramid-long': createPyramidEntry({
     gameKey: 'free-pyramid-long',
     title: {
-      uk: 'Вільна піраміда (довга)',
+      uk: 'Вільна піраміда з продовженням',
       en: 'Free pyramid (long)',
     },
     inputMode: 'pyramid-basic',
     allowNegative: false,
+    defaultFrameTargetPointsBySeat: { A: 30, B: 30 },
   }),
   'combined-pyramid': createPyramidEntry({
     gameKey: 'combined-pyramid',
@@ -65,6 +81,7 @@ export const registry = {
     },
     inputMode: 'pyramid-basic',
     allowNegative: false,
+    defaultFrameTargetPointsBySeat: { A: 8, B: 8 },
   }),
   'combined-pyramid-old': createPyramidEntry({
     gameKey: 'combined-pyramid-old',
@@ -74,17 +91,8 @@ export const registry = {
     },
     inputMode: 'pyramid-basic',
     allowNegative: true,
+    defaultFrameTargetPointsBySeat: { A: 8, B: 8 },
   }),
-  'strila-v2': {
-    meta: {
-      title: {
-        uk: 'Стріла',
-        en: 'Strila',
-      },
-      inputMode: 'strila-basic',
-    },
-    runtime: new StrilaGameplayRuntime(),
-  },
 } as const
 
 export type RegisteredGameKey = keyof typeof registry

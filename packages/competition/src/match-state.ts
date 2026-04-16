@@ -39,8 +39,14 @@ export const MatchStateSchema = z.object({
   currentFrameIndex: z.number().int().nonnegative(),
 })
 
-const ProjectionScoreSchema = z.object({
+const ProjectionScoreboardSchema = z.object({
   score: z.object({ A: z.number().int(), B: z.number().int() }),
+  details: z
+    .object({
+      phase: z.string().optional(),
+      winner: SeatSchema.optional(),
+    })
+    .optional(),
 })
 
 export function emptyMatchState(): MatchState {
@@ -66,10 +72,10 @@ function getCurrentFrame(state: MatchState): MatchState['frames'][number] {
   return frame
 }
 
-function syncFrameScoreFromGameState(state: MatchState, frame: MatchState['frames'][number]): void {
+function syncFrameFromGameState(state: MatchState, frame: MatchState['frames'][number]): void {
   const config = requireConfig(state)
 
-  const scoreboard = ProjectionScoreSchema.parse(
+  const scoreboard = ProjectionScoreboardSchema.parse(
     deriveGameProjection({
       gameKey: parseGameKey(config.gameKey),
       state: frame.gameState,
@@ -78,6 +84,15 @@ function syncFrameScoreFromGameState(state: MatchState, frame: MatchState['frame
   )
 
   frame.pointsBySeat = scoreboard.score
+
+  if (!frame.winnerSeat && scoreboard.details?.phase === 'frame-over' && scoreboard.details.winner) {
+    frame.winnerSeat = scoreboard.details.winner
+    state.framesWonBySeat[scoreboard.details.winner] += 1
+  }
+}
+
+function syncFrameScoreFromGameState(state: MatchState, frame: MatchState['frames'][number]): void {
+  syncFrameFromGameState(state, frame)
 }
 
 function applyLegacyScoreDelta(state: MatchState, seat: Seat, delta: number): void {
@@ -132,7 +147,7 @@ export function applyMatchEvent(prev: MatchState, event: ClientEvent): MatchStat
       state.currentFrameIndex = frameIndex
       state.frames.push({
         frameIndex,
-        gameState: createInitialGameState(gameKey),
+        gameState: createInitialGameState(gameKey, { targetPointsBySeat: config.targets.frameTargetPointsBySeat }),
         pointsBySeat: { A: 0, B: 0 },
       })
       return state
@@ -162,7 +177,7 @@ export function applyMatchEvent(prev: MatchState, event: ClientEvent): MatchStat
       })
 
       frame.gameState = result.state
-      syncFrameScoreFromGameState(state, frame)
+      syncFrameFromGameState(state, frame)
       return state
     }
     case 'frame.awarded': {

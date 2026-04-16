@@ -14,6 +14,7 @@ export const SnapshotResponseSchema = z.union([
     ok: z.literal(true),
     snapshot: MatchSnapshotSchema,
     participants: HydratedMatchParticipantsSchema,
+    controlProjection: z.unknown().optional(),
   }),
   ErrorResponseSchema,
 ])

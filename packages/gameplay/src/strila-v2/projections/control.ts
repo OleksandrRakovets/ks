@@ -33,7 +33,10 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
         gameKey: 'strila-v2',
         projection: 'control',
         score: state.score,
-        availableCommands: [command('break-off', {}, 'Break-off')],
+        availableCommands: [
+          command('break-off', { actor: 'A' }, 'Break-off (A)'),
+          command('break-off', { actor: 'B' }, 'Break-off (B)'),
+        ],
         details: {
           phase: state.phase.type,
           situationTitle: 'Break-off',
@@ -74,7 +77,6 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
             effectSummary: '+1 point',
           }),
           command('choose-foul-response', { actor: state.phase.chooser, choice: 'ball-in-hand' }, 'Ball in hand'),
-          command('concede-frame', { actor: state.phase.chooser }, 'Concede frame'),
         ],
         details: {
           phase: state.phase.type,
@@ -156,7 +158,6 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
         availableCommands: [
           command('record-pot', { actor: state.phase.actor }, 'Record pot'),
           command('award-frame', { actor: state.phase.actor }, 'Award frame'),
-          command('concede-frame', { actor: state.phase.actor }, 'Concede frame'),
         ],
         details: {
           phase: state.phase.type,

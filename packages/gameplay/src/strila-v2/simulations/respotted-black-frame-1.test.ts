@@ -1,19 +1,13 @@
 import { expect, test } from 'bun:test'
 
-import type { StrilaCommand, StrilaFrameState } from '../definitions'
+import type { StrilaFrameState } from '../definitions'
 import { deriveStrilaScoreboardView } from '../projections/scoreboard'
-import { projectStrilaProtocolEntries } from '../protocol'
-import { reduceStrilaCommand } from '../reducer'
-
-function applyCommand(previous: StrilaFrameState, command: StrilaCommand) {
-  const next = reduceStrilaCommand(previous, command)
-  const protocolEntries = projectStrilaProtocolEntries({ previous, command, next })
-  return { next, protocolEntries }
-}
+import { applyCommand } from './applyCommand'
 
 test('simulation: internal: respotted black frame 1', () => {
   let next: StrilaFrameState = {
     score: { A: 0, B: 0 },
+    targetPointsBySeat: { A: 9, B: 9 },
     coloredBallsOnTable: [1, 2, 3, 4, 5, 6, 7],
     phase: {
       type: 'open-play',

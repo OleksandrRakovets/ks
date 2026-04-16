@@ -8,6 +8,7 @@ import { deriveStrilaScoreboardView } from '../projections/scoreboard'
 test('simulation: outside: respotted black frame 1', () => {
   const state: StrilaFrameState = {
     score: { A: 8, B: 8 },
+    targetPointsBySeat: { A: 9, B: 9 },
     coloredBallsOnTable: [7],
     phase: { type: 'respotted-black-opening', actor: 'A' },
   }
@@ -38,7 +39,6 @@ test('simulation: outside: respotted black frame 1', () => {
   expect(deriveStrilaControlView(step.state as StrilaFrameState).availableCommands.map((entry) => entry.commandType)).toEqual([
     'record-pot',
     'award-frame',
-    'concede-frame',
   ])
   expect(deriveStrilaScoreboardView(step.state as StrilaFrameState).details.winner).toBe('A')
 })

@@ -60,7 +60,11 @@ async function loadPlayerRow(env: AppEnv, playerRef: string): Promise<LocalizedP
   return null
 }
 
-export async function hydrateParticipant(env: AppEnv, playerRef: string, locale: SupportedLocale): Promise<HydratedParticipant> {
+export async function hydrateParticipant(
+  env: AppEnv,
+  playerRef: string,
+  locale: SupportedLocale,
+): Promise<HydratedParticipant> {
   const row = await loadPlayerRow(env, playerRef)
   if (!row) {
     return {

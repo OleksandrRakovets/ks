@@ -1,3 +1,4 @@
+import { BySeatNumberSchema } from '@ks/core'
 import { z } from 'zod'
 
 import {
@@ -105,6 +106,7 @@ export type StrilaPhase = z.infer<typeof StrilaPhaseSchema>
 export const StrilaFrameStateSchema = z.object({
   phase: StrilaPhaseSchema,
   score: StrilaScoreSchema,
+  targetPointsBySeat: BySeatNumberSchema,
   coloredBallsOnTable: z.array(StrilaColoredBallSchema),
 })
 export type StrilaFrameState = z.infer<typeof StrilaFrameStateSchema>
@@ -154,7 +156,7 @@ export type StrilaCommand = z.infer<typeof StrilaCommandSchema>
 export const STRILA_PHASE_COMMANDS: Record<StrilaPhase['type'], readonly StrilaCommand['type'][]> = {
   'not-started': ['break-off'],
   'open-play': ['record-pot', 'foul-committed', 'concede-frame'],
-  'foul-response': ['choose-foul-response', 'concede-frame'],
+  'foul-response': ['choose-foul-response'],
   'opponent-foul-ball-in-hand': ['record-pot', 'record-miss', 'foul-committed', 'concede-frame'],
   'respotted-black-opening': ['record-pot', 'record-miss', 'foul-committed', 'concede-frame'],
   'respotted-black-play': ['record-pot', 'foul-committed', 'concede-frame'],

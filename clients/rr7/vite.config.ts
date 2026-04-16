@@ -3,7 +3,6 @@ import { reactRouter } from '@react-router/dev/vite'
 import tailwindcss from '@tailwindcss/vite'
 import type { Plugin } from 'vite'
 import { defineConfig } from 'vite'
-import tsconfigPaths from 'vite-tsconfig-paths'
 
 function noStoreDevResponses(): Plugin {
   return {
@@ -35,13 +34,10 @@ function noStoreDevResponses(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [
-    noStoreDevResponses(),
-    cloudflare({ viteEnvironment: { name: 'ssr' } }),
-    tailwindcss(),
-    reactRouter(),
-    tsconfigPaths(),
-  ],
+  resolve: {
+    tsconfigPaths: true,
+  },
+  plugins: [noStoreDevResponses(), cloudflare({ viteEnvironment: { name: 'ssr' } }), tailwindcss(), reactRouter()],
   server: {
     port: 7529,
     strictPort: true,

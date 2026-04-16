@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "bun run --cwd clients/rr7 dev",
     "db:migrate:local": "bun run --cwd clients/rr7 db:migrate:local",
+    "generate:game-state-previews": "bun scripts/generate-game-state-previews.ts",
     "test": "bun test",
     "typecheck": "tsc -b",
     "check:boundaries": "node ./scripts/check-boundaries.mjs",
@@ -18,8 +19,9 @@
     "format:check": "oxfmt --check ."
   },
   "devDependencies": {
-    "oxfmt": "latest",
-    "oxlint": "latest",
+    "bun-types": "latest",
+    "oxfmt": "^0.45.0",
+    "oxlint": "^1.60.0",
     "typescript": "^6.0.0"
   },
   "overrides": {

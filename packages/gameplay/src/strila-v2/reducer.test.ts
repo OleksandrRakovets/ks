@@ -3,6 +3,8 @@ import { describe, expect, test } from 'bun:test'
 import { type StrilaFrameState } from './definitions'
 import { createEmptyStrilaFrameState, reduceStrilaCommand } from './reducer'
 
+const DEFAULT_TARGETS = { A: 9, B: 9 } as const
+
 describe('reducer: basic', () => {
   test('break-off enters open-play for actor', () => {
     const next = reduceStrilaCommand(createEmptyStrilaFrameState(), { type: 'break-off', actor: 'A' })
@@ -19,6 +21,7 @@ describe('reducer: basic', () => {
   test('target reached becomes winner-determined until award-frame', () => {
     const state: StrilaFrameState = {
       score: { A: 8, B: 0 },
+      targetPointsBySeat: DEFAULT_TARGETS,
       coloredBallsOnTable: [6, 7],
       phase: {
         type: 'open-play',
@@ -46,6 +49,7 @@ describe('reducer: basic', () => {
   test('award-frame closes a winner-determined frame', () => {
     const state: StrilaFrameState = {
       score: { A: 10, B: 0 },
+      targetPointsBySeat: DEFAULT_TARGETS,
       coloredBallsOnTable: [7],
       phase: {
         type: 'winner-determined',
@@ -158,6 +162,7 @@ describe('reducer: foul handling', () => {
   test('third consecutive cue ball pot becomes an automatic foul', () => {
     const state: StrilaFrameState = {
       score: { A: 2, B: 0 },
+      targetPointsBySeat: DEFAULT_TARGETS,
       coloredBallsOnTable: [5, 7],
       phase: {
         type: 'open-play',
@@ -187,6 +192,7 @@ describe('reducer: respotted black', () => {
   test('entering the phase after potting the last black', () => {
     const state: StrilaFrameState = {
       score: { A: 6, B: 8 },
+      targetPointsBySeat: DEFAULT_TARGETS,
       coloredBallsOnTable: [7],
       phase: { type: 'open-play', actor: 'A', cueBallPotsInRun: 0 },
     }
@@ -205,6 +211,7 @@ describe('reducer: respotted black', () => {
   test('not entering the phase when balls remaining', () => {
     const state: StrilaFrameState = {
       score: { A: 6, B: 8 },
+      targetPointsBySeat: DEFAULT_TARGETS,
       coloredBallsOnTable: [5, 6, 7],
       phase: { type: 'open-play', actor: 'A', cueBallPotsInRun: 0 },
     }
@@ -227,6 +234,7 @@ describe('reducer: respotted black', () => {
   test('opening black pot determines winner', () => {
     const state: StrilaFrameState = {
       score: { A: 8, B: 8 },
+      targetPointsBySeat: DEFAULT_TARGETS,
       coloredBallsOnTable: [7],
       phase: { type: 'respotted-black-opening', actor: 'A' },
     }
@@ -250,6 +258,7 @@ describe('reducer: respotted black', () => {
   test('opening cue ball pot determines opponent winner', () => {
     const state: StrilaFrameState = {
       score: { A: 8, B: 8 },
+      targetPointsBySeat: DEFAULT_TARGETS,
       coloredBallsOnTable: [7],
       phase: { type: 'respotted-black-opening', actor: 'A' },
     }
@@ -273,6 +282,7 @@ describe('reducer: respotted black', () => {
   test('opening cue ball plus black pot still determines opponent winner', () => {
     const state: StrilaFrameState = {
       score: { A: 8, B: 8 },
+      targetPointsBySeat: DEFAULT_TARGETS,
       coloredBallsOnTable: [7],
       phase: { type: 'respotted-black-opening', actor: 'A' },
     }
@@ -296,6 +306,7 @@ describe('reducer: respotted black', () => {
   test('play cue ball pot determines winner', () => {
     const state: StrilaFrameState = {
       score: { A: 8, B: 8 },
+      targetPointsBySeat: DEFAULT_TARGETS,
       coloredBallsOnTable: [7],
       phase: { type: 'respotted-black-play', actor: 'A' },
     }
@@ -319,6 +330,7 @@ describe('reducer: respotted black', () => {
   test('play black pot determines winner', () => {
     const state: StrilaFrameState = {
       score: { A: 8, B: 8 },
+      targetPointsBySeat: DEFAULT_TARGETS,
       coloredBallsOnTable: [7],
       phase: { type: 'respotted-black-play', actor: 'B' },
     }
@@ -342,6 +354,7 @@ describe('reducer: respotted black', () => {
   test('foul determines winner', () => {
     const state: StrilaFrameState = {
       score: { A: 8, B: 8 },
+      targetPointsBySeat: DEFAULT_TARGETS,
       coloredBallsOnTable: [],
       phase: { type: 'respotted-black-play', actor: 'A' },
     }
@@ -362,6 +375,7 @@ describe('reducer: respotted black', () => {
   test('opening miss enters respotted-black-play for opponent', () => {
     const state: StrilaFrameState = {
       score: { A: 8, B: 8 },
+      targetPointsBySeat: DEFAULT_TARGETS,
       coloredBallsOnTable: [7],
       phase: { type: 'respotted-black-opening', actor: 'A' },
     }
@@ -380,6 +394,7 @@ describe('reducer: respotted black', () => {
   test('record-pot rejects colored ball not on table', () => {
     const state: StrilaFrameState = {
       score: { A: 0, B: 0 },
+      targetPointsBySeat: DEFAULT_TARGETS,
       coloredBallsOnTable: [2, 3, 4, 5, 6, 7],
       phase: { type: 'open-play', actor: 'A', cueBallPotsInRun: 0 },
     }
@@ -391,5 +406,20 @@ describe('reducer: respotted black', () => {
         pottedBalls: [1],
       }),
     ).toThrow('Potted ball 1 is not on the table')
+  })
+
+  test('handicap target lets A win at 6 after three pots', () => {
+    let state = reduceStrilaCommand(createEmptyStrilaFrameState({ A: 6, B: 9 }), { type: 'break-off', actor: 'A' })
+    state = reduceStrilaCommand(state, { type: 'record-pot', actor: 'A', pottedBalls: [1] })
+    state = reduceStrilaCommand(state, { type: 'record-pot', actor: 'A', pottedBalls: [2] })
+    state = reduceStrilaCommand(state, { type: 'record-pot', actor: 'A', pottedBalls: [3] })
+
+    expect(state.score).toEqual({ A: 6, B: 0 })
+    expect(state.phase).toEqual({
+      type: 'winner-determined',
+      winner: 'A',
+      actor: 'A',
+      reason: 'target-reached',
+    })
   })
 })
