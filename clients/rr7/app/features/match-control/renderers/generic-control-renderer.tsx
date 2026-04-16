@@ -15,7 +15,6 @@ export function GenericControlRenderer(props: MatchControlRendererProps) {
               type="button"
               variant="secondary"
               className="h-auto justify-start px-4 py-3 text-left"
-              disabled={props.submitting}
               onClick={() => props.onSubmitCommand({ commandType: command.commandType, command: command.command })}
             >
               <span className="flex flex-col items-start gap-1">

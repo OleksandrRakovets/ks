@@ -359,6 +359,8 @@ export default function SparringMatchRoute() {
   }, [fetcher.state])
 
   useEffect(() => {
+    if (snapshot.status !== 'active') return
+
     const stream = new EventSource(`/api/m/${snapshot.matchId}/stream?since=${latestSeqRef.current}`)
 
     const onReady = (event: Event) => {
@@ -410,7 +412,7 @@ export default function SparringMatchRoute() {
       stream.removeEventListener('ev', onEvent)
       stream.close()
     }
-  }, [snapshot.matchId])
+  }, [snapshot.matchId, snapshot.status])
 
   const decisions = deriveMatchLifecycleDecisions(snapshot)
   const frameIndex = snapshot.currentFrameIndex

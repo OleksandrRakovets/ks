@@ -127,7 +127,7 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
             {winnerDeterminedRecordActor ? (
               <Button
                 type="button"
-                disabled={props.submitting || selectedBalls.length === 0}
+                disabled={selectedBalls.length === 0}
                 onClick={() => submitCommand(recordPot.commandType, { ...recordPot.command, pottedBalls: selectedBalls })}
               >
                 {recordPot.label ?? 'Record pot'} ({winnerDeterminedRecordActor === 'A' ? seatA : seatB})
@@ -136,7 +136,7 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
               <div className="grid grid-cols-2 gap-2">
                 <Button
                   type="button"
-                  disabled={props.submitting || selectedBalls.length === 0}
+                  disabled={selectedBalls.length === 0}
                   onClick={() =>
                     submitSeatCommand('A', recordPot.commandType, { ...recordPot.command, pottedBalls: selectedBalls })
                   }
@@ -145,7 +145,7 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
                 </Button>
                 <Button
                   type="button"
-                  disabled={props.submitting || selectedBalls.length === 0}
+                  disabled={selectedBalls.length === 0}
                   onClick={() =>
                     submitSeatCommand('B', recordPot.commandType, { ...recordPot.command, pottedBalls: selectedBalls })
                   }
@@ -167,7 +167,6 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
                   type="button"
                   variant="secondary"
                   className="h-auto justify-start px-4 py-3 text-left"
-                  disabled={props.submitting}
                   onClick={() => submitSeatCommand('A', command.commandType, command.command)}
                 >
                   <span className="flex flex-col items-start gap-1">
@@ -184,7 +183,6 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
                   type="button"
                   variant="secondary"
                   className="h-auto justify-start px-4 py-3 text-left"
-                  disabled={props.submitting}
                   onClick={() => submitSeatCommand('B', command.commandType, command.command)}
                 >
                   <span className="flex flex-col items-start gap-1">
@@ -209,7 +207,6 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
               type="button"
               variant="secondary"
               className="h-auto justify-start px-4 py-3 text-left"
-              disabled={props.submitting}
               onClick={() => submitCommand(command.commandType, command.command)}
             >
               <span className="flex flex-col items-start gap-1">
