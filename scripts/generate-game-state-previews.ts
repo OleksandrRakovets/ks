@@ -343,7 +343,7 @@ function generate(): { generatedAt: string; games: GeneratedGameStateMachine[] }
   }
 }
 
-const outputPath = new URL('../clients/rr7/app/routes/preview/generated/game-state-machines.ts', import.meta.url).pathname
+const outputPath = new URL('../clients/rr7/app/preview/generated/game-state-machines.ts', import.meta.url).pathname
 const generated = generate()
 
 await (globalThis as unknown as { Bun: { write(path: string, content: string): Promise<number> } }).Bun.write(
