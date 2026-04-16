@@ -18,6 +18,7 @@
     "format:check": "oxfmt --check ."
   },
   "devDependencies": {
+    "bun-types": "latest",
     "oxfmt": "latest",
     "oxlint": "latest",
     "typescript": "^6.0.0"
