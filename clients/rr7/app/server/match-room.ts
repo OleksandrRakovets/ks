@@ -1,7 +1,7 @@
 import { normalizeMatchId, type MatchWriteRepository } from '@ks/competition'
 import { MatchSnapshotSchema, StoredEventSchema, type StoredEvent } from '@ks/core'
 import type { ClientEvent } from '@ks/core'
-import { isRegisteredGameKey, registry } from '@ks/gameplay'
+import { GameControlProjectionSchema, isRegisteredGameKey, registry } from '@ks/gameplay'
 import type { SupportedLocale } from '@ks/i18n'
 import { z } from 'zod'
 
@@ -33,7 +33,7 @@ const DoSnapshotResponseSchema = z.union([
   z.object({
     ok: z.literal(true),
     snapshot: MatchSnapshotSchema,
-    controlProjection: z.unknown().optional(),
+    controlProjection: GameControlProjectionSchema.optional(),
   }),
   z.object({
     ok: z.literal(false),

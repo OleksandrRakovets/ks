@@ -3,23 +3,26 @@ import {
   ClientIdSchema,
   type ClientEvent,
   ClientEventSchema,
+  ErrorResponseSchema,
   FrameStartedEventSchema,
+  HydratedMatchParticipantsSchema,
   GameCommandEventSchema,
+  MatchSnapshotSchema,
   MatchEndedEventSchema,
   MatchIdSchema,
   newEventId,
   PostEventsResponseSchema,
-  SnapshotResponseSchema,
   StreamEventSchema,
   StreamReadySchema,
   type StoredEvent,
 } from '@ks/core'
-import { isRegisteredGameKey, type RegisteredGameKey } from '@ks/gameplay'
+import { GameControlProjectionSchema, isRegisteredGameKey, type RegisteredGameKey } from '@ks/gameplay'
 import { keys } from '@ks/i18n'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ks/ui'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useFetcher, useLoaderData, useRevalidator } from 'react-router'
+import { z } from 'zod'
 
 import {
   resolveControlRenderer,
@@ -46,58 +49,27 @@ type ActionData =
       errorKey?: typeof keys.match.control.invalidEventPayload | typeof keys.match.control.eventRejectedByRules
     }
 
-function parseControlProjection(raw: unknown, gameKey: string): GameControlProjection {
-  if (!raw || typeof raw !== 'object') {
-    return {
-      gameKey,
-      projection: 'control',
-      score: { A: 0, B: 0 },
-      availableCommands: [],
-    }
-  }
+const SnapshotResponseWithControlSchema = z.union([
+  z.object({
+    ok: z.literal(true),
+    snapshot: MatchSnapshotSchema,
+    participants: HydratedMatchParticipantsSchema,
+    controlProjection: GameControlProjectionSchema.optional(),
+  }),
+  ErrorResponseSchema,
+])
 
-  const candidate = raw as Partial<GameControlProjection>
-  if (!Array.isArray(candidate.availableCommands)) {
-    return {
-      gameKey,
-      projection: 'control',
-      score: { A: 0, B: 0 },
-      availableCommands: [],
-    }
-  }
-
-  const availableCommands = candidate.availableCommands
-    .filter((entry): entry is GameControlProjection['availableCommands'][number] => {
-      if (!entry || typeof entry !== 'object') return false
-      const commandType = (entry as { commandType?: unknown }).commandType
-      const command = (entry as { command?: unknown }).command
-      return typeof commandType === 'string' && Boolean(command) && typeof command === 'object'
-    })
-    .map((entry) => ({
-      commandType: entry.commandType,
-      command: entry.command,
-      label: entry.label,
-      effectSummary: entry.effectSummary,
-      warning: entry.warning,
-      helpText: entry.helpText,
-    }))
-
-  const score =
-    candidate.score && typeof candidate.score.A === 'number' && typeof candidate.score.B === 'number'
-      ? { A: candidate.score.A, B: candidate.score.B }
-      : { A: 0, B: 0 }
-
+function emptyControlProjection(gameKey: string): GameControlProjection {
   return {
-    gameKey: typeof candidate.gameKey === 'string' ? candidate.gameKey : gameKey,
+    gameKey,
     projection: 'control',
-    score,
-    availableCommands,
-    details: candidate.details,
+    score: { A: 0, B: 0 },
+    availableCommands: [],
   }
 }
 
 async function parseSnapshotBody(res: Response) {
-  const body = SnapshotResponseSchema.parse(await res.json())
+  const body = SnapshotResponseWithControlSchema.parse(await res.json())
   if (!body.ok) {
     throw new Response(body.error, { status: res.status === 200 ? 500 : res.status })
   }
@@ -124,7 +96,7 @@ export async function loader({
   return {
     snapshot: body.snapshot,
     participants: body.participants,
-    controlProjection: parseControlProjection(body.controlProjection, body.snapshot.gameKey),
+    controlProjection: body.controlProjection ?? emptyControlProjection(body.snapshot.gameKey),
     protocolEntries,
   }
 }
