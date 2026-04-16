@@ -13,7 +13,7 @@ import {
   Textarea,
 } from '@ks/ui'
 import { useState } from 'react'
-import { useSearchParams } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 
 const previewFlavors = {
   mocha: { label: 'Catppuccin Mocha', dark: true },
@@ -26,7 +26,7 @@ function isFlavorId(value: string): value is FlavorId {
   return value in previewFlavors
 }
 
-export default function TopSecretPreviewUiRoute() {
+export default function PreviewUiRoute() {
   const [searchParams, setSearchParams] = useSearchParams()
   const flavorId = searchParams.get('flavor') === 'latte' ? 'latte' : 'mocha'
   const [compact, setCompact] = useState(false)
@@ -46,6 +46,12 @@ export default function TopSecretPreviewUiRoute() {
   return (
     <div className={`min-h-dvh bg-background px-4 py-6 text-foreground ${flavorClass}`}>
       <div className="mx-auto w-full max-w-6xl space-y-4">
+        <div className="text-sm text-muted-foreground">
+          <Link className="underline-offset-4 hover:underline" to="/top-secret/preview">
+            Preview index
+          </Link>
+        </div>
+
         <Card>
           <CardHeader>
             <CardTitle>UI Preview Lab</CardTitle>
