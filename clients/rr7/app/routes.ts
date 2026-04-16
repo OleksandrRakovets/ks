@@ -9,7 +9,6 @@ export default [
     route('sparring/init/:gameKey', 'routes/sparring-init.tsx'),
     route('sparring/matches/:matchId', 'routes/sparring-match.tsx'),
     route('top-secret/preview/ui', 'routes/top-secret-preview-ui.tsx'),
-    // route('c/:matchId/:controlSecret', 'routes/control-match.tsx'),
   ]),
   // layout('routes/layout-scoreboard.tsx', [route('m/:matchId', 'routes/public-scoreboard.tsx')]),
 ] satisfies RouteConfig

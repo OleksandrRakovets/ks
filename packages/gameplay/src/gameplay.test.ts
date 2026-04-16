@@ -63,6 +63,19 @@ describe('gameplay runtime api', () => {
     expect(state).toEqual({
       pointsBySeat: { A: 0, B: 0 },
       targetPointsBySeat: { A: 8, B: 8 },
+      phase: 'not-started',
+    })
+
+    ;({ state } = applyGameCommand({
+      gameKey: 'free-pyramid',
+      state,
+      commandType: 'break-off',
+      command: { seat: 'A' },
+    }))
+
+    expect(state).toEqual({
+      pointsBySeat: { A: 0, B: 0 },
+      targetPointsBySeat: { A: 8, B: 8 },
       phase: 'open-play',
     })
 
@@ -137,6 +150,25 @@ describe('gameplay runtime api', () => {
       projection: 'scoreboard',
       score: { A: 4, B: 2 },
       details: { phase: 'open-play', winner: undefined },
+    })
+  })
+
+  test('free pyramid control starts with break-off choices', () => {
+    expect(
+      deriveGameProjection({
+        gameKey: 'free-pyramid',
+        state: { pointsBySeat: { A: 0, B: 0 }, targetPointsBySeat: { A: 8, B: 8 }, phase: 'not-started' },
+        projection: 'control',
+      }),
+    ).toEqual({
+      gameKey: 'free-pyramid',
+      projection: 'control',
+      score: { A: 0, B: 0 },
+      availableCommands: [
+        { commandType: 'break-off', command: { seat: 'A' }, label: 'Break-off (A)' },
+        { commandType: 'break-off', command: { seat: 'B' }, label: 'Break-off (B)' },
+      ],
+      details: { phase: 'not-started', winner: undefined },
     })
   })
 

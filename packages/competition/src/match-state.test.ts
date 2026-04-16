@@ -42,6 +42,14 @@ describe('free-pyramid', () => {
       s,
       baseEvent(config.matchId, 'game.command', {
         gameKey: config.gameKey,
+        commandType: 'break-off',
+        command: { seat: 'A' },
+      }),
+    )
+    s = applyMatchEvent(
+      s,
+      baseEvent(config.matchId, 'game.command', {
+        gameKey: config.gameKey,
         commandType: 'shot.recorded',
         command: { seat: 'A', points: 1 },
       }),
@@ -71,7 +79,7 @@ describe('free-pyramid', () => {
     expect(s.frames[0]?.gameState).toEqual({
       pointsBySeat: { A: 0, B: 0 },
       targetPointsBySeat: { A: 8, B: 8 },
-      phase: 'open-play',
+      phase: 'not-started',
     })
   })
 })
@@ -82,6 +90,14 @@ describe('combined-pyramid-old', () => {
     let s = emptyMatchState()
     s = applyMatchEvent(s, baseEvent(config.matchId, 'match.created', config))
     s = applyMatchEvent(s, baseEvent(config.matchId, 'frame.started', { frameIndex: 1 }))
+    s = applyMatchEvent(
+      s,
+      baseEvent(config.matchId, 'game.command', {
+        gameKey: config.gameKey,
+        commandType: 'break-off',
+        command: { seat: 'A' },
+      }),
+    )
     s = applyMatchEvent(
       s,
       baseEvent(config.matchId, 'game.command', {
@@ -205,6 +221,14 @@ test('free-pyramid award-frame closes the match frame through gameplay', () => {
     s,
     baseEvent(config.matchId, 'game.command', {
       gameKey: config.gameKey,
+      commandType: 'break-off',
+      command: { seat: 'A' },
+    }),
+  )
+  s = applyMatchEvent(
+    s,
+    baseEvent(config.matchId, 'game.command', {
+      gameKey: config.gameKey,
       commandType: 'shot.recorded',
       command: { seat: 'A', points: 8 },
     }),
@@ -238,6 +262,14 @@ test('free-pyramid allows break above frame target before frame award', () => {
   let s = emptyMatchState()
   s = applyMatchEvent(s, baseEvent(config.matchId, 'match.created', config))
   s = applyMatchEvent(s, baseEvent(config.matchId, 'frame.started', { frameIndex: 1 }))
+  s = applyMatchEvent(
+    s,
+    baseEvent(config.matchId, 'game.command', {
+      gameKey: config.gameKey,
+      commandType: 'break-off',
+      command: { seat: 'A' },
+    }),
+  )
   s = applyMatchEvent(
     s,
     baseEvent(config.matchId, 'game.command', {
