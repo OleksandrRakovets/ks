@@ -15,7 +15,10 @@ describe('projection: control', () => {
       gameKey: 'strila-v2',
       projection: 'control',
       score: { A: 0, B: 0 },
-      availableCommands: [{ commandType: 'break-off', command: {}, label: 'Break-off' }],
+      availableCommands: [
+        { commandType: 'break-off', command: { actor: 'A' }, label: 'Break-off (A)' },
+        { commandType: 'break-off', command: { actor: 'B' }, label: 'Break-off (B)' },
+      ],
       details: {
         phase: 'not-started',
         situationTitle: 'Break-off',

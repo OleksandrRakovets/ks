@@ -4,6 +4,7 @@ export type AppEnv = {
       bind: (...args: unknown[]) => {
         run: () => Promise<unknown>
         first: <T>() => Promise<T | null>
+        all: <T>() => Promise<{ results?: T[] }>
       }
     }
   }

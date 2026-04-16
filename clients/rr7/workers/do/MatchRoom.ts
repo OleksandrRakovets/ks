@@ -8,6 +8,7 @@ import {
   type ClientEvent,
   type StoredEvent,
 } from '@ks/core'
+import { deriveGameProjection, parseGameKey } from '@ks/gameplay'
 import { Hono } from 'hono'
 import invariant from 'tiny-invariant'
 import { z } from 'zod'
@@ -107,7 +108,19 @@ export class MatchRoom implements DurableObject {
 
       await this.pruneSnapshotIfExpired(matchId, row.status, row.lock_at)
       const { derived, latestSeq } = await this.loadDerived(matchId)
-      return json({ ok: true, snapshot: snapshotFromMatchState(derived, latestSeq) })
+      const snapshot = snapshotFromMatchState(derived, latestSeq)
+      const currentFrame = derived.frames[derived.frames.length - 1]
+
+      const controlProjection =
+        currentFrame && derived.config
+          ? deriveGameProjection({
+              gameKey: parseGameKey(derived.config.gameKey),
+              state: currentFrame.gameState,
+              projection: 'control',
+            })
+          : undefined
+
+      return json({ ok: true, snapshot, controlProjection })
     })
 
     this.app.post('/events', async (c) => {

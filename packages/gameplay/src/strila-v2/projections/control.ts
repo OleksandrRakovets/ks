@@ -33,7 +33,10 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
         gameKey: 'strila-v2',
         projection: 'control',
         score: state.score,
-        availableCommands: [command('break-off', {}, 'Break-off')],
+        availableCommands: [
+          command('break-off', { actor: 'A' }, 'Break-off (A)'),
+          command('break-off', { actor: 'B' }, 'Break-off (B)'),
+        ],
         details: {
           phase: state.phase.type,
           situationTitle: 'Break-off',

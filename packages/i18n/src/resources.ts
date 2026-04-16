@@ -46,6 +46,11 @@ export const resources = {
       'match.sparring.errorNamesMustDiffer': 'Імена гравців мають відрізнятися.',
       'match.sparring.errorMatchTargetFramesRequired': 'Цільові фрейми матчу — обовʼязкове поле.',
       'match.sparring.errorHandicapMustBePositiveInt': 'Значення фори мають бути додатними цілими числами.',
+      'match.sparring.matchControlTitle': 'Керування спаринг-матчем',
+      'match.sparring.tabControl': 'Керування',
+      'match.sparring.tabProtocol': 'Протокол',
+      'match.sparring.protocolTitle': 'Протокол',
+      'match.sparring.protocolEmpty': 'Записів протоколу ще немає.',
     },
   },
   en: {
@@ -95,6 +100,11 @@ export const resources = {
       'match.sparring.errorNamesMustDiffer': 'Player names must be different.',
       'match.sparring.errorMatchTargetFramesRequired': 'Match target frames is required.',
       'match.sparring.errorHandicapMustBePositiveInt': 'Handicap values must be positive integers.',
+      'match.sparring.matchControlTitle': 'Sparring match control',
+      'match.sparring.tabControl': 'Control',
+      'match.sparring.tabProtocol': 'Protocol',
+      'match.sparring.protocolTitle': 'Protocol',
+      'match.sparring.protocolEmpty': 'No protocol entries yet.',
     },
   },
 } as const

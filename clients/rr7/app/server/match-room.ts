@@ -1,10 +1,31 @@
 import { normalizeMatchId, type MatchWriteRepository } from '@ks/competition'
-import { MatchSnapshotSchema } from '@ks/core'
-import type { SupportedLocale } from '@ks/i18n'
+import { MatchSnapshotSchema, StoredEventSchema, type StoredEvent } from '@ks/core'
 import type { ClientEvent } from '@ks/core'
+import type { SupportedLocale } from '@ks/i18n'
+import { z } from 'zod'
 
 import type { AppEnv } from './context'
 import { hydrateParticipant } from './players'
+
+const DoSnapshotResponseSchema = z.union([
+  z.object({
+    ok: z.literal(true),
+    snapshot: MatchSnapshotSchema,
+    controlProjection: z.unknown().optional(),
+  }),
+  z.object({
+    ok: z.literal(false),
+    error: z.string().min(1),
+  }),
+])
+
+function tryParseJson(raw: string): unknown | null {
+  try {
+    return JSON.parse(raw)
+  } catch {
+    return null
+  }
+}
 
 export async function fetchMatchSnapshot(env: AppEnv, rawMatchId: string, locale: SupportedLocale): Promise<Response> {
   const matchId = normalizeMatchId(rawMatchId)
@@ -15,11 +36,15 @@ export async function fetchMatchSnapshot(env: AppEnv, rawMatchId: string, locale
       headers: { 'x-ks-match-id': matchId },
     }),
   )
-  const payload = (await response.json()) as { ok?: boolean; snapshot?: unknown; error?: string }
-  if (!payload.ok || !payload.snapshot) {
-    return Response.json({ ok: false, error: payload.error ?? 'Failed to load snapshot' }, { status: response.status })
+  const payload = DoSnapshotResponseSchema.safeParse(await response.json())
+  if (!payload.success) {
+    return Response.json({ ok: false, error: 'Failed to parse snapshot response' }, { status: 502 })
   }
-  const snapshot = MatchSnapshotSchema.parse(payload.snapshot)
+
+  if (!payload.data.ok) {
+    return Response.json({ ok: false, error: payload.data.error ?? 'Failed to load snapshot' }, { status: response.status })
+  }
+  const snapshot = payload.data.snapshot
 
   const matchRow = await env.DB.prepare('SELECT seat_a_player_ref, seat_b_player_ref FROM matches WHERE match_id = ?')
     .bind(matchId)
@@ -33,7 +58,54 @@ export async function fetchMatchSnapshot(env: AppEnv, rawMatchId: string, locale
     B: await hydrateParticipant(env, matchRow.seat_b_player_ref, locale),
   }
 
-  return Response.json({ ok: true, snapshot, participants })
+  return Response.json({ ok: true, snapshot, participants, controlProjection: payload.data.controlProjection })
+}
+
+export async function getMatchControlSecret(env: AppEnv, rawMatchId: string): Promise<string | null> {
+  const matchId = normalizeMatchId(rawMatchId)
+  const row = await env.DB.prepare('SELECT control_secret FROM matches WHERE match_id = ?')
+    .bind(matchId)
+    .first<{ control_secret: string }>()
+  return row?.control_secret ?? null
+}
+
+export async function listStoredEvents(env: AppEnv, rawMatchId: string): Promise<StoredEvent[]> {
+  const matchId = normalizeMatchId(rawMatchId)
+  const res = await env.DB.prepare(
+    'SELECT seq, event_id, type, payload_json, client_id, client_seq, at, received_at FROM events WHERE match_id = ? ORDER BY seq ASC',
+  )
+    .bind(matchId)
+    .all<{
+      seq: number
+      event_id: string
+      type: string
+      payload_json: string
+      client_id: string
+      client_seq: number
+      at: number
+      received_at: number
+    }>()
+
+  return (res.results ?? [])
+    .map((row) => {
+      const payload = tryParseJson(row.payload_json)
+      if (payload === null) return null
+
+      const parsed = StoredEventSchema.safeParse({
+        seq: row.seq,
+        eventId: row.event_id,
+        matchId,
+        clientId: row.client_id,
+        clientSeq: row.client_seq,
+        at: row.at,
+        receivedAt: row.received_at,
+        type: row.type,
+        payload,
+      })
+
+      return parsed.success ? parsed.data : null
+    })
+    .flatMap((entry) => (entry ? [entry] : []))
 }
 
 export async function postMatchEvents(

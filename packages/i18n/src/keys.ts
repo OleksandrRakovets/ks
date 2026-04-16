@@ -48,6 +48,11 @@ export const keys = {
       errorNamesMustDiffer: 'match.sparring.errorNamesMustDiffer',
       errorMatchTargetFramesRequired: 'match.sparring.errorMatchTargetFramesRequired',
       errorHandicapMustBePositiveInt: 'match.sparring.errorHandicapMustBePositiveInt',
+      matchControlTitle: 'match.sparring.matchControlTitle',
+      tabControl: 'match.sparring.tabControl',
+      tabProtocol: 'match.sparring.tabProtocol',
+      protocolTitle: 'match.sparring.protocolTitle',
+      protocolEmpty: 'match.sparring.protocolEmpty',
     },
   },
 } as const

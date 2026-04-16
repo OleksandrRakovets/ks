@@ -11,7 +11,10 @@ function parseState(state: unknown): StrilaFrameState {
 
 test('simulation: outside: basic frame 1', () => {
   let state = parseState(createInitialGameState('strila-v2'))
-  expect(deriveStrilaControlView(state).availableCommands.map((entry) => entry.commandType)).toEqual(['break-off'])
+  expect(deriveStrilaControlView(state).availableCommands).toEqual([
+    { commandType: 'break-off', command: { actor: 'A' }, label: 'Break-off (A)' },
+    { commandType: 'break-off', command: { actor: 'B' }, label: 'Break-off (B)' },
+  ])
 
   let step = applyGameCommand({ gameKey: 'strila-v2', state, commandType: 'break-off', command: { actor: 'A' } })
   expect(step.protocolEntries).toEqual([{ source: 'player', command: { type: 'break-off', actor: 'A' } }])

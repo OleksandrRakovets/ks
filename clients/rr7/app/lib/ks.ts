@@ -50,6 +50,29 @@ export function makeShotRecordedEvent(
   })
 }
 
+export function makeGameCommandEvent(
+  matchId: string,
+  gameKey: RegisteredGameKey,
+  commandType: string,
+  command: unknown,
+): ClientEvent {
+  const parsedMatchId = MatchIdSchema.parse(matchId)
+  const parsedClientId = ClientIdSchema.parse(getOrCreateClientId())
+  return GameCommandEventSchema.parse({
+    eventId: newEventId(),
+    matchId: parsedMatchId,
+    clientId: parsedClientId,
+    clientSeq: nextClientSeq(matchId),
+    at: Date.now(),
+    type: 'game.command',
+    payload: {
+      gameKey,
+      commandType,
+      command,
+    },
+  })
+}
+
 export function makeAwardFrameEvent(matchId: string, seat: 'A' | 'B', frameIndex: number): ClientEvent {
   const parsedMatchId = MatchIdSchema.parse(matchId)
   const parsedClientId = ClientIdSchema.parse(getOrCreateClientId())
