@@ -138,6 +138,36 @@ describe('gameplay runtime api', () => {
     })
   })
 
+  test('free pyramid foul awards one point to opponent', () => {
+    const { state } = applyGameCommand({
+      gameKey: 'free-pyramid',
+      state: { pointsBySeat: { A: 3, B: 2 }, targetPointsBySeat: { A: 8, B: 8 }, phase: 'open-play' },
+      commandType: 'foul.committed',
+      command: { seat: 'A' },
+    })
+
+    expect(state).toEqual({
+      pointsBySeat: { A: 3, B: 3 },
+      targetPointsBySeat: { A: 8, B: 8 },
+      phase: 'open-play',
+    })
+  })
+
+  test('combined pyramid old foul deducts offender and allows negative score', () => {
+    const { state } = applyGameCommand({
+      gameKey: 'combined-pyramid-old',
+      state: { pointsBySeat: { A: 0, B: 4 }, targetPointsBySeat: { A: 8, B: 8 }, phase: 'open-play' },
+      commandType: 'foul.committed',
+      command: { seat: 'A' },
+    })
+
+    expect(state).toEqual({
+      pointsBySeat: { A: -1, B: 4 },
+      targetPointsBySeat: { A: 8, B: 8 },
+      phase: 'open-play',
+    })
+  })
+
   test('derives free pyramid scoreboard projection', () => {
     expect(
       deriveGameProjection({
@@ -168,7 +198,12 @@ describe('gameplay runtime api', () => {
         { commandType: 'break-off', command: { seat: 'A' }, label: 'Break-off (A)' },
         { commandType: 'break-off', command: { seat: 'B' }, label: 'Break-off (B)' },
       ],
-      details: { phase: 'not-started', winner: undefined },
+      details: {
+        phase: 'not-started',
+        winner: undefined,
+        situationTitle: 'Break-off',
+        situationSummary: 'Choose the player to open the frame.',
+      },
     })
   })
 
@@ -184,10 +219,53 @@ describe('gameplay runtime api', () => {
       projection: 'control',
       score: { A: 10, B: 2 },
       availableCommands: [
-        { commandType: 'shot.recorded', command: {}, label: 'Record shot' },
+        { commandType: 'shot.recorded', command: { points: 1 }, label: '+1' },
+        { commandType: 'shot.recorded', command: { points: 2 }, label: '+2' },
+        { commandType: 'shot.recorded', command: { points: 4 }, label: '+4' },
+        {
+          commandType: 'foul.committed',
+          command: {},
+          label: 'Foul',
+          effectSummary: 'Opponent +1 point',
+        },
         { commandType: 'award-frame', command: { seat: 'A' }, label: 'Award frame' },
       ],
-      details: { phase: 'open-play', winner: undefined },
+      details: {
+        phase: 'open-play',
+        winner: undefined,
+        situationTitle: 'Open play',
+        situationSummary: 'Record shot value or foul for either player.',
+      },
+    })
+  })
+
+  test('combined pyramid old control projects +1, +2 and foul deduction', () => {
+    expect(
+      deriveGameProjection({
+        gameKey: 'combined-pyramid-old',
+        state: { pointsBySeat: { A: 2, B: 1 }, targetPointsBySeat: { A: 8, B: 8 }, phase: 'open-play' },
+        projection: 'control',
+      }),
+    ).toEqual({
+      gameKey: 'combined-pyramid-old',
+      projection: 'control',
+      score: { A: 2, B: 1 },
+      availableCommands: [
+        { commandType: 'shot.recorded', command: { points: 1 }, label: '+1' },
+        { commandType: 'shot.recorded', command: { points: 2 }, label: '+2' },
+        {
+          commandType: 'foul.committed',
+          command: {},
+          label: 'Foul',
+          effectSummary: 'Offender -1 point (negative allowed)',
+        },
+      ],
+      details: {
+        phase: 'open-play',
+        winner: undefined,
+        situationTitle: 'Open play',
+        situationSummary: 'Record shot value or foul for either player.',
+      },
     })
   })
 

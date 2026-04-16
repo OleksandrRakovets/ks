@@ -22,6 +22,8 @@ function createPyramidEntry(args: {
   title: LocalizedGameTitle
   inputMode: GameInputMode
   allowNegative: boolean
+  foulPenalty: 'opponent-plus-one' | 'offender-minus-one'
+  shotPointOptions: number[]
   defaultFrameTargetPointsBySeat: { A: number; B: number }
 }): { meta: GameMeta; runtime: GameplayRuntime } {
   return {
@@ -36,7 +38,11 @@ function createPyramidEntry(args: {
         title: args.title,
         inputMode: args.inputMode,
       },
-      { allowNegative: args.allowNegative },
+      {
+        allowNegative: args.allowNegative,
+        foulPenalty: args.foulPenalty,
+        shotPointOptions: args.shotPointOptions,
+      },
     ),
   }
 }
@@ -61,6 +67,8 @@ export const registry = {
     },
     inputMode: 'pyramid-basic',
     allowNegative: false,
+    foulPenalty: 'opponent-plus-one',
+    shotPointOptions: [1, 2, 4],
     defaultFrameTargetPointsBySeat: { A: 8, B: 8 },
   }),
   'free-pyramid-long': createPyramidEntry({
@@ -71,6 +79,8 @@ export const registry = {
     },
     inputMode: 'pyramid-basic',
     allowNegative: false,
+    foulPenalty: 'opponent-plus-one',
+    shotPointOptions: [1, 2, 4],
     defaultFrameTargetPointsBySeat: { A: 30, B: 30 },
   }),
   'combined-pyramid': createPyramidEntry({
@@ -81,6 +91,8 @@ export const registry = {
     },
     inputMode: 'pyramid-basic',
     allowNegative: false,
+    foulPenalty: 'opponent-plus-one',
+    shotPointOptions: [1, 2],
     defaultFrameTargetPointsBySeat: { A: 8, B: 8 },
   }),
   'combined-pyramid-old': createPyramidEntry({
@@ -91,6 +103,8 @@ export const registry = {
     },
     inputMode: 'pyramid-basic',
     allowNegative: true,
+    foulPenalty: 'offender-minus-one',
+    shotPointOptions: [1, 2],
     defaultFrameTargetPointsBySeat: { A: 8, B: 8 },
   }),
 } as const

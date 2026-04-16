@@ -30,6 +30,10 @@ const BreakOffCommandSchema = z.object({
   seat: SeatSchema,
 })
 
+const FoulCommittedCommandSchema = z.object({
+  seat: SeatSchema,
+})
+
 type PyramidMeta = {
   gameKey: string
   title: {
@@ -50,12 +54,32 @@ function pyramidDetails(state: PyramidFrameState) {
   }
 }
 
+function command(
+  commandType: string,
+  payload: Record<string, unknown>,
+  label: string,
+  extras: { effectSummary?: string; warning?: string; helpText?: string } = {},
+) {
+  return { commandType, command: payload, label, ...extras }
+}
+
 // TODO: declare winner as well, but allow the break to continue
 export class PyramidGameplayRuntime extends GameplayRuntime {
   readonly meta: PyramidMeta
-  private readonly args: { allowNegative: boolean }
+  private readonly args: {
+    allowNegative: boolean
+    foulPenalty: 'opponent-plus-one' | 'offender-minus-one'
+    shotPointOptions: number[]
+  }
 
-  constructor(meta: PyramidMeta, args: { allowNegative: boolean }) {
+  constructor(
+    meta: PyramidMeta,
+    args: {
+      allowNegative: boolean
+      foulPenalty: 'opponent-plus-one' | 'offender-minus-one'
+      shotPointOptions: number[]
+    },
+  ) {
     super()
     this.meta = meta
     this.args = args
@@ -112,6 +136,50 @@ export class PyramidGameplayRuntime extends GameplayRuntime {
       }
     }
 
+    if (input.commandType === 'foul.committed') {
+      invariant(state.phase === 'open-play', 'Cannot record pyramid foul before break-off')
+      const command = FoulCommittedCommandSchema.parse(input.command)
+
+      if (this.args.foulPenalty === 'opponent-plus-one') {
+        const targetSeat = command.seat === 'A' ? 'B' : 'A'
+        const current = state.pointsBySeat[targetSeat]
+
+        return {
+          state: {
+            ...state,
+            pointsBySeat:
+              targetSeat === 'A'
+                ? {
+                    A: current + 1,
+                    B: state.pointsBySeat.B,
+                  }
+                : {
+                    A: state.pointsBySeat.A,
+                    B: current + 1,
+                  },
+          } satisfies PyramidFrameState,
+        }
+      }
+
+      const current = state.pointsBySeat[command.seat]
+      const next = current - 1
+      return {
+        state: {
+          ...state,
+          pointsBySeat:
+            command.seat === 'A'
+              ? {
+                  A: this.args.allowNegative ? next : Math.max(0, next),
+                  B: state.pointsBySeat.B,
+                }
+              : {
+                  A: state.pointsBySeat.A,
+                  B: this.args.allowNegative ? next : Math.max(0, next),
+                },
+        } satisfies PyramidFrameState,
+      }
+    }
+
     invariant(input.commandType === 'award-frame', `Unsupported commandType: ${input.commandType}`)
     const command = AwardFrameCommandSchema.parse(input.command)
     invariant(
@@ -132,30 +200,62 @@ export class PyramidGameplayRuntime extends GameplayRuntime {
     const state = this.parseState(args.state)
 
     switch (args.projection) {
-      case 'control':
+      case 'control': {
+        if (state.phase === 'not-started') {
+          return GameControlProjectionSchema.parse({
+            gameKey: this.meta.gameKey,
+            projection: 'control',
+            score: state.pointsBySeat,
+            availableCommands: [
+              command('break-off', { seat: 'A' }, 'Break-off (A)'),
+              command('break-off', { seat: 'B' }, 'Break-off (B)'),
+            ],
+            details: {
+              ...pyramidDetails(state),
+              situationTitle: 'Break-off',
+              situationSummary: 'Choose the player to open the frame.',
+            },
+          })
+        }
+
+        if (state.phase === 'open-play') {
+          return GameControlProjectionSchema.parse({
+            gameKey: this.meta.gameKey,
+            projection: 'control',
+            score: state.pointsBySeat,
+            availableCommands: [
+              ...this.args.shotPointOptions.map((points) => command('shot.recorded', { points }, `+${points}`)),
+              command('foul.committed', {}, 'Foul', {
+                effectSummary:
+                  this.args.foulPenalty === 'opponent-plus-one' ? 'Opponent +1 point' : 'Offender -1 point (negative allowed)',
+              }),
+              ...(state.pointsBySeat.A >= state.targetPointsBySeat.A
+                ? [command('award-frame', { seat: 'A' }, 'Award frame')]
+                : []),
+              ...(state.pointsBySeat.B >= state.targetPointsBySeat.B
+                ? [command('award-frame', { seat: 'B' }, 'Award frame')]
+                : []),
+            ],
+            details: {
+              ...pyramidDetails(state),
+              situationTitle: 'Open play',
+              situationSummary: 'Record shot value or foul for either player.',
+            },
+          })
+        }
+
         return GameControlProjectionSchema.parse({
           gameKey: this.meta.gameKey,
           projection: 'control',
           score: state.pointsBySeat,
-          availableCommands:
-            state.phase === 'frame-over'
-              ? []
-              : state.phase === 'not-started'
-                ? [
-                    { commandType: 'break-off', command: { seat: 'A' }, label: 'Break-off (A)' },
-                    { commandType: 'break-off', command: { seat: 'B' }, label: 'Break-off (B)' },
-                  ]
-                : [
-                    { commandType: 'shot.recorded', command: {}, label: 'Record shot' },
-                    ...(state.pointsBySeat.A >= state.targetPointsBySeat.A
-                      ? [{ commandType: 'award-frame', command: { seat: 'A' }, label: 'Award frame' }]
-                      : []),
-                    ...(state.pointsBySeat.B >= state.targetPointsBySeat.B
-                      ? [{ commandType: 'award-frame', command: { seat: 'B' }, label: 'Award frame' }]
-                      : []),
-                  ],
-          details: pyramidDetails(state),
+          availableCommands: [],
+          details: {
+            ...pyramidDetails(state),
+            situationTitle: 'Frame over',
+            situationSummary: 'No further scoring commands are available.',
+          },
         })
+      }
       case 'scoreboard':
         return GameScoreboardProjectionSchema.parse({
           gameKey: this.meta.gameKey,
