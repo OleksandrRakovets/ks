@@ -38,7 +38,6 @@ test('simulation: outside: respotted black frame 1', () => {
   expect(deriveStrilaControlView(step.state as StrilaFrameState).availableCommands.map((entry) => entry.commandType)).toEqual([
     'record-pot',
     'award-frame',
-    'concede-frame',
   ])
   expect(deriveStrilaScoreboardView(step.state as StrilaFrameState).details.winner).toBe('A')
 })

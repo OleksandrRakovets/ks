@@ -97,6 +97,43 @@ test('frame award increments framesWon', () => {
   expect(s.framesWonBySeat.A).toBe(1)
 })
 
+test('strila award-frame closes the match frame through gameplay', () => {
+  const config = makeConfig('strila-v2')
+  let s = emptyMatchState()
+  s = applyMatchEvent(s, baseEvent(config.matchId, 'match.created', config))
+  s = applyMatchEvent(s, baseEvent(config.matchId, 'frame.started', { frameIndex: 1 }))
+  s = applyMatchEvent(
+    s,
+    baseEvent(config.matchId, 'game.command', {
+      gameKey: config.gameKey,
+      commandType: 'break-off',
+      command: { actor: 'A' },
+    }),
+  )
+  s = applyMatchEvent(
+    s,
+    baseEvent(config.matchId, 'game.command', {
+      gameKey: config.gameKey,
+      commandType: 'concede-frame',
+      command: { actor: 'B' },
+    }),
+  )
+
+  expect(s.frames[0]?.winnerSeat).toBeUndefined()
+
+  s = applyMatchEvent(
+    s,
+    baseEvent(config.matchId, 'game.command', {
+      gameKey: config.gameKey,
+      commandType: 'award-frame',
+      command: { actor: 'A' },
+    }),
+  )
+
+  expect(s.frames[0]?.winnerSeat).toBe('A')
+  expect(s.framesWonBySeat.A).toBe(1)
+})
+
 test('free-pyramid allows break above frame target before frame award', () => {
   const config = makeConfig('free-pyramid')
   let s = emptyMatchState()

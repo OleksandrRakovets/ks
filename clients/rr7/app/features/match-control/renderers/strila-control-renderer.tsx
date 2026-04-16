@@ -69,6 +69,11 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
   const activeBallSet = useMemo(() => new Set(ballView.active), [ballView.active])
   const seatA = props.participants.A.shortDisplayName
   const seatB = props.participants.B.shortDisplayName
+  const phase =
+    props.projection.details && typeof props.projection.details === 'object'
+      ? (props.projection.details as { phase?: unknown }).phase
+      : undefined
+  const winnerDeterminedRecordActor = phase === 'winner-determined' && recordPot ? actorFromCommand(recordPot.command) : null
 
   function toggleBall(ball: number) {
     setSelectedBalls((prev) => (prev.includes(ball) ? prev.filter((entry) => entry !== ball) : [...prev, ball]))
@@ -119,26 +124,36 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
                 )
               })}
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            {winnerDeterminedRecordActor ? (
               <Button
                 type="button"
                 disabled={props.submitting || selectedBalls.length === 0}
-                onClick={() =>
-                  submitSeatCommand('A', recordPot.commandType, { ...recordPot.command, pottedBalls: selectedBalls })
-                }
+                onClick={() => submitCommand(recordPot.commandType, { ...recordPot.command, pottedBalls: selectedBalls })}
               >
-                {recordPot.label ?? 'Record pot'} ({seatA})
+                {recordPot.label ?? 'Record pot'} ({winnerDeterminedRecordActor === 'A' ? seatA : seatB})
               </Button>
-              <Button
-                type="button"
-                disabled={props.submitting || selectedBalls.length === 0}
-                onClick={() =>
-                  submitSeatCommand('B', recordPot.commandType, { ...recordPot.command, pottedBalls: selectedBalls })
-                }
-              >
-                {recordPot.label ?? 'Record pot'} ({seatB})
-              </Button>
-            </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  type="button"
+                  disabled={props.submitting || selectedBalls.length === 0}
+                  onClick={() =>
+                    submitSeatCommand('A', recordPot.commandType, { ...recordPot.command, pottedBalls: selectedBalls })
+                  }
+                >
+                  {recordPot.label ?? 'Record pot'} ({seatA})
+                </Button>
+                <Button
+                  type="button"
+                  disabled={props.submitting || selectedBalls.length === 0}
+                  onClick={() =>
+                    submitSeatCommand('B', recordPot.commandType, { ...recordPot.command, pottedBalls: selectedBalls })
+                  }
+                >
+                  {recordPot.label ?? 'Record pot'} ({seatB})
+                </Button>
+              </div>
+            )}
             {recordPot.helpText ? <p className="text-xs text-muted-foreground">{recordPot.helpText}</p> : null}
             {recordPot.warning ? <p className="text-xs text-destructive">{recordPot.warning}</p> : null}
           </div>

@@ -159,7 +159,6 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
         availableCommands: [
           command('record-pot', { actor: state.phase.actor }, 'Record pot'),
           command('award-frame', { actor: state.phase.actor }, 'Award frame'),
-          command('concede-frame', { actor: state.phase.actor }, 'Concede frame'),
         ],
         details: {
           phase: state.phase.type,

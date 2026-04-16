@@ -72,7 +72,7 @@ describe('projection: control', () => {
 
     const view = deriveStrilaControlView(state)
     expect(view.details.actor).toBe('B')
-    expect(view.availableCommands.map((entry) => entry.commandType)).toEqual(['record-pot', 'award-frame', 'concede-frame'])
+    expect(view.availableCommands.map((entry) => entry.commandType)).toEqual(['record-pot', 'award-frame'])
   })
 
   test('respotted-black-opening explains the restriction', () => {

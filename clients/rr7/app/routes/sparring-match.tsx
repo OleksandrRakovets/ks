@@ -3,7 +3,6 @@ import {
   ClientIdSchema,
   type ClientEvent,
   ClientEventSchema,
-  FrameAwardedEventSchema,
   FrameStartedEventSchema,
   GameCommandEventSchema,
   MatchEndedEventSchema,
@@ -130,14 +129,6 @@ export async function loader({
   }
 }
 
-function opponentOf(seat: 'A' | 'B'): 'A' | 'B' {
-  return seat === 'A' ? 'B' : 'A'
-}
-
-function parseSeat(value: unknown): 'A' | 'B' | null {
-  return value === 'A' || value === 'B' ? value : null
-}
-
 export async function action({
   params,
   request,
@@ -201,37 +192,15 @@ export async function action({
       return { ok: false, errorKey: keys.match.control.invalidEventPayload }
     }
 
-    if (commandType === 'award-frame') {
-      const winnerSeat = parseSeat((parsedCommand as { actor?: unknown }).actor)
-      if (!winnerSeat) {
-        return { ok: false, errorKey: keys.match.control.invalidEventPayload }
-      }
-      event = FrameAwardedEventSchema.parse({
-        ...serverEventBase(),
-        type: 'frame.awarded',
-        payload: { frameIndex, winnerSeat },
-      })
-    } else if (commandType === 'concede-frame') {
-      const concedingSeat = parseSeat((parsedCommand as { actor?: unknown }).actor)
-      if (!concedingSeat) {
-        return { ok: false, errorKey: keys.match.control.invalidEventPayload }
-      }
-      event = FrameAwardedEventSchema.parse({
-        ...serverEventBase(),
-        type: 'frame.awarded',
-        payload: { frameIndex, winnerSeat: opponentOf(concedingSeat), reason: 'conceded' },
-      })
-    } else {
-      event = GameCommandEventSchema.parse({
-        ...serverEventBase(),
-        type: 'game.command',
-        payload: {
-          gameKey: gameKey as RegisteredGameKey,
-          commandType,
-          command: (parsedCommand ?? {}) as Record<string, unknown>,
-        },
-      })
-    }
+    event = GameCommandEventSchema.parse({
+      ...serverEventBase(),
+      type: 'game.command',
+      payload: {
+        gameKey: gameKey as RegisteredGameKey,
+        commandType,
+        command: (parsedCommand ?? {}) as Record<string, unknown>,
+      },
+    })
   }
 
   const parsedEvent = ClientEventSchema.safeParse(event)
