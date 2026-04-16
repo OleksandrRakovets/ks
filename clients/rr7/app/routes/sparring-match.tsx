@@ -202,26 +202,36 @@ function protocolLabel(event: StoredEvent, seatNames: { A: string; B: string }):
 
   if (event.type === 'game.command') {
     if (event.payload.commandType === 'pot.record') {
-      const command = event.payload.command as { actor?: unknown; pottedBalls?: unknown }
-      const actor = command.actor === 'A' || command.actor === 'B' ? command.actor : '?'
-      const pottedBalls = Array.isArray(command.pottedBalls)
-        ? command.pottedBalls
-            .filter((ball): ball is number => typeof ball === 'number')
-            .map((ball) => {
-              if (ball === 0) return 'cue'
-              if (ball === 1) return 'red'
-              if (ball === 2) return 'yellow'
-              if (ball === 3) return 'green'
-              if (ball === 4) return 'brown'
-              if (ball === 5) return 'blue'
-              if (ball === 6) return 'pink'
-              if (ball === 7) return 'black'
-              return String(ball)
-            })
-        : []
-      const summary = pottedBalls.length > 0 ? pottedBalls.join(', ') : 'none'
-      const actorLabel = actor === 'A' || actor === 'B' ? seatLabel(actor) : actor
-      return `${actorLabel}: pot (${summary})`
+      const command = event.payload.command as { actor?: unknown; seat?: unknown; points?: unknown; pottedBalls?: unknown }
+
+      if (Array.isArray(command.pottedBalls)) {
+        const actor = command.actor === 'A' || command.actor === 'B' ? command.actor : '?'
+        const pottedBalls = command.pottedBalls
+          .filter((ball): ball is number => typeof ball === 'number')
+          .map((ball) => {
+            if (ball === 0) return 'cue'
+            if (ball === 1) return 'red'
+            if (ball === 2) return 'yellow'
+            if (ball === 3) return 'green'
+            if (ball === 4) return 'brown'
+            if (ball === 5) return 'blue'
+            if (ball === 6) return 'pink'
+            if (ball === 7) return 'black'
+            return String(ball)
+          })
+        const summary = pottedBalls.length > 0 ? pottedBalls.join(', ') : 'none'
+        const actorLabel = actor === 'A' || actor === 'B' ? seatLabel(actor) : actor
+        return `${actorLabel}: pot (${summary})`
+      }
+
+      const seat = command.seat
+      const points = typeof command.points === 'number' ? command.points : null
+      const seatText = seat === 'A' || seat === 'B' ? seatLabel(seat) : '?'
+      if (points != null) {
+        const signed = points >= 0 ? `+${points}` : String(points)
+        return `${seatText}: pot ${signed}`
+      }
+      return `${seatText}: pot`
     }
 
     const command = event.payload.command as { actor?: unknown; seat?: unknown }
