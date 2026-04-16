@@ -10,7 +10,7 @@ function parseState(state: unknown): StrilaFrameState {
 }
 
 test('simulation: outside: basic frame 1', () => {
-  let state = parseState(createInitialGameState('strila-v2'))
+  let state = parseState(createInitialGameState('strila-v2', { targetPointsBySeat: { A: 9, B: 9 } }))
   expect(deriveStrilaControlView(state).availableCommands).toEqual([
     { commandType: 'break-off', command: { actor: 'A' }, label: 'Break-off (A)' },
     { commandType: 'break-off', command: { actor: 'B' }, label: 'Break-off (B)' },

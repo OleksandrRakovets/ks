@@ -8,6 +8,7 @@ import { deriveStrilaScoreboardView } from '../projections/scoreboard'
 test('simulation: outside: respotted black frame 1', () => {
   const state: StrilaFrameState = {
     score: { A: 8, B: 8 },
+    targetPointsBySeat: { A: 9, B: 9 },
     coloredBallsOnTable: [7],
     phase: { type: 'respotted-black-opening', actor: 'A' },
   }

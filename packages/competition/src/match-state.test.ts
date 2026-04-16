@@ -55,7 +55,11 @@ describe('free-pyramid', () => {
       }),
     )
     expect(s.frames[0]?.pointsBySeat.A).toBe(0)
-    expect(s.frames[0]?.gameState).toEqual({ pointsBySeat: { A: 0, B: 0 } })
+    expect(s.frames[0]?.gameState).toEqual({
+      pointsBySeat: { A: 0, B: 0 },
+      targetPointsBySeat: { A: 8, B: 8 },
+      phase: 'open-play',
+    })
   })
 
   test('starts frame with initial game state', () => {
@@ -66,6 +70,8 @@ describe('free-pyramid', () => {
 
     expect(s.frames[0]?.gameState).toEqual({
       pointsBySeat: { A: 0, B: 0 },
+      targetPointsBySeat: { A: 8, B: 8 },
+      phase: 'open-play',
     })
   })
 })
@@ -127,6 +133,99 @@ test('strila award-frame closes the match frame through gameplay', () => {
       gameKey: config.gameKey,
       commandType: 'award-frame',
       command: { actor: 'A' },
+    }),
+  )
+
+  expect(s.frames[0]?.winnerSeat).toBe('A')
+  expect(s.framesWonBySeat.A).toBe(1)
+})
+
+test('strila handicap target lets A reach winner-determined at 6', () => {
+  const config = makeConfig('strila-v2')
+  config.targets.frameTargetPointsBySeat = { A: 6, B: 9 }
+
+  let s = emptyMatchState()
+  s = applyMatchEvent(s, baseEvent(config.matchId, 'match.created', config))
+  s = applyMatchEvent(s, baseEvent(config.matchId, 'frame.started', { frameIndex: 1 }))
+  s = applyMatchEvent(
+    s,
+    baseEvent(config.matchId, 'game.command', {
+      gameKey: config.gameKey,
+      commandType: 'break-off',
+      command: { actor: 'A' },
+    }),
+  )
+  s = applyMatchEvent(
+    s,
+    baseEvent(config.matchId, 'game.command', {
+      gameKey: config.gameKey,
+      commandType: 'record-pot',
+      command: { actor: 'A', pottedBalls: [1] },
+    }),
+  )
+  s = applyMatchEvent(
+    s,
+    baseEvent(config.matchId, 'game.command', {
+      gameKey: config.gameKey,
+      commandType: 'record-pot',
+      command: { actor: 'A', pottedBalls: [2] },
+    }),
+  )
+  s = applyMatchEvent(
+    s,
+    baseEvent(config.matchId, 'game.command', {
+      gameKey: config.gameKey,
+      commandType: 'record-pot',
+      command: { actor: 'A', pottedBalls: [3] },
+    }),
+  )
+
+  expect(s.frames[0]?.pointsBySeat).toEqual({ A: 6, B: 0 })
+  expect(s.frames[0]?.winnerSeat).toBeUndefined()
+
+  s = applyMatchEvent(
+    s,
+    baseEvent(config.matchId, 'game.command', {
+      gameKey: config.gameKey,
+      commandType: 'award-frame',
+      command: { actor: 'A' },
+    }),
+  )
+
+  expect(s.frames[0]?.winnerSeat).toBe('A')
+  expect(s.framesWonBySeat.A).toBe(1)
+})
+
+test('free-pyramid award-frame closes the match frame through gameplay', () => {
+  const config = makeConfig('free-pyramid')
+  let s = emptyMatchState()
+  s = applyMatchEvent(s, baseEvent(config.matchId, 'match.created', config))
+  s = applyMatchEvent(s, baseEvent(config.matchId, 'frame.started', { frameIndex: 1 }))
+  s = applyMatchEvent(
+    s,
+    baseEvent(config.matchId, 'game.command', {
+      gameKey: config.gameKey,
+      commandType: 'shot.recorded',
+      command: { seat: 'A', points: 8 },
+    }),
+  )
+  s = applyMatchEvent(
+    s,
+    baseEvent(config.matchId, 'game.command', {
+      gameKey: config.gameKey,
+      commandType: 'shot.recorded',
+      command: { seat: 'A', points: 2 },
+    }),
+  )
+
+  expect(s.frames[0]?.winnerSeat).toBeUndefined()
+
+  s = applyMatchEvent(
+    s,
+    baseEvent(config.matchId, 'game.command', {
+      gameKey: config.gameKey,
+      commandType: 'award-frame',
+      command: { seat: 'A' },
     }),
   )
 

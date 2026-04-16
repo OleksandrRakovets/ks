@@ -147,7 +147,7 @@ export function applyMatchEvent(prev: MatchState, event: ClientEvent): MatchStat
       state.currentFrameIndex = frameIndex
       state.frames.push({
         frameIndex,
-        gameState: createInitialGameState(gameKey),
+        gameState: createInitialGameState(gameKey, { targetPointsBySeat: config.targets.frameTargetPointsBySeat }),
         pointsBySeat: { A: 0, B: 0 },
       })
       return state

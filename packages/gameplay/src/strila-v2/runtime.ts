@@ -1,6 +1,6 @@
 import invariant from 'tiny-invariant'
 
-import { type GameProjectionKey, GameplayRuntime } from '../abstract-runtime'
+import { type GameCreateStateArgs, type GameProjectionKey, GameplayRuntime } from '../abstract-runtime'
 import {
   StrilaCommandSchema,
   StrilaFrameStateSchema,
@@ -25,8 +25,8 @@ function parseStrilaCommand(input: StrilaCommandEnvelope): StrilaCommand {
 }
 
 export class StrilaGameplayRuntime extends GameplayRuntime {
-  createInitialState(): StrilaFrameState {
-    return createEmptyStrilaFrameState()
+  createInitialState(args: GameCreateStateArgs): StrilaFrameState {
+    return createEmptyStrilaFrameState(args.targetPointsBySeat)
   }
 
   parseState(state: unknown): StrilaFrameState {

@@ -14,6 +14,7 @@ import { StrilaGameplayRuntime } from './strila-v2/runtime'
 export type GameMeta = {
   title: LocalizedGameTitle
   inputMode: GameInputMode
+  defaultFrameTargetPointsBySeat: { A: number; B: number }
 }
 
 function createPyramidEntry(args: {
@@ -21,11 +22,13 @@ function createPyramidEntry(args: {
   title: LocalizedGameTitle
   inputMode: GameInputMode
   allowNegative: boolean
+  defaultFrameTargetPointsBySeat: { A: number; B: number }
 }): { meta: GameMeta; runtime: GameplayRuntime } {
   return {
     meta: {
       title: args.title,
       inputMode: args.inputMode,
+      defaultFrameTargetPointsBySeat: args.defaultFrameTargetPointsBySeat,
     },
     runtime: new PyramidGameplayRuntime(
       {
@@ -46,6 +49,7 @@ export const registry = {
         en: 'Strila',
       },
       inputMode: 'strila-basic',
+      defaultFrameTargetPointsBySeat: { A: 9, B: 9 },
     },
     runtime: new StrilaGameplayRuntime(),
   },
@@ -57,6 +61,7 @@ export const registry = {
     },
     inputMode: 'pyramid-basic',
     allowNegative: false,
+    defaultFrameTargetPointsBySeat: { A: 8, B: 8 },
   }),
   'free-pyramid-long': createPyramidEntry({
     gameKey: 'free-pyramid-long',
@@ -66,6 +71,7 @@ export const registry = {
     },
     inputMode: 'pyramid-basic',
     allowNegative: false,
+    defaultFrameTargetPointsBySeat: { A: 30, B: 30 },
   }),
   'combined-pyramid': createPyramidEntry({
     gameKey: 'combined-pyramid',
@@ -75,6 +81,7 @@ export const registry = {
     },
     inputMode: 'pyramid-basic',
     allowNegative: false,
+    defaultFrameTargetPointsBySeat: { A: 8, B: 8 },
   }),
   'combined-pyramid-old': createPyramidEntry({
     gameKey: 'combined-pyramid-old',
@@ -84,6 +91,7 @@ export const registry = {
     },
     inputMode: 'pyramid-basic',
     allowNegative: true,
+    defaultFrameTargetPointsBySeat: { A: 8, B: 8 },
   }),
 } as const
 

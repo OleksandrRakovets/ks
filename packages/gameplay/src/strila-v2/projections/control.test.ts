@@ -3,10 +3,13 @@ import { describe, expect, test } from 'bun:test'
 import type { StrilaFrameState } from '../definitions'
 import { deriveStrilaControlView } from './control'
 
+const DEFAULT_TARGETS = { A: 9, B: 9 } as const
+
 describe('projection: control', () => {
   test('not-started exposes break-off', () => {
     const state: StrilaFrameState = {
       score: { A: 0, B: 0 },
+      targetPointsBySeat: DEFAULT_TARGETS,
       coloredBallsOnTable: [1, 2, 3, 4, 5, 6, 7],
       phase: { type: 'not-started' },
     }
@@ -31,6 +34,7 @@ describe('projection: control', () => {
   test('foul-response exposes the three response choices', () => {
     const state: StrilaFrameState = {
       score: { A: 4, B: 0 },
+      targetPointsBySeat: DEFAULT_TARGETS,
       coloredBallsOnTable: [2, 3, 4, 5, 6, 7],
       phase: { type: 'foul-response', chooser: 'B', offender: 'A', forcedBallInHand: false },
     }
@@ -66,6 +70,7 @@ describe('projection: control', () => {
   test('winner-determined keeps award-frame and record-pot', () => {
     const state: StrilaFrameState = {
       score: { A: 4, B: 9 },
+      targetPointsBySeat: DEFAULT_TARGETS,
       coloredBallsOnTable: [6, 7],
       phase: { type: 'winner-determined', winner: 'B', actor: 'B', reason: 'target-reached' },
     }
@@ -78,6 +83,7 @@ describe('projection: control', () => {
   test('respotted-black-opening explains the restriction', () => {
     const state: StrilaFrameState = {
       score: { A: 8, B: 8 },
+      targetPointsBySeat: DEFAULT_TARGETS,
       coloredBallsOnTable: [7],
       phase: { type: 'respotted-black-opening', actor: 'A' },
     }

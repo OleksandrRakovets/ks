@@ -252,9 +252,14 @@ function protocolLabel(event: StoredEvent, seatNames: { A: string; B: string }):
       return `${actorLabel}: pot (${summary})`
     }
 
-    const actor = (event.payload.command as { actor?: unknown }).actor
+    const command = event.payload.command as { actor?: unknown; seat?: unknown }
+    const actor = command.actor
     if (actor === 'A' || actor === 'B') {
       return `${seatLabel(actor)}: ${event.payload.commandType}`
+    }
+    const seat = command.seat
+    if (seat === 'A' || seat === 'B') {
+      return `${seatLabel(seat)}: ${event.payload.commandType}`
     }
     return event.payload.commandType
   }

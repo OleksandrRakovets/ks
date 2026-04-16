@@ -14,6 +14,7 @@ import { makeMatchWriteRepository } from '../server/match-room'
 type LoaderData = {
   gameKey: string
   title: string
+  defaultFrameTargetPointsBySeat: { A: number; B: number }
 }
 
 type ActionData = {
@@ -46,6 +47,7 @@ export async function loader({ params, request }: { params: { gameKey?: string }
   return {
     gameKey,
     title: registry[gameKey].meta.title[locale],
+    defaultFrameTargetPointsBySeat: registry[gameKey].meta.defaultFrameTargetPointsBySeat,
   }
 }
 
@@ -63,12 +65,14 @@ export async function action({
     throw new Response('Unknown gameKey', { status: 404 })
   }
 
+  const defaultFrameTargetPointsBySeat = registry[gameKey].meta.defaultFrameTargetPointsBySeat
+
   const form = await request.formData()
   const seatAName = String(form.get('seatAName') ?? '')
   const seatBName = String(form.get('seatBName') ?? '')
   const matchTargetFrames = parsePositiveInt(form.get('matchTargetFrames'))
-  const targetA = parsePositiveInt(form.get('targetA'), 8)
-  const targetB = parsePositiveInt(form.get('targetB'), 8)
+  const targetA = parsePositiveInt(form.get('targetA'), defaultFrameTargetPointsBySeat.A)
+  const targetB = parsePositiveInt(form.get('targetB'), defaultFrameTargetPointsBySeat.B)
 
   if (!seatAName || !seatBName) {
     return { ok: false, errorKey: keys.match.sparring.errorBothNamesRequired } as const
@@ -113,7 +117,7 @@ function normalizeDisplayName(value: string): string {
 
 export default function SparringInitRoute() {
   const { t } = useTranslation()
-  const { gameKey, title } = useLoaderData<typeof loader>()
+  const { gameKey, title, defaultFrameTargetPointsBySeat } = useLoaderData<typeof loader>()
   const actionData = useActionData() as ActionData | undefined
   const navigation = useNavigation()
   const isSubmitting = navigation.state === 'submitting'
@@ -171,11 +175,23 @@ export default function SparringInitRoute() {
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
                   <div className="grid gap-2">
                     <Label htmlFor="targetA">{t(keys.match.sparring.seatATargetPoints)}</Label>
-                    <NumberInput id="targetA" name="targetA" inputMode="numeric" min={1} defaultValue={8} />
+                    <NumberInput
+                      id="targetA"
+                      name="targetA"
+                      inputMode="numeric"
+                      min={1}
+                      defaultValue={defaultFrameTargetPointsBySeat.A}
+                    />
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="targetB">{t(keys.match.sparring.seatBTargetPoints)}</Label>
-                    <NumberInput id="targetB" name="targetB" inputMode="numeric" min={1} defaultValue={8} />
+                    <NumberInput
+                      id="targetB"
+                      name="targetB"
+                      inputMode="numeric"
+                      min={1}
+                      defaultValue={defaultFrameTargetPointsBySeat.B}
+                    />
                   </div>
                 </div>
               </details>

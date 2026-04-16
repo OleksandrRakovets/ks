@@ -1,18 +1,11 @@
 import { expect, test } from 'bun:test'
 
-import type { StrilaCommand, StrilaFrameState } from '../definitions'
 import { deriveStrilaScoreboardView } from '../projections/scoreboard'
-import { projectStrilaProtocolEntries } from '../protocol'
-import { createEmptyStrilaFrameState, reduceStrilaCommand } from '../reducer'
-
-function applyCommand(previous: StrilaFrameState, command: StrilaCommand) {
-  const next = reduceStrilaCommand(previous, command)
-  const protocolEntries = projectStrilaProtocolEntries({ previous, command, next })
-  return { next, protocolEntries }
-}
+import { createEmptyStrilaFrameState } from '../reducer'
+import { applyCommand } from './applyCommand'
 
 test('simulation: internal: basic frame 1', () => {
-  let next = createEmptyStrilaFrameState()
+  let next = createEmptyStrilaFrameState({ A: 9, B: 9 })
 
   ;({ next } = applyCommand(next, {
     type: 'break-off',

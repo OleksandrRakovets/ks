@@ -1,3 +1,4 @@
+import { BySeatNumberSchema } from '@ks/core'
 import { z } from 'zod'
 
 import {
@@ -105,6 +106,7 @@ export type StrilaPhase = z.infer<typeof StrilaPhaseSchema>
 export const StrilaFrameStateSchema = z.object({
   phase: StrilaPhaseSchema,
   score: StrilaScoreSchema,
+  targetPointsBySeat: BySeatNumberSchema,
   coloredBallsOnTable: z.array(StrilaColoredBallSchema),
 })
 export type StrilaFrameState = z.infer<typeof StrilaFrameStateSchema>

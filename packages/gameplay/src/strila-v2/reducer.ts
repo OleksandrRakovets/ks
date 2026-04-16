@@ -98,11 +98,11 @@ function makeWinnerDetermined(
 }
 
 function resolveNonRespottedFrameOutcome(state: StrilaFrameState): StrilaFrameState | null {
-  if (state.score.A >= 9) {
+  if (state.score.A >= state.targetPointsBySeat.A) {
     const actor = state.phase.type === 'open-play' || state.phase.type === 'winner-determined' ? state.phase.actor : 'A'
     return { ...state, phase: makeWinnerDetermined('A', actor, 'target-reached') }
   }
-  if (state.score.B >= 9) {
+  if (state.score.B >= state.targetPointsBySeat.B) {
     const actor = state.phase.type === 'open-play' || state.phase.type === 'winner-determined' ? state.phase.actor : 'B'
     return { ...state, phase: makeWinnerDetermined('B', actor, 'target-reached') }
   }
@@ -123,10 +123,13 @@ function resolveNonRespottedFrameOutcome(state: StrilaFrameState): StrilaFrameSt
   return null
 }
 
-export function createEmptyStrilaFrameState(): StrilaFrameState {
+export function createEmptyStrilaFrameState(
+  targetPointsBySeat: StrilaFrameState['targetPointsBySeat'] = { A: 9, B: 9 },
+): StrilaFrameState {
   return {
     phase: { type: 'not-started' },
     score: { A: 0, B: 0 },
+    targetPointsBySeat,
     coloredBallsOnTable: [...STRILA_COLORED_BALLS],
   }
 }
@@ -152,6 +155,7 @@ export function reduceStrilaCommand(state: StrilaFrameState, command: StrilaComm
           cueBallPotsInRun: 0,
         },
         score: { A: 0, B: 0 },
+        targetPointsBySeat: state.targetPointsBySeat,
         coloredBallsOnTable: [...STRILA_COLORED_BALLS],
       }
     }

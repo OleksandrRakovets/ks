@@ -26,7 +26,9 @@ export async function markMatchEnded(env: Env, matchId: string, endedAt: number,
 }
 
 export async function getMatchLatestSeq(env: Env, matchId: string): Promise<number> {
-  const row = await env.DB.prepare('SELECT latest_seq FROM matches WHERE match_id = ?').bind(matchId).first<{ latest_seq: number }>()
+  const row = await env.DB.prepare('SELECT latest_seq FROM matches WHERE match_id = ?')
+    .bind(matchId)
+    .first<{ latest_seq: number }>()
   return row?.latest_seq ?? 0
 }
 
