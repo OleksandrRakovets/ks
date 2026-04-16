@@ -99,7 +99,7 @@ function parseControlProjection(raw: unknown, gameKey: string): GameControlProje
 async function parseSnapshotBody(res: Response) {
   const body = SnapshotResponseSchema.parse(await res.json())
   if (!body.ok) {
-    throw new Response(body.error, { status: 500 })
+    throw new Response(body.error, { status: res.status === 200 ? 500 : res.status })
   }
   return body
 }

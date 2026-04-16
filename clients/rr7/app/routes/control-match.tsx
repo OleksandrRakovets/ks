@@ -36,7 +36,7 @@ export async function loader({
 
   const res = await fetchMatchSnapshot(env, matchId, localeFromCookie(request.headers.get('cookie')))
   const body = SnapshotResponseSchema.parse(await res.json())
-  if (!body.ok) throw new Response('Failed to load snapshot', { status: 500 })
+  if (!body.ok) throw new Response(body.error, { status: res.status === 200 ? 500 : res.status })
   return { snapshot: body.snapshot, participants: body.participants }
 }
 

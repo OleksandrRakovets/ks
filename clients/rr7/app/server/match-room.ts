@@ -42,7 +42,8 @@ export async function fetchMatchSnapshot(env: AppEnv, rawMatchId: string, locale
   }
 
   if (!payload.data.ok) {
-    return Response.json({ ok: false, error: payload.data.error ?? 'Failed to load snapshot' }, { status: response.status })
+    const status = payload.data.error === 'Unknown match' ? 404 : response.status
+    return Response.json({ ok: false, error: payload.data.error ?? 'Failed to load snapshot' }, { status })
   }
   const snapshot = payload.data.snapshot
 
