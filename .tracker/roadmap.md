@@ -79,7 +79,7 @@ Out of scope:
 
 Task links:
 
-- [ ] [T001 - v0.1 control UI](./tasks/001-v0.1-control-ui.md)
+- [x] [T001 - v0.1 control UI](./tasks/001-v0.1-control-ui.md)
 
 ### 0.2 - Access And Permissions
 
@@ -172,5 +172,6 @@ Task links:
 
 ## Notes
 
+- 2026-04-16: `T001` completed on the RR7 app branch with minimal match setup, gameplay-driven Pyramid and Strila control molecules, live sparring control on `/sparring/matches/:matchId`, and multi-device SSE sync kept in place.
 - 2026-04-15: milestone ladder revised in conversation: `0.1` control UI, `0.2` guest access and permissions, `0.25` Better Auth and manager/player foundations, `0.3` managed scoreboards, then later `0.x` club lookup/history/stats, with `1.0` promoted by real usage rather than by a single feature gate.
 - 2026-04-15: `intro.md`, the numbered decision records, and the old first-pass report were collapsed into the roadmap, tasks, and a single current architecture note.
