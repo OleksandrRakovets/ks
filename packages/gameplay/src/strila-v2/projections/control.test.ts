@@ -59,11 +59,6 @@ describe('projection: control', () => {
         command: { actor: 'B', choice: 'ball-in-hand' },
         label: 'Ball in hand',
       },
-      {
-        commandType: 'concede-frame',
-        command: { actor: 'B' },
-        label: 'Concede frame',
-      },
     ])
   })
 

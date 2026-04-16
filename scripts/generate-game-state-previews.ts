@@ -230,7 +230,6 @@ function makeStrilaMachine(): GeneratedGameStateMachine {
       command: { actor: 'B', choice: 'ball-in-hand' },
       sample: 'Chooser takes ball in hand',
     },
-    { state: samples['foul-response'], commandType: 'concede-frame', command: { actor: 'B' }, sample: 'Chooser concedes' },
     {
       state: samples['opponent-foul-ball-in-hand'],
       commandType: 'record-pot',

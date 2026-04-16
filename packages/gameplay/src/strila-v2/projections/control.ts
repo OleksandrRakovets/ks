@@ -77,7 +77,6 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
             effectSummary: '+1 point',
           }),
           command('choose-foul-response', { actor: state.phase.chooser, choice: 'ball-in-hand' }, 'Ball in hand'),
-          command('concede-frame', { actor: state.phase.chooser }, 'Concede frame'),
         ],
         details: {
           phase: state.phase.type,
