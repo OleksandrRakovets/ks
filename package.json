@@ -19,8 +19,8 @@
   },
   "devDependencies": {
     "bun-types": "latest",
-    "oxfmt": "latest",
-    "oxlint": "latest",
+    "oxfmt": "^0.45.0",
+    "oxlint": "^1.60.0",
     "typescript": "^6.0.0"
   },
   "overrides": {
