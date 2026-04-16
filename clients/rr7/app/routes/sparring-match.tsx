@@ -1,4 +1,4 @@
-import { applyMatchEvent, deriveMatchControlDecisions, emptyMatchState } from '@ks/competition'
+import { applyMatchEvent, deriveMatchLifecycleDecisions, emptyMatchState } from '@ks/competition'
 import {
   ClientIdSchema,
   type ClientEvent,
@@ -412,7 +412,7 @@ export default function SparringMatchRoute() {
     }
   }, [snapshot.matchId])
 
-  const decisions = deriveMatchControlDecisions(snapshot)
+  const decisions = deriveMatchLifecycleDecisions(snapshot)
   const frameIndex = snapshot.currentFrameIndex
   const Renderer = resolveControlRenderer(snapshot.gameKey)
   const isSubmitting = fetcher.state === 'submitting'
@@ -490,7 +490,6 @@ export default function SparringMatchRoute() {
                 projection={controlProjection}
                 snapshot={snapshot}
                 participants={participants}
-                decisions={decisions}
                 submitting={isSubmitting}
                 onSubmitCommand={submitControlCommand}
               />

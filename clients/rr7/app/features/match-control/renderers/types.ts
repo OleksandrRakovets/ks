@@ -1,4 +1,3 @@
-import type { MatchControlDecisions } from '@ks/competition'
 import type { MatchSnapshot } from '@ks/core'
 
 export type GameControlProjection = {
@@ -25,7 +24,6 @@ export type MatchControlRendererProps = {
   projection: GameControlProjection
   snapshot: MatchSnapshot
   participants: HydratedMatchParticipants
-  decisions: MatchControlDecisions
   onSubmitCommand: (args: { commandType: string; command: Record<string, unknown> }) => void
   submitting: boolean
 }

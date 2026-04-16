@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 
 import { ClientEventSchema, newClientId, newEventId, newMatchId, type ClientEvent, type MatchConfig } from '@ks/core'
 
-import { applyMatchEvent, deriveMatchControlDecisions, emptyMatchState, snapshotFromMatchState } from './index'
+import { applyMatchEvent, deriveMatchLifecycleDecisions, emptyMatchState, snapshotFromMatchState } from './index'
 
 function baseEvent<TType extends ClientEvent['type']>(
   matchId: string,
@@ -288,10 +288,7 @@ test('free-pyramid allows break above frame target before frame award', () => {
   )
 
   expect(s.frames[0]?.pointsBySeat.A).toBe(10)
-  const snapshot = snapshotFromMatchState(s, 4)
-  const decisions = deriveMatchControlDecisions(snapshot)
-  expect(decisions.canAwardBySeat.A).toBe(true)
-  expect(decisions.canScore).toBe(true)
+  expect(s.frames[0]?.winnerSeat).toBeUndefined()
 })
 
 test('can start next frame before match target is reached', () => {
@@ -325,7 +322,7 @@ test('final frame still requires explicit match.ended event', () => {
   expect(s.status).toBe('active')
 
   const snapshot = snapshotFromMatchState(s, 3)
-  const decisionsBeforeEnd = deriveMatchControlDecisions(snapshot)
+  const decisionsBeforeEnd = deriveMatchLifecycleDecisions(snapshot)
   expect(decisionsBeforeEnd.canStartNextFrame).toBe(false)
   expect(decisionsBeforeEnd.canEndMatch).toBe(true)
 
