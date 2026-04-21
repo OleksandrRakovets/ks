@@ -16,9 +16,9 @@ import {
   StreamReadySchema,
   type StoredEvent,
 } from '@ks/core'
-import { GameControlProjectionSchema, isRegisteredGameKey, type RegisteredGameKey } from '@ks/gameplay'
+import { GameControlProjectionSchema, isRegisteredGameKey, registry, type RegisteredGameKey } from '@ks/gameplay'
 import { keys } from '@ks/i18n'
-import { Button, Card, CardContent, CardHeader, CardTitle } from '@ks/ui'
+import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from '@ks/ui'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useFetcher, useLoaderData, useRevalidator } from 'react-router'
@@ -39,6 +39,7 @@ type LoaderData = {
   participants: HydratedMatchParticipants
   controlProjection: GameControlProjection
   protocolEntries: StoredEvent[]
+  gameTitle: string
 }
 
 type ActionData =
@@ -89,15 +90,19 @@ export async function loader({
   const matchId = params.matchId
   if (!matchId) throw new Response('Missing matchId', { status: 400 })
 
-  const res = await fetchMatchSnapshot(env, matchId, localeFromCookie(request.headers.get('cookie')))
+  const locale = localeFromCookie(request.headers.get('cookie'))
+  const res = await fetchMatchSnapshot(env, matchId, locale)
   const body = await parseSnapshotBody(res)
   const protocolEntries = await listStoredEvents(env, matchId)
+  const { gameKey } = body.snapshot
+  const gameTitle = isRegisteredGameKey(gameKey) ? registry[gameKey].meta.title[locale] : gameKey
 
   return {
     snapshot: body.snapshot,
     participants: body.participants,
-    controlProjection: body.controlProjection ?? emptyControlProjection(body.snapshot.gameKey),
+    controlProjection: body.controlProjection ?? emptyControlProjection(gameKey),
     protocolEntries,
+    gameTitle,
   }
 }
 
@@ -311,7 +316,7 @@ function ProtocolPanel(props: { rows: ProtocolRow[]; emptyLabel: string }) {
 
 export const handle = {
   headerConfig: (data: LoaderData) => ({
-    title: `${data.participants.A.displayName} vs ${data.participants.B.displayName}`,
+    title: `Спаринг: ${data.gameTitle}`,
     backTo: '/sparring/matches',
   }),
 }
@@ -322,7 +327,6 @@ export default function SparringMatchRoute() {
   const fetcher = useFetcher<typeof action>()
   const revalidator = useRevalidator()
 
-  const [mobileTab, setMobileTab] = useState<'control' | 'protocol'>('control')
   const [protocolEntries, setProtocolEntries] = useState<StoredEvent[]>(initialProtocolEntries)
   const latestSeqRef = useRef(snapshot.latestSeq)
   const suppressRevalidateUntilSeqRef = useRef<number>(0)
@@ -433,109 +437,84 @@ export default function SparringMatchRoute() {
   }
 
   return (
-    <main className="min-h-dvh flex-1 bg-background px-4 py-6 text-foreground">
-      <div className="mx-auto w-full max-w-5xl space-y-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>{t(keys.match.sparring.matchControlTitle)}</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-lg border border-border p-3">
-                <div className="text-sm text-muted-foreground">{participants.A.displayName}</div>
-                <div className="text-4xl font-semibold tabular-nums">{controlProjection.score.A}</div>
-              </div>
-              <div className="rounded-lg border border-border p-3 text-right">
-                <div className="text-sm text-muted-foreground">{participants.B.displayName}</div>
-                <div className="text-4xl font-semibold tabular-nums">{controlProjection.score.B}</div>
-              </div>
-            </div>
-
-            <div className="grid gap-1 text-sm text-muted-foreground">
-              <div>
-                Match: {snapshot.framesWonBySeat.A}:{snapshot.framesWonBySeat.B} (to {snapshot.targets.matchTargetFrames})
-              </div>
-              <div>
-                {t(keys.match.scoreboard.frame)} {frameIndex}
-              </div>
-            </div>
-
-            <div className="grid gap-2 md:hidden">
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  type="button"
-                  variant={mobileTab === 'control' ? 'secondary' : 'outline'}
-                  onClick={() => setMobileTab('control')}
-                >
-                  {t(keys.match.sparring.tabControl)}
-                </Button>
-                <Button
-                  type="button"
-                  variant={mobileTab === 'protocol' ? 'secondary' : 'outline'}
-                  onClick={() => setMobileTab('protocol')}
-                >
-                  {t(keys.match.sparring.tabProtocol)}
-                </Button>
-              </div>
-            </div>
-
-            <div className={mobileTab === 'control' ? 'md:min-h-[24rem]' : 'hidden md:block md:min-h-[24rem]'}>
-              <Renderer
-                projection={controlProjection}
-                snapshot={snapshot}
-                participants={participants}
-                submitting={isSubmitting}
-                onSubmitCommand={submitControlCommand}
-              />
-            </div>
-
-            {decisions.canStartNextFrame ? (
-              <Button
-                type="button"
-                variant="secondary"
-                className="h-auto justify-start rounded-xl px-4 py-3 text-left text-sm"
-                disabled={isSubmitting}
-                onClick={() => {
-                  localSubmitInFlightRef.current = true
-                  fetcher.submit({ actionType: 'start-next-frame', frameIndex: String(frameIndex) }, { method: 'post' })
-                }}
-              >
-                {t(keys.match.control.startNextFrame)}
-              </Button>
-            ) : null}
-
-            {decisions.canEndMatch ? (
-              <Button
-                type="button"
-                variant="secondary"
-                className="h-auto justify-start rounded-xl px-4 py-3 text-left text-sm"
-                disabled={isSubmitting}
-                onClick={() => {
-                  localSubmitInFlightRef.current = true
-                  fetcher.submit({ actionType: 'end-match', frameIndex: String(frameIndex) }, { method: 'post' })
-                }}
-              >
-                {t(keys.match.control.endMatch)}
-              </Button>
-            ) : null}
-
-            {fetcher.data?.ok === false ? (
-              <div className="text-sm text-destructive">
-                {fetcher.data.errorKey ? t(fetcher.data.errorKey) : fetcher.data.error}
-              </div>
-            ) : null}
-          </CardContent>
-        </Card>
-
-        <Card className={mobileTab === 'protocol' ? '' : 'hidden md:block'}>
-          <CardHeader>
-            <CardTitle>{t(keys.match.sparring.protocolTitle)}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ProtocolPanel rows={protocolRows} emptyLabel={t(keys.match.sparring.protocolEmpty)} />
-          </CardContent>
-        </Card>
+    <main className="flex flex-1 flex-col bg-background text-foreground">
+      {/* Score strip */}
+      <div className="border-b border-border px-4 pt-4 pb-3">
+        <div className="mb-2 text-center text-xs text-muted-foreground tabular-nums">
+          {snapshot.framesWonBySeat.A} : {snapshot.framesWonBySeat.B}&ensp;·&ensp;
+          {t(keys.match.scoreboard.frame)} {frameIndex}&ensp;·&ensp;
+          до {snapshot.targets.matchTargetFrames}
+        </div>
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+          <span className="truncate text-sm font-medium">{participants.A.displayName}</span>
+          <span className="text-5xl font-bold tabular-nums tracking-tight">
+            {controlProjection.score.A}&thinsp;:&thinsp;{controlProjection.score.B}
+          </span>
+          <span className="truncate text-right text-sm font-medium">{participants.B.displayName}</span>
+        </div>
       </div>
+
+      {/* Tabbed control / protocol — tab bar is at the bottom */}
+      <Tabs defaultValue="control" className="flex flex-1 flex-col">
+        <TabsContent value="control" className="flex flex-col gap-3 px-4 py-3">
+          <Renderer
+            projection={controlProjection}
+            snapshot={snapshot}
+            participants={participants}
+            submitting={isSubmitting}
+            onSubmitCommand={submitControlCommand}
+          />
+
+          {decisions.canStartNextFrame ? (
+            <Button
+              type="button"
+              variant="secondary"
+              className="h-auto justify-start rounded-xl px-4 py-3 text-left text-sm"
+              disabled={isSubmitting}
+              onClick={() => {
+                localSubmitInFlightRef.current = true
+                fetcher.submit({ actionType: 'start-next-frame', frameIndex: String(frameIndex) }, { method: 'post' })
+              }}
+            >
+              {t(keys.match.control.startNextFrame)}
+            </Button>
+          ) : null}
+
+          {decisions.canEndMatch ? (
+            <Button
+              type="button"
+              variant="secondary"
+              className="h-auto justify-start rounded-xl px-4 py-3 text-left text-sm"
+              disabled={isSubmitting}
+              onClick={() => {
+                localSubmitInFlightRef.current = true
+                fetcher.submit({ actionType: 'end-match', frameIndex: String(frameIndex) }, { method: 'post' })
+              }}
+            >
+              {t(keys.match.control.endMatch)}
+            </Button>
+          ) : null}
+
+          {fetcher.data?.ok === false ? (
+            <p className="text-sm text-destructive">
+              {fetcher.data.errorKey ? t(fetcher.data.errorKey) : fetcher.data.error}
+            </p>
+          ) : null}
+        </TabsContent>
+
+        <TabsContent value="protocol" className="px-4 py-3">
+          <ProtocolPanel rows={protocolRows} emptyLabel={t(keys.match.sparring.protocolEmpty)} />
+        </TabsContent>
+
+        <TabsList className="mt-auto border-b-0 border-t px-4">
+          <TabsTrigger value="control" className="-mt-px mb-0 border-b-0 border-t-2">
+            {t(keys.match.sparring.tabControl)}
+          </TabsTrigger>
+          <TabsTrigger value="protocol" className="-mt-px mb-0 border-b-0 border-t-2">
+            {t(keys.match.sparring.tabProtocol)}
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
     </main>
   )
 }

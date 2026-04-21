@@ -94,6 +94,29 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
   )
   const singleCommands = rest.filter((entry) => !duplicatedCommands.includes(entry))
 
+  // Group singleCommands that have one variant per actor into A/B column pairs.
+  type ActorPair = { A: (typeof singleCommands)[number]; B: (typeof singleCommands)[number] }
+  const pairedSingleCommands: ActorPair[] = []
+  const unpairedSingleCommands: (typeof singleCommands)[number][] = []
+  const grouped: Record<string, { A?: (typeof singleCommands)[number]; B?: (typeof singleCommands)[number] }> = {}
+  for (const cmd of singleCommands) {
+    const actor = actorFromCommand(cmd.command)
+    if (actor === 'A' || actor === 'B') {
+      grouped[cmd.commandType] ??= {}
+      grouped[cmd.commandType][actor] = cmd
+    } else {
+      unpairedSingleCommands.push(cmd)
+    }
+  }
+  for (const pair of Object.values(grouped)) {
+    if (pair.A && pair.B) {
+      pairedSingleCommands.push({ A: pair.A, B: pair.B })
+    } else {
+      if (pair.A) unpairedSingleCommands.push(pair.A)
+      if (pair.B) unpairedSingleCommands.push(pair.B)
+    }
+  }
+
   return (
     <Card>
       <CardContent className="grid gap-3 p-4">
@@ -200,24 +223,51 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
           </div>
         ) : null}
 
-        <div className="grid gap-2 sm:grid-cols-2">
-          {singleCommands.map((command, index) => (
-            <Button
-              key={`${command.commandType}-${index}`}
-              type="button"
-              variant="secondary"
-              className="h-auto justify-start px-4 py-3 text-left"
-              onClick={() => submitCommand(command.commandType, command.command)}
-            >
-              <span className="flex flex-col items-start gap-1">
-                <span>{command.label ?? command.commandType}</span>
-                {command.effectSummary ? <span className="text-xs text-muted-foreground">{command.effectSummary}</span> : null}
-                {command.helpText ? <span className="text-xs text-muted-foreground">{command.helpText}</span> : null}
-                {command.warning ? <span className="text-xs text-destructive">{command.warning}</span> : null}
-              </span>
-            </Button>
-          ))}
-        </div>
+        {pairedSingleCommands.map((pair) => (
+          <div key={pair.A.commandType} className="grid grid-cols-2 gap-2">
+            {(['A', 'B'] as const).map((seat) => {
+              const cmd = pair[seat]
+              const label = (cmd.label ?? cmd.commandType).replace(/ \([AB]\)$/, '')
+              return (
+                <Button
+                  key={seat}
+                  type="button"
+                  variant="secondary"
+                  className="h-auto justify-start px-4 py-3 text-left"
+                  onClick={() => submitCommand(cmd.commandType, cmd.command)}
+                >
+                  <span className="flex flex-col items-start gap-1">
+                    <span>{label}</span>
+                    <span className="text-xs text-muted-foreground">{seat === 'A' ? seatA : seatB}</span>
+                    {cmd.helpText ? <span className="text-xs text-muted-foreground">{cmd.helpText}</span> : null}
+                    {cmd.warning ? <span className="text-xs text-destructive">{cmd.warning}</span> : null}
+                  </span>
+                </Button>
+              )
+            })}
+          </div>
+        ))}
+
+        {unpairedSingleCommands.length > 0 && (
+          <div className="grid gap-2">
+            {unpairedSingleCommands.map((command, index) => (
+              <Button
+                key={`${command.commandType}-${index}`}
+                type="button"
+                variant="secondary"
+                className="h-auto justify-start px-4 py-3 text-left"
+                onClick={() => submitCommand(command.commandType, command.command)}
+              >
+                <span className="flex flex-col items-start gap-1">
+                  <span>{command.label ?? command.commandType}</span>
+                  {command.effectSummary ? <span className="text-xs text-muted-foreground">{command.effectSummary}</span> : null}
+                  {command.helpText ? <span className="text-xs text-muted-foreground">{command.helpText}</span> : null}
+                  {command.warning ? <span className="text-xs text-destructive">{command.warning}</span> : null}
+                </span>
+              </Button>
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   )
