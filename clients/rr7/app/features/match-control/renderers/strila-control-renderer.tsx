@@ -1,4 +1,4 @@
-import { Button, Card, CardContent } from '@ks/ui'
+import { Button } from '@ks/ui'
 import { useMemo, useState } from 'react'
 
 import type { MatchControlRendererProps } from './types'
@@ -63,6 +63,7 @@ function actorFromCommand(command: Record<string, unknown>): 'A' | 'B' | null {
 export function StrilaControlRenderer(props: MatchControlRendererProps) {
   const { recordPot, rest } = splitCommands(props.projection)
   const [selectedBalls, setSelectedBalls] = useState<number[]>([])
+  const [showSecondary, setShowSecondary] = useState(false)
 
   const ballView = useMemo(() => strilaBallView(props.projection.details), [props.projection.details])
   const selectableBalls = useMemo(() => [0, ...ballView.allColoredOnTable], [ballView.allColoredOnTable])
@@ -117,158 +118,199 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
     }
   }
 
+  const primaryDuplicated = duplicatedCommands.filter((c) => !c.secondary)
+  const secondaryDuplicated = duplicatedCommands.filter((c) => c.secondary)
+  const primaryUnpaired = unpairedSingleCommands.filter((c) => !c.secondary)
+  const secondaryUnpaired = unpairedSingleCommands.filter((c) => c.secondary)
+  const hasSecondary = secondaryDuplicated.length > 0 || secondaryUnpaired.length > 0
+
   return (
-    <Card>
-      <CardContent className="grid gap-3 p-4">
-        {recordPot ? (
-          <div className="grid gap-2 rounded-lg border border-border p-3">
-            <div className="text-sm font-medium">{recordPot.label ?? 'Record pot'}</div>
-            <div className="flex flex-wrap justify-center gap-2">
-              {selectableBalls.map((ball) => {
-                const selected = selectedBalls.includes(ball)
-                const isObjectBall = ball !== 0 && activeBallSet.has(ball)
-                return (
-                  <Button
-                    key={ball}
-                    type="button"
-                    variant={selected ? 'secondary' : 'outline'}
-                    className="h-10 w-10 px-0"
-                    onClick={() => toggleBall(ball)}
-                    title={`${BALL_LABELS[ball] ?? ball}${isObjectBall ? ' (object)' : ''}`}
-                  >
-                    <span
-                      className={`inline-block h-5 w-5 rounded-full border ${isObjectBall ? 'ring-2 ring-emerald-500 ring-offset-1' : ''}`}
-                      style={{
-                        backgroundColor: BALL_COLORS[ball] ?? '#D4D4D8',
-                        borderColor: ball === 2 ? '#A16207' : '#27272A',
-                      }}
-                    />
-                  </Button>
-                )
-              })}
-            </div>
-            {winnerDeterminedRecordActor ? (
-              <Button
-                type="button"
-                disabled={selectedBalls.length === 0}
-                onClick={() => submitCommand(recordPot.commandType, { ...recordPot.command, pottedBalls: selectedBalls })}
-              >
-                {recordPot.label ?? 'Record pot'} ({winnerDeterminedRecordActor === 'A' ? seatA : seatB})
-              </Button>
-            ) : (
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  type="button"
-                  disabled={selectedBalls.length === 0}
-                  onClick={() =>
-                    submitSeatCommand('A', recordPot.commandType, { ...recordPot.command, pottedBalls: selectedBalls })
-                  }
-                >
-                  {recordPot.label ?? 'Record pot'} ({seatA})
-                </Button>
-                <Button
-                  type="button"
-                  disabled={selectedBalls.length === 0}
-                  onClick={() =>
-                    submitSeatCommand('B', recordPot.commandType, { ...recordPot.command, pottedBalls: selectedBalls })
-                  }
-                >
-                  {recordPot.label ?? 'Record pot'} ({seatB})
-                </Button>
-              </div>
-            )}
-            {recordPot.helpText ? <p className="text-xs text-muted-foreground">{recordPot.helpText}</p> : null}
-            {recordPot.warning ? <p className="text-xs text-destructive">{recordPot.warning}</p> : null}
-          </div>
-        ) : null}
-
-        {duplicatedCommands.length > 0 ? (
-          <div className="grid gap-2">
-            {duplicatedCommands.map((command, index) => (
-              <div key={`${command.commandType}-${index}`} className="grid grid-cols-2 gap-2">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="h-auto justify-start px-4 py-3 text-left"
-                  onClick={() => submitSeatCommand('A', command.commandType, command.command)}
-                >
-                  <span className="flex flex-col items-start gap-1">
-                    <span>{command.label ?? command.commandType}</span>
-                    <span className="text-xs text-muted-foreground">{seatA}</span>
-                    {command.effectSummary ? (
-                      <span className="text-xs text-muted-foreground">{command.effectSummary}</span>
-                    ) : null}
-                    {command.helpText ? <span className="text-xs text-muted-foreground">{command.helpText}</span> : null}
-                    {command.warning ? <span className="text-xs text-destructive">{command.warning}</span> : null}
-                  </span>
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="h-auto justify-start px-4 py-3 text-left"
-                  onClick={() => submitSeatCommand('B', command.commandType, command.command)}
-                >
-                  <span className="flex flex-col items-start gap-1">
-                    <span>{command.label ?? command.commandType}</span>
-                    <span className="text-xs text-muted-foreground">{seatB}</span>
-                    {command.effectSummary ? (
-                      <span className="text-xs text-muted-foreground">{command.effectSummary}</span>
-                    ) : null}
-                    {command.helpText ? <span className="text-xs text-muted-foreground">{command.helpText}</span> : null}
-                    {command.warning ? <span className="text-xs text-destructive">{command.warning}</span> : null}
-                  </span>
-                </Button>
-              </div>
-            ))}
-          </div>
-        ) : null}
-
-        {pairedSingleCommands.map((pair) => (
-          <div key={pair.A.commandType} className="grid grid-cols-2 gap-2">
-            {(['A', 'B'] as const).map((seat) => {
-              const cmd = pair[seat]
-              const label = (cmd.label ?? cmd.commandType).replace(/ \([AB]\)$/, '')
+    <div className="grid gap-4">
+      {recordPot ? (
+        <div className="grid gap-3">
+          <div className="flex flex-wrap justify-center gap-2">
+            {selectableBalls.map((ball) => {
+              const selected = selectedBalls.includes(ball)
+              const isObjectBall = ball !== 0 && activeBallSet.has(ball)
               return (
                 <Button
-                  key={seat}
+                  key={ball}
                   type="button"
-                  variant="secondary"
-                  className="h-auto justify-start px-4 py-3 text-left"
-                  onClick={() => submitCommand(cmd.commandType, cmd.command)}
+                  variant={selected ? 'secondary' : 'outline'}
+                  className="h-10 w-10 px-0"
+                  onClick={() => toggleBall(ball)}
+                  title={`${BALL_LABELS[ball] ?? ball}${isObjectBall ? ' (object)' : ''}`}
                 >
-                  <span className="flex flex-col items-start gap-1">
-                    <span>{label}</span>
-                    <span className="text-xs text-muted-foreground">{seat === 'A' ? seatA : seatB}</span>
-                    {cmd.helpText ? <span className="text-xs text-muted-foreground">{cmd.helpText}</span> : null}
-                    {cmd.warning ? <span className="text-xs text-destructive">{cmd.warning}</span> : null}
-                  </span>
+                  <span
+                    className={`inline-block h-5 w-5 rounded-full border ${isObjectBall ? 'ring-2 ring-offset-1 ring-[--ctp-green]' : ''}`}
+                    style={{
+                      backgroundColor: BALL_COLORS[ball] ?? '#D4D4D8',
+                      borderColor: ball === 2 ? '#A16207' : '#27272A',
+                    }}
+                  />
                 </Button>
               )
             })}
           </div>
-        ))}
-
-        {unpairedSingleCommands.length > 0 && (
-          <div className="grid gap-2">
-            {unpairedSingleCommands.map((command, index) => (
+          {winnerDeterminedRecordActor ? (
+            <div className="grid grid-cols-2 gap-6">
+              {winnerDeterminedRecordActor === 'A' && (
+                <Button
+                  type="button"
+                  className={recordPot.primary ? 'py-4 text-base font-medium' : 'py-2 text-sm'}
+                  disabled={selectedBalls.length === 0}
+                  onClick={() => submitCommand(recordPot.commandType, { ...recordPot.command, pottedBalls: selectedBalls })}
+                >
+                  {recordPot.label ?? 'Record pot'}
+                </Button>
+              )}
+              {winnerDeterminedRecordActor === 'B' && <div />}
+              {winnerDeterminedRecordActor === 'B' && (
+                <Button
+                  type="button"
+                  className={recordPot.primary ? 'py-4 text-base font-medium' : 'py-2 text-sm'}
+                  disabled={selectedBalls.length === 0}
+                  onClick={() => submitCommand(recordPot.commandType, { ...recordPot.command, pottedBalls: selectedBalls })}
+                >
+                  {recordPot.label ?? 'Record pot'}
+                </Button>
+              )}
+              {winnerDeterminedRecordActor === 'A' && <div />}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-6">
               <Button
-                key={`${command.commandType}-${index}`}
+                type="button"
+                className={recordPot.primary ? 'py-4 text-base font-medium' : 'py-2 text-sm'}
+                disabled={selectedBalls.length === 0}
+                onClick={() => submitSeatCommand('A', recordPot.commandType, { ...recordPot.command, pottedBalls: selectedBalls })}
+              >
+                {recordPot.label ?? 'Record pot'}
+              </Button>
+              <Button
+                type="button"
+                className={recordPot.primary ? 'py-4 text-base font-medium' : 'py-2 text-sm'}
+                disabled={selectedBalls.length === 0}
+                onClick={() => submitSeatCommand('B', recordPot.commandType, { ...recordPot.command, pottedBalls: selectedBalls })}
+              >
+                {recordPot.label ?? 'Record pot'}
+              </Button>
+            </div>
+          )}
+          {recordPot.helpText ? <p className="text-xs text-muted-foreground">{recordPot.helpText}</p> : null}
+          {recordPot.warning ? <p className="text-xs text-destructive">{recordPot.warning}</p> : null}
+        </div>
+      ) : null}
+
+      {primaryDuplicated.map((command, index) => (
+        <div key={`${command.commandType}-${index}`} className="grid grid-cols-2 gap-6">
+          {(['A', 'B'] as const).map((seat) => (
+            <Button
+              key={seat}
+              type="button"
+              variant="secondary"
+              className="h-auto px-3 py-2 text-sm"
+              onClick={() => submitSeatCommand(seat, command.commandType, command.command)}
+            >
+              <span className="flex flex-col items-center gap-0.5">
+                <span>{command.label ?? command.commandType}</span>
+                {command.effectSummary ? <span className="text-xs opacity-70">{command.effectSummary}</span> : null}
+                {command.helpText ? <span className="text-xs opacity-70">{command.helpText}</span> : null}
+                {command.warning ? <span className="text-xs text-destructive">{command.warning}</span> : null}
+              </span>
+            </Button>
+          ))}
+        </div>
+      ))}
+
+      {pairedSingleCommands.map((pair) => (
+        <div key={pair.A.commandType} className="grid grid-cols-2 gap-6">
+          {(['A', 'B'] as const).map((seat) => {
+            const cmd = pair[seat]
+            const label = (cmd.label ?? cmd.commandType).replace(/ \([AB]\)$/, '')
+            return (
+              <Button
+                key={seat}
                 type="button"
                 variant="secondary"
-                className="h-auto justify-start px-4 py-3 text-left"
-                onClick={() => submitCommand(command.commandType, command.command)}
+                className="h-auto px-3 py-2 text-sm"
+                onClick={() => submitCommand(cmd.commandType, cmd.command)}
               >
-                <span className="flex flex-col items-start gap-1">
-                  <span>{command.label ?? command.commandType}</span>
-                  {command.effectSummary ? <span className="text-xs text-muted-foreground">{command.effectSummary}</span> : null}
-                  {command.helpText ? <span className="text-xs text-muted-foreground">{command.helpText}</span> : null}
-                  {command.warning ? <span className="text-xs text-destructive">{command.warning}</span> : null}
+                <span className="flex flex-col items-center gap-0.5">
+                  <span>{label}</span>
+                  {cmd.helpText ? <span className="text-xs opacity-70">{cmd.helpText}</span> : null}
+                  {cmd.warning ? <span className="text-xs text-destructive">{cmd.warning}</span> : null}
                 </span>
               </Button>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+            )
+          })}
+        </div>
+      ))}
+
+      {primaryUnpaired.map((command, index) => {
+        const actor = actorFromCommand(command.command)
+        const btn = (
+          <Button
+            key={`${command.commandType}-${index}`}
+            type="button"
+            variant="secondary"
+            className={command.primary ? 'py-4 text-base font-medium' : 'h-auto px-3 py-2 text-sm'}
+            onClick={() => submitCommand(command.commandType, command.command)}
+          >
+            <span className="flex flex-col items-start gap-0.5">
+              <span>{command.label ?? command.commandType}</span>
+              {command.effectSummary ? <span className="text-xs opacity-70">{command.effectSummary}</span> : null}
+              {command.helpText ? <span className="text-xs opacity-70">{command.helpText}</span> : null}
+              {command.warning ? <span className="text-xs text-destructive">{command.warning}</span> : null}
+            </span>
+          </Button>
+        )
+        if (actor === 'A') return <div key={`${command.commandType}-${index}`} className="grid grid-cols-2 gap-6">{btn}<div /></div>
+        if (actor === 'B') return <div key={`${command.commandType}-${index}`} className="grid grid-cols-2 gap-6"><div />{btn}</div>
+        return btn
+      })}
+
+      {hasSecondary && (
+        <div className="grid gap-3">
+          <button
+            type="button"
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors text-left"
+            onClick={() => setShowSecondary((v) => !v)}
+          >
+            {showSecondary ? '▲ Сховати' : '··· Більше'}
+          </button>
+          {showSecondary && (
+            <>
+              {secondaryDuplicated.map((command, index) => (
+                <div key={`${command.commandType}-${index}`} className="grid grid-cols-2 gap-6">
+                  {(['A', 'B'] as const).map((seat) => (
+                    <Button
+                      key={seat}
+                      type="button"
+                      variant="outline"
+                      className="h-auto px-3 py-2 text-sm"
+                      onClick={() => submitSeatCommand(seat, command.commandType, command.command)}
+                    >
+                      {command.label ?? command.commandType}
+                    </Button>
+                  ))}
+                </div>
+              ))}
+              {secondaryUnpaired.map((command, index) => (
+                <Button
+                  key={`${command.commandType}-${index}`}
+                  type="button"
+                  variant="outline"
+                  className="h-auto px-3 py-2 text-sm"
+                  onClick={() => submitCommand(command.commandType, command.command)}
+                >
+                  {command.label ?? command.commandType}
+                </Button>
+              ))}
+            </>
+          )}
+        </div>
+      )}
+    </div>
   )
 }

@@ -51,7 +51,7 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
         projection: 'control',
         score: state.score,
         availableCommands: [
-          command('pot.record', { actor: state.phase.actor }, 'Record pot'),
+          command('pot.record', { actor: state.phase.actor }, 'Record pot', { primary: true }),
           command('foul.commit', { actor: state.phase.actor }, 'Foul committed'),
           command('frame.concede', { actor: state.phase.actor }, 'Concede frame', { secondary: true }),
         ],
@@ -137,7 +137,7 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
         projection: 'control',
         score: state.score,
         availableCommands: [
-          command('pot.record', { actor: state.phase.actor }, 'Record pot'),
+          command('pot.record', { actor: state.phase.actor }, 'Record pot', { primary: true }),
           command('foul.commit', { actor: state.phase.actor }, 'Foul committed'),
           command('frame.concede', { actor: state.phase.actor }, 'Concede frame', { secondary: true }),
         ],
@@ -156,8 +156,8 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
         projection: 'control',
         score: state.score,
         availableCommands: [
-          command('pot.record', { actor: state.phase.actor }, 'Record pot'),
-          command('frame.award', { actor: state.phase.actor }, 'Award frame'),
+          command('pot.record', { actor: state.phase.actor }, 'Record pot', { primary: true }),
+          command('frame.award', { actor: state.phase.actor }, 'Award frame', { primary: true }),
         ],
         details: {
           phase: state.phase.type,
