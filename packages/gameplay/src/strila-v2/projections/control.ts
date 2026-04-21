@@ -53,7 +53,7 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
         availableCommands: [
           command('pot.record', { actor: state.phase.actor }, 'Record pot'),
           command('foul.commit', { actor: state.phase.actor }, 'Foul committed'),
-          command('frame.concede', { actor: state.phase.actor }, 'Concede frame'),
+          command('frame.concede', { actor: state.phase.actor }, 'Concede frame', { secondary: true }),
         ],
         details: {
           phase: state.phase.type,
@@ -98,7 +98,7 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
           }),
           command('miss.record', { actor: state.phase.actor }, 'Record miss'),
           command('foul.commit', { actor: state.phase.actor }, 'Foul committed'),
-          command('frame.concede', { actor: state.phase.actor }, 'Concede frame'),
+          command('frame.concede', { actor: state.phase.actor }, 'Concede frame', { secondary: true }),
         ],
         details: {
           phase: state.phase.type,
@@ -120,7 +120,7 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
           }),
           command('miss.record', { actor: state.phase.actor }, 'Record miss'),
           command('foul.commit', { actor: state.phase.actor }, 'Foul committed'),
-          command('frame.concede', { actor: state.phase.actor }, 'Concede frame'),
+          command('frame.concede', { actor: state.phase.actor }, 'Concede frame', { secondary: true }),
         ],
         details: {
           phase: state.phase.type,
@@ -139,7 +139,7 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
         availableCommands: [
           command('pot.record', { actor: state.phase.actor }, 'Record pot'),
           command('foul.commit', { actor: state.phase.actor }, 'Foul committed'),
-          command('frame.concede', { actor: state.phase.actor }, 'Concede frame'),
+          command('frame.concede', { actor: state.phase.actor }, 'Concede frame', { secondary: true }),
         ],
         details: {
           phase: state.phase.type,
