@@ -21,6 +21,10 @@ export async function loader({ request, context }: { request: Request; context: 
   }
 }
 
+export const handle = {
+  headerConfig: () => ({ title: 'Останні матчі', backTo: '/sparring' }),
+}
+
 export default function SparringMatchesRoute() {
   const { t } = useTranslation()
   const { matches } = useLoaderData<typeof loader>()

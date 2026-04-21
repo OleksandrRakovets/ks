@@ -115,6 +115,10 @@ function normalizeDisplayName(value: string): string {
   return value.trim().replace(/\s+/g, ' ')
 }
 
+export const handle = {
+  headerConfig: (data: LoaderData) => ({ title: data.title, backTo: '/sparring' }),
+}
+
 export default function SparringInitRoute() {
   const { t } = useTranslation()
   const { gameKey, title, defaultFrameTargetPointsBySeat } = useLoaderData<typeof loader>()

@@ -21,6 +21,10 @@ export async function loader({ request }: { request: Request }) {
   return { games }
 }
 
+export const handle = {
+  headerConfig: () => ({ title: 'Спаринг' }),
+}
+
 export default function SparringRoute() {
   const { t } = useTranslation()
   const { games } = useLoaderData<typeof loader>()

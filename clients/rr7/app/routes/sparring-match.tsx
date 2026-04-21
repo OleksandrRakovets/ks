@@ -309,6 +309,13 @@ function ProtocolPanel(props: { rows: ProtocolRow[]; emptyLabel: string }) {
   )
 }
 
+export const handle = {
+  headerConfig: (data: LoaderData) => ({
+    title: `${data.participants.A.displayName} vs ${data.participants.B.displayName}`,
+    backTo: '/sparring/matches',
+  }),
+}
+
 export default function SparringMatchRoute() {
   const { t } = useTranslation()
   const { snapshot, participants, controlProjection, protocolEntries: initialProtocolEntries } = useLoaderData<typeof loader>()

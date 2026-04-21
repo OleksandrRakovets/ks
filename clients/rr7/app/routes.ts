@@ -4,6 +4,7 @@ export default [
   route('favicon.ico', 'routes/tech/favicon.ts'),
   route('robots.txt', 'routes/tech/robots-txt.ts'),
   route('api/m/:matchId/stream', 'routes/api-match-stream.ts'),
+  route('api/theme', 'routes/api-theme.ts'),
   layout('routes/layout-base.tsx', [
     index('routes/index.tsx'),
     route('sparring', 'routes/sparring.tsx'),
