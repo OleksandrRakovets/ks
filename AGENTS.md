@@ -1,48 +1,65 @@
-## Project Intent
+## Product context
 
-Architecture-first learning project for the KS score keeper app.
-Primary goal: improve architecture/design skills. Shipping speed is secondary.
+KS is a billiards scorekeeping app for a local club. Core use case: two-player match scoring from phone/laptop with a public live scoreboard that auto-updates via SSE. Games: free pyramid (multiple variants), combined pyramid, Strila. Seats are always `A` and `B`; a match is a race across frames.
 
-## Agent Behavior Expectations
+## Working mode (owner preference)
 
-- Be concise, explicit about tradeoffs, and avoid over-building.
-- Ask before adding new layers/packages not already justified.
-- Prefer incremental PR-sized chunks over broad scaffolding.
-- Keep naming consistent and avoid hidden assumptions.
-- Feel free to ask the user any questions during planning or implementation.
+- Architecture-first learning project; optimize for design clarity over shipping speed.
+- Work in small slices: interview -> design -> implementation.
+- Respect explicit user phase: architecture-only (no code) vs implementation (code allowed).
+- Ask before introducing new layers, packages, or major abstractions.
+- Keep durable architecture notes in `.tracker/decisions/`; keep progress notes in `.tracker/`.
 
-## Working Mode
+## Repo map (actual entrypoints)
 
-1. One concern at a time.
-2. Interview-first, then design, then implementation.
-3. No large one-shot implementations.
-4. Keep each implementation slice small and reviewable.
-5. Respect explicit phase from user:
-   - architecture-only (no code)
-   - implementation (code allowed)
+- Bun workspaces monorepo: `packages/*` (shared libs) + `clients/rr7` (runtime app).
+- Cloudflare worker entrypoint: `clients/rr7/workers/app.ts`.
+- Durable Object for sequencing/SSE: `clients/rr7/workers/do/MatchRoom.ts`.
+- React Router route tree: `clients/rr7/app/routes.ts`; server adapters live in `clients/rr7/app/server/*`.
+- Domain direction is `core <- gameplay <- competition <- runtime-app`.
 
-## Decision and Notes Locations
+## Commands (source of truth: root `package.json` + `clients/rr7/package.json`)
 
-- Durable architecture decisions: `.tracker/decisions/`
-- Important progress notes: `.tracker/`
+- Install deps: `bun install`
+- Dev server (strict port `7529`): `bun run dev`
+- Local DB migrate: `bun run db:migrate:local`
+- Local DB seed: `bun run --cwd clients/rr7 db:seed:local`
+- Lint/format: `bun run lint`, `bun run lint:fix`, `bun run format`, `bun run format:check`
+- Repo lint/format tooling is `oxlint` + `oxfmt` (Biome/Prettier are intentionally disabled).
+- Typecheck workspace graph: `bun run typecheck`
+- Typecheck rr7 app (also regenerates Wrangler + RR types): `bun run --cwd clients/rr7 typecheck`
+- Boundary and schema guards: `bun run check:boundaries`, `bun run check:zod`
+- Tests: `bun test` (single file: `bun test packages/gameplay/src/strila-v2/reducer.test.ts`)
+- Regenerate preview artifact: `bun run generate:game-state-previews`
 
-## Architecture Preferences
+## Enforced constraints (do not fight these)
 
-- Prefer a single framework worker runtime for production unless explicitly changed.
-- Keep route handlers thin; move business logic into shared domain-level services.
-- Reuse shared schemas/types for both client and server validation.
-- Standardize schema imports on `zod`; packages that define or compose schemas must declare a direct `zod` dependency, and workspace Zod version must stay pinned.
-- Avoid internal same-process HTTP hops by default unless there is a clear benefit.
+- `check:boundaries` enforces:
+  - `packages/core` must not import `@ks/competition` or `@ks/gameplay`.
+  - `packages/gameplay` must not import `@ks/competition`.
+  - `packages/competition` must not import client packages.
+- `check:zod` enforces:
+  - import from `zod` only (never `zod/v4`),
+  - any package using zod must declare direct `zod` dependency,
+  - zod version must match root pin (`overrides.zod`, currently `4.3.6`).
 
-## Game Vertical Direction
+## Architecture guardrails
 
-- Avoid hardcoded game keys across layers.
-- Use a central registry as the source of game keys and metadata.
-- Keep a generic match kernel; keep game semantics in pluggable game implementations.
-- Favor one consistent game command model across games (including simple and complex games).
+- Keep route modules thin; put business logic in shared packages/services.
+- Reuse shared schemas/types across client/server; server validation is mandatory.
+- Avoid same-process internal HTTP hops unless there is a clear reason.
+- Use gameplay registry as the source of game keys: `packages/gameplay/src/registry.ts`.
+- Keep one game command path (`game.command`) across games; keep semantics inside gameplay runtimes.
 
-## Deployment Preferences
+## Runtime and data quirks
 
-- Manual deploy flow from the dev server; no third-party CI required yet.
-- Use environment secrets management suitable for local + cloud environments.
-- The project is not deployed anywhere yet (unless explicitly changed). We do not care about backward compatibility at this point. It's safe to edit the single DB migration and advise use to clear the local instance if necessary.
+- Current runtime track is one RR7 Cloudflare worker; there is no CI workflow in this repo right now.
+- Local worker env vars come from `clients/rr7/.dev.vars` (start from `.dev.vars.example`).
+- D1 schema is still early-stage and currently a single migration: `clients/rr7/migrations/0001_init.sql`.
+- Local DB reset: delete `clients/rr7/.wrangler/state/v3/d1`, then run `bun run db:migrate:local`.
+- Durable Object coordinates ordering + SSE fan-out; D1 events remain the persistent source of truth.
+
+## Generated/stale docs
+
+- Do not hand-edit `clients/rr7/app/preview/generated/game-state-machines.ts`; regenerate it.
+- `.react-router/` and `worker-configuration.d.ts` are generated by tooling.
