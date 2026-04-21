@@ -8,12 +8,7 @@ function TabsRoot({ ...props }: React.ComponentProps<typeof Tabs.Root>) {
 }
 
 function TabsList({ className, ...props }: React.ComponentProps<typeof Tabs.List>) {
-  return (
-    <Tabs.List
-      className={cn('flex border-b border-border', className)}
-      {...props}
-    />
-  )
+  return <Tabs.List className={cn('flex border-b border-border', className)} {...props} />
 }
 
 function TabsTrigger({ className, ...props }: React.ComponentProps<typeof Tabs.Trigger>) {

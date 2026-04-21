@@ -18,9 +18,8 @@ function BackArrowIcon() {
 export function AppHeader() {
   const matches = useMatches()
 
-  const config = [...matches]
-    .reverse()
-    .reduce<HeaderConfig | null>((found, match) => {
+  const config =
+    [...matches].reverse().reduce<HeaderConfig | null>((found, match) => {
       if (found) return found
       const handle = match.handle as { headerConfig?: (data: unknown) => HeaderConfig } | undefined
       return handle?.headerConfig?.(match.data) ?? null
@@ -43,9 +42,7 @@ export function AppHeader() {
         ) : null}
       </div>
 
-      <div className="flex-1 truncate text-center text-sm font-semibold">
-        {config.title ?? 'KS'}
-      </div>
+      <div className="flex-1 truncate text-center text-sm font-semibold">{config.title ?? 'KS'}</div>
 
       <div className="w-10">
         <BurgerMenu />

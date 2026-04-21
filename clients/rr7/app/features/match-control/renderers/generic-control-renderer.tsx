@@ -36,7 +36,7 @@ export function GenericControlRenderer(props: MatchControlRendererProps) {
         <div className="grid gap-3">
           <button
             type="button"
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors text-left"
+            className="text-left text-xs text-muted-foreground transition-colors hover:text-foreground"
             onClick={() => setShowSecondary((v) => !v)}
           >
             {showSecondary ? '▲ Сховати' : '··· Більше'}

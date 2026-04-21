@@ -55,12 +55,22 @@ export function PyramidControlRenderer(props: MatchControlRendererProps) {
             <div key={seat} className="grid gap-2">
               <div className="grid grid-cols-2 gap-2">
                 {pointButtons.map((button) => (
-                  <Button key={button.label} type="button" className="py-4 text-base font-medium" onClick={() => submitShot(seat, button.points)}>
+                  <Button
+                    key={button.label}
+                    type="button"
+                    className="py-4 text-base font-medium"
+                    onClick={() => submitShot(seat, button.points)}
+                  >
                     {button.label}
                   </Button>
                 ))}
                 {foulCommand ? (
-                  <Button type="button" variant="outline" className="py-4 text-base font-medium" onClick={() => submitFoul(seat)}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="py-4 text-base font-medium"
+                    onClick={() => submitFoul(seat)}
+                  >
                     Фол
                   </Button>
                 ) : null}
@@ -82,7 +92,11 @@ export function PyramidControlRenderer(props: MatchControlRendererProps) {
           >
             <span className="flex flex-col items-start gap-0.5">
               <span>{command.label ?? command.commandType}</span>
-              {seat ? <span className="text-xs opacity-70">{seat === 'A' ? props.participants.A.shortDisplayName : props.participants.B.shortDisplayName}</span> : null}
+              {seat ? (
+                <span className="text-xs opacity-70">
+                  {seat === 'A' ? props.participants.A.shortDisplayName : props.participants.B.shortDisplayName}
+                </span>
+              ) : null}
               {command.helpText ? <span className="text-xs opacity-70">{command.helpText}</span> : null}
               {command.warning ? <span className="text-xs text-destructive">{command.warning}</span> : null}
             </span>
@@ -94,7 +108,7 @@ export function PyramidControlRenderer(props: MatchControlRendererProps) {
         <div className="grid gap-3">
           <button
             type="button"
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors text-left"
+            className="text-left text-xs text-muted-foreground transition-colors hover:text-foreground"
             onClick={() => setShowSecondary((v) => !v)}
           >
             {showSecondary ? '▲ Сховати' : '··· Більше'}

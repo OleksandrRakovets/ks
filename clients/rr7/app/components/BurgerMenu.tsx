@@ -44,10 +44,7 @@ export function BurgerMenu() {
 
         <nav className="flex flex-col gap-1 p-4">
           <SheetClose asChild>
-            <Link
-              to="/sparring"
-              className="rounded-lg px-3 py-2.5 text-sm font-medium transition-colors hover:bg-muted"
-            >
+            <Link to="/sparring" className="rounded-lg px-3 py-2.5 text-sm font-medium transition-colors hover:bg-muted">
               Спаринг
             </Link>
           </SheetClose>
@@ -62,16 +59,14 @@ export function BurgerMenu() {
         </nav>
 
         <div className="border-t border-border p-4">
-          <p className="mb-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">Тема</p>
+          <p className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">Тема</p>
           <div className="grid grid-cols-3 gap-1 rounded-lg bg-muted p-1">
             {THEME_OPTIONS.map(({ value, label }) => (
               <button
                 key={value}
                 onClick={() => changeTheme(value)}
                 className={`rounded-md px-2 py-1.5 text-sm font-medium transition-colors ${
-                  currentTheme === value
-                    ? 'bg-card text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
+                  currentTheme === value ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
                 {label}

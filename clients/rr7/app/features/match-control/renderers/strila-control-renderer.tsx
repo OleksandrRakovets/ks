@@ -142,7 +142,7 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
                   title={`${BALL_LABELS[ball] ?? ball}${isObjectBall ? ' (object)' : ''}`}
                 >
                   <span
-                    className={`inline-block h-5 w-5 rounded-full border ${isObjectBall ? 'ring-2 ring-offset-1 ring-[--ctp-green]' : ''}`}
+                    className={`inline-block h-5 w-5 rounded-full border ${isObjectBall ? 'ring-2 ring-[--ctp-green] ring-offset-1' : ''}`}
                     style={{
                       backgroundColor: BALL_COLORS[ball] ?? '#D4D4D8',
                       borderColor: ball === 2 ? '#A16207' : '#27272A',
@@ -183,7 +183,9 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
                 type="button"
                 className={recordPot.primary ? 'py-4 text-base font-medium' : 'py-2 text-sm'}
                 disabled={selectedBalls.length === 0}
-                onClick={() => submitSeatCommand('A', recordPot.commandType, { ...recordPot.command, pottedBalls: selectedBalls })}
+                onClick={() =>
+                  submitSeatCommand('A', recordPot.commandType, { ...recordPot.command, pottedBalls: selectedBalls })
+                }
               >
                 {recordPot.label ?? 'Record pot'}
               </Button>
@@ -191,7 +193,9 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
                 type="button"
                 className={recordPot.primary ? 'py-4 text-base font-medium' : 'py-2 text-sm'}
                 disabled={selectedBalls.length === 0}
-                onClick={() => submitSeatCommand('B', recordPot.commandType, { ...recordPot.command, pottedBalls: selectedBalls })}
+                onClick={() =>
+                  submitSeatCommand('B', recordPot.commandType, { ...recordPot.command, pottedBalls: selectedBalls })
+                }
               >
                 {recordPot.label ?? 'Record pot'}
               </Button>
@@ -265,8 +269,20 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
             </span>
           </Button>
         )
-        if (actor === 'A') return <div key={`${command.commandType}-${index}`} className="grid grid-cols-2 gap-6">{btn}<div /></div>
-        if (actor === 'B') return <div key={`${command.commandType}-${index}`} className="grid grid-cols-2 gap-6"><div />{btn}</div>
+        if (actor === 'A')
+          return (
+            <div key={`${command.commandType}-${index}`} className="grid grid-cols-2 gap-6">
+              {btn}
+              <div />
+            </div>
+          )
+        if (actor === 'B')
+          return (
+            <div key={`${command.commandType}-${index}`} className="grid grid-cols-2 gap-6">
+              <div />
+              {btn}
+            </div>
+          )
         return btn
       })}
 
@@ -274,7 +290,7 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
         <div className="grid gap-3">
           <button
             type="button"
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors text-left"
+            className="text-left text-xs text-muted-foreground transition-colors hover:text-foreground"
             onClick={() => setShowSecondary((v) => !v)}
           >
             {showSecondary ? '▲ Сховати' : '··· Більше'}

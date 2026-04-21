@@ -305,7 +305,7 @@ function ProtocolPanel(props: { rows: ProtocolRow[]; emptyLabel: string }) {
               {row.score.A}:{row.score.B}
             </span>
           </span>
-          <span className="text-xs text-muted-foreground">
+          <span className="text-xs text-muted-foreground tabular-nums">
             {new Date(row.entry.receivedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
           </span>
         </div>
@@ -442,12 +442,11 @@ export default function SparringMatchRoute() {
       <div className="border-b border-border px-4 pt-4 pb-3">
         <div className="mb-2 text-center text-xs text-muted-foreground tabular-nums">
           {snapshot.framesWonBySeat.A} : {snapshot.framesWonBySeat.B}&ensp;·&ensp;
-          {t(keys.match.scoreboard.frame)} {frameIndex}&ensp;·&ensp;
-          до {snapshot.targets.matchTargetFrames}
+          {t(keys.match.scoreboard.frame)} {frameIndex}&ensp;·&ensp; до {snapshot.targets.matchTargetFrames} перемог
         </div>
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
           <span className="truncate text-sm font-medium">{participants.A.displayName}</span>
-          <span className="text-5xl font-bold tabular-nums tracking-tight">
+          <span className="text-5xl font-bold tracking-tight tabular-nums">
             {controlProjection.score.A}&thinsp;:&thinsp;{controlProjection.score.B}
           </span>
           <span className="truncate text-right text-sm font-medium">{participants.B.displayName}</span>
@@ -496,9 +495,7 @@ export default function SparringMatchRoute() {
           ) : null}
 
           {fetcher.data?.ok === false ? (
-            <p className="text-sm text-destructive">
-              {fetcher.data.errorKey ? t(fetcher.data.errorKey) : fetcher.data.error}
-            </p>
+            <p className="text-sm text-destructive">{fetcher.data.errorKey ? t(fetcher.data.errorKey) : fetcher.data.error}</p>
           ) : null}
         </TabsContent>
 
@@ -506,11 +503,11 @@ export default function SparringMatchRoute() {
           <ProtocolPanel rows={protocolRows} emptyLabel={t(keys.match.sparring.protocolEmpty)} />
         </TabsContent>
 
-        <TabsList className="mt-auto border-b-0 border-t px-4">
-          <TabsTrigger value="control" className="-mt-px mb-0 border-b-0 border-t-2">
+        <TabsList className="mt-auto border-t border-b-0 px-4">
+          <TabsTrigger value="control" className="-mt-px mb-0 border-t-2 border-b-0">
             {t(keys.match.sparring.tabControl)}
           </TabsTrigger>
-          <TabsTrigger value="protocol" className="-mt-px mb-0 border-b-0 border-t-2">
+          <TabsTrigger value="protocol" className="-mt-px mb-0 border-t-2 border-b-0">
             {t(keys.match.sparring.tabProtocol)}
           </TabsTrigger>
         </TabsList>
