@@ -11,6 +11,7 @@ import {
 } from 'react-router'
 
 import type { Route } from './+types/root'
+import { themeFromCookie, type AppTheme } from './server/theme'
 
 const LOCALE_COOKIE_NAME = 'ks.locale'
 
@@ -26,7 +27,11 @@ function localeFromCookie(cookieHeader: string | null): SupportedLocale {
 }
 
 export function loader({ request }: Route.LoaderArgs) {
-  return { locale: localeFromCookie(request.headers.get('cookie')) }
+  const cookie = request.headers.get('cookie')
+  return {
+    locale: localeFromCookie(cookie),
+    theme: themeFromCookie(cookie),
+  }
 }
 
 export type RootLoaderData = ReturnType<typeof loader>
@@ -36,18 +41,27 @@ export function useRootLocale(): SupportedLocale {
   return data?.locale ?? 'uk'
 }
 
+export function useRootTheme(): AppTheme {
+  const data = useRouteLoaderData<RootLoaderData>('root')
+  return data?.theme ?? 'dark'
+}
+
 export function Layout({ children }: { children: React.ReactNode }) {
-  const locale = useRootLocale()
+  const data = useRouteLoaderData<RootLoaderData>('root')
+  const locale = data?.locale ?? 'uk'
+  const theme = data?.theme ?? 'dark'
+
+  const htmlClass = theme === 'light' ? 'latte' : theme === 'dark' ? 'dark' : ''
 
   return (
-    <html lang={locale}>
+    <html lang={locale} className={htmlClass}>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <Meta />
         <Links />
       </head>
-      <body className="latte">
+      <body>
         {children}
         <ScrollRestoration />
         <Scripts />
