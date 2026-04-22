@@ -1,5 +1,4 @@
 import { keys } from '@ks/i18n'
-import { Card, CardContent, CardHeader, CardTitle } from '@ks/ui'
 import { useTranslation } from 'react-i18next'
 import { Link, useLoaderData } from 'react-router'
 
@@ -31,33 +30,39 @@ export default function SparringMatchesRoute() {
 
   return (
     <main className="min-h-dvh flex-1 bg-background px-4 py-6 text-foreground">
-      <div className="mx-auto w-full max-w-3xl space-y-4">
-        <div>
+      <div className="mx-auto w-full max-w-3xl">
+        <div className="mb-6">
           <h1 className="text-3xl font-semibold tracking-tight">{t(keys.match.sparring.title)}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Recent sparring matches.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Останні спаринг-матчі.</p>
         </div>
 
         {matches.length === 0 ? (
-          <Card>
-            <CardContent className="p-4 text-sm text-muted-foreground">No sparring matches yet.</CardContent>
-          </Card>
+          <p className="text-sm text-muted-foreground">Матчів ще немає.</p>
         ) : (
-          <div className="grid gap-3">
+          <div className="divide-y divide-border rounded-lg border border-border">
             {matches.map((match) => (
-              <Card key={match.matchId}>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg">
-                    <Link className="underline-offset-4 hover:underline" to={`/sparring/matches/${match.matchId}`}>
-                      {match.participants.A.displayName} vs {match.participants.B.displayName}
-                    </Link>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="grid gap-1 text-sm text-muted-foreground">
-                  <div>{match.gameTitle}</div>
-                  <div>Status: {match.status}</div>
-                  <div>{new Date(match.createdAt).toLocaleString()}</div>
-                </CardContent>
-              </Card>
+              <Link
+                key={match.matchId}
+                to={`/sparring/matches/${match.matchId}`}
+                className="flex items-center justify-between gap-4 px-4 py-3 transition-colors hover:bg-muted/40"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium">
+                    {match.participants.A.displayName} — {match.participants.B.displayName}
+                  </div>
+                  <div className="mt-0.5 text-xs text-muted-foreground">{match.gameTitle}</div>
+                </div>
+                <div className="shrink-0">
+                  {match.status === 'active' ? (
+                    <span className="flex items-center gap-1.5 text-xs font-medium text-[--ctp-green]">
+                      <span className="h-1.5 w-1.5 rounded-full bg-[--ctp-green]" />
+                      Live
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">Завершено</span>
+                  )}
+                </div>
+              </Link>
             ))}
           </div>
         )}

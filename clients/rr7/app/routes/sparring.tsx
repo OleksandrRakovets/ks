@@ -9,6 +9,7 @@ import { localeFromCookie } from '../server/locale'
 type SparringGame = {
   gameKey: string
   title: string
+  description: string
 }
 
 export async function loader({ request }: { request: Request }) {
@@ -16,6 +17,7 @@ export async function loader({ request }: { request: Request }) {
   const games: SparringGame[] = listGameKeys().map((gameKey) => ({
     gameKey,
     title: registry[gameKey].meta.title[locale],
+    description: registry[gameKey].meta.description[locale],
   }))
 
   return { games }
@@ -46,7 +48,7 @@ export default function SparringRoute() {
                     {game.title}
                   </Link>
                 </CardTitle>
-                <CardDescription className="text-base">Description TBD...</CardDescription>
+                <CardDescription className="text-base">{game.description}</CardDescription>
               </CardHeader>
             </Card>
           ))}

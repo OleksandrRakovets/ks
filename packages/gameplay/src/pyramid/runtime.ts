@@ -58,7 +58,7 @@ function command(
   commandType: string,
   payload: Record<string, unknown>,
   label: string,
-  extras: { effectSummary?: string; warning?: string; helpText?: string } = {},
+  extras: { effectSummary?: string; warning?: string; helpText?: string; primary?: boolean; secondary?: boolean } = {},
 ) {
   return { commandType, command: payload, label, ...extras }
 }
@@ -207,8 +207,8 @@ export class PyramidGameplayRuntime extends GameplayRuntime {
             projection: 'control',
             score: state.pointsBySeat,
             availableCommands: [
-              command('frame.commence', { seat: 'A' }, 'Break-off (A)'),
-              command('frame.commence', { seat: 'B' }, 'Break-off (B)'),
+              command('frame.commence', { seat: 'A' }, 'Break-off (A)', { primary: true }),
+              command('frame.commence', { seat: 'B' }, 'Break-off (B)', { primary: true }),
             ],
             details: {
               ...pyramidDetails(state),
@@ -224,16 +224,16 @@ export class PyramidGameplayRuntime extends GameplayRuntime {
             projection: 'control',
             score: state.pointsBySeat,
             availableCommands: [
-              ...this.args.shotPointOptions.map((points) => command('pot.record', { points }, `+${points}`)),
+              ...this.args.shotPointOptions.map((points) => command('pot.record', { points }, `+${points}`, { primary: true })),
               command('foul.commit', {}, 'Foul', {
                 effectSummary:
                   this.args.foulPenalty === 'opponent-plus-one' ? 'Opponent +1 point' : 'Offender -1 point (negative allowed)',
               }),
               ...(state.pointsBySeat.A >= state.targetPointsBySeat.A
-                ? [command('frame.award', { seat: 'A' }, 'Award frame')]
+                ? [command('frame.award', { seat: 'A' }, 'Award frame', { secondary: true })]
                 : []),
               ...(state.pointsBySeat.B >= state.targetPointsBySeat.B
-                ? [command('frame.award', { seat: 'B' }, 'Award frame')]
+                ? [command('frame.award', { seat: 'B' }, 'Award frame', { secondary: true })]
                 : []),
             ],
             details: {

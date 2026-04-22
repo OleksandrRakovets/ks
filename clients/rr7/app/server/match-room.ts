@@ -97,7 +97,7 @@ export async function listMatches(env: AppEnv, locale: SupportedLocale): Promise
     [
       'SELECT match_id, game_key, status, created_at, seat_a_player_ref, seat_b_player_ref',
       'FROM matches',
-      'ORDER BY created_at DESC',
+      "ORDER BY CASE WHEN status = 'finished' THEN 1 ELSE 0 END ASC, created_at DESC",
     ].join(' '),
   )
     .bind()
