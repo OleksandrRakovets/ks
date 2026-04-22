@@ -439,17 +439,17 @@ export default function SparringMatchRoute() {
   return (
     <main className="flex flex-1 flex-col bg-background text-foreground">
       {/* Score strip */}
-      <div className="border-b border-border px-4 pt-4 pb-3">
+      <div className="sticky top-14 z-10 border-b border-border bg-background px-4 pt-4 pb-3">
         <div className="mb-2 text-center text-xs text-muted-foreground tabular-nums">
           {snapshot.framesWonBySeat.A} : {snapshot.framesWonBySeat.B}&ensp;·&ensp;
           {t(keys.match.scoreboard.frame)} {frameIndex}&ensp;·&ensp; до {snapshot.targets.matchTargetFrames} перемог
         </div>
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-          <span className="truncate text-sm font-medium">{participants.A.displayName}</span>
+          <span className="line-clamp-2 text-sm font-medium">{participants.A.displayName}</span>
           <span className="text-5xl font-bold tracking-tight tabular-nums">
             {controlProjection.score.A}&thinsp;:&thinsp;{controlProjection.score.B}
           </span>
-          <span className="truncate text-right text-sm font-medium">{participants.B.displayName}</span>
+          <span className="line-clamp-2 text-right text-sm font-medium">{participants.B.displayName}</span>
         </div>
       </div>
 
@@ -499,11 +499,11 @@ export default function SparringMatchRoute() {
           ) : null}
         </TabsContent>
 
-        <TabsContent value="protocol" className="px-4 py-3">
+        <TabsContent value="protocol" className="px-4 py-3 pb-12">
           <ProtocolPanel rows={protocolRows} emptyLabel={t(keys.match.sparring.protocolEmpty)} />
         </TabsContent>
 
-        <TabsList className="mt-auto border-t border-b-0 px-4">
+        <TabsList className="sticky bottom-0 z-10 mt-auto border-t border-b-0 bg-background px-4">
           <TabsTrigger value="control" className="-mt-px mb-0 border-t-2 border-b-0">
             {t(keys.match.sparring.tabControl)}
           </TabsTrigger>
