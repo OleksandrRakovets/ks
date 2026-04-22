@@ -11,6 +11,7 @@ export default [
     route('sparring/init/:gameKey', 'routes/sparring-init.tsx'),
     route('sparring/matches', 'routes/sparring-matches.tsx'),
     route('sparring/matches/:matchId', 'routes/sparring-match.tsx'),
+    route('sparring/matches/:matchId/protocol', 'routes/sparring-match-protocol.tsx'),
     route('top-secret/preview', 'preview/index.tsx'),
     route('top-secret/preview/ui', 'preview/ui.tsx'),
     route('top-secret/preview/game-state', 'preview/game-state-index.tsx'),

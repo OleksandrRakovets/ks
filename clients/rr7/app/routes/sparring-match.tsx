@@ -1,7 +1,6 @@
-import { applyMatchEvent, deriveMatchLifecycleDecisions, emptyMatchState } from '@ks/competition'
+import { deriveMatchLifecycleDecisions } from '@ks/competition'
 import {
   ClientIdSchema,
-  type ClientEvent,
   ClientEventSchema,
   ErrorResponseSchema,
   FrameStartedEventSchema,
@@ -14,14 +13,13 @@ import {
   PostEventsResponseSchema,
   StreamEventSchema,
   StreamReadySchema,
-  type StoredEvent,
 } from '@ks/core'
 import { GameControlProjectionSchema, isRegisteredGameKey, registry, type RegisteredGameKey } from '@ks/gameplay'
 import { keys } from '@ks/i18n'
-import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from '@ks/ui'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Button } from '@ks/ui'
+import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useFetcher, useLoaderData, useRevalidator } from 'react-router'
+import { Link, redirect, useFetcher, useLoaderData, useRevalidator } from 'react-router'
 import { z } from 'zod'
 
 import {
@@ -32,13 +30,12 @@ import {
 import type { AppLoadContext } from '../server/context'
 import { requireEnv } from '../server/context'
 import { localeFromCookie } from '../server/locale'
-import { fetchMatchSnapshot, getMatchControlSecret, listStoredEvents, postMatchEvents } from '../server/match-room'
+import { fetchMatchSnapshot, getMatchControlSecret, postMatchEvents } from '../server/match-room'
 
 type LoaderData = {
   snapshot: Awaited<ReturnType<typeof parseSnapshotBody>>['snapshot']
   participants: HydratedMatchParticipants
   controlProjection: GameControlProjection
-  protocolEntries: StoredEvent[]
   gameTitle: string
 }
 
@@ -93,7 +90,11 @@ export async function loader({
   const locale = localeFromCookie(request.headers.get('cookie'))
   const res = await fetchMatchSnapshot(env, matchId, locale)
   const body = await parseSnapshotBody(res)
-  const protocolEntries = await listStoredEvents(env, matchId)
+
+  if (body.snapshot.status !== 'active') {
+    throw redirect(`/sparring/matches/${matchId}/protocol`)
+  }
+
   const { gameKey } = body.snapshot
   const gameTitle = isRegisteredGameKey(gameKey) ? registry[gameKey].meta.title[locale] : gameKey
 
@@ -101,7 +102,6 @@ export async function loader({
     snapshot: body.snapshot,
     participants: body.participants,
     controlProjection: body.controlProjection ?? emptyControlProjection(gameKey),
-    protocolEntries,
     gameTitle,
   }
 }
@@ -202,118 +202,6 @@ export async function action({
   return { ok: true, acceptedSeqMax }
 }
 
-function protocolLabel(event: StoredEvent, seatNames: { A: string; B: string }): string {
-  const seatLabel = (seat: 'A' | 'B') => seatNames[seat]
-
-  if (event.type === 'game.command') {
-    if (event.payload.commandType === 'pot.record') {
-      const command = event.payload.command as { actor?: unknown; seat?: unknown; points?: unknown; pottedBalls?: unknown }
-
-      if (Array.isArray(command.pottedBalls)) {
-        const actor = command.actor === 'A' || command.actor === 'B' ? command.actor : '?'
-        const pottedBalls = command.pottedBalls
-          .filter((ball): ball is number => typeof ball === 'number')
-          .map((ball) => {
-            if (ball === 0) return 'cue'
-            if (ball === 1) return 'red'
-            if (ball === 2) return 'yellow'
-            if (ball === 3) return 'green'
-            if (ball === 4) return 'brown'
-            if (ball === 5) return 'blue'
-            if (ball === 6) return 'pink'
-            if (ball === 7) return 'black'
-            return String(ball)
-          })
-        const summary = pottedBalls.length > 0 ? pottedBalls.join(', ') : 'none'
-        const actorLabel = actor === 'A' || actor === 'B' ? seatLabel(actor) : actor
-        return `${actorLabel}: pot (${summary})`
-      }
-
-      const seat = command.seat
-      const points = typeof command.points === 'number' ? command.points : null
-      const seatText = seat === 'A' || seat === 'B' ? seatLabel(seat) : '?'
-      if (points != null) {
-        const signed = points >= 0 ? `+${points}` : String(points)
-        return `${seatText}: pot ${signed}`
-      }
-      return `${seatText}: pot`
-    }
-
-    const command = event.payload.command as { actor?: unknown; seat?: unknown }
-    const actor = command.actor
-    if (actor === 'A' || actor === 'B') {
-      return `${seatLabel(actor)}: ${event.payload.commandType}`
-    }
-    const seat = command.seat
-    if (seat === 'A' || seat === 'B') {
-      return `${seatLabel(seat)}: ${event.payload.commandType}`
-    }
-    return event.payload.commandType
-  }
-  if (event.type === 'frame.started') {
-    return `Frame ${event.payload.frameIndex} started`
-  }
-  if (event.type === 'frame.awarded') {
-    return `${seatLabel(event.payload.winnerSeat)}: frame awarded`
-  }
-  if (event.type === 'match.ended') {
-    return 'Match ended'
-  }
-  return event.type
-}
-
-type ProtocolRow = {
-  entry: StoredEvent
-  label: string
-  score: { A: number; B: number }
-}
-
-function deriveProtocolRows(entries: StoredEvent[], seatNames: { A: string; B: string }): ProtocolRow[] {
-  const ordered = [...entries].sort((a, b) => a.seq - b.seq)
-  let state = emptyMatchState()
-
-  return ordered.map((entry) => {
-    const { seq: _seq, receivedAt: _receivedAt, ...clientEvent } = entry
-    state = applyMatchEvent(state, clientEvent as ClientEvent)
-
-    const currentFrame = state.frames[state.frames.length - 1]
-    const score = currentFrame?.pointsBySeat ?? { A: 0, B: 0 }
-
-    return {
-      entry,
-      label: protocolLabel(entry, seatNames),
-      score,
-    }
-  })
-}
-
-function ProtocolPanel(props: { rows: ProtocolRow[]; emptyLabel: string }) {
-  if (props.rows.length === 0) {
-    return <p className="text-sm text-muted-foreground">{props.emptyLabel}</p>
-  }
-
-  return (
-    <div className="grid gap-2">
-      {props.rows.map((row) => (
-        <div
-          key={`${row.entry.seq}-${row.entry.eventId}`}
-          className="flex items-baseline justify-between gap-3 border-b border-border/60 pb-2 text-sm"
-        >
-          <span className="flex min-w-0 flex-col">
-            <span>{row.label}</span>
-            <span className="text-xs text-muted-foreground">
-              {row.score.A}:{row.score.B}
-            </span>
-          </span>
-          <span className="text-xs text-muted-foreground tabular-nums">
-            {new Date(row.entry.receivedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
-          </span>
-        </div>
-      ))}
-    </div>
-  )
-}
-
 export const handle = {
   headerConfig: (data: LoaderData) => ({
     title: `Спаринг: ${data.gameTitle}`,
@@ -323,11 +211,10 @@ export const handle = {
 
 export default function SparringMatchRoute() {
   const { t } = useTranslation()
-  const { snapshot, participants, controlProjection, protocolEntries: initialProtocolEntries } = useLoaderData<typeof loader>()
+  const { snapshot, participants, controlProjection } = useLoaderData<typeof loader>()
   const fetcher = useFetcher<typeof action>()
   const revalidator = useRevalidator()
 
-  const [protocolEntries, setProtocolEntries] = useState<StoredEvent[]>(initialProtocolEntries)
   const latestSeqRef = useRef(snapshot.latestSeq)
   const suppressRevalidateUntilSeqRef = useRef<number>(0)
   const revalidateFnRef = useRef(revalidator.revalidate)
@@ -352,8 +239,6 @@ export default function SparringMatchRoute() {
   }, [fetcher.state])
 
   useEffect(() => {
-    if (snapshot.status !== 'active') return
-
     const stream = new EventSource(`/api/m/${snapshot.matchId}/stream?since=${latestSeqRef.current}`)
 
     const onReady = (event: Event) => {
@@ -385,11 +270,6 @@ export default function SparringMatchRoute() {
       const parsed = StreamEventSchema.safeParse(decoded)
       if (!parsed.success) return
 
-      setProtocolEntries((prev) => {
-        if (prev.some((entry) => entry.eventId === parsed.data.eventId)) return prev
-        return [...prev, parsed.data]
-      })
-
       if (parsed.data.seq > latestSeqRef.current) {
         latestSeqRef.current = parsed.data.seq
         if (!localSubmitInFlightRef.current && parsed.data.seq > suppressRevalidateUntilSeqRef.current) {
@@ -405,23 +285,13 @@ export default function SparringMatchRoute() {
       stream.removeEventListener('ev', onEvent)
       stream.close()
     }
-  }, [snapshot.matchId, snapshot.status])
+  }, [snapshot.matchId])
 
   const decisions = deriveMatchLifecycleDecisions(snapshot)
   const frameIndex = snapshot.currentFrameIndex
   const Renderer = resolveControlRenderer(snapshot.gameKey)
   const isSubmitting = fetcher.state === 'submitting'
-  const seatNames = useMemo(
-    () => ({
-      A: participants.A.displayName,
-      B: participants.B.displayName,
-    }),
-    [participants.A.displayName, participants.B.displayName],
-  )
-  const protocolRows = useMemo(() => {
-    const rows = deriveProtocolRows(protocolEntries, seatNames)
-    return snapshot.status === 'active' ? [...rows].reverse() : rows
-  }, [protocolEntries, seatNames, snapshot.status])
+
   function submitControlCommand(args: { commandType: string; command: Record<string, unknown> }) {
     localSubmitInFlightRef.current = true
     fetcher.submit(
@@ -453,65 +323,61 @@ export default function SparringMatchRoute() {
         </div>
       </div>
 
-      {/* Tabbed control / protocol — tab bar is at the bottom */}
-      <Tabs defaultValue="control" className="flex flex-1 flex-col">
-        <TabsContent value="control" className="flex flex-col gap-3 px-4 py-3">
-          <Renderer
-            projection={controlProjection}
-            snapshot={snapshot}
-            participants={participants}
-            submitting={isSubmitting}
-            onSubmitCommand={submitControlCommand}
-          />
+      <div className="flex flex-col gap-3 px-4 py-3">
+        <Renderer
+          projection={controlProjection}
+          snapshot={snapshot}
+          participants={participants}
+          submitting={isSubmitting}
+          onSubmitCommand={submitControlCommand}
+        />
 
-          {decisions.canStartNextFrame ? (
-            <Button
-              type="button"
-              variant="secondary"
-              className="h-auto justify-start rounded-xl px-4 py-3 text-left text-sm"
-              disabled={isSubmitting}
-              onClick={() => {
-                localSubmitInFlightRef.current = true
-                fetcher.submit({ actionType: 'start-next-frame', frameIndex: String(frameIndex) }, { method: 'post' })
-              }}
-            >
-              {t(keys.match.control.startNextFrame)}
-            </Button>
-          ) : null}
+        {decisions.canStartNextFrame ? (
+          <Button
+            type="button"
+            variant="secondary"
+            className="h-auto justify-start rounded-xl px-4 py-3 text-left text-sm"
+            disabled={isSubmitting}
+            onClick={() => {
+              localSubmitInFlightRef.current = true
+              fetcher.submit({ actionType: 'start-next-frame', frameIndex: String(frameIndex) }, { method: 'post' })
+            }}
+          >
+            {t(keys.match.control.startNextFrame)}
+          </Button>
+        ) : null}
 
-          {decisions.canEndMatch ? (
-            <Button
-              type="button"
-              variant="secondary"
-              className="h-auto justify-start rounded-xl px-4 py-3 text-left text-sm"
-              disabled={isSubmitting}
-              onClick={() => {
-                localSubmitInFlightRef.current = true
-                fetcher.submit({ actionType: 'end-match', frameIndex: String(frameIndex) }, { method: 'post' })
-              }}
-            >
-              {t(keys.match.control.endMatch)}
-            </Button>
-          ) : null}
+        {decisions.canEndMatch ? (
+          <Button
+            type="button"
+            variant="secondary"
+            className="h-auto justify-start rounded-xl px-4 py-3 text-left text-sm"
+            disabled={isSubmitting}
+            onClick={() => {
+              localSubmitInFlightRef.current = true
+              fetcher.submit({ actionType: 'end-match', frameIndex: String(frameIndex) }, { method: 'post' })
+            }}
+          >
+            {t(keys.match.control.endMatch)}
+          </Button>
+        ) : null}
 
-          {fetcher.data?.ok === false ? (
-            <p className="text-sm text-destructive">{fetcher.data.errorKey ? t(fetcher.data.errorKey) : fetcher.data.error}</p>
-          ) : null}
-        </TabsContent>
+        {fetcher.data?.ok === false ? (
+          <p className="text-sm text-destructive">{fetcher.data.errorKey ? t(fetcher.data.errorKey) : fetcher.data.error}</p>
+        ) : null}
+      </div>
 
-        <TabsContent value="protocol" className="px-4 py-3 pb-12">
-          <ProtocolPanel rows={protocolRows} emptyLabel={t(keys.match.sparring.protocolEmpty)} />
-        </TabsContent>
-
-        <TabsList className="sticky bottom-0 z-10 mt-auto border-t border-b-0 bg-background px-4">
-          <TabsTrigger value="control" className="-mt-px mb-0 border-t-2 border-b-0">
-            {t(keys.match.sparring.tabControl)}
-          </TabsTrigger>
-          <TabsTrigger value="protocol" className="-mt-px mb-0 border-t-2 border-b-0">
-            {t(keys.match.sparring.tabProtocol)}
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
+      <nav className="sticky bottom-0 z-10 mt-auto flex border-t border-border bg-background px-4">
+        <span className="-mt-px flex-1 border-t-2 border-primary py-2.5 text-center text-sm font-medium text-foreground">
+          {t(keys.match.sparring.tabControl)}
+        </span>
+        <Link
+          to={`/sparring/matches/${snapshot.matchId}/protocol`}
+          className="-mt-px flex-1 border-t-2 border-transparent py-2.5 text-center text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+        >
+          {t(keys.match.sparring.tabProtocol)}
+        </Link>
+      </nav>
     </main>
   )
 }

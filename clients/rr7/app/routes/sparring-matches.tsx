@@ -43,7 +43,11 @@ export default function SparringMatchesRoute() {
             {matches.map((match) => (
               <Link
                 key={match.matchId}
-                to={`/sparring/matches/${match.matchId}`}
+                to={
+                  match.status === 'active'
+                    ? `/sparring/matches/${match.matchId}`
+                    : `/sparring/matches/${match.matchId}/protocol`
+                }
                 className="flex items-center justify-between gap-4 px-4 py-3 transition-colors hover:bg-muted/40"
               >
                 <div className="min-w-0 flex-1">
