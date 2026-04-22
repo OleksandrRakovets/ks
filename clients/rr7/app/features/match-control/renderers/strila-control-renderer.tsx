@@ -63,13 +63,11 @@ function actorFromCommand(command: Record<string, unknown>): 'A' | 'B' | null {
 export function StrilaControlRenderer(props: MatchControlRendererProps) {
   const { recordPot, rest } = splitCommands(props.projection)
   const [selectedBalls, setSelectedBalls] = useState<number[]>([])
-  const [showSecondary, setShowSecondary] = useState(false)
+  const [showTertiary, setShowTertiary] = useState(false)
 
   const ballView = useMemo(() => strilaBallView(props.projection.details), [props.projection.details])
   const selectableBalls = useMemo(() => [0, ...ballView.allColoredOnTable], [ballView.allColoredOnTable])
   const activeBallSet = useMemo(() => new Set(ballView.active), [ballView.active])
-  const seatA = props.participants.A.shortDisplayName
-  const seatB = props.participants.B.shortDisplayName
   const phase =
     props.projection.details && typeof props.projection.details === 'object'
       ? (props.projection.details as { phase?: unknown }).phase
@@ -95,16 +93,32 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
   )
   const singleCommands = rest.filter((entry) => !duplicatedCommands.includes(entry))
 
-  // Group singleCommands that have one variant per actor into A/B column pairs.
+  // Group single commands that have exactly one variant per actor (e.g. frame.commence A+B) into A/B column pairs.
+  // Commands where multiple entries share the same commandType+actor (e.g. penalty.select options) bypass grouping.
   type ActorPair = { A: (typeof singleCommands)[number]; B: (typeof singleCommands)[number] }
   const pairedSingleCommands: ActorPair[] = []
   const unpairedSingleCommands: (typeof singleCommands)[number][] = []
+
+  const commandActorCounts = new Map<string, number>()
+  for (const cmd of singleCommands) {
+    const actor = actorFromCommand(cmd.command)
+    if (actor) {
+      const key = `${cmd.commandType}:${actor}`
+      commandActorCounts.set(key, (commandActorCounts.get(key) ?? 0) + 1)
+    }
+  }
+
   const grouped: Record<string, { A?: (typeof singleCommands)[number]; B?: (typeof singleCommands)[number] }> = {}
   for (const cmd of singleCommands) {
     const actor = actorFromCommand(cmd.command)
     if (actor === 'A' || actor === 'B') {
-      grouped[cmd.commandType] ??= {}
-      grouped[cmd.commandType][actor] = cmd
+      const key = `${cmd.commandType}:${actor}`
+      if ((commandActorCounts.get(key) ?? 0) > 1) {
+        unpairedSingleCommands.push(cmd)
+      } else {
+        grouped[cmd.commandType] ??= {}
+        grouped[cmd.commandType][actor] = cmd
+      }
     } else {
       unpairedSingleCommands.push(cmd)
     }
@@ -118,11 +132,11 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
     }
   }
 
-  const primaryDuplicated = duplicatedCommands.filter((c) => !c.secondary)
-  const secondaryDuplicated = duplicatedCommands.filter((c) => c.secondary)
-  const primaryUnpaired = unpairedSingleCommands.filter((c) => !c.secondary)
-  const secondaryUnpaired = unpairedSingleCommands.filter((c) => c.secondary)
-  const hasSecondary = secondaryDuplicated.length > 0 || secondaryUnpaired.length > 0
+  const visibleDuplicated = duplicatedCommands.filter((c) => c.prominence !== 'tertiary')
+  const tertiaryDuplicated = duplicatedCommands.filter((c) => c.prominence === 'tertiary')
+  const visibleUnpaired = unpairedSingleCommands.filter((c) => c.prominence !== 'tertiary')
+  const tertiaryUnpaired = unpairedSingleCommands.filter((c) => c.prominence === 'tertiary')
+  const hasTertiary = tertiaryDuplicated.length > 0 || tertiaryUnpaired.length > 0
 
   return (
     <div className="grid gap-4">
@@ -157,7 +171,8 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
               {winnerDeterminedRecordActor === 'A' && (
                 <Button
                   type="button"
-                  className={recordPot.primary ? 'py-4 text-base font-medium' : 'py-2 text-sm'}
+                  size={recordPot.prominence === 'primary' ? 'touch' : 'default'}
+                  className={recordPot.prominence !== 'primary' ? 'h-auto py-2 text-sm' : undefined}
                   disabled={selectedBalls.length === 0}
                   onClick={() => submitCommand(recordPot.commandType, { ...recordPot.command, pottedBalls: selectedBalls })}
                 >
@@ -168,7 +183,8 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
               {winnerDeterminedRecordActor === 'B' && (
                 <Button
                   type="button"
-                  className={recordPot.primary ? 'py-4 text-base font-medium' : 'py-2 text-sm'}
+                  size={recordPot.prominence === 'primary' ? 'touch' : 'default'}
+                  className={recordPot.prominence !== 'primary' ? 'h-auto py-2 text-sm' : undefined}
                   disabled={selectedBalls.length === 0}
                   onClick={() => submitCommand(recordPot.commandType, { ...recordPot.command, pottedBalls: selectedBalls })}
                 >
@@ -181,7 +197,8 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
             <div className="grid grid-cols-2 gap-6">
               <Button
                 type="button"
-                className={recordPot.primary ? 'py-4 text-base font-medium' : 'py-2 text-sm'}
+                size={recordPot.prominence === 'primary' ? 'touch' : 'default'}
+                  className={recordPot.prominence !== 'primary' ? 'h-auto py-2 text-sm' : undefined}
                 disabled={selectedBalls.length === 0}
                 onClick={() =>
                   submitSeatCommand('A', recordPot.commandType, { ...recordPot.command, pottedBalls: selectedBalls })
@@ -191,7 +208,8 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
               </Button>
               <Button
                 type="button"
-                className={recordPot.primary ? 'py-4 text-base font-medium' : 'py-2 text-sm'}
+                size={recordPot.prominence === 'primary' ? 'touch' : 'default'}
+                  className={recordPot.prominence !== 'primary' ? 'h-auto py-2 text-sm' : undefined}
                 disabled={selectedBalls.length === 0}
                 onClick={() =>
                   submitSeatCommand('B', recordPot.commandType, { ...recordPot.command, pottedBalls: selectedBalls })
@@ -206,7 +224,7 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
         </div>
       ) : null}
 
-      {primaryDuplicated.map((command, index) => (
+      {visibleDuplicated.map((command, index) => (
         <div key={`${command.commandType}-${index}`} className="grid grid-cols-2 gap-6">
           {(['A', 'B'] as const).map((seat) => (
             <Button
@@ -236,8 +254,9 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
               <Button
                 key={seat}
                 type="button"
-                variant="secondary"
-                className="h-auto px-3 py-2 text-sm"
+                variant={cmd.prominence === 'primary' ? 'default' : 'secondary'}
+                size={cmd.prominence === 'primary' ? 'touch' : 'default'}
+                className={cmd.prominence !== 'primary' ? 'h-auto px-3 py-2 text-sm' : undefined}
                 onClick={() => submitCommand(cmd.commandType, cmd.command)}
               >
                 <span className="flex flex-col items-center gap-0.5">
@@ -251,17 +270,18 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
         </div>
       ))}
 
-      {primaryUnpaired.map((command, index) => {
+      {visibleUnpaired.map((command, index) => {
         const actor = actorFromCommand(command.command)
         const btn = (
           <Button
             key={`${command.commandType}-${index}`}
             type="button"
-            variant="secondary"
-            className={command.primary ? 'py-4 text-base font-medium' : 'h-auto px-3 py-2 text-sm'}
+            variant={command.prominence === 'primary' ? 'default' : 'secondary'}
+            size={command.prominence === 'primary' ? 'touch' : 'default'}
+            className={command.prominence !== 'primary' ? 'h-auto px-3 py-2 text-sm' : undefined}
             onClick={() => submitCommand(command.commandType, command.command)}
           >
-            <span className="flex flex-col items-start gap-0.5">
+            <span className="flex flex-col items-center gap-0.5">
               <span>{command.label ?? command.commandType}</span>
               {command.effectSummary ? <span className="text-xs opacity-70">{command.effectSummary}</span> : null}
               {command.helpText ? <span className="text-xs opacity-70">{command.helpText}</span> : null}
@@ -286,18 +306,18 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
         return btn
       })}
 
-      {hasSecondary && (
+      {hasTertiary && (
         <div className="grid gap-3">
           <button
             type="button"
             className="text-left text-xs text-muted-foreground transition-colors hover:text-foreground"
-            onClick={() => setShowSecondary((v) => !v)}
+            onClick={() => setShowTertiary((v) => !v)}
           >
-            {showSecondary ? '▲ Сховати' : '··· Більше'}
+            {showTertiary ? '▲ Сховати' : '··· Більше'}
           </button>
-          {showSecondary && (
+          {showTertiary && (
             <>
-              {secondaryDuplicated.map((command, index) => (
+              {tertiaryDuplicated.map((command, index) => (
                 <div key={`${command.commandType}-${index}`} className="grid grid-cols-2 gap-6">
                   {(['A', 'B'] as const).map((seat) => (
                     <Button
@@ -312,7 +332,7 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
                   ))}
                 </div>
               ))}
-              {secondaryUnpaired.map((command, index) => (
+              {tertiaryUnpaired.map((command, index) => (
                 <Button
                   key={`${command.commandType}-${index}`}
                   type="button"

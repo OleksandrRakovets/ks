@@ -13,25 +13,17 @@ function seatFromCommand(command: Record<string, unknown>): 'A' | 'B' | null {
 }
 
 export function PyramidControlRenderer(props: MatchControlRendererProps) {
-  const [showSecondary, setShowSecondary] = useState(false)
+  const [showTertiary, setShowTertiary] = useState(false)
 
-  const shotCommands = props.projection.availableCommands.filter((entry) => entry.commandType === 'pot.record')
-  const foulCommand = props.projection.availableCommands.find((entry) => entry.commandType === 'foul.commit')
-  const primaryOther = props.projection.availableCommands.filter(
-    (entry) => entry.commandType !== 'pot.record' && entry.commandType !== 'foul.commit' && !entry.secondary,
+  const shotCommands = props.projection.availableCommands.filter((c) => c.commandType === 'pot.record')
+  const foulCommand = props.projection.availableCommands.find((c) => c.commandType === 'foul.commit')
+  const otherCommands = props.projection.availableCommands.filter(
+    (c) => c.commandType !== 'pot.record' && c.commandType !== 'foul.commit',
   )
-  const secondaryOther = props.projection.availableCommands.filter(
-    (entry) => entry.commandType !== 'pot.record' && entry.commandType !== 'foul.commit' && entry.secondary,
-  )
-  const hasSecondary = secondaryOther.length > 0
-
-  const pointButtons = shotCommands
-    .map((command) => {
-      const value = command.command.points
-      if (typeof value !== 'number' || !Number.isInteger(value)) return null
-      return { points: value, label: command.label ?? `+${value}` }
-    })
-    .filter((v): v is { points: number; label: string } => v !== null)
+  const primaryOther = otherCommands.filter((c) => c.prominence === 'primary')
+  const secondaryOther = otherCommands.filter((c) => c.prominence === 'secondary')
+  const tertiaryOther = otherCommands.filter((c) => c.prominence === 'tertiary')
+  const hasTertiary = tertiaryOther.length > 0
 
   const seatCommandTemplate = shotCommands[0]?.command ?? foulCommand?.command
   const explicitSeat = seatCommandTemplate ? seatFromCommand(seatCommandTemplate) : null
@@ -53,28 +45,30 @@ export function PyramidControlRenderer(props: MatchControlRendererProps) {
         <div className="grid grid-cols-2 gap-6">
           {seats.map((seat) => (
             <div key={seat} className="grid gap-2">
-              <div className="grid grid-cols-2 gap-2">
-                {pointButtons.map((button) => (
-                  <Button
-                    key={button.label}
-                    type="button"
-                    className="py-4 text-base font-medium"
-                    onClick={() => submitShot(seat, button.points)}
-                  >
-                    {button.label}
-                  </Button>
-                ))}
-                {foulCommand ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="py-4 text-base font-medium"
-                    onClick={() => submitFoul(seat)}
-                  >
-                    Фол
-                  </Button>
-                ) : null}
-              </div>
+              {shotCommands.length > 0 && (
+                <div style={{ display: 'grid', gridTemplateColumns: `repeat(${shotCommands.length}, 1fr)`, gap: '0.5rem' }}>
+                  {shotCommands.map((cmd) => {
+                    const points = cmd.command.points
+                    if (typeof points !== 'number' || !Number.isInteger(points)) return null
+                    return (
+                      <Button
+                        key={cmd.label ?? `+${points}`}
+                        type="button"
+                        variant={cmd.prominence === 'primary' ? 'default' : 'outline'}
+                        size="touch"
+                        onClick={() => submitShot(seat, points)}
+                      >
+                        {cmd.label ?? `+${points}`}
+                      </Button>
+                    )
+                  })}
+                </div>
+              )}
+              {foulCommand ? (
+                <Button type="button" variant="outline" className="h-auto px-3 py-2 text-sm" onClick={() => submitFoul(seat)}>
+                  {foulCommand.label ?? 'Фол'}
+                </Button>
+              ) : null}
             </div>
           ))}
         </div>
@@ -82,39 +76,82 @@ export function PyramidControlRenderer(props: MatchControlRendererProps) {
 
       {primaryOther.map((command, index) => {
         const seat = seatFromCommand(command.command)
-        return (
+        const btn = (
           <Button
             key={`${command.commandType}-${index}`}
             type="button"
-            variant="secondary"
-            className={command.primary ? 'py-4 text-base font-medium' : 'h-auto px-3 py-2 text-sm'}
+            size="touch"
             onClick={() => props.onSubmitCommand({ commandType: command.commandType, command: command.command })}
           >
             <span className="flex flex-col items-start gap-0.5">
               <span>{command.label ?? command.commandType}</span>
-              {seat ? (
-                <span className="text-xs opacity-70">
-                  {seat === 'A' ? props.participants.A.shortDisplayName : props.participants.B.shortDisplayName}
-                </span>
-              ) : null}
               {command.helpText ? <span className="text-xs opacity-70">{command.helpText}</span> : null}
               {command.warning ? <span className="text-xs text-destructive">{command.warning}</span> : null}
             </span>
           </Button>
         )
+        if (seat === 'A')
+          return (
+            <div key={`${command.commandType}-${index}`} className="grid grid-cols-2 gap-6">
+              {btn}
+              <div />
+            </div>
+          )
+        if (seat === 'B')
+          return (
+            <div key={`${command.commandType}-${index}`} className="grid grid-cols-2 gap-6">
+              <div />
+              {btn}
+            </div>
+          )
+        return btn
       })}
 
-      {hasSecondary && (
+      {secondaryOther.map((command, index) => {
+        const seat = seatFromCommand(command.command)
+        const btn = (
+          <Button
+            key={`${command.commandType}-${index}`}
+            type="button"
+            variant="secondary"
+            className="h-auto px-3 py-2 text-sm"
+            onClick={() => props.onSubmitCommand({ commandType: command.commandType, command: command.command })}
+          >
+            <span className="flex flex-col items-start gap-0.5">
+              <span>{command.label ?? command.commandType}</span>
+              {command.helpText ? <span className="text-xs opacity-70">{command.helpText}</span> : null}
+              {command.warning ? <span className="text-xs text-destructive">{command.warning}</span> : null}
+            </span>
+          </Button>
+        )
+        if (seat === 'A')
+          return (
+            <div key={`${command.commandType}-${index}`} className="grid grid-cols-2 gap-6">
+              {btn}
+              <div />
+            </div>
+          )
+        if (seat === 'B')
+          return (
+            <div key={`${command.commandType}-${index}`} className="grid grid-cols-2 gap-6">
+              <div />
+              {btn}
+            </div>
+          )
+        return btn
+      })}
+
+      {hasTertiary && (
         <div className="grid gap-3">
           <button
             type="button"
             className="text-left text-xs text-muted-foreground transition-colors hover:text-foreground"
-            onClick={() => setShowSecondary((v) => !v)}
+            onClick={() => setShowTertiary((v) => !v)}
           >
-            {showSecondary ? '▲ Сховати' : '··· Більше'}
+            {showTertiary ? '▲ Сховати' : '··· Більше'}
           </button>
-          {showSecondary &&
-            secondaryOther.map((command, index) => (
+          {showTertiary &&
+            tertiaryOther.map((command, index) => (
               <Button
                 key={`${command.commandType}-${index}`}
                 type="button"

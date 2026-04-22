@@ -207,8 +207,8 @@ describe('gameplay runtime api', () => {
       projection: 'control',
       score: { A: 0, B: 0 },
       availableCommands: [
-        { commandType: 'frame.commence', command: { seat: 'A' }, label: 'Break-off (A)', primary: true },
-        { commandType: 'frame.commence', command: { seat: 'B' }, label: 'Break-off (B)', primary: true },
+        { commandType: 'frame.commence', command: { seat: 'A' }, label: 'Break-off (A)', prominence: 'primary' },
+        { commandType: 'frame.commence', command: { seat: 'B' }, label: 'Break-off (B)', prominence: 'primary' },
       ],
       details: {
         phase: 'not-started',
@@ -231,16 +231,17 @@ describe('gameplay runtime api', () => {
       projection: 'control',
       score: { A: 10, B: 2 },
       availableCommands: [
-        { commandType: 'pot.record', command: { points: 1 }, label: '+1', primary: true },
-        { commandType: 'pot.record', command: { points: 2 }, label: '+2', primary: true },
-        { commandType: 'pot.record', command: { points: 4 }, label: '+4', primary: true },
+        { commandType: 'pot.record', command: { points: 1 }, label: '+1', prominence: 'primary' },
+        { commandType: 'pot.record', command: { points: 2 }, label: '+2', prominence: 'secondary' },
+        { commandType: 'pot.record', command: { points: 4 }, label: '+4', prominence: 'secondary' },
         {
           commandType: 'foul.commit',
           command: {},
-          label: 'Foul',
+          label: 'Фол',
+          prominence: 'secondary',
           effectSummary: 'Opponent +1 point',
         },
-        { commandType: 'frame.award', command: { seat: 'A' }, label: 'Award frame', secondary: true },
+        { commandType: 'frame.award', command: { seat: 'A' }, label: 'Award frame', prominence: 'primary' },
       ],
       details: {
         phase: 'open-play',
@@ -263,12 +264,13 @@ describe('gameplay runtime api', () => {
       projection: 'control',
       score: { A: 2, B: 1 },
       availableCommands: [
-        { commandType: 'pot.record', command: { points: 1 }, label: '+1', primary: true },
-        { commandType: 'pot.record', command: { points: 2 }, label: '+2', primary: true },
+        { commandType: 'pot.record', command: { points: 1 }, label: '+1', prominence: 'primary' },
+        { commandType: 'pot.record', command: { points: 2 }, label: '+2', prominence: 'secondary' },
         {
           commandType: 'foul.commit',
           command: {},
-          label: 'Foul',
+          label: 'Фол',
+          prominence: 'secondary',
           effectSummary: 'Offender -1 point (negative allowed)',
         },
       ],

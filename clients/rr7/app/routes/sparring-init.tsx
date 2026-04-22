@@ -197,7 +197,7 @@ export default function SparringInitRoute() {
 
           {actionData?.ok === false ? <p className="text-sm text-destructive">{t(actionData.errorKey)}</p> : null}
 
-          <Button type="submit" className="w-full py-4 text-base font-medium" disabled={isSubmitting}>
+          <Button type="submit" size="touch" className="w-full" disabled={isSubmitting}>
             {isSubmitting ? t(keys.match.sparring.creatingMatch) : t(keys.match.sparring.createMatch)}
           </Button>
         </Form>

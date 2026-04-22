@@ -4,10 +4,10 @@ import { useState } from 'react'
 import type { MatchControlRendererProps } from './types'
 
 export function GenericControlRenderer(props: MatchControlRendererProps) {
-  const [showSecondary, setShowSecondary] = useState(false)
+  const [showTertiary, setShowTertiary] = useState(false)
 
-  const primary = props.projection.availableCommands.filter((c) => !c.secondary)
-  const secondary = props.projection.availableCommands.filter((c) => c.secondary)
+  const visible = props.projection.availableCommands.filter((c) => c.prominence !== 'tertiary')
+  const tertiary = props.projection.availableCommands.filter((c) => c.prominence === 'tertiary')
 
   if (props.projection.availableCommands.length === 0) {
     return <p className="text-sm text-muted-foreground">No actions available.</p>
@@ -15,7 +15,7 @@ export function GenericControlRenderer(props: MatchControlRendererProps) {
 
   return (
     <div className="grid gap-3">
-      {primary.map((command, index) => (
+      {visible.map((command, index) => (
         <Button
           key={`${command.commandType}-${index}`}
           type="button"
@@ -32,17 +32,17 @@ export function GenericControlRenderer(props: MatchControlRendererProps) {
         </Button>
       ))}
 
-      {secondary.length > 0 && (
+      {tertiary.length > 0 && (
         <div className="grid gap-3">
           <button
             type="button"
             className="text-left text-xs text-muted-foreground transition-colors hover:text-foreground"
-            onClick={() => setShowSecondary((v) => !v)}
+            onClick={() => setShowTertiary((v) => !v)}
           >
-            {showSecondary ? '▲ Сховати' : '··· Більше'}
+            {showTertiary ? '▲ Сховати' : '··· Більше'}
           </button>
-          {showSecondary &&
-            secondary.map((command, index) => (
+          {showTertiary &&
+            tertiary.map((command, index) => (
               <Button
                 key={`${command.commandType}-${index}`}
                 type="button"

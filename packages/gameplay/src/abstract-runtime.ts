@@ -15,8 +15,7 @@ export const GameCommandPresetSchema = z.object({
   effectSummary: z.string().min(1).optional(),
   warning: z.string().min(1).optional(),
   helpText: z.string().min(1).optional(),
-  primary: z.boolean().optional(),
-  secondary: z.boolean().optional(),
+  prominence: z.enum(['primary', 'secondary', 'tertiary']),
 })
 
 export const GameControlProjectionSchema = z.object({

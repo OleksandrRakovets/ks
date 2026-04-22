@@ -19,7 +19,7 @@ function command(
   commandType: StrilaCommand['type'],
   payload: Record<string, unknown>,
   label: string,
-  extras: Omit<StrilaControlCommand, 'commandType' | 'command' | 'label'> = {},
+  extras: Omit<StrilaControlCommand, 'commandType' | 'command' | 'label'>,
 ): StrilaControlCommand {
   return { commandType, command: payload, label, ...extras }
 }
@@ -34,8 +34,8 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
         projection: 'control',
         score: state.score,
         availableCommands: [
-          command('frame.commence', { actor: 'A' }, 'Break-off (A)'),
-          command('frame.commence', { actor: 'B' }, 'Break-off (B)'),
+          command('frame.commence', { actor: 'A' }, 'Break-off (A)', { prominence: 'primary' }),
+          command('frame.commence', { actor: 'B' }, 'Break-off (B)', { prominence: 'primary' }),
         ],
         details: {
           phase: state.phase.type,
@@ -51,9 +51,9 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
         projection: 'control',
         score: state.score,
         availableCommands: [
-          command('pot.record', { actor: state.phase.actor }, 'Record pot', { primary: true }),
-          command('foul.commit', { actor: state.phase.actor }, 'Foul committed'),
-          command('frame.concede', { actor: state.phase.actor }, 'Concede frame', { secondary: true }),
+          command('pot.record', { actor: state.phase.actor }, 'Record pot', { prominence: 'primary' }),
+          command('foul.commit', { actor: state.phase.actor }, 'Foul committed', { prominence: 'secondary' }),
+          command('frame.concede', { actor: state.phase.actor }, 'Concede frame', { prominence: 'tertiary' }),
         ],
         details: {
           phase: state.phase.type,
@@ -71,12 +71,17 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
         score: state.score,
         availableCommands: [
           command('penalty.select', { actor: state.phase.chooser, choice: 'play-from-position' }, 'Play from position', {
+            prominence: 'secondary',
             effectSummary: '+1 point',
           }),
           command('penalty.select', { actor: state.phase.chooser, choice: 'pass-position' }, 'Pass position', {
+            prominence: 'secondary',
             effectSummary: '+1 point',
           }),
-          command('penalty.select', { actor: state.phase.chooser, choice: 'ball-in-hand' }, 'Ball in hand'),
+          command('penalty.select', { actor: state.phase.chooser, choice: 'ball-in-hand' }, 'Ball in hand', {
+            prominence: 'secondary',
+            effectSummary: 'No points awarded',
+          }),
         ],
         details: {
           phase: state.phase.type,
@@ -94,11 +99,12 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
         score: state.score,
         availableCommands: [
           command('pot.record', { actor: state.phase.actor }, 'Record pot', {
+            prominence: 'primary',
             warning: 'Cue ball and colored balls together count as a foul.',
           }),
-          command('miss.record', { actor: state.phase.actor }, 'Record miss'),
-          command('foul.commit', { actor: state.phase.actor }, 'Foul committed'),
-          command('frame.concede', { actor: state.phase.actor }, 'Concede frame', { secondary: true }),
+          command('miss.record', { actor: state.phase.actor }, 'Record miss', { prominence: 'primary' }),
+          command('foul.commit', { actor: state.phase.actor }, 'Foul committed', { prominence: 'secondary' }),
+          command('frame.concede', { actor: state.phase.actor }, 'Concede frame', { prominence: 'tertiary' }),
         ],
         details: {
           phase: state.phase.type,
@@ -116,11 +122,12 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
         score: state.score,
         availableCommands: [
           command('pot.record', { actor: state.phase.actor }, 'Record pot', {
+            prominence: 'primary',
             helpText: 'A black pot wins. Any other potted result is treated as a foul.',
           }),
-          command('miss.record', { actor: state.phase.actor }, 'Record miss'),
-          command('foul.commit', { actor: state.phase.actor }, 'Foul committed'),
-          command('frame.concede', { actor: state.phase.actor }, 'Concede frame', { secondary: true }),
+          command('miss.record', { actor: state.phase.actor }, 'Record miss', { prominence: 'primary' }),
+          command('foul.commit', { actor: state.phase.actor }, 'Foul committed', { prominence: 'secondary' }),
+          command('frame.concede', { actor: state.phase.actor }, 'Concede frame', { prominence: 'tertiary' }),
         ],
         details: {
           phase: state.phase.type,
@@ -137,9 +144,9 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
         projection: 'control',
         score: state.score,
         availableCommands: [
-          command('pot.record', { actor: state.phase.actor }, 'Record pot', { primary: true }),
-          command('foul.commit', { actor: state.phase.actor }, 'Foul committed'),
-          command('frame.concede', { actor: state.phase.actor }, 'Concede frame', { secondary: true }),
+          command('pot.record', { actor: state.phase.actor }, 'Record pot', { prominence: 'primary' }),
+          command('foul.commit', { actor: state.phase.actor }, 'Foul committed', { prominence: 'secondary' }),
+          command('frame.concede', { actor: state.phase.actor }, 'Concede frame', { prominence: 'tertiary' }),
         ],
         details: {
           phase: state.phase.type,
@@ -156,8 +163,8 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
         projection: 'control',
         score: state.score,
         availableCommands: [
-          command('pot.record', { actor: state.phase.actor }, 'Record pot', { primary: true }),
-          command('frame.award', { actor: state.phase.actor }, 'Award frame', { primary: true }),
+          command('pot.record', { actor: state.phase.actor }, 'Record pot', { prominence: 'primary' }),
+          command('frame.award', { actor: state.phase.actor }, 'Award frame', { prominence: 'primary' }),
         ],
         details: {
           phase: state.phase.type,

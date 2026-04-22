@@ -12,8 +12,8 @@ function parseState(state: unknown): StrilaFrameState {
 test('simulation: outside: basic frame 1', () => {
   let state = parseState(createInitialGameState('strila-v2', { targetPointsBySeat: { A: 9, B: 9 } }))
   expect(deriveStrilaControlView(state).availableCommands).toEqual([
-    { commandType: 'frame.commence', command: { actor: 'A' }, label: 'Break-off (A)' },
-    { commandType: 'frame.commence', command: { actor: 'B' }, label: 'Break-off (B)' },
+    { commandType: 'frame.commence', command: { actor: 'A' }, label: 'Break-off (A)', prominence: 'primary' },
+    { commandType: 'frame.commence', command: { actor: 'B' }, label: 'Break-off (B)', prominence: 'primary' },
   ])
 
   let step = applyGameCommand({ gameKey: 'strila-v2', state, commandType: 'frame.commence', command: { actor: 'A' } })
@@ -41,18 +41,22 @@ test('simulation: outside: basic frame 1', () => {
       commandType: 'penalty.select',
       command: { actor: 'B', choice: 'play-from-position' },
       label: 'Play from position',
+      prominence: 'secondary',
       effectSummary: '+1 point',
     },
     {
       commandType: 'penalty.select',
       command: { actor: 'B', choice: 'pass-position' },
       label: 'Pass position',
+      prominence: 'secondary',
       effectSummary: '+1 point',
     },
     {
       commandType: 'penalty.select',
       command: { actor: 'B', choice: 'ball-in-hand' },
       label: 'Ball in hand',
+      prominence: 'secondary',
+      effectSummary: 'No points awarded',
     },
   ])
   expect(deriveStrilaControlView(parseState(step.state)).availableCommands.map((entry) => entry.commandType)).toEqual([

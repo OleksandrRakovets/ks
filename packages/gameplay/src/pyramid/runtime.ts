@@ -58,7 +58,7 @@ function command(
   commandType: string,
   payload: Record<string, unknown>,
   label: string,
-  extras: { effectSummary?: string; warning?: string; helpText?: string; primary?: boolean; secondary?: boolean } = {},
+  extras: { prominence: 'primary' | 'secondary' | 'tertiary'; effectSummary?: string; warning?: string; helpText?: string },
 ) {
   return { commandType, command: payload, label, ...extras }
 }
@@ -207,8 +207,8 @@ export class PyramidGameplayRuntime extends GameplayRuntime {
             projection: 'control',
             score: state.pointsBySeat,
             availableCommands: [
-              command('frame.commence', { seat: 'A' }, 'Break-off (A)', { primary: true }),
-              command('frame.commence', { seat: 'B' }, 'Break-off (B)', { primary: true }),
+              command('frame.commence', { seat: 'A' }, 'Break-off (A)', { prominence: 'primary' }),
+              command('frame.commence', { seat: 'B' }, 'Break-off (B)', { prominence: 'primary' }),
             ],
             details: {
               ...pyramidDetails(state),
@@ -224,16 +224,19 @@ export class PyramidGameplayRuntime extends GameplayRuntime {
             projection: 'control',
             score: state.pointsBySeat,
             availableCommands: [
-              ...this.args.shotPointOptions.map((points) => command('pot.record', { points }, `+${points}`, { primary: true })),
-              command('foul.commit', {}, 'Foul', {
+              ...this.args.shotPointOptions.map((points, index) =>
+                command('pot.record', { points }, `+${points}`, { prominence: index === 0 ? 'primary' : 'secondary' }),
+              ),
+              command('foul.commit', {}, 'Фол', {
+                prominence: 'secondary',
                 effectSummary:
                   this.args.foulPenalty === 'opponent-plus-one' ? 'Opponent +1 point' : 'Offender -1 point (negative allowed)',
               }),
               ...(state.pointsBySeat.A >= state.targetPointsBySeat.A
-                ? [command('frame.award', { seat: 'A' }, 'Award frame', { secondary: true })]
+                ? [command('frame.award', { seat: 'A' }, 'Award frame', { prominence: 'primary' })]
                 : []),
               ...(state.pointsBySeat.B >= state.targetPointsBySeat.B
-                ? [command('frame.award', { seat: 'B' }, 'Award frame', { secondary: true })]
+                ? [command('frame.award', { seat: 'B' }, 'Award frame', { prominence: 'primary' })]
                 : []),
             ],
             details: {
