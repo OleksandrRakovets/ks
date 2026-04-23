@@ -141,7 +141,7 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
   return (
     <div className="grid gap-4">
       {recordPot ? (
-        <div className="grid gap-3">
+        <div className="grid gap-3 ">
           <div className="flex flex-wrap items-center justify-center gap-3">
             {BALL_ORDER.map((ball) => {
               const meta = BALL_META[ball] ?? { bg: '#D4D4D8', border: '#27272A' }
@@ -182,8 +182,7 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
               {winnerDeterminedRecordActor === 'A' && (
                 <Button
                   type="button"
-                  size={recordPot.prominence === 'primary' ? 'touch' : 'default'}
-                  className={recordPot.prominence !== 'primary' ? 'h-auto py-2 text-sm' : undefined}
+                  size="touch"
                   disabled={selectedBalls.length === 0}
                   onClick={() => submitCommand(recordPot.commandType, { ...recordPot.command, pottedBalls: selectedBalls })}
                 >
@@ -194,8 +193,7 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
               {winnerDeterminedRecordActor === 'B' && (
                 <Button
                   type="button"
-                  size={recordPot.prominence === 'primary' ? 'touch' : 'default'}
-                  className={recordPot.prominence !== 'primary' ? 'h-auto py-2 text-sm' : undefined}
+                  size="touch"
                   disabled={selectedBalls.length === 0}
                   onClick={() => submitCommand(recordPot.commandType, { ...recordPot.command, pottedBalls: selectedBalls })}
                 >
@@ -208,8 +206,8 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
             <div className="grid grid-cols-2 gap-6">
               <Button
                 type="button"
-                size={recordPot.prominence === 'primary' ? 'touch' : 'default'}
-                className={recordPot.prominence !== 'primary' ? 'h-auto py-2 text-sm' : undefined}
+                size="touch"
+                // className={recordPot.prominence !== 'primary' ? 'h-auto py-2 text-sm' : undefined}
                 disabled={selectedBalls.length === 0}
                 onClick={() =>
                   submitSeatCommand('A', recordPot.commandType, { ...recordPot.command, pottedBalls: selectedBalls })
@@ -219,8 +217,8 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
               </Button>
               <Button
                 type="button"
-                size={recordPot.prominence === 'primary' ? 'touch' : 'default'}
-                className={recordPot.prominence !== 'primary' ? 'h-auto py-2 text-sm' : undefined}
+                size="touch"
+                // className={recordPot.prominence !== 'primary' ? 'h-auto py-2 text-sm' : undefined}
                 disabled={selectedBalls.length === 0}
                 onClick={() =>
                   submitSeatCommand('B', recordPot.commandType, { ...recordPot.command, pottedBalls: selectedBalls })
@@ -242,7 +240,7 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
               key={seat}
               type="button"
               variant="secondary"
-              className="h-auto px-4 py-2 text-sm"
+              size="touch"
               onClick={() => submitSeatCommand(seat, command.commandType, command.command)}
             >
               <span className="flex flex-col items-center gap-0.5">
@@ -266,8 +264,7 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
                 key={seat}
                 type="button"
                 variant={cmd.prominence === 'primary' ? 'default' : 'secondary'}
-                size={cmd.prominence === 'primary' ? 'touch' : 'default'}
-                className={cmd.prominence !== 'primary' ? 'h-auto px-3 py-2 text-sm' : undefined}
+                size="touch"
                 onClick={() => submitCommand(cmd.commandType, cmd.command)}
               >
                 <span className="flex flex-col items-center gap-0.5">
@@ -288,8 +285,7 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
             key={`${command.commandType}-${index}`}
             type="button"
             variant={command.prominence === 'primary' ? 'default' : 'secondary'}
-            size={command.prominence === 'primary' ? 'touch' : 'default'}
-            className={command.prominence !== 'primary' ? 'h-auto px-3 py-2 text-sm' : undefined}
+            size="touch"
             onClick={() => submitCommand(command.commandType, command.command)}
           >
             <span className="flex flex-col items-center gap-0.5">
@@ -335,7 +331,6 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
                       key={seat}
                       type="button"
                       variant="outline"
-                      className="h-auto px-3 py-2 text-sm"
                       onClick={() => submitSeatCommand(seat, command.commandType, command.command)}
                     >
                       {command.label ?? command.commandType}
@@ -348,7 +343,6 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
                   key={`${command.commandType}-${index}`}
                   type="button"
                   variant="outline"
-                  className="h-auto px-3 py-2 text-sm"
                   onClick={() => submitCommand(command.commandType, command.command)}
                 >
                   {command.label ?? command.commandType}
