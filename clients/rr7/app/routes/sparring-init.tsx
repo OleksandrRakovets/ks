@@ -127,7 +127,7 @@ export default function SparringInitRoute() {
   const isSubmitting = navigation.state === 'submitting'
 
   return (
-    <main className="min-h-dvh flex-1 bg-background px-4 py-6 text-foreground">
+    <main className="flex-1 bg-background px-4 py-6 text-foreground">
       <div className="mx-auto w-full max-w-2xl">
         <Form
           method="post"

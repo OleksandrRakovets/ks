@@ -32,7 +32,7 @@ export default function SparringRoute() {
   const { games } = useLoaderData<typeof loader>()
 
   return (
-    <main className="min-h-dvh flex-1 bg-background px-4 py-6 text-foreground">
+    <main className="flex-1 bg-background px-4 py-6 text-foreground">
       <div className="mx-auto w-full max-w-5xl">
         <div className="mb-6">
           <h1 className="text-3xl font-semibold tracking-tight">{t(keys.match.sparring.title)}</h1>

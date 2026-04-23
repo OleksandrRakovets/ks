@@ -13,7 +13,7 @@ export function ScoreBox({ nameA, nameB, framesWon, frameIndex, targetFrames }: 
   const { t } = useTranslation()
 
   return (
-    <div className="sticky top-14 z-10 border-b border-border bg-background px-4 pt-4 pb-3">
+    <div className="sticky top-11 z-10 border-b border-border bg-background px-4 pt-4 pb-3">
       <div className="mb-2 text-center text-xs text-muted-foreground tabular-nums">
         {framesWon.A} : {framesWon.B}&ensp;·&ensp;
         {t(keys.match.scoreboard.frame)} {frameIndex}&ensp;·&ensp; до {targetFrames} перемог

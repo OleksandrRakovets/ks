@@ -1,14 +1,4 @@
-import {
-  StrilaProtocolEntrySchema,
-  type StrilaCommand,
-  type StrilaFrameState,
-  type StrilaProtocolEntry,
-  type StrilaSeat,
-} from './definitions'
-
-function opponentOf(seat: StrilaSeat): StrilaSeat {
-  return seat === 'A' ? 'B' : 'A'
-}
+import { StrilaProtocolEntrySchema, type StrilaCommand, type StrilaFrameState, type StrilaProtocolEntry } from './definitions'
 
 function hasActor(command: StrilaCommand): command is Exclude<StrilaCommand, { type: 'frame.commence' }> {
   return command.type !== 'frame.commence'

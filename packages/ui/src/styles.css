@@ -7,7 +7,7 @@
 
 /* Shadcn semantic tokens — wired to Club Terminal vars */
 :root {
-  --background: var(--c-base);
+  --background: var(--c-deep);
   --foreground: var(--t-primary);
   --card: var(--c-raised);
   --card-foreground: var(--t-primary);
