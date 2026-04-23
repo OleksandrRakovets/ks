@@ -22,7 +22,7 @@ export function BurgerMenu() {
     <Sheet>
       <SheetTrigger asChild>
         <button
-          aria-label="Меню"
+          aria-label="Menu"
           className="flex h-10 w-10 items-center justify-center rounded-lg transition-colors hover:bg-black/10 active:bg-black/20"
         >
           <HamburgerIcon />
@@ -31,7 +31,7 @@ export function BurgerMenu() {
 
       <SheetContent aria-describedby={undefined}>
         <SheetHeader>
-          <SheetTitle>Меню</SheetTitle>
+          <SheetTitle>Play and Keep Score</SheetTitle>
           <SheetClose asChild>
             <button
               aria-label="Закрити"

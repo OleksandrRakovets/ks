@@ -156,7 +156,7 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
                   title={`${BALL_LABELS[ball] ?? ball}${isObjectBall ? ' (object)' : ''}`}
                 >
                   <span
-                    className={`inline-block h-5 w-5 rounded-full border ${isObjectBall ? 'ring-2 ring-[--ctp-green] ring-offset-1' : ''}`}
+                    className={`inline-block h-5 w-5 rounded-full border ${isObjectBall ? 'ring-2 ring-[--a-green] ring-offset-1' : ''}`}
                     style={{
                       backgroundColor: BALL_COLORS[ball] ?? '#D4D4D8',
                       borderColor: ball === 2 ? '#A16207' : '#27272A',

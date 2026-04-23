@@ -26,10 +26,7 @@ export function AppHeader() {
     }, null) ?? {}
 
   return (
-    <header
-      className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-2 px-3"
-      style={{ backgroundColor: 'var(--ctp-green)', color: 'var(--ctp-crust)' }}
-    >
+    <header className="text-hi sticky top-0 z-40 flex h-14 shrink-0 items-center gap-2 border-b border-divider bg-base px-3">
       <div className="w-10">
         {config.backTo ? (
           <Link
@@ -42,7 +39,7 @@ export function AppHeader() {
         ) : null}
       </div>
 
-      <div className="flex-1 truncate text-center text-sm font-semibold">{config.title ?? 'KS'}</div>
+      <div className="flex-1 truncate text-center font-medium">{config.title ?? 'Play & Keep Score'}</div>
 
       <div className="w-10">
         <BurgerMenu />

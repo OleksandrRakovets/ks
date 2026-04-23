@@ -58,8 +58,8 @@ export default function SparringMatchesRoute() {
                 </div>
                 <div className="shrink-0">
                   {match.status === 'active' ? (
-                    <span className="flex items-center gap-1.5 text-xs font-medium text-[--ctp-green]">
-                      <span className="h-1.5 w-1.5 rounded-full bg-[--ctp-green]" />
+                    <span className="flex items-center gap-1.5 text-xs font-medium text-[--a-green]">
+                      <span className="h-1.5 w-1.5 rounded-full bg-[--a-green]" />
                       Live
                     </span>
                   ) : (
