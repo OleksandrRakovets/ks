@@ -25,7 +25,7 @@
   --ball-shadow-selected: 0 0 0 3px var(--a-amber-dim), 0 3px 10px rgba(0,0,0,0.6);
 }
 
-.latte {
+.club-light {
   --c-deep:    oklch(96% 0.008 158);
   --c-base:    oklch(99% 0.004 158);
   --c-raised:  oklch(93% 0.010 158);
@@ -48,7 +48,7 @@
 }
 
 @media (prefers-color-scheme: light) {
-  :root:not(.dark) {
+  :root:not(.club-dark) {
     --c-deep:    oklch(96% 0.008 158);
     --c-base:    oklch(99% 0.004 158);
     --c-raised:  oklch(93% 0.010 158);

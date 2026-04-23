@@ -43,15 +43,15 @@ export function useRootLocale(): SupportedLocale {
 
 export function useRootTheme(): AppTheme {
   const data = useRouteLoaderData<RootLoaderData>('root')
-  return data?.theme ?? 'dark'
+  return data?.theme ?? 'club-dark'
 }
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const data = useRouteLoaderData<RootLoaderData>('root')
   const locale = data?.locale ?? 'uk'
-  const theme = data?.theme ?? 'dark'
+  const theme = data?.theme ?? 'club-dark'
 
-  const htmlClass = theme === 'light' ? 'latte' : theme === 'dark' ? 'dark' : ''
+  const htmlClass = theme === 'club-light' ? 'club-light' : theme === 'club-dark' ? 'club-dark' : ''
 
   return (
     <html lang={locale} className={htmlClass}>

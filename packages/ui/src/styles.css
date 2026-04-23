@@ -3,7 +3,7 @@
 @import './club-theme.css';
 @source './components/**/*.{ts,tsx}';
 
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark (&:is(.club-dark *));
 
 /* Shadcn semantic tokens — wired to Club Terminal vars */
 :root {

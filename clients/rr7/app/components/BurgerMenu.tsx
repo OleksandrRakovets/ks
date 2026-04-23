@@ -5,8 +5,8 @@ import { useRootTheme } from '../root'
 import type { AppTheme } from '../server/theme'
 
 const THEME_OPTIONS: { value: AppTheme; label: string }[] = [
-  { value: 'dark', label: 'Темна' },
-  { value: 'light', label: 'Світла' },
+  { value: 'club-dark', label: 'Темна' },
+  { value: 'club-light', label: 'Світла' },
   { value: 'auto', label: 'Авто' },
 ]
 

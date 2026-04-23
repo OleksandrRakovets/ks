@@ -1,6 +1,6 @@
 import { Badge, Button, Input, Label, Separator, Textarea } from '@ks/ui'
 import { useState } from 'react'
-import { Link, useFetcher } from 'react-router'
+import { useFetcher } from 'react-router'
 
 import { useRootTheme } from '../root'
 import type { AppTheme } from '../server/theme'
@@ -26,10 +26,13 @@ function SubSection({ label, children }: { label: string; children: React.ReactN
   )
 }
 
+export const handle = {
+  headerConfig: () => ({ title: 'UI Preview Lab', backTo: '/top-secret/preview' }),
+}
+
 export default function PreviewUiRoute() {
   const currentTheme = useRootTheme()
   const fetcher = useFetcher()
-  const [compact, setCompact] = useState(false)
 
   function setTheme(theme: AppTheme) {
     fetcher.submit({ theme }, { method: 'post', action: '/api/theme' })
@@ -38,23 +41,11 @@ export default function PreviewUiRoute() {
   return (
     <div className="min-h-dvh bg-background px-4 pb-12 text-foreground">
       <div className="mx-auto w-full max-w-3xl">
-        <header className="flex items-center justify-between border-b border-divider py-4">
-          <div>
-            <span className="text-sm font-semibold text-text-hi">UI Preview Lab</span>
-            <span className="ml-3 text-xs text-text-ghost">Club Terminal</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Link className="text-xs text-text-ghost underline-offset-4 hover:underline" to="/top-secret/preview">
-              Index
-            </Link>
-            <Button variant={compact ? 'default' : 'outline'} size="sm" onClick={() => setCompact(!compact)}>
-              Compact
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setTheme(currentTheme === 'light' ? 'dark' : 'light')}>
-              {currentTheme === 'light' ? 'Dark' : 'Light'}
-            </Button>
-          </div>
-        </header>
+        <div className="flex justify-end gap-2 py-4">
+          <Button variant="outline" size="sm" onClick={() => setTheme(currentTheme === 'club-light' ? 'club-dark' : 'club-light')}>
+            {currentTheme === 'club-light' ? 'Dark' : 'Light'}
+          </Button>
+        </div>
 
         <Section title="Buttons" description="All variants × sizes.">
           <SubSection label="Variants">
@@ -117,11 +108,7 @@ export default function PreviewUiRoute() {
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="operator-note">Operator note</Label>
-              <Textarea
-                id="operator-note"
-                defaultValue="Table 2 stream is delayed by 8 seconds."
-                className={compact ? 'min-h-12' : 'min-h-20'}
-              />
+              <Textarea id="operator-note" defaultValue="Table 2 stream is delayed by 8 seconds." className={'min-h-20'} />
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="ghost">Reset</Button>
