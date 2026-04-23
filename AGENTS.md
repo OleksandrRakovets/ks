@@ -25,6 +25,7 @@ KS is a billiards scorekeeping app for a local club. Core use case: two-player m
 - Local DB migrate: `bun run db:migrate:local`
 - Local DB seed: `bun run --cwd clients/rr7 db:seed:local`
 - Lint/format: `bun run lint`, `bun run lint:fix`, `bun run format`, `bun run format:check`
+  - Always make sure these are passing before making commits
 - Repo lint/format tooling is `oxlint` + `oxfmt` (Biome/Prettier are intentionally disabled).
 - Typecheck workspace graph: `bun run typecheck`
 - Typecheck rr7 app (also regenerates Wrangler + RR types): `bun run --cwd clients/rr7 typecheck`

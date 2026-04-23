@@ -1,4 +1,5 @@
-import { Button, Card, CardContent } from '@ks/ui'
+import { Button } from '@ks/ui'
+import { useState } from 'react'
 
 import type { MatchControlRendererProps } from './types'
 
@@ -12,105 +13,157 @@ function seatFromCommand(command: Record<string, unknown>): 'A' | 'B' | null {
 }
 
 export function PyramidControlRenderer(props: MatchControlRendererProps) {
-  const shotCommands = props.projection.availableCommands.filter((entry) => entry.commandType === 'pot.record')
-  const foulCommand = props.projection.availableCommands.find((entry) => entry.commandType === 'foul.commit')
+  const [showTertiary, setShowTertiary] = useState(false)
+
+  const shotCommands = props.projection.availableCommands.filter((c) => c.commandType === 'pot.record')
+  const foulCommand = props.projection.availableCommands.find((c) => c.commandType === 'foul.commit')
   const otherCommands = props.projection.availableCommands.filter(
-    (entry) => entry.commandType !== 'pot.record' && entry.commandType !== 'foul.commit',
+    (c) => c.commandType !== 'pot.record' && c.commandType !== 'foul.commit',
   )
-  const seatAName = props.participants.A.shortDisplayName
-  const seatBName = props.participants.B.shortDisplayName
-
-  const pointButtons = shotCommands
-    .map((command) => {
-      const value = command.command.points
-      if (typeof value !== 'number' || !Number.isInteger(value)) return null
-      return {
-        points: value,
-        label: command.label ?? `+${value}`,
-      }
-    })
-    .filter((value): value is { points: number; label: string } => value !== null)
-
-  function submitShot(seat: 'A' | 'B', points: number) {
-    const base = shotCommands[0]?.command ?? { seat }
-    props.onSubmitCommand({
-      commandType: 'pot.record',
-      command: {
-        ...base,
-        seat,
-        points,
-      },
-    })
-  }
-
-  function submitFoul(seat: 'A' | 'B') {
-    const base = foulCommand?.command ?? { seat }
-    props.onSubmitCommand({
-      commandType: 'foul.commit',
-      command: {
-        ...base,
-        seat,
-      },
-    })
-  }
+  const primaryOther = otherCommands.filter((c) => c.prominence === 'primary')
+  const secondaryOther = otherCommands.filter((c) => c.prominence === 'secondary')
+  const tertiaryOther = otherCommands.filter((c) => c.prominence === 'tertiary')
+  const hasTertiary = tertiaryOther.length > 0
 
   const seatCommandTemplate = shotCommands[0]?.command ?? foulCommand?.command
   const explicitSeat = seatCommandTemplate ? seatFromCommand(seatCommandTemplate) : null
   const seats: ('A' | 'B')[] = explicitSeat ? [explicitSeat] : ['A', 'B']
 
+  function submitShot(seat: 'A' | 'B', points: number) {
+    const base = shotCommands[0]?.command ?? { seat }
+    props.onSubmitCommand({ commandType: 'pot.record', command: { ...base, seat, points } })
+  }
+
+  function submitFoul(seat: 'A' | 'B') {
+    const base = foulCommand?.command ?? { seat }
+    props.onSubmitCommand({ commandType: 'foul.commit', command: { ...base, seat } })
+  }
+
   return (
-    <div className="grid gap-3">
-      {shotCommands.length > 0 || foulCommand ? (
-        <div className="grid gap-3 sm:grid-cols-2">
+    <div className="grid gap-4">
+      {(shotCommands.length > 0 || foulCommand) && (
+        <div className="grid grid-cols-2 gap-6">
           {seats.map((seat) => (
-            <Card key={seat}>
-              <CardContent className="grid gap-3 p-4">
-                <div className="text-sm text-muted-foreground">{seat === 'A' ? seatAName : seatBName}</div>
-                <div className="grid grid-cols-2 gap-2">
-                  {pointButtons.map((button) => (
-                    <Button key={button.label} type="button" onClick={() => submitShot(seat, button.points)}>
-                      {button.label}
-                    </Button>
-                  ))}
-                  {foulCommand ? (
-                    <Button type="button" variant="outline" onClick={() => submitFoul(seat)}>
-                      Foul
-                    </Button>
-                  ) : null}
+            <div key={seat} className="grid gap-2">
+              {shotCommands.length > 0 && (
+                <div style={{ display: 'grid', gridTemplateColumns: `repeat(${shotCommands.length}, 1fr)`, gap: '0.5rem' }}>
+                  {shotCommands.map((cmd) => {
+                    const points = cmd.command.points
+                    if (typeof points !== 'number' || !Number.isInteger(points)) return null
+                    return (
+                      <Button
+                        key={cmd.label ?? `+${points}`}
+                        type="button"
+                        variant={cmd.prominence === 'primary' ? 'default' : 'outline'}
+                        size="touch"
+                        onClick={() => submitShot(seat, points)}
+                      >
+                        {cmd.label ?? `+${points}`}
+                      </Button>
+                    )
+                  })}
                 </div>
-              </CardContent>
-            </Card>
+              )}
+              {foulCommand ? (
+                <Button type="button" variant="outline" className="h-auto px-3 py-2 text-sm" onClick={() => submitFoul(seat)}>
+                  {foulCommand.label ?? 'Фол'}
+                </Button>
+              ) : null}
+            </div>
           ))}
         </div>
-      ) : null}
+      )}
 
-      {otherCommands.length > 0 ? (
-        <div className="grid gap-2 sm:grid-cols-2">
-          {otherCommands.map((command, index) => {
-            const seat = seatFromCommand(command.command)
+      {primaryOther.map((command, index) => {
+        const seat = seatFromCommand(command.command)
+        const btn = (
+          <Button
+            key={`${command.commandType}-${index}`}
+            type="button"
+            size="touch"
+            onClick={() => props.onSubmitCommand({ commandType: command.commandType, command: command.command })}
+          >
+            <span className="flex flex-col items-start gap-0.5">
+              <span>{command.label ?? command.commandType}</span>
+              {command.helpText ? <span className="text-xs opacity-70">{command.helpText}</span> : null}
+              {command.warning ? <span className="text-xs text-destructive">{command.warning}</span> : null}
+            </span>
+          </Button>
+        )
+        if (seat === 'A')
+          return (
+            <div key={`${command.commandType}-${index}`} className="grid grid-cols-2 gap-6">
+              {btn}
+              <div />
+            </div>
+          )
+        if (seat === 'B')
+          return (
+            <div key={`${command.commandType}-${index}`} className="grid grid-cols-2 gap-6">
+              <div />
+              {btn}
+            </div>
+          )
+        return btn
+      })}
 
-            return (
+      {secondaryOther.map((command, index) => {
+        const seat = seatFromCommand(command.command)
+        const btn = (
+          <Button
+            key={`${command.commandType}-${index}`}
+            type="button"
+            variant="secondary"
+            className="h-auto px-3 py-2 text-sm"
+            onClick={() => props.onSubmitCommand({ commandType: command.commandType, command: command.command })}
+          >
+            <span className="flex flex-col items-start gap-0.5">
+              <span>{command.label ?? command.commandType}</span>
+              {command.helpText ? <span className="text-xs opacity-70">{command.helpText}</span> : null}
+              {command.warning ? <span className="text-xs text-destructive">{command.warning}</span> : null}
+            </span>
+          </Button>
+        )
+        if (seat === 'A')
+          return (
+            <div key={`${command.commandType}-${index}`} className="grid grid-cols-2 gap-6">
+              {btn}
+              <div />
+            </div>
+          )
+        if (seat === 'B')
+          return (
+            <div key={`${command.commandType}-${index}`} className="grid grid-cols-2 gap-6">
+              <div />
+              {btn}
+            </div>
+          )
+        return btn
+      })}
+
+      {hasTertiary && (
+        <div className="grid gap-3">
+          <button
+            type="button"
+            className="text-left text-xs text-muted-foreground transition-colors hover:text-foreground"
+            onClick={() => setShowTertiary((v) => !v)}
+          >
+            {showTertiary ? '▲ Сховати' : '··· Більше'}
+          </button>
+          {showTertiary &&
+            tertiaryOther.map((command, index) => (
               <Button
                 key={`${command.commandType}-${index}`}
                 type="button"
-                variant="secondary"
-                className="h-auto justify-start px-4 py-3 text-left"
+                variant="outline"
+                className="h-auto px-3 py-2 text-sm"
                 onClick={() => props.onSubmitCommand({ commandType: command.commandType, command: command.command })}
               >
-                <span className="flex flex-col items-start gap-1">
-                  <span>{command.label ?? command.commandType}</span>
-                  {seat ? <span className="text-xs text-muted-foreground">{seat === 'A' ? seatAName : seatBName}</span> : null}
-                  {command.helpText ? <span className="text-xs text-muted-foreground">{command.helpText}</span> : null}
-                  {command.effectSummary ? (
-                    <span className="text-xs text-muted-foreground">{command.effectSummary}</span>
-                  ) : null}
-                  {command.warning ? <span className="text-xs text-destructive">{command.warning}</span> : null}
-                </span>
+                {command.label ?? command.commandType}
               </Button>
-            )
-          })}
+            ))}
         </div>
-      ) : null}
+      )}
     </div>
   )
 }

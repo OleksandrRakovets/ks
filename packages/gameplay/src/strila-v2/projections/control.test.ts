@@ -19,8 +19,8 @@ describe('projection: control', () => {
       projection: 'control',
       score: { A: 0, B: 0 },
       availableCommands: [
-        { commandType: 'frame.commence', command: { actor: 'A' }, label: 'Break-off (A)' },
-        { commandType: 'frame.commence', command: { actor: 'B' }, label: 'Break-off (B)' },
+        { commandType: 'frame.commence', command: { actor: 'A' }, label: 'Break-off (A)', prominence: 'primary' },
+        { commandType: 'frame.commence', command: { actor: 'B' }, label: 'Break-off (B)', prominence: 'primary' },
       ],
       details: {
         phase: 'not-started',
@@ -46,18 +46,22 @@ describe('projection: control', () => {
         commandType: 'penalty.select',
         command: { actor: 'B', choice: 'play-from-position' },
         label: 'Play from position',
+        prominence: 'secondary',
         effectSummary: '+1 point',
       },
       {
         commandType: 'penalty.select',
         command: { actor: 'B', choice: 'pass-position' },
         label: 'Pass position',
+        prominence: 'secondary',
         effectSummary: '+1 point',
       },
       {
         commandType: 'penalty.select',
         command: { actor: 'B', choice: 'ball-in-hand' },
         label: 'Ball in hand',
+        prominence: 'secondary',
+        effectSummary: 'No points awarded',
       },
     ])
   })
@@ -90,6 +94,7 @@ describe('projection: control', () => {
       commandType: 'pot.record',
       command: { actor: 'A' },
       label: 'Record pot',
+      prominence: 'primary',
       helpText: 'A black pot wins. Any other potted result is treated as a foul.',
     })
     expect(view.availableCommands.map((entry) => entry.commandType)).toEqual([

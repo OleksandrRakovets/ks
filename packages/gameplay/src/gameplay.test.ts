@@ -30,6 +30,10 @@ describe('gameplay runtime api', () => {
         uk: 'Вільна піраміда',
         en: 'Free pyramid',
       },
+      description: {
+        uk: 'Удари по будь-якій кулі: +1, +2 або +4 очки. Фол — суперник +1.',
+        en: 'Pot any ball for +1, +2, or +4 points. Foul gives opponent +1.',
+      },
       inputMode: 'pyramid-basic',
       defaultFrameTargetPointsBySeat: { A: 8, B: 8 },
     })
@@ -41,6 +45,10 @@ describe('gameplay runtime api', () => {
         uk: 'Вільна піраміда з продовженням',
         en: 'Free pyramid (long)',
       },
+      description: {
+        uk: 'Вільна піраміда до 30 очок — довга партія для серйозної гри.',
+        en: 'Free pyramid to 30 points — extended frame for a serious game.',
+      },
       inputMode: 'pyramid-basic',
       defaultFrameTargetPointsBySeat: { A: 30, B: 30 },
     })
@@ -51,6 +59,10 @@ describe('gameplay runtime api', () => {
       title: {
         uk: 'Стріла',
         en: 'Strila',
+      },
+      description: {
+        uk: 'Класична стріла — чергування ходів, забивання кольорових куль.',
+        en: 'Classic Strila — alternating shots, potting coloured balls.',
       },
       inputMode: 'strila-basic',
       defaultFrameTargetPointsBySeat: { A: 9, B: 9 },
@@ -195,8 +207,8 @@ describe('gameplay runtime api', () => {
       projection: 'control',
       score: { A: 0, B: 0 },
       availableCommands: [
-        { commandType: 'frame.commence', command: { seat: 'A' }, label: 'Break-off (A)' },
-        { commandType: 'frame.commence', command: { seat: 'B' }, label: 'Break-off (B)' },
+        { commandType: 'frame.commence', command: { seat: 'A' }, label: 'Break-off (A)', prominence: 'primary' },
+        { commandType: 'frame.commence', command: { seat: 'B' }, label: 'Break-off (B)', prominence: 'primary' },
       ],
       details: {
         phase: 'not-started',
@@ -219,16 +231,17 @@ describe('gameplay runtime api', () => {
       projection: 'control',
       score: { A: 10, B: 2 },
       availableCommands: [
-        { commandType: 'pot.record', command: { points: 1 }, label: '+1' },
-        { commandType: 'pot.record', command: { points: 2 }, label: '+2' },
-        { commandType: 'pot.record', command: { points: 4 }, label: '+4' },
+        { commandType: 'pot.record', command: { points: 1 }, label: '+1', prominence: 'primary' },
+        { commandType: 'pot.record', command: { points: 2 }, label: '+2', prominence: 'secondary' },
+        { commandType: 'pot.record', command: { points: 4 }, label: '+4', prominence: 'secondary' },
         {
           commandType: 'foul.commit',
           command: {},
-          label: 'Foul',
+          label: 'Фол',
+          prominence: 'secondary',
           effectSummary: 'Opponent +1 point',
         },
-        { commandType: 'frame.award', command: { seat: 'A' }, label: 'Award frame' },
+        { commandType: 'frame.award', command: { seat: 'A' }, label: 'Award frame', prominence: 'primary' },
       ],
       details: {
         phase: 'open-play',
@@ -251,12 +264,13 @@ describe('gameplay runtime api', () => {
       projection: 'control',
       score: { A: 2, B: 1 },
       availableCommands: [
-        { commandType: 'pot.record', command: { points: 1 }, label: '+1' },
-        { commandType: 'pot.record', command: { points: 2 }, label: '+2' },
+        { commandType: 'pot.record', command: { points: 1 }, label: '+1', prominence: 'primary' },
+        { commandType: 'pot.record', command: { points: 2 }, label: '+2', prominence: 'secondary' },
         {
           commandType: 'foul.commit',
           command: {},
-          label: 'Foul',
+          label: 'Фол',
+          prominence: 'secondary',
           effectSummary: 'Offender -1 point (negative allowed)',
         },
       ],

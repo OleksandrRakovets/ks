@@ -13,6 +13,7 @@ import { StrilaGameplayRuntime } from './strila-v2/runtime'
 
 export type GameMeta = {
   title: LocalizedGameTitle
+  description: LocalizedGameTitle
   inputMode: GameInputMode
   defaultFrameTargetPointsBySeat: { A: number; B: number }
 }
@@ -20,6 +21,7 @@ export type GameMeta = {
 function createPyramidEntry(args: {
   gameKey: string
   title: LocalizedGameTitle
+  description: LocalizedGameTitle
   inputMode: GameInputMode
   allowNegative: boolean
   foulPenalty: 'opponent-plus-one' | 'offender-minus-one'
@@ -29,6 +31,7 @@ function createPyramidEntry(args: {
   return {
     meta: {
       title: args.title,
+      description: args.description,
       inputMode: args.inputMode,
       defaultFrameTargetPointsBySeat: args.defaultFrameTargetPointsBySeat,
     },
@@ -54,6 +57,10 @@ export const registry = {
         uk: 'Стріла',
         en: 'Strila',
       },
+      description: {
+        uk: 'Класична стріла — чергування ходів, забивання кольорових куль.',
+        en: 'Classic Strila — alternating shots, potting coloured balls.',
+      },
       inputMode: 'strila-basic',
       defaultFrameTargetPointsBySeat: { A: 9, B: 9 },
     },
@@ -64,6 +71,10 @@ export const registry = {
     title: {
       uk: 'Вільна піраміда',
       en: 'Free pyramid',
+    },
+    description: {
+      uk: 'Удари по будь-якій кулі: +1, +2 або +4 очки. Фол — суперник +1.',
+      en: 'Pot any ball for +1, +2, or +4 points. Foul gives opponent +1.',
     },
     inputMode: 'pyramid-basic',
     allowNegative: false,
@@ -77,6 +88,10 @@ export const registry = {
       uk: 'Вільна піраміда з продовженням',
       en: 'Free pyramid (long)',
     },
+    description: {
+      uk: 'Вільна піраміда до 30 очок — довга партія для серйозної гри.',
+      en: 'Free pyramid to 30 points — extended frame for a serious game.',
+    },
     inputMode: 'pyramid-basic',
     allowNegative: false,
     foulPenalty: 'opponent-plus-one',
@@ -89,6 +104,10 @@ export const registry = {
       uk: 'Комбінована піраміда',
       en: 'Combined pyramid',
     },
+    description: {
+      uk: 'Удари +1 або +2 очки. Фол — суперник +1.',
+      en: 'Pot for +1 or +2 points. Foul gives opponent +1.',
+    },
     inputMode: 'pyramid-basic',
     allowNegative: false,
     foulPenalty: 'opponent-plus-one',
@@ -100,6 +119,10 @@ export const registry = {
     title: {
       uk: 'Комбінована піраміда (старі правила)',
       en: 'Combined pyramid (old rules)',
+    },
+    description: {
+      uk: "Комбінована піраміда: фол — -1 порушнику, рахунок може бути від'ємним.",
+      en: 'Combined pyramid: foul deducts -1 from offender, score may go negative.',
     },
     inputMode: 'pyramid-basic',
     allowNegative: true,

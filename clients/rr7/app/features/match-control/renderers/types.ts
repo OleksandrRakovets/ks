@@ -11,6 +11,7 @@ export type GameControlProjection = {
     effectSummary?: string
     warning?: string
     helpText?: string
+    prominence: 'primary' | 'secondary' | 'tertiary'
   }>
   details?: unknown
 }
