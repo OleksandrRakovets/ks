@@ -23,6 +23,7 @@
   },
   "languages": {
     "JavaScript": {
+      "language_servers": ["oxlint", "!eslint", "..."],
       "format_on_save": "on",
       "prettier": {
         "allowed": false
@@ -32,13 +33,14 @@
           "language_server": {
             "name": "oxfmt"
           }
-        },
-        {
-          "code_action": "source.fixAll.oxc"
         }
-      ]
+      ],
+      "code_actions_on_format": {
+        "source.fixAll.oxc": true
+      }
     },
     "TypeScript": {
+      "language_servers": ["oxlint", "!eslint", "..."],
       "format_on_save": "on",
       "prettier": {
         "allowed": false
@@ -52,6 +54,7 @@
       ]
     },
     "TSX": {
+      "language_servers": ["oxlint", "!eslint", "..."],
       "format_on_save": "on",
       "prettier": {
         "allowed": false

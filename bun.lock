@@ -8,6 +8,7 @@
         "bun-types": "latest",
         "oxfmt": "^0.45.0",
         "oxlint": "^1.60.0",
+        "tailwindcss": "^4.2.2",
         "typescript": "^6.0.0",
       },
     },

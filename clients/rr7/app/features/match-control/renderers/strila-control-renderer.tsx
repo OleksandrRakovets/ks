@@ -66,7 +66,6 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
   const [showTertiary, setShowTertiary] = useState(false)
 
   const ballView = useMemo(() => strilaBallView(props.projection.details), [props.projection.details])
-  const selectableBalls = useMemo(() => [0, ...ballView.allColoredOnTable], [ballView.allColoredOnTable])
   const activeBallSet = useMemo(() => new Set(ballView.active), [ballView.active])
   const phase =
     props.projection.details && typeof props.projection.details === 'object'

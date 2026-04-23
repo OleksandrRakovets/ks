@@ -276,7 +276,7 @@ export default function SparringMatchProtocolRoute() {
   }, [protocolEntries, seatNames, snapshot.status])
 
   return (
-    <main className="mx-auto flex flex-1 flex-col lg:w-4xl">
+    <main className="mx-auto flex flex-1 flex-col bg-surface lg:w-4xl">
       <ScoreBox
         nameA={participants.A.displayName}
         nameB={participants.B.displayName}
@@ -287,7 +287,7 @@ export default function SparringMatchProtocolRoute() {
         targetFrames={snapshot.targets.matchTargetFrames}
       />
 
-      <div className="bg-surface px-4 py-3 pb-12">
+      <div className="px-4 py-3 pb-12">
         <ProtocolPanel rows={protocolRows} emptyLabel={t(keys.match.sparring.protocolEmpty)} />
       </div>
 

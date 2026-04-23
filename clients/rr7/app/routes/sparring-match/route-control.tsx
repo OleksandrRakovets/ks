@@ -308,7 +308,7 @@ export default function SparringMatchRoute() {
   }
 
   return (
-    <main className="mx-auto flex flex-1 flex-col lg:w-4xl">
+    <main className="mx-auto flex flex-1 flex-col bg-surface lg:w-4xl">
       <ScoreBox
         nameA={participants.A.displayName}
         nameB={participants.B.displayName}
@@ -319,7 +319,7 @@ export default function SparringMatchRoute() {
         targetFrames={snapshot.targets.matchTargetFrames}
       />
 
-      <div className="flex flex-col gap-3 bg-surface px-4 py-3">
+      <div className="flex flex-col gap-3 px-4 py-3">
         <Renderer
           projection={controlProjection}
           snapshot={snapshot}
