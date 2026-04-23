@@ -287,7 +287,7 @@ export default function SparringMatchProtocolRoute() {
         targetFrames={snapshot.targets.matchTargetFrames}
       />
 
-      <div className="px-4 py-3 pb-12">
+      <div className="bg-surface px-4 py-3 pb-12">
         <ProtocolPanel rows={protocolRows} emptyLabel={t(keys.match.sparring.protocolEmpty)} />
       </div>
 

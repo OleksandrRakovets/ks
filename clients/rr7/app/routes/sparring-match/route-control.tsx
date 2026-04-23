@@ -308,7 +308,7 @@ export default function SparringMatchRoute() {
   }
 
   return (
-    <main className="mx-auto flex flex-1 flex-col text-foreground lg:w-4xl">
+    <main className="mx-auto flex flex-1 flex-col lg:w-4xl">
       <ScoreBox
         nameA={participants.A.displayName}
         nameB={participants.B.displayName}

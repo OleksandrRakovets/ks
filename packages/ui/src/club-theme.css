@@ -71,7 +71,7 @@
 
 @theme inline {
   --color-deep: var(--c-deep);
-  --color-base: var(--c-base);
+  --color-surface: var(--c-base);
   --color-raised: var(--c-raised);
   --color-overlay: var(--c-overlay);
   --color-divider: var(--c-border);

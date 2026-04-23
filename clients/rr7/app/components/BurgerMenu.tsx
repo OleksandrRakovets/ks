@@ -21,7 +21,7 @@ export function BurgerMenu() {
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <button aria-label="Menu" className="flex h-11 items-center justify-center px-3 text-green">
+        <button aria-label="Menu" className="flex h-11 items-center justify-center px-4 text-green">
           <HamburgerIcon />
         </button>
       </SheetTrigger>

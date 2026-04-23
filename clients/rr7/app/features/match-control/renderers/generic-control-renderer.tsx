@@ -20,7 +20,7 @@ export function GenericControlRenderer(props: MatchControlRendererProps) {
           key={`${command.commandType}-${index}`}
           type="button"
           variant="secondary"
-          className="h-auto px-3 py-2 text-sm"
+          className="h-auto px-4 py-2 text-sm"
           onClick={() => props.onSubmitCommand({ commandType: command.commandType, command: command.command })}
         >
           <span className="flex flex-col items-start gap-0.5">
@@ -47,7 +47,7 @@ export function GenericControlRenderer(props: MatchControlRendererProps) {
                 key={`${command.commandType}-${index}`}
                 type="button"
                 variant="outline"
-                className="h-auto px-3 py-2 text-sm"
+                className="h-auto px-4 py-2 text-sm"
                 onClick={() => props.onSubmitCommand({ commandType: command.commandType, command: command.command })}
               >
                 {command.label ?? command.commandType}

@@ -34,7 +34,7 @@ export function ScoreBox({ nameA, nameB, matchStatus, matchScore, frameScore, fr
         <span className={cn('flex-1', { 'text-left': isLive, 'text-center': !isLive })}>до {targetFrames} перемог</span>
       </div>
 
-      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-x-3 px-3 py-3">
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-x-3 px-4 py-3">
         <span className={cn('line-clamp-2 font-semibold', { 'text-primary': isAWinner })}>{nameA}</span>
         <div className={cn('flex items-center', { 'text-amber': isLive })}>
           <span className={cn('text-center text-7xl font-bold tracking-tight tabular-nums', { 'text-primary': isAWinner })}>
@@ -43,7 +43,7 @@ export function ScoreBox({ nameA, nameB, matchStatus, matchScore, frameScore, fr
           <span className="mx-2 text-4xl font-extralight tracking-tight">:</span>
           <span className={cn('text-7xl font-bold tracking-tight tabular-nums', { 'text-primary': isBWinner })}>{numberB}</span>
         </div>
-        <span className={cn('line-clamp-2 text-center font-semibold', { 'text-primary': isBWinner })}>{nameB}</span>
+        <span className={cn('line-clamp-2 text-right font-semibold', { 'text-primary': isBWinner })}>{nameB}</span>
       </div>
     </div>
   )

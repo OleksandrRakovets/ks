@@ -242,7 +242,7 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
               key={seat}
               type="button"
               variant="secondary"
-              className="h-auto px-3 py-2 text-sm"
+              className="h-auto px-4 py-2 text-sm"
               onClick={() => submitSeatCommand(seat, command.commandType, command.command)}
             >
               <span className="flex flex-col items-center gap-0.5">
