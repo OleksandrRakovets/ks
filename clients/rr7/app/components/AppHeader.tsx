@@ -29,7 +29,7 @@ export function AppHeader() {
     <header className="sticky top-0 z-40 flex h-11 shrink-0 items-center justify-between border-b border-divider bg-deep ">
       <div className="w-10">
         {config.backTo ? (
-          <Link to={config.backTo} aria-label="Назад" className="flex h-11 items-center justify-center px-3 text-green">
+          <Link to={config.backTo} aria-label="Назад" className="flex h-11 items-center px-3 text-green">
             <BackArrowIcon />
           </Link>
         ) : null}

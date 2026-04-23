@@ -19,6 +19,7 @@
     "@ks/i18n": "workspace:*",
     "@ks/themes": "workspace:*",
     "@ks/ui": "workspace:*",
+    "classnames": "^2.5.1",
     "hono": "^4.12.14",
     "i18next": "^26.0.5",
     "isbot": "^5.1.38",

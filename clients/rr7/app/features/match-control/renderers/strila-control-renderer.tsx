@@ -5,15 +5,15 @@ import type { MatchControlRendererProps } from './types'
 
 const BALL_ORDER = [0, 1, 2, 3, 4, 5, 6, 7] as const
 
-const BALL_COLORS: Record<number, string> = {
-  0: '#F4F4F5',
-  1: '#C62828',
-  2: '#FDD835',
-  3: '#2E7D32',
-  4: '#6D4C41',
-  5: '#1565C0',
-  6: '#F8BBD0',
-  7: '#111827',
+const BALL_META: Record<number, { bg: string; border: string }> = {
+  0: { bg: '#F0EDE6', border: '#C0BDB5' },
+  1: { bg: '#C8102E', border: '#9E0E24' },
+  2: { bg: '#F5C518', border: '#C9A00E' },
+  3: { bg: '#00A550', border: '#008040' },
+  4: { bg: '#7B4F2E', border: '#5C3A1E' },
+  5: { bg: '#005EB8', border: '#004A92' },
+  6: { bg: '#E8729A', border: '#C85580' },
+  7: { bg: '#2a2a2a', border: '#555555' },
 }
 
 const BALL_LABELS: Record<number, string> = {
@@ -142,27 +142,38 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
     <div className="grid gap-4">
       {recordPot ? (
         <div className="grid gap-3">
-          <div className="flex flex-wrap justify-center gap-2">
-            {selectableBalls.map((ball) => {
-              const selected = selectedBalls.includes(ball)
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            {BALL_ORDER.map((ball) => {
+              const meta = BALL_META[ball] ?? { bg: '#D4D4D8', border: '#27272A' }
               const isObjectBall = ball !== 0 && activeBallSet.has(ball)
+              const isPotted = ball !== 0 && !ballView.allColoredOnTable.includes(ball)
+              const selected = selectedBalls.includes(ball) && !isPotted
+              const sz = ball === 0 || isObjectBall ? 40 : 32
               return (
-                <Button
+                <button
                   key={ball}
                   type="button"
-                  variant={selected ? 'secondary' : 'outline'}
-                  className="h-10 w-10 px-0"
+                  disabled={isPotted}
+                  title={`${BALL_LABELS[ball] ?? ball}${isObjectBall ? ' (object)' : ''}${isPotted ? ' (potted)' : ''}`}
                   onClick={() => toggleBall(ball)}
-                  title={`${BALL_LABELS[ball] ?? ball}${isObjectBall ? ' (object)' : ''}`}
-                >
-                  <span
-                    className={`inline-block h-5 w-5 rounded-full border ${isObjectBall ? 'ring-2 ring-[--a-green] ring-offset-1' : ''}`}
-                    style={{
-                      backgroundColor: BALL_COLORS[ball] ?? '#D4D4D8',
-                      borderColor: ball === 2 ? '#A16207' : '#27272A',
-                    }}
-                  />
-                </Button>
+                  style={{
+                    width: sz,
+                    height: sz,
+                    borderRadius: '50%',
+                    flexShrink: 0,
+                    cursor: isPotted ? 'not-allowed' : 'pointer',
+                    background: meta.bg,
+                    border: selected ? '2.5px solid var(--a-amber)' : `1.5px solid ${meta.border}`,
+                    boxShadow: selected
+                      ? '0 0 0 3px var(--a-amber-dim), 0 2px 8px rgba(0,0,0,0.6)'
+                      : isPotted
+                        ? 'none'
+                        : '0 2px 6px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.15)',
+                    opacity: isPotted ? 0.3 : 1,
+                    transition: 'box-shadow 0.1s, border-color 0.1s, opacity 0.2s',
+                    padding: 0,
+                  }}
+                />
               )
             })}
           </div>

@@ -280,7 +280,9 @@ export default function SparringMatchProtocolRoute() {
       <ScoreBox
         nameA={participants.A.displayName}
         nameB={participants.B.displayName}
-        framesWon={snapshot.framesWonBySeat}
+        matchScore={snapshot.framesWonBySeat}
+        frameScore={snapshot.frames[frameIndex - 1].pointsBySeat}
+        matchStatus={snapshot.status}
         frameIndex={frameIndex}
         targetFrames={snapshot.targets.matchTargetFrames}
       />

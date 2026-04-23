@@ -1,0 +1,1382 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Play & Keep Score — Design System</title>
+    <script
+      src="https://unpkg.com/react@18.3.1/umd/react.development.js"
+      integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js"
+      integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"
+      integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y"
+      crossorigin="anonymous"
+    ></script>
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      :root {
+        --c-deep: oklch(11% 0.022 158);
+        --c-base: oklch(16% 0.026 158);
+        --c-raised: oklch(20% 0.026 158);
+        --c-overlay: oklch(25% 0.022 158);
+        --c-border: oklch(28% 0.018 158);
+
+        --t-primary: oklch(95% 0.006 155);
+        --t-secondary: oklch(63% 0.01 155);
+        --t-muted: oklch(40% 0.008 155);
+
+        --a-green: oklch(60% 0.16 152);
+        --a-green-dim: oklch(60% 0.16 152 / 0.18);
+        --a-amber: oklch(78% 0.16 72);
+        --a-amber-dim: oklch(78% 0.16 72 / 0.14);
+        --a-red: oklch(60% 0.2 25);
+        --a-red-dim: oklch(60% 0.2 25 / 0.16);
+
+        --f-score: 80px;
+        --radius-btn: 4px;
+        --ball-shadow: 0 3px 10px rgba(0, 0, 0, 0.55), 0 1px 3px rgba(0, 0, 0, 0.4);
+        --ball-shadow-selected: 0 0 0 3px var(--a-amber-dim), 0 3px 10px rgba(0, 0, 0, 0.6);
+
+        --radius-input: 6px;
+        --font: system-ui, sans-serif;
+      }
+
+      [data-theme='light'] {
+        --c-deep: oklch(96% 0.008 158);
+        --c-base: oklch(99% 0.004 158);
+        --c-raised: oklch(93% 0.01 158);
+        --c-overlay: oklch(88% 0.014 158);
+        --c-border: oklch(80% 0.014 158);
+
+        --t-primary: oklch(13% 0.022 158);
+        --t-secondary: oklch(36% 0.016 158);
+        --t-muted: oklch(54% 0.012 158);
+
+        --a-green: oklch(38% 0.18 152);
+        --a-green-dim: oklch(38% 0.18 152 / 0.12);
+        --a-amber: oklch(58% 0.21 64);
+        --a-amber-dim: oklch(58% 0.21 64 / 0.15);
+        --a-red: oklch(44% 0.21 25);
+        --a-red-dim: oklch(44% 0.21 25 / 0.1);
+
+        --ball-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+        --ball-shadow-selected: 0 0 0 3px var(--a-amber-dim), 0 1px 4px rgba(0, 0, 0, 0.2);
+      }
+
+      html,
+      body {
+        background: var(--c-deep);
+        color: var(--t-primary);
+        font-family: var(--font);
+        height: 100%;
+      }
+      #root {
+        height: 100%;
+      }
+      ::-webkit-scrollbar {
+        width: 5px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: var(--c-border);
+        border-radius: 3px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="text/babel">
+      const { useState, useEffect } = React
+
+      const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/ {
+        scoreSize: 80,
+        btnRadius: 4,
+        accentHue: 150,
+        theme: 'dark',
+      } /*EDITMODE-END*/
+
+      /* ── Snooker balls ─────────────────────────────────────────── */
+      // size: full (38px) = object balls; sm (32px) = secondary balls ~16% smaller
+      // dimBg: color when potted/disabled
+      const BALLS = [
+        { id: 'white', label: 'Cue', bg: '#F0EDE6', border: '#C0BDB5', dimBg: '#4a4845', pts: 0, size: 'full' },
+        { id: 'red', label: 'Red', bg: '#C8102E', border: '#9E0E24', dimBg: '#3d1018', pts: 1, size: 'full' },
+        { id: 'yellow', label: 'Yellow', bg: '#F5C518', border: '#C9A00E', dimBg: '#3d3008', pts: 2, size: 'full' },
+        { id: 'green', label: 'Green', bg: '#00A550', border: '#008040', dimBg: '#0a2e18', pts: 3, size: 'sm' },
+        { id: 'brown', label: 'Brown', bg: '#7B4F2E', border: '#5C3A1E', dimBg: '#2a1a0e', pts: 4, size: 'sm' },
+        { id: 'blue', label: 'Blue', bg: '#005EB8', border: '#004A92', dimBg: '#091e38', pts: 5, size: 'sm' },
+        { id: 'pink', label: 'Pink', bg: '#E8729A', border: '#C85580', dimBg: '#38182a', pts: 6, size: 'sm' },
+        { id: 'black', label: 'Black', bg: '#2a2a2a', border: '#555', dimBg: '#1a1a1a', pts: 7, size: 'sm' },
+      ]
+
+      const INIT_LOG = [
+        { id: 1, player: 'B', action: 'penalty.select', score: '0:0', time: '13:08' },
+        { id: 2, player: 'A', action: 'foul.commit', score: '0:0', time: '12:59' },
+        { id: 3, player: 'A', action: 'frame.commence', score: '0:0', time: '23:29' },
+        { id: 4, player: null, action: 'Frame 2 started', score: '0:0', time: '23:25' },
+        { id: 5, player: 'B', action: 'frame.award', score: '8:11', time: '23:25' },
+        { id: 6, player: 'B', action: 'pot (cue)', score: '8:11', time: '23:03' },
+        { id: 7, player: 'B', action: 'pot (brown)', score: '8:10', time: '22:59' },
+        { id: 8, player: 'A', action: 'pot (cue)', score: '8:8', time: '22:59' },
+        { id: 9, player: 'A', action: 'pot (cue)', score: '7:8', time: '22:51' },
+        { id: 10, player: 'B', action: 'miss.record', score: '6:8', time: '22:51' },
+        { id: 11, player: 'B', action: 'penalty.select', score: '6:8', time: '22:51' },
+        { id: 12, player: 'A', action: 'pot (cue)', score: '6:8', time: '22:51' },
+        { id: 13, player: 'A', action: 'pot (cue)', score: '5:8', time: '22:51' },
+        { id: 14, player: 'B', action: 'pot (blue, cue)', score: '5:8', time: '22:50' },
+      ]
+
+      /* ── iOS Device Frame (inlined) ────────────────────────────── */
+      function PhoneFrame({ children, time = '21:08' }) {
+        const c = '#fff'
+        return (
+          <div
+            style={{
+              width: 320,
+              borderRadius: 44,
+              overflow: 'hidden',
+              position: 'relative',
+              background: '#000',
+              boxShadow:
+                '0 0 0 1px rgba(255,255,255,0.12), 0 0 0 8px #1a1a1a, 0 0 0 9px rgba(255,255,255,0.06), 0 32px 80px rgba(0,0,0,0.7)',
+              fontFamily: 'var(--font)',
+            }}
+          >
+            {/* Dynamic island */}
+            <div
+              style={{
+                position: 'absolute',
+                top: 10,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                width: 110,
+                height: 32,
+                borderRadius: 20,
+                background: '#000',
+                zIndex: 50,
+              }}
+            />
+            {/* Status bar */}
+            <div
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                zIndex: 40,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '17px 22px 0',
+                height: 54,
+                pointerEvents: 'none',
+              }}
+            >
+              <span style={{ fontSize: 15, fontWeight: 600, color: c, letterSpacing: '-0.3px' }}>{time}</span>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <svg width="16" height="10" viewBox="0 0 16 10">
+                  <rect x="0" y="6" width="2.5" height="4" rx="0.6" fill={c} />
+                  <rect x="4" y="4" width="2.5" height="6" rx="0.6" fill={c} />
+                  <rect x="8" y="2" width="2.5" height="8" rx="0.6" fill={c} />
+                  <rect x="12" y="0" width="2.5" height="10" rx="0.6" fill={c} />
+                </svg>
+                <svg width="15" height="11" viewBox="0 0 15 11">
+                  <path
+                    d="M7.5 2.8C9.4 2.8 11.1 3.5 12.4 4.8L13.3 3.9C11.7 2.3 9.7 1.3 7.5 1.3S3.3 2.3 1.7 3.9l.9.9C3.9 3.5 5.6 2.8 7.5 2.8z"
+                    fill={c}
+                  />
+                  <path
+                    d="M7.5 6C8.6 6 9.6 6.4 10.3 7.1L11.2 6.2C10.2 5.2 8.9 4.6 7.5 4.6S4.8 5.2 3.8 6.2l.9.9C5.4 6.4 6.4 6 7.5 6z"
+                    fill={c}
+                  />
+                  <circle cx="7.5" cy="9.5" r="1.4" fill={c} />
+                </svg>
+                <svg width="24" height="12" viewBox="0 0 24 12">
+                  <rect x="0.5" y="0.5" width="20" height="11" rx="3.5" stroke={c} strokeOpacity="0.35" fill="none" />
+                  <rect x="2" y="2" width="17" height="8" rx="2" fill={c} />
+                  <path d="M22 4v4c.7-.3 1.2-1 1.2-2s-.5-1.7-1.2-2z" fill={c} fillOpacity="0.4" />
+                </svg>
+              </div>
+            </div>
+            {/* Content */}
+            <div style={{ height: 418, display: 'flex', flexDirection: 'column', paddingTop: 54 }}>{children}</div>
+            {/* Home indicator */}
+            <div
+              style={{
+                height: 28,
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                background: 'var(--c-deep)',
+              }}
+            >
+              <div style={{ width: 120, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.25)' }} />
+            </div>
+          </div>
+        )
+      }
+
+      /* ── Score Zone ────────────────────────────────────────────── */
+      function ScoreZone({ scoreA, scoreB, frameA, frameB }) {
+        return (
+          <div
+            style={{
+              background: 'var(--c-deep)',
+              borderBottom: '1px solid var(--c-border)',
+              padding: '12px 0 14px',
+              flexShrink: 0,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {/* Player A */}
+              <div style={{ flex: 1, textAlign: 'center', padding: '0 8px' }}>
+                <div
+                  style={{ fontSize: 14, fontWeight: 600, color: 'var(--t-primary)', lineHeight: 1.3, wordBreak: 'break-word' }}
+                >
+                  Костянтин Кулик
+                </div>
+              </div>
+              {/* Score — both always amber, like a real scoreboard */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
+                <span
+                  style={{
+                    fontSize: 'var(--f-score)',
+                    fontWeight: 800,
+                    lineHeight: 1,
+                    fontVariantNumeric: 'tabular-nums',
+                    color: 'var(--a-amber)',
+                    minWidth: 46,
+                    textAlign: 'right',
+                    display: 'block',
+                  }}
+                >
+                  {scoreA}
+                </span>
+                <span style={{ fontSize: 36, fontWeight: 200, color: 'var(--c-border)', margin: '0 5px', lineHeight: 1 }}>
+                  :
+                </span>
+                <span
+                  style={{
+                    fontSize: 'var(--f-score)',
+                    fontWeight: 800,
+                    lineHeight: 1,
+                    fontVariantNumeric: 'tabular-nums',
+                    color: 'var(--a-amber)',
+                    minWidth: 46,
+                    display: 'block',
+                  }}
+                >
+                  {scoreB}
+                </span>
+              </div>
+              {/* Player B */}
+              <div style={{ flex: 1, textAlign: 'center', padding: '0 8px' }}>
+                <div
+                  style={{ fontSize: 14, fontWeight: 600, color: 'var(--t-primary)', lineHeight: 1.3, wordBreak: 'break-word' }}
+                >
+                  Владислав Косогов
+                </div>
+              </div>
+            </div>
+            <div
+              style={{
+                textAlign: 'center',
+                marginTop: 6,
+                fontSize: 14,
+                fontWeight: 600,
+                color: 'var(--t-secondary)',
+                fontVariantNumeric: 'tabular-nums',
+              }}
+            >
+              {frameA} : {frameB}
+            </div>
+          </div>
+        )
+      }
+
+      /* ── Action Button ─────────────────────────────────────────── */
+      function ABtn({ label, variant = 'secondary', active, onClick }) {
+        const [down, setDown] = useState(false)
+        const bg =
+          variant === 'primary'
+            ? active
+              ? 'var(--a-green)'
+              : 'var(--c-raised)'
+            : variant === 'danger'
+              ? 'var(--a-red-dim)'
+              : 'var(--c-raised)'
+        const color =
+          variant === 'primary'
+            ? active
+              ? '#fff'
+              : 'var(--t-muted)'
+            : variant === 'danger'
+              ? 'var(--a-red)'
+              : 'var(--t-secondary)'
+        return (
+          <button
+            onPointerDown={() => setDown(true)}
+            onPointerUp={() => setDown(false)}
+            onPointerLeave={() => setDown(false)}
+            onClick={onClick}
+            style={{
+              background: bg,
+              color,
+              border: 'none',
+              padding: '14px 8px',
+              borderRadius: 'var(--radius-btn)',
+              fontSize: 14,
+              fontWeight: 600,
+              letterSpacing: '0.02em',
+              cursor: 'pointer',
+              fontFamily: 'var(--font)',
+              transform: down ? 'scale(0.96)' : 'scale(1)',
+              opacity: down ? 0.8 : 1,
+              transition: 'transform 0.08s, opacity 0.08s',
+            }}
+          >
+            {label}
+          </button>
+        )
+      }
+
+      /* ── Collapsible Details ───────────────────────────────────── */
+      function Details({ summary, children }) {
+        const [open, setOpen] = useState(false)
+        return (
+          <div style={{ borderTop: '1px solid var(--c-border)', marginTop: 14 }}>
+            <button
+              onClick={() => setOpen((o) => !o)}
+              style={{
+                width: '100%',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                padding: '10px 0',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                color: 'var(--t-muted)',
+                fontSize: 13,
+                fontWeight: 600,
+                letterSpacing: '0.06em',
+                textTransform: 'uppercase',
+                fontFamily: 'var(--font)',
+              }}
+            >
+              <span>{summary}</span>
+              <svg
+                width="12"
+                height="8"
+                viewBox="0 0 12 8"
+                fill="none"
+                style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.18s' }}
+              >
+                <path d="M1 1l5 5 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+            {open && <div style={{ paddingBottom: 12 }}>{children}</div>}
+          </div>
+        )
+      }
+
+      /* ── Controls Tab ──────────────────────────────────────────── */
+      function ControlsTab({ onPot, onMiss, onFoul, pottedBalls }) {
+        const [ball, setBall] = useState(null)
+        const hasFoulRisk = ball === 'white'
+
+        return (
+          <div style={{ flex: 1, overflowY: 'auto', padding: '14px 10px 10px' }}>
+            {/* Ball selector */}
+            <div style={{ marginBottom: 14 }}>
+              <div
+                style={{
+                  fontSize: 12,
+                  fontWeight: 700,
+                  letterSpacing: '0.1em',
+                  textTransform: 'uppercase',
+                  color: 'var(--t-muted)',
+                  marginBottom: 10,
+                }}
+              >
+                Куля
+              </div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                {BALLS.map((b) => {
+                  const potted = pottedBalls.has(b.id)
+                  const sz = b.size === 'sm' ? 32 : 38
+                  const selected = ball === b.id && !potted
+                  return (
+                    <button
+                      key={b.id}
+                      disabled={potted}
+                      onClick={() => setBall(ball === b.id ? null : b.id)}
+                      style={{
+                        width: sz,
+                        height: sz,
+                        borderRadius: '50%',
+                        flexShrink: 0,
+                        cursor: potted ? 'not-allowed' : 'pointer',
+                        background: potted ? b.dimBg : b.bg,
+                        border: selected
+                          ? '2.5px solid var(--a-amber)'
+                          : potted
+                            ? `1.5px solid ${b.dimBg}`
+                            : `1.5px solid ${b.border}`,
+                        boxShadow: selected
+                          ? '0 0 0 3px var(--a-amber-dim), 0 2px 8px rgba(0,0,0,0.6)'
+                          : potted
+                            ? 'none'
+                            : '0 2px 6px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.15)',
+                        opacity: potted ? 0.35 : 1,
+                        transition: 'box-shadow 0.1s, border-color 0.1s, opacity 0.2s',
+                      }}
+                    />
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Foul warning — prominent when cue ball is selected */}
+            <div
+              style={{
+                marginBottom: 14,
+                padding: hasFoulRisk ? '10px 14px' : '0 14px',
+                background: hasFoulRisk ? 'var(--a-red-dim)' : 'transparent',
+                border: hasFoulRisk ? '1px solid var(--a-red)' : '1px solid transparent',
+                borderRadius: 'var(--radius-input)',
+                overflow: 'hidden',
+                maxHeight: hasFoulRisk ? 80 : 0,
+                transition: 'max-height 0.2s ease, padding 0.2s ease, border-color 0.2s ease',
+              }}
+            >
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--a-red)', lineHeight: 1.5 }}>
+                ⚠ Кий-куля та кольорові кулі разом вважаються фолом.
+              </div>
+            </div>
+
+            <div style={{ height: 1, background: 'var(--c-border)', marginBottom: 14 }} />
+
+            {/* Action grid — no A/B labels, columns speak for themselves */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', rowGap: 8, columnGap: 16 }}>
+              <ABtn label="Записати пот" variant="primary" active={true} onClick={() => onPot('A', ball)} />
+              <ABtn label="Записати пот" variant="primary" active={true} onClick={() => onPot('B', ball)} />
+              <ABtn label="Промах" variant="secondary" onClick={() => onMiss('A')} />
+              <ABtn label="Промах" variant="secondary" onClick={() => onMiss('B')} />
+              <ABtn label="Фол" variant="danger" onClick={() => onFoul('A')} />
+              <ABtn label="Фол" variant="danger" onClick={() => onFoul('B')} />
+            </div>
+
+            <div style={{ height: 1, background: 'var(--c-border)', margin: '14px 0 0' }} />
+
+            <Details summary="Додатково">
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', rowGap: 8, columnGap: 16 }}>
+                <ABtn label="Здатись" variant="danger" onClick={() => onFoul('A')} />
+                <ABtn label="Здатись" variant="danger" onClick={() => onFoul('B')} />
+                <ABtn label="Перегравання" variant="secondary" onClick={() => {}} />
+                <ABtn label="Перегравання" variant="secondary" onClick={() => {}} />
+              </div>
+            </Details>
+
+            <button
+              style={{
+                width: '100%',
+                padding: '10px',
+                marginTop: 14,
+                background: 'none',
+                fontFamily: 'var(--font)',
+                border: '1px solid var(--c-border)',
+                borderRadius: 'var(--radius-btn)',
+                color: 'var(--t-muted)',
+                fontSize: 13,
+                fontWeight: 600,
+                letterSpacing: '0.06em',
+                textTransform: 'uppercase',
+                cursor: 'pointer',
+              }}
+            >
+              Завершити фрейм
+            </button>
+          </div>
+        )
+      }
+
+      /* ── Protocol Tab ──────────────────────────────────────────── */
+      function ProtocolTab({ log }) {
+        const names = { A: 'К. Кулик', B: 'В. Косогов' }
+        return (
+          <div style={{ flex: 1, overflowY: 'auto' }}>
+            {log.map((e, i) => (
+              <div
+                key={e.id}
+                style={{
+                  padding: '8px 12px',
+                  borderBottom: '1px solid var(--c-border)',
+                  display: 'flex',
+                  alignItems: 'baseline',
+                  justifyContent: 'space-between',
+                  background: i % 2 === 0 ? 'transparent' : 'oklch(0% 0 0 / 0.07)',
+                }}
+              >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontSize: 14,
+                      lineHeight: 1.4,
+                      color: e.player ? 'var(--t-primary)' : 'var(--t-secondary)',
+                      fontWeight: e.player ? 400 : 600,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {e.player ? (
+                      <>
+                        <span style={{ color: 'var(--t-muted)' }}>{names[e.player]}: </span>
+                        {e.action}
+                      </>
+                    ) : (
+                      e.action
+                    )}
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--t-muted)', marginTop: 1, fontVariantNumeric: 'tabular-nums' }}>
+                    {e.score}
+                  </div>
+                </div>
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: 'var(--t-muted)',
+                    marginLeft: 10,
+                    flexShrink: 0,
+                    fontVariantNumeric: 'tabular-nums',
+                  }}
+                >
+                  {e.time}
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      }
+
+      /* ── Match Screen ──────────────────────────────────────────── */
+      function MatchScreen() {
+        const [tab, setTab] = useState('controls')
+        const [sA, setSA] = useState(0)
+        const [sB, setSB] = useState(0)
+        const [fA] = useState(0)
+        const [fB] = useState(1)
+        const [log, setLog] = useState(INIT_LOG)
+        const [pottedBalls, setPottedBalls] = useState(new Set())
+
+        const addLog = (player, action) => {
+          const score = `${sA}:${sB}`
+          const time = new Date().toLocaleTimeString('uk', { hour: '2-digit', minute: '2-digit' })
+          setLog((l) => [{ id: Date.now(), player, action, score, time }, ...l])
+        }
+
+        const onPot = (player, ballId) => {
+          const b = BALLS.find((x) => x.id === ballId) || BALLS[0]
+          const pts = b.pts || 1
+          if (player === 'A') setSA((s) => s + pts)
+          else setSB((s) => s + pts)
+          addLog(player, `pot (${b.label.toLowerCase()})`)
+          if (b.id !== 'white') setPottedBalls((s) => new Set([...s, b.id]))
+        }
+        const onMiss = (player) => {
+          addLog(player, 'miss.record')
+        }
+        const onFoul = (player) => {
+          addLog(player, 'foul.commit')
+        }
+
+        return (
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              height: '100%',
+              background: 'var(--c-base)',
+              color: 'var(--t-primary)',
+              fontFamily: 'var(--font)',
+              overflow: 'hidden',
+            }}
+          >
+            {/* Header */}
+            <div
+              style={{
+                background: 'var(--c-deep)',
+                borderBottom: '1px solid var(--c-border)',
+                height: 44,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '0 12px',
+                flexShrink: 0,
+              }}
+            >
+              <button
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--a-green)', padding: '6px 2px' }}
+              >
+                <svg width="7" height="12" viewBox="0 0 7 12" fill="none">
+                  <path d="M6 1L1 6l5 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+              <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--t-primary)', letterSpacing: '0.01em' }}>
+                Спаринг: Стріла
+              </span>
+              <button
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--a-green)', padding: '6px 2px' }}
+              >
+                <svg width="16" height="12" viewBox="0 0 16 12" fill="none">
+                  <path d="M0 1h16M0 6h16M0 11h16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Meta strip */}
+            <div
+              style={{
+                background: 'var(--c-deep)',
+                borderBottom: '1px solid var(--c-border)',
+                padding: '5px 12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                flexShrink: 0,
+              }}
+            >
+              <span style={{ fontSize: 14, color: 'var(--t-secondary)', fontWeight: 600 }}>Фрейм 2</span>
+              <div style={{ width: 3, height: 3, borderRadius: '50%', background: 'var(--c-border)' }} />
+              <span style={{ fontSize: 14, color: 'var(--t-muted)' }}>до 2 перемог</span>
+            </div>
+
+            <ScoreZone scoreA={sA} scoreB={sB} frameA={fA} frameB={fB} />
+
+            {tab === 'controls' ? (
+              <ControlsTab onPot={onPot} onMiss={onMiss} onFoul={onFoul} pottedBalls={pottedBalls} />
+            ) : (
+              <ProtocolTab log={log} />
+            )}
+
+            {/* Tab bar */}
+            <div
+              style={{
+                display: 'flex',
+                borderTop: '1px solid var(--c-border)',
+                background: 'var(--c-deep)',
+                flexShrink: 0,
+                height: 48,
+              }}
+            >
+              {['controls', 'protocol'].map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setTab(t)}
+                  style={{
+                    flex: 1,
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    position: 'relative',
+                    fontSize: 14,
+                    fontWeight: 600,
+                    letterSpacing: '0.04em',
+                    textTransform: 'uppercase',
+                    color: tab === t ? 'var(--a-green)' : 'var(--t-muted)',
+                    fontFamily: 'var(--font)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  {tab === t && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: '20%',
+                        right: '20%',
+                        height: 2,
+                        background: 'var(--a-green)',
+                        borderRadius: '0 0 2px 2px',
+                      }}
+                    />
+                  )}
+                  {t === 'controls' ? 'Керування' : 'Протокол'}
+                </button>
+              ))}
+            </div>
+          </div>
+        )
+      }
+
+      /* ── Design Spec Panel ─────────────────────────────────────── */
+      const PALETTE = [
+        { name: 'Deep', dark: 'oklch(11% 0.022 158)', light: 'oklch(96% 0.008 158)', desc: 'Page BG, chrome' },
+        { name: 'Base', dark: 'oklch(16% 0.026 158)', light: 'oklch(99% 0.004 158)', desc: 'Main surface' },
+        { name: 'Raised', dark: 'oklch(20% 0.026 158)', light: 'oklch(93% 0.010 158)', desc: 'Panels, buttons' },
+        { name: 'Overlay', dark: 'oklch(25% 0.022 158)', light: 'oklch(88% 0.014 158)', desc: 'Hover / selected' },
+        { name: 'Border', dark: 'oklch(28% 0.018 158)', light: 'oklch(80% 0.014 158)', desc: 'Dividers' },
+        { name: 'Text primary', dark: 'oklch(95% 0.006 155)', light: 'oklch(13% 0.022 158)', desc: 'Labels, headings' },
+        { name: 'Text secondary', dark: 'oklch(63% 0.010 155)', light: 'oklch(36% 0.016 158)', desc: 'Supporting copy' },
+        { name: 'Text muted', dark: 'oklch(40% 0.008 155)', light: 'oklch(54% 0.012 158)', desc: 'Timestamps, hints' },
+        {
+          name: 'Baize Green',
+          dark: 'oklch(60% 0.160 152)',
+          light: 'oklch(38% 0.180 152)',
+          desc: 'Primary actions, active tab',
+        },
+        { name: 'Amber', dark: 'oklch(78% 0.160 72)', light: 'oklch(58% 0.210 64)', desc: 'Scores, active callout' },
+        { name: 'Red', dark: 'oklch(60% 0.200 25)', light: 'oklch(44% 0.210 25)', desc: 'Foul, destructive' },
+      ]
+
+      const TYPE_SCALE = [
+        { name: 'Score', sz: '80px', wt: 800, sample: '14', note: 'tabular-nums · lh 1' },
+        { name: 'Heading', sz: '22px', wt: 700, sample: 'Спаринг: Стріла', note: '' },
+        { name: 'Title', sz: '16px', wt: 600, sample: 'Фрейм 2', note: '' },
+        { name: 'Body', sz: '14px', wt: 400, sample: 'Костянтин Кулик: pot (cue)', note: '' },
+        { name: 'Label', sz: '11px', wt: 700, sample: 'АТАКУЄ', note: 'uppercase · ls 0.12em' },
+        { name: 'Micro', sz: '10px', wt: 500, sample: '13:08', note: 'tabular-nums' },
+      ]
+
+      function Swatch({ color }) {
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+            {/* Dark swatch */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, flexShrink: 0 }}>
+              <div
+                style={{
+                  width: 26,
+                  height: 26,
+                  borderRadius: 3,
+                  background: color.dark,
+                  border: '1px solid oklch(100% 0 0 / 0.08)',
+                }}
+              />
+              <span style={{ fontSize: 9, color: 'var(--t-muted)', letterSpacing: '0.04em' }}>D</span>
+            </div>
+            {/* Light swatch */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, flexShrink: 0 }}>
+              <div
+                style={{
+                  width: 26,
+                  height: 26,
+                  borderRadius: 3,
+                  background: color.light,
+                  border: '1px solid oklch(50% 0 0 / 0.15)',
+                }}
+              />
+              <span style={{ fontSize: 9, color: 'var(--t-muted)', letterSpacing: '0.04em' }}>L</span>
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, color: 'var(--t-secondary)', lineHeight: 1.3 }}>
+                {color.name}
+                <span style={{ color: 'var(--t-muted)', marginLeft: 6, fontSize: 12 }}>— {color.desc}</span>
+              </div>
+              <div
+                style={{
+                  fontSize: 10,
+                  color: 'var(--t-muted)',
+                  fontFamily: 'ui-monospace,monospace',
+                  marginTop: 2,
+                  lineHeight: 1.6,
+                }}
+              >
+                <span style={{ color: 'var(--t-secondary)' }}>D</span> {color.dark}
+                <br />
+                <span style={{ color: 'var(--t-secondary)' }}>L</span> {color.light}
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      function SectionHead({ children }) {
+        return (
+          <div
+            style={{
+              fontSize: 9,
+              fontWeight: 700,
+              letterSpacing: '0.16em',
+              textTransform: 'uppercase',
+              color: 'var(--t-muted)',
+              marginBottom: 12,
+              paddingBottom: 6,
+              borderBottom: '1px solid var(--c-border)',
+            }}
+          >
+            {children}
+          </div>
+        )
+      }
+
+      function SpecPanel() {
+        return (
+          <div style={{ padding: '28px 24px', color: 'var(--t-primary)', fontFamily: 'var(--font)' }}>
+            {/* Rationale */}
+            <div style={{ marginBottom: 32 }}>
+              <SectionHead>Aesthetic Rationale</SectionHead>
+              <p style={{ fontSize: 13, color: 'var(--t-secondary)', lineHeight: 1.75, marginBottom: 10 }}>
+                <strong style={{ color: 'var(--t-primary)' }}>Club Terminal</strong> — the visual language of a serious local
+                billiards club, not a consumer app. Dark baize-green surfaces recall the felt under the lights. Giant tabular
+                score numerals borrow from analog scoreboards. Amber callout marks the active player with zero ambiguity from
+                across the room.
+              </p>
+              <p style={{ fontSize: 13, color: 'var(--t-secondary)', lineHeight: 1.75 }}>
+                Ruled lines replace card soup — less chrome, more information density. No Google Fonts, no shadows, no
+                gradients. Everything is system-font weight and OKLCH color, so it maps directly to Tailwind v4{' '}
+                <code
+                  style={{
+                    fontFamily: 'ui-monospace,monospace',
+                    fontSize: 12,
+                    background: 'var(--c-raised)',
+                    padding: '1px 4px',
+                    borderRadius: 3,
+                  }}
+                >
+                  @theme
+                </code>{' '}
+                tokens.
+              </p>
+            </div>
+
+            {/* Palette */}
+            <div style={{ marginBottom: 32 }}>
+              <SectionHead>Color Palette</SectionHead>
+              {PALETTE.map((p) => (
+                <Swatch key={p.name} color={p} />
+              ))}
+            </div>
+
+            {/* Type scale */}
+            <div style={{ marginBottom: 32 }}>
+              <SectionHead>Type Scale — System Font Only</SectionHead>
+              <div
+                style={{
+                  fontFamily: 'ui-monospace,monospace',
+                  fontSize: 10,
+                  color: 'var(--t-muted)',
+                  marginBottom: 14,
+                  lineHeight: 1.5,
+                }}
+              >
+                -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif
+              </div>
+              {TYPE_SCALE.map((t) => (
+                <div key={t.name} style={{ display: 'flex', alignItems: 'flex-end', gap: 12, marginBottom: 16 }}>
+                  <div style={{ width: 56, flexShrink: 0 }}>
+                    <div style={{ fontSize: 11, color: 'var(--t-muted)' }}>{t.name}</div>
+                    <div style={{ fontSize: 9, color: 'var(--t-muted)', fontFamily: 'ui-monospace,monospace', marginTop: 1 }}>
+                      {t.sz}/{t.wt}
+                    </div>
+                    {t.note && (
+                      <div
+                        style={{
+                          fontSize: 9,
+                          color: 'oklch(40% 0.008 155 / 0.6)',
+                          fontFamily: 'ui-monospace,monospace',
+                          marginTop: 1,
+                          lineHeight: 1.4,
+                        }}
+                      >
+                        {t.note}
+                      </div>
+                    )}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: t.sz,
+                      fontWeight: t.wt,
+                      color: 'var(--t-primary)',
+                      lineHeight: 1,
+                      fontVariantNumeric: t.name === 'Score' || t.name === 'Micro' ? 'tabular-nums' : 'normal',
+                      letterSpacing: t.name === 'Label' ? '0.12em' : 'normal',
+                      textTransform: t.name === 'Label' ? 'uppercase' : 'none',
+                      overflow: 'hidden',
+                      maxWidth: 280,
+                      whiteSpace: 'nowrap',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {t.sample}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Components */}
+            <div style={{ marginBottom: 32 }}>
+              <SectionHead>Components</SectionHead>
+
+              <div
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: '0.1em',
+                  textTransform: 'uppercase',
+                  color: 'var(--t-muted)',
+                  marginBottom: 8,
+                }}
+              >
+                Buttons
+              </div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20 }}>
+                {[
+                  { l: 'Primary', bg: 'var(--a-green)', c: '#fff', b: 'none' },
+                  { l: 'Secondary', bg: 'var(--c-raised)', c: 'var(--t-secondary)', b: 'none' },
+                  { l: 'Danger', bg: 'var(--a-red-dim)', c: 'var(--a-red)', b: 'none' },
+                  { l: 'Ghost', bg: 'none', c: 'var(--t-muted)', b: '1px solid var(--c-border)' },
+                ].map((btn) => (
+                  <div
+                    key={btn.l}
+                    style={{
+                      padding: '14px 18px',
+                      background: btn.bg,
+                      color: btn.c,
+                      border: btn.b,
+                      borderRadius: 'var(--radius-btn)',
+                      fontSize: 14,
+                      fontWeight: 600,
+                      letterSpacing: '0.02em',
+                      cursor: 'default',
+                    }}
+                  >
+                    {btn.l}
+                  </div>
+                ))}
+              </div>
+
+              <div
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: '0.1em',
+                  textTransform: 'uppercase',
+                  color: 'var(--t-muted)',
+                  marginBottom: 8,
+                }}
+              >
+                List rows (no cards — ruled only)
+              </div>
+              <div style={{ border: '1px solid var(--c-border)', borderRadius: 4, overflow: 'hidden', marginBottom: 20 }}>
+                {['Стріла', 'Вільна піраміда', 'Комбінована піраміда'].map((item, i) => (
+                  <div
+                    key={item}
+                    style={{
+                      padding: '10px 14px',
+                      borderBottom: i < 2 ? '1px solid var(--c-border)' : 'none',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      background: i === 1 ? 'var(--c-overlay)' : 'var(--c-raised)',
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: 13,
+                        fontWeight: i === 1 ? 600 : 400,
+                        color: i === 1 ? 'var(--t-primary)' : 'var(--t-secondary)',
+                      }}
+                    >
+                      {item}
+                    </div>
+                    {i === 0 && (
+                      <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--a-green)', letterSpacing: '0.1em' }}>
+                        LIVE
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: '0.1em',
+                  textTransform: 'uppercase',
+                  color: 'var(--t-muted)',
+                  marginBottom: 8,
+                }}
+              >
+                Inputs
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 24 }}>
+                <input
+                  readOnly
+                  value="Костянтин Кулик"
+                  style={{
+                    background: 'var(--c-raised)',
+                    border: '1px solid var(--c-border)',
+                    borderRadius: 'var(--radius-input)',
+                    padding: '8px 11px',
+                    color: 'var(--t-primary)',
+                    fontSize: 13,
+                    fontFamily: 'var(--font)',
+                    outline: 'none',
+                  }}
+                />
+                <input
+                  readOnly
+                  value="Focused state"
+                  style={{
+                    background: 'var(--c-raised)',
+                    border: '1px solid var(--a-green)',
+                    borderRadius: 'var(--radius-input)',
+                    padding: '8px 11px',
+                    color: 'var(--t-primary)',
+                    fontSize: 13,
+                    fontFamily: 'var(--font)',
+                    outline: 'none',
+                    boxShadow: '0 0 0 2px var(--a-green-dim)',
+                  }}
+                />
+              </div>
+
+              <div
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: '0.1em',
+                  textTransform: 'uppercase',
+                  color: 'var(--t-muted)',
+                  marginBottom: 8,
+                }}
+              >
+                Tailwind v4 @theme
+              </div>
+              <pre
+                style={{
+                  background: 'oklch(8% 0.01 155)',
+                  borderRadius: 5,
+                  padding: '14px 16px',
+                  fontSize: 11,
+                  color: 'var(--t-secondary)',
+                  lineHeight: 1.9,
+                  border: '1px solid var(--c-border)',
+                  overflowX: 'auto',
+                  fontFamily: 'ui-monospace,"Cascadia Code",monospace',
+                  whiteSpace: 'pre',
+                }}
+              >{`@theme {
+  --color-deep:    oklch(11% 0.022 158);
+  --color-base:    oklch(16% 0.026 158);
+  --color-raised:  oklch(20% 0.026 158);
+  --color-overlay: oklch(25% 0.022 158);
+  --color-border:  oklch(28% 0.018 158);
+
+  --color-text:        oklch(95% 0.006 155);
+  --color-text-dim:    oklch(63% 0.010 155);
+  --color-text-muted:  oklch(40% 0.008 155);
+
+  --color-green:   oklch(60% 0.160 152);
+  --color-amber:   oklch(78% 0.160  72);
+  --color-red:     oklch(60% 0.200  25);
+
+  --radius-btn:   4px;
+  --radius-input: 6px;
+
+  --font-sans:
+    -apple-system, BlinkMacSystemFont,
+    "Segoe UI", system-ui, sans-serif;
+}`}</pre>
+            </div>
+          </div>
+        )
+      }
+
+      /* ── Tweaks Panel ──────────────────────────────────────────── */
+      function TweaksPanel({ visible, tweaks, setTweaks }) {
+        if (!visible) return null
+        const row = (label, children) => (
+          <label style={{ fontSize: 12, color: 'var(--t-secondary)', display: 'block', marginBottom: 10 }}>
+            {label}
+            {children}
+          </label>
+        )
+        return (
+          <div
+            style={{
+              position: 'fixed',
+              bottom: 20,
+              right: 20,
+              zIndex: 9999,
+              background: 'var(--c-raised)',
+              border: '1px solid var(--c-border)',
+              borderRadius: 8,
+              padding: '14px 16px',
+              width: 220,
+              boxShadow: '0 8px 40px rgba(0,0,0,0.6)',
+              fontFamily: 'var(--font)',
+            }}
+          >
+            <div
+              style={{
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: '0.14em',
+                textTransform: 'uppercase',
+                color: 'var(--t-muted)',
+                marginBottom: 12,
+              }}
+            >
+              Tweaks
+            </div>
+            {row(
+              <>
+                Score size: <strong style={{ color: 'var(--t-primary)' }}>{tweaks.scoreSize}px</strong>
+                <input
+                  type="range"
+                  min={48}
+                  max={108}
+                  step={4}
+                  value={tweaks.scoreSize}
+                  onChange={(e) => setTweaks((t) => ({ ...t, scoreSize: +e.target.value }))}
+                  style={{ display: 'block', width: '100%', marginTop: 3 }}
+                />
+              </>,
+              null,
+            )}
+            {row(
+              <>
+                Button radius: <strong style={{ color: 'var(--t-primary)' }}>{tweaks.btnRadius}px</strong>
+                <input
+                  type="range"
+                  min={0}
+                  max={20}
+                  step={2}
+                  value={tweaks.btnRadius}
+                  onChange={(e) => setTweaks((t) => ({ ...t, btnRadius: +e.target.value }))}
+                  style={{ display: 'block', width: '100%', marginTop: 3 }}
+                />
+              </>,
+              null,
+            )}
+            {row(
+              <>
+                Accent hue: <strong style={{ color: 'var(--t-primary)' }}>{tweaks.accentHue}</strong>
+                <input
+                  type="range"
+                  min={100}
+                  max={200}
+                  step={5}
+                  value={tweaks.accentHue}
+                  onChange={(e) => setTweaks((t) => ({ ...t, accentHue: +e.target.value }))}
+                  style={{ display: 'block', width: '100%', marginTop: 3 }}
+                />
+                <div
+                  style={{
+                    width: '100%',
+                    height: 5,
+                    borderRadius: 3,
+                    marginTop: 5,
+                    background: 'linear-gradient(to right, oklch(60% 0.16 100), oklch(60% 0.16 200))',
+                  }}
+                />
+              </>,
+              null,
+            )}
+            <div style={{ marginTop: 4 }}>
+              <div style={{ fontSize: 12, color: 'var(--t-secondary)', marginBottom: 6 }}>Theme</div>
+              <div style={{ display: 'flex', gap: 4 }}>
+                {['dark', 'light', 'auto'].map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setTweaks((tw) => ({ ...tw, theme: t }))}
+                    style={{
+                      flex: 1,
+                      padding: '6px 0',
+                      background: tweaks.theme === t ? 'var(--a-green)' : 'var(--c-overlay)',
+                      border: 'none',
+                      borderRadius: 'var(--radius-btn)',
+                      cursor: 'pointer',
+                      fontSize: 11,
+                      fontWeight: 700,
+                      letterSpacing: '0.06em',
+                      textTransform: 'uppercase',
+                      color: tweaks.theme === t ? '#fff' : 'var(--t-muted)',
+                      fontFamily: 'var(--font)',
+                    }}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      /* ── Root App ──────────────────────────────────────────────── */
+      function App() {
+        const [tweaks, setTweaks] = useState(() => {
+          try {
+            return JSON.parse(localStorage.getItem('pks-ds-tweaks') || 'null') || TWEAK_DEFAULTS
+          } catch {
+            return TWEAK_DEFAULTS
+          }
+        })
+        const [tweaksVisible, setTweaksVisible] = useState(false)
+        const [specOpen, setSpecOpen] = useState(false)
+
+        useEffect(() => {
+          localStorage.setItem('pks-ds-tweaks', JSON.stringify(tweaks))
+          document.documentElement.style.setProperty('--f-score', tweaks.scoreSize + 'px')
+          document.documentElement.style.setProperty('--radius-btn', tweaks.btnRadius + 'px')
+          document.documentElement.style.setProperty('--a-green', `oklch(60% 0.16 ${tweaks.accentHue})`)
+          document.documentElement.style.setProperty('--a-green-dim', `oklch(60% 0.16 ${tweaks.accentHue} / 0.18)`)
+          // apply theme
+          const resolvedTheme =
+            tweaks.theme === 'auto'
+              ? window.matchMedia('(prefers-color-scheme: light)').matches
+                ? 'light'
+                : 'dark'
+              : tweaks.theme || 'dark'
+          document.documentElement.setAttribute('data-theme', resolvedTheme)
+          window.parent.postMessage({ type: '__edit_mode_set_keys', edits: tweaks }, '*')
+        }, [tweaks])
+
+        useEffect(() => {
+          const handler = (e) => {
+            if (e.data?.type === '__activate_edit_mode') setTweaksVisible(true)
+            if (e.data?.type === '__deactivate_edit_mode') setTweaksVisible(false)
+          }
+          window.addEventListener('message', handler)
+          window.parent.postMessage({ type: '__edit_mode_available' }, '*')
+          return () => window.removeEventListener('message', handler)
+        }, [])
+
+        // wide = side-by-side; narrow (phone emulation ≤430px) = full-screen + spec overlay
+        const wide = window.innerWidth > 500
+
+        return (
+          <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', background: 'var(--c-deep)', display: 'flex' }}>
+            {/* Prototype — fixed 430px column, or full width on narrow */}
+            <div
+              style={{
+                width: wide ? 430 : '100%',
+                flexShrink: 0,
+                height: '100vh',
+                display: 'flex',
+                flexDirection: 'column',
+                borderRight: wide ? '1px solid var(--c-border)' : 'none',
+              }}
+            >
+              <MatchScreen />
+
+              {/* Spec toggle — only on narrow */}
+              {!wide && (
+                <button
+                  onClick={() => setSpecOpen((s) => !s)}
+                  style={{
+                    position: 'fixed',
+                    bottom: 80,
+                    right: 14,
+                    zIndex: 200,
+                    background: 'var(--c-raised)',
+                    border: '1px solid var(--c-border)',
+                    borderRadius: 20,
+                    padding: '7px 14px',
+                    fontSize: 12,
+                    fontWeight: 700,
+                    letterSpacing: '0.08em',
+                    textTransform: 'uppercase',
+                    color: 'var(--t-muted)',
+                    cursor: 'pointer',
+                    fontFamily: 'var(--font)',
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+                  }}
+                >
+                  Spec
+                </button>
+              )}
+            </div>
+
+            {/* Spec panel — sidebar on wide, overlay on narrow */}
+            {wide ? (
+              <div style={{ flex: 1, overflowY: 'auto' }}>
+                <SpecPanel />
+              </div>
+            ) : (
+              specOpen && (
+                <div
+                  style={{
+                    position: 'fixed',
+                    inset: 0,
+                    zIndex: 100,
+                    background: 'var(--c-deep)',
+                    overflowY: 'auto',
+                  }}
+                >
+                  <div
+                    style={{
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 10,
+                      background: 'var(--c-deep)',
+                      borderBottom: '1px solid var(--c-border)',
+                      padding: '12px 16px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: 14,
+                        fontWeight: 700,
+                        color: 'var(--t-primary)',
+                        letterSpacing: '0.06em',
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      Design System
+                    </span>
+                    <button
+                      onClick={() => setSpecOpen(false)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        color: 'var(--t-muted)',
+                        fontSize: 20,
+                        lineHeight: 1,
+                        padding: '4px 8px',
+                        fontFamily: 'var(--font)',
+                      }}
+                    >
+                      x
+                    </button>
+                  </div>
+                  <SpecPanel />
+                </div>
+              )
+            )}
+
+            <TweaksPanel visible={tweaksVisible} tweaks={tweaks} setTweaks={setTweaks} />
+          </div>
+        )
+      }
+
+      ReactDOM.createRoot(document.getElementById('root')).render(<App />)
+    </script>
+  </body>
+</html>

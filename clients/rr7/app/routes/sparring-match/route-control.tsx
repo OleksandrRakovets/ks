@@ -312,7 +312,9 @@ export default function SparringMatchRoute() {
       <ScoreBox
         nameA={participants.A.displayName}
         nameB={participants.B.displayName}
-        framesWon={snapshot.framesWonBySeat}
+        matchScore={snapshot.framesWonBySeat}
+        frameScore={snapshot.frames[snapshot.currentFrameIndex - 1].pointsBySeat}
+        matchStatus={snapshot.status}
         frameIndex={frameIndex}
         targetFrames={snapshot.targets.matchTargetFrames}
       />
