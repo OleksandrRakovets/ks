@@ -26,13 +26,13 @@ export function AppHeader() {
     }, null) ?? {}
 
   return (
-    <header className="text-hi sticky top-0 z-40 flex h-14 shrink-0 items-center gap-2 border-b border-divider bg-base px-3">
+    <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-2 border-b border-divider bg-base px-3">
       <div className="w-10">
         {config.backTo ? (
           <Link
             to={config.backTo}
             aria-label="Назад"
-            className="flex h-10 w-10 items-center justify-center rounded-lg transition-colors hover:bg-black/10 active:bg-black/20"
+            className="flex h-10 w-10 items-center justify-center rounded-lg text-green transition-colors hover:bg-black/10 active:bg-black/20"
           >
             <BackArrowIcon />
           </Link>

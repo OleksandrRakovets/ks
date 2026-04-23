@@ -1,5 +1,4 @@
 import { Badge, Button, Input, Label, Separator, Textarea } from '@ks/ui'
-import { useState } from 'react'
 import { useFetcher } from 'react-router'
 
 import { useRootTheme } from '../root'
@@ -42,7 +41,11 @@ export default function PreviewUiRoute() {
     <div className="min-h-dvh bg-background px-4 pb-12 text-foreground">
       <div className="mx-auto w-full max-w-3xl">
         <div className="flex justify-end gap-2 py-4">
-          <Button variant="outline" size="sm" onClick={() => setTheme(currentTheme === 'club-light' ? 'club-dark' : 'club-light')}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setTheme(currentTheme === 'club-light' ? 'club-dark' : 'club-light')}
+          >
             {currentTheme === 'club-light' ? 'Dark' : 'Light'}
           </Button>
         </div>

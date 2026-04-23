@@ -21,7 +21,7 @@ function SheetContent({ className, children, ...props }: React.ComponentProps<ty
       <Dialog.Overlay className="fixed inset-0 z-50 bg-black/60 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
       <Dialog.Content
         className={cn(
-          'fixed inset-y-0 right-0 z-50 flex w-72 flex-col bg-card px-4 shadow-2xl rounded-none',
+          'fixed inset-y-0 right-0 z-50 flex w-72 flex-col rounded-none bg-card px-4 shadow-2xl',
           'duration-200 data-[state=closed]:animate-out data-[state=open]:animate-in',
           'data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right',
           className,

@@ -15,11 +15,12 @@ import { useTranslation } from 'react-i18next'
 import { Link, useLoaderData, useRevalidator } from 'react-router'
 import { z } from 'zod'
 
-import type { HydratedMatchParticipants } from '../features/match-control/renderers'
-import type { AppLoadContext } from '../server/context'
-import { requireEnv } from '../server/context'
-import { localeFromCookie } from '../server/locale'
-import { fetchMatchSnapshot, listStoredEvents } from '../server/match-room'
+import type { HydratedMatchParticipants } from '../../features/match-control/renderers'
+import type { AppLoadContext } from '../../server/context'
+import { requireEnv } from '../../server/context'
+import { localeFromCookie } from '../../server/locale'
+import { fetchMatchSnapshot, listStoredEvents } from '../../server/match-room'
+import { ScoreBox } from './score-box'
 
 type LoaderData = {
   snapshot: Awaited<ReturnType<typeof parseSnapshotBody>>['snapshot']
@@ -188,10 +189,7 @@ function ProtocolPanel(props: { rows: ProtocolRow[]; emptyLabel: string }) {
 export const handle = {
   headerConfig: (data: LoaderData) => ({
     title: `Протокол: ${data.gameTitle}`,
-    backTo:
-      data.snapshot.status === 'active'
-        ? `/sparring/matches/${data.snapshot.matchId}`
-        : '/sparring/matches',
+    backTo: data.snapshot.status === 'active' ? `/sparring/matches/${data.snapshot.matchId}` : '/sparring/matches',
   }),
 }
 
@@ -278,21 +276,14 @@ export default function SparringMatchProtocolRoute() {
   }, [protocolEntries, seatNames, snapshot.status])
 
   return (
-    <main className="flex flex-1 flex-col bg-background text-foreground">
-      {/* Score strip */}
-      <div className="sticky top-14 z-10 border-b border-border bg-background px-4 pt-4 pb-3">
-        <div className="mb-2 text-center text-xs text-muted-foreground tabular-nums">
-          {snapshot.framesWonBySeat.A} : {snapshot.framesWonBySeat.B}&ensp;·&ensp;
-          {t(keys.match.scoreboard.frame)} {frameIndex}&ensp;·&ensp; до {snapshot.targets.matchTargetFrames} перемог
-        </div>
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-          <span className="line-clamp-2 text-sm font-medium">{participants.A.displayName}</span>
-          <span className="text-5xl font-bold tracking-tight tabular-nums">
-            {snapshot.framesWonBySeat.A}&thinsp;:&thinsp;{snapshot.framesWonBySeat.B}
-          </span>
-          <span className="line-clamp-2 text-right text-sm font-medium">{participants.B.displayName}</span>
-        </div>
-      </div>
+    <main className="mx-auto flex flex-1 flex-col lg:w-4xl">
+      <ScoreBox
+        nameA={participants.A.displayName}
+        nameB={participants.B.displayName}
+        framesWon={snapshot.framesWonBySeat}
+        frameIndex={frameIndex}
+        targetFrames={snapshot.targets.matchTargetFrames}
+      />
 
       <div className="px-4 py-3 pb-12">
         <ProtocolPanel rows={protocolRows} emptyLabel={t(keys.match.sparring.protocolEmpty)} />

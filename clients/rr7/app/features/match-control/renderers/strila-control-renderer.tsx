@@ -198,7 +198,7 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
               <Button
                 type="button"
                 size={recordPot.prominence === 'primary' ? 'touch' : 'default'}
-                  className={recordPot.prominence !== 'primary' ? 'h-auto py-2 text-sm' : undefined}
+                className={recordPot.prominence !== 'primary' ? 'h-auto py-2 text-sm' : undefined}
                 disabled={selectedBalls.length === 0}
                 onClick={() =>
                   submitSeatCommand('A', recordPot.commandType, { ...recordPot.command, pottedBalls: selectedBalls })
@@ -209,7 +209,7 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
               <Button
                 type="button"
                 size={recordPot.prominence === 'primary' ? 'touch' : 'default'}
-                  className={recordPot.prominence !== 'primary' ? 'h-auto py-2 text-sm' : undefined}
+                className={recordPot.prominence !== 'primary' ? 'h-auto py-2 text-sm' : undefined}
                 disabled={selectedBalls.length === 0}
                 onClick={() =>
                   submitSeatCommand('B', recordPot.commandType, { ...recordPot.command, pottedBalls: selectedBalls })

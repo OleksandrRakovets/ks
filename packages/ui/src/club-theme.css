@@ -1,89 +1,89 @@
 /* Club Terminal theme — dark default, light override via .latte or OS preference */
 
 :root {
-  --c-deep:     oklch(11% 0.022 158);
-  --c-base:     oklch(16% 0.026 158);
-  --c-raised:   oklch(20% 0.026 158);
-  --c-overlay:  oklch(25% 0.022 158);
-  --c-border:   oklch(28% 0.018 158);
+  --c-deep: oklch(11% 0.022 158);
+  --c-base: oklch(16% 0.026 158);
+  --c-raised: oklch(20% 0.026 158);
+  --c-overlay: oklch(25% 0.022 158);
+  --c-border: oklch(28% 0.018 158);
 
-  --t-primary:   oklch(95% 0.006 155);
-  --t-secondary: oklch(63% 0.010 155);
-  --t-muted:     oklch(40% 0.008 155);
+  --t-primary: oklch(95% 0.006 155);
+  --t-secondary: oklch(63% 0.01 155);
+  --t-muted: oklch(40% 0.008 155);
 
-  --a-green:     oklch(60% 0.160 152);
-  --a-green-dim: oklch(60% 0.160 152 / 0.18);
-  --a-amber:     oklch(78% 0.160 72);
-  --a-amber-dim: oklch(78% 0.160 72 / 0.14);
-  --a-red:       oklch(60% 0.200 25);
-  --a-red-dim:   oklch(60% 0.200 25 / 0.16);
+  --a-green: oklch(60% 0.16 152);
+  --a-green-dim: oklch(60% 0.16 152 / 0.18);
+  --a-amber: oklch(78% 0.16 72);
+  --a-amber-dim: oklch(78% 0.16 72 / 0.14);
+  --a-red: oklch(60% 0.2 25);
+  --a-red-dim: oklch(60% 0.2 25 / 0.16);
 
   --f-score: 80px;
-  --ball-shadow: 0 3px 10px rgba(0,0,0,0.55), 0 1px 3px rgba(0,0,0,0.4);
-  --ball-shadow-selected: 0 0 0 3px var(--a-amber-dim), 0 3px 10px rgba(0,0,0,0.6);
+  --ball-shadow: 0 3px 10px rgba(0, 0, 0, 0.55), 0 1px 3px rgba(0, 0, 0, 0.4);
+  --ball-shadow-selected: 0 0 0 3px var(--a-amber-dim), 0 3px 10px rgba(0, 0, 0, 0.6);
 }
 
 .club-light {
-  --c-deep:    oklch(96% 0.008 158);
-  --c-base:    oklch(99% 0.004 158);
-  --c-raised:  oklch(93% 0.010 158);
+  --c-deep: oklch(96% 0.008 158);
+  --c-base: oklch(99% 0.004 158);
+  --c-raised: oklch(93% 0.01 158);
   --c-overlay: oklch(88% 0.014 158);
-  --c-border:  oklch(80% 0.014 158);
+  --c-border: oklch(80% 0.014 158);
 
-  --t-primary:   oklch(13% 0.022 158);
+  --t-primary: oklch(13% 0.022 158);
   --t-secondary: oklch(36% 0.016 158);
-  --t-muted:     oklch(54% 0.012 158);
+  --t-muted: oklch(54% 0.012 158);
 
-  --a-green:     oklch(38% 0.180 152);
-  --a-green-dim: oklch(38% 0.180 152 / 0.12);
-  --a-amber:     oklch(58% 0.210 64);
-  --a-amber-dim: oklch(58% 0.210 64 / 0.15);
-  --a-red:       oklch(44% 0.210 25);
-  --a-red-dim:   oklch(44% 0.210 25 / 0.10);
+  --a-green: oklch(38% 0.18 152);
+  --a-green-dim: oklch(38% 0.18 152 / 0.12);
+  --a-amber: oklch(58% 0.21 64);
+  --a-amber-dim: oklch(58% 0.21 64 / 0.15);
+  --a-red: oklch(44% 0.21 25);
+  --a-red-dim: oklch(44% 0.21 25 / 0.1);
 
-  --ball-shadow: 0 1px 3px rgba(0,0,0,0.15);
-  --ball-shadow-selected: 0 0 0 3px var(--a-amber-dim), 0 1px 4px rgba(0,0,0,0.2);
+  --ball-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  --ball-shadow-selected: 0 0 0 3px var(--a-amber-dim), 0 1px 4px rgba(0, 0, 0, 0.2);
 }
 
 @media (prefers-color-scheme: light) {
   :root:not(.club-dark) {
-    --c-deep:    oklch(96% 0.008 158);
-    --c-base:    oklch(99% 0.004 158);
-    --c-raised:  oklch(93% 0.010 158);
+    --c-deep: oklch(96% 0.008 158);
+    --c-base: oklch(99% 0.004 158);
+    --c-raised: oklch(93% 0.01 158);
     --c-overlay: oklch(88% 0.014 158);
-    --c-border:  oklch(80% 0.014 158);
+    --c-border: oklch(80% 0.014 158);
 
-    --t-primary:   oklch(13% 0.022 158);
+    --t-primary: oklch(13% 0.022 158);
     --t-secondary: oklch(36% 0.016 158);
-    --t-muted:     oklch(54% 0.012 158);
+    --t-muted: oklch(54% 0.012 158);
 
-    --a-green:     oklch(38% 0.180 152);
-    --a-green-dim: oklch(38% 0.180 152 / 0.12);
-    --a-amber:     oklch(58% 0.210 64);
-    --a-amber-dim: oklch(58% 0.210 64 / 0.15);
-    --a-red:       oklch(44% 0.210 25);
-    --a-red-dim:   oklch(44% 0.210 25 / 0.10);
+    --a-green: oklch(38% 0.18 152);
+    --a-green-dim: oklch(38% 0.18 152 / 0.12);
+    --a-amber: oklch(58% 0.21 64);
+    --a-amber-dim: oklch(58% 0.21 64 / 0.15);
+    --a-red: oklch(44% 0.21 25);
+    --a-red-dim: oklch(44% 0.21 25 / 0.1);
 
-    --ball-shadow: 0 1px 3px rgba(0,0,0,0.15);
-    --ball-shadow-selected: 0 0 0 3px var(--a-amber-dim), 0 1px 4px rgba(0,0,0,0.2);
+    --ball-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+    --ball-shadow-selected: 0 0 0 3px var(--a-amber-dim), 0 1px 4px rgba(0, 0, 0, 0.2);
   }
 }
 
 @theme inline {
-  --color-deep:        var(--c-deep);
-  --color-base:        var(--c-base);
-  --color-raised:      var(--c-raised);
-  --color-overlay:     var(--c-overlay);
-  --color-divider:     var(--c-border);
+  --color-deep: var(--c-deep);
+  --color-base: var(--c-base);
+  --color-raised: var(--c-raised);
+  --color-overlay: var(--c-overlay);
+  --color-divider: var(--c-border);
 
-  --color-text-hi:     var(--t-primary);
-  --color-text-lo:     var(--t-secondary);
-  --color-text-ghost:  var(--t-muted);
+  --color-text-hi: var(--t-primary);
+  --color-text-lo: var(--t-secondary);
+  --color-text-ghost: var(--t-muted);
 
-  --color-green:       var(--a-green);
-  --color-green-dim:   var(--a-green-dim);
-  --color-amber:       var(--a-amber);
-  --color-amber-dim:   var(--a-amber-dim);
-  --color-red:         var(--a-red);
-  --color-red-dim:     var(--a-red-dim);
+  --color-green: var(--a-green);
+  --color-green-dim: var(--a-green-dim);
+  --color-amber: var(--a-amber);
+  --color-amber-dim: var(--a-amber-dim);
+  --color-red: var(--a-red);
+  --color-red-dim: var(--a-red-dim);
 }

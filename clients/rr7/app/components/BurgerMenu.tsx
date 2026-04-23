@@ -23,7 +23,7 @@ export function BurgerMenu() {
       <SheetTrigger asChild>
         <button
           aria-label="Menu"
-          className="flex h-10 w-10 items-center justify-center rounded-lg transition-colors hover:bg-black/10 active:bg-black/20"
+          className="flex h-10 w-10 items-center justify-center rounded-lg text-green transition-colors hover:bg-black/10 active:bg-black/20"
         >
           <HamburgerIcon />
         </button>
@@ -45,18 +45,12 @@ export function BurgerMenu() {
         <nav className="flex flex-col gap-1 py-4">
           <p className="text-xs font-semibold tracking-widest text-text-ghost uppercase">Навігація</p>
           <SheetClose asChild>
-            <Link
-              to="/sparring"
-              className="py-2.5 text-sm font-medium text-text-hi underline-offset-4 hover:underline"
-            >
+            <Link to="/sparring" className="py-2.5 text-sm font-medium text-text-hi underline-offset-4 hover:underline">
               Спаринг
             </Link>
           </SheetClose>
           <SheetClose asChild>
-            <Link
-              to="/sparring/matches"
-              className="py-2.5 text-sm font-medium text-text-hi underline-offset-4 hover:underline"
-            >
+            <Link to="/sparring/matches" className="py-2.5 text-sm font-medium text-text-hi underline-offset-4 hover:underline">
               Останні матчі
             </Link>
           </SheetClose>
