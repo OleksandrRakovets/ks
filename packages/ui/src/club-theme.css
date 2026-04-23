@@ -19,8 +19,6 @@
   --a-red-dim:   oklch(60% 0.200 25 / 0.16);
 
   --f-score: 80px;
-  --radius-btn: 4px;
-  --radius-input: 6px;
   --ball-shadow: 0 3px 10px rgba(0,0,0,0.55), 0 1px 3px rgba(0,0,0,0.4);
   --ball-shadow-selected: 0 0 0 3px var(--a-amber-dim), 0 3px 10px rgba(0,0,0,0.6);
 }
