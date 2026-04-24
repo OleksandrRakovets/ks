@@ -19,8 +19,8 @@ describe('projection: control', () => {
       projection: 'control',
       score: { A: 0, B: 0 },
       availableCommands: [
-        { commandType: 'frame.commence', command: { actor: 'A' }, label: 'Break-off (A)', prominence: 'primary' },
-        { commandType: 'frame.commence', command: { actor: 'B' }, label: 'Break-off (B)', prominence: 'primary' },
+        { commandType: 'frame.commence', command: { actor: 'A' }, label: 'Break-off', prominence: 'primary' },
+        { commandType: 'frame.commence', command: { actor: 'B' }, label: 'Break-off', prominence: 'primary' },
       ],
       details: {
         phase: 'not-started',
@@ -63,6 +63,23 @@ describe('projection: control', () => {
         prominence: 'secondary',
         effectSummary: 'No points awarded',
       },
+    ])
+  })
+
+  test('respotted-black-play exposes action commands for active actor, frame.concede for both', () => {
+    const state: StrilaFrameState = {
+      score: { A: 8, B: 8 },
+      targetPointsBySeat: DEFAULT_TARGETS,
+      coloredBallsOnTable: [7],
+      phase: { type: 'respotted-black-play', actor: 'A' },
+    }
+
+    const view = deriveStrilaControlView(state)
+    expect(view.availableCommands.map((c) => `${c.commandType}:${(c.command as { actor: string }).actor}`)).toEqual([
+      'pot.record:A',
+      'foul.commit:A',
+      'frame.concede:A',
+      'frame.concede:B',
     ])
   })
 

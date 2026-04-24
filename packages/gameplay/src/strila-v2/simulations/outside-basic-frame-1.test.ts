@@ -12,16 +12,23 @@ function parseState(state: unknown): StrilaFrameState {
 test('simulation: outside: basic frame 1', () => {
   let state = parseState(createInitialGameState('strila-v2', { targetPointsBySeat: { A: 9, B: 9 } }))
   expect(deriveStrilaControlView(state).availableCommands).toEqual([
-    { commandType: 'frame.commence', command: { actor: 'A' }, label: 'Break-off (A)', prominence: 'primary' },
-    { commandType: 'frame.commence', command: { actor: 'B' }, label: 'Break-off (B)', prominence: 'primary' },
+    { commandType: 'frame.commence', command: { actor: 'A' }, label: 'Break-off', prominence: 'primary' },
+    { commandType: 'frame.commence', command: { actor: 'B' }, label: 'Break-off', prominence: 'primary' },
   ])
 
   let step = applyGameCommand({ gameKey: 'strila-v2', state, commandType: 'frame.commence', command: { actor: 'A' } })
   expect(step.protocolEntries).toEqual([{ source: 'player', command: { type: 'frame.commence', actor: 'A' } }])
-  expect(deriveStrilaControlView(parseState(step.state)).availableCommands.map((entry) => entry.commandType)).toEqual([
-    'pot.record',
-    'foul.commit',
-    'frame.concede',
+  expect(
+    deriveStrilaControlView(parseState(step.state)).availableCommands.map(
+      (entry) => `${entry.commandType}:${(entry.command as { actor: string }).actor}`,
+    ),
+  ).toEqual([
+    'pot.record:A',
+    'pot.record:B',
+    'foul.commit:A',
+    'foul.commit:B',
+    'frame.concede:A',
+    'frame.concede:B',
   ])
   state = parseState(step.state)
 
@@ -72,10 +79,15 @@ test('simulation: outside: basic frame 1', () => {
     commandType: 'penalty.select',
     command: { actor: 'B', choice: 'ball-in-hand' },
   })
-  expect(deriveStrilaControlView(parseState(step.state)).availableCommands.map((entry) => entry.commandType)).toEqual([
-    'pot.record',
-    'miss.record',
-    'foul.commit',
-    'frame.concede',
+  expect(
+    deriveStrilaControlView(parseState(step.state)).availableCommands.map(
+      (entry) => `${entry.commandType}:${(entry.command as { actor: string }).actor}`,
+    ),
+  ).toEqual([
+    'pot.record:B',
+    'miss.record:B',
+    'foul.commit:B',
+    'frame.concede:B',
+    'frame.concede:A',
   ])
 })

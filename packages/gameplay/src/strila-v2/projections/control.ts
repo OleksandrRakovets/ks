@@ -24,6 +24,10 @@ function command(
   return { commandType, command: payload, label, ...extras }
 }
 
+function opp(seat: 'A' | 'B'): 'A' | 'B' {
+  return seat === 'A' ? 'B' : 'A'
+}
+
 export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlView {
   const activeBalls = deriveActiveBallsView(state.coloredBallsOnTable)
 
@@ -34,8 +38,8 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
         projection: 'control',
         score: state.score,
         availableCommands: [
-          command('frame.commence', { actor: 'A' }, 'Break-off (A)', { prominence: 'primary' }),
-          command('frame.commence', { actor: 'B' }, 'Break-off (B)', { prominence: 'primary' }),
+          command('frame.commence', { actor: 'A' }, 'Break-off', { prominence: 'primary' }),
+          command('frame.commence', { actor: 'B' }, 'Break-off', { prominence: 'primary' }),
         ],
         details: {
           phase: state.phase.type,
@@ -51,15 +55,18 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
         projection: 'control',
         score: state.score,
         availableCommands: [
-          command('pot.record', { actor: state.phase.actor }, 'Record pot', { prominence: 'primary' }),
-          command('foul.commit', { actor: state.phase.actor }, 'Foul committed', { prominence: 'secondary' }),
-          command('frame.concede', { actor: state.phase.actor }, 'Concede frame', { prominence: 'tertiary' }),
+          command('pot.record', { actor: 'A' }, 'Record pot', { prominence: 'primary' }),
+          command('pot.record', { actor: 'B' }, 'Record pot', { prominence: 'primary' }),
+          command('foul.commit', { actor: 'A' }, 'Foul committed', { prominence: 'secondary' }),
+          command('foul.commit', { actor: 'B' }, 'Foul committed', { prominence: 'secondary' }),
+          command('frame.concede', { actor: 'A' }, 'Concede frame', { prominence: 'tertiary' }),
+          command('frame.concede', { actor: 'B' }, 'Concede frame', { prominence: 'tertiary' }),
         ],
         details: {
           phase: state.phase.type,
           actor: state.phase.actor,
           situationTitle: 'Open play',
-          situationSummary: 'Log pots or a foul for the active player.',
+          situationSummary: 'Log pots or a foul.',
           activeBalls,
         },
       })
@@ -105,6 +112,7 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
           command('miss.record', { actor: state.phase.actor }, 'Record miss', { prominence: 'primary' }),
           command('foul.commit', { actor: state.phase.actor }, 'Foul committed', { prominence: 'secondary' }),
           command('frame.concede', { actor: state.phase.actor }, 'Concede frame', { prominence: 'tertiary' }),
+          command('frame.concede', { actor: opp(state.phase.actor) }, 'Concede frame', { prominence: 'tertiary' }),
         ],
         details: {
           phase: state.phase.type,
@@ -147,6 +155,7 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
           command('pot.record', { actor: state.phase.actor }, 'Record pot', { prominence: 'primary' }),
           command('foul.commit', { actor: state.phase.actor }, 'Foul committed', { prominence: 'secondary' }),
           command('frame.concede', { actor: state.phase.actor }, 'Concede frame', { prominence: 'tertiary' }),
+          command('frame.concede', { actor: opp(state.phase.actor) }, 'Concede frame', { prominence: 'tertiary' }),
         ],
         details: {
           phase: state.phase.type,
