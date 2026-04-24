@@ -1,11 +1,12 @@
+import { STRILA_BALLS, StrilaControlViewSchema, type StrilaBall } from '@ks/gameplay'
 import { Button } from '@ks/ui'
 import { useMemo, useState } from 'react'
 
 import type { MatchControlRendererProps } from './types'
 
-const BALL_ORDER = [0, 1, 2, 3, 4, 5, 6, 7] as const
+const BALL_ORDER: readonly StrilaBall[] = STRILA_BALLS
 
-const BALL_META: Record<number, { bg: string; border: string }> = {
+const BALL_COLORS: Record<StrilaBall, { bg: string; border: string }> = {
   0: { bg: '#F0EDE6', border: '#C0BDB5' },
   1: { bg: '#C8102E', border: '#9E0E24' },
   2: { bg: '#F5C518', border: '#C9A00E' },
@@ -16,7 +17,7 @@ const BALL_META: Record<number, { bg: string; border: string }> = {
   7: { bg: '#2a2a2a', border: '#555555' },
 }
 
-const BALL_LABELS: Record<number, string> = {
+const BALL_LABELS: Record<StrilaBall, string> = {
   0: 'Cue',
   1: 'Red',
   2: 'Yellow',
@@ -27,75 +28,32 @@ const BALL_LABELS: Record<number, string> = {
   7: 'Black',
 }
 
-function strilaBallView(details: unknown): { active: number[]; allColoredOnTable: number[] } {
-  if (!details || typeof details !== 'object') {
-    return { active: [1, 2], allColoredOnTable: [1, 2, 3, 4, 5, 6, 7] }
-  }
+type StrilaControlView = ReturnType<typeof StrilaControlViewSchema.parse>
+type Command = StrilaControlView['details']['commandSections']['primary']['A'][number]
+type SeatCommands = StrilaControlView['details']['commandSections']['primary']
 
-  const activeRaw = (details as { activeBalls?: { active?: unknown } }).activeBalls?.active
-  const inactiveRaw = (details as { activeBalls?: { inactive?: unknown } }).activeBalls?.inactive
-
-  const active = Array.isArray(activeRaw) ? activeRaw.filter((ball): ball is number => typeof ball === 'number') : []
-  const inactive = Array.isArray(inactiveRaw) ? inactiveRaw.filter((ball): ball is number => typeof ball === 'number') : []
-
-  const onTableSet = new Set<number>([...active, ...inactive])
-  const allColoredOnTable = BALL_ORDER.filter((ball) => ball !== 0 && onTableSet.has(ball))
-
-  return {
-    active: active.length > 0 ? active : [1, 2],
-    allColoredOnTable: allColoredOnTable.length > 0 ? allColoredOnTable : [1, 2, 3, 4, 5, 6, 7],
-  }
-}
-
-function actorFromCommand(command: Record<string, unknown>): 'A' | 'B' | null {
-  const actor = command.actor
-  return actor === 'A' || actor === 'B' ? actor : null
-}
-
-type Command = MatchControlRendererProps['projection']['availableCommands'][number]
-
-function prominenceVariant(prominence: string): 'default' | 'secondary' | 'outline' {
+function prominenceVariant(prominence: Command['prominence']): 'default' | 'secondary' | 'outline' {
   if (prominence === 'primary') return 'default'
   if (prominence === 'tertiary') return 'outline'
   return 'secondary'
 }
 
-function sectionMessages(commands: Command[]): { text: string; className: string }[] {
-  const seen = new Set<string>()
-  const out: { text: string; className: string }[] = []
-  for (const cmd of commands) {
-    for (const [text, className] of [
-      [cmd.helpText, 'text-muted-foreground'],
-      [cmd.warning, 'text-destructive'],
-    ] as [string | undefined, string][]) {
-      if (text && !seen.has(text)) {
-        out.push({ text, className })
-        seen.add(text)
-      }
-    }
-  }
-  return out
-}
-
 function CommandRows({
+  title,
   commands,
   selectedBalls,
   onSubmit,
 }: {
-  commands: Command[]
-  selectedBalls: number[]
+  title: string
+  commands: SeatCommands
+  selectedBalls: StrilaBall[]
   onSubmit: (commandType: string, command: Record<string, unknown>) => void
 }) {
-  const aCommands = commands.filter((c) => actorFromCommand(c.command) === 'A')
-  const bCommands = commands.filter((c) => actorFromCommand(c.command) === 'B')
-  const rowCount = Math.max(aCommands.length, bCommands.length)
-  const messages = sectionMessages(commands)
-
-  function renderButton(cmd: Command) {
+  function renderButton(cmd: Command, key: string) {
     const isPot = cmd.commandType === 'pot.record'
     const command = isPot ? { ...cmd.command, pottedBalls: selectedBalls } : cmd.command
     return (
-      <div className="grid gap-1">
+      <div key={key} className="grid gap-1">
         <Button
           type="button"
           variant={prominenceVariant(cmd.prominence)}
@@ -112,35 +70,27 @@ function CommandRows({
 
   return (
     <section aria-label="Visible commands" className="border-b border-divider px-4 pt-1 pb-4">
-      {Array.from({ length: rowCount }, (_, i) => {
-        const a = aCommands[i]
-        const b = bCommands[i]
-        return (
-          <div key={i} className="mt-3 grid grid-cols-2 gap-6">
-            {a ? renderButton(a) : <div />}
-            {b ? renderButton(b) : <div />}
-          </div>
-        )
-      })}
-      {messages.map(({ text, className }) => (
-        <p key={text} className={`mt-2 text-sm font-semibold ${className}`}>
-          {text}
-        </p>
-      ))}
+      <p className="mt-2 text-xs leading-none font-semibold tracking-widest text-text-ghost uppercase">{title}</p>
+      <div className="mt-3 grid grid-cols-2 gap-6">
+        <div className="grid gap-3">{commands.A.map((cmd, index) => renderButton(cmd, `A-${cmd.commandType}-${index}`))}</div>
+        <div className="grid gap-3">{commands.B.map((cmd, index) => renderButton(cmd, `B-${cmd.commandType}-${index}`))}</div>
+      </div>
     </section>
   )
 }
 
 export function StrilaControlRenderer(props: MatchControlRendererProps) {
-  const [selectedBalls, setSelectedBalls] = useState<number[]>([])
+  const [selectedBalls, setSelectedBalls] = useState<StrilaBall[]>([])
   const [showTertiary, setShowTertiary] = useState(false)
 
-  const ballView = useMemo(() => strilaBallView(props.projection.details), [props.projection.details])
-  const activeBallSet = useMemo(() => new Set(ballView.active), [ballView.active])
+  const parsed = useMemo(() => StrilaControlViewSchema.safeParse(props.projection), [props.projection])
 
-  const hasPotCommand = props.projection.availableCommands.some((c) => c.commandType === 'pot.record')
-  const visibleCommands = props.projection.availableCommands.filter((c) => c.prominence !== 'tertiary')
-  const tertiaryCommands = props.projection.availableCommands.filter((c) => c.prominence === 'tertiary')
+  if (!parsed.success) {
+    return <p className="px-4 py-3 text-sm text-muted-foreground">Invalid Strila control projection.</p>
+  }
+
+  const details = parsed.data.details
+  const hasTertiary = details.commandSections.tertiary.A.length > 0 || details.commandSections.tertiary.B.length > 0
 
   function submitCommand(commandType: string, command: Record<string, unknown>) {
     setSelectedBalls([])
@@ -158,29 +108,27 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
         style={{ gridTemplateColumns: 'repeat(8, 1fr)', width: 'min(100%, 468px)' }}
       >
         {BALL_ORDER.map((ball) => {
-          const meta = BALL_META[ball] ?? { bg: '#D4D4D8', border: '#27272A' }
-          const isObjectBall = ball !== 0 && activeBallSet.has(ball)
-          const isPotted = ball !== 0 && !ballView.allColoredOnTable.includes(ball)
-          const isFullSize = ball === 0 || isObjectBall
-          const selected = hasPotCommand && selectedBalls.includes(ball) && !isPotted
+          const colors = BALL_COLORS[ball]
+          const status = details.ballStatuses[ball]
+          const isPotted = status === 'potted'
+          const isSelected = details.isPotCommandAvailable && selectedBalls.includes(ball) && !isPotted
           return (
             <div key={ball} className="flex items-center justify-center">
               <button
                 type="button"
-                title={`${BALL_LABELS[ball] ?? ball}${isObjectBall ? ' (object)' : ''}${isPotted ? ' (potted)' : ''}`}
+                title={`${BALL_LABELS[ball]} (${status})`}
                 onClick={() => {
-                  if (!hasPotCommand || isPotted) return
+                  if (!details.isPotCommandAvailable || isPotted) return
                   setSelectedBalls((prev) => (prev.includes(ball) ? prev.filter((b) => b !== ball) : [...prev, ball]))
                 }}
                 style={{
-                  width: isFullSize ? '100%' : '80%',
-                  maxWidth: isFullSize ? '48px' : '38px',
+                  width: status === 'object' ? '100%' : '80%',
+                  maxWidth: status === 'object' ? '48px' : '38px',
                   aspectRatio: '1',
                   borderRadius: '50%',
-                  cursor: !hasPotCommand || isPotted ? 'default' : 'pointer',
-                  background: meta.bg,
-                  border: selected ? '2.5px solid var(--a-amber)' : `1.5px solid ${meta.border}`,
-                  boxShadow: selected
+                  background: colors.bg,
+                  border: isSelected ? '2.5px solid var(--a-amber)' : `1.5px solid ${colors.border}`,
+                  boxShadow: isSelected
                     ? '0 0 0 3px var(--a-amber-dim), 0 2px 8px rgba(0,0,0,0.6)'
                     : isPotted
                       ? 'none'
@@ -195,9 +143,34 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
         })}
       </div>
 
-      <CommandRows commands={visibleCommands} selectedBalls={selectedBalls} onSubmit={submitCommand} />
+      {(details.commandSections.primary.A.length > 0 || details.commandSections.primary.B.length > 0) && (
+        <CommandRows
+          title="Primary"
+          commands={details.commandSections.primary}
+          selectedBalls={selectedBalls}
+          onSubmit={submitCommand}
+        />
+      )}
 
-      {tertiaryCommands.length > 0 && (
+      {(details.commandSections.secondary.A.length > 0 || details.commandSections.secondary.B.length > 0) && (
+        <CommandRows
+          title="Secondary"
+          commands={details.commandSections.secondary}
+          selectedBalls={selectedBalls}
+          onSubmit={submitCommand}
+        />
+      )}
+
+      {details.messages.map((message) => (
+        <p
+          key={`${message.type}:${message.text}`}
+          className={`px-4 pt-2 text-sm font-semibold ${message.type === 'warning' ? 'text-destructive' : 'text-muted-foreground'}`}
+        >
+          {message.text}
+        </p>
+      ))}
+
+      {hasTertiary && (
         <div className="grid gap-3">
           <button
             type="button"
@@ -206,7 +179,14 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
           >
             {showTertiary ? '▲ Сховати' : '··· Більше'}
           </button>
-          {showTertiary && <CommandRows commands={tertiaryCommands} selectedBalls={selectedBalls} onSubmit={submitCommand} />}
+          {showTertiary && (
+            <CommandRows
+              title="Tertiary"
+              commands={details.commandSections.tertiary}
+              selectedBalls={selectedBalls}
+              onSubmit={submitCommand}
+            />
+          )}
         </div>
       )}
     </div>

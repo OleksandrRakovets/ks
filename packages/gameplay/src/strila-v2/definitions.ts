@@ -8,12 +8,8 @@ import {
   GameSummaryProjectionSchema,
 } from '../abstract-runtime'
 
-// First-pass Strila draft.
-//
-// This file is intentionally a lightweight TypeScript model to iterate on before
-// building the reducer and before wiring anything into the package public API.
-
 export const STRILA_COLORED_BALLS = [1, 2, 3, 4, 5, 6, 7] as const
+export const STRILA_BALLS = [0, ...STRILA_COLORED_BALLS] as const
 
 export const StrilaSeatSchema = z.enum(['A', 'B'])
 export type StrilaSeat = z.infer<typeof StrilaSeatSchema>
@@ -172,9 +168,17 @@ export function isCommandAllowedInPhase(commandType: StrilaCommand['type'], phas
   return STRILA_PHASE_COMMANDS[phase].includes(commandType)
 }
 
-export const StrilaActiveBallsViewSchema = z.object({
-  active: z.array(StrilaColoredBallSchema),
-  inactive: z.array(StrilaColoredBallSchema),
+export const StrilaBallStatusSchema = z.enum(['object', 'on-table', 'potted'])
+
+const StrilaBallStatusesShape = Object.fromEntries(
+  STRILA_BALLS.map((ball) => [ball, StrilaBallStatusSchema] as const),
+) as Record<StrilaBall, typeof StrilaBallStatusSchema>
+
+export const StrilaBallStatusesSchema = z.object(StrilaBallStatusesShape)
+
+export const StrilaControlMessageSchema = z.object({
+  type: z.enum(['hint', 'warning']),
+  text: z.string().min(1),
 })
 
 export const StrilaControlCommandSchema = GameCommandPresetSchema.extend({
@@ -182,13 +186,28 @@ export const StrilaControlCommandSchema = GameCommandPresetSchema.extend({
 })
 export type StrilaControlCommand = z.infer<typeof StrilaControlCommandSchema>
 
+const StrilaCommandSectionBySeatSchema = z.object({
+  A: z.array(StrilaControlCommandSchema),
+  B: z.array(StrilaControlCommandSchema),
+})
+
+export const StrilaCommandSectionsSchema = z.object({
+  primary: StrilaCommandSectionBySeatSchema,
+  secondary: StrilaCommandSectionBySeatSchema,
+  tertiary: StrilaCommandSectionBySeatSchema,
+})
+
 export const StrilaControlDetailsSchema = z.object({
   phase: StrilaPhaseTypeSchema,
   actor: StrilaSeatSchema.optional(),
   situationTitle: z.string().min(1),
   situationSummary: z.string().min(1).optional(),
-  activeBalls: StrilaActiveBallsViewSchema,
+  isPotCommandAvailable: z.boolean(),
+  ballStatuses: StrilaBallStatusesSchema,
+  commandSections: StrilaCommandSectionsSchema,
+  messages: z.array(StrilaControlMessageSchema),
 })
+export type StrilaControlDetails = z.infer<typeof StrilaControlDetailsSchema>
 
 export const StrilaControlViewSchema = GameControlProjectionSchema.extend({
   gameKey: z.literal('strila-v2'),

@@ -1,19 +1,14 @@
 import {
-  STRILA_COLORED_BALLS,
+  STRILA_BALLS,
   StrilaControlViewSchema,
-  type StrilaColoredBall,
   type StrilaControlCommand,
   type StrilaCommand,
+  type StrilaControlDetails,
   type StrilaControlView,
   type StrilaFrameState,
+  type StrilaSeat,
 } from '../definitions'
 import { computeStrilaObjectBalls } from './computeds'
-
-function deriveActiveBallsView(coloredBallsOnTable: StrilaColoredBall[]) {
-  const active = computeStrilaObjectBalls(coloredBallsOnTable)
-  const inactive = STRILA_COLORED_BALLS.filter((ball) => coloredBallsOnTable.includes(ball) && !active.includes(ball))
-  return { active, inactive }
-}
 
 function command(
   commandType: StrilaCommand['type'],
@@ -28,32 +23,103 @@ function opp(seat: 'A' | 'B'): 'A' | 'B' {
   return seat === 'A' ? 'B' : 'A'
 }
 
-export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlView {
-  const activeBalls = deriveActiveBallsView(state.coloredBallsOnTable)
+function actorFromCommand(command: Record<string, unknown>): StrilaSeat | null {
+  const actor = command.actor
+  return actor === 'A' || actor === 'B' ? actor : null
+}
 
+function deriveBallStatuses(state: StrilaFrameState): StrilaControlDetails['ballStatuses'] {
+  const objectBalls = new Set(computeStrilaObjectBalls(state.coloredBallsOnTable))
+  const onTableColored = new Set(state.coloredBallsOnTable)
+  const cueStatus: 'object' | 'on-table' = state.phase.type === 'respotted-black-opening' ? 'on-table' : 'object'
+  const ballStatuses = {} as StrilaControlDetails['ballStatuses']
+
+  for (const ball of STRILA_BALLS) {
+    if (ball === 0) {
+      ballStatuses[ball] = cueStatus
+      continue
+    }
+    if (objectBalls.has(ball)) {
+      ballStatuses[ball] = 'object'
+      continue
+    }
+    if (onTableColored.has(ball)) {
+      ballStatuses[ball] = 'on-table'
+      continue
+    }
+    ballStatuses[ball] = 'potted'
+  }
+
+  return ballStatuses
+}
+
+function deriveCommandSections(commands: StrilaControlCommand[]): StrilaControlDetails['commandSections'] {
+  const sections: StrilaControlDetails['commandSections'] = {
+    primary: { A: [], B: [] },
+    secondary: { A: [], B: [] },
+    tertiary: { A: [], B: [] },
+  }
+
+  commands.forEach((entry) => {
+    const actor = actorFromCommand(entry.command)
+    if (!actor) return
+    sections[entry.prominence][actor].push(entry)
+  })
+
+  return sections
+}
+
+function messages(entries: Array<{ type: 'hint' | 'warning'; text: string }>) {
+  const seen = new Set<string>()
+  return entries.filter((entry) => {
+    if (seen.has(entry.text)) return false
+    seen.add(entry.text)
+    return true
+  })
+}
+
+function view(
+  state: StrilaFrameState,
+  args: {
+    availableCommands: StrilaControlCommand[]
+    situationTitle: string
+    situationSummary: string
+    actor?: StrilaSeat
+    messages?: Array<{ type: 'hint' | 'warning'; text: string }>
+  },
+): StrilaControlView {
+  return StrilaControlViewSchema.parse({
+    gameKey: 'strila-v2',
+    projection: 'control',
+    score: state.score,
+    availableCommands: args.availableCommands,
+    details: {
+      phase: state.phase.type,
+      actor: args.actor,
+      situationTitle: args.situationTitle,
+      situationSummary: args.situationSummary,
+      isPotCommandAvailable: args.availableCommands.some((entry) => entry.commandType === 'pot.record'),
+      ballStatuses: deriveBallStatuses(state),
+      commandSections: deriveCommandSections(args.availableCommands),
+      messages: messages(args.messages ?? []),
+    },
+  })
+}
+
+export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlView {
   switch (state.phase.type) {
     case 'not-started':
-      return StrilaControlViewSchema.parse({
-        gameKey: 'strila-v2',
-        projection: 'control',
-        score: state.score,
+      return view(state, {
         availableCommands: [
           command('frame.commence', { actor: 'A' }, 'Break-off', { prominence: 'primary' }),
           command('frame.commence', { actor: 'B' }, 'Break-off', { prominence: 'primary' }),
         ],
-        details: {
-          phase: state.phase.type,
-          situationTitle: 'Break-off',
-          situationSummary: 'Record the opening shot.',
-          activeBalls,
-        },
+        situationTitle: 'Break-off',
+        situationSummary: 'Record the opening shot.',
       })
 
     case 'open-play':
-      return StrilaControlViewSchema.parse({
-        gameKey: 'strila-v2',
-        projection: 'control',
-        score: state.score,
+      return view(state, {
         availableCommands: [
           command('pot.record', { actor: 'A' }, 'Record pot', { prominence: 'primary' }),
           command('pot.record', { actor: 'B' }, 'Record pot', { prominence: 'primary' }),
@@ -62,20 +128,13 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
           command('frame.concede', { actor: 'A' }, 'Concede frame', { prominence: 'tertiary' }),
           command('frame.concede', { actor: 'B' }, 'Concede frame', { prominence: 'tertiary' }),
         ],
-        details: {
-          phase: state.phase.type,
-          actor: state.phase.actor,
-          situationTitle: 'Open play',
-          situationSummary: 'Log pots or a foul.',
-          activeBalls,
-        },
+        actor: state.phase.actor,
+        situationTitle: 'Open play',
+        situationSummary: 'Log pots or a foul.',
       })
 
     case 'penalty-selection':
-      return StrilaControlViewSchema.parse({
-        gameKey: 'strila-v2',
-        projection: 'control',
-        score: state.score,
+      return view(state, {
         availableCommands: [
           command('penalty.select', { actor: state.phase.chooser, choice: 'play-from-position' }, 'Play from position', {
             prominence: 'secondary',
@@ -90,112 +149,69 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
             effectSummary: 'No points awarded',
           }),
         ],
-        details: {
-          phase: state.phase.type,
-          actor: state.phase.chooser,
-          situationTitle: 'Select penalty',
-          situationSummary: 'Opponent committed a foul. Choose the response.',
-          activeBalls,
-        },
+        actor: state.phase.chooser,
+        situationTitle: 'Select penalty',
+        situationSummary: 'Opponent committed a foul. Choose the response.',
       })
 
     case 'ball-in-hand':
-      return StrilaControlViewSchema.parse({
-        gameKey: 'strila-v2',
-        projection: 'control',
-        score: state.score,
+      return view(state, {
         availableCommands: [
-          command('pot.record', { actor: state.phase.actor }, 'Record pot', {
-            prominence: 'primary',
-            warning: 'Cue ball and colored balls together count as a foul.',
-          }),
+          command('pot.record', { actor: state.phase.actor }, 'Record pot', { prominence: 'primary' }),
           command('miss.record', { actor: state.phase.actor }, 'Record miss', { prominence: 'primary' }),
           command('foul.commit', { actor: state.phase.actor }, 'Foul committed', { prominence: 'secondary' }),
           command('frame.concede', { actor: state.phase.actor }, 'Concede frame', { prominence: 'tertiary' }),
           command('frame.concede', { actor: opp(state.phase.actor) }, 'Concede frame', { prominence: 'tertiary' }),
         ],
-        details: {
-          phase: state.phase.type,
-          actor: state.phase.actor,
-          situationTitle: 'Ball in hand after foul',
-          situationSummary: 'Record a legal pot, a miss, or another foul.',
-          activeBalls,
-        },
+        actor: state.phase.actor,
+        situationTitle: 'Ball in hand after foul',
+        situationSummary: 'Record a legal pot, a miss, or another foul.',
+        messages: [{ type: 'warning', text: 'Cue ball and colored balls together count as a foul.' }],
       })
 
     case 'respotted-black-opening':
-      return StrilaControlViewSchema.parse({
-        gameKey: 'strila-v2',
-        projection: 'control',
-        score: state.score,
+      return view(state, {
         availableCommands: [
-          command('pot.record', { actor: state.phase.actor }, 'Record pot', {
-            prominence: 'primary',
-            helpText: 'A black pot wins. Any other potted result is treated as a foul.',
-          }),
+          command('pot.record', { actor: state.phase.actor }, 'Record pot', { prominence: 'primary' }),
           command('miss.record', { actor: state.phase.actor }, 'Record miss', { prominence: 'primary' }),
           command('foul.commit', { actor: state.phase.actor }, 'Foul committed', { prominence: 'secondary' }),
           command('frame.concede', { actor: state.phase.actor }, 'Concede frame', { prominence: 'tertiary' }),
         ],
-        details: {
-          phase: state.phase.type,
-          actor: state.phase.actor,
-          situationTitle: 'Respotted black opening',
-          situationSummary: 'Only the black wins. Other potted outcomes lose the frame.',
-          activeBalls,
-        },
+        actor: state.phase.actor,
+        situationTitle: 'Respotted black opening',
+        situationSummary: 'Only the black wins. Other potted outcomes lose the frame.',
+        messages: [{ type: 'hint', text: 'A black pot wins. Any other potted result is treated as a foul.' }],
       })
 
     case 'respotted-black-play':
-      return StrilaControlViewSchema.parse({
-        gameKey: 'strila-v2',
-        projection: 'control',
-        score: state.score,
+      return view(state, {
         availableCommands: [
           command('pot.record', { actor: state.phase.actor }, 'Record pot', { prominence: 'primary' }),
           command('foul.commit', { actor: state.phase.actor }, 'Foul committed', { prominence: 'secondary' }),
           command('frame.concede', { actor: state.phase.actor }, 'Concede frame', { prominence: 'tertiary' }),
           command('frame.concede', { actor: opp(state.phase.actor) }, 'Concede frame', { prominence: 'tertiary' }),
         ],
-        details: {
-          phase: state.phase.type,
-          actor: state.phase.actor,
-          situationTitle: 'Respotted black play',
-          situationSummary: 'Record the outcome of the shot on the respotted black.',
-          activeBalls,
-        },
+        actor: state.phase.actor,
+        situationTitle: 'Respotted black play',
+        situationSummary: 'Record the outcome of the shot on the respotted black.',
       })
 
     case 'winner-determined':
-      return StrilaControlViewSchema.parse({
-        gameKey: 'strila-v2',
-        projection: 'control',
-        score: state.score,
+      return view(state, {
         availableCommands: [
           command('pot.record', { actor: state.phase.actor }, 'Record pot', { prominence: 'primary' }),
           command('frame.award', { actor: state.phase.actor }, 'Award frame', { prominence: 'primary' }),
         ],
-        details: {
-          phase: state.phase.type,
-          actor: state.phase.actor,
-          situationTitle: 'Winner determined',
-          situationSummary: 'The break may continue, or the frame can be awarded now.',
-          activeBalls,
-        },
+        actor: state.phase.actor,
+        situationTitle: 'Winner determined',
+        situationSummary: 'The break may continue, or the frame can be awarded now.',
       })
 
     case 'frame-over':
-      return StrilaControlViewSchema.parse({
-        gameKey: 'strila-v2',
-        projection: 'control',
-        score: state.score,
+      return view(state, {
         availableCommands: [],
-        details: {
-          phase: state.phase.type,
-          situationTitle: 'Frame over',
-          situationSummary: 'No further scoring commands are available.',
-          activeBalls,
-        },
+        situationTitle: 'Frame over',
+        situationSummary: 'No further scoring commands are available.',
       })
   }
 }

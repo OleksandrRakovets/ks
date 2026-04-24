@@ -1,20 +1,8 @@
 import type { MatchSnapshot } from '@ks/core'
+import { GameControlProjectionSchema } from '@ks/gameplay'
+import type { z } from 'zod'
 
-export type GameControlProjection = {
-  gameKey: string
-  projection: 'control'
-  score: { A: number; B: number }
-  availableCommands: Array<{
-    commandType: string
-    command: Record<string, unknown>
-    label?: string
-    effectSummary?: string
-    warning?: string
-    helpText?: string
-    prominence: 'primary' | 'secondary' | 'tertiary'
-  }>
-  details?: unknown
-}
+export type GameControlProjection = z.infer<typeof GameControlProjectionSchema>
 
 export type HydratedMatchParticipants = {
   A: { playerRef: string; displayName: string; shortDisplayName: string }

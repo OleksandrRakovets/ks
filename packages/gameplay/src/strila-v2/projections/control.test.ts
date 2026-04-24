@@ -26,7 +26,26 @@ describe('projection: control', () => {
         phase: 'not-started',
         situationTitle: 'Break-off',
         situationSummary: 'Record the opening shot.',
-        activeBalls: { active: [1, 2], inactive: [3, 4, 5, 6, 7] },
+        isPotCommandAvailable: false,
+        ballStatuses: {
+          0: 'object',
+          1: 'object',
+          2: 'object',
+          3: 'on-table',
+          4: 'on-table',
+          5: 'on-table',
+          6: 'on-table',
+          7: 'on-table',
+        },
+        commandSections: {
+          primary: {
+            A: [{ commandType: 'frame.commence', command: { actor: 'A' }, label: 'Break-off', prominence: 'primary' }],
+            B: [{ commandType: 'frame.commence', command: { actor: 'B' }, label: 'Break-off', prominence: 'primary' }],
+          },
+          secondary: { A: [], B: [] },
+          tertiary: { A: [], B: [] },
+        },
+        messages: [],
       },
     })
   })
@@ -41,6 +60,12 @@ describe('projection: control', () => {
 
     const view = deriveStrilaControlView(state)
     expect(view.details.actor).toBe('B')
+    expect(view.details.commandSections.secondary.B.map((entry) => entry.commandType)).toEqual([
+      'penalty.select',
+      'penalty.select',
+      'penalty.select',
+    ])
+    expect(view.details.messages).toEqual([])
     expect(view.availableCommands).toEqual([
       {
         commandType: 'penalty.select',
@@ -81,6 +106,10 @@ describe('projection: control', () => {
       'frame.concede:A',
       'frame.concede:B',
     ])
+    expect(view.details.commandSections.primary.A.map((entry) => entry.commandType)).toEqual(['pot.record'])
+    expect(view.details.commandSections.secondary.A.map((entry) => entry.commandType)).toEqual(['foul.commit'])
+    expect(view.details.commandSections.tertiary.A.map((entry) => entry.commandType)).toEqual(['frame.concede'])
+    expect(view.details.commandSections.tertiary.B.map((entry) => entry.commandType)).toEqual(['frame.concede'])
   })
 
   test('winner-determined keeps frame.award and pot.record', () => {
@@ -106,13 +135,24 @@ describe('projection: control', () => {
 
     const view = deriveStrilaControlView(state)
     expect(view.details.actor).toBe('A')
-    expect(view.details.activeBalls).toEqual({ active: [7], inactive: [] })
+    expect(view.details.ballStatuses).toEqual({
+      0: 'on-table',
+      1: 'potted',
+      2: 'potted',
+      3: 'potted',
+      4: 'potted',
+      5: 'potted',
+      6: 'potted',
+      7: 'object',
+    })
+    expect(view.details.messages).toEqual([
+      { type: 'hint', text: 'A black pot wins. Any other potted result is treated as a foul.' },
+    ])
     expect(view.availableCommands[0]).toEqual({
       commandType: 'pot.record',
       command: { actor: 'A' },
       label: 'Record pot',
       prominence: 'primary',
-      helpText: 'A black pot wins. Any other potted result is treated as a foul.',
     })
     expect(view.availableCommands.map((entry) => entry.commandType)).toEqual([
       'pot.record',
