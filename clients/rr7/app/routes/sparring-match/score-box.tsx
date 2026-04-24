@@ -1,5 +1,4 @@
 import cn from 'classnames'
-import { useTranslation } from 'react-i18next'
 
 type Props = {
   nameA: string
@@ -12,8 +11,6 @@ type Props = {
 }
 
 export function ScoreBox({ nameA, nameB, matchStatus, matchScore, frameScore, frameIndex, targetFrames }: Props) {
-  const { t } = useTranslation()
-
   const isLive = matchStatus === 'active'
   const numberA = isLive ? frameScore.A : matchScore.A
   const numberB = isLive ? frameScore.B : matchScore.B

@@ -22,14 +22,7 @@ test('simulation: outside: basic frame 1', () => {
     deriveStrilaControlView(parseState(step.state)).availableCommands.map(
       (entry) => `${entry.commandType}:${(entry.command as { actor: string }).actor}`,
     ),
-  ).toEqual([
-    'pot.record:A',
-    'pot.record:B',
-    'foul.commit:A',
-    'foul.commit:B',
-    'frame.concede:A',
-    'frame.concede:B',
-  ])
+  ).toEqual(['pot.record:A', 'pot.record:B', 'foul.commit:A', 'foul.commit:B', 'frame.concede:A', 'frame.concede:B'])
   state = parseState(step.state)
 
   step = applyGameCommand({
@@ -83,11 +76,5 @@ test('simulation: outside: basic frame 1', () => {
     deriveStrilaControlView(parseState(step.state)).availableCommands.map(
       (entry) => `${entry.commandType}:${(entry.command as { actor: string }).actor}`,
     ),
-  ).toEqual([
-    'pot.record:B',
-    'miss.record:B',
-    'foul.commit:B',
-    'frame.concede:B',
-    'frame.concede:A',
-  ])
+  ).toEqual(['pot.record:B', 'miss.record:B', 'foul.commit:B', 'frame.concede:B', 'frame.concede:A'])
 })
