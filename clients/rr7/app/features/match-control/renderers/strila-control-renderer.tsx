@@ -1,5 +1,5 @@
 import { Button } from '@ks/ui'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 
 import type { MatchControlRendererProps } from './types'
 
@@ -27,14 +27,6 @@ const BALL_LABELS: Record<number, string> = {
   7: 'Black',
 }
 
-const DUPLICATED_ACTOR_COMMANDS = new Set(['miss.record', 'foul.commit', 'frame.concede'])
-
-function splitCommands(projection: MatchControlRendererProps['projection']) {
-  const recordPot = projection.availableCommands.find((entry) => entry.commandType === 'pot.record')
-  const rest = projection.availableCommands.filter((entry) => entry.commandType !== 'pot.record')
-  return { recordPot, rest }
-}
-
 function strilaBallView(details: unknown): { active: number[]; allColoredOnTable: number[] } {
   if (!details || typeof details !== 'object') {
     return { active: [1, 2], allColoredOnTable: [1, 2, 3, 4, 5, 6, 7] }
@@ -60,87 +52,101 @@ function actorFromCommand(command: Record<string, unknown>): 'A' | 'B' | null {
   return actor === 'A' || actor === 'B' ? actor : null
 }
 
+type Command = MatchControlRendererProps['projection']['availableCommands'][number]
+
+function prominenceVariant(prominence: string): 'default' | 'secondary' | 'outline' {
+  if (prominence === 'primary') return 'default'
+  if (prominence === 'tertiary') return 'outline'
+  return 'secondary'
+}
+
+function sectionMessages(commands: Command[]): { text: string; className: string }[] {
+  const seen = new Set<string>()
+  const out: { text: string; className: string }[] = []
+  for (const cmd of commands) {
+    for (const [text, className] of [
+      [cmd.helpText, 'text-muted-foreground'],
+      [cmd.warning, 'text-destructive'],
+    ] as [string | undefined, string][]) {
+      if (text && !seen.has(text)) {
+        out.push({ text, className })
+        seen.add(text)
+      }
+    }
+  }
+  return out
+}
+
+function CommandRows({
+  commands,
+  selectedBalls,
+  onSubmit,
+}: {
+  commands: Command[]
+  selectedBalls: number[]
+  onSubmit: (commandType: string, command: Record<string, unknown>) => void
+}) {
+  const aCommands = commands.filter((c) => actorFromCommand(c.command) === 'A')
+  const bCommands = commands.filter((c) => actorFromCommand(c.command) === 'B')
+  const rowCount = Math.max(aCommands.length, bCommands.length)
+  const messages = sectionMessages(commands)
+
+  function renderButton(cmd: Command) {
+    const isPot = cmd.commandType === 'pot.record'
+    const command = isPot ? { ...cmd.command, pottedBalls: selectedBalls } : cmd.command
+    return (
+      <div className="grid gap-1">
+        <Button
+          type="button"
+          variant={prominenceVariant(cmd.prominence)}
+          size="touch"
+          disabled={isPot && selectedBalls.length === 0}
+          onClick={() => onSubmit(cmd.commandType, command)}
+        >
+          {cmd.label ?? cmd.commandType}
+        </Button>
+        {cmd.effectSummary && <p className="text-center text-sm text-text-lo">{cmd.effectSummary}</p>}
+      </div>
+    )
+  }
+
+  return (
+    <section aria-label="Visible commands" className="border-b border-divider px-4 pt-1 pb-4">
+      {Array.from({ length: rowCount }, (_, i) => {
+        const a = aCommands[i]
+        const b = bCommands[i]
+        return (
+          <div key={i} className="mt-3 grid grid-cols-2 gap-6">
+            {a ? renderButton(a) : <div />}
+            {b ? renderButton(b) : <div />}
+          </div>
+        )
+      })}
+      {messages.map(({ text, className }) => (
+        <p key={text} className={`mt-2 text-sm font-semibold ${className}`}>
+          {text}
+        </p>
+      ))}
+    </section>
+  )
+}
+
 export function StrilaControlRenderer(props: MatchControlRendererProps) {
-  const { recordPot, rest } = splitCommands(props.projection)
+  console.log('rendering Strila controls')
   const [selectedBalls, setSelectedBalls] = useState<number[]>([])
   const [showTertiary, setShowTertiary] = useState(false)
 
   const ballView = useMemo(() => strilaBallView(props.projection.details), [props.projection.details])
   const activeBallSet = useMemo(() => new Set(ballView.active), [ballView.active])
-  const phase =
-    props.projection.details && typeof props.projection.details === 'object'
-      ? (props.projection.details as { phase?: unknown }).phase
-      : undefined
-  const winnerDeterminedRecordActor = phase === 'winner-determined' && recordPot ? actorFromCommand(recordPot.command) : null
 
-  const hasPotCommand = !!recordPot
-  useEffect(() => {
-    if (!hasPotCommand) setSelectedBalls([])
-  }, [hasPotCommand])
-
-  function toggleBall(ball: number) {
-    setSelectedBalls((prev) => (prev.includes(ball) ? prev.filter((entry) => entry !== ball) : [...prev, ball]))
-  }
-
-  function submitSeatCommand(seat: 'A' | 'B', commandType: string, command: Record<string, unknown>) {
-    setSelectedBalls([])
-    props.onSubmitCommand({ commandType, command: { ...command, actor: seat } })
-  }
+  const hasPotCommand = props.projection.availableCommands.some((c) => c.commandType === 'pot.record')
+  const visibleCommands = props.projection.availableCommands.filter((c) => c.prominence !== 'tertiary')
+  const tertiaryCommands = props.projection.availableCommands.filter((c) => c.prominence === 'tertiary')
 
   function submitCommand(commandType: string, command: Record<string, unknown>) {
     setSelectedBalls([])
     props.onSubmitCommand({ commandType, command })
   }
-
-  const duplicatedCommands = rest.filter(
-    (entry) => DUPLICATED_ACTOR_COMMANDS.has(entry.commandType) && actorFromCommand(entry.command) !== null,
-  )
-  const singleCommands = rest.filter((entry) => !duplicatedCommands.includes(entry))
-
-  // Group single commands that have exactly one variant per actor (e.g. frame.commence A+B) into A/B column pairs.
-  // Commands where multiple entries share the same commandType+actor (e.g. penalty.select options) bypass grouping.
-  type ActorPair = { A: (typeof singleCommands)[number]; B: (typeof singleCommands)[number] }
-  const pairedSingleCommands: ActorPair[] = []
-  const unpairedSingleCommands: (typeof singleCommands)[number][] = []
-
-  const commandActorCounts = new Map<string, number>()
-  for (const cmd of singleCommands) {
-    const actor = actorFromCommand(cmd.command)
-    if (actor) {
-      const key = `${cmd.commandType}:${actor}`
-      commandActorCounts.set(key, (commandActorCounts.get(key) ?? 0) + 1)
-    }
-  }
-
-  const grouped: Record<string, { A?: (typeof singleCommands)[number]; B?: (typeof singleCommands)[number] }> = {}
-  for (const cmd of singleCommands) {
-    const actor = actorFromCommand(cmd.command)
-    if (actor === 'A' || actor === 'B') {
-      const key = `${cmd.commandType}:${actor}`
-      if ((commandActorCounts.get(key) ?? 0) > 1) {
-        unpairedSingleCommands.push(cmd)
-      } else {
-        grouped[cmd.commandType] ??= {}
-        grouped[cmd.commandType][actor] = cmd
-      }
-    } else {
-      unpairedSingleCommands.push(cmd)
-    }
-  }
-  for (const pair of Object.values(grouped)) {
-    if (pair.A && pair.B) {
-      pairedSingleCommands.push({ A: pair.A, B: pair.B })
-    } else {
-      if (pair.A) unpairedSingleCommands.push(pair.A)
-      if (pair.B) unpairedSingleCommands.push(pair.B)
-    }
-  }
-
-  const visibleDuplicated = duplicatedCommands.filter((c) => c.prominence !== 'tertiary')
-  const tertiaryDuplicated = duplicatedCommands.filter((c) => c.prominence === 'tertiary')
-  const visibleUnpaired = unpairedSingleCommands.filter((c) => c.prominence !== 'tertiary')
-  const tertiaryUnpaired = unpairedSingleCommands.filter((c) => c.prominence === 'tertiary')
-  const hasTertiary = tertiaryDuplicated.length > 0 || tertiaryUnpaired.length > 0
 
   return (
     <div aria-label="Strila container" className="grid">
@@ -150,31 +156,29 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
       <div
         aria-label="Ball grid"
         className="mx-auto grid gap-x-3 border-b border-divider px-4 py-4"
-        style={{
-          gridTemplateColumns: 'repeat(8, 1fr)',
-          width: 'min(100%, 468px)',
-        }}
+        style={{ gridTemplateColumns: 'repeat(8, 1fr)', width: 'min(100%, 468px)' }}
       >
         {BALL_ORDER.map((ball) => {
           const meta = BALL_META[ball] ?? { bg: '#D4D4D8', border: '#27272A' }
           const isObjectBall = ball !== 0 && activeBallSet.has(ball)
           const isPotted = ball !== 0 && !ballView.allColoredOnTable.includes(ball)
           const isFullSize = ball === 0 || isObjectBall
-          const selected = !!recordPot && selectedBalls.includes(ball) && !isPotted
+          const selected = hasPotCommand && selectedBalls.includes(ball) && !isPotted
           return (
             <div key={ball} className="flex items-center justify-center">
               <button
                 type="button"
                 title={`${BALL_LABELS[ball] ?? ball}${isObjectBall ? ' (object)' : ''}${isPotted ? ' (potted)' : ''}`}
                 onClick={() => {
-                  if (!recordPot || isPotted) return
-                  toggleBall(ball)
+                  if (!hasPotCommand || isPotted) return
+                  setSelectedBalls((prev) => (prev.includes(ball) ? prev.filter((b) => b !== ball) : [...prev, ball]))
                 }}
                 style={{
                   width: isFullSize ? '100%' : '80%',
                   maxWidth: isFullSize ? '48px' : '38px',
                   aspectRatio: '1',
                   borderRadius: '50%',
+                  cursor: !hasPotCommand || isPotted ? 'default' : 'pointer',
                   background: meta.bg,
                   border: selected ? '2.5px solid var(--a-amber)' : `1.5px solid ${meta.border}`,
                   boxShadow: selected
@@ -192,143 +196,9 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
         })}
       </div>
 
-      {recordPot ? (
-        <div className="grid gap-3 py-4">
-          {winnerDeterminedRecordActor ? (
-            <div className="grid grid-cols-2 gap-6">
-              {winnerDeterminedRecordActor === 'A' && (
-                <Button
-                  type="button"
-                  size="touch"
-                  disabled={selectedBalls.length === 0}
-                  onClick={() => submitCommand(recordPot.commandType, { ...recordPot.command, pottedBalls: selectedBalls })}
-                >
-                  {recordPot.label ?? 'Record pot'}
-                </Button>
-              )}
-              {winnerDeterminedRecordActor === 'B' && <div />}
-              {winnerDeterminedRecordActor === 'B' && (
-                <Button
-                  type="button"
-                  size="touch"
-                  disabled={selectedBalls.length === 0}
-                  onClick={() => submitCommand(recordPot.commandType, { ...recordPot.command, pottedBalls: selectedBalls })}
-                >
-                  {recordPot.label ?? 'Record pot'}
-                </Button>
-              )}
-              {winnerDeterminedRecordActor === 'A' && <div />}
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-6">
-              <Button
-                type="button"
-                size="touch"
-                disabled={selectedBalls.length === 0}
-                onClick={() =>
-                  submitSeatCommand('A', recordPot.commandType, { ...recordPot.command, pottedBalls: selectedBalls })
-                }
-              >
-                {recordPot.label ?? 'Record pot'}
-              </Button>
-              <Button
-                type="button"
-                size="touch"
-                disabled={selectedBalls.length === 0}
-                onClick={() =>
-                  submitSeatCommand('B', recordPot.commandType, { ...recordPot.command, pottedBalls: selectedBalls })
-                }
-              >
-                {recordPot.label ?? 'Record pot'}
-              </Button>
-            </div>
-          )}
-          {recordPot.helpText ? <p className="text-xs text-muted-foreground">{recordPot.helpText}</p> : null}
-          {recordPot.warning ? <p className="text-xs text-destructive">{recordPot.warning}</p> : null}
-        </div>
-      ) : null}
+      <CommandRows commands={visibleCommands} selectedBalls={selectedBalls} onSubmit={submitCommand} />
 
-      {visibleDuplicated.map((command, index) => (
-        <div key={`${command.commandType}-${index}`} className="grid grid-cols-2 gap-6">
-          {(['A', 'B'] as const).map((seat) => (
-            <Button
-              key={seat}
-              type="button"
-              variant="secondary"
-              size="touch"
-              onClick={() => submitSeatCommand(seat, command.commandType, command.command)}
-            >
-              <span className="flex flex-col items-center gap-0.5">
-                <span>{command.label ?? command.commandType}</span>
-                {command.effectSummary ? <span className="text-xs opacity-70">{command.effectSummary}</span> : null}
-                {command.helpText ? <span className="text-xs opacity-70">{command.helpText}</span> : null}
-                {command.warning ? <span className="text-xs text-destructive">{command.warning}</span> : null}
-              </span>
-            </Button>
-          ))}
-        </div>
-      ))}
-
-      {pairedSingleCommands.map((pair) => (
-        <div key={pair.A.commandType} className="grid grid-cols-2 gap-6">
-          {(['A', 'B'] as const).map((seat) => {
-            const cmd = pair[seat]
-            const label = (cmd.label ?? cmd.commandType).replace(/ \([AB]\)$/, '')
-            return (
-              <Button
-                key={seat}
-                type="button"
-                variant={cmd.prominence === 'primary' ? 'default' : 'secondary'}
-                size="touch"
-                onClick={() => submitCommand(cmd.commandType, cmd.command)}
-              >
-                <span className="flex flex-col items-center gap-0.5">
-                  <span>{label}</span>
-                  {cmd.helpText ? <span className="text-xs opacity-70">{cmd.helpText}</span> : null}
-                  {cmd.warning ? <span className="text-xs text-destructive">{cmd.warning}</span> : null}
-                </span>
-              </Button>
-            )
-          })}
-        </div>
-      ))}
-
-      {visibleUnpaired.map((command, index) => {
-        const actor = actorFromCommand(command.command)
-        const btn = (
-          <Button
-            key={`${command.commandType}-${index}`}
-            type="button"
-            variant={command.prominence === 'primary' ? 'default' : 'secondary'}
-            size="touch"
-            onClick={() => submitCommand(command.commandType, command.command)}
-          >
-            <span className="flex flex-col items-center gap-0.5">
-              <span>{command.label ?? command.commandType}</span>
-              {command.effectSummary ? <span className="text-xs opacity-70">{command.effectSummary}</span> : null}
-              {command.helpText ? <span className="text-xs opacity-70">{command.helpText}</span> : null}
-              {command.warning ? <span className="text-xs text-destructive">{command.warning}</span> : null}
-            </span>
-          </Button>
-        )
-        if (actor === 'A')
-          return (
-            <div key={`${command.commandType}-${index}`} className="grid grid-cols-2 gap-6">
-              {btn}
-              <div />
-            </div>
-          )
-        if (actor === 'B')
-          return (
-            <div key={`${command.commandType}-${index}`} className="grid grid-cols-2 gap-6">
-              <div />
-              {btn}
-            </div>
-          )
-        return btn
-      })}
-
-      {hasTertiary && (
+      {tertiaryCommands.length > 0 && (
         <div className="grid gap-3">
           <button
             type="button"
@@ -337,34 +207,7 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
           >
             {showTertiary ? '▲ Сховати' : '··· Більше'}
           </button>
-          {showTertiary && (
-            <>
-              {tertiaryDuplicated.map((command, index) => (
-                <div key={`${command.commandType}-${index}`} className="grid grid-cols-2 gap-6">
-                  {(['A', 'B'] as const).map((seat) => (
-                    <Button
-                      key={seat}
-                      type="button"
-                      variant="outline"
-                      onClick={() => submitSeatCommand(seat, command.commandType, command.command)}
-                    >
-                      {command.label ?? command.commandType}
-                    </Button>
-                  ))}
-                </div>
-              ))}
-              {tertiaryUnpaired.map((command, index) => (
-                <Button
-                  key={`${command.commandType}-${index}`}
-                  type="button"
-                  variant="outline"
-                  onClick={() => submitCommand(command.commandType, command.command)}
-                >
-                  {command.label ?? command.commandType}
-                </Button>
-              ))}
-            </>
-          )}
+          {showTertiary && <CommandRows commands={tertiaryCommands} selectedBalls={selectedBalls} onSubmit={submitCommand} />}
         </div>
       )}
     </div>

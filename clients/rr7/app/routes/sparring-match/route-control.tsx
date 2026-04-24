@@ -217,7 +217,7 @@ export default function SparringMatchRoute() {
   const revalidator = useRevalidator()
 
   const latestSeqRef = useRef(snapshot.latestSeq)
-  const suppressRevalidateUntilSeqRef = useRef<number>(0)
+  const suppressRevalidateUntilSeqRef = useRef<number>(snapshot.latestSeq)
   const revalidateFnRef = useRef(revalidator.revalidate)
   const localSubmitInFlightRef = useRef(false)
 
