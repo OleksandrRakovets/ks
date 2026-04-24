@@ -295,7 +295,7 @@ export default function SparringMatchProtocolRoute() {
         <nav className="sticky bottom-0 z-10 mt-auto flex border-t border-border bg-background px-4">
           <Link
             to={`/sparring/matches/${snapshot.matchId}`}
-            className="-mt-px flex-1 border-t-2 border-transparent py-2.5 text-center text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+            className="-mt-px flex-1 border-t-2 border-transparent py-2.5 text-center text-sm font-medium text-muted-foreground hover:text-foreground"
           >
             {t(keys.match.sparring.tabControl)}
           </Link>

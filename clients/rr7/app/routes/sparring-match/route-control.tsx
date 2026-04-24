@@ -369,7 +369,7 @@ export default function SparringMatchRoute() {
         </span>
         <Link
           to={`/sparring/matches/${snapshot.matchId}/protocol`}
-          className="-mt-px flex-1 border-t-2 border-transparent py-2.5 text-center text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+          className="-mt-px flex-1 border-t-2 border-transparent py-2.5 text-center text-sm font-medium text-muted-foreground hover:text-foreground"
         >
           {t(keys.match.sparring.tabProtocol)}
         </Link>

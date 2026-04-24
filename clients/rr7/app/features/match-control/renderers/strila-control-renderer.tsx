@@ -132,7 +132,6 @@ function CommandRows({
 }
 
 export function StrilaControlRenderer(props: MatchControlRendererProps) {
-  console.log('rendering Strila controls')
   const [selectedBalls, setSelectedBalls] = useState<number[]>([])
   const [showTertiary, setShowTertiary] = useState(false)
 
@@ -202,7 +201,7 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
         <div className="grid gap-3">
           <button
             type="button"
-            className="text-left text-xs text-muted-foreground transition-colors hover:text-foreground"
+            className="text-left text-xs text-muted-foreground hover:text-foreground"
             onClick={() => setShowTertiary((v) => !v)}
           >
             {showTertiary ? '▲ Сховати' : '··· Більше'}
