@@ -1,6 +1,5 @@
 import type { JSX } from 'react'
 
-import { GenericControlRenderer } from './generic-control-renderer'
 import { PyramidControlRenderer } from './pyramid-control-renderer'
 import { StrilaControlRenderer } from './strila-control-renderer'
 import type { MatchControlRendererProps } from './types'
@@ -12,7 +11,7 @@ const PYRAMID_KEYS = new Set(['free-pyramid', 'free-pyramid-long', 'combined-pyr
 export function resolveControlRenderer(gameKey: string): ControlRenderer {
   if (gameKey === 'strila-v2') return StrilaControlRenderer
   if (PYRAMID_KEYS.has(gameKey)) return PyramidControlRenderer
-  return GenericControlRenderer
+  throw new Error(`Unsupported control renderer for game key: ${gameKey}`)
 }
 
 export type { GameControlProjection, HydratedMatchParticipants, MatchControlRendererProps } from './types'

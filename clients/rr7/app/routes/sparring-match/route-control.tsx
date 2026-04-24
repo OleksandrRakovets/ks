@@ -63,7 +63,6 @@ function emptyControlProjection(gameKey: string): GameControlProjection {
     gameKey,
     projection: 'control',
     score: { A: 0, B: 0 },
-    availableCommands: [],
   }
 }
 

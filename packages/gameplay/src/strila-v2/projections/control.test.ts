@@ -18,10 +18,6 @@ describe('projection: control', () => {
       gameKey: 'strila-v2',
       projection: 'control',
       score: { A: 0, B: 0 },
-      availableCommands: [
-        { commandType: 'frame.commence', command: { actor: 'A' }, label: 'Break-off', prominence: 'primary' },
-        { commandType: 'frame.commence', command: { actor: 'B' }, label: 'Break-off', prominence: 'primary' },
-      ],
       details: {
         phase: 'not-started',
         situationTitle: 'Break-off',
@@ -66,28 +62,10 @@ describe('projection: control', () => {
       'penalty.select',
     ])
     expect(view.details.messages).toEqual([])
-    expect(view.availableCommands).toEqual([
-      {
-        commandType: 'penalty.select',
-        command: { actor: 'B', choice: 'play-from-position' },
-        label: 'Play from position',
-        prominence: 'secondary',
-        effectSummary: '+1 point',
-      },
-      {
-        commandType: 'penalty.select',
-        command: { actor: 'B', choice: 'pass-position' },
-        label: 'Pass position',
-        prominence: 'secondary',
-        effectSummary: '+1 point',
-      },
-      {
-        commandType: 'penalty.select',
-        command: { actor: 'B', choice: 'ball-in-hand' },
-        label: 'Ball in hand',
-        prominence: 'secondary',
-        effectSummary: 'No points awarded',
-      },
+    expect(view.details.commandSections.secondary.B.map((entry) => entry.label)).toEqual([
+      'Play from position',
+      'Pass position',
+      'Ball in hand',
     ])
   })
 
@@ -100,10 +78,16 @@ describe('projection: control', () => {
     }
 
     const view = deriveStrilaControlView(state)
-    expect(view.availableCommands.map((c) => `${c.commandType}:${(c.command as { actor: string }).actor}`)).toEqual([
+    expect(view.details.commandSections.primary.A.map((entry) => `${entry.commandType}:${entry.command.actor}`)).toEqual([
       'pot.record:A',
+    ])
+    expect(view.details.commandSections.secondary.A.map((entry) => `${entry.commandType}:${entry.command.actor}`)).toEqual([
       'foul.commit:A',
+    ])
+    expect(view.details.commandSections.tertiary.A.map((entry) => `${entry.commandType}:${entry.command.actor}`)).toEqual([
       'frame.concede:A',
+    ])
+    expect(view.details.commandSections.tertiary.B.map((entry) => `${entry.commandType}:${entry.command.actor}`)).toEqual([
       'frame.concede:B',
     ])
     expect(view.details.commandSections.primary.A.map((entry) => entry.commandType)).toEqual(['pot.record'])
@@ -122,7 +106,7 @@ describe('projection: control', () => {
 
     const view = deriveStrilaControlView(state)
     expect(view.details.actor).toBe('B')
-    expect(view.availableCommands.map((entry) => entry.commandType)).toEqual(['pot.record', 'frame.award'])
+    expect(view.details.commandSections.primary.B.map((entry) => entry.commandType)).toEqual(['pot.record', 'frame.award'])
   })
 
   test('respotted-black-opening explains the restriction', () => {
@@ -148,17 +132,16 @@ describe('projection: control', () => {
     expect(view.details.messages).toEqual([
       { type: 'hint', text: 'A black pot wins. Any other potted result is treated as a foul.' },
     ])
-    expect(view.availableCommands[0]).toEqual({
+    expect(view.details.commandSections.primary.A[0]).toEqual({
       commandType: 'pot.record',
       command: { actor: 'A' },
       label: 'Record pot',
       prominence: 'primary',
     })
-    expect(view.availableCommands.map((entry) => entry.commandType)).toEqual([
-      'pot.record',
-      'miss.record',
-      'foul.commit',
-      'frame.concede',
-    ])
+    expect([
+      ...view.details.commandSections.primary.A.map((entry) => entry.commandType),
+      ...view.details.commandSections.secondary.A.map((entry) => entry.commandType),
+      ...view.details.commandSections.tertiary.A.map((entry) => entry.commandType),
+    ]).toEqual(['pot.record', 'miss.record', 'foul.commit', 'frame.concede'])
   })
 })

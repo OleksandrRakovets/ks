@@ -81,7 +81,7 @@ function messages(entries: Array<{ type: 'hint' | 'warning'; text: string }>) {
 function view(
   state: StrilaFrameState,
   args: {
-    availableCommands: StrilaControlCommand[]
+    commands: StrilaControlCommand[]
     situationTitle: string
     situationSummary: string
     actor?: StrilaSeat
@@ -92,15 +92,14 @@ function view(
     gameKey: 'strila-v2',
     projection: 'control',
     score: state.score,
-    availableCommands: args.availableCommands,
     details: {
       phase: state.phase.type,
       actor: args.actor,
       situationTitle: args.situationTitle,
       situationSummary: args.situationSummary,
-      isPotCommandAvailable: args.availableCommands.some((entry) => entry.commandType === 'pot.record'),
+      isPotCommandAvailable: args.commands.some((entry) => entry.commandType === 'pot.record'),
       ballStatuses: deriveBallStatuses(state),
-      commandSections: deriveCommandSections(args.availableCommands),
+      commandSections: deriveCommandSections(args.commands),
       messages: messages(args.messages ?? []),
     },
   })
@@ -110,7 +109,7 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
   switch (state.phase.type) {
     case 'not-started':
       return view(state, {
-        availableCommands: [
+        commands: [
           command('frame.commence', { actor: 'A' }, 'Break-off', { prominence: 'primary' }),
           command('frame.commence', { actor: 'B' }, 'Break-off', { prominence: 'primary' }),
         ],
@@ -120,7 +119,7 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
 
     case 'open-play':
       return view(state, {
-        availableCommands: [
+        commands: [
           command('pot.record', { actor: 'A' }, 'Record pot', { prominence: 'primary' }),
           command('pot.record', { actor: 'B' }, 'Record pot', { prominence: 'primary' }),
           command('foul.commit', { actor: 'A' }, 'Foul committed', { prominence: 'secondary' }),
@@ -135,7 +134,7 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
 
     case 'penalty-selection':
       return view(state, {
-        availableCommands: [
+        commands: [
           command('penalty.select', { actor: state.phase.chooser, choice: 'play-from-position' }, 'Play from position', {
             prominence: 'secondary',
             effectSummary: '+1 point',
@@ -156,7 +155,7 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
 
     case 'ball-in-hand':
       return view(state, {
-        availableCommands: [
+        commands: [
           command('pot.record', { actor: state.phase.actor }, 'Record pot', { prominence: 'primary' }),
           command('miss.record', { actor: state.phase.actor }, 'Record miss', { prominence: 'primary' }),
           command('foul.commit', { actor: state.phase.actor }, 'Foul committed', { prominence: 'secondary' }),
@@ -171,7 +170,7 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
 
     case 'respotted-black-opening':
       return view(state, {
-        availableCommands: [
+        commands: [
           command('pot.record', { actor: state.phase.actor }, 'Record pot', { prominence: 'primary' }),
           command('miss.record', { actor: state.phase.actor }, 'Record miss', { prominence: 'primary' }),
           command('foul.commit', { actor: state.phase.actor }, 'Foul committed', { prominence: 'secondary' }),
@@ -185,7 +184,7 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
 
     case 'respotted-black-play':
       return view(state, {
-        availableCommands: [
+        commands: [
           command('pot.record', { actor: state.phase.actor }, 'Record pot', { prominence: 'primary' }),
           command('foul.commit', { actor: state.phase.actor }, 'Foul committed', { prominence: 'secondary' }),
           command('frame.concede', { actor: state.phase.actor }, 'Concede frame', { prominence: 'tertiary' }),
@@ -198,7 +197,7 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
 
     case 'winner-determined':
       return view(state, {
-        availableCommands: [
+        commands: [
           command('pot.record', { actor: state.phase.actor }, 'Record pot', { prominence: 'primary' }),
           command('frame.award', { actor: state.phase.actor }, 'Award frame', { prominence: 'primary' }),
         ],
@@ -209,7 +208,7 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
 
     case 'frame-over':
       return view(state, {
-        availableCommands: [],
+        commands: [],
         situationTitle: 'Frame over',
         situationSummary: 'No further scoring commands are available.',
       })

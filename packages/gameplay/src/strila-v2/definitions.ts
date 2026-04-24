@@ -212,7 +212,6 @@ export type StrilaControlDetails = z.infer<typeof StrilaControlDetailsSchema>
 export const StrilaControlViewSchema = GameControlProjectionSchema.extend({
   gameKey: z.literal('strila-v2'),
   score: StrilaScoreSchema,
-  availableCommands: z.array(StrilaControlCommandSchema),
   details: StrilaControlDetailsSchema,
 })
 export type StrilaControlView = z.infer<typeof StrilaControlViewSchema>

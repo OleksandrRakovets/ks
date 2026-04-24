@@ -14,10 +14,14 @@ test('simulation: outside: respotted black frame 1', () => {
   }
 
   expect(deriveStrilaScoreboardView(state).details.objectBalls).toEqual([7])
-  expect(deriveStrilaControlView(state).availableCommands.map((entry) => entry.commandType)).toEqual([
+  expect(deriveStrilaControlView(state).details.commandSections.primary.A.map((entry) => entry.commandType)).toEqual([
     'pot.record',
     'miss.record',
+  ])
+  expect(deriveStrilaControlView(state).details.commandSections.secondary.A.map((entry) => entry.commandType)).toEqual([
     'foul.commit',
+  ])
+  expect(deriveStrilaControlView(state).details.commandSections.tertiary.A.map((entry) => entry.commandType)).toEqual([
     'frame.concede',
   ])
 
@@ -36,9 +40,8 @@ test('simulation: outside: respotted black frame 1', () => {
       reason: 'respotted-black-won',
     },
   ])
-  expect(deriveStrilaControlView(step.state as StrilaFrameState).availableCommands.map((entry) => entry.commandType)).toEqual([
-    'pot.record',
-    'frame.award',
-  ])
+  expect(
+    deriveStrilaControlView(step.state as StrilaFrameState).details.commandSections.primary.A.map((entry) => entry.commandType),
+  ).toEqual(['pot.record', 'frame.award'])
   expect(deriveStrilaScoreboardView(step.state as StrilaFrameState).details.winner).toBe('A')
 })

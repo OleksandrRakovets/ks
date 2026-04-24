@@ -45,10 +45,26 @@ function controlCommandTypes(gameKey: ReturnType<typeof listGameKeys>[number], s
     state,
     projection: 'control',
   }) as {
-    availableCommands: Array<{ commandType: string }>
+    details?: {
+      commandSections?: {
+        primary?: { A?: Array<{ commandType: string }>; B?: Array<{ commandType: string }> }
+        secondary?: { A?: Array<{ commandType: string }>; B?: Array<{ commandType: string }> }
+        tertiary?: { A?: Array<{ commandType: string }>; B?: Array<{ commandType: string }> }
+      }
+    }
   }
 
-  return unique(projection.availableCommands.map((command) => command.commandType))
+  const sections = projection.details?.commandSections
+  if (!sections) return []
+
+  return unique([
+    ...(sections.primary?.A ?? []).map((command) => command.commandType),
+    ...(sections.primary?.B ?? []).map((command) => command.commandType),
+    ...(sections.secondary?.A ?? []).map((command) => command.commandType),
+    ...(sections.secondary?.B ?? []).map((command) => command.commandType),
+    ...(sections.tertiary?.A ?? []).map((command) => command.commandType),
+    ...(sections.tertiary?.B ?? []).map((command) => command.commandType),
+  ])
 }
 
 function makePyramidMachine(gameKey: Exclude<ReturnType<typeof listGameKeys>[number], 'strila-v2'>): GeneratedGameStateMachine {

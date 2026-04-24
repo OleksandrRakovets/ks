@@ -9,4 +9,5 @@ export {
   type StrilaControlDetails,
   type StrilaControlView,
 } from './strila-v2/definitions'
+export { PyramidControlViewSchema } from './pyramid/runtime'
 export { getGameMeta, isRegisteredGameKey, listGameKeys, registry, type RegisteredGameKey } from './registry'

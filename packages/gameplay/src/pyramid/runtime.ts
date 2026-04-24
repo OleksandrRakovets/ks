@@ -4,6 +4,7 @@ import { z } from 'zod'
 
 import {
   type GameCreateStateArgs,
+  GameCommandPresetSchema,
   GameControlProjectionSchema,
   GameScoreboardProjectionSchema,
   GameSummaryProjectionSchema,
@@ -61,6 +62,60 @@ function command(
   extras: { prominence: 'primary' | 'secondary' | 'tertiary'; effectSummary?: string; warning?: string; helpText?: string },
 ) {
   return { commandType, command: payload, label, ...extras }
+}
+
+const PyramidControlCommandSchema = GameCommandPresetSchema.extend({
+  label: z.string().min(1),
+})
+
+const PyramidControlCommandSectionSchema = z.object({
+  A: z.array(PyramidControlCommandSchema),
+  B: z.array(PyramidControlCommandSchema),
+})
+
+const PyramidControlDetailsSchema = z.object({
+  phase: z.enum(['not-started', 'open-play', 'frame-over']),
+  winner: SeatSchema.optional(),
+  situationTitle: z.string().min(1),
+  situationSummary: z.string().min(1),
+  isPotCommandAvailable: z.boolean(),
+  commandSections: z.object({
+    primary: PyramidControlCommandSectionSchema,
+    secondary: PyramidControlCommandSectionSchema,
+    tertiary: PyramidControlCommandSectionSchema,
+  }),
+})
+
+export const PyramidControlViewSchema = GameControlProjectionSchema.extend({
+  details: PyramidControlDetailsSchema,
+})
+
+function seatFromCommandPayload(commandPayload: Record<string, unknown>): 'A' | 'B' | null {
+  const seat = commandPayload.seat
+  if (seat === 'A' || seat === 'B') return seat
+  return null
+}
+
+function deriveCommandSections(commands: z.infer<typeof PyramidControlCommandSchema>[]) {
+  const sections = {
+    primary: { A: [] as z.infer<typeof PyramidControlCommandSchema>[], B: [] as z.infer<typeof PyramidControlCommandSchema>[] },
+    secondary: {
+      A: [] as z.infer<typeof PyramidControlCommandSchema>[],
+      B: [] as z.infer<typeof PyramidControlCommandSchema>[],
+    },
+    tertiary: {
+      A: [] as z.infer<typeof PyramidControlCommandSchema>[],
+      B: [] as z.infer<typeof PyramidControlCommandSchema>[],
+    },
+  }
+
+  for (const entry of commands) {
+    const seat = seatFromCommandPayload(entry.command)
+    if (!seat) continue
+    sections[entry.prominence][seat].push(entry)
+  }
+
+  return sections
 }
 
 // TODO: declare winner as well, but allow the break to continue
@@ -202,60 +257,75 @@ export class PyramidGameplayRuntime extends GameplayRuntime {
     switch (args.projection) {
       case 'control': {
         if (state.phase === 'not-started') {
-          return GameControlProjectionSchema.parse({
+          const commands = [
+            command('frame.commence', { seat: 'A' }, 'Break-off (A)', { prominence: 'primary' }),
+            command('frame.commence', { seat: 'B' }, 'Break-off (B)', { prominence: 'primary' }),
+          ]
+          return PyramidControlViewSchema.parse({
             gameKey: this.meta.gameKey,
             projection: 'control',
             score: state.pointsBySeat,
-            availableCommands: [
-              command('frame.commence', { seat: 'A' }, 'Break-off (A)', { prominence: 'primary' }),
-              command('frame.commence', { seat: 'B' }, 'Break-off (B)', { prominence: 'primary' }),
-            ],
             details: {
               ...pyramidDetails(state),
               situationTitle: 'Break-off',
               situationSummary: 'Choose the player to open the frame.',
+              isPotCommandAvailable: false,
+              commandSections: deriveCommandSections(commands),
             },
           })
         }
 
         if (state.phase === 'open-play') {
-          return GameControlProjectionSchema.parse({
-            gameKey: this.meta.gameKey,
-            projection: 'control',
-            score: state.pointsBySeat,
-            availableCommands: [
-              ...this.args.shotPointOptions.map((points, index) =>
-                command('pot.record', { points }, `+${points}`, { prominence: index === 0 ? 'primary' : 'secondary' }),
+          const seats: Array<'A' | 'B'> = ['A', 'B']
+          const commands = [
+            ...seats.flatMap((seat) =>
+              this.args.shotPointOptions.map((points, index) =>
+                command('pot.record', { seat, points }, `+${points}`, { prominence: index === 0 ? 'primary' : 'secondary' }),
               ),
-              command('foul.commit', {}, 'Фол', {
+            ),
+            ...seats.map((seat) =>
+              command('foul.commit', { seat }, 'Фол', {
                 prominence: 'secondary',
                 effectSummary:
                   this.args.foulPenalty === 'opponent-plus-one' ? 'Opponent +1 point' : 'Offender -1 point (negative allowed)',
               }),
-              ...(state.pointsBySeat.A >= state.targetPointsBySeat.A
-                ? [command('frame.award', { seat: 'A' }, 'Award frame', { prominence: 'primary' })]
-                : []),
-              ...(state.pointsBySeat.B >= state.targetPointsBySeat.B
-                ? [command('frame.award', { seat: 'B' }, 'Award frame', { prominence: 'primary' })]
-                : []),
-            ],
+            ),
+            ...(state.pointsBySeat.A >= state.targetPointsBySeat.A
+              ? [command('frame.award', { seat: 'A' }, 'Award frame', { prominence: 'primary' })]
+              : []),
+            ...(state.pointsBySeat.B >= state.targetPointsBySeat.B
+              ? [command('frame.award', { seat: 'B' }, 'Award frame', { prominence: 'primary' })]
+              : []),
+          ]
+
+          return PyramidControlViewSchema.parse({
+            gameKey: this.meta.gameKey,
+            projection: 'control',
+            score: state.pointsBySeat,
             details: {
               ...pyramidDetails(state),
               situationTitle: 'Open play',
               situationSummary: 'Record shot value or foul for either player.',
+              isPotCommandAvailable: true,
+              commandSections: deriveCommandSections(commands),
             },
           })
         }
 
-        return GameControlProjectionSchema.parse({
+        return PyramidControlViewSchema.parse({
           gameKey: this.meta.gameKey,
           projection: 'control',
           score: state.pointsBySeat,
-          availableCommands: [],
           details: {
             ...pyramidDetails(state),
             situationTitle: 'Frame over',
             situationSummary: 'No further scoring commands are available.',
+            isPotCommandAvailable: false,
+            commandSections: {
+              primary: { A: [], B: [] },
+              secondary: { A: [], B: [] },
+              tertiary: { A: [], B: [] },
+            },
           },
         })
       }
