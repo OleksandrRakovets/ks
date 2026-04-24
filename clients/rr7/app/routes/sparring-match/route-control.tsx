@@ -319,7 +319,7 @@ export default function SparringMatchRoute() {
         targetFrames={snapshot.targets.matchTargetFrames}
       />
 
-      <div className="flex flex-col gap-3 px-4 py-3">
+      <section aria-label="Per-game control container" className="flex flex-col">
         <Renderer
           projection={controlProjection}
           snapshot={snapshot}
@@ -361,7 +361,7 @@ export default function SparringMatchRoute() {
         {fetcher.data?.ok === false ? (
           <p className="text-sm text-destructive">{fetcher.data.errorKey ? t(fetcher.data.errorKey) : fetcher.data.error}</p>
         ) : null}
-      </div>
+      </section>
 
       <nav className="sticky bottom-0 z-10 mt-auto flex border-t border-border bg-background px-4">
         <span className="-mt-px flex-1 border-t-2 border-primary py-2.5 text-center text-sm font-medium text-foreground">

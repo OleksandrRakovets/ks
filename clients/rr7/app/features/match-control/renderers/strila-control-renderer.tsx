@@ -1,5 +1,5 @@
 import { Button } from '@ks/ui'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import type { MatchControlRendererProps } from './types'
 
@@ -73,6 +73,11 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
       : undefined
   const winnerDeterminedRecordActor = phase === 'winner-determined' && recordPot ? actorFromCommand(recordPot.command) : null
 
+  const hasPotCommand = !!recordPot
+  useEffect(() => {
+    if (!hasPotCommand) setSelectedBalls([])
+  }, [hasPotCommand])
+
   function toggleBall(ball: number) {
     setSelectedBalls((prev) => (prev.includes(ball) ? prev.filter((entry) => entry !== ball) : [...prev, ball]))
   }
@@ -138,44 +143,57 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
   const hasTertiary = tertiaryDuplicated.length > 0 || tertiaryUnpaired.length > 0
 
   return (
-    <div className="grid gap-4">
+    <div aria-label="Strila container" className="grid">
+      <p className="mt-4 px-4 text-sm leading-none font-semibold tracking-widest text-text-ghost uppercase">
+        Обери забиту кулю
+      </p>
+      <div
+        aria-label="Ball grid"
+        className="mx-auto grid gap-x-3 border-b border-divider px-4 py-4"
+        style={{
+          gridTemplateColumns: 'repeat(8, 1fr)',
+          width: 'min(100%, 468px)',
+        }}
+      >
+        {BALL_ORDER.map((ball) => {
+          const meta = BALL_META[ball] ?? { bg: '#D4D4D8', border: '#27272A' }
+          const isObjectBall = ball !== 0 && activeBallSet.has(ball)
+          const isPotted = ball !== 0 && !ballView.allColoredOnTable.includes(ball)
+          const isFullSize = ball === 0 || isObjectBall
+          const selected = !!recordPot && selectedBalls.includes(ball) && !isPotted
+          return (
+            <div key={ball} className="flex items-center justify-center">
+              <button
+                type="button"
+                title={`${BALL_LABELS[ball] ?? ball}${isObjectBall ? ' (object)' : ''}${isPotted ? ' (potted)' : ''}`}
+                onClick={() => {
+                  if (!recordPot || isPotted) return
+                  toggleBall(ball)
+                }}
+                style={{
+                  width: isFullSize ? '100%' : '80%',
+                  maxWidth: isFullSize ? '48px' : '38px',
+                  aspectRatio: '1',
+                  borderRadius: '50%',
+                  background: meta.bg,
+                  border: selected ? '2.5px solid var(--a-amber)' : `1.5px solid ${meta.border}`,
+                  boxShadow: selected
+                    ? '0 0 0 3px var(--a-amber-dim), 0 2px 8px rgba(0,0,0,0.6)'
+                    : isPotted
+                      ? 'none'
+                      : '0 2px 6px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.15)',
+                  opacity: isPotted ? 0.3 : 1,
+                  transition: 'box-shadow 0.1s, border-color 0.1s, opacity 0.2s',
+                  padding: 0,
+                }}
+              />
+            </div>
+          )
+        })}
+      </div>
+
       {recordPot ? (
-        <div className="grid gap-3 ">
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            {BALL_ORDER.map((ball) => {
-              const meta = BALL_META[ball] ?? { bg: '#D4D4D8', border: '#27272A' }
-              const isObjectBall = ball !== 0 && activeBallSet.has(ball)
-              const isPotted = ball !== 0 && !ballView.allColoredOnTable.includes(ball)
-              const selected = selectedBalls.includes(ball) && !isPotted
-              const sz = ball === 0 || isObjectBall ? 40 : 32
-              return (
-                <button
-                  key={ball}
-                  type="button"
-                  disabled={isPotted}
-                  title={`${BALL_LABELS[ball] ?? ball}${isObjectBall ? ' (object)' : ''}${isPotted ? ' (potted)' : ''}`}
-                  onClick={() => toggleBall(ball)}
-                  style={{
-                    width: sz,
-                    height: sz,
-                    borderRadius: '50%',
-                    flexShrink: 0,
-                    cursor: isPotted ? 'not-allowed' : 'pointer',
-                    background: meta.bg,
-                    border: selected ? '2.5px solid var(--a-amber)' : `1.5px solid ${meta.border}`,
-                    boxShadow: selected
-                      ? '0 0 0 3px var(--a-amber-dim), 0 2px 8px rgba(0,0,0,0.6)'
-                      : isPotted
-                        ? 'none'
-                        : '0 2px 6px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.15)',
-                    opacity: isPotted ? 0.3 : 1,
-                    transition: 'box-shadow 0.1s, border-color 0.1s, opacity 0.2s',
-                    padding: 0,
-                  }}
-                />
-              )
-            })}
-          </div>
+        <div className="grid gap-3 py-4">
           {winnerDeterminedRecordActor ? (
             <div className="grid grid-cols-2 gap-6">
               {winnerDeterminedRecordActor === 'A' && (
@@ -206,7 +224,6 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
               <Button
                 type="button"
                 size="touch"
-                // className={recordPot.prominence !== 'primary' ? 'h-auto py-2 text-sm' : undefined}
                 disabled={selectedBalls.length === 0}
                 onClick={() =>
                   submitSeatCommand('A', recordPot.commandType, { ...recordPot.command, pottedBalls: selectedBalls })
@@ -217,7 +234,6 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
               <Button
                 type="button"
                 size="touch"
-                // className={recordPot.prominence !== 'primary' ? 'h-auto py-2 text-sm' : undefined}
                 disabled={selectedBalls.length === 0}
                 onClick={() =>
                   submitSeatCommand('B', recordPot.commandType, { ...recordPot.command, pottedBalls: selectedBalls })
