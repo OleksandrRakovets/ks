@@ -1,0 +1,20 @@
+{
+  "name": "machine-explorer",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@ks/gameplay": "workspace:*",
+    "@statelyai/inspect": "^0.7.1",
+    "xstate": "^5.30.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3",
+    "vite": "^8.0.10"
+  }
+}
