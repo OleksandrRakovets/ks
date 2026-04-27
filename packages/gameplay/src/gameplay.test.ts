@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
+import type { BySeatNumber, Seat } from '@ks/core'
+
 import {
   applyGameCommand,
   createInitialGameState,
@@ -203,10 +205,10 @@ describe('gameplay runtime api', () => {
     }) as {
       gameKey: string
       projection: 'control'
-      score: { A: number; B: number }
+      score: BySeatNumber
       details: {
         phase: string
-        winner?: 'A' | 'B'
+        winner?: Seat
         isPotCommandAvailable: boolean
         commandSections: {
           primary: { A: Array<{ commandType: string }>; B: Array<{ commandType: string }> }

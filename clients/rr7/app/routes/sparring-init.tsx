@@ -1,4 +1,5 @@
 import { createMatchService } from '@ks/competition'
+import type { BySeatNumber } from '@ks/core'
 import { isRegisteredGameKey, registry } from '@ks/gameplay'
 import { keys } from '@ks/i18n'
 import { Button, Input, Label, NumberInput } from '@ks/ui'
@@ -14,7 +15,7 @@ import { makeMatchWriteRepository } from '../server/match-room'
 type LoaderData = {
   gameKey: string
   title: string
-  defaultFrameTargetPointsBySeat: { A: number; B: number }
+  defaultFrameTargetPointsBySeat: BySeatNumber
 }
 
 type ActionData = {

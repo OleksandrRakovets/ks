@@ -1,3 +1,4 @@
+import type { BySeatNumber } from '@ks/core'
 import cn from 'classnames'
 
 type Props = {
@@ -5,8 +6,8 @@ type Props = {
   nameB: string
   matchStatus: 'active' | 'finished'
   targetFrames: number
-  matchScore: { A: number; B: number }
-  frameScore: { A: number; B: number }
+  matchScore: BySeatNumber
+  frameScore: BySeatNumber
   frameIndex: number
 }
 

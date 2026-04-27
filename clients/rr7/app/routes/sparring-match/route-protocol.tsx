@@ -7,6 +7,8 @@ import {
   StreamEventSchema,
   StreamReadySchema,
   type StoredEvent,
+  type BySeatNumber,
+  type Seat,
 } from '@ks/core'
 import { isRegisteredGameKey, registry } from '@ks/gameplay'
 import { keys } from '@ks/i18n'
@@ -75,7 +77,7 @@ export async function loader({
 }
 
 function protocolLabel(event: StoredEvent, seatNames: { A: string; B: string }): string {
-  const seatLabel = (seat: 'A' | 'B') => seatNames[seat]
+  const seatLabel = (seat: Seat) => seatNames[seat]
 
   if (event.type === 'game.command') {
     if (event.payload.commandType === 'pot.record') {
@@ -137,7 +139,7 @@ function protocolLabel(event: StoredEvent, seatNames: { A: string; B: string }):
 type ProtocolRow = {
   entry: StoredEvent
   label: string
-  score: { A: number; B: number }
+  score: BySeatNumber
 }
 
 function deriveProtocolRows(entries: StoredEvent[], seatNames: { A: string; B: string }): ProtocolRow[] {

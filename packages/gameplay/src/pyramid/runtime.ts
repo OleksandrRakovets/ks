@@ -1,4 +1,4 @@
-import { BySeatNumberSchema, SeatSchema, opponentOf } from '@ks/core'
+import { BySeatNumberSchema, SeatSchema, opponentOf, type Seat } from '@ks/core'
 import invariant from 'tiny-invariant'
 import { z } from 'zod'
 
@@ -90,7 +90,7 @@ export const PyramidControlViewSchema = GameControlProjectionSchema.extend({
   details: PyramidControlDetailsSchema,
 })
 
-function seatFromCommandPayload(commandPayload: Record<string, unknown>): 'A' | 'B' | null {
+function seatFromCommandPayload(commandPayload: Record<string, unknown>): Seat | null {
   const seat = commandPayload.seat
   if (seat === 'A' || seat === 'B') return seat
   return null

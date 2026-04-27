@@ -1,9 +1,12 @@
 import { describe, expect, test } from 'bun:test'
 
+import type { BySeatNumber } from '@ks/core'
+
+import { StrilaMeta } from './definitions'
 import { createInitialSnapshot, getPhase, sendEvent, type StrilaSparringSnapshot } from './machine-sparring'
 
-function start(targetPointsBySeat?: { A: number; B: number }): StrilaSparringSnapshot {
-  return createInitialSnapshot(targetPointsBySeat)
+function start(targetPointsBySeat?: BySeatNumber): StrilaSparringSnapshot {
+  return createInitialSnapshot(targetPointsBySeat ?? StrilaMeta.defaultTargetPoints)
 }
 
 // A:6, B:8, only ball 7 left → A pots 7 → 8:8, table empty → respotted-black.opening

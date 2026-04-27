@@ -1,10 +1,8 @@
-import { STRILA_BALLS, StrilaControlViewSchema, type StrilaBall } from '@ks/gameplay'
+import { StrilaMeta, StrilaControlViewSchema, type StrilaBall } from '@ks/gameplay'
 import { Button } from '@ks/ui'
 import { useMemo, useState } from 'react'
 
 import type { MatchControlRendererProps } from './types'
-
-const BALL_ORDER: readonly StrilaBall[] = STRILA_BALLS
 
 const BALL_COLORS: Record<StrilaBall, { bg: string; border: string }> = {
   0: { bg: '#F0EDE6', border: '#C0BDB5' },
@@ -18,7 +16,7 @@ const BALL_COLORS: Record<StrilaBall, { bg: string; border: string }> = {
 }
 
 const BALL_LABELS: Record<StrilaBall, string> = {
-  0: 'Cue',
+  0: 'Cueball',
   1: 'Red',
   2: 'Yellow',
   3: 'Green',
@@ -107,7 +105,7 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
         className="mx-auto grid gap-x-3 border-b border-divider px-4 py-4"
         style={{ gridTemplateColumns: 'repeat(8, 1fr)', width: 'min(100%, 468px)' }}
       >
-        {BALL_ORDER.map((ball) => {
+        {StrilaMeta.allBalls.map((ball) => {
           const colors = BALL_COLORS[ball]
           const status = details.ballStatuses[ball]
           const isPotted = status === 'potted'

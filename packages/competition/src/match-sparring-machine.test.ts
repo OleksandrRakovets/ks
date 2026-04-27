@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
+import type { Seat } from '@ks/core'
 import { StrilaMeta } from '@ks/gameplay'
 
 import { createMatchActor, getMatchPhase, matchSparringMachine, type MatchSparringActor } from './match-sparring-machine'
@@ -8,7 +9,7 @@ function snap(actor: MatchSparringActor) {
   return actor.getSnapshot()
 }
 
-function playFrame(actor: MatchSparringActor, winner: 'A' | 'B') {
+function playFrame(actor: MatchSparringActor, winner: Seat) {
   actor.send({ type: 'frame.start' })
   actor.send({ type: 'frame.commence', actor: winner })
   actor.send({ type: 'pot.record', actor: winner, pottedBalls: [1] })

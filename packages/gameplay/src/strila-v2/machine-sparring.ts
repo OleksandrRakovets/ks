@@ -428,8 +428,8 @@ export type StrilaSparringOutput = {
   score: BySeatNumber
 }
 
-export function createInitialSnapshot(targetPointsBySeat?: BySeatNumber): StrilaSparringSnapshot {
-  return getInitialSnapshot(strilaSparringMachine, { targetPointsBySeat: targetPointsBySeat ?? { A: 9, B: 9 } })
+export function createInitialSnapshot(targetPointsBySeat: BySeatNumber): StrilaSparringSnapshot {
+  return getInitialSnapshot(strilaSparringMachine, { targetPointsBySeat })
 }
 
 export function getPhase(snapshot: StrilaSparringSnapshot): StrilaPhase {

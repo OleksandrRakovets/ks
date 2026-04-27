@@ -1,17 +1,17 @@
-import { type Seat } from '@ks/core'
+import { type BySeatNumber, type Seat } from '@ks/core'
 import { StrilaGameplayRuntime, type StrilaEvent, type StrilaFrameState } from '@ks/gameplay'
 import { assign, createActor, setup, type Actor, type SnapshotFrom } from 'xstate'
 
 type CompletedFrame = {
   frameIndex: number
-  score: { A: number; B: number }
+  score: BySeatNumber
   winner: Seat
 }
 
 type MatchContext = {
-  frameTargetPointsBySeat: { A: number; B: number }
+  frameTargetPointsBySeat: BySeatNumber
   matchTargetFrames: number
-  framesWonBySeat: { A: number; B: number }
+  framesWonBySeat: BySeatNumber
   frames: CompletedFrame[]
   currentFrameIndex: number
   currentFrame: StrilaFrameState | null
@@ -19,7 +19,7 @@ type MatchContext = {
 }
 
 type MatchEvent =
-  | { type: 'match.setup'; frameTargetPointsBySeat: { A: number; B: number }; matchTargetFrames: number }
+  | { type: 'match.setup'; frameTargetPointsBySeat: BySeatNumber; matchTargetFrames: number }
   | { type: 'frame.start' }
   | { type: 'match.end' }
   | StrilaEvent
@@ -37,7 +37,7 @@ export const matchSparringMachine = setup({
     context: {} as MatchContext,
     events: {} as MatchEvent,
     input: {} as {
-      frameTargetPointsBySeat?: { A: number; B: number }
+      frameTargetPointsBySeat?: BySeatNumber
       matchTargetFrames?: number
     },
   },
@@ -172,7 +172,7 @@ export function getMatchPhase(snapshot: MatchSparringSnapshot): string {
 }
 
 export function createMatchActor(input?: {
-  frameTargetPointsBySeat?: { A: number; B: number }
+  frameTargetPointsBySeat?: BySeatNumber
   matchTargetFrames?: number
 }): MatchSparringActor {
   const actor = createActor(matchSparringMachine, { input: input ?? {} })
