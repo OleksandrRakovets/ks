@@ -10,7 +10,12 @@ test('simulation: outside: respotted black frame 1', () => {
     score: { A: 8, B: 8 },
     targetPointsBySeat: { A: 9, B: 9 },
     coloredBallsOnTable: [7],
-    phase: { type: 'respotted-black-opening', actor: 'A' },
+    cueBallPotsInRun: 0,
+    chooser: null,
+    offender: null,
+    winner: null,
+    winReason: null,
+    phase: 'respotted-black.opening',
   }
 
   expect(deriveStrilaScoreboardView(state).details.objectBalls).toEqual([7])

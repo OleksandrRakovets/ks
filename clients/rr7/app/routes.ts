@@ -14,8 +14,6 @@ export default [
     route('sparring/matches/:matchId/protocol', 'routes/sparring-match/route-protocol.tsx'),
     route('top-secret/preview', 'preview/index.tsx'),
     route('top-secret/preview/ui', 'preview/ui.tsx'),
-    route('top-secret/preview/game-state', 'preview/game-state-index.tsx'),
-    route('top-secret/preview/game-state/:gameKey', 'preview/game-state-detail.tsx'),
   ]),
   // layout('routes/layout-scoreboard.tsx', [route('m/:matchId', 'routes/public-scoreboard.tsx')]),
 ] satisfies RouteConfig

@@ -1,6 +1,8 @@
 import { type StrilaCommand, type StrilaFrameState } from './definitions'
-import { createEmptyStrilaFrameState, reduceStrilaCommand } from './reducer'
+import { StrilaGameplayRuntime } from './runtime'
 import { type StrilaControllerEntry } from './undo-controller'
+
+const runtime = new StrilaGameplayRuntime()
 
 type AppliedCommand = {
   command: StrilaCommand
@@ -8,7 +10,7 @@ type AppliedCommand = {
 }
 
 function isFinalState(state: StrilaFrameState): boolean {
-  return state.phase.type === 'frame-over'
+  return state.phase === 'frame-over'
 }
 
 function getEffectiveCommands(recordedCommands: StrilaControllerEntry[]): StrilaCommand[] {
@@ -26,11 +28,11 @@ function getEffectiveCommands(recordedCommands: StrilaControllerEntry[]): Strila
 }
 
 function replayEffectiveCommands(commands: StrilaCommand[]): { state: StrilaFrameState; applied: AppliedCommand[] } {
-  let state = createEmptyStrilaFrameState()
+  let state = runtime.createInitialState({ targetPointsBySeat: { A: 9, B: 9 } })
   const applied: AppliedCommand[] = []
 
   for (const command of commands) {
-    state = reduceStrilaCommand(state, command)
+    state = runtime.applyCommand({ state, commandType: command.type, command }).state as StrilaFrameState
     applied.push({ command, stateAfter: state })
   }
 

@@ -28,147 +28,72 @@ export type StrilaColoredBall = z.infer<typeof StrilaColoredBallSchema>
 export const StrilaBallSchema = z.union([z.literal(0), StrilaColoredBallSchema])
 export type StrilaBall = z.infer<typeof StrilaBallSchema>
 
-export const StrilaScoreSchema = z.object({
-  A: z.number().int().nonnegative(),
-  B: z.number().int().nonnegative(),
-})
-export type StrilaScore = z.infer<typeof StrilaScoreSchema>
+export const StrilaFoulResponseChoiceSchema = z.enum(['play-from-position', 'pass-position', 'ball-in-hand'])
 
-export const StrilaWinnerDeterminedReasonSchema = z.enum([
-  'target-reached',
-  'respotted-black-won',
-  'conceded',
-  'automatic-foul',
+export const StrilaEventSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('frame.commence'), actor: StrilaSeatSchema }),
+  z.object({ type: z.literal('pot.record'), actor: StrilaSeatSchema, pottedBalls: z.array(StrilaBallSchema) }),
+  z.object({ type: z.literal('miss.record'), actor: StrilaSeatSchema }),
+  z.object({ type: z.literal('foul.commit'), actor: StrilaSeatSchema }),
+  z.object({ type: z.literal('penalty.select'), actor: StrilaSeatSchema, choice: StrilaFoulResponseChoiceSchema }),
+  z.object({ type: z.literal('frame.award'), actor: StrilaSeatSchema }),
+  z.object({ type: z.literal('frame.concede'), actor: StrilaSeatSchema }),
 ])
+export type StrilaEvent = z.infer<typeof StrilaEventSchema>
+export const StrilaCommandSchema = StrilaEventSchema
+export type StrilaCommand = StrilaEvent
 
-export const StrilaPhaseTypeSchema = z.enum([
+export const StrilaPhases = [
   'not-started',
   'open-play',
-  'penalty-selection',
-  'ball-in-hand',
-  'respotted-black-opening',
-  'respotted-black-play',
   'foul-committed.penalty-selection',
   'foul-committed.ball-in-hand',
   'respotted-black.opening',
   'respotted-black.play',
   'winner-determined',
   'frame-over',
-])
+] as const
 
-export const StrilaPhaseSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('not-started') }),
-  z.object({
-    type: z.literal('open-play'),
-    actor: StrilaSeatSchema,
-    cueBallPotsInRun: z.union([z.literal(0), z.literal(1), z.literal(2)]),
-  }),
-  z.object({
-    type: z.literal('penalty-selection'),
-    chooser: StrilaSeatSchema,
-    offender: StrilaSeatSchema,
-    forcedBallInHand: z.boolean(),
-  }),
-  z.object({
-    type: z.literal('ball-in-hand'),
-    actor: StrilaSeatSchema,
-  }),
-  z.object({
-    type: z.literal('respotted-black-opening'),
-    actor: StrilaSeatSchema,
-  }),
-  z.object({
-    type: z.literal('respotted-black-play'),
-    actor: StrilaSeatSchema,
-  }),
-  z.object({
-    type: z.literal('winner-determined'),
-    winner: StrilaSeatSchema,
-    actor: StrilaSeatSchema,
-    reason: StrilaWinnerDeterminedReasonSchema,
-  }),
-  z.object({
-    type: z.literal('frame-over'),
-    winner: StrilaSeatSchema,
-  }),
-])
-export type StrilaPhase = z.infer<typeof StrilaPhaseSchema>
+export const StrilaPhaseTypeSchema = z.enum(StrilaPhases)
+export type StrilaPhase = z.infer<typeof StrilaPhaseTypeSchema>
 
-// Current rule-model decision:
-// - cue-ball pots from ordinary play do not create a dedicated phase,
-// - baulk / second-baulk origin is intentionally not represented in state,
-// - marker/secretary visit tracking is deferred to higher-level competition mode,
-// - `actor` means only the seat currently expected to log the next action,
-// - after `foul.commit`, the game stays in `penalty-selection` until the
-//   opponent chooses the response,
-// - `respotted-black-opening` is kept separate so the control view can explain
-//   the first-shot-only restriction.
-export const StrilaFrameStateSchema = z.object({
-  phase: StrilaPhaseSchema,
-  score: StrilaScoreSchema,
+export const StrilaWinReasons = ['target-reached', 'respotted-black-won', 'conceded', 'automatic-foul'] as const
+export const StrilaWinnerDeterminedReasonSchema = z.enum(StrilaWinReasons)
+export type StrilaWinReason = z.infer<typeof StrilaWinnerDeterminedReasonSchema>
+
+export const StrilaContextSchema = z.object({
+  score: z.object({ A: z.number().int().nonnegative(), B: z.number().int().nonnegative() }),
   targetPointsBySeat: BySeatNumberSchema,
   coloredBallsOnTable: z.array(StrilaColoredBallSchema),
+  cueBallPotsInRun: z.union([z.literal(0), z.literal(1), z.literal(2)]),
+  chooser: StrilaSeatSchema.nullable(),
+  offender: StrilaSeatSchema.nullable(),
+  winner: StrilaSeatSchema.nullable(),
+  winReason: StrilaWinnerDeterminedReasonSchema.nullable(),
+})
+export type StrilaContext = z.infer<typeof StrilaContextSchema>
+
+export const StrilaFrameStateSchema = StrilaContextSchema.extend({
+  phase: StrilaPhaseTypeSchema,
 })
 export type StrilaFrameState = z.infer<typeof StrilaFrameStateSchema>
 
-// These are candidate user-intent commands for Strila, not final match-protocol
-// event types. The protocol can still use a generic game command envelope later.
-export const StrilaFoulResponseChoiceSchema = z.enum(['play-from-position', 'pass-position', 'ball-in-hand'])
-
-export const StrilaCommandSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('frame.commence'), actor: StrilaSeatSchema }),
-  z.object({
-    type: z.literal('pot.record'),
-    actor: StrilaSeatSchema,
-    pottedBalls: z
-      .array(StrilaBallSchema)
-      .min(1)
-      .superRefine((balls, ctx) => {
-        const seen = new Set<number>()
-
-        for (const ball of balls) {
-          if (seen.has(ball)) {
-            ctx.addIssue({
-              code: z.ZodIssueCode.custom,
-              message: `Duplicate potted ball: ${ball}`,
-            })
-            return
-          }
-
-          seen.add(ball)
-        }
-      }),
-  }),
-  // First-pass escape hatch for the special post-foul ball-in-hand shot.
-  // Do not generalize this to ordinary open-play misses in v1.
-  z.object({ type: z.literal('miss.record'), actor: StrilaSeatSchema }),
-  z.object({ type: z.literal('foul.commit'), actor: StrilaSeatSchema }),
-  z.object({
-    type: z.literal('penalty.select'),
-    actor: StrilaSeatSchema,
-    choice: StrilaFoulResponseChoiceSchema,
-  }),
-  z.object({ type: z.literal('frame.award'), actor: StrilaSeatSchema }),
-  z.object({ type: z.literal('frame.concede'), actor: StrilaSeatSchema }),
-])
-export type StrilaCommand = z.infer<typeof StrilaCommandSchema>
-
-export const STRILA_PHASE_COMMANDS: Record<StrilaPhase['type'], readonly StrilaCommand['type'][]> = {
+export const STRILA_PHASE_COMMANDS: Record<StrilaPhase, readonly StrilaCommand['type'][]> = {
   'not-started': ['frame.commence'],
   'open-play': ['pot.record', 'foul.commit', 'frame.concede'],
-  'penalty-selection': ['penalty.select'],
-  'ball-in-hand': ['pot.record', 'miss.record', 'foul.commit', 'frame.concede'],
-  'respotted-black-opening': ['pot.record', 'miss.record', 'foul.commit', 'frame.concede'],
-  'respotted-black-play': ['pot.record', 'foul.commit', 'frame.concede'],
+  'foul-committed.penalty-selection': ['penalty.select'],
+  'foul-committed.ball-in-hand': ['pot.record', 'miss.record', 'foul.commit', 'frame.concede'],
+  'respotted-black.opening': ['pot.record', 'miss.record', 'foul.commit', 'frame.concede'],
+  'respotted-black.play': ['pot.record', 'foul.commit', 'frame.concede'],
   'winner-determined': ['pot.record', 'frame.award'],
   'frame-over': [],
 }
 
-export function getAllowedCommandTypes(phase: StrilaPhase['type']): StrilaCommand['type'][] {
+export function getAllowedCommandTypes(phase: StrilaPhase): StrilaCommand['type'][] {
   return [...STRILA_PHASE_COMMANDS[phase]]
 }
 
-export function isCommandAllowedInPhase(commandType: StrilaCommand['type'], phase: StrilaPhase['type']): boolean {
+export function isCommandAllowedInPhase(commandType: StrilaCommand['type'], phase: StrilaPhase): boolean {
   return STRILA_PHASE_COMMANDS[phase].includes(commandType)
 }
 
@@ -215,7 +140,7 @@ export type StrilaControlDetails = z.infer<typeof StrilaControlDetailsSchema>
 
 export const StrilaControlViewSchema = GameControlProjectionSchema.extend({
   gameKey: z.literal('strila-v2'),
-  score: StrilaScoreSchema,
+  score: StrilaContextSchema.shape.score,
   details: StrilaControlDetailsSchema,
 })
 export type StrilaControlView = z.infer<typeof StrilaControlViewSchema>
@@ -230,14 +155,14 @@ export const StrilaScoreboardDetailsSchema = z.object({
 
 export const StrilaScoreboardViewSchema = GameScoreboardProjectionSchema.extend({
   gameKey: z.literal('strila-v2'),
-  score: StrilaScoreSchema,
+  score: StrilaContextSchema.shape.score,
   details: StrilaScoreboardDetailsSchema,
 })
 export type StrilaScoreboardView = z.infer<typeof StrilaScoreboardViewSchema>
 
 export const StrilaSummaryViewSchema = GameSummaryProjectionSchema.extend({
   gameKey: z.literal('strila-v2'),
-  score: StrilaScoreSchema,
+  score: StrilaContextSchema.shape.score,
   details: z.object({
     phase: StrilaPhaseTypeSchema,
   }),

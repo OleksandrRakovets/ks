@@ -311,7 +311,12 @@ describe('gameplay runtime api', () => {
       score: { A: 0, B: 0 },
       targetPointsBySeat: { A: 9, B: 9 },
       coloredBallsOnTable: [1, 2, 3, 4, 5, 6, 7],
-      phase: { type: 'not-started' },
+      cueBallPotsInRun: 0,
+      chooser: null,
+      offender: null,
+      winner: null,
+      winReason: null,
+      phase: 'not-started',
     })
 
     ;({ state } = applyGameCommand({
@@ -325,7 +330,12 @@ describe('gameplay runtime api', () => {
       score: { A: 0, B: 0 },
       targetPointsBySeat: { A: 9, B: 9 },
       coloredBallsOnTable: [1, 2, 3, 4, 5, 6, 7],
-      phase: { type: 'open-play', actor: 'A', cueBallPotsInRun: 0 },
+      cueBallPotsInRun: 0,
+      chooser: null,
+      offender: null,
+      winner: null,
+      winReason: null,
+      phase: 'open-play',
     })
   })
 
@@ -337,7 +347,12 @@ describe('gameplay runtime api', () => {
           score: { A: 2, B: 0 },
           targetPointsBySeat: { A: 9, B: 9 },
           coloredBallsOnTable: [2, 4, 7],
-          phase: { type: 'open-play', actor: 'A', cueBallPotsInRun: 0 },
+          cueBallPotsInRun: 0,
+          chooser: null,
+          offender: null,
+          winner: null,
+          winReason: null,
+          phase: 'open-play',
         },
         projection: 'scoreboard',
       }),

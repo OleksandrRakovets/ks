@@ -5,13 +5,22 @@ import { deriveStrilaControlView } from './control'
 
 const DEFAULT_TARGETS = { A: 9, B: 9 } as const
 
+const baseState = {
+  score: { A: 0, B: 0 },
+  targetPointsBySeat: DEFAULT_TARGETS,
+  coloredBallsOnTable: [1, 2, 3, 4, 5, 6, 7],
+  cueBallPotsInRun: 0,
+  chooser: null,
+  offender: null,
+  winner: null,
+  winReason: null,
+  phase: 'not-started',
+} satisfies StrilaFrameState
+
 describe('projection: control', () => {
   test('not-started exposes frame.commence', () => {
     const state: StrilaFrameState = {
-      score: { A: 0, B: 0 },
-      targetPointsBySeat: DEFAULT_TARGETS,
-      coloredBallsOnTable: [1, 2, 3, 4, 5, 6, 7],
-      phase: { type: 'not-started' },
+      ...baseState,
     }
 
     expect(deriveStrilaControlView(state)).toEqual({
@@ -48,10 +57,12 @@ describe('projection: control', () => {
 
   test('penalty-selection exposes the three response choices', () => {
     const state: StrilaFrameState = {
+      ...baseState,
       score: { A: 4, B: 0 },
-      targetPointsBySeat: DEFAULT_TARGETS,
       coloredBallsOnTable: [2, 3, 4, 5, 6, 7],
-      phase: { type: 'penalty-selection', chooser: 'B', offender: 'A', forcedBallInHand: false },
+      chooser: 'B',
+      offender: 'A',
+      phase: 'foul-committed.penalty-selection',
     }
 
     const view = deriveStrilaControlView(state)
@@ -71,15 +82,18 @@ describe('projection: control', () => {
 
   test('respotted-black-play exposes action commands for active actor, frame.concede for both', () => {
     const state: StrilaFrameState = {
+      ...baseState,
       score: { A: 8, B: 8 },
-      targetPointsBySeat: DEFAULT_TARGETS,
       coloredBallsOnTable: [7],
-      phase: { type: 'respotted-black-play', actor: 'A' },
+      phase: 'respotted-black.play',
     }
 
     const view = deriveStrilaControlView(state)
     expect(view.details.commandSections.primary.A.map((entry) => `${entry.commandType}:${entry.command.actor}`)).toEqual([
       'pot.record:A',
+    ])
+    expect(view.details.commandSections.primary.B.map((entry) => `${entry.commandType}:${entry.command.actor}`)).toEqual([
+      'pot.record:B',
     ])
     expect(view.details.commandSections.secondary.A.map((entry) => `${entry.commandType}:${entry.command.actor}`)).toEqual([
       'foul.commit:A',
@@ -98,10 +112,12 @@ describe('projection: control', () => {
 
   test('winner-determined keeps frame.award and pot.record', () => {
     const state: StrilaFrameState = {
+      ...baseState,
       score: { A: 4, B: 9 },
-      targetPointsBySeat: DEFAULT_TARGETS,
       coloredBallsOnTable: [6, 7],
-      phase: { type: 'winner-determined', winner: 'B', actor: 'B', reason: 'target-reached' },
+      winner: 'B',
+      winReason: 'target-reached',
+      phase: 'winner-determined',
     }
 
     const view = deriveStrilaControlView(state)
@@ -111,14 +127,13 @@ describe('projection: control', () => {
 
   test('respotted-black-opening explains the restriction', () => {
     const state: StrilaFrameState = {
+      ...baseState,
       score: { A: 8, B: 8 },
-      targetPointsBySeat: DEFAULT_TARGETS,
       coloredBallsOnTable: [7],
-      phase: { type: 'respotted-black-opening', actor: 'A' },
+      phase: 'respotted-black.opening',
     }
 
     const view = deriveStrilaControlView(state)
-    expect(view.details.actor).toBe('A')
     expect(view.details.ballStatuses).toEqual({
       0: 'on-table',
       1: 'potted',

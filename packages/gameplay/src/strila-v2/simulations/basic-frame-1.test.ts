@@ -1,21 +1,20 @@
 import { expect, test } from 'bun:test'
 
 import { deriveStrilaScoreboardView } from '../projections/scoreboard'
-import { createEmptyStrilaFrameState } from '../reducer'
+import { StrilaGameplayRuntime } from '../runtime'
 import { applyCommand } from './applyCommand'
 
+const runtime = new StrilaGameplayRuntime()
+
 test('simulation: internal: basic frame 1', () => {
-  let next = createEmptyStrilaFrameState({ A: 9, B: 9 })
+  let next = runtime.createInitialState({ targetPointsBySeat: { A: 9, B: 9 } })
 
   ;({ next } = applyCommand(next, {
     type: 'frame.commence',
     actor: 'A',
   }))
-  expect(next.phase).toEqual({
-    type: 'open-play',
-    actor: 'A',
-    cueBallPotsInRun: 0,
-  })
+  expect(next.phase).toBe('open-play')
+  expect(next.cueBallPotsInRun).toBe(0)
   expect(deriveStrilaScoreboardView(next)).toEqual({
     gameKey: 'strila-v2',
     projection: 'scoreboard',
@@ -32,40 +31,28 @@ test('simulation: internal: basic frame 1', () => {
   ;({ next } = applyCommand(next, { type: 'pot.record', actor: 'A', pottedBalls: [1] }))
   expect(next.score).toEqual({ A: 2, B: 0 })
   expect(next.coloredBallsOnTable).toEqual([2, 3, 4, 5, 6, 7])
-  expect(next.phase).toEqual({
-    type: 'open-play',
-    actor: 'A',
-    cueBallPotsInRun: 0,
-  })
+  expect(next.phase).toBe('open-play')
+  expect(next.cueBallPotsInRun).toBe(0)
 
   ;({ next } = applyCommand(next, { type: 'pot.record', actor: 'A', pottedBalls: [0] }))
   expect(next.score).toEqual({ A: 3, B: 0 })
   expect(next.coloredBallsOnTable).toEqual([2, 3, 4, 5, 6, 7])
-  expect(next.phase).toEqual({
-    type: 'open-play',
-    actor: 'A',
-    cueBallPotsInRun: 1,
-  })
+  expect(next.phase).toBe('open-play')
+  expect(next.cueBallPotsInRun).toBe(1)
 
   ;({ next } = applyCommand(next, { type: 'pot.record', actor: 'A', pottedBalls: [0] }))
   expect(next.score).toEqual({ A: 4, B: 0 })
   expect(next.coloredBallsOnTable).toEqual([2, 3, 4, 5, 6, 7])
-  expect(next.phase).toEqual({
-    type: 'open-play',
-    actor: 'A',
-    cueBallPotsInRun: 2,
-  })
+  expect(next.phase).toBe('open-play')
+  expect(next.cueBallPotsInRun).toBe(2)
 
   let protocolEntries
   ;({ next, protocolEntries } = applyCommand(next, { type: 'pot.record', actor: 'A', pottedBalls: [0] }))
   expect(next.score).toEqual({ A: 4, B: 0 })
   expect(next.coloredBallsOnTable).toEqual([2, 3, 4, 5, 6, 7])
-  expect(next.phase).toEqual({
-    type: 'penalty-selection',
-    chooser: 'B',
-    offender: 'A',
-    forcedBallInHand: false,
-  })
+  expect(next.phase).toBe('foul-committed.penalty-selection')
+  expect(next.chooser).toBe('B')
+  expect(next.offender).toBe('A')
   expect(protocolEntries).toEqual([
     { source: 'player', command: { type: 'pot.record', actor: 'A', pottedBalls: [0] } },
     {
@@ -82,39 +69,27 @@ test('simulation: internal: basic frame 1', () => {
     choice: 'play-from-position',
   }))
   expect(next.score).toEqual({ A: 4, B: 1 })
-  expect(next.phase).toEqual({
-    type: 'open-play',
-    actor: 'B',
-    cueBallPotsInRun: 0,
-  })
+  expect(next.phase).toBe('open-play')
+  expect(next.cueBallPotsInRun).toBe(0)
 
   ;({ next } = applyCommand(next, { type: 'pot.record', actor: 'B', pottedBalls: [2, 3] }))
   expect(next.score).toEqual({ A: 4, B: 5 })
   expect(next.coloredBallsOnTable).toEqual([4, 5, 6, 7])
-  expect(next.phase).toEqual({
-    type: 'open-play',
-    actor: 'B',
-    cueBallPotsInRun: 0,
-  })
+  expect(next.phase).toBe('open-play')
+  expect(next.cueBallPotsInRun).toBe(0)
 
   ;({ next } = applyCommand(next, { type: 'pot.record', actor: 'B', pottedBalls: [5] }))
   expect(next.score).toEqual({ A: 4, B: 7 })
   expect(next.coloredBallsOnTable).toEqual([4, 6, 7])
-  expect(next.phase).toEqual({
-    type: 'open-play',
-    actor: 'B',
-    cueBallPotsInRun: 0,
-  })
+  expect(next.phase).toBe('open-play')
+  expect(next.cueBallPotsInRun).toBe(0)
 
   ;({ next, protocolEntries } = applyCommand(next, { type: 'pot.record', actor: 'B', pottedBalls: [4] }))
   expect(next.score).toEqual({ A: 4, B: 9 })
   expect(next.coloredBallsOnTable).toEqual([6, 7])
-  expect(next.phase).toEqual({
-    type: 'winner-determined',
-    winner: 'B',
-    actor: 'B',
-    reason: 'target-reached',
-  })
+  expect(next.phase).toBe('winner-determined')
+  expect(next.winner).toBe('B')
+  expect(next.winReason).toBe('target-reached')
   expect(deriveStrilaScoreboardView(next)).toEqual({
     gameKey: 'strila-v2',
     projection: 'scoreboard',
@@ -140,10 +115,8 @@ test('simulation: internal: basic frame 1', () => {
   ;({ next } = applyCommand(next, { type: 'frame.award', actor: 'B' }))
   expect(next.score).toEqual({ A: 4, B: 9 })
   expect(next.coloredBallsOnTable).toEqual([6, 7])
-  expect(next.phase).toEqual({
-    type: 'frame-over',
-    winner: 'B',
-  })
+  expect(next.phase).toBe('frame-over')
+  expect(next.winner).toBe('B')
   expect(deriveStrilaScoreboardView(next)).toEqual({
     gameKey: 'strila-v2',
     projection: 'scoreboard',

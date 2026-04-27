@@ -8,7 +8,7 @@ import {
   type StrilaPhase,
   type StrilaSeat,
   type StrilaWinReason,
-} from './definitions2'
+} from './definitions'
 
 function opponentOf(seat: StrilaSeat): StrilaSeat {
   return seat === 'A' ? 'B' : 'A'
@@ -131,8 +131,7 @@ export const strilaSparringMachine = setup({
         winReason: 'conceded' as const,
       }
     }),
-    applyBallInHand: assign(({ event }) => {
-      const e = event as Extract<StrilaEvent, { type: 'penalty.select' }>
+    applyBallInHand: assign(() => {
       return {
         chooser: null as StrilaSeat | null,
         offender: null as StrilaSeat | null,
@@ -156,8 +155,7 @@ export const strilaSparringMachine = setup({
         offender: null as StrilaSeat | null,
       }
     }),
-    switchToOpponent: assign(({ event }) => {
-      const e = event as Extract<StrilaEvent, { type: 'miss.record' }>
+    switchToOpponent: assign(() => {
       return {
         cueBallPotsInRun: 0 as const,
       }

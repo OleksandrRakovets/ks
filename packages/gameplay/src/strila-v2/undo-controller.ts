@@ -45,7 +45,7 @@ export type StrilaUndoResult =
 export function undoLastPlayerCommand(controllerEntries: StrilaControllerEntry[], actor: StrilaSeat): StrilaUndoResult {
   const before = replayStrilaRecord(controllerEntries)
 
-  if (before.state.phase.type === 'frame-over') {
+  if (before.state.phase === 'frame-over') {
     return { ok: false, reason: 'frame-already-awarded' }
   }
 

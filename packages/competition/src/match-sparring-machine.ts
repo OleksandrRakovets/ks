@@ -1,4 +1,4 @@
-import { StrilaMachineGameplayRuntime, type StrilaEvent, type StrilaMachineFrameState } from '@ks/gameplay'
+import { StrilaGameplayRuntime, type StrilaEvent, type StrilaFrameState } from '@ks/gameplay'
 import { assign, createActor, setup, type Actor, type SnapshotFrom } from 'xstate'
 
 type Seat = 'A' | 'B'
@@ -15,7 +15,7 @@ type MatchContext = {
   framesWonBySeat: { A: number; B: number }
   frames: CompletedFrame[]
   currentFrameIndex: number
-  currentFrame: StrilaMachineFrameState | null
+  currentFrame: StrilaFrameState | null
   matchWinner: Seat | null
 }
 
@@ -25,7 +25,7 @@ type MatchEvent =
   | { type: 'match.end' }
   | StrilaEvent
 
-const frameRuntime = new StrilaMachineGameplayRuntime()
+const frameRuntime = new StrilaGameplayRuntime()
 
 function currentFrameWinner(context: MatchContext): Seat {
   const winner = context.currentFrame?.winner
@@ -68,7 +68,7 @@ export const matchSparringMachine = setup({
           state: context.currentFrame,
           commandType: event.type,
           command: event,
-        }).state as StrilaMachineFrameState,
+        }).state as StrilaFrameState,
       }
     }),
     recordCompletedFrame: assign(({ context }) => {

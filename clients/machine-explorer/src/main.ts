@@ -1,13 +1,8 @@
-import {
-  matchSparringMachine,
-  createMatchActor,
-  getMatchPhase,
-  type MatchSparringActor,
-} from '@ks/competition/match-sparring-machine'
+import { matchSparringMachine, getMatchPhase, type MatchSparringActor } from '@ks/competition/match-sparring-machine'
 import { createBrowserInspector } from '@statelyai/inspect'
 import { createActor } from 'xstate'
 
-import type { StrilaBall, StrilaEvent } from '../../../packages/gameplay/src/strila-v2/definitions2'
+import type { StrilaBall, StrilaEvent } from '../../../packages/gameplay/src/strila-v2/definitions'
 import {
   strilaSparringMachine,
   getPhase,
