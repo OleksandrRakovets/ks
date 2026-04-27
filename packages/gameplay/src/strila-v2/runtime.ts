@@ -20,6 +20,7 @@ import {
 import {
   createInitialSnapshot,
   getPhase,
+  opponentOf,
   sendEvent,
   strilaSparringMachine,
   type StrilaSparringSnapshot,
@@ -162,7 +163,7 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
         situationSummary: 'Log pots or a foul.',
       })
     case 'foul-committed.penalty-selection': {
-      const chooser = state.chooser!
+      const chooser = opponentOf(state.foulOffender!)
       return view(state, {
         commands: [
           command('penalty.select', { actor: chooser, choice: 'play-from-position' }, 'Play from position', {
@@ -292,7 +293,7 @@ function serializeSnapshot(snapshot: StrilaSparringSnapshot): StrilaFrameState {
 }
 
 function restoreSnapshot(state: StrilaFrameState): StrilaSparringSnapshot {
-  const snapshot = createInitialSnapshot(state.targetPointsBySeat)
+  const snapshot = createInitialSnapshot(state.targetPoints)
   const { phase: _phase, ...context } = state
   return strilaSparringMachine.resolveState({
     ...snapshot,

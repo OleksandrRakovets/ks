@@ -14,11 +14,11 @@ test('simulation: internal: handicap basic frame for A to 6', () => {
   }))
   ;({ next } = applyCommand(next, { type: 'pot.record', actor: 'A', pottedBalls: [1] }))
   expect(next.phase).toBe('open-play')
-  expect(next.cueBallPotsInRun).toBe(0)
+  expect(next.cueBallSerialPots).toBeNull()
 
   ;({ next } = applyCommand(next, { type: 'pot.record', actor: 'A', pottedBalls: [2] }))
   expect(next.phase).toBe('open-play')
-  expect(next.cueBallPotsInRun).toBe(0)
+  expect(next.cueBallSerialPots).toBeNull()
 
   ;({ next } = applyCommand(next, { type: 'pot.record', actor: 'A', pottedBalls: [3] }))
   expect(next.score).toEqual({ A: 6, B: 0 })

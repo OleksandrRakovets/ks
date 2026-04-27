@@ -7,11 +7,10 @@ const DEFAULT_TARGETS = { A: 9, B: 9 } as const
 
 const baseState = {
   score: { A: 0, B: 0 },
-  targetPointsBySeat: DEFAULT_TARGETS,
+  targetPoints: DEFAULT_TARGETS,
   coloredBallsOnTable: [1, 2, 3, 4, 5, 6, 7],
-  cueBallPotsInRun: 0,
-  chooser: null,
-  offender: null,
+  cueBallSerialPots: null,
+  foulOffender: null,
   winner: null,
   winReason: null,
   phase: 'not-started',
@@ -60,8 +59,7 @@ describe('projection: control', () => {
       ...baseState,
       score: { A: 4, B: 0 },
       coloredBallsOnTable: [2, 3, 4, 5, 6, 7],
-      chooser: 'B',
-      offender: 'A',
+      foulOffender: 'A',
       phase: 'foul-committed.penalty-selection',
     }
 

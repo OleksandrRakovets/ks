@@ -62,12 +62,16 @@ export const StrilaWinnerDeterminedReasonSchema = z.enum(StrilaWinReasons)
 export type StrilaWinReason = z.infer<typeof StrilaWinnerDeterminedReasonSchema>
 
 export const StrilaContextSchema = z.object({
-  score: z.object({ A: z.number().int().nonnegative(), B: z.number().int().nonnegative() }),
-  targetPointsBySeat: BySeatNumberSchema,
+  score: BySeatNumberSchema,
+  targetPoints: BySeatNumberSchema,
   coloredBallsOnTable: z.array(StrilaColoredBallSchema),
-  cueBallPotsInRun: z.union([z.literal(0), z.literal(1), z.literal(2)]),
-  chooser: StrilaSeatSchema.nullable(),
-  offender: StrilaSeatSchema.nullable(),
+  cueBallSerialPots: z
+    .object({
+      seat: StrilaSeatSchema,
+      count: z.union([z.literal(1), z.literal(2)]),
+    })
+    .nullable(),
+  foulOffender: StrilaSeatSchema.nullable(),
   winner: StrilaSeatSchema.nullable(),
   winReason: StrilaWinnerDeterminedReasonSchema.nullable(),
 })

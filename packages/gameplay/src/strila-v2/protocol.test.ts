@@ -15,11 +15,10 @@ describe('protocol projection', () => {
   test('respotted black declaration', () => {
     const previous: StrilaFrameState = {
       score: { A: 6, B: 8 },
-      targetPointsBySeat: DEFAULT_TARGETS,
+      targetPoints: DEFAULT_TARGETS,
       coloredBallsOnTable: [7],
-      cueBallPotsInRun: 0,
-      chooser: null,
-      offender: null,
+      cueBallSerialPots: null,
+      foulOffender: null,
       winner: null,
       winReason: null,
       phase: 'open-play',
@@ -36,11 +35,10 @@ describe('protocol projection', () => {
   test('automatic foul for third consecutive cue ball pot', () => {
     const previous: StrilaFrameState = {
       score: { A: 2, B: 0 },
-      targetPointsBySeat: DEFAULT_TARGETS,
+      targetPoints: DEFAULT_TARGETS,
       coloredBallsOnTable: [5, 7],
-      cueBallPotsInRun: 2,
-      chooser: null,
-      offender: null,
+      cueBallSerialPots: { seat: 'A', count: 2 },
+      foulOffender: null,
       winner: null,
       winReason: null,
       phase: 'open-play',
@@ -62,11 +60,10 @@ describe('protocol projection', () => {
   test('automatic foul and winner for illegal opening cue ball pot', () => {
     const previous: StrilaFrameState = {
       score: { A: 8, B: 8 },
-      targetPointsBySeat: DEFAULT_TARGETS,
+      targetPoints: DEFAULT_TARGETS,
       coloredBallsOnTable: [7],
-      cueBallPotsInRun: 0,
-      chooser: null,
-      offender: null,
+      cueBallSerialPots: null,
+      foulOffender: null,
       winner: null,
       winReason: null,
       phase: 'respotted-black.opening',

@@ -30,7 +30,7 @@ describe('machine-sparring: basic', () => {
     const snap = sendEvent(start(), { type: 'frame.commence', actor: 'A' })
 
     expect(getPhase(snap)).toBe('open-play')
-    expect(snap.context.cueBallPotsInRun).toBe(0)
+    expect(snap.context.cueBallSerialPots).toBeNull()
     expect(snap.context.score).toEqual({ A: 0, B: 0 })
     expect(snap.context.coloredBallsOnTable).toEqual([1, 2, 3, 4, 5, 6, 7])
   })
@@ -71,15 +71,14 @@ describe('machine-sparring: foul handling', () => {
     snap = sendEvent(snap, { type: 'foul.commit', actor: 'A' })
 
     expect(getPhase(snap)).toBe('foul-committed.penalty-selection')
-    expect(snap.context.chooser).toBe('B')
-    expect(snap.context.offender).toBe('A')
+    expect(snap.context.foulOffender).toBe('A')
 
     snap = sendEvent(snap, { type: 'penalty.select', actor: 'B', choice: 'ball-in-hand' })
     expect(getPhase(snap)).toBe('foul-committed.ball-in-hand')
 
     snap = sendEvent(snap, { type: 'miss.record', actor: 'B' })
     expect(getPhase(snap)).toBe('open-play')
-    expect(snap.context.cueBallPotsInRun).toBe(0)
+    expect(snap.context.cueBallSerialPots).toBeNull()
   })
 
   test('foul response play-from-position awards one point to chooser and keeps actor', () => {
@@ -90,7 +89,7 @@ describe('machine-sparring: foul handling', () => {
 
     expect(snap.context.score).toEqual({ A: 0, B: 1 })
     expect(getPhase(snap)).toBe('open-play')
-    expect(snap.context.cueBallPotsInRun).toBe(0)
+    expect(snap.context.cueBallSerialPots).toBeNull()
   })
 
   test('foul response pass-position awards one point to chooser and returns actor to offender', () => {
@@ -101,7 +100,7 @@ describe('machine-sparring: foul handling', () => {
 
     expect(snap.context.score).toEqual({ A: 0, B: 1 })
     expect(getPhase(snap)).toBe('open-play')
-    expect(snap.context.cueBallPotsInRun).toBe(0)
+    expect(snap.context.cueBallSerialPots).toBeNull()
   })
 
   test('opponent-foul ball-in-hand cue ball and colored ball together becomes a foul', () => {
@@ -116,8 +115,7 @@ describe('machine-sparring: foul handling', () => {
     expect(snap.context.score).toEqual({ A: 0, B: 0 })
     expect(snap.context.coloredBallsOnTable).toEqual(before.context.coloredBallsOnTable)
     expect(getPhase(snap)).toBe('foul-committed.penalty-selection')
-    expect(snap.context.chooser).toBe('A')
-    expect(snap.context.offender).toBe('B')
+    expect(snap.context.foulOffender).toBe('B')
   })
 
   test('third consecutive cue ball pot becomes an automatic foul', () => {
@@ -132,8 +130,7 @@ describe('machine-sparring: foul handling', () => {
     expect(snap.context.score).toEqual(before.context.score)
     expect(snap.context.coloredBallsOnTable).toEqual(before.context.coloredBallsOnTable)
     expect(getPhase(snap)).toBe('foul-committed.penalty-selection')
-    expect(snap.context.chooser).toBe('B')
-    expect(snap.context.offender).toBe('A')
+    expect(snap.context.foulOffender).toBe('A')
   })
 })
 

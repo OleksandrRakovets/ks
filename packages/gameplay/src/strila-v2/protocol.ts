@@ -16,7 +16,8 @@ function isMixedBallInHandPot(previous: StrilaFrameState, command: StrilaCommand
 function isThirdConsecutiveCueBallPot(previous: StrilaFrameState, command: StrilaCommand): boolean {
   return (
     previous.phase === 'open-play' &&
-    previous.cueBallPotsInRun === 2 &&
+    previous.cueBallSerialPots?.seat === command.actor &&
+    previous.cueBallSerialPots.count === 2 &&
     command.type === 'pot.record' &&
     command.pottedBalls.includes(0)
   )
