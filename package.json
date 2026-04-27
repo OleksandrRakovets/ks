@@ -6,16 +6,17 @@
     "clients/*"
   ],
   "scripts": {
-    "dev": "bun run --cwd clients/rr7 dev",
-    "db:migrate:local": "bun run --cwd clients/rr7 db:migrate:local",
-    "test": "bun test",
-    "typecheck": "tsc -b",
     "check:boundaries": "node ./scripts/check-boundaries.mjs",
     "check:zod": "node ./scripts/check-zod.mjs",
+    "db:migrate:local": "bun run --cwd clients/rr7 db:migrate:local",
+    "dev": "bun run --cwd clients/rr7 dev",
+    "format": "oxfmt .",
+    "format:check": "oxfmt --check .",
     "lint": "oxlint .",
     "lint:fix": "oxlint --fix .",
-    "format": "oxfmt .",
-    "format:check": "oxfmt --check ."
+    "machine:explore": "bun --cwd clients/machine-explorer dev",
+    "test": "bun test",
+    "typecheck": "tsc -b"
   },
   "devDependencies": {
     "bun-types": "latest",

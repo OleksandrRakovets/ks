@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { StrilaControlViewSchema, StrilaScoreboardViewSchema, StrilaSummaryViewSchema } from './definitions'
+import { StrilaControlViewSchema, StrilaMeta, StrilaScoreboardViewSchema, StrilaSummaryViewSchema } from './definitions'
 import { StrilaGameplayRuntime, type StrilaFrameState } from './runtime'
 
 function apply(
@@ -14,7 +14,7 @@ function apply(
 describe('StrilaGameplayRuntime projections', () => {
   test('derives valid control projection from machine state', () => {
     const runtime = new StrilaGameplayRuntime()
-    let state = runtime.createInitialState({ targetPointsBySeat: { A: 9, B: 9 } })
+    let state = runtime.createInitialState({ targetPointsBySeat: StrilaMeta.defaultTargetPoints })
     state = apply(runtime, state, { type: 'frame.commence', actor: 'A' })
     state = apply(runtime, state, { type: 'foul.commit', actor: 'A' })
 
@@ -31,7 +31,7 @@ describe('StrilaGameplayRuntime projections', () => {
 
   test('derives valid scoreboard projection from machine state', () => {
     const runtime = new StrilaGameplayRuntime()
-    let state = runtime.createInitialState({ targetPointsBySeat: { A: 9, B: 9 } })
+    let state = runtime.createInitialState({ targetPointsBySeat: StrilaMeta.defaultTargetPoints })
     state = apply(runtime, state, { type: 'frame.commence', actor: 'A' })
     state = apply(runtime, state, { type: 'pot.record', actor: 'A', pottedBalls: [1] })
 
@@ -44,7 +44,7 @@ describe('StrilaGameplayRuntime projections', () => {
 
   test('derives valid summary projection from machine state', () => {
     const runtime = new StrilaGameplayRuntime()
-    const state = runtime.createInitialState({ targetPointsBySeat: { A: 9, B: 9 } })
+    const state = runtime.createInitialState({ targetPointsBySeat: StrilaMeta.defaultTargetPoints })
 
     const projection = StrilaSummaryViewSchema.parse(runtime.deriveProjection({ state, projection: 'summary' }))
 

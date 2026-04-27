@@ -22,6 +22,7 @@ export const GameIdSchema = GameKeySchema
 export type GameId = GameKey
 
 export const BySeatNumberSchema = z.object({ A: z.number().int(), B: z.number().int() })
+export type BySeatNumber = z.infer<typeof BySeatNumberSchema>
 
 export const MatchTargetsSchema = z.object({
   frameTargetPointsBySeat: BySeatNumberSchema,

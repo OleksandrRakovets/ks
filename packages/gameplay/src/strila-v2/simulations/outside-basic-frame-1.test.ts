@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 
 import { applyGameCommand, createInitialGameState } from '../../index'
-import { StrilaFrameStateSchema, type StrilaFrameState } from '../definitions'
+import { StrilaFrameStateSchema, StrilaMeta, type StrilaFrameState } from '../definitions'
 import { deriveStrilaControlView } from '../projections/control'
 import { deriveStrilaScoreboardView } from '../projections/scoreboard'
 
@@ -10,7 +10,7 @@ function parseState(state: unknown): StrilaFrameState {
 }
 
 test('simulation: outside: basic frame 1', () => {
-  let state = parseState(createInitialGameState('strila-v2', { targetPointsBySeat: { A: 9, B: 9 } }))
+  let state = parseState(createInitialGameState('strila-v2', { targetPointsBySeat: StrilaMeta.defaultTargetPoints }))
   let control = deriveStrilaControlView(state).details
   expect(control.commandSections.primary.A.map((entry) => entry.commandType)).toEqual(['frame.commence'])
   expect(control.commandSections.primary.B.map((entry) => entry.commandType)).toEqual(['frame.commence'])

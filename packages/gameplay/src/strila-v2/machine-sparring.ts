@@ -1,38 +1,39 @@
-import { opponentOf, type Seat } from '@ks/core'
+import { opponentOf, type BySeatNumber, type Seat } from '@ks/core'
 import invariant from 'tiny-invariant'
 import { assign, getInitialSnapshot, getNextSnapshot, setup, type SnapshotFrom } from 'xstate'
 
 import {
   StrilaPhaseSchema,
+  StrilaMeta,
   type StrilaColoredBall,
   type StrilaContext,
   type StrilaEvent,
   type StrilaPhase,
   type StrilaWinReason,
+  type StrilaBall,
 } from './definitions'
 
-const ALL_COLORED_BALLS: StrilaColoredBall[] = [1, 2, 3, 4, 5, 6, 7]
 const RESPOTTED_BLACK: StrilaColoredBall[] = [7]
 
-function pointsForPottedBalls(pottedBalls: (0 | StrilaColoredBall)[]): number {
-  return pottedBalls.reduce<number>((sum, ball) => sum + (ball === 0 ? 1 : 2), 0)
+function pointsForPottedBalls(pottedBalls: StrilaBall[]): number {
+  return pottedBalls.reduce<number>((sum, ball) => sum + (ball === StrilaMeta.cueBall ? 1 : 2), 0)
 }
 
-function removePottedColoredBalls(onTable: StrilaColoredBall[], pottedBalls: (0 | StrilaColoredBall)[]): StrilaColoredBall[] {
-  const potted = new Set(pottedBalls.filter((b): b is StrilaColoredBall => b !== 0))
+function removePottedColoredBalls(onTable: StrilaColoredBall[], pottedBalls: StrilaBall[]): StrilaColoredBall[] {
+  const potted = new Set(pottedBalls.filter((b) => b !== StrilaMeta.cueBall))
   return onTable.filter((b) => !potted.has(b))
 }
 
-function addPoints(score: { A: number; B: number }, seat: Seat, points: number): { A: number; B: number } {
+function addPoints(score: BySeatNumber, seat: Seat, points: number): BySeatNumber {
   return seat === 'A' ? { A: score.A + points, B: score.B } : { A: score.A, B: score.B + points }
 }
 
 function nextCueBallSerialPots(
   prev: StrilaContext['cueBallSerialPots'],
   actor: Seat,
-  pottedBalls: (0 | StrilaColoredBall)[],
+  pottedBalls: StrilaBall[],
 ): StrilaContext['cueBallSerialPots'] {
-  if (!pottedBalls.includes(0)) return null
+  if (!pottedBalls.includes(StrilaMeta.cueBall)) return null
   if (prev?.seat !== actor) return { seat: actor, count: 1 }
   return { seat: actor, count: prev.count >= 2 ? 2 : 2 }
 }
@@ -86,7 +87,7 @@ export const strilaSparringMachine = setup({
   types: {
     context: {} as StrilaContext,
     events: {} as StrilaEvent,
-    input: {} as { targetPointsBySeat?: { A: number; B: number } },
+    input: {} as { targetPointsBySeat?: BySeatNumber },
   },
   guards: {
     isThirdCueBallPot: ({ context, event }) => {
@@ -214,7 +215,7 @@ export const strilaSparringMachine = setup({
     commence: assign(() => {
       return {
         score: { A: 0, B: 0 },
-        coloredBallsOnTable: [...ALL_COLORED_BALLS],
+        coloredBallsOnTable: [...StrilaMeta.coloredBalls],
         cueBallSerialPots: null,
       }
     }),
@@ -225,7 +226,7 @@ export const strilaSparringMachine = setup({
   context: ({ input }) => ({
     score: { A: 0, B: 0 },
     targetPoints: input?.targetPointsBySeat ?? { A: 9, B: 9 },
-    coloredBallsOnTable: [...ALL_COLORED_BALLS],
+    coloredBallsOnTable: [...StrilaMeta.coloredBalls],
     cueBallSerialPots: null,
     foulOffender: null,
     winner: null,
@@ -424,10 +425,10 @@ export type StrilaSparringSnapshot = SnapshotFrom<typeof strilaSparringMachine>
 export type StrilaSparringOutput = {
   winner: Seat
   winReason: StrilaWinReason
-  score: { A: number; B: number }
+  score: BySeatNumber
 }
 
-export function createInitialSnapshot(targetPointsBySeat?: { A: number; B: number }): StrilaSparringSnapshot {
+export function createInitialSnapshot(targetPointsBySeat?: BySeatNumber): StrilaSparringSnapshot {
   return getInitialSnapshot(strilaSparringMachine, { targetPointsBySeat: targetPointsBySeat ?? { A: 9, B: 9 } })
 }
 

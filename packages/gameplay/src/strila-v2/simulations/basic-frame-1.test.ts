@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test'
 
+import { StrilaMeta } from '../definitions'
 import { deriveStrilaScoreboardView } from '../projections/scoreboard'
 import { StrilaGameplayRuntime } from '../runtime'
 import { applyCommand } from './applyCommand'
@@ -7,7 +8,7 @@ import { applyCommand } from './applyCommand'
 const runtime = new StrilaGameplayRuntime()
 
 test('simulation: internal: basic frame 1', () => {
-  let next = runtime.createInitialState({ targetPointsBySeat: { A: 9, B: 9 } })
+  let next = runtime.createInitialState({ targetPointsBySeat: StrilaMeta.defaultTargetPoints })
 
   ;({ next } = applyCommand(next, {
     type: 'frame.commence',

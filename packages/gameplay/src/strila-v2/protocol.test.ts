@@ -1,10 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 
-import type { StrilaCommand, StrilaFrameState } from './definitions'
+import { StrilaMeta, type StrilaCommand, type StrilaFrameState } from './definitions'
 import { projectStrilaProtocolEntries } from './protocol'
 import { StrilaGameplayRuntime } from './runtime'
 
-const DEFAULT_TARGETS: StrilaFrameState['targetPoints'] = { A: 9, B: 9 }
 const runtime = new StrilaGameplayRuntime()
 
 function apply(state: StrilaFrameState, command: StrilaCommand): StrilaFrameState {
@@ -15,7 +14,7 @@ describe('protocol projection', () => {
   test('respotted black declaration', () => {
     const previous: StrilaFrameState = {
       score: { A: 6, B: 8 },
-      targetPoints: DEFAULT_TARGETS,
+      targetPoints: StrilaMeta.defaultTargetPoints,
       coloredBallsOnTable: [7],
       cueBallSerialPots: null,
       foulOffender: null,
@@ -35,7 +34,7 @@ describe('protocol projection', () => {
   test('automatic foul for third consecutive cue ball pot', () => {
     const previous: StrilaFrameState = {
       score: { A: 2, B: 0 },
-      targetPoints: DEFAULT_TARGETS,
+      targetPoints: StrilaMeta.defaultTargetPoints,
       coloredBallsOnTable: [5, 7],
       cueBallSerialPots: { seat: 'A', count: 2 },
       foulOffender: null,
@@ -60,7 +59,7 @@ describe('protocol projection', () => {
   test('automatic foul and winner for illegal opening cue ball pot', () => {
     const previous: StrilaFrameState = {
       score: { A: 8, B: 8 },
-      targetPoints: DEFAULT_TARGETS,
+      targetPoints: StrilaMeta.defaultTargetPoints,
       coloredBallsOnTable: [7],
       cueBallSerialPots: null,
       foulOffender: null,
@@ -89,7 +88,7 @@ describe('protocol projection', () => {
   })
 
   test('target reached winner determination', () => {
-    let previous = runtime.createInitialState({ targetPointsBySeat: DEFAULT_TARGETS })
+    let previous = runtime.createInitialState({ targetPointsBySeat: StrilaMeta.defaultTargetPoints })
     previous = apply(previous, { type: 'frame.commence', actor: 'A' })
     previous = apply(previous, { type: 'pot.record', actor: 'A', pottedBalls: [1, 2, 3, 4] })
     const command: StrilaCommand = { type: 'pot.record', actor: 'A', pottedBalls: [5] }

@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
+import { StrilaMeta } from '@ks/gameplay'
+
 import { createMatchActor, getMatchPhase, matchSparringMachine, type MatchSparringActor } from './match-sparring-machine'
 
 function snap(actor: MatchSparringActor) {
@@ -25,11 +27,11 @@ describe('match-sparring: setup', () => {
 
   test('match.setup transitions to between-frames', () => {
     const actor = createMatchActor()
-    actor.send({ type: 'match.setup', frameTargetPointsBySeat: { A: 9, B: 9 }, matchTargetFrames: 3 })
+    actor.send({ type: 'match.setup', frameTargetPointsBySeat: StrilaMeta.defaultTargetPoints, matchTargetFrames: 3 })
 
     expect(getMatchPhase(snap(actor))).toBe('between-frames')
     expect(snap(actor).context.matchTargetFrames).toBe(3)
-    expect(snap(actor).context.frameTargetPointsBySeat).toEqual({ A: 9, B: 9 })
+    expect(snap(actor).context.frameTargetPointsBySeat).toEqual(StrilaMeta.defaultTargetPoints)
   })
 
   test('input defaults are applied', () => {
@@ -42,7 +44,7 @@ describe('match-sparring: setup', () => {
 describe('match-sparring: frame lifecycle', () => {
   test('frame.start transitions to frame-in-progress', () => {
     const actor = createMatchActor()
-    actor.send({ type: 'match.setup', frameTargetPointsBySeat: { A: 9, B: 9 }, matchTargetFrames: 3 })
+    actor.send({ type: 'match.setup', frameTargetPointsBySeat: StrilaMeta.defaultTargetPoints, matchTargetFrames: 3 })
     actor.send({ type: 'frame.start' })
 
     expect(getMatchPhase(snap(actor))).toBe('frame-in-progress')
@@ -50,7 +52,7 @@ describe('match-sparring: frame lifecycle', () => {
 
   test('completed frame returns to between-frames and records result', () => {
     const actor = createMatchActor()
-    actor.send({ type: 'match.setup', frameTargetPointsBySeat: { A: 9, B: 9 }, matchTargetFrames: 3 })
+    actor.send({ type: 'match.setup', frameTargetPointsBySeat: StrilaMeta.defaultTargetPoints, matchTargetFrames: 3 })
     playFrame(actor, 'A')
 
     expect(getMatchPhase(snap(actor))).toBe('between-frames')
@@ -62,7 +64,7 @@ describe('match-sparring: frame lifecycle', () => {
 
   test('second frame starts with fresh child state', () => {
     const actor = createMatchActor()
-    actor.send({ type: 'match.setup', frameTargetPointsBySeat: { A: 9, B: 9 }, matchTargetFrames: 3 })
+    actor.send({ type: 'match.setup', frameTargetPointsBySeat: StrilaMeta.defaultTargetPoints, matchTargetFrames: 3 })
     playFrame(actor, 'A')
     actor.send({ type: 'frame.start' })
 
@@ -74,7 +76,7 @@ describe('match-sparring: frame lifecycle', () => {
 describe('match-sparring: match target', () => {
   test('reaching match target transitions to match-over', () => {
     const actor = createMatchActor()
-    actor.send({ type: 'match.setup', frameTargetPointsBySeat: { A: 9, B: 9 }, matchTargetFrames: 2 })
+    actor.send({ type: 'match.setup', frameTargetPointsBySeat: StrilaMeta.defaultTargetPoints, matchTargetFrames: 2 })
     playFrame(actor, 'A')
     playFrame(actor, 'A')
 
@@ -85,7 +87,7 @@ describe('match-sparring: match target', () => {
 
   test('match with alternating frames reaches correct winner', () => {
     const actor = createMatchActor()
-    actor.send({ type: 'match.setup', frameTargetPointsBySeat: { A: 9, B: 9 }, matchTargetFrames: 2 })
+    actor.send({ type: 'match.setup', frameTargetPointsBySeat: StrilaMeta.defaultTargetPoints, matchTargetFrames: 2 })
     playFrame(actor, 'A')
     playFrame(actor, 'B')
     playFrame(actor, 'B')
@@ -97,7 +99,7 @@ describe('match-sparring: match target', () => {
 
   test('explicit match.end in between-frames transitions to match-over', () => {
     const actor = createMatchActor()
-    actor.send({ type: 'match.setup', frameTargetPointsBySeat: { A: 9, B: 9 }, matchTargetFrames: 3 })
+    actor.send({ type: 'match.setup', frameTargetPointsBySeat: StrilaMeta.defaultTargetPoints, matchTargetFrames: 3 })
     playFrame(actor, 'A')
     playFrame(actor, 'A')
     actor.send({ type: 'match.end' })

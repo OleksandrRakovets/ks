@@ -8,7 +8,8 @@ import {
   GameSummaryProjectionSchema,
 } from '../abstract-runtime'
 
-export const StrilaColoredBallSchema = z.union([
+const StrilaCueBall = z.literal(0)
+const StrilaColoredBallSchema = z.union([
   z.literal(1),
   z.literal(2),
   z.literal(3),
@@ -18,11 +19,18 @@ export const StrilaColoredBallSchema = z.union([
   z.literal(7),
 ])
 export type StrilaColoredBall = z.infer<typeof StrilaColoredBallSchema>
-export const STRILA_COLORED_BALLS: readonly StrilaColoredBall[] = [1, 2, 3, 4, 5, 6, 7]
+const STRILA_COLORED_BALLS: readonly StrilaColoredBall[] = [1, 2, 3, 4, 5, 6, 7]
 
-const StrilaBallSchema = z.union([z.literal(0), StrilaColoredBallSchema])
+const StrilaBallSchema = z.union([StrilaCueBall, StrilaColoredBallSchema])
 export type StrilaBall = z.infer<typeof StrilaBallSchema>
-export const STRILA_BALLS: readonly StrilaBall[] = [0, ...STRILA_COLORED_BALLS]
+const STRILA_BALLS: readonly StrilaBall[] = [0, ...STRILA_COLORED_BALLS]
+
+export const StrilaMeta = {
+  allBalls: STRILA_BALLS,
+  coloredBalls: STRILA_COLORED_BALLS,
+  cueBall: StrilaCueBall.value,
+  defaultTargetPoints: { A: 9, B: 9 },
+}
 
 const StrilaFoulResponseChoiceSchema = z.enum(['play-from-position', 'pass-position', 'ball-in-hand'])
 

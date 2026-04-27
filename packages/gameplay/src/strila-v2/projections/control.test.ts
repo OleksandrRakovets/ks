@@ -1,13 +1,11 @@
 import { describe, expect, test } from 'bun:test'
 
-import type { StrilaFrameState } from '../definitions'
+import { StrilaMeta, type StrilaFrameState } from '../definitions'
 import { deriveStrilaControlView } from './control'
-
-const DEFAULT_TARGETS: StrilaFrameState['targetPoints'] = { A: 9, B: 9 }
 
 const baseState = {
   score: { A: 0, B: 0 },
-  targetPoints: DEFAULT_TARGETS,
+  targetPoints: StrilaMeta.defaultTargetPoints,
   coloredBallsOnTable: [1, 2, 3, 4, 5, 6, 7],
   cueBallSerialPots: null,
   foulOffender: null,

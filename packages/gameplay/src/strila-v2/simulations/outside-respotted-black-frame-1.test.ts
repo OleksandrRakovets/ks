@@ -1,14 +1,14 @@
 import { expect, test } from 'bun:test'
 
 import { applyGameCommand } from '../../index'
-import { StrilaFrameStateSchema, type StrilaFrameState } from '../definitions'
+import { StrilaFrameStateSchema, StrilaMeta, type StrilaFrameState } from '../definitions'
 import { deriveStrilaControlView } from '../projections/control'
 import { deriveStrilaScoreboardView } from '../projections/scoreboard'
 
 test('simulation: outside: respotted black frame 1', () => {
   const state: StrilaFrameState = {
     score: { A: 8, B: 8 },
-    targetPoints: { A: 9, B: 9 },
+    targetPoints: StrilaMeta.defaultTargetPoints,
     coloredBallsOnTable: [7],
     cueBallSerialPots: null,
     foulOffender: null,

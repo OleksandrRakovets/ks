@@ -3,7 +3,7 @@ import invariant from 'tiny-invariant'
 
 import { type GameCreateStateArgs, type GameProjectionKey, GameplayRuntime } from '../abstract-runtime'
 import {
-  STRILA_BALLS,
+  StrilaMeta,
   StrilaBallStatusesSchema,
   StrilaControlViewSchema,
   StrilaEventSchema,
@@ -84,7 +84,7 @@ function deriveBallStatuses(state: StrilaFrameState): StrilaControlDetails['ball
     7: 'potted',
   })
 
-  for (const ball of STRILA_BALLS) {
+  for (const ball of StrilaMeta.allBalls) {
     if (ball === 0) {
       ballStatuses[ball] = cueStatus
       continue

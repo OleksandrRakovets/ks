@@ -2,10 +2,9 @@ export { createInitialGameState, applyGameCommand, deriveGameProjection, parseGa
 export { opponentOf } from '@ks/core'
 export { GameControlProjectionSchema } from './abstract-runtime'
 export {
-  STRILA_BALLS,
-  STRILA_COLORED_BALLS,
   StrilaControlDetailsSchema,
   StrilaControlViewSchema,
+  StrilaMeta,
   type StrilaBall,
   type StrilaControlDetails,
   type StrilaControlView,
