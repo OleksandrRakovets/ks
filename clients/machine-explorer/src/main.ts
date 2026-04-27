@@ -96,7 +96,7 @@ function renderFrame(snap: StrilaSparringSnapshot) {
 
   status.innerHTML = `
     <div class="state-label">${phase}</div>
-    <div class="context-block">${JSON.stringify({ score: ctx.score, target: ctx.targetPointsBySeat, actor: ctx.actor, balls: ctx.coloredBallsOnTable, cueBallStreak: ctx.cueBallPotsInRun, winner: ctx.winner, winReason: ctx.winReason, chooser: ctx.chooser, offender: ctx.offender }, null, 2)}</div>
+    <div class="context-block">${JSON.stringify({ score: ctx.score, target: ctx.targetPointsBySeat, balls: ctx.coloredBallsOnTable, cueBallStreak: ctx.cueBallPotsInRun, winner: ctx.winner, winReason: ctx.winReason, chooser: ctx.chooser, offender: ctx.offender }, null, 2)}</div>
   `
   renderFrameControls(snap)
 }
@@ -208,18 +208,14 @@ function renderFrameControls(snap: StrilaSparringSnapshot) {
 
   const actionRow = div('display:flex;gap:8px;align-items:center;flex-wrap:wrap')
   if (phase === 'foul-committed.ball-in-hand' || phase === 'respotted-black.opening') {
-    const a = ctx.actor!
-    actionRow.append(
-      label(`${a}:`),
-      btn('Miss', () => frameActor.send({ type: 'miss.record', actor: a })),
-      btn('Foul', () => frameActor.send({ type: 'foul.commit', actor: a })),
-    )
+    for (const seat of ['A', 'B'] as const) {
+      actionRow.append(btn(`Miss ${seat}`, () => frameActor.send({ type: 'miss.record', actor: seat })))
+      actionRow.append(btn(`Foul ${seat}`, () => frameActor.send({ type: 'foul.commit', actor: seat })))
+    }
   } else if (phase === 'respotted-black.play') {
-    const a = ctx.actor!
-    actionRow.append(
-      label(`${a}:`),
-      btn('Foul', () => frameActor.send({ type: 'foul.commit', actor: a })),
-    )
+    for (const seat of ['A', 'B'] as const) {
+      actionRow.append(btn(`Foul ${seat}`, () => frameActor.send({ type: 'foul.commit', actor: seat })))
+    }
   } else {
     for (const seat of ['A', 'B'] as const)
       actionRow.append(btn(`Foul ${seat}`, () => frameActor.send({ type: 'foul.commit', actor: seat })))
@@ -229,11 +225,7 @@ function renderFrameControls(snap: StrilaSparringSnapshot) {
     sep.className = 'sep'
     actionRow.append(
       sep,
-      btn(
-        `Award frame → ${ctx.winner}`,
-        () => frameActor.send({ type: 'frame.award', actor: ctx.actor ?? ctx.winner! }),
-        'primary',
-      ),
+      btn(`Award frame → ${ctx.winner}`, () => frameActor.send({ type: 'frame.award', actor: ctx.winner! }), 'primary'),
     )
   }
   controls.append(actionRow)
@@ -393,18 +385,14 @@ function renderMatchControls() {
 
     const actionRow = div('display:flex;gap:8px;align-items:center;flex-wrap:wrap')
     if (framePhase === 'foul-committed.ball-in-hand' || framePhase === 'respotted-black.opening') {
-      const a = frameCtx.actor!
-      actionRow.append(
-        label(`${a}:`),
-        btn('Miss', () => matchActor.send({ type: 'miss.record', actor: a })),
-        btn('Foul', () => matchActor.send({ type: 'foul.commit', actor: a })),
-      )
+      for (const seat of ['A', 'B'] as const) {
+        actionRow.append(btn(`Miss ${seat}`, () => matchActor.send({ type: 'miss.record', actor: seat })))
+        actionRow.append(btn(`Foul ${seat}`, () => matchActor.send({ type: 'foul.commit', actor: seat })))
+      }
     } else if (framePhase === 'respotted-black.play') {
-      const a = frameCtx.actor!
-      actionRow.append(
-        label(`${a}:`),
-        btn('Foul', () => matchActor.send({ type: 'foul.commit', actor: a })),
-      )
+      for (const seat of ['A', 'B'] as const) {
+        actionRow.append(btn(`Foul ${seat}`, () => matchActor.send({ type: 'foul.commit', actor: seat })))
+      }
     } else {
       for (const seat of ['A', 'B'] as const)
         actionRow.append(btn(`Foul ${seat}`, () => matchActor.send({ type: 'foul.commit', actor: seat })))
@@ -416,7 +404,7 @@ function renderMatchControls() {
         sep,
         btn(
           `Award frame → ${frameCtx.winner}`,
-          () => matchActor.send({ type: 'frame.award', actor: frameCtx.actor ?? frameCtx.winner! }),
+          () => matchActor.send({ type: 'frame.award', actor: frameCtx.winner! }),
           'primary',
         ),
       )

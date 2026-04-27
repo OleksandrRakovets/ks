@@ -24,7 +24,6 @@ export type StrilaContext = {
   score: { A: number; B: number }
   targetPointsBySeat: { A: number; B: number }
   coloredBallsOnTable: StrilaColoredBall[]
-  actor: StrilaSeat | null
   cueBallPotsInRun: 0 | 1 | 2
   chooser: StrilaSeat | null
   offender: StrilaSeat | null
@@ -63,7 +62,6 @@ export const StrilaContextSchema = z.object({
   score: z.object({ A: z.number().int().nonnegative(), B: z.number().int().nonnegative() }),
   targetPointsBySeat: BySeatNumberSchema,
   coloredBallsOnTable: z.array(StrilaColoredBallSchema),
-  actor: StrilaSeatSchema.nullable(),
   cueBallPotsInRun: z.union([z.literal(0), z.literal(1), z.literal(2)]),
   chooser: StrilaSeatSchema.nullable(),
   offender: StrilaSeatSchema.nullable(),

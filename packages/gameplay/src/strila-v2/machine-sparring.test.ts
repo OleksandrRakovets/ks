@@ -30,7 +30,6 @@ describe('machine-sparring: basic', () => {
     const snap = sendEvent(start(), { type: 'frame.commence', actor: 'A' })
 
     expect(getPhase(snap)).toBe('open-play')
-    expect(snap.context.actor).toBe('A')
     expect(snap.context.cueBallPotsInRun).toBe(0)
     expect(snap.context.score).toEqual({ A: 0, B: 0 })
     expect(snap.context.coloredBallsOnTable).toEqual([1, 2, 3, 4, 5, 6, 7])
@@ -77,11 +76,9 @@ describe('machine-sparring: foul handling', () => {
 
     snap = sendEvent(snap, { type: 'penalty.select', actor: 'B', choice: 'ball-in-hand' })
     expect(getPhase(snap)).toBe('foul-committed.ball-in-hand')
-    expect(snap.context.actor).toBe('B')
 
     snap = sendEvent(snap, { type: 'miss.record', actor: 'B' })
     expect(getPhase(snap)).toBe('open-play')
-    expect(snap.context.actor).toBe('A')
     expect(snap.context.cueBallPotsInRun).toBe(0)
   })
 
@@ -93,7 +90,6 @@ describe('machine-sparring: foul handling', () => {
 
     expect(snap.context.score).toEqual({ A: 0, B: 1 })
     expect(getPhase(snap)).toBe('open-play')
-    expect(snap.context.actor).toBe('B')
     expect(snap.context.cueBallPotsInRun).toBe(0)
   })
 
@@ -105,7 +101,6 @@ describe('machine-sparring: foul handling', () => {
 
     expect(snap.context.score).toEqual({ A: 0, B: 1 })
     expect(getPhase(snap)).toBe('open-play')
-    expect(snap.context.actor).toBe('A')
     expect(snap.context.cueBallPotsInRun).toBe(0)
   })
 
@@ -148,7 +143,6 @@ describe('machine-sparring: respotted black', () => {
 
     expect(snap.context.score).toEqual({ A: 8, B: 8 })
     expect(snap.context.coloredBallsOnTable).toEqual([7])
-    expect(snap.context.actor).toBe('A')
   })
 
   test('opening black pot determines winner', () => {
@@ -187,7 +181,6 @@ describe('machine-sparring: respotted black', () => {
     snap = sendEvent(snap, { type: 'miss.record', actor: 'A' })
 
     expect(getPhase(snap)).toBe('respotted-black.play')
-    expect(snap.context.actor).toBe('B')
   })
 
   test('respotted-black.play pot determines winner', () => {
