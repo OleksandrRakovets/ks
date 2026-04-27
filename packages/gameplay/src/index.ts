@@ -1,4 +1,5 @@
 export { createInitialGameState, applyGameCommand, deriveGameProjection, parseGameKey } from './gameplay'
+export { opponentOf } from '@ks/core'
 export { GameControlProjectionSchema } from './abstract-runtime'
 export {
   STRILA_BALLS,

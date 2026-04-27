@@ -1,3 +1,4 @@
+import { opponentOf, type Seat } from '@ks/core'
 import { assign, getInitialSnapshot, getNextSnapshot, setup, type SnapshotFrom } from 'xstate'
 
 import {
@@ -6,13 +7,8 @@ import {
   type StrilaContext,
   type StrilaEvent,
   type StrilaPhase,
-  type StrilaSeat,
   type StrilaWinReason,
 } from './definitions'
-
-export function opponentOf(seat: StrilaSeat): StrilaSeat {
-  return seat === 'A' ? 'B' : 'A'
-}
 
 function pointsForPottedBalls(pottedBalls: (0 | StrilaColoredBall)[]): number {
   return pottedBalls.reduce<number>((sum, ball) => sum + (ball === 0 ? 1 : 2), 0)
@@ -23,13 +19,13 @@ function removePottedColoredBalls(onTable: StrilaColoredBall[], pottedBalls: (0 
   return onTable.filter((b) => !potted.has(b))
 }
 
-function addPoints(score: { A: number; B: number }, seat: StrilaSeat, points: number): { A: number; B: number } {
+function addPoints(score: { A: number; B: number }, seat: Seat, points: number): { A: number; B: number } {
   return seat === 'A' ? { A: score.A + points, B: score.B } : { A: score.A, B: score.B + points }
 }
 
 function nextCueBallSerialPots(
   prev: StrilaContext['cueBallSerialPots'],
-  actor: StrilaSeat,
+  actor: Seat,
   pottedBalls: (0 | StrilaColoredBall)[],
 ): StrilaContext['cueBallSerialPots'] {
   if (!pottedBalls.includes(0)) return null
@@ -101,7 +97,7 @@ export const strilaSparringMachine = setup({
       }
     }),
     setWinnerFromTarget: assign(({ context }) => ({
-      winner: (context.score.A >= context.targetPoints.A ? 'A' : 'B') as StrilaSeat,
+      winner: (context.score.A >= context.targetPoints.A ? 'A' : 'B') as Seat,
       winReason: 'target-reached' as const,
     })),
     setRespottedBlackOpening: assign({
@@ -137,7 +133,7 @@ export const strilaSparringMachine = setup({
     }),
     applyBallInHand: assign(() => {
       return {
-        foulOffender: null as StrilaSeat | null,
+        foulOffender: null as Seat | null,
       }
     }),
     applyPlayFromPosition: assign(({ context, event }) => {
@@ -145,7 +141,7 @@ export const strilaSparringMachine = setup({
       return {
         score: addPoints(context.score, e.actor, 1),
         cueBallSerialPots: null,
-        foulOffender: null as StrilaSeat | null,
+        foulOffender: null as Seat | null,
       }
     }),
     applyPassPosition: assign(({ context, event }) => {
@@ -153,7 +149,7 @@ export const strilaSparringMachine = setup({
       return {
         score: addPoints(context.score, e.actor, 1),
         cueBallSerialPots: null,
-        foulOffender: null as StrilaSeat | null,
+        foulOffender: null as Seat | null,
       }
     }),
     switchToOpponent: assign(() => {
@@ -379,7 +375,7 @@ export const strilaSparringMachine = setup({
 
 export type StrilaSparringSnapshot = SnapshotFrom<typeof strilaSparringMachine>
 export type StrilaSparringOutput = {
-  winner: StrilaSeat
+  winner: Seat
   winReason: StrilaWinReason
   score: { A: number; B: number }
 }

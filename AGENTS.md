@@ -47,6 +47,7 @@ KS is a billiards scorekeeping app for a local club. Core use case: two-player m
 
 - Keep route modules thin; put business logic in shared packages/services.
 - Reuse shared schemas/types across client/server; server validation is mandatory.
+- Seats are core concepts: use `Seat`, `SeatSchema`, `BySeatNumberSchema`, and `opponentOf` from `@ks/core`; do not recreate seat unions or local opponent helpers.
 - Avoid same-process internal HTTP hops unless there is a clear reason.
 - Use gameplay registry as the source of game keys: `packages/gameplay/src/registry.ts`.
 - Keep one game command path (`game.command`) across games; keep semantics inside gameplay runtimes.

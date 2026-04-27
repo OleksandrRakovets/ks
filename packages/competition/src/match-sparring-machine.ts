@@ -1,7 +1,6 @@
+import { type Seat } from '@ks/core'
 import { StrilaGameplayRuntime, type StrilaEvent, type StrilaFrameState } from '@ks/gameplay'
 import { assign, createActor, setup, type Actor, type SnapshotFrom } from 'xstate'
-
-type Seat = 'A' | 'B'
 
 type CompletedFrame = {
   frameIndex: number

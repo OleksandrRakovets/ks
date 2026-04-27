@@ -1,3 +1,5 @@
+import { opponentOf, type Seat } from '@ks/core'
+
 import { type GameCreateStateArgs, type GameProjectionKey, GameplayRuntime } from '../abstract-runtime'
 import {
   STRILA_BALLS,
@@ -15,12 +17,10 @@ import {
   type StrilaFrameState,
   type StrilaPhase,
   type StrilaScoreboardView,
-  type StrilaSeat,
 } from './definitions'
 import {
   createInitialSnapshot,
   getPhase,
-  opponentOf,
   sendEvent,
   strilaSparringMachine,
   type StrilaSparringSnapshot,
@@ -51,7 +51,7 @@ function seatCommands(commandType: StrilaEvent['type'], label: string, prominenc
   ]
 }
 
-function actorFromCommand(entry: StrilaControlCommand): StrilaSeat | null {
+function actorFromCommand(entry: StrilaControlCommand): Seat | null {
   const actor = entry.command.actor
   return actor === 'A' || actor === 'B' ? actor : null
 }
@@ -123,7 +123,7 @@ function view(
     commands: StrilaControlCommand[]
     situationTitle: string
     situationSummary: string
-    actor?: StrilaSeat
+    actor?: Seat
     messages?: Array<{ type: 'hint' | 'warning'; text: string }>
   },
 ): StrilaControlView {

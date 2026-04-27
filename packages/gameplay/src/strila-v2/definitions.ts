@@ -1,4 +1,4 @@
-import { BySeatNumberSchema } from '@ks/core'
+import { BySeatNumberSchema, SeatSchema } from '@ks/core'
 import { z } from 'zod'
 
 import {
@@ -10,9 +10,6 @@ import {
 
 export const STRILA_COLORED_BALLS = [1, 2, 3, 4, 5, 6, 7] as const
 export const STRILA_BALLS = [0, ...STRILA_COLORED_BALLS] as const
-
-export const StrilaSeatSchema = z.enum(['A', 'B'])
-export type StrilaSeat = z.infer<typeof StrilaSeatSchema>
 
 export const StrilaColoredBallSchema = z.union([
   z.literal(1),
@@ -31,13 +28,13 @@ export type StrilaBall = z.infer<typeof StrilaBallSchema>
 export const StrilaFoulResponseChoiceSchema = z.enum(['play-from-position', 'pass-position', 'ball-in-hand'])
 
 export const StrilaEventSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('frame.commence'), actor: StrilaSeatSchema }),
-  z.object({ type: z.literal('pot.record'), actor: StrilaSeatSchema, pottedBalls: z.array(StrilaBallSchema) }),
-  z.object({ type: z.literal('miss.record'), actor: StrilaSeatSchema }),
-  z.object({ type: z.literal('foul.commit'), actor: StrilaSeatSchema }),
-  z.object({ type: z.literal('penalty.select'), actor: StrilaSeatSchema, choice: StrilaFoulResponseChoiceSchema }),
-  z.object({ type: z.literal('frame.award'), actor: StrilaSeatSchema }),
-  z.object({ type: z.literal('frame.concede'), actor: StrilaSeatSchema }),
+  z.object({ type: z.literal('frame.commence'), actor: SeatSchema }),
+  z.object({ type: z.literal('pot.record'), actor: SeatSchema, pottedBalls: z.array(StrilaBallSchema) }),
+  z.object({ type: z.literal('miss.record'), actor: SeatSchema }),
+  z.object({ type: z.literal('foul.commit'), actor: SeatSchema }),
+  z.object({ type: z.literal('penalty.select'), actor: SeatSchema, choice: StrilaFoulResponseChoiceSchema }),
+  z.object({ type: z.literal('frame.award'), actor: SeatSchema }),
+  z.object({ type: z.literal('frame.concede'), actor: SeatSchema }),
 ])
 export type StrilaEvent = z.infer<typeof StrilaEventSchema>
 export const StrilaCommandSchema = StrilaEventSchema
@@ -67,12 +64,12 @@ export const StrilaContextSchema = z.object({
   coloredBallsOnTable: z.array(StrilaColoredBallSchema),
   cueBallSerialPots: z
     .object({
-      seat: StrilaSeatSchema,
+      seat: SeatSchema,
       count: z.union([z.literal(1), z.literal(2)]),
     })
     .nullable(),
-  foulOffender: StrilaSeatSchema.nullable(),
-  winner: StrilaSeatSchema.nullable(),
+  foulOffender: SeatSchema.nullable(),
+  winner: SeatSchema.nullable(),
   winReason: StrilaWinnerDeterminedReasonSchema.nullable(),
 })
 export type StrilaContext = z.infer<typeof StrilaContextSchema>
@@ -132,7 +129,7 @@ export const StrilaCommandSectionsSchema = z.object({
 
 export const StrilaControlDetailsSchema = z.object({
   phase: StrilaPhaseTypeSchema,
-  actor: StrilaSeatSchema.optional(),
+  actor: SeatSchema.optional(),
   situationTitle: z.string().min(1),
   situationSummary: z.string().min(1).optional(),
   isPotCommandAvailable: z.boolean(),
@@ -154,7 +151,7 @@ export const StrilaScoreboardDetailsSchema = z.object({
   ballsRemaining: z.array(StrilaColoredBallSchema),
   pointsAvailable: z.number().int().nonnegative(),
   phase: StrilaPhaseTypeSchema,
-  winner: StrilaSeatSchema.optional(),
+  winner: SeatSchema.optional(),
 })
 
 export const StrilaScoreboardViewSchema = GameScoreboardProjectionSchema.extend({
@@ -186,14 +183,14 @@ export const StrilaPlayerProtocolEntrySchema = z.object({
 export const StrilaAutomaticFoulProtocolEntrySchema = z.object({
   source: z.literal('system'),
   systemType: z.literal('automatic-foul'),
-  offender: StrilaSeatSchema,
+  offender: SeatSchema,
   reason: StrilaAutomaticFoulReasonSchema,
 })
 
 export const StrilaWinnerDeterminedProtocolEntrySchema = z.object({
   source: z.literal('system'),
   systemType: z.literal('winner-determined'),
-  winner: StrilaSeatSchema,
+  winner: SeatSchema,
   reason: StrilaWinnerDeterminedReasonSchema,
 })
 

@@ -1,4 +1,4 @@
-import { BySeatNumberSchema, SeatSchema } from '@ks/core'
+import { BySeatNumberSchema, SeatSchema, opponentOf } from '@ks/core'
 import invariant from 'tiny-invariant'
 import { z } from 'zod'
 
@@ -196,7 +196,7 @@ export class PyramidGameplayRuntime extends GameplayRuntime {
       const command = FoulCommittedCommandSchema.parse(input.command)
 
       if (this.args.foulPenalty === 'opponent-plus-one') {
-        const targetSeat = command.seat === 'A' ? 'B' : 'A'
+        const targetSeat = opponentOf(command.seat)
         const current = state.pointsBySeat[targetSeat]
 
         return {
