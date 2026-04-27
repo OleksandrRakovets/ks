@@ -4,11 +4,11 @@ import type { StrilaCommand, StrilaFrameState } from './definitions'
 import { projectStrilaProtocolEntries } from './protocol'
 import { StrilaGameplayRuntime } from './runtime'
 
-const DEFAULT_TARGETS = { A: 9, B: 9 } as const
+const DEFAULT_TARGETS: StrilaFrameState['targetPoints'] = { A: 9, B: 9 }
 const runtime = new StrilaGameplayRuntime()
 
 function apply(state: StrilaFrameState, command: StrilaCommand): StrilaFrameState {
-  return runtime.applyCommand({ state, commandType: command.type, command }).state as StrilaFrameState
+  return runtime.parseState(runtime.applyCommand({ state, commandType: command.type, command }).state)
 }
 
 describe('protocol projection', () => {

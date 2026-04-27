@@ -8,7 +8,7 @@ function apply(
   state: StrilaFrameState,
   command: { type: string; [key: string]: unknown },
 ): StrilaFrameState {
-  return runtime.applyCommand({ state, commandType: command.type, command }).state as StrilaFrameState
+  return runtime.parseState(runtime.applyCommand({ state, commandType: command.type, command }).state)
 }
 
 describe('StrilaGameplayRuntime projections', () => {

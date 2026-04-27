@@ -32,7 +32,7 @@ function replayEffectiveCommands(commands: StrilaCommand[]): { state: StrilaFram
   const applied: AppliedCommand[] = []
 
   for (const command of commands) {
-    state = runtime.applyCommand({ state, commandType: command.type, command }).state as StrilaFrameState
+    state = runtime.parseState(runtime.applyCommand({ state, commandType: command.type, command }).state)
     applied.push({ command, stateAfter: state })
   }
 

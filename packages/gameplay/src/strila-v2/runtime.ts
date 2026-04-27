@@ -1,8 +1,10 @@
 import { opponentOf, type Seat } from '@ks/core'
+import invariant from 'tiny-invariant'
 
 import { type GameCreateStateArgs, type GameProjectionKey, GameplayRuntime } from '../abstract-runtime'
 import {
   STRILA_BALLS,
+  StrilaBallStatusesSchema,
   StrilaControlViewSchema,
   StrilaEventSchema,
   StrilaFrameStateSchema,
@@ -71,7 +73,16 @@ function deriveBallStatuses(state: StrilaFrameState): StrilaControlDetails['ball
   const objectBalls = new Set(computeStrilaObjectBalls(state.coloredBallsOnTable))
   const onTableColored = new Set(state.coloredBallsOnTable)
   const cueStatus: 'object' | 'on-table' = state.phase === 'respotted-black.opening' ? 'on-table' : 'object'
-  const ballStatuses = {} as StrilaControlDetails['ballStatuses']
+  const ballStatuses = StrilaBallStatusesSchema.parse({
+    0: cueStatus,
+    1: 'potted',
+    2: 'potted',
+    3: 'potted',
+    4: 'potted',
+    5: 'potted',
+    6: 'potted',
+    7: 'potted',
+  })
 
   for (const ball of STRILA_BALLS) {
     if (ball === 0) {
@@ -82,7 +93,7 @@ function deriveBallStatuses(state: StrilaFrameState): StrilaControlDetails['ball
       ballStatuses[ball] = 'object'
       continue
     }
-    if (onTableColored.has(ball as StrilaColoredBall)) {
+    if (onTableColored.has(ball)) {
       ballStatuses[ball] = 'on-table'
       continue
     }
@@ -163,7 +174,8 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
         situationSummary: 'Log pots or a foul.',
       })
     case 'foul-committed.penalty-selection': {
-      const chooser = opponentOf(state.foulOffender!)
+      invariant(state.foulOffender !== null, 'Foul offender is required while selecting a foul penalty')
+      const chooser = opponentOf(state.foulOffender)
       return view(state, {
         commands: [
           command('penalty.select', { actor: chooser, choice: 'play-from-position' }, 'Play from position', {
@@ -219,12 +231,13 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
         situationSummary: 'Record the outcome of the shot on the respotted black.',
       })
     case 'winner-determined':
+      invariant(state.winner !== null, 'Winner is required before awarding a determined frame')
       return view(state, {
         commands: [
           ...seatCommands('pot.record', 'Record pot', 'primary'),
-          command('frame.award', { actor: state.winner! }, 'Award frame', { prominence: 'primary' }),
+          command('frame.award', { actor: state.winner }, 'Award frame', { prominence: 'primary' }),
         ],
-        actor: state.winner!,
+        actor: state.winner,
         situationTitle: 'Winner determined',
         situationSummary: 'The break may continue, or the frame can be awarded now.',
       })
@@ -267,7 +280,7 @@ function parseStrilaCommand(input: StrilaCommandEnvelope): StrilaEvent {
   if (typeof input.command !== 'object' || input.command === null) {
     return StrilaEventSchema.parse({ type: input.commandType })
   }
-  return StrilaEventSchema.parse({ ...(input.command as object), type: input.commandType })
+  return StrilaEventSchema.parse({ ...input.command, type: input.commandType })
 }
 
 function phaseToSnapshotValue(phase: StrilaPhase): StrilaSparringSnapshot['value'] {

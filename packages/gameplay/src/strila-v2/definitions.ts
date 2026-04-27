@@ -8,9 +8,6 @@ import {
   GameSummaryProjectionSchema,
 } from '../abstract-runtime'
 
-export const STRILA_COLORED_BALLS = [1, 2, 3, 4, 5, 6, 7] as const
-export const STRILA_BALLS = [0, ...STRILA_COLORED_BALLS] as const
-
 export const StrilaColoredBallSchema = z.union([
   z.literal(1),
   z.literal(2),
@@ -21,9 +18,11 @@ export const StrilaColoredBallSchema = z.union([
   z.literal(7),
 ])
 export type StrilaColoredBall = z.infer<typeof StrilaColoredBallSchema>
+export const STRILA_COLORED_BALLS: readonly StrilaColoredBall[] = [1, 2, 3, 4, 5, 6, 7]
 
 export const StrilaBallSchema = z.union([z.literal(0), StrilaColoredBallSchema])
 export type StrilaBall = z.infer<typeof StrilaBallSchema>
+export const STRILA_BALLS: readonly StrilaBall[] = [0, ...STRILA_COLORED_BALLS]
 
 export const StrilaFoulResponseChoiceSchema = z.enum(['play-from-position', 'pass-position', 'ball-in-hand'])
 
@@ -40,7 +39,7 @@ export type StrilaEvent = z.infer<typeof StrilaEventSchema>
 export const StrilaCommandSchema = StrilaEventSchema
 export type StrilaCommand = StrilaEvent
 
-export const StrilaPhases = [
+export const StrilaPhaseSchema = z.enum([
   'not-started',
   'open-play',
   'foul-committed.penalty-selection',
@@ -49,14 +48,22 @@ export const StrilaPhases = [
   'respotted-black.play',
   'winner-determined',
   'frame-over',
-] as const
+])
+export type StrilaPhase = z.infer<typeof StrilaPhaseSchema>
 
-export const StrilaPhaseTypeSchema = z.enum(StrilaPhases)
-export type StrilaPhase = z.infer<typeof StrilaPhaseTypeSchema>
-
-export const StrilaWinReasons = ['target-reached', 'respotted-black-won', 'conceded', 'automatic-foul'] as const
-export const StrilaWinnerDeterminedReasonSchema = z.enum(StrilaWinReasons)
+export const StrilaWinnerDeterminedReasonSchema = z.enum([
+  'target-reached',
+  'respotted-black-won',
+  'conceded',
+  'automatic-foul',
+])
 export type StrilaWinReason = z.infer<typeof StrilaWinnerDeterminedReasonSchema>
+export const StrilaWinReasons: readonly StrilaWinReason[] = [
+  'target-reached',
+  'respotted-black-won',
+  'conceded',
+  'automatic-foul',
+]
 
 export const StrilaContextSchema = z.object({
   score: BySeatNumberSchema,
@@ -75,7 +82,7 @@ export const StrilaContextSchema = z.object({
 export type StrilaContext = z.infer<typeof StrilaContextSchema>
 
 export const StrilaFrameStateSchema = StrilaContextSchema.extend({
-  phase: StrilaPhaseTypeSchema,
+  phase: StrilaPhaseSchema,
 })
 export type StrilaFrameState = z.infer<typeof StrilaFrameStateSchema>
 
@@ -100,9 +107,16 @@ export function isCommandAllowedInPhase(commandType: StrilaCommand['type'], phas
 
 export const StrilaBallStatusSchema = z.enum(['object', 'on-table', 'potted'])
 
-const StrilaBallStatusesShape = Object.fromEntries(
-  STRILA_BALLS.map((ball) => [ball, StrilaBallStatusSchema] as const),
-) as Record<StrilaBall, typeof StrilaBallStatusSchema>
+const StrilaBallStatusesShape = {
+  0: StrilaBallStatusSchema,
+  1: StrilaBallStatusSchema,
+  2: StrilaBallStatusSchema,
+  3: StrilaBallStatusSchema,
+  4: StrilaBallStatusSchema,
+  5: StrilaBallStatusSchema,
+  6: StrilaBallStatusSchema,
+  7: StrilaBallStatusSchema,
+}
 
 export const StrilaBallStatusesSchema = z.object(StrilaBallStatusesShape)
 
@@ -128,7 +142,7 @@ export const StrilaCommandSectionsSchema = z.object({
 })
 
 export const StrilaControlDetailsSchema = z.object({
-  phase: StrilaPhaseTypeSchema,
+  phase: StrilaPhaseSchema,
   actor: SeatSchema.optional(),
   situationTitle: z.string().min(1),
   situationSummary: z.string().min(1).optional(),
@@ -150,7 +164,7 @@ export const StrilaScoreboardDetailsSchema = z.object({
   objectBalls: z.array(StrilaColoredBallSchema),
   ballsRemaining: z.array(StrilaColoredBallSchema),
   pointsAvailable: z.number().int().nonnegative(),
-  phase: StrilaPhaseTypeSchema,
+  phase: StrilaPhaseSchema,
   winner: SeatSchema.optional(),
 })
 
@@ -165,7 +179,7 @@ export const StrilaSummaryViewSchema = GameSummaryProjectionSchema.extend({
   gameKey: z.literal('strila-v2'),
   score: StrilaContextSchema.shape.score,
   details: z.object({
-    phase: StrilaPhaseTypeSchema,
+    phase: StrilaPhaseSchema,
   }),
 })
 

@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 
 import { applyGameCommand } from '../../index'
-import { type StrilaFrameState } from '../definitions'
+import { StrilaFrameStateSchema, type StrilaFrameState } from '../definitions'
 import { deriveStrilaControlView } from '../projections/control'
 import { deriveStrilaScoreboardView } from '../projections/scoreboard'
 
@@ -44,8 +44,10 @@ test('simulation: outside: respotted black frame 1', () => {
       reason: 'respotted-black-won',
     },
   ])
-  expect(
-    deriveStrilaControlView(step.state as StrilaFrameState).details.commandSections.primary.A.map((entry) => entry.commandType),
-  ).toEqual(['pot.record', 'frame.award'])
-  expect(deriveStrilaScoreboardView(step.state as StrilaFrameState).details.winner).toBe('A')
+  const next = StrilaFrameStateSchema.parse(step.state)
+  expect(deriveStrilaControlView(next).details.commandSections.primary.A.map((entry) => entry.commandType)).toEqual([
+    'pot.record',
+    'frame.award',
+  ])
+  expect(deriveStrilaScoreboardView(next).details.winner).toBe('A')
 })

@@ -3,7 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import type { StrilaFrameState } from '../definitions'
 import { deriveStrilaControlView } from './control'
 
-const DEFAULT_TARGETS = { A: 9, B: 9 } as const
+const DEFAULT_TARGETS: StrilaFrameState['targetPoints'] = { A: 9, B: 9 }
 
 const baseState = {
   score: { A: 0, B: 0 },
