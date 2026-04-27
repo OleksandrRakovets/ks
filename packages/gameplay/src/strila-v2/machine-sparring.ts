@@ -7,6 +7,7 @@ import {
   type StrilaEvent,
   type StrilaPhase,
   type StrilaSeat,
+  type StrilaWinReason,
 } from './definitions2'
 
 function opponentOf(seat: StrilaSeat): StrilaSeat {
@@ -386,9 +387,19 @@ export const strilaSparringMachine = setup({
       type: 'final',
     },
   },
+  output: ({ context }) => ({
+    winner: context.winner!,
+    winReason: context.winReason!,
+    score: context.score,
+  }),
 })
 
 export type StrilaSparringSnapshot = SnapshotFrom<typeof strilaSparringMachine>
+export type StrilaSparringOutput = {
+  winner: StrilaSeat
+  winReason: StrilaWinReason
+  score: { A: number; B: number }
+}
 
 export function createInitialSnapshot(targetPointsBySeat?: { A: number; B: number }): StrilaSparringSnapshot {
   return getInitialSnapshot(strilaSparringMachine, { targetPointsBySeat: targetPointsBySeat ?? { A: 9, B: 9 } })

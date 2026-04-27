@@ -3,11 +3,13 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./match-sparring-machine": "./src/match-sparring-machine.ts"
   },
   "dependencies": {
     "@ks/core": "workspace:*",
     "@ks/gameplay": "workspace:*",
+    "xstate": "^5.30.0",
     "zod": "4.3.6"
   }
 }

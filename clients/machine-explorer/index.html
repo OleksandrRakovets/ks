@@ -38,12 +38,15 @@
       .ball-btn.selected { outline: 3px solid #7ee787; outline-offset: 2px; }
       .ball-btn:disabled { opacity: 0.25; cursor: not-allowed; }
       #message { font-size: 0.75rem; color: #f87171; margin-left: 8px; }
+      .tab { background: #1e1e1e; border-color: #333; }
+      .tab-active { background: #2a3a2a; border-color: #7ee787; color: #7ee787; }
     </style>
   </head>
   <body>
     <header>
       <h1>Machine Explorer</h1>
-      <span class="badge">strila-sparring</span>
+      <button id="tab-frame" class="tab tab-active">Frame</button>
+      <button id="tab-match" class="tab">Match</button>
       <button id="open-inspector" style="margin-left:auto; padding:5px 12px; background:#1f6feb; border:none; border-radius:6px; color:#fff; font-size:0.8rem; cursor:pointer;">
         Open Stately Inspector
       </button>

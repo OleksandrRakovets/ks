@@ -9,6 +9,7 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
+    "@ks/competition": "workspace:*",
     "@ks/gameplay": "workspace:*",
     "@statelyai/inspect": "^0.7.1",
     "xstate": "^5.30.0"

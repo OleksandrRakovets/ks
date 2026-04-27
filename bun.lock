@@ -16,6 +16,7 @@
       "name": "machine-explorer",
       "version": "0.0.1",
       "dependencies": {
+        "@ks/competition": "workspace:*",
         "@ks/gameplay": "workspace:*",
         "@statelyai/inspect": "^0.7.1",
         "xstate": "^5.30.0",
@@ -66,6 +67,7 @@
       "dependencies": {
         "@ks/core": "workspace:*",
         "@ks/gameplay": "workspace:*",
+        "xstate": "^5.30.0",
         "zod": "4.3.6",
       },
     },
