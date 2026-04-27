@@ -35,10 +35,10 @@ export type StrilaContext = {
 export const StrilaPhases = [
   'not-started',
   'open-play',
-  'penalty-selection',
-  'ball-in-hand',
-  'respotted-black-opening',
-  'respotted-black-play',
+  'foul-committed.penalty-selection',
+  'foul-committed.ball-in-hand',
+  'respotted-black.opening',
+  'respotted-black.play',
   'winner-determined',
   'frame-over',
 ] as const

@@ -1,5 +1,5 @@
-import { strilaSparringMachine, type StrilaSparringOutput } from '@ks/gameplay/strila-v2/machine-sparring'
 import type { StrilaEvent } from '@ks/gameplay/strila-v2/definitions2'
+import { strilaSparringMachine, type StrilaSparringOutput } from '@ks/gameplay/strila-v2/machine-sparring'
 import { assign, createActor, sendTo, setup, type SnapshotFrom, type Actor } from 'xstate'
 
 type Seat = 'A' | 'B'

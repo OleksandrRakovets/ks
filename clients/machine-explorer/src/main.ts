@@ -1,9 +1,13 @@
+import {
+  matchSparringMachine,
+  createMatchActor,
+  getMatchPhase,
+  type MatchSparringActor,
+} from '@ks/competition/match-sparring-machine'
+import type { StrilaBall, StrilaEvent } from '@ks/gameplay/strila-v2/definitions2'
+import { strilaSparringMachine, getPhase, type StrilaSparringSnapshot } from '@ks/gameplay/strila-v2/machine-sparring'
 import { createBrowserInspector } from '@statelyai/inspect'
 import { createActor } from 'xstate'
-
-import { strilaSparringMachine, getPhase, type StrilaSparringSnapshot } from '@ks/gameplay/strila-v2/machine-sparring'
-import type { StrilaBall, StrilaEvent } from '@ks/gameplay/strila-v2/definitions2'
-import { matchSparringMachine, createMatchActor, getMatchPhase, type MatchSparringActor } from '@ks/competition/match-sparring-machine'
 
 const BALLS: StrilaBall[] = [0, 1, 2, 3, 4, 5, 6, 7]
 const BALL_LABELS: Record<StrilaBall, string> = { 0: 'Q', 1: '1', 2: '2', 3: '3', 4: '4', 5: '5', 6: '6', 7: '7' }
@@ -106,16 +110,26 @@ function renderFrameControls(snap: StrilaSparringSnapshot) {
 
   const resetRow = div('display:flex;gap:8px;align-items:center;width:100%')
   resetRow.append(
-    btn('Reset frame', () => {
-      selectedBalls.clear()
-      frameActor.stop()
-      frameActor = buildFrameActor()
-      frameActor.subscribe(() => renderFrame(frameActor.getSnapshot()))
-      frameActor.start()
-      renderFrame(frameActor.getSnapshot())
-    }, 'primary'),
-    label('Target A:'), numberInput(targetA, (v) => { targetA = v }),
-    label('Target B:'), numberInput(targetB, (v) => { targetB = v }),
+    btn(
+      'Reset frame',
+      () => {
+        selectedBalls.clear()
+        frameActor.stop()
+        frameActor = buildFrameActor()
+        frameActor.subscribe(() => renderFrame(frameActor.getSnapshot()))
+        frameActor.start()
+        renderFrame(frameActor.getSnapshot())
+      },
+      'primary',
+    ),
+    label('Target A:'),
+    numberInput(targetA, (v) => {
+      targetA = v
+    }),
+    label('Target B:'),
+    numberInput(targetB, (v) => {
+      targetB = v
+    }),
   )
   controls.append(resetRow)
 
@@ -131,11 +145,13 @@ function renderFrameControls(snap: StrilaSparringSnapshot) {
     return
   }
 
-  if (phase === 'penalty-selection') {
+  if (phase === 'foul-committed.penalty-selection') {
     const chooser = ctx.chooser!
     controls.append(
       label(`${chooser} chooses:`),
-      btn('Play from position (+1)', () => frameActor.send({ type: 'penalty.select', actor: chooser, choice: 'play-from-position' })),
+      btn('Play from position (+1)', () =>
+        frameActor.send({ type: 'penalty.select', actor: chooser, choice: 'play-from-position' }),
+      ),
       btn('Pass position (+1)', () => frameActor.send({ type: 'penalty.select', actor: chooser, choice: 'pass-position' })),
       btn('Ball in hand', () => frameActor.send({ type: 'penalty.select', actor: chooser, choice: 'ball-in-hand' })),
     )
@@ -164,30 +180,61 @@ function renderFrameControls(snap: StrilaSparringSnapshot) {
   }
   potRow.append(ballRow)
   for (const seat of ['A', 'B'] as const) {
-    potRow.append(btn(`Pot → ${seat}`, () => {
-      if (selectedBalls.size === 0) { msgEl.textContent = 'Select at least one ball'; return }
-      try {
-        frameActor.send({ type: 'pot.record', actor: seat, pottedBalls: [...selectedBalls] as StrilaEvent[] extends { pottedBalls: infer P }[] ? P : never })
-        selectedBalls.clear()
-      } catch (e) { msgEl.textContent = e instanceof Error ? e.message : String(e) }
-    }, selectedBalls.size === 0 ? '' : 'primary'))
+    potRow.append(
+      btn(
+        `Pot → ${seat}`,
+        () => {
+          if (selectedBalls.size === 0) {
+            msgEl.textContent = 'Select at least one ball'
+            return
+          }
+          try {
+            frameActor.send({
+              type: 'pot.record',
+              actor: seat,
+              pottedBalls: [...selectedBalls] as StrilaEvent[] extends { pottedBalls: infer P }[] ? P : never,
+            })
+            selectedBalls.clear()
+          } catch (e) {
+            msgEl.textContent = e instanceof Error ? e.message : String(e)
+          }
+        },
+        selectedBalls.size === 0 ? '' : 'primary',
+      ),
+    )
   }
   potRow.append(msgEl)
   controls.append(potRow)
 
   const actionRow = div('display:flex;gap:8px;align-items:center;flex-wrap:wrap')
-  if (phase === 'ball-in-hand' || phase === 'respotted-black-opening') {
+  if (phase === 'foul-committed.ball-in-hand' || phase === 'respotted-black.opening') {
     const a = ctx.actor!
-    actionRow.append(label(`${a}:`), btn('Miss', () => frameActor.send({ type: 'miss.record', actor: a })), btn('Foul', () => frameActor.send({ type: 'foul.commit', actor: a })))
-  } else if (phase === 'respotted-black-play') {
+    actionRow.append(
+      label(`${a}:`),
+      btn('Miss', () => frameActor.send({ type: 'miss.record', actor: a })),
+      btn('Foul', () => frameActor.send({ type: 'foul.commit', actor: a })),
+    )
+  } else if (phase === 'respotted-black.play') {
     const a = ctx.actor!
-    actionRow.append(label(`${a}:`), btn('Foul', () => frameActor.send({ type: 'foul.commit', actor: a })))
+    actionRow.append(
+      label(`${a}:`),
+      btn('Foul', () => frameActor.send({ type: 'foul.commit', actor: a })),
+    )
   } else {
-    for (const seat of ['A', 'B'] as const) actionRow.append(btn(`Foul ${seat}`, () => frameActor.send({ type: 'foul.commit', actor: seat })))
+    for (const seat of ['A', 'B'] as const)
+      actionRow.append(btn(`Foul ${seat}`, () => frameActor.send({ type: 'foul.commit', actor: seat })))
   }
   if (phase === 'winner-determined') {
-    const sep = el('div', ''); sep.className = 'sep'
-    actionRow.append(sep, btn(`Award frame → ${ctx.winner}`, () => frameActor.send({ type: 'frame.award', actor: ctx.actor ?? ctx.winner! }), 'primary'))
+    const sep = el('div', '')
+    sep.className = 'sep'
+    actionRow.append(
+      sep,
+      btn(
+        `Award frame → ${ctx.winner}`,
+        () => frameActor.send({ type: 'frame.award', actor: ctx.actor ?? ctx.winner! }),
+        'primary',
+      ),
+    )
   }
   controls.append(actionRow)
   addConcedeRow(controls, null, null, (seat) => frameActor.send({ type: 'frame.concede', actor: seat }))
@@ -217,24 +264,47 @@ function renderMatchControls() {
   // Config / reset row
   const resetRow = div('display:flex;gap:8px;align-items:center;flex-wrap:wrap;width:100%')
   resetRow.append(
-    btn('Reset match', () => {
-      matchActor.stop()
-      matchActor = buildMatchActor()
-      matchActor.subscribe(() => renderMatch())
-      renderMatch()
-    }, 'primary'),
-    label('Best of:'), numberInput(matchTargetFrames, (v) => { matchTargetFrames = v }),
-    label('Frame target A:'), numberInput(matchFrameTargetA, (v) => { matchFrameTargetA = v }),
-    label('Frame target B:'), numberInput(matchFrameTargetB, (v) => { matchFrameTargetB = v }),
+    btn(
+      'Reset match',
+      () => {
+        matchActor.stop()
+        matchActor = buildMatchActor()
+        matchActor.subscribe(() => renderMatch())
+        renderMatch()
+      },
+      'primary',
+    ),
+    label('Best of:'),
+    numberInput(matchTargetFrames, (v) => {
+      matchTargetFrames = v
+    }),
+    label('Frame target A:'),
+    numberInput(matchFrameTargetA, (v) => {
+      matchFrameTargetA = v
+    }),
+    label('Frame target B:'),
+    numberInput(matchFrameTargetB, (v) => {
+      matchFrameTargetB = v
+    }),
   )
   controls.append(resetRow)
 
   if (phase === 'match-over') return
 
   if (phase === 'idle') {
-    controls.append(btn('Start match', () => {
-      matchActor.send({ type: 'match.setup', frameTargetPointsBySeat: { A: matchFrameTargetA, B: matchFrameTargetB }, matchTargetFrames })
-    }, 'primary'))
+    controls.append(
+      btn(
+        'Start match',
+        () => {
+          matchActor.send({
+            type: 'match.setup',
+            frameTargetPointsBySeat: { A: matchFrameTargetA, B: matchFrameTargetB },
+            matchTargetFrames,
+          })
+        },
+        'primary',
+      ),
+    )
     return
   }
 
@@ -254,19 +324,30 @@ function renderMatchControls() {
     const framePhase = getPhase(frameSnap)
     const frameCtx = frameSnap.context
 
-    controls.append(el('div', `Frame ${ctx.currentFrameIndex}  |  phase: ${framePhase}  |  score A: ${frameCtx.score.A}  B: ${frameCtx.score.B}`, 'frame-info'))
+    controls.append(
+      el(
+        'div',
+        `Frame ${ctx.currentFrameIndex}  |  phase: ${framePhase}  |  score A: ${frameCtx.score.A}  B: ${frameCtx.score.B}`,
+        'frame-info',
+      ),
+    )
 
     // Frame commence
     if (framePhase === 'not-started') {
-      controls.append(btn('Break-off A', () => matchActor.send({ type: 'frame.commence', actor: 'A' })), btn('Break-off B', () => matchActor.send({ type: 'frame.commence', actor: 'B' })))
+      controls.append(
+        btn('Break-off A', () => matchActor.send({ type: 'frame.commence', actor: 'A' })),
+        btn('Break-off B', () => matchActor.send({ type: 'frame.commence', actor: 'B' })),
+      )
       return
     }
 
-    if (framePhase === 'penalty-selection') {
+    if (framePhase === 'foul-committed.penalty-selection') {
       const chooser = frameCtx.chooser!
       controls.append(
         label(`${chooser} chooses:`),
-        btn('Play from position (+1)', () => matchActor.send({ type: 'penalty.select', actor: chooser, choice: 'play-from-position' })),
+        btn('Play from position (+1)', () =>
+          matchActor.send({ type: 'penalty.select', actor: chooser, choice: 'play-from-position' }),
+        ),
         btn('Pass position (+1)', () => matchActor.send({ type: 'penalty.select', actor: chooser, choice: 'pass-position' })),
         btn('Ball in hand', () => matchActor.send({ type: 'penalty.select', actor: chooser, choice: 'ball-in-hand' })),
       )
@@ -279,36 +360,66 @@ function renderMatchControls() {
     potRow.append(label('Pot:'))
     const ballRow = div('display:flex;gap:6px;flex-wrap:wrap')
     for (const ball of BALLS) {
-      const available = ball === 0 || frameCtx.coloredBallsOnTable.includes(ball as (typeof frameCtx.coloredBallsOnTable)[number])
+      const available =
+        ball === 0 || frameCtx.coloredBallsOnTable.includes(ball as (typeof frameCtx.coloredBallsOnTable)[number])
       const b = document.createElement('button')
-      b.textContent = BALL_LABELS[ball]; b.className = 'ball-btn'; b.setAttribute('data-ball', String(ball)); b.disabled = !available
+      b.textContent = BALL_LABELS[ball]
+      b.className = 'ball-btn'
+      b.setAttribute('data-ball', String(ball))
+      b.disabled = !available
       if (selectedBalls.has(ball)) b.classList.add('selected')
-      b.onclick = () => { if (selectedBalls.has(ball)) selectedBalls.delete(ball); else selectedBalls.add(ball); renderMatchControls() }
+      b.onclick = () => {
+        if (selectedBalls.has(ball)) selectedBalls.delete(ball)
+        else selectedBalls.add(ball)
+        renderMatchControls()
+      }
       ballRow.append(b)
     }
     potRow.append(ballRow)
     for (const seat of ['A', 'B'] as const) {
-      potRow.append(btn(`Pot → ${seat}`, () => {
-        if (selectedBalls.size === 0) return
-        matchActor.send({ type: 'pot.record', actor: seat, pottedBalls: [...selectedBalls] as StrilaBall[] })
-        selectedBalls.clear()
-      }, selectedBalls.size === 0 ? '' : 'primary'))
+      potRow.append(
+        btn(
+          `Pot → ${seat}`,
+          () => {
+            if (selectedBalls.size === 0) return
+            matchActor.send({ type: 'pot.record', actor: seat, pottedBalls: [...selectedBalls] as StrilaBall[] })
+            selectedBalls.clear()
+          },
+          selectedBalls.size === 0 ? '' : 'primary',
+        ),
+      )
     }
     controls.append(potRow)
 
     const actionRow = div('display:flex;gap:8px;align-items:center;flex-wrap:wrap')
-    if (framePhase === 'ball-in-hand' || framePhase === 'respotted-black-opening') {
+    if (framePhase === 'foul-committed.ball-in-hand' || framePhase === 'respotted-black.opening') {
       const a = frameCtx.actor!
-      actionRow.append(label(`${a}:`), btn('Miss', () => matchActor.send({ type: 'miss.record', actor: a })), btn('Foul', () => matchActor.send({ type: 'foul.commit', actor: a })))
-    } else if (framePhase === 'respotted-black-play') {
+      actionRow.append(
+        label(`${a}:`),
+        btn('Miss', () => matchActor.send({ type: 'miss.record', actor: a })),
+        btn('Foul', () => matchActor.send({ type: 'foul.commit', actor: a })),
+      )
+    } else if (framePhase === 'respotted-black.play') {
       const a = frameCtx.actor!
-      actionRow.append(label(`${a}:`), btn('Foul', () => matchActor.send({ type: 'foul.commit', actor: a })))
+      actionRow.append(
+        label(`${a}:`),
+        btn('Foul', () => matchActor.send({ type: 'foul.commit', actor: a })),
+      )
     } else {
-      for (const seat of ['A', 'B'] as const) actionRow.append(btn(`Foul ${seat}`, () => matchActor.send({ type: 'foul.commit', actor: seat })))
+      for (const seat of ['A', 'B'] as const)
+        actionRow.append(btn(`Foul ${seat}`, () => matchActor.send({ type: 'foul.commit', actor: seat })))
     }
     if (framePhase === 'winner-determined') {
-      const sep = el('div', ''); sep.className = 'sep'
-      actionRow.append(sep, btn(`Award frame → ${frameCtx.winner}`, () => matchActor.send({ type: 'frame.award', actor: frameCtx.actor ?? frameCtx.winner! }), 'primary'))
+      const sep = el('div', '')
+      sep.className = 'sep'
+      actionRow.append(
+        sep,
+        btn(
+          `Award frame → ${frameCtx.winner}`,
+          () => matchActor.send({ type: 'frame.award', actor: frameCtx.actor ?? frameCtx.winner! }),
+          'primary',
+        ),
+      )
     }
     controls.append(actionRow)
     addConcedeRow(controls, null, null, (seat) => matchActor.send({ type: 'frame.concede', actor: seat }))
@@ -317,7 +428,12 @@ function renderMatchControls() {
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
 
-function addConcedeRow(parent: HTMLElement, chooser: 'A' | 'B' | null, _offender: 'A' | 'B' | null, onConcede: (seat: 'A' | 'B') => void) {
+function addConcedeRow(
+  parent: HTMLElement,
+  chooser: 'A' | 'B' | null,
+  _offender: 'A' | 'B' | null,
+  onConcede: (seat: 'A' | 'B') => void,
+) {
   const row = div('display:flex;gap:8px;align-items:center;margin-top:4px')
   for (const seat of ['A', 'B'] as const) {
     if (chooser && seat === chooser) continue // chooser doesn't concede during penalty-selection
@@ -328,25 +444,40 @@ function addConcedeRow(parent: HTMLElement, chooser: 'A' | 'B' | null, _offender
 
 function btn(label: string, onClick: () => void, cls = '') {
   const b = document.createElement('button')
-  b.textContent = label; if (cls) b.className = cls; b.onclick = onClick; return b
+  b.textContent = label
+  if (cls) b.className = cls
+  b.onclick = onClick
+  return b
 }
 
 function label(text: string) {
-  const l = document.createElement('label'); l.textContent = text; return l
+  const l = document.createElement('label')
+  l.textContent = text
+  return l
 }
 
 function numberInput(initial: number, onChange: (v: number) => void) {
   const i = document.createElement('input')
-  i.type = 'number'; i.value = String(initial); i.min = '1'; i.max = '30'
-  i.onchange = () => onChange(Number(i.value)); return i
+  i.type = 'number'
+  i.value = String(initial)
+  i.min = '1'
+  i.max = '30'
+  i.onchange = () => onChange(Number(i.value))
+  return i
 }
 
 function div(style: string, cls = '') {
-  const d = document.createElement('div'); d.style.cssText = style; if (cls) d.className = cls; return d
+  const d = document.createElement('div')
+  d.style.cssText = style
+  if (cls) d.className = cls
+  return d
 }
 
 function el(tag: string, text: string, id = '') {
-  const e = document.createElement(tag); e.textContent = text; if (id) e.id = id; return e
+  const e = document.createElement(tag)
+  e.textContent = text
+  if (id) e.id = id
+  return e
 }
 
 // ── Boot ─────────────────────────────────────────────────────────────────────

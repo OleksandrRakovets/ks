@@ -67,6 +67,7 @@ export const strilaSparringMachine = setup({
     isBallInHandChoice: ({ event }) => event.type === 'penalty.select' && event.choice === 'ball-in-hand',
     isPlayFromPositionChoice: ({ event }) => event.type === 'penalty.select' && event.choice === 'play-from-position',
     isPassPositionChoice: ({ event }) => event.type === 'penalty.select' && event.choice === 'pass-position',
+    canConcede: ({ context }) => context.actor !== null && context.winner === null,
   },
   actions: {
     applyPot: assign(({ context, event }) => {
@@ -133,15 +134,6 @@ export const strilaSparringMachine = setup({
       return {
         winner: opponentOf(e.actor),
         actor: opponentOf(e.actor),
-        winReason: 'conceded' as const,
-      }
-    }),
-    setPenaltyConcedeWinner: assign(({ context, event }) => {
-      const e = event as Extract<StrilaEvent, { type: 'frame.concede' }>
-      const winner = context.offender !== null && e.actor === context.offender ? context.chooser! : context.offender!
-      return {
-        winner,
-        actor: winner,
         winReason: 'conceded' as const,
       }
     }),
@@ -231,7 +223,7 @@ export const strilaSparringMachine = setup({
         'pot.record': [
           {
             guard: 'isThirdCueBallPot',
-            target: 'penalty-selection',
+            target: 'foul-committed',
             actions: 'setFoulResponse',
           },
           {
@@ -241,7 +233,7 @@ export const strilaSparringMachine = setup({
           },
           {
             guard: 'isRespottedBlackTrigger',
-            target: 'respotted-black-opening',
+            target: 'respotted-black',
             actions: ['applyPot', 'setRespottedBlackOpening'],
           },
           {
@@ -250,121 +242,123 @@ export const strilaSparringMachine = setup({
           },
         ],
         'foul.commit': {
-          target: 'penalty-selection',
+          target: 'foul-committed',
           actions: 'setFoulResponse',
         },
-        'frame.concede': {
-          target: 'winner-determined',
-          actions: 'setConcedeWinner',
+      },
+    },
+
+    'foul-committed': {
+      initial: 'penalty-selection',
+      onDone: {
+        target: 'open-play',
+      },
+      states: {
+        'penalty-selection': {
+          on: {
+            'penalty.select': [
+              {
+                guard: 'isBallInHandChoice',
+                target: 'ball-in-hand',
+                actions: 'applyBallInHand',
+              },
+              {
+                guard: 'isPlayFromPositionChoice',
+                target: 'resolved',
+                actions: 'applyPlayFromPosition',
+              },
+              {
+                guard: 'isPassPositionChoice',
+                target: 'resolved',
+                actions: 'applyPassPosition',
+              },
+            ],
+          },
+        },
+
+        'ball-in-hand': {
+          on: {
+            'pot.record': [
+              {
+                guard: 'isIllegalBallInHandPot',
+                target: 'penalty-selection',
+                actions: 'setFoulResponse',
+              },
+              {
+                guard: 'isTargetReachedAfterPot',
+                target: '#strila-sparring.winner-determined',
+                actions: ['applyPotResetStreak', 'setWinnerFromTarget'],
+              },
+              {
+                guard: 'isRespottedBlackTrigger',
+                target: '#strila-sparring.respotted-black',
+                actions: ['applyPotResetStreak', 'setRespottedBlackOpening'],
+              },
+              {
+                target: 'resolved',
+                actions: 'applyPotResetStreak',
+              },
+            ],
+            'miss.record': {
+              target: 'resolved',
+              actions: 'switchToOpponent',
+            },
+            'foul.commit': {
+              target: 'penalty-selection',
+              actions: 'setFoulResponse',
+            },
+          },
+        },
+
+        resolved: {
+          type: 'final',
         },
       },
     },
 
-    'penalty-selection': {
-      on: {
-        'penalty.select': [
-          {
-            guard: 'isBallInHandChoice',
-            target: 'ball-in-hand',
-            actions: 'applyBallInHand',
-          },
-          {
-            guard: 'isPlayFromPositionChoice',
-            target: 'open-play',
-            actions: 'applyPlayFromPosition',
-          },
-          {
-            guard: 'isPassPositionChoice',
-            target: 'open-play',
-            actions: 'applyPassPosition',
-          },
-        ],
-        'frame.concede': {
-          target: 'winner-determined',
-          actions: 'setPenaltyConcedeWinner',
-        },
+    'respotted-black': {
+      initial: 'opening',
+      onDone: {
+        target: 'winner-determined',
       },
-    },
-
-    'ball-in-hand': {
       on: {
-        'pot.record': [
-          {
-            guard: 'isIllegalBallInHandPot',
-            target: 'penalty-selection',
-            actions: 'setFoulResponse',
-          },
-          {
-            guard: 'isTargetReachedAfterPot',
-            target: 'winner-determined',
-            actions: ['applyPotResetStreak', 'setWinnerFromTarget'],
-          },
-          {
-            guard: 'isRespottedBlackTrigger',
-            target: 'respotted-black-opening',
-            actions: ['applyPotResetStreak', 'setRespottedBlackOpening'],
-          },
-          {
-            target: 'open-play',
-            actions: 'applyPotResetStreak',
-          },
-        ],
-        'miss.record': {
-          target: 'open-play',
-          actions: 'switchToOpponent',
-        },
         'foul.commit': {
-          target: 'penalty-selection',
-          actions: 'setFoulResponse',
-        },
-        'frame.concede': {
-          target: 'winner-determined',
-          actions: 'setConcedeWinner',
-        },
-      },
-    },
-
-    'respotted-black-opening': {
-      on: {
-        'pot.record': [
-          {
-            guard: 'isValidRespottedBlackOpeningPot',
-            target: 'winner-determined',
-            actions: 'applyRespottedBlackPot',
-          },
-          {
-            target: 'winner-determined',
-            actions: 'setRespottedBlackOpeningFoulWinner',
-          },
-        ],
-        'miss.record': {
-          target: 'respotted-black-play',
-          actions: 'switchToOpponentOfPhaseActor',
-        },
-        'foul.commit': {
-          target: 'winner-determined',
+          target: '.determined',
           actions: 'setFoulWinner',
         },
-        'frame.concede': {
-          target: 'winner-determined',
-          actions: 'setConcedeWinner',
-        },
       },
-    },
+      states: {
+        opening: {
+          on: {
+            'pot.record': [
+              {
+                guard: 'isValidRespottedBlackOpeningPot',
+                target: 'determined',
+                actions: 'applyRespottedBlackPot',
+              },
+              {
+                target: 'determined',
+                actions: 'setRespottedBlackOpeningFoulWinner',
+              },
+            ],
+            'miss.record': {
+              target: 'play',
+              actions: 'switchToOpponentOfPhaseActor',
+            },
+          },
+        },
 
-    'respotted-black-play': {
-      on: {
-        'pot.record': {
-          target: 'winner-determined',
-          actions: 'applyRespottedBlackPot',
+        play: {
+          on: {
+            'pot.record': {
+              target: 'determined',
+              actions: 'applyRespottedBlackPot',
+            },
+          },
         },
-        'foul.commit': {
-          target: 'winner-determined',
-          actions: 'setFoulWinner',
-        },
-        'frame.concede': {
-          target: 'winner-determined',
-          actions: 'setConcedeWinner',
+
+        determined: {
+          type: 'final',
         },
       },
     },
@@ -387,6 +381,15 @@ export const strilaSparringMachine = setup({
       type: 'final',
     },
   },
+
+  on: {
+    'frame.concede': {
+      guard: 'canConcede',
+      target: '.winner-determined',
+      actions: 'setConcedeWinner',
+    },
+  },
+
   output: ({ context }) => ({
     winner: context.winner!,
     winReason: context.winReason!,
@@ -406,7 +409,18 @@ export function createInitialSnapshot(targetPointsBySeat?: { A: number; B: numbe
 }
 
 export function getPhase(snapshot: StrilaSparringSnapshot): StrilaPhase {
-  return snapshot.value as StrilaPhase
+  const value = snapshot.value
+  if (typeof value === 'string') return value as StrilaPhase
+
+  if ('foul-committed' in value) {
+    return `foul-committed.${value['foul-committed']}` as StrilaPhase
+  }
+
+  if ('respotted-black' in value) {
+    return `respotted-black.${value['respotted-black']}` as StrilaPhase
+  }
+
+  throw new Error(`Unknown Strila phase: ${JSON.stringify(value)}`)
 }
 
 export function sendEvent(snapshot: StrilaSparringSnapshot, event: StrilaEvent): StrilaSparringSnapshot {

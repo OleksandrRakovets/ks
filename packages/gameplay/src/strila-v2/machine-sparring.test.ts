@@ -6,7 +6,7 @@ function start(targetPointsBySeat?: { A: number; B: number }): StrilaSparringSna
   return createInitialSnapshot(targetPointsBySeat)
 }
 
-// A:6, B:8, only ball 7 left → A pots 7 → 8:8, table empty → respotted-black-opening
+// A:6, B:8, only ball 7 left → A pots 7 → 8:8, table empty → respotted-black.opening
 function reachRespottedBlack(): StrilaSparringSnapshot {
   let snap = start()
   snap = sendEvent(snap, { type: 'frame.commence', actor: 'A' })
@@ -21,7 +21,7 @@ function reachRespottedBlack(): StrilaSparringSnapshot {
   snap = sendEvent(snap, { type: 'foul.commit', actor: 'A' })
   snap = sendEvent(snap, { type: 'penalty.select', actor: 'B', choice: 'play-from-position' }) // B:8
   snap = sendEvent(snap, { type: 'pot.record', actor: 'A', pottedBalls: [7] }) // A:8, table empty → 8:8
-  expect(getPhase(snap)).toBe('respotted-black-opening')
+  expect(getPhase(snap)).toBe('respotted-black.opening')
   return snap
 }
 
@@ -71,12 +71,12 @@ describe('machine-sparring: foul handling', () => {
     snap = sendEvent(snap, { type: 'frame.commence', actor: 'A' })
     snap = sendEvent(snap, { type: 'foul.commit', actor: 'A' })
 
-    expect(getPhase(snap)).toBe('penalty-selection')
+    expect(getPhase(snap)).toBe('foul-committed.penalty-selection')
     expect(snap.context.chooser).toBe('B')
     expect(snap.context.offender).toBe('A')
 
     snap = sendEvent(snap, { type: 'penalty.select', actor: 'B', choice: 'ball-in-hand' })
-    expect(getPhase(snap)).toBe('ball-in-hand')
+    expect(getPhase(snap)).toBe('foul-committed.ball-in-hand')
     expect(snap.context.actor).toBe('B')
 
     snap = sendEvent(snap, { type: 'miss.record', actor: 'B' })
@@ -120,7 +120,7 @@ describe('machine-sparring: foul handling', () => {
 
     expect(snap.context.score).toEqual({ A: 0, B: 0 })
     expect(snap.context.coloredBallsOnTable).toEqual(before.context.coloredBallsOnTable)
-    expect(getPhase(snap)).toBe('penalty-selection')
+    expect(getPhase(snap)).toBe('foul-committed.penalty-selection')
     expect(snap.context.chooser).toBe('A')
     expect(snap.context.offender).toBe('B')
   })
@@ -136,14 +136,14 @@ describe('machine-sparring: foul handling', () => {
 
     expect(snap.context.score).toEqual(before.context.score)
     expect(snap.context.coloredBallsOnTable).toEqual(before.context.coloredBallsOnTable)
-    expect(getPhase(snap)).toBe('penalty-selection')
+    expect(getPhase(snap)).toBe('foul-committed.penalty-selection')
     expect(snap.context.chooser).toBe('B')
     expect(snap.context.offender).toBe('A')
   })
 })
 
 describe('machine-sparring: respotted black', () => {
-  test('entering respotted-black-opening after 8:8 tie with last ball potted', () => {
+  test('entering respotted-black.opening after 8:8 tie with last ball potted', () => {
     const snap = reachRespottedBlack()
 
     expect(snap.context.score).toEqual({ A: 8, B: 8 })
@@ -182,15 +182,15 @@ describe('machine-sparring: respotted black', () => {
     expect(snap.context.coloredBallsOnTable).toEqual([7])
   })
 
-  test('opening miss enters respotted-black-play for opponent', () => {
+  test('opening miss enters respotted-black.play for opponent', () => {
     let snap = reachRespottedBlack()
     snap = sendEvent(snap, { type: 'miss.record', actor: 'A' })
 
-    expect(getPhase(snap)).toBe('respotted-black-play')
+    expect(getPhase(snap)).toBe('respotted-black.play')
     expect(snap.context.actor).toBe('B')
   })
 
-  test('respotted-black-play pot determines winner', () => {
+  test('respotted-black.play pot determines winner', () => {
     let snap = reachRespottedBlack()
     snap = sendEvent(snap, { type: 'miss.record', actor: 'A' })
     snap = sendEvent(snap, { type: 'pot.record', actor: 'B', pottedBalls: [7] })
@@ -201,7 +201,7 @@ describe('machine-sparring: respotted black', () => {
     expect(snap.context.winReason).toBe('respotted-black-won')
   })
 
-  test('respotted-black-play cue ball pot determines winner', () => {
+  test('respotted-black.play cue ball pot determines winner', () => {
     let snap = reachRespottedBlack()
     snap = sendEvent(snap, { type: 'miss.record', actor: 'A' })
     snap = sendEvent(snap, { type: 'pot.record', actor: 'B', pottedBalls: [0] })
@@ -212,7 +212,7 @@ describe('machine-sparring: respotted black', () => {
     expect(snap.context.winReason).toBe('respotted-black-won')
   })
 
-  test('foul in respotted-black-play determines opponent as winner', () => {
+  test('foul in respotted-black.play determines opponent as winner', () => {
     let snap = reachRespottedBlack()
     snap = sendEvent(snap, { type: 'miss.record', actor: 'A' })
     snap = sendEvent(snap, { type: 'foul.commit', actor: 'B' })
@@ -222,7 +222,7 @@ describe('machine-sparring: respotted black', () => {
     expect(snap.context.winReason).toBe('automatic-foul')
   })
 
-  test('foul in respotted-black-opening determines opponent as winner', () => {
+  test('foul in respotted-black.opening determines opponent as winner', () => {
     let snap = reachRespottedBlack()
     snap = sendEvent(snap, { type: 'foul.commit', actor: 'A' })
 
@@ -294,8 +294,8 @@ describe('machine-sparring: ball validation', () => {
     snap = sendEvent(snap, { type: 'frame.commence', actor: 'A' })
     snap = sendEvent(snap, { type: 'pot.record', actor: 'A', pottedBalls: [1] })
 
-    expect(() =>
-      sendEvent(snap, { type: 'pot.record', actor: 'A', pottedBalls: [1] }),
-    ).toThrow('Potted ball 1 is not on the table')
+    expect(() => sendEvent(snap, { type: 'pot.record', actor: 'A', pottedBalls: [1] })).toThrow(
+      'Potted ball 1 is not on the table',
+    )
   })
 })
