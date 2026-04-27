@@ -4,10 +4,15 @@ import {
   getMatchPhase,
   type MatchSparringActor,
 } from '@ks/competition/match-sparring-machine'
-import type { StrilaBall, StrilaEvent } from '@ks/gameplay/strila-v2/definitions2'
-import { strilaSparringMachine, getPhase, type StrilaSparringSnapshot } from '@ks/gameplay/strila-v2/machine-sparring'
 import { createBrowserInspector } from '@statelyai/inspect'
 import { createActor } from 'xstate'
+
+import type { StrilaBall, StrilaEvent } from '../../../packages/gameplay/src/strila-v2/definitions2'
+import {
+  strilaSparringMachine,
+  getPhase,
+  type StrilaSparringSnapshot,
+} from '../../../packages/gameplay/src/strila-v2/machine-sparring'
 
 const BALLS: StrilaBall[] = [0, 1, 2, 3, 4, 5, 6, 7]
 const BALL_LABELS: Record<StrilaBall, string> = { 0: 'Q', 1: '1', 2: '2', 3: '3', 4: '4', 5: '5', 6: '6', 7: '7' }
@@ -241,7 +246,7 @@ function renderMatch() {
 
   status.innerHTML = `
     <div class="state-label">${phase}</div>
-    <div class="context-block">${JSON.stringify({ framesWonBySeat: ctx.framesWonBySeat, matchTargetFrames: ctx.matchTargetFrames, currentFrameIndex: ctx.currentFrameIndex, matchWinner: ctx.matchWinner, frameTargetPointsBySeat: ctx.frameTargetPointsBySeat, frames: ctx.frames }, null, 2)}</div>
+    <div class="context-block">${JSON.stringify({ framesWonBySeat: ctx.framesWonBySeat, matchTargetFrames: ctx.matchTargetFrames, currentFrameIndex: ctx.currentFrameIndex, matchWinner: ctx.matchWinner, frameTargetPointsBySeat: ctx.frameTargetPointsBySeat, currentFrame: ctx.currentFrame, frames: ctx.frames }, null, 2)}</div>
   `
   renderMatchControls()
 }
@@ -309,12 +314,9 @@ function renderMatchControls() {
   }
 
   if (phase === 'frame-in-progress') {
-    // Get the child frame actor's snapshot
-    const childActor = snap.children['currentFrame'] as { getSnapshot: () => StrilaSparringSnapshot } | undefined
-    if (!childActor) return
-    const frameSnap = childActor.getSnapshot()
-    const framePhase = getPhase(frameSnap)
-    const frameCtx = frameSnap.context
+    const frameCtx = ctx.currentFrame
+    if (frameCtx === null) return
+    const framePhase = frameCtx.phase
 
     controls.append(
       el(

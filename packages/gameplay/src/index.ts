@@ -11,3 +11,9 @@ export {
 } from './strila-v2/definitions'
 export { PyramidControlViewSchema } from './pyramid/runtime'
 export { getGameMeta, isRegisteredGameKey, listGameKeys, registry, type RegisteredGameKey } from './registry'
+export {
+  StrilaMachineFrameStateSchema,
+  StrilaMachineGameplayRuntime,
+  type StrilaMachineFrameState,
+} from './strila-v2/machine-runtime'
+export { StrilaEventSchema, type StrilaEvent } from './strila-v2/definitions2'

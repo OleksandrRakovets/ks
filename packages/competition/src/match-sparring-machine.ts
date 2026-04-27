@@ -1,6 +1,5 @@
-import type { StrilaEvent } from '@ks/gameplay/strila-v2/definitions2'
-import { strilaSparringMachine, type StrilaSparringOutput } from '@ks/gameplay/strila-v2/machine-sparring'
-import { assign, createActor, sendTo, setup, type SnapshotFrom, type Actor } from 'xstate'
+import { StrilaMachineGameplayRuntime, type StrilaEvent, type StrilaMachineFrameState } from '@ks/gameplay'
+import { assign, createActor, setup, type Actor, type SnapshotFrom } from 'xstate'
 
 type Seat = 'A' | 'B'
 
@@ -16,15 +15,23 @@ type MatchContext = {
   framesWonBySeat: { A: number; B: number }
   frames: CompletedFrame[]
   currentFrameIndex: number
+  currentFrame: StrilaMachineFrameState | null
   matchWinner: Seat | null
 }
 
-// Match-level events. StrilaEvents are forwarded to the active frame child.
 type MatchEvent =
   | { type: 'match.setup'; frameTargetPointsBySeat: { A: number; B: number }; matchTargetFrames: number }
   | { type: 'frame.start' }
   | { type: 'match.end' }
   | StrilaEvent
+
+const frameRuntime = new StrilaMachineGameplayRuntime()
+
+function currentFrameWinner(context: MatchContext): Seat {
+  const winner = context.currentFrame?.winner
+  if (winner === null || winner === undefined) throw new Error('Current frame has no winner')
+  return winner
+}
 
 export const matchSparringMachine = setup({
   types: {
@@ -35,14 +42,11 @@ export const matchSparringMachine = setup({
       matchTargetFrames?: number
     },
   },
-  actors: {
-    frame: strilaSparringMachine,
-  },
   guards: {
-    isMatchTargetReached: ({ context, event }) => {
-      // Guard fires before recordCompletedFrame, so we look ahead using event.output
-      const e = event as unknown as { output: StrilaSparringOutput }
-      const winner = e.output.winner
+    isCurrentFrameOver: ({ context }) => context.currentFrame?.phase === 'frame-over',
+    isMatchTargetReached: ({ context }) => {
+      if (context.currentFrame?.winner === null || context.currentFrame?.winner === undefined) return false
+      const winner = currentFrameWinner(context)
       return context.framesWonBySeat[winner] + 1 >= context.matchTargetFrames
     },
   },
@@ -54,9 +58,22 @@ export const matchSparringMachine = setup({
         matchTargetFrames: e.matchTargetFrames,
       }
     }),
-    recordCompletedFrame: assign(({ context, event }) => {
-      const e = event as unknown as { output: StrilaSparringOutput }
-      const winner = e.output.winner
+    startFrame: assign(({ context }) => ({
+      currentFrame: frameRuntime.createInitialState({ targetPointsBySeat: context.frameTargetPointsBySeat }),
+    })),
+    applyFrameCommand: assign(({ context, event }) => {
+      if (context.currentFrame === null) throw new Error('No current frame')
+      return {
+        currentFrame: frameRuntime.applyCommand({
+          state: context.currentFrame,
+          commandType: event.type,
+          command: event,
+        }).state as StrilaMachineFrameState,
+      }
+    }),
+    recordCompletedFrame: assign(({ context }) => {
+      if (context.currentFrame === null) throw new Error('No current frame')
+      const winner = currentFrameWinner(context)
       return {
         framesWonBySeat: {
           A: context.framesWonBySeat.A + (winner === 'A' ? 1 : 0),
@@ -66,17 +83,21 @@ export const matchSparringMachine = setup({
           ...context.frames,
           {
             frameIndex: context.currentFrameIndex,
-            score: e.output.score,
+            score: context.currentFrame.score,
             winner,
           },
         ],
         currentFrameIndex: context.currentFrameIndex + 1,
+        currentFrame: null,
       }
     }),
-    setMatchWinner: assign(({ context }) => ({
-      matchWinner: context.framesWonBySeat.A >= context.matchTargetFrames ? ('A' as Seat) : ('B' as Seat),
-    })),
-    forwardToFrame: sendTo('currentFrame', ({ event }) => event as StrilaEvent),
+    setMatchWinner: assign(({ context }) => {
+      const currentWinner = context.currentFrame?.winner
+      const aWins = context.framesWonBySeat.A + (currentWinner === 'A' ? 1 : 0)
+      return {
+        matchWinner: aWins >= context.matchTargetFrames ? ('A' as Seat) : ('B' as Seat),
+      }
+    }),
   },
 }).createMachine({
   id: 'match-sparring',
@@ -87,6 +108,7 @@ export const matchSparringMachine = setup({
     framesWonBySeat: { A: 0, B: 0 },
     frames: [],
     currentFrameIndex: 1,
+    currentFrame: null,
     matchWinner: null,
   }),
 
@@ -104,6 +126,7 @@ export const matchSparringMachine = setup({
       on: {
         'frame.start': {
           target: 'frame-in-progress',
+          actions: 'startFrame',
         },
         'match.end': {
           target: 'match-over',
@@ -113,30 +136,26 @@ export const matchSparringMachine = setup({
     },
 
     'frame-in-progress': {
-      invoke: {
-        id: 'currentFrame',
-        src: 'frame',
-        input: ({ context }) => ({ targetPointsBySeat: context.frameTargetPointsBySeat }),
-        onDone: [
-          {
-            guard: 'isMatchTargetReached',
-            target: 'match-over',
-            actions: ['recordCompletedFrame', 'setMatchWinner'],
-          },
-          {
-            target: 'between-frames',
-            actions: 'recordCompletedFrame',
-          },
-        ],
-      },
+      always: [
+        {
+          guard: 'isMatchTargetReached',
+          target: 'match-over',
+          actions: ['setMatchWinner', 'recordCompletedFrame'],
+        },
+        {
+          guard: 'isCurrentFrameOver',
+          target: 'between-frames',
+          actions: 'recordCompletedFrame',
+        },
+      ],
       on: {
-        'frame.commence': { actions: 'forwardToFrame' },
-        'pot.record': { actions: 'forwardToFrame' },
-        'miss.record': { actions: 'forwardToFrame' },
-        'foul.commit': { actions: 'forwardToFrame' },
-        'penalty.select': { actions: 'forwardToFrame' },
-        'frame.award': { actions: 'forwardToFrame' },
-        'frame.concede': { actions: 'forwardToFrame' },
+        'frame.commence': { actions: 'applyFrameCommand' },
+        'pot.record': { actions: 'applyFrameCommand' },
+        'miss.record': { actions: 'applyFrameCommand' },
+        'foul.commit': { actions: 'applyFrameCommand' },
+        'penalty.select': { actions: 'applyFrameCommand' },
+        'frame.award': { actions: 'applyFrameCommand' },
+        'frame.concede': { actions: 'applyFrameCommand' },
       },
     },
 

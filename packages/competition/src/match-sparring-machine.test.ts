@@ -6,7 +6,6 @@ function snap(actor: MatchSparringActor) {
   return actor.getSnapshot()
 }
 
-// Play a full frame won by the given seat (pots 5 colored balls, then frame.award)
 function playFrame(actor: MatchSparringActor, winner: 'A' | 'B') {
   actor.send({ type: 'frame.start' })
   actor.send({ type: 'frame.commence', actor: winner })

@@ -3,9 +3,7 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
-    "./strila-v2/machine-sparring": "./src/strila-v2/machine-sparring.ts",
-    "./strila-v2/definitions2": "./src/strila-v2/definitions2.ts"
+    ".": "./src/index.ts"
   },
   "dependencies": {
     "@ks/core": "workspace:*",

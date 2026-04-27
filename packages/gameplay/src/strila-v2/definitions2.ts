@@ -20,16 +20,17 @@ export type StrilaColoredBall = z.infer<typeof StrilaColoredBallSchema>
 export const StrilaBallSchema = z.union([z.literal(0), StrilaColoredBallSchema])
 export type StrilaBall = z.infer<typeof StrilaBallSchema>
 
-export type StrilaContext = {
-  score: { A: number; B: number }
-  targetPointsBySeat: { A: number; B: number }
-  coloredBallsOnTable: StrilaColoredBall[]
-  cueBallPotsInRun: 0 | 1 | 2
-  chooser: StrilaSeat | null
-  offender: StrilaSeat | null
-  winner: StrilaSeat | null
-  winReason: StrilaWinReason | null
-}
+export const StrilaFoulResponseChoiceSchema = z.enum(['play-from-position', 'pass-position', 'ball-in-hand'])
+
+export const StrilaEventSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('frame.commence'), actor: StrilaSeatSchema }),
+  z.object({ type: z.literal('pot.record'), actor: StrilaSeatSchema, pottedBalls: z.array(StrilaBallSchema) }),
+  z.object({ type: z.literal('miss.record'), actor: StrilaSeatSchema }),
+  z.object({ type: z.literal('foul.commit'), actor: StrilaSeatSchema }),
+  z.object({ type: z.literal('penalty.select'), actor: StrilaSeatSchema, choice: StrilaFoulResponseChoiceSchema }),
+  z.object({ type: z.literal('frame.award'), actor: StrilaSeatSchema }),
+  z.object({ type: z.literal('frame.concede'), actor: StrilaSeatSchema }),
+])
 
 export const StrilaPhases = [
   'not-started',
@@ -47,16 +48,7 @@ export type StrilaPhase = (typeof StrilaPhases)[number]
 export const StrilaWinReasons = ['target-reached', 'respotted-black-won', 'conceded', 'automatic-foul'] as const
 export type StrilaWinReason = (typeof StrilaWinReasons)[number]
 
-export const StrilaFoulResponseChoiceSchema = z.enum(['play-from-position', 'pass-position', 'ball-in-hand'])
-
-export type StrilaEvent =
-  | { type: 'frame.commence'; actor: StrilaSeat }
-  | { type: 'pot.record'; actor: StrilaSeat; pottedBalls: StrilaBall[] }
-  | { type: 'miss.record'; actor: StrilaSeat }
-  | { type: 'foul.commit'; actor: StrilaSeat }
-  | { type: 'penalty.select'; actor: StrilaSeat; choice: z.infer<typeof StrilaFoulResponseChoiceSchema> }
-  | { type: 'frame.award'; actor: StrilaSeat }
-  | { type: 'frame.concede'; actor: StrilaSeat }
+export type StrilaEvent = z.infer<typeof StrilaEventSchema>
 
 export const StrilaContextSchema = z.object({
   score: z.object({ A: z.number().int().nonnegative(), B: z.number().int().nonnegative() }),
@@ -68,3 +60,5 @@ export const StrilaContextSchema = z.object({
   winner: StrilaSeatSchema.nullable(),
   winReason: z.enum(['target-reached', 'respotted-black-won', 'conceded', 'automatic-foul']).nullable(),
 })
+
+export type StrilaContext = z.infer<typeof StrilaContextSchema>
