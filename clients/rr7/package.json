@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "react-router dev",
+    "dev": "react-router dev --force",
     "db:migrate:local": "wrangler d1 migrations apply ks --local",
     "db:seed:local": "wrangler d1 execute ks --local --file ./seeds/local-players.sql",
     "build": "react-router build",
