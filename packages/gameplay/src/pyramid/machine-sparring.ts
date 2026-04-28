@@ -16,6 +16,7 @@ export type PyramidRules = {
 export type PyramidContext = {
   score: BySeatNumber
   targetPoints: BySeatNumber
+  rules: PyramidRules
   winner: Seat | null
   winReason: PyramidWinReason | null
 }
@@ -88,163 +89,161 @@ function outputWinReason(context: PyramidContext): PyramidWinReason {
   return context.winReason
 }
 
-export function createPyramidSparringMachine(rules: PyramidRules) {
-  return setup({
-    types: {
-      context: {} as PyramidContext,
-      events: {} as PyramidEvent,
-      input: {} as { targetPointsBySeat: BySeatNumber },
+export const pyramidSparringMachine = setup({
+  types: {
+    context: {} as PyramidContext,
+    events: {} as PyramidEvent,
+    input: {} as { targetPointsBySeat: BySeatNumber; rules: PyramidRules },
+  },
+  guards: {
+    isTargetReachedAfterPot: ({ context, event }) => {
+      const e = potEvent(event)
+      const next = applyShot(context.score, e.actor, e.points, context.rules.allowNegative)
+      return targetReached(next, context.targetPoints) !== null
     },
-    guards: {
-      isTargetReachedAfterPot: ({ context, event }) => {
-        const e = potEvent(event)
-        const next = applyShot(context.score, e.actor, e.points, rules.allowNegative)
-        return targetReached(next, context.targetPoints) !== null
-      },
-      isTargetReachedAfterFoul: ({ context, event }) => {
-        const e = foulCommitEvent(event)
-        const next = applyFoul(context.score, e.actor, rules)
-        return targetReached(next, context.targetPoints) !== null
-      },
-      isAwardForLeader: ({ context, event }) => {
-        const e = frameAwardEvent(event)
-        return context.winner === e.actor
-      },
-      canConcede: ({ context }) => context.winner === null,
+    isTargetReachedAfterFoul: ({ context, event }) => {
+      const e = foulCommitEvent(event)
+      const next = applyFoul(context.score, e.actor, context.rules)
+      return targetReached(next, context.targetPoints) !== null
     },
-    actions: {
-      commence: assign(() => ({
-        score: { A: 0, B: 0 },
-      })),
-      applyPot: assign(({ context, event }) => {
-        const e = potEvent(event)
-        return {
-          score: applyShot(context.score, e.actor, e.points, rules.allowNegative),
-        }
-      }),
-      applyPotAndSetWinner: assign(({ context, event }) => {
-        const e = potEvent(event)
-        const score = applyShot(context.score, e.actor, e.points, rules.allowNegative)
-        const winner = targetReached(score, context.targetPoints)
-        invariant(winner !== null, 'Pot did not reach target')
-        return {
-          score,
-          winner,
-          winReason: 'target-reached' as const,
-        }
-      }),
-      applyFoul: assign(({ context, event }) => {
-        const e = foulCommitEvent(event)
-        return {
-          score: applyFoul(context.score, e.actor, rules),
-        }
-      }),
-      applyFoulAndSetWinner: assign(({ context, event }) => {
-        const e = foulCommitEvent(event)
-        const score = applyFoul(context.score, e.actor, rules)
-        const winner = targetReached(score, context.targetPoints)
-        invariant(winner !== null, 'Foul did not reach target')
-        return {
-          score,
-          winner,
-          winReason: 'target-reached' as const,
-        }
-      }),
-      setConcedeWinner: assign(({ event }) => {
-        const e = frameConcedeEvent(event)
-        return {
-          winner: opponentOf(e.actor),
-          winReason: 'conceded' as const,
-        }
-      }),
+    isAwardForLeader: ({ context, event }) => {
+      const e = frameAwardEvent(event)
+      return context.winner === e.actor
     },
-  }).createMachine({
-    id: 'pyramid-sparring',
-    initial: 'not-started',
-    context: ({ input }) => ({
+    canConcede: ({ context }) => context.winner === null,
+  },
+  actions: {
+    commence: assign(() => ({
       score: { A: 0, B: 0 },
-      targetPoints: input.targetPointsBySeat,
-      winner: null,
-      winReason: null,
+    })),
+    applyPot: assign(({ context, event }) => {
+      const e = potEvent(event)
+      return {
+        score: applyShot(context.score, e.actor, e.points, context.rules.allowNegative),
+      }
     }),
+    applyPotAndSetWinner: assign(({ context, event }) => {
+      const e = potEvent(event)
+      const score = applyShot(context.score, e.actor, e.points, context.rules.allowNegative)
+      const winner = targetReached(score, context.targetPoints)
+      invariant(winner !== null, 'Pot did not reach target')
+      return {
+        score,
+        winner,
+        winReason: 'target-reached' as const,
+      }
+    }),
+    applyFoul: assign(({ context, event }) => {
+      const e = foulCommitEvent(event)
+      return {
+        score: applyFoul(context.score, e.actor, context.rules),
+      }
+    }),
+    applyFoulAndSetWinner: assign(({ context, event }) => {
+      const e = foulCommitEvent(event)
+      const score = applyFoul(context.score, e.actor, context.rules)
+      const winner = targetReached(score, context.targetPoints)
+      invariant(winner !== null, 'Foul did not reach target')
+      return {
+        score,
+        winner,
+        winReason: 'target-reached' as const,
+      }
+    }),
+    setConcedeWinner: assign(({ event }) => {
+      const e = frameConcedeEvent(event)
+      return {
+        winner: opponentOf(e.actor),
+        winReason: 'conceded' as const,
+      }
+    }),
+  },
+}).createMachine({
+  id: 'pyramid-sparring',
+  initial: 'not-started',
+  context: ({ input }) => ({
+    score: { A: 0, B: 0 },
+    targetPoints: input.targetPointsBySeat,
+    rules: input.rules,
+    winner: null,
+    winReason: null,
+  }),
 
-    states: {
-      'not-started': {
-        on: {
-          'frame.commence': {
-            target: 'open-play',
-            actions: 'commence',
-          },
+  states: {
+    'not-started': {
+      on: {
+        'frame.commence': {
+          target: 'open-play',
+          actions: 'commence',
         },
       },
+    },
 
-      'open-play': {
-        on: {
-          'pot.record': [
-            {
-              guard: 'isTargetReachedAfterPot',
-              target: 'winner-determined',
-              actions: 'applyPotAndSetWinner',
-            },
-            {
-              target: 'open-play',
-              actions: 'applyPot',
-            },
-          ],
-          'foul.commit': [
-            {
-              guard: 'isTargetReachedAfterFoul',
-              target: 'winner-determined',
-              actions: 'applyFoulAndSetWinner',
-            },
-            {
-              target: 'open-play',
-              actions: 'applyFoul',
-            },
-          ],
-        },
-      },
-
-      'winner-determined': {
-        on: {
-          'pot.record': {
+    'open-play': {
+      on: {
+        'pot.record': [
+          {
+            guard: 'isTargetReachedAfterPot',
             target: 'winner-determined',
+            actions: 'applyPotAndSetWinner',
+          },
+          {
+            target: 'open-play',
             actions: 'applyPot',
           },
-          'foul.commit': {
+        ],
+        'foul.commit': [
+          {
+            guard: 'isTargetReachedAfterFoul',
             target: 'winner-determined',
+            actions: 'applyFoulAndSetWinner',
+          },
+          {
+            target: 'open-play',
             actions: 'applyFoul',
           },
-          'frame.award': {
-            guard: 'isAwardForLeader',
-            target: 'frame-over',
-          },
+        ],
+      },
+    },
+
+    'winner-determined': {
+      on: {
+        'pot.record': {
+          target: 'winner-determined',
+          actions: 'applyPot',
+        },
+        'foul.commit': {
+          target: 'winner-determined',
+          actions: 'applyFoul',
+        },
+        'frame.award': {
+          guard: 'isAwardForLeader',
+          target: 'frame-over',
         },
       },
-
-      'frame-over': {
-        type: 'final',
-      },
     },
 
-    on: {
-      'frame.concede': {
-        guard: 'canConcede',
-        target: '.winner-determined',
-        actions: 'setConcedeWinner',
-      },
+    'frame-over': {
+      type: 'final',
     },
+  },
 
-    output: ({ context }) => ({
-      winner: outputWinner(context),
-      winReason: outputWinReason(context),
-      score: context.score,
-    }),
-  })
-}
+  on: {
+    'frame.concede': {
+      guard: 'canConcede',
+      target: '.winner-determined',
+      actions: 'setConcedeWinner',
+    },
+  },
 
-export type PyramidSparringMachine = ReturnType<typeof createPyramidSparringMachine>
-export type PyramidSparringSnapshot = SnapshotFrom<PyramidSparringMachine>
+  output: ({ context }) => ({
+    winner: outputWinner(context),
+    winReason: outputWinReason(context),
+    score: context.score,
+  }),
+})
+
+export type PyramidSparringSnapshot = SnapshotFrom<typeof pyramidSparringMachine>
 export type PyramidSparringOutput = {
   winner: Seat
   winReason: PyramidWinReason
@@ -255,7 +254,7 @@ export function createInitialSnapshot(
   rules: PyramidRules,
   targetPointsBySeat: BySeatNumber,
 ): PyramidSparringSnapshot {
-  return getInitialSnapshot(createPyramidSparringMachine(rules), { targetPointsBySeat })
+  return getInitialSnapshot(pyramidSparringMachine, { targetPointsBySeat, rules })
 }
 
 export function getPhase(snapshot: PyramidSparringSnapshot): PyramidPhase {
@@ -264,10 +263,6 @@ export function getPhase(snapshot: PyramidSparringSnapshot): PyramidPhase {
   return value as PyramidPhase
 }
 
-export function sendEvent(
-  rules: PyramidRules,
-  snapshot: PyramidSparringSnapshot,
-  event: PyramidEvent,
-): PyramidSparringSnapshot {
-  return getNextSnapshot(createPyramidSparringMachine(rules), snapshot, event)
+export function sendEvent(snapshot: PyramidSparringSnapshot, event: PyramidEvent): PyramidSparringSnapshot {
+  return getNextSnapshot(pyramidSparringMachine, snapshot, event)
 }
