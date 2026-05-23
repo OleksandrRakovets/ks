@@ -25,6 +25,11 @@ const BallSchema = z.union([CueBallSchema, ColoredBallSchema])
 export type StrilaBall = z.infer<typeof BallSchema>
 const BALLS: readonly StrilaBall[] = [0, ...COLORED_BALLS]
 
+const PottedBallsSchema = z
+  .array(BallSchema)
+  .min(1)
+  .refine((balls) => new Set(balls).size === balls.length, 'Potted balls must be unique')
+
 export const StrilaMeta = {
   allBalls: BALLS,
   coloredBalls: COLORED_BALLS,
@@ -36,7 +41,7 @@ const FoulResponseChoiceSchema = z.enum(['play-from-position', 'pass-position', 
 
 export const StrilaEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('frame.commence'), actor: SeatSchema }),
-  z.object({ type: z.literal('pot.record'), actor: SeatSchema, pottedBalls: z.array(BallSchema) }),
+  z.object({ type: z.literal('pot.record'), actor: SeatSchema, pottedBalls: PottedBallsSchema }),
   z.object({ type: z.literal('miss.record'), actor: SeatSchema }),
   z.object({ type: z.literal('foul.commit'), actor: SeatSchema }),
   z.object({ type: z.literal('penalty.select'), actor: SeatSchema, choice: FoulResponseChoiceSchema }),
