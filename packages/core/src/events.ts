@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 import { ClientIdSchema, EventIdSchema, MatchIdSchema } from './ids'
-import { GameKeySchema, MatchConfigSchema, SeatSchema } from './match'
+import { BySeatNumberSchema, FrameOutcomeSchema, GameKeySchema, MatchConfigSchema, SeatSchema } from './match'
 
 const BaseClientEventSchema = z.object({
   eventId: EventIdSchema,
@@ -18,34 +18,29 @@ export const MatchCreatedEventSchema = BaseClientEventSchema.extend({
 
 export const FrameStartedEventSchema = BaseClientEventSchema.extend({
   type: z.literal('frame.started'),
-  payload: z.object({ frameIndex: z.number().int().positive() }),
+  payload: z.object({
+    frameIndex: z.number().int().positive(),
+    gameKey: GameKeySchema,
+    targetPointsBySeat: BySeatNumberSchema,
+  }),
 })
 
 export const GameCommandEventSchema = BaseClientEventSchema.extend({
   type: z.literal('game.command'),
   payload: z.object({
+    frameIndex: z.number().int().positive(),
     gameKey: GameKeySchema,
     commandType: z.string().min(1).max(64),
-    command: z.unknown(),
+    command: z.record(z.string(), z.unknown()),
   }),
 })
 
-export const ScoreDeltaEventSchema = BaseClientEventSchema.extend({
-  type: z.literal('score.delta'),
-  payload: z.object({ seat: SeatSchema, delta: z.number().int() }),
-})
-
-export const ScoreSetEventSchema = BaseClientEventSchema.extend({
-  type: z.literal('score.set'),
-  payload: z.object({ seat: SeatSchema, value: z.number().int() }),
-})
-
-export const FrameAwardedEventSchema = BaseClientEventSchema.extend({
-  type: z.literal('frame.awarded'),
+export const FrameCompletedEventSchema = BaseClientEventSchema.extend({
+  type: z.literal('frame.completed'),
   payload: z.object({
     frameIndex: z.number().int().positive(),
-    winnerSeat: SeatSchema,
-    reason: z.string().min(1).max(64).optional(),
+    gameKey: GameKeySchema,
+    outcome: FrameOutcomeSchema,
   }),
 })
 
@@ -59,16 +54,14 @@ export const FrameReopenedEventSchema = BaseClientEventSchema.extend({
 
 export const MatchEndedEventSchema = BaseClientEventSchema.extend({
   type: z.literal('match.ended'),
-  payload: z.object({ reason: z.string().min(1).max(64).optional() }).optional(),
+  payload: z.object({ winnerSeat: SeatSchema }),
 })
 
 export const ClientEventSchema = z.discriminatedUnion('type', [
   MatchCreatedEventSchema,
   FrameStartedEventSchema,
   GameCommandEventSchema,
-  ScoreDeltaEventSchema,
-  ScoreSetEventSchema,
-  FrameAwardedEventSchema,
+  FrameCompletedEventSchema,
   FrameReopenedEventSchema,
   MatchEndedEventSchema,
 ])

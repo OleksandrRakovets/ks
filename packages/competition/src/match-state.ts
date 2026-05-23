@@ -7,7 +7,6 @@ import {
   type MatchSnapshot,
   type Seat,
 } from '@ks/core'
-import { applyGameCommand, createInitialGameState, deriveGameProjection, parseGameKey } from '@ks/gameplay'
 import { z } from 'zod'
 
 export type MatchState = {
@@ -15,10 +14,6 @@ export type MatchState = {
   status: 'empty' | 'active' | 'finished'
   frames: {
     frameIndex: number
-    // Canonical per-frame game state owned by the selected gameplay runtime.
-    gameState: unknown
-    // Denormalized per-frame score for cheap match list / summary reads without
-    // needing to rehydrate gameState and invoke gameplay projections.
     pointsBySeat: BySeatNumber
     winnerSeat?: Seat
   }[]
@@ -34,7 +29,6 @@ function assert(condition: unknown, message: string): asserts condition {
 
 const MatchStateFrameSchema = z.object({
   frameIndex: z.number().int().positive(),
-  gameState: z.unknown(),
   pointsBySeat: BySeatNumberSchema,
   winnerSeat: SeatSchema.optional(),
 })
@@ -45,16 +39,6 @@ export const MatchStateSchema = z.object({
   frames: z.array(MatchStateFrameSchema),
   framesWonBySeat: BySeatNumberSchema,
   currentFrameIndex: z.number().int().nonnegative(),
-})
-
-const ProjectionScoreboardSchema = z.object({
-  score: z.object({ A: z.number().int(), B: z.number().int() }),
-  details: z
-    .object({
-      phase: z.string().optional(),
-      winner: SeatSchema.optional(),
-    })
-    .optional(),
 })
 
 export function emptyMatchState(): MatchState {
@@ -80,51 +64,6 @@ function getCurrentFrame(state: MatchState): MatchState['frames'][number] {
   return frame
 }
 
-function syncFrameFromGameState(state: MatchState, frame: MatchState['frames'][number]): void {
-  const config = requireConfig(state)
-
-  const scoreboard = ProjectionScoreboardSchema.parse(
-    deriveGameProjection({
-      gameKey: parseGameKey(config.gameKey),
-      state: frame.gameState,
-      projection: 'scoreboard',
-    }),
-  )
-
-  frame.pointsBySeat = scoreboard.score
-
-  if (!frame.winnerSeat && scoreboard.details?.phase === 'frame-over' && scoreboard.details.winner) {
-    frame.winnerSeat = scoreboard.details.winner
-    state.framesWonBySeat[scoreboard.details.winner] += 1
-  }
-}
-
-function syncFrameScoreFromGameState(state: MatchState, frame: MatchState['frames'][number]): void {
-  syncFrameFromGameState(state, frame)
-}
-
-function applyLegacyScoreDelta(state: MatchState, seat: Seat, delta: number): void {
-  const config = requireConfig(state)
-  const gameKey = parseGameKey(config.gameKey)
-
-  const frame = getCurrentFrame(state)
-  const result = applyGameCommand({
-    gameKey,
-    state: frame.gameState,
-    commandType: 'pot.record',
-    command: { seat, points: delta },
-  })
-
-  frame.gameState = result.state
-  syncFrameScoreFromGameState(state, frame)
-}
-
-function applyLegacyScoreSet(state: MatchState, seat: Seat, value: number): void {
-  const frame = getCurrentFrame(state)
-  const delta = value - frame.pointsBySeat[seat]
-  applyLegacyScoreDelta(state, seat, delta)
-}
-
 export function applyMatchEvent(prev: MatchState, event: ClientEvent): MatchState {
   const state = prev.status === 'empty' ? emptyMatchState() : prev
 
@@ -141,6 +80,12 @@ export function applyMatchEvent(prev: MatchState, event: ClientEvent): MatchStat
     case 'frame.started': {
       assert(state.status === 'active', 'Cannot start frame when not active')
       const config = requireConfig(state)
+      assert(event.payload.gameKey === config.gameKey, 'Started frame game key does not match match config')
+      assert(
+        event.payload.targetPointsBySeat.A === config.targets.frameTargetPointsBySeat.A &&
+          event.payload.targetPointsBySeat.B === config.targets.frameTargetPointsBySeat.B,
+        'Started frame target does not match match config',
+      )
 
       const matchTargetFrames = config.targets.matchTargetFrames
       const isMatchTargetReached = state.framesWonBySeat.A >= matchTargetFrames || state.framesWonBySeat.B >= matchTargetFrames
@@ -150,71 +95,44 @@ export function applyMatchEvent(prev: MatchState, event: ClientEvent): MatchStat
       const last = state.frames[state.frames.length - 1]
       assert(!last || last.winnerSeat, 'Cannot start a new frame while current is unawarded')
       assert(frameIndex === state.currentFrameIndex + 1, 'Frame index must be sequential')
-      const gameKey = parseGameKey(config.gameKey)
 
       state.currentFrameIndex = frameIndex
       state.frames.push({
         frameIndex,
-        gameState: createInitialGameState(gameKey, { targetPointsBySeat: config.targets.frameTargetPointsBySeat }),
         pointsBySeat: { A: 0, B: 0 },
       })
-      return state
-    }
-    case 'score.delta': {
-      assert(state.status === 'active', 'Cannot score when not active')
-      applyLegacyScoreDelta(state, event.payload.seat, event.payload.delta)
-      return state
-    }
-    case 'score.set': {
-      assert(state.status === 'active', 'Cannot score when not active')
-      applyLegacyScoreSet(state, event.payload.seat, event.payload.value)
       return state
     }
     case 'game.command': {
       assert(state.status === 'active', 'Cannot apply game command when not active')
       const config = requireConfig(state)
       assert(event.payload.gameKey === config.gameKey, 'Game command key does not match match config')
-      const gameKey = parseGameKey(event.payload.gameKey)
-
       const frame = getCurrentFrame(state)
-      const result = applyGameCommand({
-        gameKey,
-        state: frame.gameState,
-        commandType: event.payload.commandType,
-        command: event.payload.command,
-      })
-
-      frame.gameState = result.state
-      syncFrameFromGameState(state, frame)
+      assert(event.payload.frameIndex === frame.frameIndex, 'Game command frame index does not match current frame')
       return state
     }
-    case 'frame.awarded': {
-      assert(state.status === 'active', 'Cannot award frame when not active')
-      const frame = state.frames.find((f) => f.frameIndex === event.payload.frameIndex)
-      assert(frame, 'Unknown frame')
-      const currentFrame = frame
-      assert(!currentFrame.winnerSeat, 'Frame already awarded')
-      currentFrame.winnerSeat = event.payload.winnerSeat
-      state.framesWonBySeat[event.payload.winnerSeat] += 1
+    case 'frame.completed': {
+      assert(state.status === 'active', 'Cannot complete frame when not active')
+      const config = requireConfig(state)
+      assert(event.payload.gameKey === config.gameKey, 'Completed frame game key does not match match config')
+      const frame = getCurrentFrame(state)
+      assert(event.payload.frameIndex === frame.frameIndex, 'Completed frame index does not match current frame')
+
+      frame.pointsBySeat = event.payload.outcome.score
+      frame.winnerSeat = event.payload.outcome.winnerSeat
+      state.framesWonBySeat[event.payload.outcome.winnerSeat] += 1
       return state
     }
     case 'frame.reopened': {
-      assert(state.status === 'active', 'Cannot reopen frame when not active')
-      const frameIndex = state.frames.findIndex((f) => f.frameIndex === event.payload.frameIndex)
-      assert(frameIndex >= 0, 'Unknown frame')
-
-      const frame = state.frames[frameIndex]
-      assert(frame, 'Unknown frame')
-      const reopenedFrame = frame
-      if (!reopenedFrame.winnerSeat) return state
-      state.framesWonBySeat[reopenedFrame.winnerSeat] = Math.max(0, state.framesWonBySeat[reopenedFrame.winnerSeat] - 1)
-
-      const { winnerSeat: _winnerSeat, ...frameWithoutWinner } = reopenedFrame
-      state.frames[frameIndex] = frameWithoutWinner
-      return state
+      throw new Error('TODO: frame.reopened is reserved for undo controller')
     }
     case 'match.ended': {
-      if (state.status !== 'active') return state
+      assert(state.status === 'active', 'Cannot end match when not active')
+      const config = requireConfig(state)
+      assert(
+        state.framesWonBySeat[event.payload.winnerSeat] >= config.targets.matchTargetFrames,
+        'Cannot end match before target',
+      )
       state.status = 'finished'
       return state
     }
