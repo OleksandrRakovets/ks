@@ -11,13 +11,13 @@ function snap(actor: MatchSparringActor) {
 
 function playFrame(actor: MatchSparringActor, winner: Seat) {
   actor.send({ type: 'frame.start' })
-  actor.send({ type: 'frame.commence', actor: winner })
-  actor.send({ type: 'pot.record', actor: winner, pottedBalls: [1] })
-  actor.send({ type: 'pot.record', actor: winner, pottedBalls: [2] })
-  actor.send({ type: 'pot.record', actor: winner, pottedBalls: [3] })
-  actor.send({ type: 'pot.record', actor: winner, pottedBalls: [4] })
-  actor.send({ type: 'pot.record', actor: winner, pottedBalls: [5] })
-  actor.send({ type: 'frame.award', actor: winner })
+  actor.send({ type: 'frame.commence', seat: winner })
+  actor.send({ type: 'pot.record', seat: winner, pottedBalls: [1] })
+  actor.send({ type: 'pot.record', seat: winner, pottedBalls: [2] })
+  actor.send({ type: 'pot.record', seat: winner, pottedBalls: [3] })
+  actor.send({ type: 'pot.record', seat: winner, pottedBalls: [4] })
+  actor.send({ type: 'pot.record', seat: winner, pottedBalls: [5] })
+  actor.send({ type: 'frame.award', seat: winner })
 }
 
 describe('match-sparring: setup', () => {
@@ -125,11 +125,11 @@ describe('match-sparring: handicap targets', () => {
     const actor = createMatchActor({ frameTargetPointsBySeat: { A: 6, B: 9 }, matchTargetFrames: 3 })
     actor.send({ type: 'match.setup', frameTargetPointsBySeat: { A: 6, B: 9 }, matchTargetFrames: 3 })
     actor.send({ type: 'frame.start' })
-    actor.send({ type: 'frame.commence', actor: 'A' })
-    actor.send({ type: 'pot.record', actor: 'A', pottedBalls: [1] })
-    actor.send({ type: 'pot.record', actor: 'A', pottedBalls: [2] })
-    actor.send({ type: 'pot.record', actor: 'A', pottedBalls: [3] })
-    actor.send({ type: 'frame.award', actor: 'A' })
+    actor.send({ type: 'frame.commence', seat: 'A' })
+    actor.send({ type: 'pot.record', seat: 'A', pottedBalls: [1] })
+    actor.send({ type: 'pot.record', seat: 'A', pottedBalls: [2] })
+    actor.send({ type: 'pot.record', seat: 'A', pottedBalls: [3] })
+    actor.send({ type: 'frame.award', seat: 'A' })
 
     expect(snap(actor).context.frames[0]?.score).toEqual({ A: 6, B: 0 })
     expect(snap(actor).context.framesWonBySeat.A).toBe(1)

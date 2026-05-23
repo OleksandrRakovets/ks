@@ -1,4 +1,4 @@
-import { BySeatNumberSchema, SeatSchema, opponentOf, type Seat } from '@ks/core'
+import { BySeatNumberSchema, ControlCommandSectionsSchema, SeatSchema, opponentOf } from '@ks/core'
 import invariant from 'tiny-invariant'
 import { z } from 'zod'
 
@@ -55,23 +55,20 @@ function pyramidDetails(state: PyramidFrameState) {
   }
 }
 
+const PyramidControlCommandSchema = GameCommandPresetSchema.extend({
+  label: z.string().min(1),
+})
+type PyramidControlCommand = z.infer<typeof PyramidControlCommandSchema>
+
 function command(
   commandType: string,
   payload: Record<string, unknown>,
   label: string,
-  extras: { prominence: 'primary' | 'secondary' | 'tertiary'; effectSummary?: string; warning?: string; helpText?: string },
-) {
-  return { commandType, command: payload, label, ...extras }
+  extras: Omit<PyramidControlCommand, 'source' | 'commandType' | 'command' | 'seat' | 'label'>,
+): PyramidControlCommand {
+  const seat = payload.seat === 'A' || payload.seat === 'B' ? payload.seat : undefined
+  return { source: 'game', commandType, command: payload, seat, label, ...extras }
 }
-
-const PyramidControlCommandSchema = GameCommandPresetSchema.extend({
-  label: z.string().min(1),
-})
-
-const PyramidControlCommandSectionSchema = z.object({
-  A: z.array(PyramidControlCommandSchema),
-  B: z.array(PyramidControlCommandSchema),
-})
 
 const PyramidControlDetailsSchema = z.object({
   phase: z.enum(['not-started', 'open-play', 'frame-over']),
@@ -79,40 +76,34 @@ const PyramidControlDetailsSchema = z.object({
   situationTitle: z.string().min(1),
   situationSummary: z.string().min(1),
   isPotCommandAvailable: z.boolean(),
-  commandSections: z.object({
-    primary: PyramidControlCommandSectionSchema,
-    secondary: PyramidControlCommandSectionSchema,
-    tertiary: PyramidControlCommandSectionSchema,
-  }),
+  commandSections: ControlCommandSectionsSchema,
 })
 
 export const PyramidControlViewSchema = GameControlProjectionSchema.extend({
   details: PyramidControlDetailsSchema,
 })
 
-function seatFromCommandPayload(commandPayload: Record<string, unknown>): Seat | null {
-  const seat = commandPayload.seat
-  if (seat === 'A' || seat === 'B') return seat
-  return null
-}
-
 function deriveCommandSections(commands: z.infer<typeof PyramidControlCommandSchema>[]) {
   const sections = {
-    primary: { A: [] as z.infer<typeof PyramidControlCommandSchema>[], B: [] as z.infer<typeof PyramidControlCommandSchema>[] },
+    primary: {
+      neutral: [] as z.infer<typeof PyramidControlCommandSchema>[],
+      A: [] as z.infer<typeof PyramidControlCommandSchema>[],
+      B: [] as z.infer<typeof PyramidControlCommandSchema>[],
+    },
     secondary: {
+      neutral: [] as z.infer<typeof PyramidControlCommandSchema>[],
       A: [] as z.infer<typeof PyramidControlCommandSchema>[],
       B: [] as z.infer<typeof PyramidControlCommandSchema>[],
     },
     tertiary: {
+      neutral: [] as z.infer<typeof PyramidControlCommandSchema>[],
       A: [] as z.infer<typeof PyramidControlCommandSchema>[],
       B: [] as z.infer<typeof PyramidControlCommandSchema>[],
     },
   }
 
   for (const entry of commands) {
-    const seat = seatFromCommandPayload(entry.command)
-    if (!seat) continue
-    sections[entry.prominence][seat].push(entry)
+    sections[entry.prominence][entry.seat ?? 'neutral'].push(entry)
   }
 
   return sections
@@ -322,9 +313,9 @@ export class PyramidGameplayRuntime extends GameplayRuntime {
             situationSummary: 'No further scoring commands are available.',
             isPotCommandAvailable: false,
             commandSections: {
-              primary: { A: [], B: [] },
-              secondary: { A: [], B: [] },
-              tertiary: { A: [], B: [] },
+              primary: { neutral: [], A: [], B: [] },
+              secondary: { neutral: [], A: [], B: [] },
+              tertiary: { neutral: [], A: [], B: [] },
             },
           },
         })

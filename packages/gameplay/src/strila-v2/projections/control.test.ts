@@ -41,11 +41,30 @@ describe('projection: control', () => {
         },
         commandSections: {
           primary: {
-            A: [{ commandType: 'frame.commence', command: { actor: 'A' }, label: 'Break-off', prominence: 'primary' }],
-            B: [{ commandType: 'frame.commence', command: { actor: 'B' }, label: 'Break-off', prominence: 'primary' }],
+            neutral: [],
+            A: [
+              {
+                source: 'game',
+                commandType: 'frame.commence',
+                command: { seat: 'A' },
+                seat: 'A',
+                label: 'Break-off',
+                prominence: 'primary',
+              },
+            ],
+            B: [
+              {
+                source: 'game',
+                commandType: 'frame.commence',
+                command: { seat: 'B' },
+                seat: 'B',
+                label: 'Break-off',
+                prominence: 'primary',
+              },
+            ],
           },
-          secondary: { A: [], B: [] },
-          tertiary: { A: [], B: [] },
+          secondary: { neutral: [], A: [], B: [] },
+          tertiary: { neutral: [], A: [], B: [] },
         },
         messages: [],
       },
@@ -62,7 +81,7 @@ describe('projection: control', () => {
     }
 
     const view = deriveStrilaControlView(state)
-    expect(view.details.actor).toBe('B')
+    expect(view.details.seat).toBe('B')
     expect(view.details.commandSections.secondary.B.map((entry) => entry.commandType)).toEqual([
       'penalty.select',
       'penalty.select',
@@ -76,7 +95,7 @@ describe('projection: control', () => {
     ])
   })
 
-  test('respotted-black-play exposes action commands for active actor, frame.concede for both', () => {
+  test('respotted-black-play exposes action commands for active seat, frame.concede for both', () => {
     const state: StrilaFrameState = {
       ...baseState,
       score: { A: 8, B: 8 },
@@ -85,19 +104,19 @@ describe('projection: control', () => {
     }
 
     const view = deriveStrilaControlView(state)
-    expect(view.details.commandSections.primary.A.map((entry) => `${entry.commandType}:${entry.command.actor}`)).toEqual([
+    expect(view.details.commandSections.primary.A.map((entry) => `${entry.commandType}:${entry.command.seat}`)).toEqual([
       'pot.record:A',
     ])
-    expect(view.details.commandSections.primary.B.map((entry) => `${entry.commandType}:${entry.command.actor}`)).toEqual([
+    expect(view.details.commandSections.primary.B.map((entry) => `${entry.commandType}:${entry.command.seat}`)).toEqual([
       'pot.record:B',
     ])
-    expect(view.details.commandSections.secondary.A.map((entry) => `${entry.commandType}:${entry.command.actor}`)).toEqual([
+    expect(view.details.commandSections.secondary.A.map((entry) => `${entry.commandType}:${entry.command.seat}`)).toEqual([
       'foul.commit:A',
     ])
-    expect(view.details.commandSections.tertiary.A.map((entry) => `${entry.commandType}:${entry.command.actor}`)).toEqual([
+    expect(view.details.commandSections.tertiary.A.map((entry) => `${entry.commandType}:${entry.command.seat}`)).toEqual([
       'frame.concede:A',
     ])
-    expect(view.details.commandSections.tertiary.B.map((entry) => `${entry.commandType}:${entry.command.actor}`)).toEqual([
+    expect(view.details.commandSections.tertiary.B.map((entry) => `${entry.commandType}:${entry.command.seat}`)).toEqual([
       'frame.concede:B',
     ])
     expect(view.details.commandSections.primary.A.map((entry) => entry.commandType)).toEqual(['pot.record'])
@@ -117,7 +136,7 @@ describe('projection: control', () => {
     }
 
     const view = deriveStrilaControlView(state)
-    expect(view.details.actor).toBe('B')
+    expect(view.details.seat).toBe('B')
     expect(view.details.commandSections.primary.B.map((entry) => entry.commandType)).toEqual(['pot.record', 'frame.award'])
   })
 
@@ -144,8 +163,10 @@ describe('projection: control', () => {
       { type: 'hint', text: 'A black pot wins. Any other potted result is treated as a foul.' },
     ])
     expect(view.details.commandSections.primary.A[0]).toEqual({
+      source: 'game',
       commandType: 'pot.record',
-      command: { actor: 'A' },
+      command: { seat: 'A' },
+      seat: 'A',
       label: 'Record pot',
       prominence: 'primary',
     })

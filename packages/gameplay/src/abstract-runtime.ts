@@ -1,4 +1,4 @@
-import type { BySeatNumber } from '@ks/core'
+import { ControlCommandPresetSchema, type BySeatNumber } from '@ks/core'
 import { z } from 'zod'
 
 export const GameProjectionKeySchema = z.enum(['control', 'scoreboard', 'summary'])
@@ -9,15 +9,7 @@ export const GameScoreSchema = z.object({
   B: z.number().int(),
 })
 
-export const GameCommandPresetSchema = z.object({
-  commandType: z.string().min(1),
-  command: z.record(z.string(), z.unknown()),
-  label: z.string().min(1).optional(),
-  effectSummary: z.string().min(1).optional(),
-  warning: z.string().min(1).optional(),
-  helpText: z.string().min(1).optional(),
-  prominence: z.enum(['primary', 'secondary', 'tertiary']),
-})
+export const GameCommandPresetSchema = ControlCommandPresetSchema.extend({ source: z.literal('game') })
 
 export const GameControlProjectionSchema = z.object({
   gameKey: z.string().min(1),

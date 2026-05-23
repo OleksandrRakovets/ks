@@ -324,7 +324,7 @@ describe('gameplay runtime api', () => {
       gameKey: 'strila-v2',
       state,
       commandType: 'frame.commence',
-      command: { actor: 'A' },
+      command: { seat: 'A' },
     }))
 
     expect(state).toEqual({

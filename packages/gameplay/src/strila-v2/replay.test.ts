@@ -6,10 +6,10 @@ import { type StrilaControllerEntry, undoLastPlayerCommand } from './undo-contro
 describe('replay undo', () => {
   test('can undo two mistaken shots one by one', () => {
     let recorded: StrilaControllerEntry[] = [
-      { type: 'frame.commence', actor: 'A' },
-      { type: 'pot.record', actor: 'A', pottedBalls: [1] },
-      { type: 'pot.record', actor: 'B', pottedBalls: [2] },
-      { type: 'pot.record', actor: 'B', pottedBalls: [3] },
+      { type: 'frame.commence', seat: 'A' },
+      { type: 'pot.record', seat: 'A', pottedBalls: [1] },
+      { type: 'pot.record', seat: 'B', pottedBalls: [2] },
+      { type: 'pot.record', seat: 'B', pottedBalls: [3] },
     ]
 
     expect(replayStrilaRecord(recorded).state.score).toEqual({ A: 2, B: 4 })
@@ -20,7 +20,7 @@ describe('replay undo', () => {
     if (!firstUndo.ok) throw new Error('expected successful undo')
     recorded = firstUndo.controllerEntries
     expect(firstUndo.undoneCommandType).toBe('pot.record')
-    expect(firstUndo.controllerCommand).toEqual({ type: 'undo-last-player-command', actor: 'A' })
+    expect(firstUndo.controllerCommand).toEqual({ type: 'undo-last-player-command', seat: 'A' })
     expect(firstUndo.controllerEvents).toEqual([{ type: 'undo-applied', undoneCommandType: 'pot.record' }])
     expect(firstUndo.state.score).toEqual({ A: 2, B: 2 })
 
@@ -33,9 +33,9 @@ describe('replay undo', () => {
 
   test('cannot undo after frame was awarded', () => {
     const recorded: StrilaControllerEntry[] = [
-      { type: 'frame.commence', actor: 'A' },
-      { type: 'pot.record', actor: 'A', pottedBalls: [1, 2, 3, 4, 5] },
-      { type: 'frame.award', actor: 'A' },
+      { type: 'frame.commence', seat: 'A' },
+      { type: 'pot.record', seat: 'A', pottedBalls: [1, 2, 3, 4, 5] },
+      { type: 'frame.award', seat: 'A' },
     ]
 
     const state = replayStrilaRecord(recorded).state

@@ -41,21 +41,17 @@ function command(
   commandType: StrilaEvent['type'],
   payload: Record<string, unknown>,
   label: string,
-  extras: Omit<StrilaControlCommand, 'commandType' | 'command' | 'label'>,
+  extras: Omit<StrilaControlCommand, 'source' | 'commandType' | 'command' | 'seat' | 'label'>,
 ): StrilaControlCommand {
-  return { commandType, command: payload, label, ...extras }
+  const seat = payload.seat === 'A' || payload.seat === 'B' ? payload.seat : undefined
+  return { source: 'game', commandType, command: payload, seat, label, ...extras }
 }
 
 function seatCommands(commandType: StrilaEvent['type'], label: string, prominence: StrilaControlCommand['prominence']) {
   return [
-    command(commandType, { actor: 'A' }, label, { prominence }),
-    command(commandType, { actor: 'B' }, label, { prominence }),
+    command(commandType, { seat: 'A' }, label, { prominence }),
+    command(commandType, { seat: 'B' }, label, { prominence }),
   ]
-}
-
-function actorFromCommand(entry: StrilaControlCommand): Seat | null {
-  const actor = entry.command.actor
-  return actor === 'A' || actor === 'B' ? actor : null
 }
 
 function computeStrilaObjectBalls(coloredBallsOnTable: readonly StrilaColoredBall[]): StrilaColoredBall[] {
@@ -105,15 +101,13 @@ function deriveBallStatuses(state: StrilaFrameState): StrilaControlDetails['ball
 
 function deriveCommandSections(commands: StrilaControlCommand[]): StrilaControlDetails['commandSections'] {
   const sections: StrilaControlDetails['commandSections'] = {
-    primary: { A: [], B: [] },
-    secondary: { A: [], B: [] },
-    tertiary: { A: [], B: [] },
+    primary: { neutral: [], A: [], B: [] },
+    secondary: { neutral: [], A: [], B: [] },
+    tertiary: { neutral: [], A: [], B: [] },
   }
 
   commands.forEach((entry) => {
-    const actor = actorFromCommand(entry)
-    if (actor === null) return
-    sections[entry.prominence][actor].push(entry)
+    sections[entry.prominence][entry.seat ?? 'neutral'].push(entry)
   })
 
   return sections
@@ -134,7 +128,7 @@ function view(
     commands: StrilaControlCommand[]
     situationTitle: string
     situationSummary: string
-    actor?: Seat
+    seat?: Seat
     messages?: Array<{ type: 'hint' | 'warning'; text: string }>
   },
 ): StrilaControlView {
@@ -144,7 +138,7 @@ function view(
     score: state.score,
     details: {
       phase: state.phase,
-      actor: args.actor,
+      seat: args.seat,
       situationTitle: args.situationTitle,
       situationSummary: args.situationSummary,
       isPotCommandAvailable: args.commands.some((entry) => entry.commandType === 'pot.record'),
@@ -178,20 +172,20 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
       const chooser = opponentOf(state.foulOffender)
       return view(state, {
         commands: [
-          command('penalty.select', { actor: chooser, choice: 'play-from-position' }, 'Play from position', {
+          command('penalty.select', { seat: chooser, choice: 'play-from-position' }, 'Play from position', {
             prominence: 'secondary',
             effectSummary: '+1 point',
           }),
-          command('penalty.select', { actor: chooser, choice: 'pass-position' }, 'Pass position', {
+          command('penalty.select', { seat: chooser, choice: 'pass-position' }, 'Pass position', {
             prominence: 'secondary',
             effectSummary: '+1 point',
           }),
-          command('penalty.select', { actor: chooser, choice: 'ball-in-hand' }, 'Ball in hand', {
+          command('penalty.select', { seat: chooser, choice: 'ball-in-hand' }, 'Ball in hand', {
             prominence: 'secondary',
             effectSummary: 'No points awarded',
           }),
         ],
-        actor: chooser,
+        seat: chooser,
         situationTitle: 'Select penalty',
         situationSummary: 'Opponent committed a foul. Choose the response.',
       })
@@ -235,9 +229,9 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
       return view(state, {
         commands: [
           ...seatCommands('pot.record', 'Record pot', 'primary'),
-          command('frame.award', { actor: state.winner }, 'Award frame', { prominence: 'primary' }),
+          command('frame.award', { seat: state.winner }, 'Award frame', { prominence: 'primary' }),
         ],
-        actor: state.winner,
+        seat: state.winner,
         situationTitle: 'Winner determined',
         situationSummary: 'The break may continue, or the frame can be awarded now.',
       })

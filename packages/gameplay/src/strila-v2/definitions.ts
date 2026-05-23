@@ -1,4 +1,4 @@
-import { BySeatNumberSchema, SeatSchema } from '@ks/core'
+import { BySeatNumberSchema, ControlCommandSectionsSchema, SeatSchema } from '@ks/core'
 import { z } from 'zod'
 
 import {
@@ -40,13 +40,13 @@ export const StrilaMeta = {
 const FoulResponseChoiceSchema = z.enum(['play-from-position', 'pass-position', 'ball-in-hand'])
 
 export const StrilaEventSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('frame.commence'), actor: SeatSchema }),
-  z.object({ type: z.literal('pot.record'), actor: SeatSchema, pottedBalls: PottedBallsSchema }),
-  z.object({ type: z.literal('miss.record'), actor: SeatSchema }),
-  z.object({ type: z.literal('foul.commit'), actor: SeatSchema }),
-  z.object({ type: z.literal('penalty.select'), actor: SeatSchema, choice: FoulResponseChoiceSchema }),
-  z.object({ type: z.literal('frame.award'), actor: SeatSchema }),
-  z.object({ type: z.literal('frame.concede'), actor: SeatSchema }),
+  z.object({ type: z.literal('frame.commence'), seat: SeatSchema }),
+  z.object({ type: z.literal('pot.record'), seat: SeatSchema, pottedBalls: PottedBallsSchema }),
+  z.object({ type: z.literal('miss.record'), seat: SeatSchema }),
+  z.object({ type: z.literal('foul.commit'), seat: SeatSchema }),
+  z.object({ type: z.literal('penalty.select'), seat: SeatSchema, choice: FoulResponseChoiceSchema }),
+  z.object({ type: z.literal('frame.award'), seat: SeatSchema }),
+  z.object({ type: z.literal('frame.concede'), seat: SeatSchema }),
 ])
 export type StrilaEvent = z.infer<typeof StrilaEventSchema>
 export const StrilaCommandSchema = StrilaEventSchema
@@ -110,25 +110,14 @@ const ControlCommandSchema = GameCommandPresetSchema.extend({
 })
 export type StrilaControlCommand = z.infer<typeof ControlCommandSchema>
 
-const CommandSectionBySeatSchema = z.object({
-  A: z.array(ControlCommandSchema),
-  B: z.array(ControlCommandSchema),
-})
-
-const CommandSectionsSchema = z.object({
-  primary: CommandSectionBySeatSchema,
-  secondary: CommandSectionBySeatSchema,
-  tertiary: CommandSectionBySeatSchema,
-})
-
 export const StrilaControlDetailsSchema = z.object({
   phase: StrilaPhaseSchema,
-  actor: SeatSchema.optional(),
+  seat: SeatSchema.optional(),
   situationTitle: z.string().min(1),
   situationSummary: z.string().min(1).optional(),
   isPotCommandAvailable: z.boolean(),
   ballStatuses: StrilaBallStatusesSchema,
-  commandSections: CommandSectionsSchema,
+  commandSections: ControlCommandSectionsSchema,
   messages: z.array(ControlMessageSchema),
 })
 export type StrilaControlDetails = z.infer<typeof StrilaControlDetailsSchema>

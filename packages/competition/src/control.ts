@@ -1,4 +1,4 @@
-import type { MatchSnapshot } from '@ks/core'
+import { emptyControlCommandSections, type ControlCommandSections, type MatchSnapshot } from '@ks/core'
 
 export type MatchLifecycleDecisions = {
   isMatchTargetReached: boolean
@@ -21,4 +21,46 @@ export function deriveMatchLifecycleDecisions(snapshot: MatchSnapshot): MatchLif
     canStartNextFrame: isActive && Boolean(winnerSeat) && !isMatchTargetReached,
     canEndMatch: isActive && Boolean(winnerSeat) && isMatchTargetReached,
   }
+}
+
+export function deriveSparringMatchControlSections(snapshot: MatchSnapshot): ControlCommandSections {
+  const decisions = deriveMatchLifecycleDecisions(snapshot)
+  const sections = emptyControlCommandSections()
+
+  if (decisions.canStartNextFrame) {
+    sections.secondary.neutral.push({
+      source: 'match',
+      commandType: 'frame.start',
+      command: {},
+      label: 'Start next frame',
+      prominence: 'secondary',
+    })
+  }
+
+  if (decisions.canEndMatch) {
+    sections.secondary.neutral.push({
+      source: 'match',
+      commandType: 'match.end',
+      command: {},
+      label: 'End match',
+      prominence: 'secondary',
+    })
+  }
+
+  return sections
+}
+
+export function mergeControlCommandSections(
+  matchSections: ControlCommandSections,
+  gameSections?: ControlCommandSections,
+): ControlCommandSections {
+  const sections = emptyControlCommandSections()
+
+  for (const prominence of ['primary', 'secondary', 'tertiary'] as const) {
+    for (const bucket of ['neutral', 'A', 'B'] as const) {
+      sections[prominence][bucket] = [...matchSections[prominence][bucket], ...(gameSections?.[prominence][bucket] ?? [])]
+    }
+  }
+
+  return sections
 }

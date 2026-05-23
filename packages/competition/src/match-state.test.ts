@@ -129,7 +129,7 @@ test('strila frame.award closes the match frame through gameplay', () => {
     baseEvent(config.matchId, 'game.command', {
       gameKey: config.gameKey,
       commandType: 'frame.commence',
-      command: { actor: 'A' },
+      command: { seat: 'A' },
     }),
   )
   s = applyMatchEvent(
@@ -137,7 +137,7 @@ test('strila frame.award closes the match frame through gameplay', () => {
     baseEvent(config.matchId, 'game.command', {
       gameKey: config.gameKey,
       commandType: 'frame.concede',
-      command: { actor: 'B' },
+      command: { seat: 'B' },
     }),
   )
 
@@ -148,7 +148,7 @@ test('strila frame.award closes the match frame through gameplay', () => {
     baseEvent(config.matchId, 'game.command', {
       gameKey: config.gameKey,
       commandType: 'frame.award',
-      command: { actor: 'A' },
+      command: { seat: 'A' },
     }),
   )
 
@@ -168,7 +168,7 @@ test('strila handicap target lets A reach winner-determined at 6', () => {
     baseEvent(config.matchId, 'game.command', {
       gameKey: config.gameKey,
       commandType: 'frame.commence',
-      command: { actor: 'A' },
+      command: { seat: 'A' },
     }),
   )
   s = applyMatchEvent(
@@ -176,7 +176,7 @@ test('strila handicap target lets A reach winner-determined at 6', () => {
     baseEvent(config.matchId, 'game.command', {
       gameKey: config.gameKey,
       commandType: 'pot.record',
-      command: { actor: 'A', pottedBalls: [1] },
+      command: { seat: 'A', pottedBalls: [1] },
     }),
   )
   s = applyMatchEvent(
@@ -184,7 +184,7 @@ test('strila handicap target lets A reach winner-determined at 6', () => {
     baseEvent(config.matchId, 'game.command', {
       gameKey: config.gameKey,
       commandType: 'pot.record',
-      command: { actor: 'A', pottedBalls: [2] },
+      command: { seat: 'A', pottedBalls: [2] },
     }),
   )
   s = applyMatchEvent(
@@ -192,7 +192,7 @@ test('strila handicap target lets A reach winner-determined at 6', () => {
     baseEvent(config.matchId, 'game.command', {
       gameKey: config.gameKey,
       commandType: 'pot.record',
-      command: { actor: 'A', pottedBalls: [3] },
+      command: { seat: 'A', pottedBalls: [3] },
     }),
   )
 
@@ -204,7 +204,7 @@ test('strila handicap target lets A reach winner-determined at 6', () => {
     baseEvent(config.matchId, 'game.command', {
       gameKey: config.gameKey,
       commandType: 'frame.award',
-      command: { actor: 'A' },
+      command: { seat: 'A' },
     }),
   )
 

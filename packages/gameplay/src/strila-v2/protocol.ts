@@ -2,7 +2,7 @@ import invariant from 'tiny-invariant'
 
 import { StrilaProtocolEntrySchema, type StrilaCommand, type StrilaFrameState, type StrilaProtocolEntry } from './definitions'
 
-function hasActor(command: StrilaCommand): command is Exclude<StrilaCommand, { type: 'frame.commence' }> {
+function hasSeat(command: StrilaCommand): command is Exclude<StrilaCommand, { type: 'frame.commence' }> {
   return command.type !== 'frame.commence'
 }
 
@@ -18,7 +18,7 @@ function isMixedBallInHandPot(previous: StrilaFrameState, command: StrilaCommand
 function isThirdConsecutiveCueBallPot(previous: StrilaFrameState, command: StrilaCommand): boolean {
   return (
     previous.phase === 'open-play' &&
-    previous.cueBallSerialPots?.seat === command.actor &&
+    previous.cueBallSerialPots?.seat === command.seat &&
     previous.cueBallSerialPots.count === 2 &&
     command.type === 'pot.record' &&
     command.pottedBalls.includes(0)
@@ -47,31 +47,31 @@ export function projectStrilaProtocolEntries(args: {
   }
 
   if (isThirdConsecutiveCueBallPot(previous, command)) {
-    if (!hasActor(command)) return entries.map((entry) => StrilaProtocolEntrySchema.parse(entry))
+    if (!hasSeat(command)) return entries.map((entry) => StrilaProtocolEntrySchema.parse(entry))
     entries.push({
       source: 'system',
       systemType: 'automatic-foul',
-      offender: command.actor,
+      offender: command.seat,
       reason: 'third-consecutive-cue-ball-pot',
     })
   }
 
   if (isMixedBallInHandPot(previous, command)) {
-    if (!hasActor(command)) return entries.map((entry) => StrilaProtocolEntrySchema.parse(entry))
+    if (!hasSeat(command)) return entries.map((entry) => StrilaProtocolEntrySchema.parse(entry))
     entries.push({
       source: 'system',
       systemType: 'automatic-foul',
-      offender: command.actor,
+      offender: command.seat,
       reason: 'illegal-ball-in-hand-pot',
     })
   }
 
   if (isRespottedBlackOpeningIllegalPot(previous, command)) {
-    if (!hasActor(command)) return entries.map((entry) => StrilaProtocolEntrySchema.parse(entry))
+    if (!hasSeat(command)) return entries.map((entry) => StrilaProtocolEntrySchema.parse(entry))
     entries.push({
       source: 'system',
       systemType: 'automatic-foul',
-      offender: command.actor,
+      offender: command.seat,
       reason: 'respotted-black-opening-illegal-pot',
     })
   }

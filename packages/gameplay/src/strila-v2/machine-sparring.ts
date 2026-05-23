@@ -30,12 +30,12 @@ function addPoints(score: BySeatNumber, seat: Seat, points: number): BySeatNumbe
 
 function nextCueBallSerialPots(
   prev: StrilaContext['cueBallSerialPots'],
-  actor: Seat,
+  seat: Seat,
   pottedBalls: StrilaBall[],
 ): StrilaContext['cueBallSerialPots'] {
   if (!pottedBalls.includes(StrilaMeta.cueBall)) return null
-  if (prev?.seat !== actor) return { seat: actor, count: 1 }
-  return { seat: actor, count: prev.count >= 2 ? 2 : 2 }
+  if (prev?.seat !== seat) return { seat: seat, count: 1 }
+  return { seat: seat, count: prev.count >= 2 ? 2 : 2 }
 }
 
 type PotEvent = Extract<StrilaEvent, { type: 'pot.record' }>
@@ -92,7 +92,7 @@ export const strilaSparringMachine = setup({
   guards: {
     isThirdCueBallPot: ({ context, event }) => {
       const e = potEvent(event)
-      return context.cueBallSerialPots?.seat === e.actor && context.cueBallSerialPots.count >= 2 && e.pottedBalls.includes(0)
+      return context.cueBallSerialPots?.seat === e.seat && context.cueBallSerialPots.count >= 2 && e.pottedBalls.includes(0)
     },
     isIllegalBallInHandPot: ({ event }) => {
       const e = potEvent(event)
@@ -104,12 +104,12 @@ export const strilaSparringMachine = setup({
     },
     isTargetReachedAfterPot: ({ context, event }) => {
       const e = potEvent(event)
-      const next = addPoints(context.score, e.actor, pointsForPottedBalls(e.pottedBalls))
+      const next = addPoints(context.score, e.seat, pointsForPottedBalls(e.pottedBalls))
       return next.A >= context.targetPoints.A || next.B >= context.targetPoints.B
     },
     isRespottedBlackTrigger: ({ context, event }) => {
       const e = potEvent(event)
-      const next = addPoints(context.score, e.actor, pointsForPottedBalls(e.pottedBalls))
+      const next = addPoints(context.score, e.seat, pointsForPottedBalls(e.pottedBalls))
       const nextBalls = removePottedColoredBalls(context.coloredBallsOnTable, e.pottedBalls)
       return nextBalls.length === 0 && next.A === 8 && next.B === 8
     },
@@ -122,15 +122,15 @@ export const strilaSparringMachine = setup({
     applyPot: assign(({ context, event }) => {
       const e = potEvent(event)
       return {
-        score: addPoints(context.score, e.actor, pointsForPottedBalls(e.pottedBalls)),
+        score: addPoints(context.score, e.seat, pointsForPottedBalls(e.pottedBalls)),
         coloredBallsOnTable: removePottedColoredBalls(context.coloredBallsOnTable, e.pottedBalls),
-        cueBallSerialPots: nextCueBallSerialPots(context.cueBallSerialPots, e.actor, e.pottedBalls),
+        cueBallSerialPots: nextCueBallSerialPots(context.cueBallSerialPots, e.seat, e.pottedBalls),
       }
     }),
     applyPotResetStreak: assign(({ context, event }) => {
       const e = potEvent(event)
       return {
-        score: addPoints(context.score, e.actor, pointsForPottedBalls(e.pottedBalls)),
+        score: addPoints(context.score, e.seat, pointsForPottedBalls(e.pottedBalls)),
         coloredBallsOnTable: removePottedColoredBalls(context.coloredBallsOnTable, e.pottedBalls),
         cueBallSerialPots: null,
       }
@@ -138,9 +138,9 @@ export const strilaSparringMachine = setup({
     applyRespottedBlackPot: assign(({ context, event }) => {
       const e = potEvent(event)
       return {
-        score: addPoints(context.score, e.actor, pointsForPottedBalls(e.pottedBalls)),
+        score: addPoints(context.score, e.seat, pointsForPottedBalls(e.pottedBalls)),
         coloredBallsOnTable: [],
-        winner: e.actor,
+        winner: e.seat,
         winReason: 'respotted-black-won',
       }
     }),
@@ -154,28 +154,28 @@ export const strilaSparringMachine = setup({
     setFoulResponse: assign(({ event }) => {
       const e = foulResponseEvent(event)
       return {
-        foulOffender: e.actor,
+        foulOffender: e.seat,
       }
     }),
     setRespottedBlackOpeningFoulWinner: assign(({ event }) => {
       const e = potEvent(event)
       return {
         coloredBallsOnTable: RESPOTTED_BLACK,
-        winner: opponentOf(e.actor),
+        winner: opponentOf(e.seat),
         winReason: 'automatic-foul',
       }
     }),
     setFoulWinner: assign(({ event }) => {
       const e = foulCommitEvent(event)
       return {
-        winner: opponentOf(e.actor),
+        winner: opponentOf(e.seat),
         winReason: 'automatic-foul',
       }
     }),
     setConcedeWinner: assign(({ event }) => {
       const e = frameConcedeEvent(event)
       return {
-        winner: opponentOf(e.actor),
+        winner: opponentOf(e.seat),
         winReason: 'conceded',
       }
     }),
@@ -187,7 +187,7 @@ export const strilaSparringMachine = setup({
     applyPlayFromPosition: assign(({ context, event }) => {
       const e = penaltySelectEvent(event)
       return {
-        score: addPoints(context.score, e.actor, 1),
+        score: addPoints(context.score, e.seat, 1),
         cueBallSerialPots: null,
         foulOffender: null,
       }
@@ -195,7 +195,7 @@ export const strilaSparringMachine = setup({
     applyPassPosition: assign(({ context, event }) => {
       const e = penaltySelectEvent(event)
       return {
-        score: addPoints(context.score, e.actor, 1),
+        score: addPoints(context.score, e.seat, 1),
         cueBallSerialPots: null,
         foulOffender: null,
       }
@@ -208,7 +208,7 @@ export const strilaSparringMachine = setup({
     applyWinnerDeterminedPot: assign(({ context, event }) => {
       const e = potEvent(event)
       return {
-        score: addPoints(context.score, e.actor, pointsForPottedBalls(e.pottedBalls)),
+        score: addPoints(context.score, e.seat, pointsForPottedBalls(e.pottedBalls)),
         coloredBallsOnTable: removePottedColoredBalls(context.coloredBallsOnTable, e.pottedBalls),
       }
     }),
