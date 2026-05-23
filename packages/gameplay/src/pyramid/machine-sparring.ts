@@ -250,10 +250,7 @@ export type PyramidSparringOutput = {
   score: BySeatNumber
 }
 
-export function createInitialSnapshot(
-  rules: PyramidRules,
-  targetPointsBySeat: BySeatNumber,
-): PyramidSparringSnapshot {
+export function createInitialSnapshot(rules: PyramidRules, targetPointsBySeat: BySeatNumber): PyramidSparringSnapshot {
   return getInitialSnapshot(pyramidSparringMachine, { targetPointsBySeat, rules })
 }
 

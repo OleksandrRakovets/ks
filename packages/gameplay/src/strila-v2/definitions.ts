@@ -8,8 +8,8 @@ import {
   GameSummaryProjectionSchema,
 } from '../abstract-runtime'
 
-const StrilaCueBall = z.literal(0)
-const StrilaColoredBallSchema = z.union([
+const CueBallSchema = z.literal(0)
+const ColoredBallSchema = z.union([
   z.literal(1),
   z.literal(2),
   z.literal(3),
@@ -18,28 +18,28 @@ const StrilaColoredBallSchema = z.union([
   z.literal(6),
   z.literal(7),
 ])
-export type StrilaColoredBall = z.infer<typeof StrilaColoredBallSchema>
-const STRILA_COLORED_BALLS: readonly StrilaColoredBall[] = [1, 2, 3, 4, 5, 6, 7]
+export type StrilaColoredBall = z.infer<typeof ColoredBallSchema>
+const COLORED_BALLS: readonly StrilaColoredBall[] = [1, 2, 3, 4, 5, 6, 7]
 
-const StrilaBallSchema = z.union([StrilaCueBall, StrilaColoredBallSchema])
-export type StrilaBall = z.infer<typeof StrilaBallSchema>
-const STRILA_BALLS: readonly StrilaBall[] = [0, ...STRILA_COLORED_BALLS]
+const BallSchema = z.union([CueBallSchema, ColoredBallSchema])
+export type StrilaBall = z.infer<typeof BallSchema>
+const BALLS: readonly StrilaBall[] = [0, ...COLORED_BALLS]
 
 export const StrilaMeta = {
-  allBalls: STRILA_BALLS,
-  coloredBalls: STRILA_COLORED_BALLS,
-  cueBall: StrilaCueBall.value,
+  allBalls: BALLS,
+  coloredBalls: COLORED_BALLS,
+  cueBall: CueBallSchema.value,
   defaultTargetPoints: { A: 9, B: 9 },
 }
 
-const StrilaFoulResponseChoiceSchema = z.enum(['play-from-position', 'pass-position', 'ball-in-hand'])
+const FoulResponseChoiceSchema = z.enum(['play-from-position', 'pass-position', 'ball-in-hand'])
 
 export const StrilaEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('frame.commence'), actor: SeatSchema }),
-  z.object({ type: z.literal('pot.record'), actor: SeatSchema, pottedBalls: z.array(StrilaBallSchema) }),
+  z.object({ type: z.literal('pot.record'), actor: SeatSchema, pottedBalls: z.array(BallSchema) }),
   z.object({ type: z.literal('miss.record'), actor: SeatSchema }),
   z.object({ type: z.literal('foul.commit'), actor: SeatSchema }),
-  z.object({ type: z.literal('penalty.select'), actor: SeatSchema, choice: StrilaFoulResponseChoiceSchema }),
+  z.object({ type: z.literal('penalty.select'), actor: SeatSchema, choice: FoulResponseChoiceSchema }),
   z.object({ type: z.literal('frame.award'), actor: SeatSchema }),
   z.object({ type: z.literal('frame.concede'), actor: SeatSchema }),
 ])
@@ -62,10 +62,10 @@ export type StrilaPhase = z.infer<typeof StrilaPhaseSchema>
 const WinnerDeterminedReasonSchema = z.enum(['target-reached', 'respotted-black-won', 'conceded', 'automatic-foul'])
 export type StrilaWinReason = z.infer<typeof WinnerDeterminedReasonSchema>
 
-const StrilaContextSchema = z.object({
+const ContextSchema = z.object({
   score: BySeatNumberSchema,
   targetPoints: BySeatNumberSchema,
-  coloredBallsOnTable: z.array(StrilaColoredBallSchema),
+  coloredBallsOnTable: z.array(ColoredBallSchema),
   cueBallSerialPots: z
     .object({
       seat: SeatSchema,
@@ -76,9 +76,9 @@ const StrilaContextSchema = z.object({
   winner: SeatSchema.nullable(),
   winReason: WinnerDeterminedReasonSchema.nullable(),
 })
-export type StrilaContext = z.infer<typeof StrilaContextSchema>
+export type StrilaContext = z.infer<typeof ContextSchema>
 
-export const StrilaFrameStateSchema = StrilaContextSchema.extend({
+export const StrilaFrameStateSchema = ContextSchema.extend({
   phase: StrilaPhaseSchema,
 })
 export type StrilaFrameState = z.infer<typeof StrilaFrameStateSchema>
@@ -130,14 +130,14 @@ export type StrilaControlDetails = z.infer<typeof StrilaControlDetailsSchema>
 
 export const StrilaControlViewSchema = GameControlProjectionSchema.extend({
   gameKey: z.literal('strila-v2'),
-  score: StrilaContextSchema.shape.score,
+  score: ContextSchema.shape.score,
   details: StrilaControlDetailsSchema,
 })
 export type StrilaControlView = z.infer<typeof StrilaControlViewSchema>
 
 const ScoreboardDetailsSchema = z.object({
-  objectBalls: z.array(StrilaColoredBallSchema),
-  ballsRemaining: z.array(StrilaColoredBallSchema),
+  objectBalls: z.array(ColoredBallSchema),
+  ballsRemaining: z.array(ColoredBallSchema),
   pointsAvailable: z.number().int().nonnegative(),
   phase: StrilaPhaseSchema,
   winner: SeatSchema.optional(),
@@ -145,14 +145,14 @@ const ScoreboardDetailsSchema = z.object({
 
 export const StrilaScoreboardViewSchema = GameScoreboardProjectionSchema.extend({
   gameKey: z.literal('strila-v2'),
-  score: StrilaContextSchema.shape.score,
+  score: ContextSchema.shape.score,
   details: ScoreboardDetailsSchema,
 })
 export type StrilaScoreboardView = z.infer<typeof StrilaScoreboardViewSchema>
 
 export const StrilaSummaryViewSchema = GameSummaryProjectionSchema.extend({
   gameKey: z.literal('strila-v2'),
-  score: StrilaContextSchema.shape.score,
+  score: ContextSchema.shape.score,
   details: z.object({
     phase: StrilaPhaseSchema,
   }),

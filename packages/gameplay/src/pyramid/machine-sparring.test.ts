@@ -2,13 +2,7 @@ import { describe, expect, test } from 'bun:test'
 
 import type { BySeatNumber } from '@ks/core'
 
-import {
-  createInitialSnapshot,
-  getPhase,
-  sendEvent,
-  type PyramidRules,
-  type PyramidSparringSnapshot,
-} from './machine-sparring'
+import { createInitialSnapshot, getPhase, sendEvent, type PyramidRules, type PyramidSparringSnapshot } from './machine-sparring'
 
 const STANDARD_RULES: PyramidRules = {
   allowNegative: false,
