@@ -1,4 +1,5 @@
 import { matchSparringMachine, getMatchPhase, type MatchSparringActor } from '@ks/competition/match-sparring-machine'
+import { opponentOf } from '@ks/core'
 import { createBrowserInspector } from '@statelyai/inspect'
 import { createActor } from 'xstate'
 
@@ -96,7 +97,7 @@ function renderFrame(snap: StrilaSparringSnapshot) {
 
   status.innerHTML = `
     <div class="state-label">${phase}</div>
-    <div class="context-block">${JSON.stringify({ score: ctx.score, target: ctx.targetPointsBySeat, balls: ctx.coloredBallsOnTable, cueBallStreak: ctx.cueBallPotsInRun, winner: ctx.winner, winReason: ctx.winReason, chooser: ctx.chooser, offender: ctx.offender }, null, 2)}</div>
+    <div class="context-block">${JSON.stringify({ score: ctx.score, target: ctx.targetPoints, balls: ctx.coloredBallsOnTable, cueBallStreak: ctx.cueBallSerialPots, winner: ctx.winner, winReason: ctx.winReason, foulOffender: ctx.foulOffender }, null, 2)}</div>
   `
   renderFrameControls(snap)
 }
@@ -146,7 +147,8 @@ function renderFrameControls(snap: StrilaSparringSnapshot) {
   }
 
   if (phase === 'foul-committed.penalty-selection') {
-    const chooser = ctx.chooser!
+    const offender = ctx.foulOffender!
+    const chooser = opponentOf(offender)
     controls.append(
       label(`${chooser} chooses:`),
       btn('Play from position (+1)', () =>
@@ -155,7 +157,7 @@ function renderFrameControls(snap: StrilaSparringSnapshot) {
       btn('Pass position (+1)', () => frameActor.send({ type: 'penalty.select', actor: chooser, choice: 'pass-position' })),
       btn('Ball in hand', () => frameActor.send({ type: 'penalty.select', actor: chooser, choice: 'ball-in-hand' })),
     )
-    addConcedeRow(controls, ctx.chooser!, ctx.offender!, (seat) => frameActor.send({ type: 'frame.concede', actor: seat }))
+    addConcedeRow(controls, chooser, offender, (seat) => frameActor.send({ type: 'frame.concede', actor: seat }))
     return
   }
 
@@ -331,7 +333,8 @@ function renderMatchControls() {
     }
 
     if (framePhase === 'foul-committed.penalty-selection') {
-      const chooser = frameCtx.chooser!
+      const offender = frameCtx.foulOffender!
+      const chooser = opponentOf(offender)
       controls.append(
         label(`${chooser} chooses:`),
         btn('Play from position (+1)', () =>
@@ -340,7 +343,7 @@ function renderMatchControls() {
         btn('Pass position (+1)', () => matchActor.send({ type: 'penalty.select', actor: chooser, choice: 'pass-position' })),
         btn('Ball in hand', () => matchActor.send({ type: 'penalty.select', actor: chooser, choice: 'ball-in-hand' })),
       )
-      addConcedeRow(controls, chooser, frameCtx.offender!, (seat) => matchActor.send({ type: 'frame.concede', actor: seat }))
+      addConcedeRow(controls, chooser, offender, (seat) => matchActor.send({ type: 'frame.concede', actor: seat }))
       return
     }
 

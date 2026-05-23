@@ -21,9 +21,9 @@
   "devDependencies": {
     "bun-types": "latest",
     "oxfmt": "^0.45.0",
-    "oxlint": "^1.60.0",
-    "tailwindcss": "^4.2.2",
-    "typescript": "^6.0.0"
+    "oxlint": "^1.65.0",
+    "tailwindcss": "^4.3.0",
+    "typescript": "^6.0.3"
   },
   "overrides": {
     "typescript": "^6.0.0",
