@@ -9,8 +9,8 @@ export type HeaderConfig = {
 
 function BackArrowIcon() {
   return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
-      <path d="M12 4l-6 6 6 6" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+    <svg width="7" height="12" viewBox="0 0 7 12" fill="none" aria-hidden>
+      <path d="M6 1L1 6l5 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }
@@ -26,25 +26,20 @@ export function AppHeader() {
     }, null) ?? {}
 
   return (
-    <header
-      className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-2 px-3"
-      style={{ backgroundColor: 'var(--ctp-green)', color: 'var(--ctp-crust)' }}
-    >
-      <div className="w-10">
+    <header className="sticky top-0 z-40 flex h-11 shrink-0 items-center justify-between border-b border-divider bg-deep ">
+      <div className="w-12">
         {config.backTo ? (
-          <Link
-            to={config.backTo}
-            aria-label="Назад"
-            className="flex h-10 w-10 items-center justify-center rounded-lg transition-colors hover:bg-black/10 active:bg-black/20"
-          >
+          <Link to={config.backTo} aria-label="Назад" className="flex h-11 items-center px-4 text-green">
             <BackArrowIcon />
           </Link>
         ) : null}
       </div>
 
-      <div className="flex-1 truncate text-center text-sm font-semibold">{config.title ?? 'KS'}</div>
+      <div className="flex-1 truncate text-center text-sm font-semibold tracking-[0.01em]">
+        {config.title ?? 'Play & Keep Score'}
+      </div>
 
-      <div className="w-10">
+      <div className="flex w-12 justify-end">
         <BurgerMenu />
       </div>
     </header>

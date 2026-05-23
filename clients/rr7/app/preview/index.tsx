@@ -7,11 +7,6 @@ const previewPages = [
     title: 'UI Preview',
     description: 'Package component playground and theme checks.',
   },
-  {
-    href: '/top-secret/preview/game-state',
-    title: 'Game State Machines',
-    description: 'Generated phase and command views for each game implementation.',
-  },
 ] as const
 
 export default function PreviewIndexRoute() {

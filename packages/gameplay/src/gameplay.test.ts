@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
+import type { BySeatNumber, Seat } from '@ks/core'
+
 import {
   applyGameCommand,
   createInitialGameState,
@@ -196,91 +198,96 @@ describe('gameplay runtime api', () => {
   })
 
   test('free pyramid control starts with frame.commence choices', () => {
-    expect(
-      deriveGameProjection({
-        gameKey: 'free-pyramid',
-        state: { pointsBySeat: { A: 0, B: 0 }, targetPointsBySeat: { A: 8, B: 8 }, phase: 'not-started' },
-        projection: 'control',
-      }),
-    ).toEqual({
+    const projection = deriveGameProjection({
       gameKey: 'free-pyramid',
+      state: { pointsBySeat: { A: 0, B: 0 }, targetPointsBySeat: { A: 8, B: 8 }, phase: 'not-started' },
       projection: 'control',
-      score: { A: 0, B: 0 },
-      availableCommands: [
-        { commandType: 'frame.commence', command: { seat: 'A' }, label: 'Break-off (A)', prominence: 'primary' },
-        { commandType: 'frame.commence', command: { seat: 'B' }, label: 'Break-off (B)', prominence: 'primary' },
-      ],
+    }) as {
+      gameKey: string
+      projection: 'control'
+      score: BySeatNumber
       details: {
-        phase: 'not-started',
-        winner: undefined,
-        situationTitle: 'Break-off',
-        situationSummary: 'Choose the player to open the frame.',
-      },
-    })
+        phase: string
+        winner?: Seat
+        isPotCommandAvailable: boolean
+        commandSections: {
+          primary: { A: Array<{ commandType: string }>; B: Array<{ commandType: string }> }
+        }
+      }
+    }
+
+    expect(projection.gameKey).toBe('free-pyramid')
+    expect(projection.projection).toBe('control')
+    expect(projection.score).toEqual({ A: 0, B: 0 })
+    expect(projection.details.phase).toBe('not-started')
+    expect(projection.details.isPotCommandAvailable).toBe(false)
+    expect(projection.details.commandSections.primary.A.map((entry) => entry.commandType)).toEqual(['frame.commence'])
+    expect(projection.details.commandSections.primary.B.map((entry) => entry.commandType)).toEqual(['frame.commence'])
   })
 
   test('free pyramid control keeps scoring after target and exposes frame.award', () => {
-    expect(
-      deriveGameProjection({
-        gameKey: 'free-pyramid',
-        state: { pointsBySeat: { A: 10, B: 2 }, targetPointsBySeat: { A: 8, B: 8 }, phase: 'open-play' },
-        projection: 'control',
-      }),
-    ).toEqual({
+    const projection = deriveGameProjection({
       gameKey: 'free-pyramid',
+      state: { pointsBySeat: { A: 10, B: 2 }, targetPointsBySeat: { A: 8, B: 8 }, phase: 'open-play' },
       projection: 'control',
-      score: { A: 10, B: 2 },
-      availableCommands: [
-        { commandType: 'pot.record', command: { points: 1 }, label: '+1', prominence: 'primary' },
-        { commandType: 'pot.record', command: { points: 2 }, label: '+2', prominence: 'secondary' },
-        { commandType: 'pot.record', command: { points: 4 }, label: '+4', prominence: 'secondary' },
-        {
-          commandType: 'foul.commit',
-          command: {},
-          label: 'Фол',
-          prominence: 'secondary',
-          effectSummary: 'Opponent +1 point',
-        },
-        { commandType: 'frame.award', command: { seat: 'A' }, label: 'Award frame', prominence: 'primary' },
-      ],
+    }) as {
       details: {
-        phase: 'open-play',
-        winner: undefined,
-        situationTitle: 'Open play',
-        situationSummary: 'Record shot value or foul for either player.',
-      },
-    })
+        isPotCommandAvailable: boolean
+        commandSections: {
+          primary: { A: Array<{ commandType: string }>; B: Array<{ commandType: string }> }
+          secondary: { A: Array<{ commandType: string }>; B: Array<{ commandType: string }> }
+        }
+      }
+    }
+
+    expect(projection.details.isPotCommandAvailable).toBe(true)
+    expect(projection.details.commandSections.primary.A.map((entry) => entry.commandType)).toEqual([
+      'pot.record',
+      'frame.award',
+    ])
+    expect(projection.details.commandSections.primary.B.map((entry) => entry.commandType)).toEqual(['pot.record'])
+    expect(projection.details.commandSections.secondary.A.map((entry) => entry.commandType)).toEqual([
+      'pot.record',
+      'pot.record',
+      'foul.commit',
+    ])
+    expect(projection.details.commandSections.secondary.B.map((entry) => entry.commandType)).toEqual([
+      'pot.record',
+      'pot.record',
+      'foul.commit',
+    ])
   })
 
   test('combined pyramid old control projects +1, +2 and foul deduction', () => {
-    expect(
-      deriveGameProjection({
-        gameKey: 'combined-pyramid-old',
-        state: { pointsBySeat: { A: 2, B: 1 }, targetPointsBySeat: { A: 8, B: 8 }, phase: 'open-play' },
-        projection: 'control',
-      }),
-    ).toEqual({
+    const projection = deriveGameProjection({
       gameKey: 'combined-pyramid-old',
+      state: { pointsBySeat: { A: 2, B: 1 }, targetPointsBySeat: { A: 8, B: 8 }, phase: 'open-play' },
       projection: 'control',
-      score: { A: 2, B: 1 },
-      availableCommands: [
-        { commandType: 'pot.record', command: { points: 1 }, label: '+1', prominence: 'primary' },
-        { commandType: 'pot.record', command: { points: 2 }, label: '+2', prominence: 'secondary' },
-        {
-          commandType: 'foul.commit',
-          command: {},
-          label: 'Фол',
-          prominence: 'secondary',
-          effectSummary: 'Offender -1 point (negative allowed)',
-        },
-      ],
+    }) as {
       details: {
-        phase: 'open-play',
-        winner: undefined,
-        situationTitle: 'Open play',
-        situationSummary: 'Record shot value or foul for either player.',
-      },
-    })
+        commandSections: {
+          primary: { A: Array<{ commandType: string }>; B: Array<{ commandType: string }> }
+          secondary: {
+            A: Array<{ commandType: string; effectSummary?: string }>
+            B: Array<{ commandType: string; effectSummary?: string }>
+          }
+        }
+      }
+    }
+
+    expect(projection.details.commandSections.primary.A.map((entry) => entry.commandType)).toEqual(['pot.record'])
+    expect(projection.details.commandSections.primary.B.map((entry) => entry.commandType)).toEqual(['pot.record'])
+    expect(projection.details.commandSections.secondary.A.map((entry) => entry.commandType)).toEqual([
+      'pot.record',
+      'foul.commit',
+    ])
+    expect(projection.details.commandSections.secondary.B.map((entry) => entry.commandType)).toEqual([
+      'pot.record',
+      'foul.commit',
+    ])
+    expect(
+      projection.details.commandSections.secondary.A.find((entry) => entry.commandType === 'foul.commit')?.effectSummary,
+    ).toBe('Offender -1 point (negative allowed)')
   })
 
   test('free pyramid frame.award closes gameplay state', () => {
@@ -304,9 +311,13 @@ describe('gameplay runtime api', () => {
 
     expect(state).toEqual({
       score: { A: 0, B: 0 },
-      targetPointsBySeat: { A: 9, B: 9 },
+      targetPoints: { A: 9, B: 9 },
       coloredBallsOnTable: [1, 2, 3, 4, 5, 6, 7],
-      phase: { type: 'not-started' },
+      cueBallSerialPots: null,
+      foulOffender: null,
+      winner: null,
+      winReason: null,
+      phase: 'not-started',
     })
 
     ;({ state } = applyGameCommand({
@@ -318,9 +329,13 @@ describe('gameplay runtime api', () => {
 
     expect(state).toEqual({
       score: { A: 0, B: 0 },
-      targetPointsBySeat: { A: 9, B: 9 },
+      targetPoints: { A: 9, B: 9 },
       coloredBallsOnTable: [1, 2, 3, 4, 5, 6, 7],
-      phase: { type: 'open-play', actor: 'A', cueBallPotsInRun: 0 },
+      cueBallSerialPots: null,
+      foulOffender: null,
+      winner: null,
+      winReason: null,
+      phase: 'open-play',
     })
   })
 
@@ -330,9 +345,13 @@ describe('gameplay runtime api', () => {
         gameKey: 'strila-v2',
         state: {
           score: { A: 2, B: 0 },
-          targetPointsBySeat: { A: 9, B: 9 },
+          targetPoints: { A: 9, B: 9 },
           coloredBallsOnTable: [2, 4, 7],
-          phase: { type: 'open-play', actor: 'A', cueBallPotsInRun: 0 },
+          cueBallSerialPots: null,
+          foulOffender: null,
+          winner: null,
+          winReason: null,
+          phase: 'open-play',
         },
         projection: 'scoreboard',
       }),

@@ -1,4 +1,12 @@
-import { BySeatNumberSchema, MatchConfigSchema, SeatSchema, type ClientEvent, type MatchSnapshot, type Seat } from '@ks/core'
+import {
+  BySeatNumberSchema,
+  MatchConfigSchema,
+  SeatSchema,
+  type BySeatNumber,
+  type ClientEvent,
+  type MatchSnapshot,
+  type Seat,
+} from '@ks/core'
 import { applyGameCommand, createInitialGameState, deriveGameProjection, parseGameKey } from '@ks/gameplay'
 import { z } from 'zod'
 
@@ -11,10 +19,10 @@ export type MatchState = {
     gameState: unknown
     // Denormalized per-frame score for cheap match list / summary reads without
     // needing to rehydrate gameState and invoke gameplay projections.
-    pointsBySeat: { A: number; B: number }
+    pointsBySeat: BySeatNumber
     winnerSeat?: Seat
   }[]
-  framesWonBySeat: { A: number; B: number }
+  framesWonBySeat: BySeatNumber
   currentFrameIndex: number
 }
 

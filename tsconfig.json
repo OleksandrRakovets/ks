@@ -7,6 +7,7 @@
     { "path": "packages/i18n" },
     { "path": "packages/themes" },
     { "path": "packages/ui" },
+    { "path": "clients/machine-explorer" },
     { "path": "clients/rr7" }
   ]
 }

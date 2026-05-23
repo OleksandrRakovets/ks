@@ -5,6 +5,7 @@ export type LocalizedGameTitle = {
   en: string
 }
 
+import type { BySeatNumber } from '@ks/core'
 import invariant from 'tiny-invariant'
 
 import type { GameplayRuntime } from './abstract-runtime'
@@ -15,7 +16,7 @@ export type GameMeta = {
   title: LocalizedGameTitle
   description: LocalizedGameTitle
   inputMode: GameInputMode
-  defaultFrameTargetPointsBySeat: { A: number; B: number }
+  defaultFrameTargetPointsBySeat: BySeatNumber
 }
 
 function createPyramidEntry(args: {
@@ -26,7 +27,7 @@ function createPyramidEntry(args: {
   allowNegative: boolean
   foulPenalty: 'opponent-plus-one' | 'offender-minus-one'
   shotPointOptions: number[]
-  defaultFrameTargetPointsBySeat: { A: number; B: number }
+  defaultFrameTargetPointsBySeat: BySeatNumber
 }): { meta: GameMeta; runtime: GameplayRuntime } {
   return {
     meta: {

@@ -29,7 +29,7 @@ export default function SparringMatchesRoute() {
   const { matches } = useLoaderData<typeof loader>()
 
   return (
-    <main className="min-h-dvh flex-1 bg-background px-4 py-6 text-foreground">
+    <main className="flex-1 bg-background px-4 py-6 text-foreground">
       <div className="mx-auto w-full max-w-3xl">
         <div className="mb-6">
           <h1 className="text-3xl font-semibold tracking-tight">{t(keys.match.sparring.title)}</h1>
@@ -58,8 +58,8 @@ export default function SparringMatchesRoute() {
                 </div>
                 <div className="shrink-0">
                   {match.status === 'active' ? (
-                    <span className="flex items-center gap-1.5 text-xs font-medium text-[--ctp-green]">
-                      <span className="h-1.5 w-1.5 rounded-full bg-[--ctp-green]" />
+                    <span className="flex items-center gap-1.5 text-xs font-medium text-[--a-green]">
+                      <span className="h-1.5 w-1.5 rounded-full bg-[--a-green]" />
                       Live
                     </span>
                   ) : (

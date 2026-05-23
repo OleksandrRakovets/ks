@@ -38,10 +38,9 @@ describe('replay undo', () => {
       { type: 'frame.award', actor: 'A' },
     ]
 
-    expect(replayStrilaRecord(recorded).state.phase).toEqual({
-      type: 'frame-over',
-      winner: 'A',
-    })
+    const state = replayStrilaRecord(recorded).state
+    expect(state.phase).toBe('frame-over')
+    expect(state.winner).toBe('A')
     expect(canUndoStrilaRecord(recorded)).toBe(false)
     expect(undoLastPlayerCommand(recorded, 'A')).toEqual({ ok: false, reason: 'frame-already-awarded' })
   })

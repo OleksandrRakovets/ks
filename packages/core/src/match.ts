@@ -6,6 +6,10 @@ import { MatchIdSchema, PlayerRefSchema } from './ids'
 export const SeatSchema = z.enum(['A', 'B'])
 export type Seat = z.infer<typeof SeatSchema>
 
+export function opponentOf(seat: Seat): Seat {
+  return seat === 'A' ? 'B' : 'A'
+}
+
 export const GameKeySchema = z
   .string()
   .min(1)
@@ -18,6 +22,7 @@ export const GameIdSchema = GameKeySchema
 export type GameId = GameKey
 
 export const BySeatNumberSchema = z.object({ A: z.number().int(), B: z.number().int() })
+export type BySeatNumber = z.infer<typeof BySeatNumberSchema>
 
 export const MatchTargetsSchema = z.object({
   frameTargetPointsBySeat: BySeatNumberSchema,

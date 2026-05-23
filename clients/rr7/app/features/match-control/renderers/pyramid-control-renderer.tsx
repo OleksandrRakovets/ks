@@ -1,167 +1,84 @@
+import { PyramidControlViewSchema } from '@ks/gameplay'
 import { Button } from '@ks/ui'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 
 import type { MatchControlRendererProps } from './types'
 
-function seatFromCommand(command: Record<string, unknown>): 'A' | 'B' | null {
-  const actor = command.actor
-  if (actor === 'A' || actor === 'B') return actor
+type PyramidControlView = ReturnType<typeof PyramidControlViewSchema.parse>
+type Command = PyramidControlView['details']['commandSections']['primary']['A'][number]
+type SeatCommands = PyramidControlView['details']['commandSections']['primary']
 
-  const seat = command.seat
-  if (seat === 'A' || seat === 'B') return seat
-  return null
+function buttonVariant(prominence: Command['prominence']): 'default' | 'secondary' | 'outline' {
+  if (prominence === 'primary') return 'default'
+  if (prominence === 'secondary') return 'secondary'
+  return 'outline'
+}
+
+function CommandRows(props: {
+  title: string
+  commands: SeatCommands
+  onSubmit: (args: { commandType: string; command: Record<string, unknown> }) => void
+}) {
+  function renderButton(command: Command, key: string) {
+    return (
+      <div key={key} className="grid gap-1">
+        <Button
+          type="button"
+          variant={buttonVariant(command.prominence)}
+          size="touch"
+          onClick={() => props.onSubmit({ commandType: command.commandType, command: command.command })}
+        >
+          {command.label ?? command.commandType}
+        </Button>
+        {command.effectSummary ? <p className="text-center text-sm text-text-lo">{command.effectSummary}</p> : null}
+      </div>
+    )
+  }
+
+  return (
+    <section aria-label={`${props.title} commands`} className="border-b border-divider px-4 pt-1 pb-4">
+      <p className="mt-2 text-xs leading-none font-semibold tracking-widest text-text-ghost uppercase">{props.title}</p>
+      <div className="mt-3 grid grid-cols-2 gap-6">
+        <div className="grid gap-3">{props.commands.A.map((command, index) => renderButton(command, `A-${index}`))}</div>
+        <div className="grid gap-3">{props.commands.B.map((command, index) => renderButton(command, `B-${index}`))}</div>
+      </div>
+    </section>
+  )
 }
 
 export function PyramidControlRenderer(props: MatchControlRendererProps) {
   const [showTertiary, setShowTertiary] = useState(false)
+  const parsed = useMemo(() => PyramidControlViewSchema.safeParse(props.projection), [props.projection])
 
-  const shotCommands = props.projection.availableCommands.filter((c) => c.commandType === 'pot.record')
-  const foulCommand = props.projection.availableCommands.find((c) => c.commandType === 'foul.commit')
-  const otherCommands = props.projection.availableCommands.filter(
-    (c) => c.commandType !== 'pot.record' && c.commandType !== 'foul.commit',
-  )
-  const primaryOther = otherCommands.filter((c) => c.prominence === 'primary')
-  const secondaryOther = otherCommands.filter((c) => c.prominence === 'secondary')
-  const tertiaryOther = otherCommands.filter((c) => c.prominence === 'tertiary')
-  const hasTertiary = tertiaryOther.length > 0
-
-  const seatCommandTemplate = shotCommands[0]?.command ?? foulCommand?.command
-  const explicitSeat = seatCommandTemplate ? seatFromCommand(seatCommandTemplate) : null
-  const seats: ('A' | 'B')[] = explicitSeat ? [explicitSeat] : ['A', 'B']
-
-  function submitShot(seat: 'A' | 'B', points: number) {
-    const base = shotCommands[0]?.command ?? { seat }
-    props.onSubmitCommand({ commandType: 'pot.record', command: { ...base, seat, points } })
+  if (!parsed.success) {
+    return <p className="px-4 py-3 text-sm text-muted-foreground">Invalid Pyramid control projection.</p>
   }
 
-  function submitFoul(seat: 'A' | 'B') {
-    const base = foulCommand?.command ?? { seat }
-    props.onSubmitCommand({ commandType: 'foul.commit', command: { ...base, seat } })
-  }
+  const details = parsed.data.details
+  const hasTertiary = details.commandSections.tertiary.A.length > 0 || details.commandSections.tertiary.B.length > 0
 
   return (
     <div className="grid gap-4">
-      {(shotCommands.length > 0 || foulCommand) && (
-        <div className="grid grid-cols-2 gap-6">
-          {seats.map((seat) => (
-            <div key={seat} className="grid gap-2">
-              {shotCommands.length > 0 && (
-                <div style={{ display: 'grid', gridTemplateColumns: `repeat(${shotCommands.length}, 1fr)`, gap: '0.5rem' }}>
-                  {shotCommands.map((cmd) => {
-                    const points = cmd.command.points
-                    if (typeof points !== 'number' || !Number.isInteger(points)) return null
-                    return (
-                      <Button
-                        key={cmd.label ?? `+${points}`}
-                        type="button"
-                        variant={cmd.prominence === 'primary' ? 'default' : 'outline'}
-                        size="touch"
-                        onClick={() => submitShot(seat, points)}
-                      >
-                        {cmd.label ?? `+${points}`}
-                      </Button>
-                    )
-                  })}
-                </div>
-              )}
-              {foulCommand ? (
-                <Button type="button" variant="outline" className="h-auto px-3 py-2 text-sm" onClick={() => submitFoul(seat)}>
-                  {foulCommand.label ?? 'Фол'}
-                </Button>
-              ) : null}
-            </div>
-          ))}
-        </div>
+      {(details.commandSections.primary.A.length > 0 || details.commandSections.primary.B.length > 0) && (
+        <CommandRows title="Primary" commands={details.commandSections.primary} onSubmit={props.onSubmitCommand} />
       )}
 
-      {primaryOther.map((command, index) => {
-        const seat = seatFromCommand(command.command)
-        const btn = (
-          <Button
-            key={`${command.commandType}-${index}`}
-            type="button"
-            size="touch"
-            onClick={() => props.onSubmitCommand({ commandType: command.commandType, command: command.command })}
-          >
-            <span className="flex flex-col items-start gap-0.5">
-              <span>{command.label ?? command.commandType}</span>
-              {command.helpText ? <span className="text-xs opacity-70">{command.helpText}</span> : null}
-              {command.warning ? <span className="text-xs text-destructive">{command.warning}</span> : null}
-            </span>
-          </Button>
-        )
-        if (seat === 'A')
-          return (
-            <div key={`${command.commandType}-${index}`} className="grid grid-cols-2 gap-6">
-              {btn}
-              <div />
-            </div>
-          )
-        if (seat === 'B')
-          return (
-            <div key={`${command.commandType}-${index}`} className="grid grid-cols-2 gap-6">
-              <div />
-              {btn}
-            </div>
-          )
-        return btn
-      })}
-
-      {secondaryOther.map((command, index) => {
-        const seat = seatFromCommand(command.command)
-        const btn = (
-          <Button
-            key={`${command.commandType}-${index}`}
-            type="button"
-            variant="secondary"
-            className="h-auto px-3 py-2 text-sm"
-            onClick={() => props.onSubmitCommand({ commandType: command.commandType, command: command.command })}
-          >
-            <span className="flex flex-col items-start gap-0.5">
-              <span>{command.label ?? command.commandType}</span>
-              {command.helpText ? <span className="text-xs opacity-70">{command.helpText}</span> : null}
-              {command.warning ? <span className="text-xs text-destructive">{command.warning}</span> : null}
-            </span>
-          </Button>
-        )
-        if (seat === 'A')
-          return (
-            <div key={`${command.commandType}-${index}`} className="grid grid-cols-2 gap-6">
-              {btn}
-              <div />
-            </div>
-          )
-        if (seat === 'B')
-          return (
-            <div key={`${command.commandType}-${index}`} className="grid grid-cols-2 gap-6">
-              <div />
-              {btn}
-            </div>
-          )
-        return btn
-      })}
+      {(details.commandSections.secondary.A.length > 0 || details.commandSections.secondary.B.length > 0) && (
+        <CommandRows title="Secondary" commands={details.commandSections.secondary} onSubmit={props.onSubmitCommand} />
+      )}
 
       {hasTertiary && (
         <div className="grid gap-3">
           <button
             type="button"
-            className="text-left text-xs text-muted-foreground transition-colors hover:text-foreground"
+            className="text-left text-xs text-muted-foreground hover:text-foreground"
             onClick={() => setShowTertiary((v) => !v)}
           >
             {showTertiary ? '▲ Сховати' : '··· Більше'}
           </button>
-          {showTertiary &&
-            tertiaryOther.map((command, index) => (
-              <Button
-                key={`${command.commandType}-${index}`}
-                type="button"
-                variant="outline"
-                className="h-auto px-3 py-2 text-sm"
-                onClick={() => props.onSubmitCommand({ commandType: command.commandType, command: command.command })}
-              >
-                {command.label ?? command.commandType}
-              </Button>
-            ))}
+          {showTertiary && (
+            <CommandRows title="Tertiary" commands={details.commandSections.tertiary} onSubmit={props.onSubmitCommand} />
+          )}
         </div>
       )}
     </div>

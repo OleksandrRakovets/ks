@@ -1,11 +1,12 @@
+import { SeatSchema, type Seat } from '@ks/core'
 import { z } from 'zod'
 
-import { StrilaCommandSchema, StrilaSeatSchema, type StrilaSeat } from './definitions'
+import { StrilaCommandSchema } from './definitions'
 import { replayStrilaRecord } from './replay'
 
 export const StrilaUndoCommandSchema = z.object({
   type: z.literal('undo-last-player-command'),
-  actor: StrilaSeatSchema,
+  actor: SeatSchema,
 })
 export type StrilaUndoCommand = z.infer<typeof StrilaUndoCommandSchema>
 
@@ -42,10 +43,10 @@ export type StrilaUndoResult =
       reason: 'nothing-to-undo' | 'frame-already-awarded'
     }
 
-export function undoLastPlayerCommand(controllerEntries: StrilaControllerEntry[], actor: StrilaSeat): StrilaUndoResult {
+export function undoLastPlayerCommand(controllerEntries: StrilaControllerEntry[], actor: Seat): StrilaUndoResult {
   const before = replayStrilaRecord(controllerEntries)
 
-  if (before.state.phase.type === 'frame-over') {
+  if (before.state.phase === 'frame-over') {
     return { ok: false, reason: 'frame-already-awarded' }
   }
 

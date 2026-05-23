@@ -1,4 +1,5 @@
 import { createMatchService } from '@ks/competition'
+import type { BySeatNumber } from '@ks/core'
 import { isRegisteredGameKey, registry } from '@ks/gameplay'
 import { keys } from '@ks/i18n'
 import { Button, Input, Label, NumberInput } from '@ks/ui'
@@ -14,7 +15,7 @@ import { makeMatchWriteRepository } from '../server/match-room'
 type LoaderData = {
   gameKey: string
   title: string
-  defaultFrameTargetPointsBySeat: { A: number; B: number }
+  defaultFrameTargetPointsBySeat: BySeatNumber
 }
 
 type ActionData = {
@@ -127,7 +128,7 @@ export default function SparringInitRoute() {
   const isSubmitting = navigation.state === 'submitting'
 
   return (
-    <main className="min-h-dvh flex-1 bg-background px-4 py-6 text-foreground">
+    <main className="flex-1 bg-background px-4 py-6 text-foreground">
       <div className="mx-auto w-full max-w-2xl">
         <Form
           method="post"
@@ -144,7 +145,7 @@ export default function SparringInitRoute() {
             }
           }}
         >
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid gap-4">
             <div className="grid gap-2">
               <Label htmlFor="seatAName">{t(keys.match.sparring.playerA)}</Label>
               <Input id="seatAName" name="seatAName" autoComplete="off" required />

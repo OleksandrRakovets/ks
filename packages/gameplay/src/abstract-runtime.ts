@@ -1,3 +1,4 @@
+import type { BySeatNumber } from '@ks/core'
 import { z } from 'zod'
 
 export const GameProjectionKeySchema = z.enum(['control', 'scoreboard', 'summary'])
@@ -22,7 +23,6 @@ export const GameControlProjectionSchema = z.object({
   gameKey: z.string().min(1),
   projection: z.literal('control'),
   score: GameScoreSchema,
-  availableCommands: z.array(GameCommandPresetSchema),
   details: z.unknown().optional(),
 })
 
@@ -51,7 +51,7 @@ export type GameCommandResult = {
 }
 
 export type GameCreateStateArgs = {
-  targetPointsBySeat: { A: number; B: number }
+  targetPointsBySeat: BySeatNumber
 }
 
 export abstract class GameplayRuntime {

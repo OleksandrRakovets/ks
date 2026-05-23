@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Machine Explorer</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: system-ui, sans-serif;
+        background: #0f0f0f;
+        color: #e0e0e0;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+      header {
+        padding: 12px 20px;
+        background: #1a1a1a;
+        border-bottom: 1px solid #333;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      header h1 {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #fff;
+      }
+      header .badge {
+        font-size: 0.7rem;
+        padding: 2px 8px;
+        border-radius: 99px;
+        background: #2a2a2a;
+        color: #aaa;
+      }
+      #controls {
+        padding: 16px 20px;
+        background: #141414;
+        border-bottom: 1px solid #222;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+      }
+      #status {
+        padding: 16px 20px;
+        font-size: 0.875rem;
+        color: #aaa;
+        flex: 1;
+        overflow: auto;
+      }
+      .state-label {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #7ee787;
+        margin-bottom: 8px;
+      }
+      .context-block {
+        background: #1e1e1e;
+        border-radius: 6px;
+        padding: 12px;
+        font-family: monospace;
+        font-size: 0.8rem;
+        white-space: pre;
+      }
+      button {
+        padding: 6px 14px;
+        border: 1px solid #444;
+        border-radius: 6px;
+        background: #2a2a2a;
+        color: #e0e0e0;
+        cursor: pointer;
+        font-size: 0.8rem;
+      }
+      button:hover {
+        background: #3a3a3a;
+      }
+      button.primary {
+        background: #1f6feb;
+        border-color: #1f6feb;
+        color: #fff;
+      }
+      button.primary:hover {
+        background: #388bfd;
+      }
+      button:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+      .sep {
+        width: 1px;
+        height: 24px;
+        background: #333;
+        margin: 0 4px;
+      }
+      label {
+        font-size: 0.8rem;
+        color: #888;
+      }
+      input[type='number'] {
+        width: 52px;
+        padding: 4px 6px;
+        background: #1e1e1e;
+        border: 1px solid #444;
+        border-radius: 4px;
+        color: #e0e0e0;
+        font-size: 0.8rem;
+      }
+      .ball-row {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      .ball-btn {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        font-weight: 700;
+        font-size: 0.85rem;
+        padding: 0;
+        border: 2px solid transparent;
+      }
+      .ball-btn[data-ball='0'] {
+        background: #fff;
+        color: #000;
+      }
+      .ball-btn[data-ball='1'] {
+        background: #f5c518;
+        color: #000;
+      }
+      .ball-btn[data-ball='2'] {
+        background: #2563eb;
+        color: #fff;
+      }
+      .ball-btn[data-ball='3'] {
+        background: #dc2626;
+        color: #fff;
+      }
+      .ball-btn[data-ball='4'] {
+        background: #7c3aed;
+        color: #fff;
+      }
+      .ball-btn[data-ball='5'] {
+        background: #ea580c;
+        color: #fff;
+      }
+      .ball-btn[data-ball='6'] {
+        background: #16a34a;
+        color: #fff;
+      }
+      .ball-btn[data-ball='7'] {
+        background: #1a1a1a;
+        color: #fff;
+        border-color: #aaa;
+      }
+      .ball-btn.selected {
+        outline: 3px solid #7ee787;
+        outline-offset: 2px;
+      }
+      .ball-btn:disabled {
+        opacity: 0.25;
+        cursor: not-allowed;
+      }
+      #message {
+        font-size: 0.75rem;
+        color: #f87171;
+        margin-left: 8px;
+      }
+      .tab {
+        background: #1e1e1e;
+        border-color: #333;
+      }
+      .tab-active {
+        background: #2a3a2a;
+        border-color: #7ee787;
+        color: #7ee787;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Machine Explorer</h1>
+      <button id="tab-frame" class="tab tab-active">Frame</button>
+      <button id="tab-match" class="tab">Match</button>
+      <button
+        id="open-inspector"
+        style="
+          margin-left: auto;
+          padding: 5px 12px;
+          background: #1f6feb;
+          border: none;
+          border-radius: 6px;
+          color: #fff;
+          font-size: 0.8rem;
+          cursor: pointer;
+        "
+      >
+        Open Stately Inspector
+      </button>
+    </header>
+    <div id="controls"></div>
+    <div id="status"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

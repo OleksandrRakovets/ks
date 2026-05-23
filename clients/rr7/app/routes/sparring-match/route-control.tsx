@@ -26,11 +26,12 @@ import {
   resolveControlRenderer,
   type GameControlProjection,
   type HydratedMatchParticipants,
-} from '../features/match-control/renderers'
-import type { AppLoadContext } from '../server/context'
-import { requireEnv } from '../server/context'
-import { localeFromCookie } from '../server/locale'
-import { fetchMatchSnapshot, getMatchControlSecret, postMatchEvents } from '../server/match-room'
+} from '../../features/match-control/renderers'
+import type { AppLoadContext } from '../../server/context'
+import { requireEnv } from '../../server/context'
+import { localeFromCookie } from '../../server/locale'
+import { fetchMatchSnapshot, getMatchControlSecret, postMatchEvents } from '../../server/match-room'
+import { ScoreBox } from './score-box'
 
 type LoaderData = {
   snapshot: Awaited<ReturnType<typeof parseSnapshotBody>>['snapshot']
@@ -62,7 +63,6 @@ function emptyControlProjection(gameKey: string): GameControlProjection {
     gameKey,
     projection: 'control',
     score: { A: 0, B: 0 },
-    availableCommands: [],
   }
 }
 
@@ -216,7 +216,7 @@ export default function SparringMatchRoute() {
   const revalidator = useRevalidator()
 
   const latestSeqRef = useRef(snapshot.latestSeq)
-  const suppressRevalidateUntilSeqRef = useRef<number>(0)
+  const suppressRevalidateUntilSeqRef = useRef<number>(snapshot.latestSeq)
   const revalidateFnRef = useRef(revalidator.revalidate)
   const localSubmitInFlightRef = useRef(false)
 
@@ -307,23 +307,18 @@ export default function SparringMatchRoute() {
   }
 
   return (
-    <main className="flex flex-1 flex-col bg-background text-foreground">
-      {/* Score strip */}
-      <div className="sticky top-14 z-10 border-b border-border bg-background px-4 pt-4 pb-3">
-        <div className="mb-2 text-center text-xs text-muted-foreground tabular-nums">
-          {snapshot.framesWonBySeat.A} : {snapshot.framesWonBySeat.B}&ensp;·&ensp;
-          {t(keys.match.scoreboard.frame)} {frameIndex}&ensp;·&ensp; до {snapshot.targets.matchTargetFrames} перемог
-        </div>
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-          <span className="line-clamp-2 text-sm font-medium">{participants.A.displayName}</span>
-          <span className="text-5xl font-bold tracking-tight tabular-nums">
-            {controlProjection.score.A}&thinsp;:&thinsp;{controlProjection.score.B}
-          </span>
-          <span className="line-clamp-2 text-right text-sm font-medium">{participants.B.displayName}</span>
-        </div>
-      </div>
+    <main className="mx-auto flex flex-1 flex-col bg-surface lg:w-4xl">
+      <ScoreBox
+        nameA={participants.A.displayName}
+        nameB={participants.B.displayName}
+        matchScore={snapshot.framesWonBySeat}
+        frameScore={snapshot.frames[snapshot.currentFrameIndex - 1].pointsBySeat}
+        matchStatus={snapshot.status}
+        frameIndex={frameIndex}
+        targetFrames={snapshot.targets.matchTargetFrames}
+      />
 
-      <div className="flex flex-col gap-3 px-4 py-3">
+      <section aria-label="Per-game control container" className="flex flex-col">
         <Renderer
           projection={controlProjection}
           snapshot={snapshot}
@@ -365,7 +360,7 @@ export default function SparringMatchRoute() {
         {fetcher.data?.ok === false ? (
           <p className="text-sm text-destructive">{fetcher.data.errorKey ? t(fetcher.data.errorKey) : fetcher.data.error}</p>
         ) : null}
-      </div>
+      </section>
 
       <nav className="sticky bottom-0 z-10 mt-auto flex border-t border-border bg-background px-4">
         <span className="-mt-px flex-1 border-t-2 border-primary py-2.5 text-center text-sm font-medium text-foreground">
@@ -373,7 +368,7 @@ export default function SparringMatchRoute() {
         </span>
         <Link
           to={`/sparring/matches/${snapshot.matchId}/protocol`}
-          className="-mt-px flex-1 border-t-2 border-transparent py-2.5 text-center text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+          className="-mt-px flex-1 border-t-2 border-transparent py-2.5 text-center text-sm font-medium text-muted-foreground hover:text-foreground"
         >
           {t(keys.match.sparring.tabProtocol)}
         </Link>

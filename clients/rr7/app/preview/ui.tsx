@@ -1,161 +1,135 @@
-import {
-  Badge,
-  Button,
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-  Input,
-  Label,
-  Separator,
-  Textarea,
-} from '@ks/ui'
-import { useState } from 'react'
-import { Link, useSearchParams } from 'react-router'
+import { Badge, Button, Input, Label, Separator, Textarea } from '@ks/ui'
+import { useFetcher } from 'react-router'
 
-const previewFlavors = {
-  mocha: { label: 'Catppuccin Mocha', dark: true },
-  latte: { label: 'Catppuccin Latte', dark: false },
-} as const
+import { useRootTheme } from '../root'
+import type { AppTheme } from '../server/theme'
 
-type FlavorId = keyof typeof previewFlavors
+function Section({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
+  return (
+    <section className="border-t border-divider py-6">
+      <div className="mb-4">
+        <h2 className="text-sm font-semibold text-text-hi">{title}</h2>
+        {description && <p className="mt-0.5 text-xs text-text-ghost">{description}</p>}
+      </div>
+      {children}
+    </section>
+  )
+}
 
-function isFlavorId(value: string): value is FlavorId {
-  return value in previewFlavors
+function SubSection({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="mb-4 last:mb-0">
+      <p className="mb-2 text-xs font-semibold tracking-widest text-text-ghost uppercase">{label}</p>
+      {children}
+    </div>
+  )
+}
+
+export const handle = {
+  headerConfig: () => ({ title: 'UI Preview Lab', backTo: '/top-secret/preview' }),
 }
 
 export default function PreviewUiRoute() {
-  const [searchParams, setSearchParams] = useSearchParams()
-  const flavorId = searchParams.get('flavor') === 'latte' ? 'latte' : 'mocha'
-  const [compact, setCompact] = useState(false)
-  const flavor = previewFlavors[flavorId]
-  const flavorClass = flavorId === 'latte' ? 'latte' : 'dark'
+  const currentTheme = useRootTheme()
+  const fetcher = useFetcher()
 
-  function setFlavor(flavor: FlavorId) {
-    const next = new URLSearchParams(searchParams)
-    if (flavor === 'mocha') {
-      next.delete('flavor')
-    } else {
-      next.set('flavor', flavor)
-    }
-    setSearchParams(next, { replace: true })
+  function setTheme(theme: AppTheme) {
+    fetcher.submit({ theme }, { method: 'post', action: '/api/theme' })
   }
 
   return (
-    <div className={`min-h-dvh bg-background px-4 py-6 text-foreground ${flavorClass}`}>
-      <div className="mx-auto w-full max-w-6xl space-y-4">
-        <div className="text-sm text-muted-foreground">
-          <Link className="underline-offset-4 hover:underline" to="/top-secret/preview">
-            Preview index
-          </Link>
+    <div className="min-h-dvh bg-background px-4 pb-12 text-foreground">
+      <div className="mx-auto w-full max-w-3xl">
+        <div className="flex justify-end gap-2 py-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setTheme(currentTheme === 'club-light' ? 'club-dark' : 'club-light')}
+          >
+            {currentTheme === 'club-light' ? 'Dark' : 'Light'}
+          </Button>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>UI Preview Lab</CardTitle>
-            <CardDescription>Internal preview route for Catppuccin-backed package components.</CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-3">
-            <div className="grid gap-2">
-              <Label htmlFor="flavor">Flavor</Label>
-              <select
-                id="flavor"
-                value={flavorId}
-                onChange={(event) => {
-                  if (isFlavorId(event.target.value)) {
-                    setFlavor(event.target.value)
-                  }
-                }}
-                className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-              >
-                {Object.entries(previewFlavors).map(([key, value]) => (
-                  <option key={key} value={key}>
-                    {value.label}
-                  </option>
-                ))}
-              </select>
+        <Section title="Buttons" description="All variants × sizes.">
+          <SubSection label="Variants">
+            <div className="flex flex-wrap gap-2">
+              <Button>Default</Button>
+              <Button variant="secondary">Secondary</Button>
+              <Button variant="outline">Outline</Button>
+              <Button variant="ghost">Ghost</Button>
+              <Button variant="destructive">Destructive</Button>
+              <Button variant="link">Link</Button>
             </div>
-            <div className="grid gap-2">
-              <Label>Density</Label>
-              <div className="flex flex-wrap gap-2">
-                <Button variant={compact ? 'outline' : 'default'} size="sm" onClick={() => setCompact(false)}>
-                  Comfortable
-                </Button>
-                <Button variant={compact ? 'default' : 'outline'} size="sm" onClick={() => setCompact(true)}>
-                  Compact
-                </Button>
-              </div>
+          </SubSection>
+          <SubSection label="Sizes">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button size="sm">SM</Button>
+              <Button size="default">Default</Button>
+              <Button size="touch">Touch</Button>
             </div>
-            <div className="grid gap-2">
-              <Label>Current mode</Label>
-              <div className="flex flex-wrap gap-2">
-                <Badge>{flavor.label}</Badge>
-                <Badge variant="secondary">{flavor.dark ? 'Dark' : 'Light'}</Badge>
-                <Badge variant="outline">Default: Mocha</Badge>
-                <Badge variant="destructive">Token test</Badge>
-              </div>
-              <div className="text-xs text-muted-foreground">
-                Use <code>?flavor=latte</code> in URL to force light flavor.
-              </div>
+          </SubSection>
+          <SubSection label="Icon sizes">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button size="icon-sm" aria-label="icon-sm">
+                +
+              </Button>
+              <Button size="icon" aria-label="icon">
+                +
+              </Button>
+              <Button size="icon-lg" aria-label="icon-lg">
+                +
+              </Button>
             </div>
-          </CardContent>
-        </Card>
+          </SubSection>
+          <SubSection label="States">
+            <div className="flex flex-wrap gap-2">
+              <Button disabled>Disabled</Button>
+              <Button variant="outline" disabled>
+                Outline disabled
+              </Button>
+              <Button variant="destructive" disabled>
+                Destructive disabled
+              </Button>
+            </div>
+          </SubSection>
+        </Section>
 
-        <div className="grid gap-4 lg:grid-cols-2">
-          <Card size={compact ? 'sm' : 'default'}>
-            <CardHeader>
-              <CardTitle>Buttons</CardTitle>
-              <CardDescription>Variants and sizes pulled from @ks/ui.</CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-4">
-              <div className="flex flex-wrap gap-2">
-                <Button>Primary</Button>
-                <Button variant="secondary">Secondary</Button>
-                <Button variant="outline">Outline</Button>
-                <Button variant="ghost">Ghost</Button>
-                <Button variant="destructive">Destructive</Button>
-                <Button variant="link">Link style</Button>
-              </div>
-              <Separator />
-              <div className="flex flex-wrap items-center gap-2">
-                <Button size="xs">XS</Button>
-                <Button size="sm">SM</Button>
-                <Button size="default">Default</Button>
-                <Button size="lg">LG</Button>
-                <Button size="icon" aria-label="Icon">
-                  +
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+        <Section title="Badges">
+          <div className="flex flex-wrap gap-2">
+            <Badge>Default</Badge>
+            <Badge variant="secondary">Secondary</Badge>
+            <Badge variant="outline">Outline</Badge>
+            <Badge variant="destructive">Destructive</Badge>
+          </div>
+        </Section>
 
-          <Card size={compact ? 'sm' : 'default'}>
-            <CardHeader>
-              <CardTitle>Form Controls</CardTitle>
-              <CardDescription>Inputs and textarea in a neutral match setup context.</CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-3">
-              <div className="grid gap-2">
-                <Label htmlFor="match-name">Match name</Label>
-                <Input id="match-name" defaultValue="Friday Ladder Final" />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="operator-note">Operator note</Label>
-                <Textarea
-                  id="operator-note"
-                  defaultValue="Table 2 stream is delayed by 8 seconds."
-                  className={compact ? 'min-h-12' : 'min-h-20'}
-                />
-              </div>
-            </CardContent>
-            <CardFooter className="justify-end gap-2">
+        <Section title="Form Controls" description="Inputs in a match setup context.">
+          <div className="grid max-w-sm gap-4">
+            <div className="grid gap-1.5">
+              <Label htmlFor="match-name">Match name</Label>
+              <Input id="match-name" defaultValue="Friday Ladder Final" placeholder="Welcome to edit" />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="operator-note">Operator note</Label>
+              <Textarea id="operator-note" defaultValue="Table 2 stream is delayed by 8 seconds." className={'min-h-20'} />
+            </div>
+            <div className="flex justify-end gap-2">
               <Button variant="ghost">Reset</Button>
               <Button>Save</Button>
-            </CardFooter>
-          </Card>
-        </div>
+            </div>
+          </div>
+        </Section>
+
+        <Section title="Separator">
+          <div className="grid gap-3">
+            <Separator />
+            <div className="flex items-center gap-3">
+              <Separator className="flex-1" />
+              <span className="text-xs text-text-ghost">or</span>
+              <Separator className="flex-1" />
+            </div>
+          </div>
+        </Section>
       </div>
     </div>
   )
