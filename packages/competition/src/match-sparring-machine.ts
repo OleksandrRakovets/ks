@@ -32,6 +32,23 @@ function currentFrameWinner(context: MatchContext): Seat {
   return winner
 }
 
+function scoreWithCurrentFrame(context: MatchContext): BySeatNumber {
+  const currentWinner = context.currentFrame?.winner
+  return {
+    A: context.framesWonBySeat.A + (currentWinner === 'A' ? 1 : 0),
+    B: context.framesWonBySeat.B + (currentWinner === 'B' ? 1 : 0),
+  }
+}
+
+function matchWinnerFromScore(score: BySeatNumber, target: number): Seat | null {
+  const aWon = score.A >= target
+  const bWon = score.B >= target
+
+  if (aWon && !bWon) return 'A'
+  if (bWon && !aWon) return 'B'
+  return null
+}
+
 export const matchSparringMachine = setup({
   types: {
     context: {} as MatchContext,
@@ -45,9 +62,9 @@ export const matchSparringMachine = setup({
     isCurrentFrameOver: ({ context }) => context.currentFrame?.phase === 'frame-over',
     isMatchTargetReached: ({ context }) => {
       if (context.currentFrame?.winner === null || context.currentFrame?.winner === undefined) return false
-      const winner = currentFrameWinner(context)
-      return context.framesWonBySeat[winner] + 1 >= context.matchTargetFrames
+      return matchWinnerFromScore(scoreWithCurrentFrame(context), context.matchTargetFrames) !== null
     },
+    hasMatchWinner: ({ context }) => matchWinnerFromScore(scoreWithCurrentFrame(context), context.matchTargetFrames) !== null,
   },
   actions: {
     applySetup: assign(({ event }) => {
@@ -91,10 +108,11 @@ export const matchSparringMachine = setup({
       }
     }),
     setMatchWinner: assign(({ context }) => {
-      const currentWinner = context.currentFrame?.winner
-      const aWins = context.framesWonBySeat.A + (currentWinner === 'A' ? 1 : 0)
+      const winner = matchWinnerFromScore(scoreWithCurrentFrame(context), context.matchTargetFrames)
+      if (winner === null) throw new Error('Match has no winner')
+
       return {
-        matchWinner: aWins >= context.matchTargetFrames ? ('A' as Seat) : ('B' as Seat),
+        matchWinner: winner,
       }
     }),
   },
@@ -128,6 +146,7 @@ export const matchSparringMachine = setup({
           actions: 'startFrame',
         },
         'match.end': {
+          guard: 'hasMatchWinner',
           target: 'match-over',
           actions: 'setMatchWinner',
         },

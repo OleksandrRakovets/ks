@@ -16,7 +16,7 @@ export function ScoreBox({ nameA, nameB, matchStatus, matchScore, frameScore, fr
   const numberA = isLive ? frameScore.A : matchScore.A
   const numberB = isLive ? frameScore.B : matchScore.B
   const isAWinner = !isLive && numberA > numberB
-  const isBWinner = !isLive && frameScore.B > frameScore.A
+  const isBWinner = !isLive && numberB > numberA
 
   return (
     <div className="sticky top-11 z-10 border-b border-divider bg-background">

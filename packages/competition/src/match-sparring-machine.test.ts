@@ -75,6 +75,7 @@ describe('match-sparring: frame lifecycle', () => {
 })
 
 describe('match-sparring: match target', () => {
+  // TODO: concession scenarios
   test('reaching match target transitions to match-over', () => {
     const actor = createMatchActor()
     actor.send({ type: 'match.setup', frameTargetPointsBySeat: StrilaMeta.defaultTargetPoints, matchTargetFrames: 2 })
@@ -98,14 +99,24 @@ describe('match-sparring: match target', () => {
     expect(snap(actor).context.framesWonBySeat).toEqual({ A: 1, B: 2 })
   })
 
-  test('explicit match.end in between-frames transitions to match-over', () => {
+  test('match.end before target is ignored', () => {
     const actor = createMatchActor()
     actor.send({ type: 'match.setup', frameTargetPointsBySeat: StrilaMeta.defaultTargetPoints, matchTargetFrames: 3 })
     playFrame(actor, 'A')
     playFrame(actor, 'A')
     actor.send({ type: 'match.end' })
 
-    expect(getMatchPhase(snap(actor))).toBe('match-over')
+    expect(getMatchPhase(snap(actor))).toBe('between-frames')
+    expect(snap(actor).context.matchWinner).toBeNull()
+  })
+
+  test('match.end at 0-0 is ignored', () => {
+    const actor = createMatchActor()
+    actor.send({ type: 'match.setup', frameTargetPointsBySeat: StrilaMeta.defaultTargetPoints, matchTargetFrames: 3 })
+    actor.send({ type: 'match.end' })
+
+    expect(getMatchPhase(snap(actor))).toBe('between-frames')
+    expect(snap(actor).context.matchWinner).toBeNull()
   })
 })
 
