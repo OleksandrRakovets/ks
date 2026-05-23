@@ -1,4 +1,4 @@
-import { opponentOf, type Seat } from '@ks/core'
+import { emptyControlCommandSections, opponentOf, type Seat } from '@ks/core'
 import invariant from 'tiny-invariant'
 
 import { type GameCreateStateArgs, type GameProjectionKey, GameplayRuntime } from '../abstract-runtime'
@@ -100,11 +100,7 @@ function deriveBallStatuses(state: StrilaFrameState): StrilaControlDetails['ball
 }
 
 function deriveCommandSections(commands: StrilaControlCommand[]): StrilaControlDetails['commandSections'] {
-  const sections: StrilaControlDetails['commandSections'] = {
-    primary: { neutral: [], A: [], B: [] },
-    secondary: { neutral: [], A: [], B: [] },
-    tertiary: { neutral: [], A: [], B: [] },
-  }
+  const sections = emptyControlCommandSections()
 
   commands.forEach((entry) => {
     sections[entry.prominence][entry.seat ?? 'neutral'].push(entry)

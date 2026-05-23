@@ -1,4 +1,4 @@
-import { BySeatNumberSchema, ControlCommandSectionsSchema, SeatSchema, opponentOf } from '@ks/core'
+import { BySeatNumberSchema, ControlCommandSectionsSchema, SeatSchema, emptyControlCommandSections, opponentOf } from '@ks/core'
 import invariant from 'tiny-invariant'
 import { z } from 'zod'
 
@@ -84,23 +84,7 @@ export const PyramidControlViewSchema = GameControlProjectionSchema.extend({
 })
 
 function deriveCommandSections(commands: z.infer<typeof PyramidControlCommandSchema>[]) {
-  const sections = {
-    primary: {
-      neutral: [] as z.infer<typeof PyramidControlCommandSchema>[],
-      A: [] as z.infer<typeof PyramidControlCommandSchema>[],
-      B: [] as z.infer<typeof PyramidControlCommandSchema>[],
-    },
-    secondary: {
-      neutral: [] as z.infer<typeof PyramidControlCommandSchema>[],
-      A: [] as z.infer<typeof PyramidControlCommandSchema>[],
-      B: [] as z.infer<typeof PyramidControlCommandSchema>[],
-    },
-    tertiary: {
-      neutral: [] as z.infer<typeof PyramidControlCommandSchema>[],
-      A: [] as z.infer<typeof PyramidControlCommandSchema>[],
-      B: [] as z.infer<typeof PyramidControlCommandSchema>[],
-    },
-  }
+  const sections = emptyControlCommandSections()
 
   for (const entry of commands) {
     sections[entry.prominence][entry.seat ?? 'neutral'].push(entry)
@@ -312,11 +296,7 @@ export class PyramidGameplayRuntime extends GameplayRuntime {
             situationTitle: 'Frame over',
             situationSummary: 'No further scoring commands are available.',
             isPotCommandAvailable: false,
-            commandSections: {
-              primary: { neutral: [], A: [], B: [] },
-              secondary: { neutral: [], A: [], B: [] },
-              tertiary: { neutral: [], A: [], B: [] },
-            },
+            commandSections: emptyControlCommandSections(),
           },
         })
       }
