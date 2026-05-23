@@ -13,10 +13,10 @@
     "@ks/core": "workspace:*",
     "@ks/gameplay": "workspace:*",
     "@statelyai/inspect": "^0.7.1",
-    "xstate": "^5.30.0"
+    "xstate": "catalog:"
   },
   "devDependencies": {
-    "typescript": "^5.8.3",
+    "typescript": "catalog:",
     "vite": "^8.0.10"
   }
 }

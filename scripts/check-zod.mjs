@@ -6,14 +6,19 @@ const SOURCE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs',
 const SKIP_DIRS = new Set(['node_modules', '.git', '.wrangler', '.opencode', 'dist', 'build'])
 
 const rootPackageJson = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'))
-const pinnedZodVersion = rootPackageJson?.overrides?.zod
+const workspaceConfig = rootPackageJson.workspaces
+const workspacePatterns = Array.isArray(workspaceConfig)
+  ? workspaceConfig
+  : Array.isArray(workspaceConfig?.packages)
+    ? workspaceConfig.packages
+    : []
+const pinnedZodVersion = workspaceConfig?.catalog?.zod
 
 if (typeof pinnedZodVersion !== 'string' || !pinnedZodVersion) {
-  console.error('Missing root package override for zod')
+  console.error('Missing root workspace catalog entry for zod')
   process.exit(1)
 }
 
-const workspacePatterns = Array.isArray(rootPackageJson.workspaces) ? rootPackageJson.workspaces : []
 const workspacePaths = []
 
 for (const pattern of workspacePatterns) {
@@ -73,7 +78,7 @@ for (const workspacePath of workspacePaths) {
   const zodVersion =
     packageJson?.dependencies?.zod ?? packageJson?.devDependencies?.zod ?? packageJson?.peerDependencies?.zod ?? null
 
-  if (zodVersion && zodVersion !== pinnedZodVersion) {
+  if (zodVersion && zodVersion !== 'catalog:') {
     mismatchedVersionPackages.push({ packageName, zodVersion })
   }
 
@@ -122,7 +127,7 @@ if (invalidImportMatches.length || missingDependencyPackages.length || mismatche
   }
 
   if (mismatchedVersionPackages.length) {
-    console.error(`Packages with zod version different from root override (${pinnedZodVersion}):`)
+    console.error(`Packages with zod version not using root catalog (${pinnedZodVersion}):`)
     for (const item of mismatchedVersionPackages) {
       console.error(`- ${item.packageName}: ${item.zodVersion}`)
     }
@@ -131,4 +136,4 @@ if (invalidImportMatches.length || missingDependencyPackages.length || mismatche
   process.exit(1)
 }
 
-console.log(`zod checks passed with pinned version ${pinnedZodVersion}`)
+console.log(`zod checks passed with catalog version ${pinnedZodVersion}`)

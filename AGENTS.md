@@ -41,7 +41,7 @@ KS is a billiards scorekeeping app for a local club. Core use case: two-player m
 - `check:zod` enforces:
   - import from `zod` only (never `zod/v4`),
   - any package using zod must declare direct `zod` dependency,
-  - zod version must match root pin (`overrides.zod`, currently `4.3.6`).
+  - zod version must either match root pin (`overrides.zod`) or defer to root by `catalog:`.
 
 ## Architecture guardrails
 
