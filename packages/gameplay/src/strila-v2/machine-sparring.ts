@@ -448,6 +448,10 @@ export function getPhase(snapshot: StrilaSparringSnapshot): StrilaPhase {
 }
 
 export function sendEvent(snapshot: StrilaSparringSnapshot, event: StrilaEvent): StrilaSparringSnapshot {
+  if (!snapshot.can(event)) {
+    throw new Error(`Invalid Strila event ${event.type} in phase ${getPhase(snapshot)}`)
+  }
+
   if (event.type === 'pot.record') {
     for (const ball of event.pottedBalls) {
       if (ball !== 0 && !snapshot.context.coloredBallsOnTable.includes(ball)) {

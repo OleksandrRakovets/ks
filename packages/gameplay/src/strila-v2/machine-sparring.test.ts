@@ -282,6 +282,14 @@ describe('machine-sparring: continued break after winner', () => {
 })
 
 describe('machine-sparring: ball validation', () => {
+  test('rejects events that are invalid for the current phase', () => {
+    const snap = start()
+
+    expect(() => sendEvent(snap, { type: 'pot.record', actor: 'A', pottedBalls: [1] })).toThrow(
+      'Invalid Strila event pot.record in phase not-started',
+    )
+  })
+
   test('pot.record rejects colored ball not on table', () => {
     let snap = start()
     snap = sendEvent(snap, { type: 'frame.commence', actor: 'A' })
