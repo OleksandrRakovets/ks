@@ -1,7 +1,15 @@
-import { applyMatchEvent, emptyMatchState, snapshotFromMatchState, type MatchState } from '@ks/competition'
+import {
+  applyMatchEvent,
+  deriveSparringMatchControlSections,
+  emptyMatchState,
+  mergeControlCommandSections,
+  snapshotFromMatchState,
+  type MatchState,
+} from '@ks/competition'
 import {
   ClientEventSchema,
   ClientIdSchema,
+  ControlCommandSectionsSchema,
   ControlCommandSchema,
   MatchConfigSchema,
   MatchIdSchema,
@@ -126,8 +134,17 @@ export class MatchRoom implements DurableObject {
               projection: 'control',
             })
           : undefined
+      const gameSections = ControlCommandSectionsSchema.safeParse(
+        typeof controlProjection === 'object' && controlProjection !== null && 'details' in controlProjection
+          ? (controlProjection.details as { commandSections?: unknown } | undefined)?.commandSections
+          : undefined,
+      )
+      const controlSections = mergeControlCommandSections(
+        deriveSparringMatchControlSections(roomState.matchState),
+        gameSections.success ? gameSections.data : undefined,
+      )
 
-      return json({ ok: true, snapshot, controlProjection })
+      return json({ ok: true, snapshot, controlProjection, controlSections })
     })
 
     this.app.post('/events', async (c) => {

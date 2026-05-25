@@ -1,16 +1,19 @@
 import { describe, expect, test } from 'bun:test'
 
-import { emptyControlCommandSections, newMatchId, type ControlCommandSections, type MatchSnapshot } from '@ks/core'
+import { emptyControlCommandSections, newMatchId, type ControlCommandSections } from '@ks/core'
 
 import { deriveSparringMatchControlSections, mergeControlCommandSections } from './control'
+import type { MatchState } from './match-state'
 
-function snapshot(args?: Partial<MatchSnapshot>): MatchSnapshot {
+function matchState(args?: Partial<MatchState>): MatchState {
   return {
-    matchId: newMatchId(),
-    gameKey: 'strila-v2',
-    targets: {
-      frameTargetPointsBySeat: { A: 9, B: 9 },
-      matchTargetFrames: 3,
+    config: {
+      matchId: newMatchId(),
+      gameKey: 'strila-v2',
+      targets: {
+        frameTargetPointsBySeat: { A: 9, B: 9 },
+        matchTargetFrames: 3,
+      },
     },
     status: 'active',
     currentFrameIndex: 1,
@@ -22,14 +25,13 @@ function snapshot(args?: Partial<MatchSnapshot>): MatchSnapshot {
         winnerSeat: 'A',
       },
     ],
-    latestSeq: 1,
     ...args,
   }
 }
 
 describe('deriveSparringMatchControlSections', () => {
   test('emits frame.start as a neutral match command between unfinished frames', () => {
-    const sections = deriveSparringMatchControlSections(snapshot())
+    const sections = deriveSparringMatchControlSections(matchState())
 
     expect(sections.secondary.neutral).toEqual([
       {
@@ -47,7 +49,7 @@ describe('deriveSparringMatchControlSections', () => {
 
   test('emits match.end as a neutral match command after target is reached', () => {
     const sections = deriveSparringMatchControlSections(
-      snapshot({
+      matchState({
         framesWonBySeat: { A: 3, B: 1 },
         frames: [
           {
@@ -73,7 +75,7 @@ describe('deriveSparringMatchControlSections', () => {
 
   test('emits no match controls while current frame is unawarded', () => {
     const sections = deriveSparringMatchControlSections(
-      snapshot({
+      matchState({
         frames: [
           {
             frameIndex: 1,

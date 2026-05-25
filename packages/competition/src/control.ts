@@ -1,33 +1,17 @@
-import { emptyControlCommandSections, type ControlCommandSections, type MatchSnapshot } from '@ks/core'
+import { emptyControlCommandSections, type ControlCommandSections } from '@ks/core'
 
-export type MatchLifecycleDecisions = {
-  isMatchTargetReached: boolean
-  canStartNextFrame: boolean
-  canEndMatch: boolean
-}
+import type { MatchState } from './match-state'
 
-export function deriveMatchLifecycleDecisions(snapshot: MatchSnapshot): MatchLifecycleDecisions {
-  const currentFrame = snapshot.frames[snapshot.frames.length - 1]
+export function deriveSparringMatchControlSections(matchState: MatchState): ControlCommandSections {
+  const currentFrame = matchState.frames[matchState.frames.length - 1]
   const winnerSeat = currentFrame?.winnerSeat
-  const isActive = snapshot.status === 'active'
-
-  const framesWonA = snapshot.framesWonBySeat.A
-  const framesWonB = snapshot.framesWonBySeat.B
-  const targetFrames = snapshot.targets.matchTargetFrames
-  const isMatchTargetReached = framesWonA >= targetFrames || framesWonB >= targetFrames
-
-  return {
-    isMatchTargetReached,
-    canStartNextFrame: isActive && Boolean(winnerSeat) && !isMatchTargetReached,
-    canEndMatch: isActive && Boolean(winnerSeat) && isMatchTargetReached,
-  }
-}
-
-export function deriveSparringMatchControlSections(snapshot: MatchSnapshot): ControlCommandSections {
-  const decisions = deriveMatchLifecycleDecisions(snapshot)
+  const matchTargetFrames = matchState.config?.targets.matchTargetFrames
+  const isMatchTargetReached =
+    matchTargetFrames != null &&
+    (matchState.framesWonBySeat.A >= matchTargetFrames || matchState.framesWonBySeat.B >= matchTargetFrames)
   const sections = emptyControlCommandSections()
 
-  if (decisions.canStartNextFrame) {
+  if (matchState.status === 'active' && winnerSeat && !isMatchTargetReached) {
     sections.secondary.neutral.push({
       source: 'match',
       commandType: 'frame.start',
@@ -37,7 +21,7 @@ export function deriveSparringMatchControlSections(snapshot: MatchSnapshot): Con
     })
   }
 
-  if (decisions.canEndMatch) {
+  if (matchState.status === 'active' && winnerSeat && isMatchTargetReached) {
     sections.secondary.neutral.push({
       source: 'match',
       commandType: 'match.end',

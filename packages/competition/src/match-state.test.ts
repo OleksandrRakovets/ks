@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 
 import { ClientEventSchema, newClientId, newEventId, newMatchId, type ClientEvent, type MatchConfig } from '@ks/core'
 
-import { applyMatchEvent, deriveMatchLifecycleDecisions, emptyMatchState, snapshotFromMatchState } from './index'
+import { applyMatchEvent, deriveSparringMatchControlSections, emptyMatchState } from './index'
 
 function baseEvent<TType extends ClientEvent['type']>(
   matchId: string,
@@ -130,10 +130,8 @@ describe('match-state room facts', () => {
     state = applyMatchEvent(state, frameCompleted(config, 1, 'A'))
     expect(state.status).toBe('active')
 
-    const snapshot = snapshotFromMatchState(state, 3)
-    const decisionsBeforeEnd = deriveMatchLifecycleDecisions(snapshot)
-    expect(decisionsBeforeEnd.canStartNextFrame).toBe(false)
-    expect(decisionsBeforeEnd.canEndMatch).toBe(true)
+    const sectionsBeforeEnd = deriveSparringMatchControlSections(state)
+    expect(sectionsBeforeEnd.secondary.neutral.map((command) => command.commandType)).toEqual(['match.end'])
 
     state = applyMatchEvent(state, baseEvent(config.matchId, 'match.ended', { winnerSeat: 'A' }))
     expect(state.status).toBe('finished')

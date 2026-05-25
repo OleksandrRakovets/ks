@@ -1,5 +1,11 @@
 import { normalizeMatchId, type MatchWriteRepository } from '@ks/competition'
-import { MatchSnapshotSchema, StoredEventSchema, type ControlCommand, type StoredEvent } from '@ks/core'
+import {
+  ControlCommandSectionsSchema,
+  MatchSnapshotSchema,
+  StoredEventSchema,
+  type ControlCommand,
+  type StoredEvent,
+} from '@ks/core'
 import { GameControlProjectionSchema, isRegisteredGameKey, registry } from '@ks/gameplay'
 import type { SupportedLocale } from '@ks/i18n'
 import { z } from 'zod'
@@ -33,6 +39,7 @@ const DoSnapshotResponseSchema = z.union([
     ok: z.literal(true),
     snapshot: MatchSnapshotSchema,
     controlProjection: GameControlProjectionSchema.optional(),
+    controlSections: ControlCommandSectionsSchema.optional(),
   }),
   z.object({
     ok: z.literal(false),
@@ -80,7 +87,13 @@ export async function fetchMatchSnapshot(env: AppEnv, rawMatchId: string, locale
     B: await hydrateParticipant(env, matchRow.seat_b_player_ref, locale),
   }
 
-  return Response.json({ ok: true, snapshot, participants, controlProjection: payload.data.controlProjection })
+  return Response.json({
+    ok: true,
+    snapshot,
+    participants,
+    controlProjection: payload.data.controlProjection,
+    controlSections: payload.data.controlSections,
+  })
 }
 
 export async function getMatchControlSecret(env: AppEnv, rawMatchId: string): Promise<string | null> {

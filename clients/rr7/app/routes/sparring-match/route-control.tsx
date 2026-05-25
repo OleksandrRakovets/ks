@@ -1,5 +1,5 @@
-import { deriveMatchLifecycleDecisions } from '@ks/competition'
 import {
+  ControlCommandSectionsSchema,
   ControlCommandSchema,
   ErrorResponseSchema,
   HydratedMatchParticipantsSchema,
@@ -7,6 +7,9 @@ import {
   PostEventsResponseSchema,
   StreamEventSchema,
   StreamReadySchema,
+  emptyControlCommandSections,
+  type ControlCommandSections,
+  type ControlCommandPreset,
 } from '@ks/core'
 import { GameControlProjectionSchema, isRegisteredGameKey, registry } from '@ks/gameplay'
 import { keys } from '@ks/i18n'
@@ -31,6 +34,7 @@ type LoaderData = {
   snapshot: Awaited<ReturnType<typeof parseSnapshotBody>>['snapshot']
   participants: HydratedMatchParticipants
   controlProjection: GameControlProjection
+  controlSections: ControlCommandSections
   gameTitle: string
 }
 
@@ -48,6 +52,7 @@ const SnapshotResponseWithControlSchema = z.union([
     snapshot: MatchSnapshotSchema,
     participants: HydratedMatchParticipantsSchema,
     controlProjection: GameControlProjectionSchema.optional(),
+    controlSections: ControlCommandSectionsSchema.optional(),
   }),
   ErrorResponseSchema,
 ])
@@ -96,6 +101,7 @@ export async function loader({
     snapshot: body.snapshot,
     participants: body.participants,
     controlProjection: body.controlProjection ?? emptyControlProjection(gameKey),
+    controlSections: body.controlSections ?? emptyControlCommandSections(),
     gameTitle,
   }
 }
@@ -122,10 +128,18 @@ export async function action({
   const actionType = String(form.get('actionType') ?? 'game-command')
   let command: unknown
 
-  if (actionType === 'start-next-frame') {
-    command = { source: 'match', commandType: 'frame.start', command: {} }
-  } else if (actionType === 'end-match') {
-    command = { source: 'match', commandType: 'match.end', command: {} }
+  if (actionType === 'control-command') {
+    const source = String(form.get('source') ?? '')
+    const commandType = String(form.get('commandType') ?? '')
+    const rawCommandJson = String(form.get('commandJson') ?? '{}')
+    let parsedCommand: unknown
+    try {
+      parsedCommand = JSON.parse(rawCommandJson)
+    } catch {
+      return { ok: false, errorKey: keys.match.control.invalidEventPayload }
+    }
+
+    command = { source, commandType, command: parsedCommand ?? {} }
   } else {
     const gameKey = String(form.get('gameKey') ?? '')
     const commandType = String(form.get('commandType') ?? '')
@@ -175,7 +189,7 @@ export const handle = {
 
 export default function SparringMatchRoute() {
   const { t } = useTranslation()
-  const { snapshot, participants, controlProjection } = useLoaderData<typeof loader>()
+  const { snapshot, participants, controlProjection, controlSections } = useLoaderData<typeof loader>()
   const fetcher = useFetcher<typeof action>()
   const revalidator = useRevalidator()
 
@@ -251,10 +265,22 @@ export default function SparringMatchRoute() {
     }
   }, [snapshot.matchId])
 
-  const decisions = deriveMatchLifecycleDecisions(snapshot)
   const frameIndex = snapshot.currentFrameIndex
   const Renderer = resolveControlRenderer(snapshot.gameKey)
   const isSubmitting = fetcher.state === 'submitting'
+
+  function submitPreset(command: ControlCommandPreset) {
+    localSubmitInFlightRef.current = true
+    fetcher.submit(
+      {
+        actionType: 'control-command',
+        source: command.source,
+        commandType: command.commandType,
+        commandJson: JSON.stringify(command.command),
+      },
+      { method: 'post' },
+    )
+  }
 
   function submitControlCommand(args: { commandType: string; command: Record<string, unknown> }) {
     localSubmitInFlightRef.current = true
@@ -291,35 +317,22 @@ export default function SparringMatchRoute() {
           onSubmitCommand={submitControlCommand}
         />
 
-        {decisions.canStartNextFrame ? (
+        {controlSections.secondary.neutral.map((command) => (
           <Button
+            key={`${command.source}:${command.commandType}`}
             type="button"
             variant="secondary"
             className="h-auto justify-start rounded-xl px-4 py-3 text-left text-sm"
             disabled={isSubmitting}
-            onClick={() => {
-              localSubmitInFlightRef.current = true
-              fetcher.submit({ actionType: 'start-next-frame', frameIndex: String(frameIndex) }, { method: 'post' })
-            }}
+            onClick={() => submitPreset(command)}
           >
-            {t(keys.match.control.startNextFrame)}
+            {command.commandType === 'frame.start'
+              ? t(keys.match.control.startNextFrame)
+              : command.commandType === 'match.end'
+                ? t(keys.match.control.endMatch)
+                : (command.label ?? command.commandType)}
           </Button>
-        ) : null}
-
-        {decisions.canEndMatch ? (
-          <Button
-            type="button"
-            variant="secondary"
-            className="h-auto justify-start rounded-xl px-4 py-3 text-left text-sm"
-            disabled={isSubmitting}
-            onClick={() => {
-              localSubmitInFlightRef.current = true
-              fetcher.submit({ actionType: 'end-match', frameIndex: String(frameIndex) }, { method: 'post' })
-            }}
-          >
-            {t(keys.match.control.endMatch)}
-          </Button>
-        ) : null}
+        ))}
 
         {fetcher.data?.ok === false ? (
           <p className="text-sm text-destructive">{fetcher.data.errorKey ? t(fetcher.data.errorKey) : fetcher.data.error}</p>
