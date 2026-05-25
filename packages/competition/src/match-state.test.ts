@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 
 import { ClientEventSchema, newClientId, newEventId, newMatchId, type ClientEvent, type MatchConfig } from '@ks/core'
 
-import { applyMatchEvent, deriveSparringMatchControlSections, emptyMatchState } from './index'
+import { applyMatchEvent, deriveSparringControlSections, emptyMatchState } from './index'
 
 function baseEvent<TType extends ClientEvent['type']>(
   matchId: string,
@@ -130,7 +130,7 @@ describe('match-state room facts', () => {
     state = applyMatchEvent(state, frameCompleted(config, 1, 'A'))
     expect(state.status).toBe('active')
 
-    const sectionsBeforeEnd = deriveSparringMatchControlSections(state)
+    const sectionsBeforeEnd = deriveSparringControlSections({ matchState: state })
     expect(sectionsBeforeEnd.secondary.neutral.map((command) => command.commandType)).toEqual(['match.end'])
 
     state = applyMatchEvent(state, baseEvent(config.matchId, 'match.ended', { winnerSeat: 'A' }))

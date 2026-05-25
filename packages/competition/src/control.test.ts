@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test'
 
-import { emptyControlCommandSections, newMatchId, type ControlCommandSections } from '@ks/core'
+import { emptyControlCommandSections, newMatchId } from '@ks/core'
 
-import { deriveSparringMatchControlSections, mergeControlCommandSections } from './control'
+import { deriveSparringControlSections } from './control'
 import type { MatchState } from './match-state'
 
 function matchState(args?: Partial<MatchState>): MatchState {
@@ -29,9 +29,9 @@ function matchState(args?: Partial<MatchState>): MatchState {
   }
 }
 
-describe('deriveSparringMatchControlSections', () => {
+describe('deriveSparringControlSections', () => {
   test('emits frame.start as a neutral match command between unfinished frames', () => {
-    const sections = deriveSparringMatchControlSections(matchState())
+    const sections = deriveSparringControlSections({ matchState: matchState() })
 
     expect(sections.secondary.neutral).toEqual([
       {
@@ -48,8 +48,8 @@ describe('deriveSparringMatchControlSections', () => {
   })
 
   test('emits match.end as a neutral match command after target is reached', () => {
-    const sections = deriveSparringMatchControlSections(
-      matchState({
+    const sections = deriveSparringControlSections({
+      matchState: matchState({
         framesWonBySeat: { A: 3, B: 1 },
         frames: [
           {
@@ -60,7 +60,7 @@ describe('deriveSparringMatchControlSections', () => {
         ],
         currentFrameIndex: 4,
       }),
-    )
+    })
 
     expect(sections.secondary.neutral).toEqual([
       {
@@ -74,8 +74,8 @@ describe('deriveSparringMatchControlSections', () => {
   })
 
   test('emits no match controls while current frame is unawarded', () => {
-    const sections = deriveSparringMatchControlSections(
-      matchState({
+    const sections = deriveSparringControlSections({
+      matchState: matchState({
         frames: [
           {
             frameIndex: 1,
@@ -83,24 +83,13 @@ describe('deriveSparringMatchControlSections', () => {
           },
         ],
       }),
-    )
+    })
 
     expect(sections).toEqual(emptyControlCommandSections())
   })
-})
 
-describe('mergeControlCommandSections', () => {
   test('merges match and game commands without moving buckets', () => {
-    const matchSections = emptyControlCommandSections()
     const gameSections = emptyControlCommandSections()
-
-    matchSections.secondary.neutral.push({
-      source: 'match',
-      commandType: 'frame.start',
-      command: {},
-      label: 'Start next frame',
-      prominence: 'secondary',
-    })
     gameSections.primary.A.push({
       source: 'game',
       commandType: 'pot.record',
@@ -110,7 +99,10 @@ describe('mergeControlCommandSections', () => {
       prominence: 'primary',
     })
 
-    const merged = mergeControlCommandSections(matchSections, gameSections)
+    const merged = deriveSparringControlSections({
+      matchState: matchState(),
+      gameControlProjection: { details: { commandSections: gameSections } },
+    })
 
     expect(merged.secondary.neutral.map((command) => command.commandType)).toEqual(['frame.start'])
     expect(merged.primary.A.map((command) => command.commandType)).toEqual(['pot.record'])
@@ -118,15 +110,20 @@ describe('mergeControlCommandSections', () => {
   })
 
   test('treats missing game sections as empty', () => {
-    const matchSections: ControlCommandSections = emptyControlCommandSections()
-    matchSections.secondary.neutral.push({
-      source: 'match',
-      commandType: 'match.end',
-      command: {},
-      label: 'End match',
-      prominence: 'secondary',
+    const sections = deriveSparringControlSections({
+      matchState: matchState({
+        framesWonBySeat: { A: 3, B: 1 },
+        frames: [
+          {
+            frameIndex: 4,
+            pointsBySeat: { A: 9, B: 4 },
+            winnerSeat: 'A',
+          },
+        ],
+        currentFrameIndex: 4,
+      }),
     })
 
-    expect(mergeControlCommandSections(matchSections)).toEqual(matchSections)
+    expect(sections.secondary.neutral.map((command) => command.commandType)).toEqual(['match.end'])
   })
 })
