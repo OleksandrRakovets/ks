@@ -1,4 +1,4 @@
-import { emptyControlCommandSections, opponentOf, type Seat } from '@ks/core'
+import { emptyControlCommandSections, opponentOf, type FrameOutcome, type Seat } from '@ks/core'
 import invariant from 'tiny-invariant'
 
 import { type GameCreateStateArgs, type GameProjectionKey, GameplayRuntime } from '../abstract-runtime'
@@ -305,6 +305,15 @@ function restoreSnapshot(state: StrilaFrameState): StrilaSparringSnapshot {
   })
 }
 
+function strilaOutcome(state: StrilaFrameState): FrameOutcome | undefined {
+  if (state.phase !== 'frame-over' || state.winner === null || state.winReason === null) return undefined
+  return {
+    winnerSeat: state.winner,
+    score: state.score,
+    winReason: state.winReason === 'conceded' ? 'conceded' : 'target-reached',
+  }
+}
+
 export class StrilaGameplayRuntime extends GameplayRuntime {
   createInitialState(args: GameCreateStateArgs): StrilaFrameState {
     return serializeSnapshot(createInitialSnapshot(args.targetPointsBySeat))
@@ -314,14 +323,17 @@ export class StrilaGameplayRuntime extends GameplayRuntime {
     return StrilaFrameStateSchema.parse(state)
   }
 
-  applyCommand(input: StrilaCommandEnvelope): { state: unknown; protocolEntries?: unknown[] } {
+  applyCommand(input: StrilaCommandEnvelope): { state: unknown; outcome?: FrameOutcome; protocolEntries?: unknown[] } {
     const previous = this.parseState(input.state)
     const command = parseStrilaCommand(input)
     const next = sendEvent(restoreSnapshot(previous), command)
+    const state = serializeSnapshot(next)
+    const outcome = strilaOutcome(state)
 
     return {
-      state: serializeSnapshot(next),
-      protocolEntries: projectStrilaProtocolEntries({ previous, command, next: serializeSnapshot(next) }),
+      state,
+      ...(outcome ? { outcome } : {}),
+      protocolEntries: projectStrilaProtocolEntries({ previous, command, next: state }),
     }
   }
 

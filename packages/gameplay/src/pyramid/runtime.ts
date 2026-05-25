@@ -1,4 +1,11 @@
-import { BySeatNumberSchema, ControlCommandSectionsSchema, SeatSchema, emptyControlCommandSections, opponentOf } from '@ks/core'
+import {
+  BySeatNumberSchema,
+  ControlCommandSectionsSchema,
+  SeatSchema,
+  emptyControlCommandSections,
+  opponentOf,
+  type FrameOutcome,
+} from '@ks/core'
 import invariant from 'tiny-invariant'
 import { z } from 'zod'
 
@@ -21,6 +28,15 @@ const PyramidFrameStateSchema = z.object({
 })
 
 type PyramidFrameState = z.infer<typeof PyramidFrameStateSchema>
+
+function pyramidOutcome(state: PyramidFrameState): FrameOutcome | undefined {
+  if (state.phase !== 'frame-over' || !state.winnerSeat) return undefined
+  return {
+    winnerSeat: state.winnerSeat,
+    score: state.pointsBySeat,
+    winReason: 'target-reached',
+  }
+}
 
 const ShotRecordedCommandSchema = z.object({
   seat: SeatSchema,
@@ -217,12 +233,16 @@ export class PyramidGameplayRuntime extends GameplayRuntime {
       `Cannot award pyramid frame to ${command.seat} before target score`,
     )
 
+    const nextState = {
+      ...state,
+      phase: 'frame-over',
+      winnerSeat: command.seat,
+    } satisfies PyramidFrameState
+    const outcome = pyramidOutcome(nextState)
+
     return {
-      state: {
-        ...state,
-        phase: 'frame-over',
-        winnerSeat: command.seat,
-      } satisfies PyramidFrameState,
+      state: nextState,
+      ...(outcome ? { outcome } : {}),
     }
   }
 

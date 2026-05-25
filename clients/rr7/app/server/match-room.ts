@@ -1,6 +1,5 @@
 import { normalizeMatchId, type MatchWriteRepository } from '@ks/competition'
-import { MatchSnapshotSchema, StoredEventSchema, type StoredEvent } from '@ks/core'
-import type { ClientEvent } from '@ks/core'
+import { MatchSnapshotSchema, StoredEventSchema, type ControlCommand, type StoredEvent } from '@ks/core'
 import { GameControlProjectionSchema, isRegisteredGameKey, registry } from '@ks/gameplay'
 import type { SupportedLocale } from '@ks/i18n'
 import { z } from 'zod'
@@ -161,7 +160,7 @@ export async function postMatchEvents(
   env: AppEnv,
   rawMatchId: string,
   controlSecret: string,
-  events: ClientEvent[],
+  commands: ControlCommand[],
 ): Promise<Response> {
   const matchId = normalizeMatchId(rawMatchId)
   const id = env.MATCH_ROOM.idFromName(matchId)
@@ -172,7 +171,7 @@ export async function postMatchEvents(
       'content-type': 'application/json',
       'x-ks-match-id': matchId,
     },
-    body: JSON.stringify({ controlSecret, events }),
+    body: JSON.stringify({ controlSecret, commands }),
   })
 }
 

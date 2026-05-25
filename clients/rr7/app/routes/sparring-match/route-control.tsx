@@ -1,20 +1,14 @@
 import { deriveMatchLifecycleDecisions } from '@ks/competition'
 import {
-  ClientIdSchema,
-  ClientEventSchema,
+  ControlCommandSchema,
   ErrorResponseSchema,
-  FrameStartedEventSchema,
   HydratedMatchParticipantsSchema,
-  GameCommandEventSchema,
   MatchSnapshotSchema,
-  MatchEndedEventSchema,
-  MatchIdSchema,
-  newEventId,
   PostEventsResponseSchema,
   StreamEventSchema,
   StreamReadySchema,
 } from '@ks/core'
-import { GameControlProjectionSchema, isRegisteredGameKey, registry, type RegisteredGameKey } from '@ks/gameplay'
+import { GameControlProjectionSchema, isRegisteredGameKey, registry } from '@ks/gameplay'
 import { keys } from '@ks/i18n'
 import { Button } from '@ks/ui'
 import { useEffect, useRef } from 'react'
@@ -126,34 +120,12 @@ export async function action({
 
   const form = await request.formData()
   const actionType = String(form.get('actionType') ?? 'game-command')
-  const frameIndex = Number(form.get('frameIndex') ?? '0')
-  const parsedMatchId = MatchIdSchema.parse(matchId)
-  const parsedClientId = ClientIdSchema.parse('server0000')
-
-  function serverEventBase() {
-    return {
-      eventId: newEventId(),
-      matchId: parsedMatchId,
-      clientId: parsedClientId,
-      clientSeq: 0,
-      at: Date.now(),
-    }
-  }
-
-  let event: unknown
+  let command: unknown
 
   if (actionType === 'start-next-frame') {
-    event = FrameStartedEventSchema.parse({
-      ...serverEventBase(),
-      type: 'frame.started',
-      payload: { frameIndex: frameIndex + 1 },
-    })
+    command = { source: 'match', commandType: 'frame.start', command: {} }
   } else if (actionType === 'end-match') {
-    event = MatchEndedEventSchema.parse({
-      ...serverEventBase(),
-      type: 'match.ended',
-      payload: { reason: 'manual-control' },
-    })
+    command = { source: 'match', commandType: 'match.end', command: {} }
   } else {
     const gameKey = String(form.get('gameKey') ?? '')
     const commandType = String(form.get('commandType') ?? '')
@@ -169,23 +141,15 @@ export async function action({
       return { ok: false, errorKey: keys.match.control.invalidEventPayload }
     }
 
-    event = GameCommandEventSchema.parse({
-      ...serverEventBase(),
-      type: 'game.command',
-      payload: {
-        gameKey: gameKey as RegisteredGameKey,
-        commandType,
-        command: (parsedCommand ?? {}) as Record<string, unknown>,
-      },
-    })
+    command = { source: 'game', commandType, command: parsedCommand ?? {} }
   }
 
-  const parsedEvent = ClientEventSchema.safeParse(event)
-  if (!parsedEvent.success) {
+  const parsedCommand = ControlCommandSchema.safeParse(command)
+  if (!parsedCommand.success) {
     return { ok: false, errorKey: keys.match.control.invalidEventPayload }
   }
 
-  const res = await postMatchEvents(env, matchId, controlSecret, [parsedEvent.data])
+  const res = await postMatchEvents(env, matchId, controlSecret, [parsedCommand.data])
   const payload = PostEventsResponseSchema.parse(await res.json())
   if (!payload.ok) {
     return { ok: false, error: payload.error }

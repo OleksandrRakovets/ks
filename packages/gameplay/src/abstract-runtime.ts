@@ -1,4 +1,4 @@
-import { ControlCommandPresetSchema, type BySeatNumber } from '@ks/core'
+import { ControlCommandPresetSchema, type BySeatNumber, type FrameOutcome } from '@ks/core'
 import { z } from 'zod'
 
 export const GameProjectionKeySchema = z.enum(['control', 'scoreboard', 'summary'])
@@ -39,6 +39,7 @@ export type GameCommandEnvelope = {
 
 export type GameCommandResult = {
   state: unknown
+  outcome?: FrameOutcome
   protocolEntries?: unknown[]
 }
 

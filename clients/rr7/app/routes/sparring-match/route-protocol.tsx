@@ -127,11 +127,11 @@ function protocolLabel(event: StoredEvent, seatNames: { A: string; B: string }):
   if (event.type === 'frame.started') {
     return `Frame ${event.payload.frameIndex} started`
   }
-  if (event.type === 'frame.awarded') {
-    return `${seatLabel(event.payload.winnerSeat)}: frame awarded`
+  if (event.type === 'frame.completed') {
+    return `${seatLabel(event.payload.outcome.winnerSeat)}: frame completed`
   }
   if (event.type === 'match.ended') {
-    return 'Match ended'
+    return `${seatLabel(event.payload.winnerSeat)}: match ended`
   }
   return event.type
 }
