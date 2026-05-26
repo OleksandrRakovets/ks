@@ -62,6 +62,9 @@ function emptyControlProjection(gameKey: string): GameControlProjection {
     gameKey,
     projection: 'control',
     score: { A: 0, B: 0 },
+    details: {
+      commandSections: emptyControlCommandSections(),
+    },
   }
 }
 
@@ -268,6 +271,9 @@ export default function SparringMatchRoute() {
   const frameIndex = snapshot.currentFrameIndex
   const Renderer = resolveControlRenderer(snapshot.gameKey)
   const isSubmitting = fetcher.state === 'submitting'
+  const snapshotFrame = snapshot.frames[snapshot.currentFrameIndex - 1]
+  const frameScore = snapshotFrame?.winnerSeat ? snapshotFrame.pointsBySeat : controlProjection.score
+  const safeControlSections = controlSections ?? emptyControlCommandSections()
 
   function submitPreset(command: ControlCommandPreset) {
     localSubmitInFlightRef.current = true
@@ -302,7 +308,7 @@ export default function SparringMatchRoute() {
         nameA={participants.A.displayName}
         nameB={participants.B.displayName}
         matchScore={snapshot.framesWonBySeat}
-        frameScore={snapshot.frames[snapshot.currentFrameIndex - 1].pointsBySeat}
+        frameScore={frameScore}
         matchStatus={snapshot.status}
         frameIndex={frameIndex}
         targetFrames={snapshot.targets.matchTargetFrames}
@@ -317,7 +323,7 @@ export default function SparringMatchRoute() {
           onSubmitCommand={submitControlCommand}
         />
 
-        {controlSections.secondary.neutral.map((command) => (
+        {safeControlSections.secondary.neutral.map((command) => (
           <Button
             key={`${command.source}:${command.commandType}`}
             type="button"

@@ -1,4 +1,5 @@
 import { SnapshotResponseSchema, StreamEventSchema, StreamReadySchema } from '@ks/core'
+import { GameControlProjectionSchema } from '@ks/gameplay'
 import { themes } from '@ks/themes'
 import { useEffect, useRef } from 'react'
 import { useLoaderData, useParams, useRevalidator, useSearchParams } from 'react-router'
@@ -24,7 +25,7 @@ export async function loader({
   const res = await fetchMatchSnapshot(env, matchId, localeFromCookie(request.headers.get('cookie')))
   const body = SnapshotResponseSchema.parse(await res.json())
   if (!body.ok) throw new Response(body.error, { status: res.status === 200 ? 500 : res.status })
-  return { snapshot: body.snapshot, participants: body.participants }
+  return { snapshot: body.snapshot, participants: body.participants, controlProjection: body.controlProjection }
 }
 
 function isThemeId(value: string): value is keyof typeof themes {
@@ -40,7 +41,7 @@ function tryParseJson(raw: string): unknown | null {
 }
 
 export default function PublicScoreboardRoute() {
-  const { snapshot, participants } = useLoaderData<typeof loader>()
+  const { snapshot, participants, controlProjection: rawControlProjection } = useLoaderData<typeof loader>()
   const params = useParams()
   const [sp] = useSearchParams()
   const { revalidate } = useRevalidator()
@@ -108,8 +109,11 @@ export default function PublicScoreboardRoute() {
   const themeId = rawThemeId && isThemeId(rawThemeId) ? rawThemeId : 'club'
   const themeVars = themes[themeId]
   const cur = snapshot.frames[snapshot.frames.length - 1]
-  const pointsA = cur?.pointsBySeat?.A ?? 0
-  const pointsB = cur?.pointsBySeat?.B ?? 0
+  const controlProjection = GameControlProjectionSchema.safeParse(
+    snapshot.status === 'active' ? rawControlProjection : undefined,
+  )
+  const pointsA = controlProjection.success ? controlProjection.data.score.A : (cur?.pointsBySeat?.A ?? 0)
+  const pointsB = controlProjection.success ? controlProjection.data.score.B : (cur?.pointsBySeat?.B ?? 0)
   const framesA = snapshot.framesWonBySeat?.A ?? 0
   const framesB = snapshot.framesWonBySeat?.B ?? 0
   const frameIndex = snapshot.currentFrameIndex ?? 1

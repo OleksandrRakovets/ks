@@ -43,6 +43,11 @@ type RoomState = {
   currentFrameState: unknown | null
 }
 
+type CachedRoomState = {
+  latestSeq: number
+  roomState: RoomState
+}
+
 /** Returns headers required for a long-lived Server-Sent Events response. */
 function sseHeaders(): HeadersInit {
   return {
@@ -261,8 +266,8 @@ export class MatchRoom implements DurableObject {
   /** Loads the hot room cache, rebuilding it from the persisted event log when necessary. */
   private async loadRoomState(matchId: string): Promise<{ roomState: RoomState; latestSeq: number }> {
     const latestSeq = await getLatestSeq(this.env, matchId)
-    const cached = await this.state.storage.get<RoomState>('roomState')
-    if (cached) return { roomState: cached, latestSeq }
+    const cached = await this.state.storage.get<CachedRoomState>('roomState')
+    if (cached?.latestSeq === latestSeq) return { roomState: cached.roomState, latestSeq }
 
     let roomState: RoomState = { matchState: emptyMatchState(), currentFrameState: null }
     // D1 events are the source of truth; Durable Object storage is only a warm cache.
@@ -270,7 +275,7 @@ export class MatchRoom implements DurableObject {
     for (const ev of events) {
       roomState = this.applyRoomFact(roomState, ev)
     }
-    await this.state.storage.put('roomState', roomState)
+    await this.state.storage.put('roomState', { latestSeq, roomState } satisfies CachedRoomState)
     return { roomState, latestSeq }
   }
 
@@ -369,11 +374,10 @@ export class MatchRoom implements DurableObject {
   private async appendAcceptedFacts(matchId: string, events: ClientEvent[]): Promise<{ seq: number; eventId: string }[]> {
     // blockConcurrencyWhile makes this DO operation single-file, preserving event ordering under concurrent requests.
     return await this.state.blockConcurrencyWhile(async () => {
-      let seq = (await this.state.storage.get<number>('seq')) ?? (await getLatestSeq(this.env, matchId))
-      let roomState = await this.state.storage.get<RoomState>('roomState')
-      if (!roomState) {
-        roomState = (await this.loadRoomState(matchId)).roomState
-      }
+      let seq = await getLatestSeq(this.env, matchId)
+      let cached = await this.state.storage.get<CachedRoomState>('roomState')
+      let roomState = cached?.latestSeq === seq ? cached.roomState : undefined
+      if (!roomState) roomState = (await this.loadRoomState(matchId)).roomState
       const receivedAt = Date.now()
       const accepted: { seq: number; eventId: string }[] = []
 
@@ -416,8 +420,7 @@ export class MatchRoom implements DurableObject {
         }
       }
 
-      await this.state.storage.put('seq', seq)
-      await this.state.storage.put('roomState', roomState)
+      await this.state.storage.put('roomState', { latestSeq: seq, roomState } satisfies CachedRoomState)
       return accepted
     })
   }
@@ -426,8 +429,9 @@ export class MatchRoom implements DurableObject {
   private async acceptCommands(matchId: string, commands: ControlCommand[]): Promise<{ seq: number; eventId: string }[]> {
     // Commands are intents and never go to SSE directly; only persisted, sequenced facts are broadcast.
     return await this.state.blockConcurrencyWhile(async () => {
-      let seq = (await this.state.storage.get<number>('seq')) ?? (await getLatestSeq(this.env, matchId))
-      let roomState = await this.state.storage.get<RoomState>('roomState')
+      let seq = await getLatestSeq(this.env, matchId)
+      let cached = await this.state.storage.get<CachedRoomState>('roomState')
+      let roomState = cached?.latestSeq === seq ? cached.roomState : undefined
       if (!roomState) roomState = (await this.loadRoomState(matchId)).roomState
       const receivedAt = Date.now()
       const accepted: { seq: number; eventId: string }[] = []
@@ -474,8 +478,7 @@ export class MatchRoom implements DurableObject {
         }
       }
 
-      await this.state.storage.put('seq', seq)
-      await this.state.storage.put('roomState', roomState)
+      await this.state.storage.put('roomState', { latestSeq: seq, roomState } satisfies CachedRoomState)
       return accepted
     })
   }

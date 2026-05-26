@@ -233,7 +233,7 @@ export function makeMatchWriteRepository(env: AppEnv): MatchWriteRepository {
     initMatchRoom: async (args) => {
       const id = env.MATCH_ROOM.idFromName(args.matchId)
       const stub = env.MATCH_ROOM.get(id)
-      await stub.fetch('https://do/internal/init', {
+      const response = await stub.fetch('https://do/internal/init', {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
@@ -244,6 +244,9 @@ export function makeMatchWriteRepository(env: AppEnv): MatchWriteRepository {
           config: args.config,
         }),
       })
+      if (!response.ok) {
+        throw new Error(`Failed to initialize match room: ${response.status}`)
+      }
     },
   }
 }
