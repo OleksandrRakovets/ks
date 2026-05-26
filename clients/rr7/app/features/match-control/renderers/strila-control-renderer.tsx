@@ -1,3 +1,4 @@
+import type { ControlCommandPreset } from '@ks/core'
 import { StrilaMeta, StrilaControlViewSchema, type StrilaBall } from '@ks/gameplay'
 import { Button } from '@ks/ui'
 import { useMemo, useState } from 'react'
@@ -26,11 +27,9 @@ const BALL_LABELS: Record<StrilaBall, string> = {
   7: 'Black',
 }
 
-type StrilaControlView = ReturnType<typeof StrilaControlViewSchema.parse>
-type Command = StrilaControlView['details']['commandSections']['primary']['A'][number]
-type SeatCommands = StrilaControlView['details']['commandSections']['primary']
+type SeatCommands = MatchControlRendererProps['commandSections']['primary']
 
-function prominenceVariant(prominence: Command['prominence']): 'default' | 'secondary' | 'outline' {
+function prominenceVariant(prominence: ControlCommandPreset['prominence']): 'default' | 'secondary' | 'outline' {
   if (prominence === 'primary') return 'default'
   if (prominence === 'tertiary') return 'outline'
   return 'secondary'
@@ -45,11 +44,12 @@ function CommandRows({
   title: string
   commands: SeatCommands
   selectedBalls: StrilaBall[]
-  onSubmit: (commandType: string, command: Record<string, unknown>) => void
+  onSubmit: (command: ControlCommandPreset) => void
 }) {
-  function renderButton(cmd: Command, key: string) {
+  function renderButton(cmd: ControlCommandPreset, key: string) {
     const isPot = cmd.commandType === 'pot.record'
     const command = isPot ? { ...cmd.command, pottedBalls: selectedBalls } : cmd.command
+    const preset = { ...cmd, command }
     return (
       <div key={key} className="grid gap-1">
         <Button
@@ -57,7 +57,7 @@ function CommandRows({
           variant={prominenceVariant(cmd.prominence)}
           size="touch"
           disabled={isPot && selectedBalls.length === 0}
-          onClick={() => onSubmit(cmd.commandType, command)}
+          onClick={() => onSubmit(preset)}
         >
           {cmd.label ?? cmd.commandType}
         </Button>
@@ -77,23 +77,51 @@ function CommandRows({
   )
 }
 
+function NeutralCommandRows(props: { commands: ControlCommandPreset[]; onSubmit: (command: ControlCommandPreset) => void }) {
+  return (
+    <section aria-label="Neutral commands" className="border-b border-divider px-4 pt-1 pb-4">
+      <div className="mx-auto mt-3 grid w-1/2 gap-3">
+        {props.commands.map((command, index) => (
+          <Button
+            key={`${command.source}-${command.commandType}-${index}`}
+            type="button"
+            variant={prominenceVariant(command.prominence)}
+            size="touch"
+            onClick={() => props.onSubmit(command)}
+          >
+            {command.label ?? command.commandType}
+          </Button>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 export function StrilaControlRenderer(props: MatchControlRendererProps) {
   const [selectedBalls, setSelectedBalls] = useState<StrilaBall[]>([])
   const [showTertiary, setShowTertiary] = useState(false)
 
   const parsed = useMemo(() => StrilaControlViewSchema.safeParse(props.projection), [props.projection])
+  const commandSections = props.commandSections
+  const hasNeutral = commandSections.neutral.length > 0
+
+  function submitCommand(command: ControlCommandPreset) {
+    setSelectedBalls([])
+    props.onSubmitCommand(command)
+  }
 
   if (!parsed.success) {
-    return <p className="px-4 py-3 text-sm text-muted-foreground">Invalid Strila control projection.</p>
+    return (
+      <div aria-label="Strila container" className="grid">
+        {hasNeutral ? <NeutralCommandRows commands={commandSections.neutral} onSubmit={submitCommand} /> : null}
+      </div>
+    )
   }
 
   const details = parsed.data.details
-  const hasTertiary = details.commandSections.tertiary.A.length > 0 || details.commandSections.tertiary.B.length > 0
-
-  function submitCommand(commandType: string, command: Record<string, unknown>) {
-    setSelectedBalls([])
-    props.onSubmitCommand({ commandType, command })
-  }
+  const hasPrimary = commandSections.primary.A.length > 0 || commandSections.primary.B.length > 0
+  const hasSecondary = commandSections.secondary.A.length > 0 || commandSections.secondary.B.length > 0
+  const hasTertiary = commandSections.tertiary.A.length > 0 || commandSections.tertiary.B.length > 0
 
   return (
     <div aria-label="Strila container" className="grid">
@@ -141,19 +169,21 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
         })}
       </div>
 
-      {(details.commandSections.primary.A.length > 0 || details.commandSections.primary.B.length > 0) && (
+      {hasNeutral && <NeutralCommandRows commands={commandSections.neutral} onSubmit={submitCommand} />}
+
+      {hasPrimary && (
         <CommandRows
           title="Primary"
-          commands={details.commandSections.primary}
+          commands={commandSections.primary}
           selectedBalls={selectedBalls}
           onSubmit={submitCommand}
         />
       )}
 
-      {(details.commandSections.secondary.A.length > 0 || details.commandSections.secondary.B.length > 0) && (
+      {hasSecondary && (
         <CommandRows
           title="Secondary"
-          commands={details.commandSections.secondary}
+          commands={commandSections.secondary}
           selectedBalls={selectedBalls}
           onSubmit={submitCommand}
         />
@@ -180,7 +210,7 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
           {showTertiary && (
             <CommandRows
               title="Tertiary"
-              commands={details.commandSections.tertiary}
+              commands={commandSections.tertiary}
               selectedBalls={selectedBalls}
               onSubmit={submitCommand}
             />

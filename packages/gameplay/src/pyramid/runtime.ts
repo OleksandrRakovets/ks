@@ -103,7 +103,11 @@ function deriveCommandSections(commands: z.infer<typeof PyramidControlCommandSch
   const sections = emptyControlCommandSections()
 
   for (const entry of commands) {
-    sections[entry.prominence][entry.seat ?? 'neutral'].push(entry)
+    if (entry.seat) {
+      sections[entry.prominence][entry.seat].push(entry)
+    } else {
+      sections.neutral.push(entry)
+    }
   }
 
   return sections

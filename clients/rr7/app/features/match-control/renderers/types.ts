@@ -1,4 +1,4 @@
-import type { MatchSnapshot } from '@ks/core'
+import type { ControlCommandPreset, ControlCommandSections, MatchSnapshot } from '@ks/core'
 import { GameControlProjectionSchema } from '@ks/gameplay'
 import type { z } from 'zod'
 
@@ -11,8 +11,9 @@ export type HydratedMatchParticipants = {
 
 export type MatchControlRendererProps = {
   projection: GameControlProjection
+  commandSections: ControlCommandSections
   snapshot: MatchSnapshot
   participants: HydratedMatchParticipants
-  onSubmitCommand: (args: { commandType: string; command: Record<string, unknown> }) => void
+  onSubmitCommand: (command: ControlCommandPreset) => void
   submitting: boolean
 }

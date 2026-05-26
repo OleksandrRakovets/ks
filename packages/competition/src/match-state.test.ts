@@ -131,7 +131,7 @@ describe('match-state room facts', () => {
     expect(state.status).toBe('active')
 
     const sectionsBeforeEnd = deriveSparringControlSections({ matchState: state })
-    expect(sectionsBeforeEnd.secondary.neutral.map((command) => command.commandType)).toEqual(['match.end'])
+    expect(sectionsBeforeEnd.neutral.map((command) => command.commandType)).toEqual(['match.end'])
 
     state = applyMatchEvent(state, baseEvent(config.matchId, 'match.ended', { winnerSeat: 'A' }))
     expect(state.status).toBe('finished')

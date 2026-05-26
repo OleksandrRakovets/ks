@@ -40,8 +40,8 @@ describe('projection: control', () => {
           7: 'on-table',
         },
         commandSections: {
+          neutral: [],
           primary: {
-            neutral: [],
             A: [
               {
                 source: 'game',
@@ -63,8 +63,8 @@ describe('projection: control', () => {
               },
             ],
           },
-          secondary: { neutral: [], A: [], B: [] },
-          tertiary: { neutral: [], A: [], B: [] },
+          secondary: { A: [], B: [] },
+          tertiary: { A: [], B: [] },
         },
         messages: [],
       },
@@ -95,7 +95,7 @@ describe('projection: control', () => {
     ])
   })
 
-  test('respotted-black-play exposes action commands for active seat, frame.concede for both', () => {
+  test('respotted-black-play exposes only game action commands', () => {
     const state: StrilaFrameState = {
       ...baseState,
       score: { A: 8, B: 8 },
@@ -113,16 +113,12 @@ describe('projection: control', () => {
     expect(view.details.commandSections.secondary.A.map((entry) => `${entry.commandType}:${entry.command.seat}`)).toEqual([
       'foul.commit:A',
     ])
-    expect(view.details.commandSections.tertiary.A.map((entry) => `${entry.commandType}:${entry.command.seat}`)).toEqual([
-      'frame.concede:A',
-    ])
-    expect(view.details.commandSections.tertiary.B.map((entry) => `${entry.commandType}:${entry.command.seat}`)).toEqual([
-      'frame.concede:B',
-    ])
+    expect(view.details.commandSections.tertiary.A.map((entry) => `${entry.commandType}:${entry.command.seat}`)).toEqual([])
+    expect(view.details.commandSections.tertiary.B.map((entry) => `${entry.commandType}:${entry.command.seat}`)).toEqual([])
     expect(view.details.commandSections.primary.A.map((entry) => entry.commandType)).toEqual(['pot.record'])
     expect(view.details.commandSections.secondary.A.map((entry) => entry.commandType)).toEqual(['foul.commit'])
-    expect(view.details.commandSections.tertiary.A.map((entry) => entry.commandType)).toEqual(['frame.concede'])
-    expect(view.details.commandSections.tertiary.B.map((entry) => entry.commandType)).toEqual(['frame.concede'])
+    expect(view.details.commandSections.tertiary.A.map((entry) => entry.commandType)).toEqual([])
+    expect(view.details.commandSections.tertiary.B.map((entry) => entry.commandType)).toEqual([])
   })
 
   test('winner-determined keeps frame.award and pot.record', () => {
@@ -174,6 +170,6 @@ describe('projection: control', () => {
       ...view.details.commandSections.primary.A.map((entry) => entry.commandType),
       ...view.details.commandSections.secondary.A.map((entry) => entry.commandType),
       ...view.details.commandSections.tertiary.A.map((entry) => entry.commandType),
-    ]).toEqual(['pot.record', 'miss.record', 'foul.commit', 'frame.concede'])
+    ]).toEqual(['pot.record', 'miss.record', 'foul.commit'])
   })
 })

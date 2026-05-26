@@ -33,7 +33,7 @@ describe('deriveSparringControlSections', () => {
   test('emits frame.start as a neutral match command between unfinished frames', () => {
     const sections = deriveSparringControlSections({ matchState: matchState() })
 
-    expect(sections.secondary.neutral).toEqual([
+    expect(sections.neutral).toEqual([
       {
         source: 'match',
         commandType: 'frame.start',
@@ -42,7 +42,7 @@ describe('deriveSparringControlSections', () => {
         prominence: 'secondary',
       },
     ])
-    expect(sections.primary.neutral).toEqual([])
+    expect(sections.primary).toEqual(emptyControlCommandSections().primary)
     expect(sections.secondary.A).toEqual([])
     expect(sections.secondary.B).toEqual([])
   })
@@ -62,7 +62,7 @@ describe('deriveSparringControlSections', () => {
       }),
     })
 
-    expect(sections.secondary.neutral).toEqual([
+    expect(sections.neutral).toEqual([
       {
         source: 'match',
         commandType: 'match.end',
@@ -73,7 +73,7 @@ describe('deriveSparringControlSections', () => {
     ])
   })
 
-  test('emits no match controls while current frame is unawarded', () => {
+  test('emits concession controls while current frame is unawarded', () => {
     const sections = deriveSparringControlSections({
       matchState: matchState({
         frames: [
@@ -85,7 +85,28 @@ describe('deriveSparringControlSections', () => {
       }),
     })
 
-    expect(sections).toEqual(emptyControlCommandSections())
+    expect(sections.tertiary.A).toEqual([
+      {
+        source: 'match',
+        commandType: 'frame.concede',
+        command: { seat: 'A' },
+        seat: 'A',
+        label: 'Concede frame',
+        prominence: 'tertiary',
+      },
+    ])
+    expect(sections.tertiary.B).toEqual([
+      {
+        source: 'match',
+        commandType: 'frame.concede',
+        command: { seat: 'B' },
+        seat: 'B',
+        label: 'Concede frame',
+        prominence: 'tertiary',
+      },
+    ])
+    expect(sections.primary).toEqual(emptyControlCommandSections().primary)
+    expect(sections.secondary).toEqual(emptyControlCommandSections().secondary)
   })
 
   test('merges match and game commands without moving buckets', () => {
@@ -104,7 +125,7 @@ describe('deriveSparringControlSections', () => {
       gameControlProjection: { details: { commandSections: gameSections } },
     })
 
-    expect(merged.secondary.neutral.map((command) => command.commandType)).toEqual(['frame.start'])
+    expect(merged.neutral.map((command) => command.commandType)).toEqual(['frame.start'])
     expect(merged.primary.A.map((command) => command.commandType)).toEqual(['pot.record'])
     expect(merged.primary.B).toEqual([])
   })
@@ -124,6 +145,6 @@ describe('deriveSparringControlSections', () => {
       }),
     })
 
-    expect(sections.secondary.neutral.map((command) => command.commandType)).toEqual(['match.end'])
+    expect(sections.neutral.map((command) => command.commandType)).toEqual(['match.end'])
   })
 })

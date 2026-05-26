@@ -25,23 +25,24 @@ export const ControlCommandPresetSchema = ControlCommandBaseSchema.extend({
 })
 export type ControlCommandPreset = z.infer<typeof ControlCommandPresetSchema>
 
-const ControlCommandBucketSchema = z.object({
-  neutral: z.array(ControlCommandPresetSchema),
+const SeatControlCommandBucketSchema = z.object({
   A: z.array(ControlCommandPresetSchema),
   B: z.array(ControlCommandPresetSchema),
 })
 
 export const ControlCommandSectionsSchema = z.object({
-  primary: ControlCommandBucketSchema,
-  secondary: ControlCommandBucketSchema,
-  tertiary: ControlCommandBucketSchema,
+  neutral: z.array(ControlCommandPresetSchema),
+  primary: SeatControlCommandBucketSchema,
+  secondary: SeatControlCommandBucketSchema,
+  tertiary: SeatControlCommandBucketSchema,
 })
 export type ControlCommandSections = z.infer<typeof ControlCommandSectionsSchema>
 
 export function emptyControlCommandSections(): ControlCommandSections {
   return {
-    primary: { neutral: [], A: [], B: [] },
-    secondary: { neutral: [], A: [], B: [] },
-    tertiary: { neutral: [], A: [], B: [] },
+    neutral: [],
+    primary: { A: [], B: [] },
+    secondary: { A: [], B: [] },
+    tertiary: { A: [], B: [] },
   }
 }

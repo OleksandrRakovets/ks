@@ -157,7 +157,6 @@ function renderFrameControls(snap: StrilaSparringSnapshot) {
       btn('Pass position (+1)', () => frameActor.send({ type: 'penalty.select', seat: chooser, choice: 'pass-position' })),
       btn('Ball in hand', () => frameActor.send({ type: 'penalty.select', seat: chooser, choice: 'ball-in-hand' })),
     )
-    addConcedeRow(controls, chooser, offender, (seat) => frameActor.send({ type: 'frame.concede', seat }))
     return
   }
 
@@ -231,7 +230,6 @@ function renderFrameControls(snap: StrilaSparringSnapshot) {
     )
   }
   controls.append(actionRow)
-  addConcedeRow(controls, null, null, (seat) => frameActor.send({ type: 'frame.concede', seat }))
 }
 
 // ── Match rendering ──────────────────────────────────────────────────────────
@@ -343,20 +341,6 @@ function completeMatchFrame(winnerSeat: 'A' | 'B') {
 }
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
-
-function addConcedeRow(
-  parent: HTMLElement,
-  chooser: 'A' | 'B' | null,
-  _offender: 'A' | 'B' | null,
-  onConcede: (seat: 'A' | 'B') => void,
-) {
-  const row = div('display:flex;gap:8px;align-items:center;margin-top:4px')
-  for (const seat of ['A', 'B'] as const) {
-    if (chooser && seat === chooser) continue // chooser doesn't concede during penalty-selection
-    row.append(btn(`${seat} concedes`, () => onConcede(seat)))
-  }
-  parent.append(row)
-}
 
 function btn(label: string, onClick: () => void, cls = '') {
   const b = document.createElement('button')

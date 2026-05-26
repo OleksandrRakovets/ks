@@ -17,7 +17,6 @@ export const StrilaUndoableCommandTypeSchema = z.enum([
   'foul.commit',
   'penalty.select',
   'frame.award',
-  'frame.concede',
 ])
 export type StrilaUndoableCommandType = z.infer<typeof StrilaUndoableCommandTypeSchema>
 

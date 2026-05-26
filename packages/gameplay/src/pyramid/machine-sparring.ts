@@ -2,7 +2,7 @@ import { opponentOf, type BySeatNumber, type Seat } from '@ks/core'
 import invariant from 'tiny-invariant'
 import { assign, getInitialSnapshot, getNextSnapshot, setup, type SnapshotFrom } from 'xstate'
 
-export type PyramidWinReason = 'target-reached' | 'conceded'
+export type PyramidWinReason = 'target-reached'
 
 export type PyramidPhase = 'not-started' | 'open-play' | 'winner-determined' | 'frame-over'
 
@@ -26,11 +26,9 @@ export type PyramidEvent =
   | { type: 'pot.record'; actor: Seat; points: number }
   | { type: 'foul.commit'; actor: Seat }
   | { type: 'frame.award'; actor: Seat }
-  | { type: 'frame.concede'; actor: Seat }
 
 type PotEvent = Extract<PyramidEvent, { type: 'pot.record' }>
 type FoulCommitEvent = Extract<PyramidEvent, { type: 'foul.commit' }>
-type FrameConcedeEvent = Extract<PyramidEvent, { type: 'frame.concede' }>
 type FrameAwardEvent = Extract<PyramidEvent, { type: 'frame.award' }>
 
 function potEvent(event: PyramidEvent): PotEvent {
@@ -40,11 +38,6 @@ function potEvent(event: PyramidEvent): PotEvent {
 
 function foulCommitEvent(event: PyramidEvent): FoulCommitEvent {
   invariant(event.type === 'foul.commit', `Expected foul.commit event, received ${event.type}`)
-  return event
-}
-
-function frameConcedeEvent(event: PyramidEvent): FrameConcedeEvent {
-  invariant(event.type === 'frame.concede', `Expected frame.concede event, received ${event.type}`)
   return event
 }
 
@@ -110,7 +103,6 @@ export const pyramidSparringMachine = setup({
       const e = frameAwardEvent(event)
       return context.winner === e.actor
     },
-    canConcede: ({ context }) => context.winner === null,
   },
   actions: {
     commence: assign(() => ({
@@ -148,13 +140,6 @@ export const pyramidSparringMachine = setup({
         score,
         winner,
         winReason: 'target-reached' as const,
-      }
-    }),
-    setConcedeWinner: assign(({ event }) => {
-      const e = frameConcedeEvent(event)
-      return {
-        winner: opponentOf(e.actor),
-        winReason: 'conceded' as const,
       }
     }),
   },
@@ -225,14 +210,6 @@ export const pyramidSparringMachine = setup({
 
     'frame-over': {
       type: 'final',
-    },
-  },
-
-  on: {
-    'frame.concede': {
-      guard: 'canConcede',
-      target: '.winner-determined',
-      actions: 'setConcedeWinner',
     },
   },
 

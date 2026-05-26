@@ -9,9 +9,12 @@ import {
   ClientEventSchema,
   ClientIdSchema,
   ControlCommandSchema,
+  BySeatNumberSchema,
   MatchConfigSchema,
   MatchIdSchema,
   newEventId,
+  opponentOf,
+  SeatSchema,
   type ClientEvent,
   type ControlCommand,
   type MatchConfig,
@@ -37,6 +40,9 @@ const EventsBodySchema = z.object({
   controlSecret: z.string().min(16),
   commands: z.array(ControlCommandSchema).min(1),
 })
+
+const ConcedeFrameCommandSchema = z.object({ seat: SeatSchema })
+const GameScoreProjectionSchema = z.object({ score: BySeatNumberSchema })
 
 type RoomState = {
   matchState: MatchState
@@ -326,6 +332,38 @@ export class MatchRoom implements DurableObject {
           eventId: newEventId(),
           type: 'match.ended',
           payload: { winnerSeat },
+        },
+      ]
+    }
+
+    if (command.source === 'match' && command.commandType === 'frame.concede') {
+      if (roomState.currentFrameState === null) throw new Error('No current frame')
+      const currentFrame = roomState.matchState.frames[roomState.matchState.frames.length - 1]
+      if (!currentFrame || currentFrame.winnerSeat) throw new Error('No active frame')
+
+      const concede = ConcedeFrameCommandSchema.parse(command.command)
+      const projection = GameScoreProjectionSchema.parse(
+        deriveGameProjection({
+          gameKey: parseGameKey(config.gameKey),
+          state: roomState.currentFrameState,
+          projection: 'summary',
+        }),
+      )
+
+      return [
+        {
+          ...base,
+          eventId: newEventId(),
+          type: 'frame.completed',
+          payload: {
+            frameIndex: currentFrame.frameIndex,
+            gameKey: config.gameKey,
+            outcome: {
+              winnerSeat: opponentOf(concede.seat),
+              score: projection.score,
+              winReason: 'conceded',
+            },
+          },
         },
       ]
     }

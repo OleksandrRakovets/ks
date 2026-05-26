@@ -103,7 +103,11 @@ function deriveCommandSections(commands: StrilaControlCommand[]): StrilaControlD
   const sections = emptyControlCommandSections()
 
   commands.forEach((entry) => {
-    sections[entry.prominence][entry.seat ?? 'neutral'].push(entry)
+    if (entry.seat) {
+      sections[entry.prominence][entry.seat].push(entry)
+    } else {
+      sections.neutral.push(entry)
+    }
   })
 
   return sections
@@ -158,7 +162,6 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
         commands: [
           ...seatCommands('pot.record', 'Record pot', 'primary'),
           ...seatCommands('foul.commit', 'Foul committed', 'secondary'),
-          ...seatCommands('frame.concede', 'Concede frame', 'tertiary'),
         ],
         situationTitle: 'Open play',
         situationSummary: 'Log pots or a foul.',
@@ -192,7 +195,6 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
           ...seatCommands('pot.record', 'Record pot', 'primary'),
           ...seatCommands('miss.record', 'Record miss', 'primary'),
           ...seatCommands('foul.commit', 'Foul committed', 'secondary'),
-          ...seatCommands('frame.concede', 'Concede frame', 'tertiary'),
         ],
         situationTitle: 'Ball in hand after foul',
         situationSummary: 'Record a legal pot, a miss, or another foul.',
@@ -204,7 +206,6 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
           ...seatCommands('pot.record', 'Record pot', 'primary'),
           ...seatCommands('miss.record', 'Record miss', 'primary'),
           ...seatCommands('foul.commit', 'Foul committed', 'secondary'),
-          ...seatCommands('frame.concede', 'Concede frame', 'tertiary'),
         ],
         situationTitle: 'Respotted black opening',
         situationSummary: 'Only the black wins. Other potted outcomes lose the frame.',
@@ -215,7 +216,6 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
         commands: [
           ...seatCommands('pot.record', 'Record pot', 'primary'),
           ...seatCommands('foul.commit', 'Foul committed', 'secondary'),
-          ...seatCommands('frame.concede', 'Concede frame', 'tertiary'),
         ],
         situationTitle: 'Respotted black play',
         situationSummary: 'Record the outcome of the shot on the respotted black.',
@@ -310,7 +310,7 @@ function strilaOutcome(state: StrilaFrameState): FrameOutcome | undefined {
   return {
     winnerSeat: state.winner,
     score: state.score,
-    winReason: state.winReason === 'conceded' ? 'conceded' : 'target-reached',
+    winReason: 'target-reached',
   }
 }
 

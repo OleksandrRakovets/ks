@@ -225,28 +225,6 @@ describe('machine-sparring: respotted black', () => {
   })
 })
 
-describe('machine-sparring: concede', () => {
-  test('concede in open-play awards frame to opponent', () => {
-    let snap = start()
-    snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
-    snap = sendEvent(snap, { type: 'frame.concede', seat: 'A' })
-
-    expect(getPhase(snap)).toBe('winner-determined')
-    expect(snap.context.winner).toBe('B')
-    expect(snap.context.winReason).toBe('conceded')
-  })
-
-  test('concede in penalty-selection by offender awards frame to chooser', () => {
-    let snap = start()
-    snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
-    snap = sendEvent(snap, { type: 'foul.commit', seat: 'A' })
-    snap = sendEvent(snap, { type: 'frame.concede', seat: 'A' })
-
-    expect(getPhase(snap)).toBe('winner-determined')
-    expect(snap.context.winner).toBe('B')
-  })
-})
-
 describe('machine-sparring: handicap', () => {
   test('handicap target lets A win at 6 after three pots', () => {
     let snap = start({ A: 6, B: 9 })

@@ -46,7 +46,6 @@ export const StrilaEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('foul.commit'), seat: SeatSchema }),
   z.object({ type: z.literal('penalty.select'), seat: SeatSchema, choice: FoulResponseChoiceSchema }),
   z.object({ type: z.literal('frame.award'), seat: SeatSchema }),
-  z.object({ type: z.literal('frame.concede'), seat: SeatSchema }),
 ])
 export type StrilaEvent = z.infer<typeof StrilaEventSchema>
 export const StrilaCommandSchema = StrilaEventSchema
@@ -64,7 +63,7 @@ export const StrilaPhaseSchema = z.enum([
 ])
 export type StrilaPhase = z.infer<typeof StrilaPhaseSchema>
 
-const WinnerDeterminedReasonSchema = z.enum(['target-reached', 'respotted-black-won', 'conceded', 'automatic-foul'])
+const WinnerDeterminedReasonSchema = z.enum(['target-reached', 'respotted-black-won', 'automatic-foul'])
 export type StrilaWinReason = z.infer<typeof WinnerDeterminedReasonSchema>
 
 const ContextSchema = z.object({

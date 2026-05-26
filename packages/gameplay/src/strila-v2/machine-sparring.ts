@@ -41,7 +41,6 @@ function nextCueBallSerialPots(
 type PotEvent = Extract<StrilaEvent, { type: 'pot.record' }>
 type FoulCommitEvent = Extract<StrilaEvent, { type: 'foul.commit' }>
 type PenaltySelectEvent = Extract<StrilaEvent, { type: 'penalty.select' }>
-type FrameConcedeEvent = Extract<StrilaEvent, { type: 'frame.concede' }>
 
 function potEvent(event: StrilaEvent): PotEvent {
   invariant(event.type === 'pot.record', `Expected pot.record event, received ${event.type}`)
@@ -60,11 +59,6 @@ function foulCommitEvent(event: StrilaEvent): FoulCommitEvent {
 
 function penaltySelectEvent(event: StrilaEvent): PenaltySelectEvent {
   invariant(event.type === 'penalty.select', `Expected penalty.select event, received ${event.type}`)
-  return event
-}
-
-function frameConcedeEvent(event: StrilaEvent): FrameConcedeEvent {
-  invariant(event.type === 'frame.concede', `Expected frame.concede event, received ${event.type}`)
   return event
 }
 
@@ -116,7 +110,6 @@ export const strilaSparringMachine = setup({
     isBallInHandChoice: ({ event }) => event.type === 'penalty.select' && event.choice === 'ball-in-hand',
     isPlayFromPositionChoice: ({ event }) => event.type === 'penalty.select' && event.choice === 'play-from-position',
     isPassPositionChoice: ({ event }) => event.type === 'penalty.select' && event.choice === 'pass-position',
-    canConcede: ({ context }) => context.winner === null,
   },
   actions: {
     applyPot: assign(({ context, event }) => {
@@ -170,13 +163,6 @@ export const strilaSparringMachine = setup({
       return {
         winner: opponentOf(e.seat),
         winReason: 'automatic-foul',
-      }
-    }),
-    setConcedeWinner: assign(({ event }) => {
-      const e = frameConcedeEvent(event)
-      return {
-        winner: opponentOf(e.seat),
-        winReason: 'conceded',
       }
     }),
     applyBallInHand: assign(() => {
@@ -403,14 +389,6 @@ export const strilaSparringMachine = setup({
 
     'frame-over': {
       type: 'final',
-    },
-  },
-
-  on: {
-    'frame.concede': {
-      guard: 'canConcede',
-      target: '.winner-determined',
-      actions: 'setConcedeWinner',
     },
   },
 

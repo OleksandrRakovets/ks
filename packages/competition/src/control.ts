@@ -1,4 +1,10 @@
-import { ControlCommandSectionsSchema, emptyControlCommandSections, type ControlCommandSections } from '@ks/core'
+import {
+  ControlCommandSectionsSchema,
+  emptyControlCommandSections,
+  type ControlCommandPreset,
+  type ControlCommandSections,
+  type Seat,
+} from '@ks/core'
 
 import type { MatchState } from './match-state'
 
@@ -31,8 +37,13 @@ function deriveSparringMatchControlSections(matchState: MatchState): ControlComm
     (matchState.framesWonBySeat.A >= matchTargetFrames || matchState.framesWonBySeat.B >= matchTargetFrames)
   const sections = emptyControlCommandSections()
 
+  if (matchState.status === 'active' && currentFrame && !winnerSeat) {
+    sections.tertiary.A.push(concedeFrameCommand('A'))
+    sections.tertiary.B.push(concedeFrameCommand('B'))
+  }
+
   if (matchState.status === 'active' && winnerSeat && !isMatchTargetReached) {
-    sections.secondary.neutral.push({
+    sections.neutral.push({
       source: 'match',
       commandType: 'frame.start',
       command: {},
@@ -42,7 +53,7 @@ function deriveSparringMatchControlSections(matchState: MatchState): ControlComm
   }
 
   if (matchState.status === 'active' && winnerSeat && isMatchTargetReached) {
-    sections.secondary.neutral.push({
+    sections.neutral.push({
       source: 'match',
       commandType: 'match.end',
       command: {},
@@ -54,14 +65,26 @@ function deriveSparringMatchControlSections(matchState: MatchState): ControlComm
   return sections
 }
 
+function concedeFrameCommand(seat: Seat): ControlCommandPreset {
+  return {
+    source: 'match',
+    commandType: 'frame.concede',
+    command: { seat },
+    seat,
+    label: 'Concede frame',
+    prominence: 'tertiary',
+  }
+}
+
 function mergeControlCommandSections(
   matchSections: ControlCommandSections,
   gameSections?: ControlCommandSections,
 ): ControlCommandSections {
   const sections = emptyControlCommandSections()
+  sections.neutral = [...matchSections.neutral, ...(gameSections?.neutral ?? [])]
 
   for (const prominence of ['primary', 'secondary', 'tertiary'] as const) {
-    for (const bucket of ['neutral', 'A', 'B'] as const) {
+    for (const bucket of ['A', 'B'] as const) {
       sections[prominence][bucket] = [...matchSections[prominence][bucket], ...(gameSections?.[prominence][bucket] ?? [])]
     }
   }

@@ -25,9 +25,7 @@ test('simulation: outside: respotted black frame 1', () => {
   expect(deriveStrilaControlView(state).details.commandSections.secondary.A.map((entry) => entry.commandType)).toEqual([
     'foul.commit',
   ])
-  expect(deriveStrilaControlView(state).details.commandSections.tertiary.A.map((entry) => entry.commandType)).toEqual([
-    'frame.concede',
-  ])
+  expect(deriveStrilaControlView(state).details.commandSections.tertiary.A.map((entry) => entry.commandType)).toEqual([])
 
   const step = applyGameCommand({
     gameKey: 'strila-v2',

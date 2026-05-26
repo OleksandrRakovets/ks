@@ -1,33 +1,23 @@
+import type { ControlCommandPreset } from '@ks/core'
 import { PyramidControlViewSchema } from '@ks/gameplay'
 import { Button } from '@ks/ui'
 import { useMemo, useState } from 'react'
 
 import type { MatchControlRendererProps } from './types'
 
-type PyramidControlView = ReturnType<typeof PyramidControlViewSchema.parse>
-type Command = PyramidControlView['details']['commandSections']['primary']['A'][number]
-type SeatCommands = PyramidControlView['details']['commandSections']['primary']
+type SeatCommands = MatchControlRendererProps['commandSections']['primary']
 
-function buttonVariant(prominence: Command['prominence']): 'default' | 'secondary' | 'outline' {
+function buttonVariant(prominence: ControlCommandPreset['prominence']): 'default' | 'secondary' | 'outline' {
   if (prominence === 'primary') return 'default'
   if (prominence === 'secondary') return 'secondary'
   return 'outline'
 }
 
-function CommandRows(props: {
-  title: string
-  commands: SeatCommands
-  onSubmit: (args: { commandType: string; command: Record<string, unknown> }) => void
-}) {
-  function renderButton(command: Command, key: string) {
+function CommandRows(props: { title: string; commands: SeatCommands; onSubmit: (command: ControlCommandPreset) => void }) {
+  function renderButton(command: ControlCommandPreset, key: string) {
     return (
       <div key={key} className="grid gap-1">
-        <Button
-          type="button"
-          variant={buttonVariant(command.prominence)}
-          size="touch"
-          onClick={() => props.onSubmit({ commandType: command.commandType, command: command.command })}
-        >
+        <Button type="button" variant={buttonVariant(command.prominence)} size="touch" onClick={() => props.onSubmit(command)}>
           {command.label ?? command.commandType}
         </Button>
         {command.effectSummary ? <p className="text-center text-sm text-text-lo">{command.effectSummary}</p> : null}
@@ -46,26 +36,51 @@ function CommandRows(props: {
   )
 }
 
+function NeutralCommandRows(props: { commands: ControlCommandPreset[]; onSubmit: (command: ControlCommandPreset) => void }) {
+  return (
+    <section aria-label="Neutral commands" className="border-b border-divider px-4 pt-1 pb-4">
+      <div className="mx-auto mt-3 grid w-1/2 gap-3">
+        {props.commands.map((command, index) => (
+          <Button
+            key={`${command.source}-${command.commandType}-${index}`}
+            type="button"
+            variant={buttonVariant(command.prominence)}
+            size="touch"
+            onClick={() => props.onSubmit(command)}
+          >
+            {command.label ?? command.commandType}
+          </Button>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 export function PyramidControlRenderer(props: MatchControlRendererProps) {
   const [showTertiary, setShowTertiary] = useState(false)
   const parsed = useMemo(() => PyramidControlViewSchema.safeParse(props.projection), [props.projection])
+  const commandSections = props.commandSections
+  const hasNeutral = commandSections.neutral.length > 0
 
   if (!parsed.success) {
-    return <p className="px-4 py-3 text-sm text-muted-foreground">Invalid Pyramid control projection.</p>
+    return (
+      <div className="grid gap-4">
+        {hasNeutral ? <NeutralCommandRows commands={commandSections.neutral} onSubmit={props.onSubmitCommand} /> : null}
+      </div>
+    )
   }
 
-  const details = parsed.data.details
-  const hasTertiary = details.commandSections.tertiary.A.length > 0 || details.commandSections.tertiary.B.length > 0
+  const hasPrimary = commandSections.primary.A.length > 0 || commandSections.primary.B.length > 0
+  const hasSecondary = commandSections.secondary.A.length > 0 || commandSections.secondary.B.length > 0
+  const hasTertiary = commandSections.tertiary.A.length > 0 || commandSections.tertiary.B.length > 0
 
   return (
     <div className="grid gap-4">
-      {(details.commandSections.primary.A.length > 0 || details.commandSections.primary.B.length > 0) && (
-        <CommandRows title="Primary" commands={details.commandSections.primary} onSubmit={props.onSubmitCommand} />
-      )}
+      {hasNeutral && <NeutralCommandRows commands={commandSections.neutral} onSubmit={props.onSubmitCommand} />}
 
-      {(details.commandSections.secondary.A.length > 0 || details.commandSections.secondary.B.length > 0) && (
-        <CommandRows title="Secondary" commands={details.commandSections.secondary} onSubmit={props.onSubmitCommand} />
-      )}
+      {hasPrimary && <CommandRows title="Primary" commands={commandSections.primary} onSubmit={props.onSubmitCommand} />}
+
+      {hasSecondary && <CommandRows title="Secondary" commands={commandSections.secondary} onSubmit={props.onSubmitCommand} />}
 
       {hasTertiary && (
         <div className="grid gap-3">
@@ -77,7 +92,7 @@ export function PyramidControlRenderer(props: MatchControlRendererProps) {
             {showTertiary ? '▲ Сховати' : '··· Більше'}
           </button>
           {showTertiary && (
-            <CommandRows title="Tertiary" commands={details.commandSections.tertiary} onSubmit={props.onSubmitCommand} />
+            <CommandRows title="Tertiary" commands={commandSections.tertiary} onSubmit={props.onSubmitCommand} />
           )}
         </div>
       )}

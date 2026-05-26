@@ -117,38 +117,6 @@ describe('pyramid machine-sparring: foul handling', () => {
   })
 })
 
-describe('pyramid machine-sparring: concede', () => {
-  test('concede in open-play awards frame to opponent', () => {
-    let snap = start()
-    snap = sendEvent(snap, { type: 'frame.commence', actor: 'A' })
-    snap = sendEvent(snap, { type: 'frame.concede', actor: 'A' })
-
-    expect(getPhase(snap)).toBe('winner-determined')
-    expect(snap.context.winner).toBe('B')
-    expect(snap.context.winReason).toBe('conceded')
-  })
-
-  test('concede in not-started awards frame to opponent', () => {
-    let snap = start()
-    snap = sendEvent(snap, { type: 'frame.concede', actor: 'B' })
-
-    expect(getPhase(snap)).toBe('winner-determined')
-    expect(snap.context.winner).toBe('A')
-    expect(snap.context.winReason).toBe('conceded')
-  })
-
-  test('concede after winner-determined is ignored', () => {
-    let snap = start(STANDARD_RULES, { A: 2, B: 8 })
-    snap = sendEvent(snap, { type: 'frame.commence', actor: 'A' })
-    snap = sendEvent(snap, { type: 'pot.record', actor: 'A', points: 2 })
-    const before = snap
-    snap = sendEvent(snap, { type: 'frame.concede', actor: 'A' })
-
-    expect(snap.context.winner).toBe(before.context.winner)
-    expect(snap.context.winReason).toBe(before.context.winReason)
-  })
-})
-
 describe('pyramid machine-sparring: handicap', () => {
   test('asymmetric targets allow lower-target seat to win first', () => {
     let snap = start(STANDARD_RULES, { A: 3, B: 8 })

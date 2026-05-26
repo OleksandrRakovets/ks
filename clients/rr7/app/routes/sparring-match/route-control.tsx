@@ -13,7 +13,6 @@ import {
 } from '@ks/core'
 import { GameControlProjectionSchema, isRegisteredGameKey, registry } from '@ks/gameplay'
 import { keys } from '@ks/i18n'
-import { Button } from '@ks/ui'
 import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, redirect, useFetcher, useLoaderData, useRevalidator } from 'react-router'
@@ -268,7 +267,6 @@ export default function SparringMatchRoute() {
     }
   }, [snapshot.matchId])
 
-  const frameIndex = snapshot.currentFrameIndex
   const Renderer = resolveControlRenderer(snapshot.gameKey)
   const isSubmitting = fetcher.state === 'submitting'
   const snapshotFrame = snapshot.frames[snapshot.currentFrameIndex - 1]
@@ -288,20 +286,6 @@ export default function SparringMatchRoute() {
     )
   }
 
-  function submitControlCommand(args: { commandType: string; command: Record<string, unknown> }) {
-    localSubmitInFlightRef.current = true
-    fetcher.submit(
-      {
-        actionType: 'game-command',
-        gameKey: snapshot.gameKey,
-        commandType: args.commandType,
-        commandJson: JSON.stringify(args.command),
-        frameIndex: String(frameIndex),
-      },
-      { method: 'post' },
-    )
-  }
-
   return (
     <main className="mx-auto flex flex-1 flex-col bg-surface lg:w-4xl">
       <ScoreBox
@@ -310,35 +294,19 @@ export default function SparringMatchRoute() {
         matchScore={snapshot.framesWonBySeat}
         frameScore={frameScore}
         matchStatus={snapshot.status}
-        frameIndex={frameIndex}
+        frameIndex={snapshot.currentFrameIndex}
         targetFrames={snapshot.targets.matchTargetFrames}
       />
 
       <section aria-label="Per-game control container" className="flex flex-col">
         <Renderer
           projection={controlProjection}
+          commandSections={safeControlSections}
           snapshot={snapshot}
           participants={participants}
           submitting={isSubmitting}
-          onSubmitCommand={submitControlCommand}
+          onSubmitCommand={submitPreset}
         />
-
-        {safeControlSections.secondary.neutral.map((command) => (
-          <Button
-            key={`${command.source}:${command.commandType}`}
-            type="button"
-            variant="secondary"
-            className="h-auto justify-start rounded-xl px-4 py-3 text-left text-sm"
-            disabled={isSubmitting}
-            onClick={() => submitPreset(command)}
-          >
-            {command.commandType === 'frame.start'
-              ? t(keys.match.control.startNextFrame)
-              : command.commandType === 'match.end'
-                ? t(keys.match.control.endMatch)
-                : (command.label ?? command.commandType)}
-          </Button>
-        ))}
 
         {fetcher.data?.ok === false ? (
           <p className="text-sm text-destructive">{fetcher.data.errorKey ? t(fetcher.data.errorKey) : fetcher.data.error}</p>

@@ -25,7 +25,7 @@ test('simulation: outside: basic frame 1', () => {
     ...control.commandSections.secondary.B.map((entry) => `${entry.commandType}:${entry.command.seat}`),
     ...control.commandSections.tertiary.A.map((entry) => `${entry.commandType}:${entry.command.seat}`),
     ...control.commandSections.tertiary.B.map((entry) => `${entry.commandType}:${entry.command.seat}`),
-  ]).toEqual(['pot.record:A', 'pot.record:B', 'foul.commit:A', 'foul.commit:B', 'frame.concede:A', 'frame.concede:B'])
+  ]).toEqual(['pot.record:A', 'pot.record:B', 'foul.commit:A', 'foul.commit:B'])
   state = parseState(step.state)
 
   step = applyGameCommand({
@@ -59,5 +59,5 @@ test('simulation: outside: basic frame 1', () => {
     ...control.commandSections.secondary.B.map((entry) => `${entry.commandType}:${entry.command.seat}`),
     ...control.commandSections.tertiary.B.map((entry) => `${entry.commandType}:${entry.command.seat}`),
     ...control.commandSections.tertiary.A.map((entry) => `${entry.commandType}:${entry.command.seat}`),
-  ]).toEqual(['pot.record:B', 'miss.record:B', 'foul.commit:B', 'frame.concede:B', 'frame.concede:A'])
+  ]).toEqual(['pot.record:B', 'miss.record:B', 'foul.commit:B'])
 })
