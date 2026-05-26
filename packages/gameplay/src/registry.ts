@@ -6,6 +6,19 @@ import type { LocalizedGameTitle, GameInputMode, GameMeta } from './constants'
 import { PyramidGameplayRuntime } from './pyramid/runtime'
 import { StrilaGameplayRuntime } from './strila-v2/runtime'
 
+type PyramidRuntimeConfig = {
+  meta: GameMeta
+  runtimeClass: typeof PyramidGameplayRuntime
+  runtimeArgs: ConstructorParameters<typeof PyramidGameplayRuntime>
+}
+
+type StrilaRuntimeConfig = {
+  meta: GameMeta
+  runtimeClass: typeof StrilaGameplayRuntime
+}
+
+type RegistryEntry = PyramidRuntimeConfig | StrilaRuntimeConfig
+
 function createPyramidEntry(args: {
   gameKey: string
   title: LocalizedGameTitle
@@ -14,14 +27,15 @@ function createPyramidEntry(args: {
   foulPenalty: 'opponent-plus-one' | 'offender-minus-one'
   shotPointOptions: number[]
   defaultFrameTargetPointsBySeat: BySeatNumber
-}): { meta: GameMeta; runtime: GameplayRuntime } {
+}): PyramidRuntimeConfig {
   return {
     meta: {
       title: args.title,
       inputMode: args.inputMode,
       defaultFrameTargetPointsBySeat: args.defaultFrameTargetPointsBySeat,
     },
-    runtime: new PyramidGameplayRuntime(
+    runtimeClass: PyramidGameplayRuntime,
+    runtimeArgs: [
       {
         gameKey: args.gameKey,
         title: args.title,
@@ -32,7 +46,7 @@ function createPyramidEntry(args: {
         foulPenalty: args.foulPenalty,
         shotPointOptions: args.shotPointOptions,
       },
-    ),
+    ],
   }
 }
 
@@ -46,7 +60,7 @@ export const registry = {
       inputMode: 'strila-basic',
       defaultFrameTargetPointsBySeat: { A: 9, B: 9 },
     },
-    runtime: new StrilaGameplayRuntime(),
+    runtimeClass: StrilaGameplayRuntime,
   },
   'free-pyramid': createPyramidEntry({
     gameKey: 'free-pyramid',
@@ -96,7 +110,7 @@ export const registry = {
     shotPointOptions: [1, 2],
     defaultFrameTargetPointsBySeat: { A: 8, B: 8 },
   }),
-} as const
+} as const satisfies Record<string, RegistryEntry>
 
 export type RegisteredGameKey = keyof typeof registry
 
@@ -115,5 +129,9 @@ export function getGameMeta(gameKey: RegisteredGameKey): GameMeta {
 export function getGameplayRuntime(gameKey: RegisteredGameKey): GameplayRuntime {
   const entry = registry[gameKey]
   invariant(entry, `Unsupported game key: ${gameKey}`)
-  return entry.runtime
+  if ('runtimeArgs' in entry) {
+    return new entry.runtimeClass(...entry.runtimeArgs)
+  }
+
+  return new entry.runtimeClass()
 }
