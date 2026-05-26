@@ -6,6 +6,7 @@
     "moduleResolution": "Bundler",
     "resolveJsonModule": true,
     "verbatimModuleSyntax": true,
+    "erasableSyntaxOnly": true,
     "isolatedModules": true,
     "strict": true,
     "noUncheckedIndexedAccess": true,
