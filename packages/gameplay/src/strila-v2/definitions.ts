@@ -6,7 +6,7 @@ import {
   GameControlProjectionSchema,
   GameScoreboardProjectionSchema,
   GameSummaryProjectionSchema,
-} from '../abstract-runtime'
+} from '../constants'
 
 const CueBallSchema = z.literal(0)
 const ColoredBallSchema = z.union([

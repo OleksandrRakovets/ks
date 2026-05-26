@@ -1,5 +1,5 @@
 export { createInitialGameState, applyGameCommand, deriveGameProjection, parseGameKey } from './gameplay'
-export { GameControlProjectionSchema } from './abstract-runtime'
+export { GameControlProjectionSchema } from './constants'
 export {
   StrilaControlDetailsSchema,
   StrilaControlViewSchema,

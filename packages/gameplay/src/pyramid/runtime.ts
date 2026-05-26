@@ -9,6 +9,7 @@ import {
 import invariant from 'tiny-invariant'
 import { z } from 'zod'
 
+import { GameplayRuntime } from '../abstract-runtime'
 import {
   type GameCreateStateArgs,
   GameCommandPresetSchema,
@@ -16,9 +17,8 @@ import {
   GameScoreboardProjectionSchema,
   GameSummaryProjectionSchema,
   type GameProjectionKey,
-} from '../abstract-runtime'
-import { GameplayRuntime } from '../abstract-runtime'
-import type { GameInputMode } from '../registry'
+  type GameInputMode,
+} from '../constants'
 
 const PyramidFrameStateSchema = z.object({
   pointsBySeat: BySeatNumberSchema,

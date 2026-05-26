@@ -1,7 +1,8 @@
 import { emptyControlCommandSections, opponentOf, type FrameOutcome, type Seat } from '@ks/core'
 import invariant from 'tiny-invariant'
 
-import { type GameCreateStateArgs, type GameProjectionKey, GameplayRuntime } from '../abstract-runtime'
+import { GameplayRuntime } from '../abstract-runtime'
+import type { GameCreateStateArgs, GameProjectionKey } from '../constants'
 import {
   StrilaMeta,
   StrilaBallStatusesSchema,

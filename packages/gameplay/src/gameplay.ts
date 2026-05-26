@@ -1,12 +1,7 @@
 import { GameKeySchema } from '@ks/core'
 import invariant from 'tiny-invariant'
 
-import {
-  GameProjectionKeySchema,
-  type GameCommandResult,
-  type GameCreateStateArgs,
-  type GameProjectionKey,
-} from './abstract-runtime'
+import { GameProjectionKeySchema, type GameCommandResult, type GameCreateStateArgs, type GameProjectionKey } from './constants'
 import { getGameplayRuntime, isRegisteredGameKey, type RegisteredGameKey } from './registry'
 
 export function parseGameKey(value: unknown): RegisteredGameKey {

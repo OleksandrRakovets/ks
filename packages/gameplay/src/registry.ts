@@ -1,22 +1,10 @@
-export type GameInputMode = 'pyramid-basic' | 'strila-basic'
-
-export type LocalizedGameTitle = {
-  uk: string
-  en: string
-}
-
 import type { BySeatNumber } from '@ks/core'
 import invariant from 'tiny-invariant'
 
 import type { GameplayRuntime } from './abstract-runtime'
+import type { LocalizedGameTitle, GameInputMode, GameMeta } from './constants'
 import { PyramidGameplayRuntime } from './pyramid/runtime'
 import { StrilaGameplayRuntime } from './strila-v2/runtime'
-
-export type GameMeta = {
-  title: LocalizedGameTitle
-  inputMode: GameInputMode
-  defaultFrameTargetPointsBySeat: BySeatNumber
-}
 
 function createPyramidEntry(args: {
   gameKey: string
