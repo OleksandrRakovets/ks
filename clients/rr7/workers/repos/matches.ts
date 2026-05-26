@@ -19,6 +19,11 @@ export async function getMatch(env: Env, matchId: string): Promise<MatchRow | nu
   return row ?? null
 }
 
+export async function matchExists(env: Env, matchId: string): Promise<boolean> {
+  const row = await env.DB.prepare('SELECT 1 AS one FROM matches WHERE match_id = ?').bind(matchId).first<{ one: 1 }>()
+  return Boolean(row)
+}
+
 export async function markMatchEnded(env: Env, matchId: string, endedAt: number, lockAt: number): Promise<void> {
   await env.DB.prepare('UPDATE matches SET status = ?, ended_at = ?, lock_at = ? WHERE match_id = ?')
     .bind('finished', endedAt, lockAt, matchId)

@@ -12,6 +12,9 @@ export type AppEnv = {
   }
   MATCH_ROOM: {
     getByName: (name: string) => {
+      create: (
+        args: unknown,
+      ) => Promise<{ ok: true; matchId: string; controlSecret: string } | { ok: false; error: string; status: number }>
       init: (args: unknown) => Promise<{ ok: true; alreadyInitialized?: true } | { ok: false; error: string; status: number }>
       snapshot: (args: unknown) => Promise<unknown>
       events: (

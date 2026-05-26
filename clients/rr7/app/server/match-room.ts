@@ -1,4 +1,4 @@
-import { normalizeMatchId, type MatchWriteRepository } from '@ks/competition'
+import { normalizeMatchId } from '@ks/competition'
 import {
   ControlCommandSectionsSchema,
   MatchSnapshotSchema,
@@ -44,6 +44,7 @@ const DoSnapshotResponseSchema = z.union([
   z.object({
     ok: z.literal(false),
     error: z.string().min(1),
+    status: z.number().int().positive().optional(),
   }),
 ])
 
@@ -65,7 +66,7 @@ export async function fetchMatchSnapshot(env: AppEnv, rawMatchId: string, locale
   }
 
   if (!payload.data.ok) {
-    const status = payload.data.error === 'Unknown match' ? 404 : 502
+    const status = payload.data.error === 'Unknown match' ? 404 : payload.data.status === 409 ? 409 : 502
     return Response.json({ ok: false, error: payload.data.error ?? 'Failed to load snapshot' }, { status })
   }
   const snapshot = payload.data.snapshot
@@ -181,41 +182,4 @@ export async function streamMatchEvents(env: AppEnv, rawMatchId: string, since?:
   const stub = env.MATCH_ROOM.getByName(matchId)
   const parsedSince = since && since.length > 0 ? Number(since) : undefined
   return stub.stream({ matchId, ...(Number.isFinite(parsedSince) && parsedSince !== undefined ? { since: parsedSince } : {}) })
-}
-
-export function makeMatchWriteRepository(env: AppEnv): MatchWriteRepository {
-  return {
-    insertMatch: async (args) => {
-      await env.DB.prepare(
-        [
-          'INSERT INTO matches (',
-          'match_id, control_secret, game_key, config_json, latest_seq, seat_a_player_ref, seat_b_player_ref, status, created_at',
-          ') VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        ].join(' '),
-      )
-        .bind(
-          args.matchId,
-          args.controlSecret,
-          args.config.gameKey,
-          JSON.stringify(args.config),
-          0,
-          args.seatAPlayerRef,
-          args.seatBPlayerRef,
-          'active',
-          args.now,
-        )
-        .run()
-    },
-    initMatchRoom: async (args) => {
-      const stub = env.MATCH_ROOM.getByName(args.matchId)
-      const result = await stub.init({
-        matchId: args.matchId,
-        controlSecret: args.controlSecret,
-        config: args.config,
-      })
-      if (!result.ok) {
-        throw new Error(`Failed to initialize match room: ${result.status}`)
-      }
-    },
-  }
 }

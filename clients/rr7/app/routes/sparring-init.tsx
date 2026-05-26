@@ -1,5 +1,4 @@
-import { createMatchService } from '@ks/competition'
-import type { BySeatNumber } from '@ks/core'
+import { newMatchId, type BySeatNumber } from '@ks/core'
 import { isRegisteredGameKey, registry } from '@ks/gameplay'
 import { keys } from '@ks/i18n'
 import { Button, Input, Label, NumberInput } from '@ks/ui'
@@ -10,7 +9,6 @@ import type { AppLoadContext } from '../server/context'
 import { requireEnv } from '../server/context'
 import { getOrCreateGuestPlayerRef } from '../server/guest-players'
 import { localeFromCookie } from '../server/locale'
-import { makeMatchWriteRepository } from '../server/match-room'
 
 type LoaderData = {
   gameKey: string
@@ -36,6 +34,14 @@ function parsePositiveInt(raw: FormDataEntryValue | null, fallback?: number): nu
     return null
   }
   return parsed
+}
+
+function randomSecret(): string {
+  const bytes = new Uint8Array(24)
+  crypto.getRandomValues(bytes)
+  let bin = ''
+  for (const b of bytes) bin += String.fromCharCode(b)
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
 }
 
 export async function loader({ params, request }: { params: { gameKey?: string }; request: Request }): Promise<LoaderData> {
@@ -69,8 +75,8 @@ export async function action({
   const defaultFrameTargetPointsBySeat = registry[gameKey].meta.defaultFrameTargetPointsBySeat
 
   const form = await request.formData()
-  const seatAName = String(form.get('seatAName') ?? '')
-  const seatBName = String(form.get('seatBName') ?? '')
+  const seatAName = normalizeDisplayName(String(form.get('seatAName') ?? ''))
+  const seatBName = normalizeDisplayName(String(form.get('seatBName') ?? ''))
   const matchTargetFrames = parsePositiveInt(form.get('matchTargetFrames'))
   const targetA = parsePositiveInt(form.get('targetA'), defaultFrameTargetPointsBySeat.A)
   const targetB = parsePositiveInt(form.get('targetB'), defaultFrameTargetPointsBySeat.B)
@@ -89,12 +95,16 @@ export async function action({
   }
 
   const env = requireEnv(context)
+  const matchId = newMatchId()
+  const controlSecret = randomSecret()
   const [seatAPlayerRef, seatBPlayerRef] = await Promise.all([
     getOrCreateGuestPlayerRef(env, seatAName),
     getOrCreateGuestPlayerRef(env, seatBName),
   ])
 
-  const result = await createMatchService(makeMatchWriteRepository(env), {
+  const result = await env.MATCH_ROOM.getByName(matchId).create({
+    matchId,
+    controlSecret,
     gameKey,
     targets: {
       frameTargetPointsBySeat: {
@@ -109,7 +119,11 @@ export async function action({
     ],
   })
 
-  return redirect(`/sparring/matches/${result.matchId}`)
+  if (!result.ok) {
+    throw new Response('Could not create match', { status: result.status })
+  }
+
+  return redirect(`/sparring/matches/${matchId}`)
 }
 
 function normalizeDisplayName(value: string): string {

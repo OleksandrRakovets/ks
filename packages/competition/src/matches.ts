@@ -1,4 +1,4 @@
-import { MatchIdSchema, MatchSeatAssignmentSchema, newMatchId, stripOptionalPrefix, type MatchConfig } from '@ks/core'
+import { MatchConfigSchema, MatchIdSchema, MatchSeatAssignmentSchema, stripOptionalPrefix, type MatchConfig } from '@ks/core'
 import { isRegisteredGameKey } from '@ks/gameplay'
 import { z } from 'zod'
 
@@ -35,27 +35,7 @@ export const CreateMatchRequestSchema = z
 
 export type CreateMatchRequest = z.infer<typeof CreateMatchRequestSchema>
 
-export type MatchWriteRepository = {
-  insertMatch(args: {
-    matchId: string
-    controlSecret: string
-    config: MatchConfig
-    seatAPlayerRef: string
-    seatBPlayerRef: string
-    now: number
-  }): Promise<void>
-  initMatchRoom(args: { matchId: string; controlSecret: string; config: MatchConfig }): Promise<void>
-}
-
-function randomSecret(): string {
-  const bytes = new Uint8Array(24)
-  crypto.getRandomValues(bytes)
-  let bin = ''
-  for (const b of bytes) bin += String.fromCharCode(b)
-  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
-}
-
-function assignmentsBySeat(participants: CreateMatchRequest['participants']): { A: string; B: string } {
+export function assignmentsBySeat(participants: CreateMatchRequest['participants']): { A: string; B: string } {
   const seatA = participants.find((participant) => participant.seat === 'A')
   const seatB = participants.find((participant) => participant.seat === 'B')
   if (!seatA || !seatB) {
@@ -67,45 +47,12 @@ function assignmentsBySeat(participants: CreateMatchRequest['participants']): { 
   }
 }
 
-export async function createMatchService(
-  repo: MatchWriteRepository,
-  input: CreateMatchRequest,
-): Promise<{
-  matchId: string
-  publicUrl: string
-  controlUrl: string
-}> {
-  const matchId = newMatchId()
-  const controlSecret = randomSecret()
-  const now = Date.now()
-  const seatAssignments = assignmentsBySeat(input.participants)
-
-  const config: MatchConfig = {
+export function buildMatchConfig(matchId: string, input: CreateMatchRequest): MatchConfig {
+  return MatchConfigSchema.parse({
     matchId,
     gameKey: input.gameKey,
     targets: input.targets,
-  }
-
-  await repo.insertMatch({
-    matchId,
-    controlSecret,
-    config,
-    seatAPlayerRef: seatAssignments.A,
-    seatBPlayerRef: seatAssignments.B,
-    now,
   })
-
-  await repo.initMatchRoom({
-    matchId,
-    controlSecret,
-    config,
-  })
-
-  return {
-    matchId,
-    publicUrl: `/m/${matchId}`,
-    controlUrl: `/c/${matchId}/${controlSecret}`,
-  }
 }
 
 export function normalizeMatchId(raw: string): string {

@@ -1,5 +1,8 @@
 import {
   applyMatchEvent,
+  assignmentsBySeat,
+  buildMatchConfig,
+  CreateMatchRequestSchema,
   deriveSparringControlSections,
   emptyMatchState,
   snapshotFromMatchState,
@@ -12,6 +15,8 @@ import {
   BySeatNumberSchema,
   MatchConfigSchema,
   MatchIdSchema,
+  MatchSeatAssignmentSchema,
+  MatchTargetsSchema,
   newEventId,
   opponentOf,
   SeatSchema,
@@ -26,13 +31,21 @@ import { z } from 'zod'
 
 import type { Env } from '../env'
 import { eventExists, getLatestSeq, insertStoredEvent, listEventsAfter } from '../repos/events'
-import { getMatch, markMatchEnded, setMatchLatestSeq } from '../repos/matches'
+import { getMatch, markMatchEnded, matchExists, setMatchLatestSeq } from '../repos/matches'
 import { deleteMatchSnapshot, putLatestMatchSnapshot } from '../repos/snapshots'
 
 const InitBodySchema = z.object({
   matchId: MatchIdSchema,
   controlSecret: z.string().min(16),
   config: MatchConfigSchema,
+})
+
+const CreateBodySchema = z.object({
+  matchId: MatchIdSchema,
+  controlSecret: z.string().min(16),
+  gameKey: z.string().min(1),
+  targets: MatchTargetsSchema,
+  participants: z.array(MatchSeatAssignmentSchema).length(2),
 })
 
 const EventsBodySchema = z.object({
@@ -96,7 +109,13 @@ export class MatchRoom extends DurableObject<Env> {
     if (row.control_secret !== controlSecret) return { ok: false, error: 'Unauthorized', status: 401 }
 
     const latest = await getLatestSeq(this.env, matchId)
-    if (latest > 0) return { ok: true, alreadyInitialized: true }
+    if (latest > 0) {
+      const initialFacts = await listEventsAfter(this.env, matchId, 0)
+      if (latest >= 2 && initialFacts[0]?.type === 'match.created' && initialFacts[1]?.type === 'frame.started') {
+        return { ok: true, alreadyInitialized: true }
+      }
+      return { ok: false, error: 'Match is partially initialized', status: 409 }
+    }
 
     const now = Date.now()
     const serverClientId = ClientIdSchema.parse('server0000')
@@ -116,8 +135,88 @@ export class MatchRoom extends DurableObject<Env> {
     }
 
     // Initialization is already expressed as accepted facts: there is no user intent to validate here.
-    await this.appendAcceptedFacts(matchId, [created, started])
+    const accepted = await this.appendAcceptedFacts(matchId, [created, started])
+    if (accepted.length !== 2) return { ok: false, error: 'Failed to initialize match facts', status: 500 }
     return { ok: true }
+  }
+
+  /** Creates a match row and its initial accepted facts as one DO-coordinated operation. */
+  async create(
+    args: unknown,
+  ): Promise<{ ok: true; matchId: string; controlSecret: string } | { ok: false; error: string; status: number }> {
+    const parsed = CreateBodySchema.safeParse(args)
+    if (!parsed.success) return { ok: false, error: 'Invalid create body', status: 400 }
+
+    const { matchId, controlSecret, ...request } = parsed.data
+    await this.rememberMatchId(matchId)
+
+    return await this.ctx.blockConcurrencyWhile(async () => {
+      if (await matchExists(this.env, matchId)) return { ok: false, error: 'Match already exists', status: 409 }
+
+      const createRequest = CreateMatchRequestSchema.safeParse(request)
+      if (!createRequest.success) return { ok: false, error: 'Invalid create body', status: 400 }
+
+      const config = buildMatchConfig(matchId, createRequest.data)
+      const seats = assignmentsBySeat(createRequest.data.participants)
+      const now = Date.now()
+      const base = { matchId, clientId: ClientIdSchema.parse('server0000'), clientSeq: 0, at: now }
+      const facts: [ClientEvent, ClientEvent] = [
+        { ...base, eventId: newEventId(), type: 'match.created', payload: config },
+        {
+          ...base,
+          eventId: newEventId(),
+          type: 'frame.started',
+          payload: { frameIndex: 1, gameKey: config.gameKey, targetPointsBySeat: config.targets.frameTargetPointsBySeat },
+        },
+      ]
+
+      let roomState: RoomState = { matchState: emptyMatchState(), currentFrameState: null }
+      for (const fact of facts) {
+        const validFact = ClientEventSchema.parse(fact)
+        roomState = this.applyRoomFact(roomState, validFact)
+      }
+
+      await this.env.DB.batch([
+        this.env.DB.prepare(
+          [
+            'INSERT INTO matches (',
+            'match_id, control_secret, game_key, config_json, latest_seq, seat_a_player_ref, seat_b_player_ref, status, created_at',
+            ') VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          ].join(' '),
+        ).bind(matchId, controlSecret, config.gameKey, JSON.stringify(config), 2, seats.A, seats.B, 'active', now),
+        this.env.DB.prepare(
+          'INSERT INTO events (match_id, seq, event_id, type, payload_json, client_id, client_seq, at, received_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        ).bind(
+          matchId,
+          1,
+          facts[0].eventId,
+          facts[0].type,
+          JSON.stringify(facts[0].payload),
+          facts[0].clientId,
+          facts[0].clientSeq,
+          facts[0].at,
+          now,
+        ),
+        this.env.DB.prepare(
+          'INSERT INTO events (match_id, seq, event_id, type, payload_json, client_id, client_seq, at, received_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        ).bind(
+          matchId,
+          2,
+          facts[1].eventId,
+          facts[1].type,
+          JSON.stringify(facts[1].payload),
+          facts[1].clientId,
+          facts[1].clientSeq,
+          facts[1].at,
+          now,
+        ),
+      ])
+      this.ctx.storage
+        .put('roomState', { latestSeq: 2, roomState } satisfies CachedRoomState)
+        .catch((error: unknown) => console.error('Failed to warm MatchRoom cache after create', { matchId, error }))
+
+      return { ok: true, matchId, controlSecret }
+    })
   }
 
   /** Returns the current match snapshot and control projections for one room. */
@@ -137,6 +236,9 @@ export class MatchRoom extends DurableObject<Env> {
 
     await this.pruneSnapshotIfExpired(matchId, row.status, row.lock_at)
     const { roomState, latestSeq } = await this.loadRoomState(matchId)
+    if (latestSeq === 0 || !roomState.matchState.config) {
+      return { ok: false, error: 'Match is not initialized', status: 409 }
+    }
     const snapshot = snapshotFromMatchState(roomState.matchState, latestSeq)
 
     // The match snapshot is domain state; controls are a projection of the current game frame.
