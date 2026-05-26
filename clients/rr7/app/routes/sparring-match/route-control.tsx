@@ -11,7 +11,7 @@ import {
   type ControlCommandSections,
   type ControlCommandPreset,
 } from '@ks/core'
-import { GameControlProjectionSchema, isRegisteredGameKey, registry } from '@ks/gameplay'
+import { GameControlProjectionSchema, isRegisteredGameKey, registry } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
 import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'

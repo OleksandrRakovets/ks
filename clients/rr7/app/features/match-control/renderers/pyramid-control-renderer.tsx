@@ -1,5 +1,5 @@
 import type { ControlCommandPreset } from '@ks/core'
-import { PyramidControlViewSchema } from '@ks/gameplay'
+import { PyramidControlViewSchema } from '@ks/gameplay/definitions'
 import { Button } from '@ks/ui'
 import { useMemo, useState } from 'react'
 

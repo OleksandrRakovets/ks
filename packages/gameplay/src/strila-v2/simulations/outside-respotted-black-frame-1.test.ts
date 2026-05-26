@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 
-import { applyGameCommand } from '../../index'
+import { applyGameCommand } from '../../server'
 import { StrilaFrameStateSchema, StrilaMeta, type StrilaFrameState } from '../definitions'
 import { deriveStrilaControlView } from '../projections/control'
 import { deriveStrilaScoreboardView } from '../projections/scoreboard'

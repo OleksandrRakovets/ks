@@ -10,17 +10,10 @@ import {
   type BySeatNumber,
   type Seat,
 } from '@ks/core'
-import {
-  applyGameCommand,
-  createInitialGameState,
-  deriveGameProjection,
-  GameControlProjectionSchema,
-  isRegisteredGameKey,
-  parseGameKey,
-  registry,
-} from '@ks/gameplay'
+import { GameControlProjectionSchema, isRegisteredGameKey, registry } from '@ks/gameplay/definitions'
+import { applyGameCommand, createInitialGameState, deriveGameProjection, parseGameKey } from '@ks/gameplay/server'
 import { keys } from '@ks/i18n'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useLoaderData, useRevalidator } from 'react-router'
 import { z } from 'zod'
@@ -36,7 +29,7 @@ type LoaderData = {
   snapshot: Awaited<ReturnType<typeof parseSnapshotBody>>['snapshot']
   participants: HydratedMatchParticipants
   controlProjection?: Awaited<ReturnType<typeof parseSnapshotBody>>['controlProjection']
-  protocolEntries: StoredEvent[]
+  protocolRows: ProtocolRow[]
   gameTitle: string
 }
 
@@ -82,7 +75,10 @@ export async function loader({
     snapshot: body.snapshot,
     participants: body.participants,
     controlProjection: body.controlProjection,
-    protocolEntries,
+    protocolRows: deriveProtocolRows(protocolEntries, {
+      A: body.participants.A.displayName,
+      B: body.participants.B.displayName,
+    }),
     gameTitle,
   }
 }
@@ -236,10 +232,9 @@ export const handle = {
 
 export default function SparringMatchProtocolRoute() {
   const { t } = useTranslation()
-  const { snapshot, participants, controlProjection, protocolEntries: initialProtocolEntries } = useLoaderData<typeof loader>()
+  const { snapshot, participants, controlProjection, protocolRows: initialProtocolRows } = useLoaderData<typeof loader>()
   const revalidator = useRevalidator()
 
-  const [protocolEntries, setProtocolEntries] = useState<StoredEvent[]>(initialProtocolEntries)
   const latestSeqRef = useRef(snapshot.latestSeq)
   const revalidateFnRef = useRef(revalidator.revalidate)
 
@@ -283,11 +278,6 @@ export default function SparringMatchProtocolRoute() {
       const parsed = StreamEventSchema.safeParse(decoded)
       if (!parsed.success) return
 
-      setProtocolEntries((prev) => {
-        if (prev.some((entry) => entry.eventId === parsed.data.eventId)) return prev
-        return [...prev, parsed.data]
-      })
-
       if (parsed.data.seq > latestSeqRef.current) {
         latestSeqRef.current = parsed.data.seq
         revalidateFnRef.current()
@@ -305,17 +295,10 @@ export default function SparringMatchProtocolRoute() {
 
   const frameIndex = snapshot.currentFrameIndex
   const snapshotFrame = snapshot.frames[frameIndex - 1]
-  const seatNames = useMemo(
-    () => ({
-      A: participants.A.displayName,
-      B: participants.B.displayName,
-    }),
-    [participants.A.displayName, participants.B.displayName],
+  const protocolRows = useMemo(
+    () => (snapshot.status === 'active' ? [...initialProtocolRows].reverse() : initialProtocolRows),
+    [initialProtocolRows, snapshot.status],
   )
-  const protocolRows = useMemo(() => {
-    const rows = deriveProtocolRows(protocolEntries, seatNames)
-    return snapshot.status === 'active' ? [...rows].reverse() : rows
-  }, [protocolEntries, seatNames, snapshot.status])
 
   return (
     <main className="mx-auto flex flex-1 flex-col bg-surface lg:w-4xl">

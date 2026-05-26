@@ -25,7 +25,7 @@ import {
   type MatchConfig,
   type StoredEvent,
 } from '@ks/core'
-import { applyGameCommand, createInitialGameState, deriveGameProjection, parseGameKey } from '@ks/gameplay'
+import { applyGameCommand, createInitialGameState, deriveGameProjection, parseGameKey } from '@ks/gameplay/server'
 import { DurableObject } from 'cloudflare:workers'
 import { z } from 'zod'
 

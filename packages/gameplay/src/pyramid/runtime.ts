@@ -1,11 +1,4 @@
-import {
-  BySeatNumberSchema,
-  ControlCommandSectionsSchema,
-  SeatSchema,
-  emptyControlCommandSections,
-  opponentOf,
-  type FrameOutcome,
-} from '@ks/core'
+import { BySeatNumberSchema, SeatSchema, emptyControlCommandSections, opponentOf, type FrameOutcome } from '@ks/core'
 import invariant from 'tiny-invariant'
 import { z } from 'zod'
 
@@ -13,11 +6,11 @@ import { GameplayRuntime } from '../abstract-runtime'
 import {
   type GameCreateStateArgs,
   GameCommandPresetSchema,
-  GameControlProjectionSchema,
   GameScoreboardProjectionSchema,
   GameSummaryProjectionSchema,
   type GameProjectionKey,
 } from '../constants'
+import { PyramidControlViewSchema } from './definitions'
 
 const PyramidFrameStateSchema = z.object({
   pointsBySeat: BySeatNumberSchema,
@@ -75,19 +68,6 @@ function command(
   const seat = payload.seat === 'A' || payload.seat === 'B' ? payload.seat : undefined
   return { source: 'game', commandType, command: payload, seat, label, ...extras }
 }
-
-const PyramidControlDetailsSchema = z.object({
-  phase: z.enum(['not-started', 'open-play', 'frame-over']),
-  winner: SeatSchema.optional(),
-  situationTitle: z.string().min(1),
-  situationSummary: z.string().min(1),
-  isPotCommandAvailable: z.boolean(),
-  commandSections: ControlCommandSectionsSchema,
-})
-
-export const PyramidControlViewSchema = GameControlProjectionSchema.extend({
-  details: PyramidControlDetailsSchema,
-})
 
 function deriveCommandSections(commands: z.infer<typeof PyramidControlCommandSchema>[]) {
   const sections = emptyControlCommandSections()
@@ -273,7 +253,9 @@ export class PyramidGameplayRuntime extends GameplayRuntime {
               command('foul.commit', { seat }, 'Фол', {
                 prominence: 'secondary',
                 effectSummary:
-                  this.config.foulPenalty === 'opponent-plus-one' ? 'Opponent +1 point' : 'Offender -1 point (negative allowed)',
+                  this.config.foulPenalty === 'opponent-plus-one'
+                    ? 'Opponent +1 point'
+                    : 'Offender -1 point (negative allowed)',
               }),
             ),
             ...(state.pointsBySeat.A >= state.targetPointsBySeat.A

@@ -2,14 +2,8 @@ import { describe, expect, test } from 'bun:test'
 
 import type { BySeatNumber, Seat } from '@ks/core'
 
-import {
-  applyGameCommand,
-  createInitialGameState,
-  deriveGameProjection,
-  getGameMeta,
-  listGameKeys,
-  parseGameKey,
-} from './index'
+import { getGameMeta, listGameKeys } from './definitions'
+import { applyGameCommand, createInitialGameState, deriveGameProjection, parseGameKey } from './server'
 
 describe('gameplay runtime api', () => {
   test('lists registered game keys', () => {
