@@ -17,7 +17,6 @@ import {
   GameScoreboardProjectionSchema,
   GameSummaryProjectionSchema,
   type GameProjectionKey,
-  type GameInputMode,
 } from '../constants'
 
 const PyramidFrameStateSchema = z.object({
@@ -50,15 +49,6 @@ const BreakOffCommandSchema = z.object({
 const FoulCommittedCommandSchema = z.object({
   seat: SeatSchema,
 })
-
-type PyramidMeta = {
-  gameKey: string
-  title: {
-    uk: string
-    en: string
-  }
-  inputMode: GameInputMode
-}
 
 const AwardFrameCommandSchema = z.object({
   seat: SeatSchema,
@@ -115,24 +105,21 @@ function deriveCommandSections(commands: z.infer<typeof PyramidControlCommandSch
 
 // TODO: declare winner as well, but allow the break to continue
 export class PyramidGameplayRuntime extends GameplayRuntime {
-  readonly meta: PyramidMeta
-  private readonly args: {
+  private readonly config: {
+    gameKey: string
     allowNegative: boolean
     foulPenalty: 'opponent-plus-one' | 'offender-minus-one'
     shotPointOptions: number[]
   }
 
-  constructor(
-    meta: PyramidMeta,
-    args: {
-      allowNegative: boolean
-      foulPenalty: 'opponent-plus-one' | 'offender-minus-one'
-      shotPointOptions: number[]
-    },
-  ) {
+  constructor(config: {
+    gameKey: string
+    allowNegative: boolean
+    foulPenalty: 'opponent-plus-one' | 'offender-minus-one'
+    shotPointOptions: number[]
+  }) {
     super()
-    this.meta = meta
-    this.args = args
+    this.config = config
   }
 
   createInitialState(args: GameCreateStateArgs): PyramidFrameState {
@@ -175,12 +162,12 @@ export class PyramidGameplayRuntime extends GameplayRuntime {
           pointsBySeat:
             command.seat === 'A'
               ? {
-                  A: this.args.allowNegative ? next : Math.max(0, next),
+                  A: this.config.allowNegative ? next : Math.max(0, next),
                   B: state.pointsBySeat.B,
                 }
               : {
                   A: state.pointsBySeat.A,
-                  B: this.args.allowNegative ? next : Math.max(0, next),
+                  B: this.config.allowNegative ? next : Math.max(0, next),
                 },
         } satisfies PyramidFrameState,
       }
@@ -190,7 +177,7 @@ export class PyramidGameplayRuntime extends GameplayRuntime {
       invariant(state.phase === 'open-play', 'Cannot record pyramid foul before frame.commence')
       const command = FoulCommittedCommandSchema.parse(input.command)
 
-      if (this.args.foulPenalty === 'opponent-plus-one') {
+      if (this.config.foulPenalty === 'opponent-plus-one') {
         const targetSeat = opponentOf(command.seat)
         const current = state.pointsBySeat[targetSeat]
 
@@ -219,12 +206,12 @@ export class PyramidGameplayRuntime extends GameplayRuntime {
           pointsBySeat:
             command.seat === 'A'
               ? {
-                  A: this.args.allowNegative ? next : Math.max(0, next),
+                  A: this.config.allowNegative ? next : Math.max(0, next),
                   B: state.pointsBySeat.B,
                 }
               : {
                   A: state.pointsBySeat.A,
-                  B: this.args.allowNegative ? next : Math.max(0, next),
+                  B: this.config.allowNegative ? next : Math.max(0, next),
                 },
         } satisfies PyramidFrameState,
       }
@@ -261,7 +248,7 @@ export class PyramidGameplayRuntime extends GameplayRuntime {
             command('frame.commence', { seat: 'B' }, 'Break-off (B)', { prominence: 'primary' }),
           ]
           return PyramidControlViewSchema.parse({
-            gameKey: this.meta.gameKey,
+            gameKey: this.config.gameKey,
             projection: 'control',
             score: state.pointsBySeat,
             details: {
@@ -278,7 +265,7 @@ export class PyramidGameplayRuntime extends GameplayRuntime {
           const seats: Array<'A' | 'B'> = ['A', 'B']
           const commands = [
             ...seats.flatMap((seat) =>
-              this.args.shotPointOptions.map((points, index) =>
+              this.config.shotPointOptions.map((points, index) =>
                 command('pot.record', { seat, points }, `+${points}`, { prominence: index === 0 ? 'primary' : 'secondary' }),
               ),
             ),
@@ -286,7 +273,7 @@ export class PyramidGameplayRuntime extends GameplayRuntime {
               command('foul.commit', { seat }, 'Фол', {
                 prominence: 'secondary',
                 effectSummary:
-                  this.args.foulPenalty === 'opponent-plus-one' ? 'Opponent +1 point' : 'Offender -1 point (negative allowed)',
+                  this.config.foulPenalty === 'opponent-plus-one' ? 'Opponent +1 point' : 'Offender -1 point (negative allowed)',
               }),
             ),
             ...(state.pointsBySeat.A >= state.targetPointsBySeat.A
@@ -298,7 +285,7 @@ export class PyramidGameplayRuntime extends GameplayRuntime {
           ]
 
           return PyramidControlViewSchema.parse({
-            gameKey: this.meta.gameKey,
+            gameKey: this.config.gameKey,
             projection: 'control',
             score: state.pointsBySeat,
             details: {
@@ -312,7 +299,7 @@ export class PyramidGameplayRuntime extends GameplayRuntime {
         }
 
         return PyramidControlViewSchema.parse({
-          gameKey: this.meta.gameKey,
+          gameKey: this.config.gameKey,
           projection: 'control',
           score: state.pointsBySeat,
           details: {
@@ -326,14 +313,14 @@ export class PyramidGameplayRuntime extends GameplayRuntime {
       }
       case 'scoreboard':
         return GameScoreboardProjectionSchema.parse({
-          gameKey: this.meta.gameKey,
+          gameKey: this.config.gameKey,
           projection: 'scoreboard',
           score: state.pointsBySeat,
           details: pyramidDetails(state),
         })
       case 'summary':
         return GameSummaryProjectionSchema.parse({
-          gameKey: this.meta.gameKey,
+          gameKey: this.config.gameKey,
           projection: 'summary',
           score: state.pointsBySeat,
           details: pyramidDetails(state),

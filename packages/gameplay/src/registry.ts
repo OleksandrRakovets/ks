@@ -1,8 +1,7 @@
-import type { BySeatNumber } from '@ks/core'
 import invariant from 'tiny-invariant'
 
 import type { GameplayRuntime } from './abstract-runtime'
-import type { LocalizedGameTitle, GameInputMode, GameMeta } from './constants'
+import type { GameMeta } from './constants'
 import { PyramidGameplayRuntime } from './pyramid/runtime'
 import { StrilaGameplayRuntime } from './strila-v2/runtime'
 
@@ -19,37 +18,6 @@ type StrilaRuntimeConfig = {
 
 type RegistryEntry = PyramidRuntimeConfig | StrilaRuntimeConfig
 
-function createPyramidEntry(args: {
-  gameKey: string
-  title: LocalizedGameTitle
-  inputMode: GameInputMode
-  allowNegative: boolean
-  foulPenalty: 'opponent-plus-one' | 'offender-minus-one'
-  shotPointOptions: number[]
-  defaultFrameTargetPointsBySeat: BySeatNumber
-}): PyramidRuntimeConfig {
-  return {
-    meta: {
-      title: args.title,
-      inputMode: args.inputMode,
-      defaultFrameTargetPointsBySeat: args.defaultFrameTargetPointsBySeat,
-    },
-    runtimeClass: PyramidGameplayRuntime,
-    runtimeArgs: [
-      {
-        gameKey: args.gameKey,
-        title: args.title,
-        inputMode: args.inputMode,
-      },
-      {
-        allowNegative: args.allowNegative,
-        foulPenalty: args.foulPenalty,
-        shotPointOptions: args.shotPointOptions,
-      },
-    ],
-  }
-}
-
 export const registry = {
   'strila-v2': {
     meta: {
@@ -62,54 +30,82 @@ export const registry = {
     },
     runtimeClass: StrilaGameplayRuntime,
   },
-  'free-pyramid': createPyramidEntry({
-    gameKey: 'free-pyramid',
-    title: {
-      uk: 'Вільна піраміда',
-      en: 'Free pyramid',
+  'free-pyramid': {
+    meta: {
+      title: {
+        uk: 'Вільна піраміда',
+        en: 'Free pyramid',
+      },
+      inputMode: 'pyramid-basic',
+      defaultFrameTargetPointsBySeat: { A: 8, B: 8 },
     },
-    inputMode: 'pyramid-basic',
-    allowNegative: false,
-    foulPenalty: 'opponent-plus-one',
-    shotPointOptions: [1, 2, 4],
-    defaultFrameTargetPointsBySeat: { A: 8, B: 8 },
-  }),
-  'free-pyramid-long': createPyramidEntry({
-    gameKey: 'free-pyramid-long',
-    title: {
-      uk: 'Вільна піраміда з продовженням',
-      en: 'Free pyramid (long)',
+    runtimeClass: PyramidGameplayRuntime,
+    runtimeArgs: [
+      {
+        gameKey: 'free-pyramid',
+        allowNegative: false,
+        foulPenalty: 'opponent-plus-one',
+        shotPointOptions: [1, 2, 4],
+      },
+    ],
+  },
+  'free-pyramid-long': {
+    meta: {
+      title: {
+        uk: 'Вільна піраміда з продовженням',
+        en: 'Free pyramid (long)',
+      },
+      inputMode: 'pyramid-basic',
+      defaultFrameTargetPointsBySeat: { A: 30, B: 30 },
     },
-    inputMode: 'pyramid-basic',
-    allowNegative: false,
-    foulPenalty: 'opponent-plus-one',
-    shotPointOptions: [1, 2, 4],
-    defaultFrameTargetPointsBySeat: { A: 30, B: 30 },
-  }),
-  'combined-pyramid': createPyramidEntry({
-    gameKey: 'combined-pyramid',
-    title: {
-      uk: 'Комбінована піраміда',
-      en: 'Combined pyramid',
+    runtimeClass: PyramidGameplayRuntime,
+    runtimeArgs: [
+      {
+        gameKey: 'free-pyramid-long',
+        allowNegative: false,
+        foulPenalty: 'opponent-plus-one',
+        shotPointOptions: [1, 2, 4],
+      },
+    ],
+  },
+  'combined-pyramid': {
+    meta: {
+      title: {
+        uk: 'Комбінована піраміда',
+        en: 'Combined pyramid',
+      },
+      inputMode: 'pyramid-basic',
+      defaultFrameTargetPointsBySeat: { A: 8, B: 8 },
     },
-    inputMode: 'pyramid-basic',
-    allowNegative: false,
-    foulPenalty: 'opponent-plus-one',
-    shotPointOptions: [1, 2],
-    defaultFrameTargetPointsBySeat: { A: 8, B: 8 },
-  }),
-  'combined-pyramid-old': createPyramidEntry({
-    gameKey: 'combined-pyramid-old',
-    title: {
-      uk: 'Комбінована піраміда (старі правила)',
-      en: 'Combined pyramid (old rules)',
+    runtimeClass: PyramidGameplayRuntime,
+    runtimeArgs: [
+      {
+        gameKey: 'combined-pyramid',
+        allowNegative: false,
+        foulPenalty: 'opponent-plus-one',
+        shotPointOptions: [1, 2],
+      },
+    ],
+  },
+  'combined-pyramid-old': {
+    meta: {
+      title: {
+        uk: 'Комбінована піраміда (старі правила)',
+        en: 'Combined pyramid (old rules)',
+      },
+      inputMode: 'pyramid-basic',
+      defaultFrameTargetPointsBySeat: { A: 8, B: 8 },
     },
-    inputMode: 'pyramid-basic',
-    allowNegative: true,
-    foulPenalty: 'offender-minus-one',
-    shotPointOptions: [1, 2],
-    defaultFrameTargetPointsBySeat: { A: 8, B: 8 },
-  }),
+    runtimeClass: PyramidGameplayRuntime,
+    runtimeArgs: [
+      {
+        gameKey: 'combined-pyramid-old',
+        allowNegative: true,
+        foulPenalty: 'offender-minus-one',
+        shotPointOptions: [1, 2],
+      },
+    ],
+  },
 } as const satisfies Record<string, RegistryEntry>
 
 export type RegisteredGameKey = keyof typeof registry
@@ -129,8 +125,10 @@ export function getGameMeta(gameKey: RegisteredGameKey): GameMeta {
 export function getGameplayRuntime(gameKey: RegisteredGameKey): GameplayRuntime {
   const entry = registry[gameKey]
   invariant(entry, `Unsupported game key: ${gameKey}`)
+
   if ('runtimeArgs' in entry) {
-    return new entry.runtimeClass(...entry.runtimeArgs)
+    const [config] = entry.runtimeArgs
+    return new entry.runtimeClass(config)
   }
 
   return new entry.runtimeClass()
