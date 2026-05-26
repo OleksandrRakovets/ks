@@ -54,12 +54,17 @@ test('simulation: internal: basic frame 1', () => {
   expect(next.phase).toBe('foul-committed.penalty-selection')
   expect(next.foulOffender).toBe('A')
   expect(protocolEntries).toEqual([
-    { source: 'player', command: { type: 'pot.record', seat: 'A', pottedBalls: [0] } },
+    {
+      source: 'player',
+      entryType: 'player-command',
+      seat: 'A',
+      body: { commandType: 'pot.record', pottedBalls: [0] },
+    },
     {
       source: 'system',
-      systemType: 'automatic-foul',
-      offender: 'A',
-      reason: 'third-consecutive-cue-ball-pot',
+      entryType: 'system-note',
+      seat: 'A',
+      body: { systemType: 'automatic-foul', reason: 'third-consecutive-cue-ball-pot' },
     },
   ])
 
@@ -103,12 +108,18 @@ test('simulation: internal: basic frame 1', () => {
     },
   })
   expect(protocolEntries).toEqual([
-    { source: 'player', command: { type: 'pot.record', seat: 'B', pottedBalls: [4] } },
+    {
+      source: 'player',
+      entryType: 'player-command',
+      seat: 'B',
+      scoreAfter: { A: 4, B: 9 },
+      body: { commandType: 'pot.record', pottedBalls: [4] },
+    },
     {
       source: 'system',
-      systemType: 'winner-determined',
-      winner: 'B',
-      reason: 'target-reached',
+      entryType: 'system-note',
+      seat: 'B',
+      body: { systemType: 'winner-determined', reason: 'target-reached' },
     },
   ])
 

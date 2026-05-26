@@ -62,7 +62,8 @@ describe('gameplay runtime api', () => {
       phase: 'not-started',
     })
 
-    ;({ state } = applyGameCommand({
+    let protocolEntries
+    ;({ state, protocolEntries } = applyGameCommand({
       gameKey: 'free-pyramid',
       state,
       commandType: 'frame.commence',
@@ -74,8 +75,11 @@ describe('gameplay runtime api', () => {
       targetPointsBySeat: { A: 8, B: 8 },
       phase: 'open-play',
     })
+    expect(protocolEntries).toEqual([
+      { source: 'player', entryType: 'player-command', seat: 'A', body: { commandType: 'frame.commence' } },
+    ])
 
-    ;({ state } = applyGameCommand({
+    ;({ state, protocolEntries } = applyGameCommand({
       gameKey: 'free-pyramid',
       state,
       commandType: 'pot.record',
@@ -87,6 +91,15 @@ describe('gameplay runtime api', () => {
       targetPointsBySeat: { A: 8, B: 8 },
       phase: 'open-play',
     })
+    expect(protocolEntries).toEqual([
+      {
+        source: 'player',
+        entryType: 'player-command',
+        seat: 'A',
+        scoreAfter: { A: 3, B: 0 },
+        body: { commandType: 'pot.record', points: 3 },
+      },
+    ])
   })
 
   test('free pyramid clamps score at zero', () => {
@@ -273,7 +286,7 @@ describe('gameplay runtime api', () => {
   })
 
   test('free pyramid frame.award closes gameplay state', () => {
-    const { state } = applyGameCommand({
+    const { state, protocolEntries } = applyGameCommand({
       gameKey: 'free-pyramid',
       state: { pointsBySeat: { A: 10, B: 2 }, targetPointsBySeat: { A: 8, B: 8 }, phase: 'open-play' },
       commandType: 'frame.award',
@@ -286,6 +299,9 @@ describe('gameplay runtime api', () => {
       phase: 'frame-over',
       winnerSeat: 'A',
     })
+    expect(protocolEntries).toEqual([
+      { source: 'player', entryType: 'player-command', seat: 'A', body: { commandType: 'frame.award' } },
+    ])
   })
 
   test('creates and updates Strila game state', () => {

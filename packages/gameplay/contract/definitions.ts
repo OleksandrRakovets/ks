@@ -18,8 +18,10 @@ export {
   StrilaControlViewSchema,
   StrilaMeta,
   StrilaCommandSchema,
+  StrilaProtocolEntrySchema,
   type StrilaBall,
   type StrilaCommand,
   type StrilaControlDetails,
   type StrilaControlView,
+  type StrilaProtocolEntry,
 } from '../src/strila-v2/definitions'

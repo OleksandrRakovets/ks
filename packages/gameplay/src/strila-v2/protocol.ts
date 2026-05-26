@@ -2,10 +2,6 @@ import invariant from 'tiny-invariant'
 
 import { StrilaProtocolEntrySchema, type StrilaCommand, type StrilaFrameState, type StrilaProtocolEntry } from './definitions'
 
-function hasSeat(command: StrilaCommand): command is Exclude<StrilaCommand, { type: 'frame.commence' }> {
-  return command.type !== 'frame.commence'
-}
-
 function isMixedBallInHandPot(previous: StrilaFrameState, command: StrilaCommand): boolean {
   return (
     previous.phase === 'foul-committed.ball-in-hand' &&
@@ -13,6 +9,34 @@ function isMixedBallInHandPot(previous: StrilaFrameState, command: StrilaCommand
     command.pottedBalls.includes(0) &&
     command.pottedBalls.some((ball) => ball !== 0)
   )
+}
+
+function scoreChanged(previous: StrilaFrameState, next: StrilaFrameState): boolean {
+  return previous.score.A !== next.score.A || previous.score.B !== next.score.B
+}
+
+function playerEntry(previous: StrilaFrameState, command: StrilaCommand, next: StrilaFrameState): StrilaProtocolEntry {
+  const body = (() => {
+    switch (command.type) {
+      case 'frame.commence':
+      case 'miss.record':
+      case 'foul.commit':
+      case 'frame.award':
+        return { commandType: command.type }
+      case 'pot.record':
+        return { commandType: command.type, pottedBalls: command.pottedBalls }
+      case 'penalty.select':
+        return { commandType: command.type, choice: command.choice }
+    }
+  })()
+
+  return StrilaProtocolEntrySchema.parse({
+    source: 'player',
+    entryType: 'player-command',
+    seat: command.seat,
+    ...(scoreChanged(previous, next) ? { scoreAfter: next.score } : {}),
+    body,
+  })
 }
 
 function isThirdConsecutiveCueBallPot(previous: StrilaFrameState, command: StrilaCommand): boolean {
@@ -40,52 +64,63 @@ export function projectStrilaProtocolEntries(args: {
 }): StrilaProtocolEntry[] {
   const { previous, command, next } = args
 
-  const entries: StrilaProtocolEntry[] = [{ source: 'player', command }]
+  const entries: StrilaProtocolEntry[] = [playerEntry(previous, command, next)]
 
   if (previous.phase !== 'respotted-black.opening' && next.phase === 'respotted-black.opening') {
-    entries.push({ source: 'system', systemType: 'respotted-black-declared' })
+    entries.push(
+      StrilaProtocolEntrySchema.parse({
+        source: 'system',
+        entryType: 'system-note',
+        body: { systemType: 'respotted-black-declared' },
+      }),
+    )
   }
 
   if (isThirdConsecutiveCueBallPot(previous, command)) {
-    if (!hasSeat(command)) return entries.map((entry) => StrilaProtocolEntrySchema.parse(entry))
-    entries.push({
-      source: 'system',
-      systemType: 'automatic-foul',
-      offender: command.seat,
-      reason: 'third-consecutive-cue-ball-pot',
-    })
+    entries.push(
+      StrilaProtocolEntrySchema.parse({
+        source: 'system',
+        entryType: 'system-note',
+        seat: command.seat,
+        body: { systemType: 'automatic-foul', reason: 'third-consecutive-cue-ball-pot' },
+      }),
+    )
   }
 
   if (isMixedBallInHandPot(previous, command)) {
-    if (!hasSeat(command)) return entries.map((entry) => StrilaProtocolEntrySchema.parse(entry))
-    entries.push({
-      source: 'system',
-      systemType: 'automatic-foul',
-      offender: command.seat,
-      reason: 'illegal-ball-in-hand-pot',
-    })
+    entries.push(
+      StrilaProtocolEntrySchema.parse({
+        source: 'system',
+        entryType: 'system-note',
+        seat: command.seat,
+        body: { systemType: 'automatic-foul', reason: 'illegal-ball-in-hand-pot' },
+      }),
+    )
   }
 
   if (isRespottedBlackOpeningIllegalPot(previous, command)) {
-    if (!hasSeat(command)) return entries.map((entry) => StrilaProtocolEntrySchema.parse(entry))
-    entries.push({
-      source: 'system',
-      systemType: 'automatic-foul',
-      offender: command.seat,
-      reason: 'respotted-black-opening-illegal-pot',
-    })
+    entries.push(
+      StrilaProtocolEntrySchema.parse({
+        source: 'system',
+        entryType: 'system-note',
+        seat: command.seat,
+        body: { systemType: 'automatic-foul', reason: 'respotted-black-opening-illegal-pot' },
+      }),
+    )
   }
 
   if (previous.phase !== 'winner-determined' && next.phase === 'winner-determined') {
     invariant(next.winner !== null, 'Winner is required when protocol records winner determination')
     invariant(next.winReason !== null, 'Win reason is required when protocol records winner determination')
-    entries.push({
-      source: 'system',
-      systemType: 'winner-determined',
-      winner: next.winner,
-      reason: next.winReason,
-    })
+    entries.push(
+      StrilaProtocolEntrySchema.parse({
+        source: 'system',
+        entryType: 'system-note',
+        seat: next.winner,
+        body: { systemType: 'winner-determined', reason: next.winReason },
+      }),
+    )
   }
 
-  return entries.map((entry) => StrilaProtocolEntrySchema.parse(entry))
+  return entries
 }

@@ -1,4 +1,12 @@
-import { BySeatNumberSchema, SeatSchema, emptyControlCommandSections, opponentOf, type FrameOutcome } from '@ks/core'
+import {
+  BySeatNumberSchema,
+  ProtocolEntrySchema,
+  SeatSchema,
+  emptyControlCommandSections,
+  opponentOf,
+  type FrameOutcome,
+  type ProtocolEntry,
+} from '@ks/core'
 import invariant from 'tiny-invariant'
 import { z } from 'zod'
 
@@ -46,6 +54,36 @@ const FoulCommittedCommandSchema = z.object({
 const AwardFrameCommandSchema = z.object({
   seat: SeatSchema,
 })
+
+const PyramidProtocolEntryBodySchema = z.discriminatedUnion('commandType', [
+  z.object({ commandType: z.literal('frame.commence') }),
+  z.object({ commandType: z.literal('pot.record'), points: z.number().int() }),
+  z.object({ commandType: z.literal('foul.commit'), penalty: z.enum(['opponent-plus-one', 'offender-minus-one']) }),
+  z.object({ commandType: z.literal('frame.award') }),
+])
+
+const PyramidProtocolEntrySchema = ProtocolEntrySchema.extend({
+  body: PyramidProtocolEntryBodySchema,
+})
+
+function scoreChanged(previous: PyramidFrameState, next: PyramidFrameState): boolean {
+  return previous.pointsBySeat.A !== next.pointsBySeat.A || previous.pointsBySeat.B !== next.pointsBySeat.B
+}
+
+function protocolEntry(args: {
+  seat: 'A' | 'B'
+  body: z.infer<typeof PyramidProtocolEntryBodySchema>
+  previous: PyramidFrameState
+  next: PyramidFrameState
+}): ProtocolEntry {
+  return PyramidProtocolEntrySchema.parse({
+    source: 'player',
+    entryType: 'player-command',
+    seat: args.seat,
+    ...(scoreChanged(args.previous, args.next) ? { scoreAfter: args.next.pointsBySeat } : {}),
+    body: args.body,
+  })
+}
 
 function pyramidDetails(state: PyramidFrameState) {
   return {
@@ -119,14 +157,18 @@ export class PyramidGameplayRuntime extends GameplayRuntime {
     invariant(state.phase !== 'frame-over', 'Cannot apply pyramid command after frame-over')
 
     if (input.commandType === 'frame.commence') {
-      BreakOffCommandSchema.parse(input.command)
+      const command = BreakOffCommandSchema.parse(input.command)
       invariant(state.phase === 'not-started', 'Pyramid frame.commence is only allowed before open play starts')
+      const nextState = {
+        ...state,
+        phase: 'open-play',
+      } satisfies PyramidFrameState
 
       return {
-        state: {
-          ...state,
-          phase: 'open-play',
-        } satisfies PyramidFrameState,
+        state: nextState,
+        protocolEntries: [
+          protocolEntry({ seat: command.seat, body: { commandType: 'frame.commence' }, previous: state, next: nextState }),
+        ],
       }
     }
 
@@ -136,20 +178,30 @@ export class PyramidGameplayRuntime extends GameplayRuntime {
       const current = state.pointsBySeat[command.seat]
       const next = current + command.points
 
+      const nextState = {
+        ...state,
+        pointsBySeat:
+          command.seat === 'A'
+            ? {
+                A: this.config.allowNegative ? next : Math.max(0, next),
+                B: state.pointsBySeat.B,
+              }
+            : {
+                A: state.pointsBySeat.A,
+                B: this.config.allowNegative ? next : Math.max(0, next),
+              },
+      } satisfies PyramidFrameState
+
       return {
-        state: {
-          ...state,
-          pointsBySeat:
-            command.seat === 'A'
-              ? {
-                  A: this.config.allowNegative ? next : Math.max(0, next),
-                  B: state.pointsBySeat.B,
-                }
-              : {
-                  A: state.pointsBySeat.A,
-                  B: this.config.allowNegative ? next : Math.max(0, next),
-                },
-        } satisfies PyramidFrameState,
+        state: nextState,
+        protocolEntries: [
+          protocolEntry({
+            seat: command.seat,
+            body: { commandType: 'pot.record', points: command.points },
+            previous: state,
+            next: nextState,
+          }),
+        ],
       }
     }
 
@@ -161,39 +213,59 @@ export class PyramidGameplayRuntime extends GameplayRuntime {
         const targetSeat = opponentOf(command.seat)
         const current = state.pointsBySeat[targetSeat]
 
+        const nextState = {
+          ...state,
+          pointsBySeat:
+            targetSeat === 'A'
+              ? {
+                  A: current + 1,
+                  B: state.pointsBySeat.B,
+                }
+              : {
+                  A: state.pointsBySeat.A,
+                  B: current + 1,
+                },
+        } satisfies PyramidFrameState
+
         return {
-          state: {
-            ...state,
-            pointsBySeat:
-              targetSeat === 'A'
-                ? {
-                    A: current + 1,
-                    B: state.pointsBySeat.B,
-                  }
-                : {
-                    A: state.pointsBySeat.A,
-                    B: current + 1,
-                  },
-          } satisfies PyramidFrameState,
+          state: nextState,
+          protocolEntries: [
+            protocolEntry({
+              seat: command.seat,
+              body: { commandType: 'foul.commit', penalty: this.config.foulPenalty },
+              previous: state,
+              next: nextState,
+            }),
+          ],
         }
       }
 
       const current = state.pointsBySeat[command.seat]
       const next = current - 1
+      const nextState = {
+        ...state,
+        pointsBySeat:
+          command.seat === 'A'
+            ? {
+                A: this.config.allowNegative ? next : Math.max(0, next),
+                B: state.pointsBySeat.B,
+              }
+            : {
+                A: state.pointsBySeat.A,
+                B: this.config.allowNegative ? next : Math.max(0, next),
+              },
+      } satisfies PyramidFrameState
+
       return {
-        state: {
-          ...state,
-          pointsBySeat:
-            command.seat === 'A'
-              ? {
-                  A: this.config.allowNegative ? next : Math.max(0, next),
-                  B: state.pointsBySeat.B,
-                }
-              : {
-                  A: state.pointsBySeat.A,
-                  B: this.config.allowNegative ? next : Math.max(0, next),
-                },
-        } satisfies PyramidFrameState,
+        state: nextState,
+        protocolEntries: [
+          protocolEntry({
+            seat: command.seat,
+            body: { commandType: 'foul.commit', penalty: this.config.foulPenalty },
+            previous: state,
+            next: nextState,
+          }),
+        ],
       }
     }
 
@@ -214,6 +286,9 @@ export class PyramidGameplayRuntime extends GameplayRuntime {
     return {
       state: nextState,
       ...(outcome ? { outcome } : {}),
+      protocolEntries: [
+        protocolEntry({ seat: command.seat, body: { commandType: 'frame.award' }, previous: state, next: nextState }),
+      ],
     }
   }
 

@@ -2,7 +2,7 @@ import { emptyControlCommandSections, opponentOf, type FrameOutcome, type Seat }
 import invariant from 'tiny-invariant'
 
 import { GameplayRuntime } from '../abstract-runtime'
-import type { GameCreateStateArgs, GameProjectionKey } from '../constants'
+import type { GameCommandResult, GameCreateStateArgs, GameProjectionKey } from '../constants'
 import {
   StrilaMeta,
   StrilaBallStatusesSchema,
@@ -324,7 +324,7 @@ export class StrilaGameplayRuntime extends GameplayRuntime {
     return StrilaFrameStateSchema.parse(state)
   }
 
-  applyCommand(input: StrilaCommandEnvelope): { state: unknown; outcome?: FrameOutcome; protocolEntries?: unknown[] } {
+  applyCommand(input: StrilaCommandEnvelope): GameCommandResult {
     const previous = this.parseState(input.state)
     const command = parseStrilaCommand(input)
     const next = sendEvent(restoreSnapshot(previous), command)

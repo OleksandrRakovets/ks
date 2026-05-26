@@ -3,6 +3,21 @@ import { z } from 'zod'
 import { ClientIdSchema, EventIdSchema, MatchIdSchema } from './ids'
 import { BySeatNumberSchema, FrameOutcomeSchema, GameKeySchema, MatchConfigSchema, SeatSchema } from './match'
 
+export const ProtocolEntrySourceSchema = z.enum(['player', 'system'])
+export type ProtocolEntrySource = z.infer<typeof ProtocolEntrySourceSchema>
+
+export const ProtocolEntryTypeSchema = z.enum(['player-command', 'system-note', 'correction'])
+export type ProtocolEntryType = z.infer<typeof ProtocolEntryTypeSchema>
+
+export const ProtocolEntrySchema = z.object({
+  source: ProtocolEntrySourceSchema,
+  entryType: ProtocolEntryTypeSchema,
+  seat: SeatSchema.optional(),
+  scoreAfter: BySeatNumberSchema.optional(),
+  body: z.record(z.string(), z.unknown()),
+})
+export type ProtocolEntry = z.infer<typeof ProtocolEntrySchema>
+
 const BaseClientEventSchema = z.object({
   eventId: EventIdSchema,
   matchId: MatchIdSchema,
@@ -32,6 +47,7 @@ export const GameCommandEventSchema = BaseClientEventSchema.extend({
     gameKey: GameKeySchema,
     commandType: z.string().min(1).max(64),
     command: z.record(z.string(), z.unknown()),
+    protocolEntries: z.array(ProtocolEntrySchema).min(1),
   }),
 })
 

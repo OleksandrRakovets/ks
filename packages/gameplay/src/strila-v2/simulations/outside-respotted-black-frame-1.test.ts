@@ -34,12 +34,18 @@ test('simulation: outside: respotted black frame 1', () => {
     command: { seat: 'A', pottedBalls: [7] },
   })
   expect(step.protocolEntries).toEqual([
-    { source: 'player', command: { type: 'pot.record', seat: 'A', pottedBalls: [7] } },
+    {
+      source: 'player',
+      entryType: 'player-command',
+      seat: 'A',
+      scoreAfter: { A: 10, B: 8 },
+      body: { commandType: 'pot.record', pottedBalls: [7] },
+    },
     {
       source: 'system',
-      systemType: 'winner-determined',
-      winner: 'A',
-      reason: 'respotted-black-won',
+      entryType: 'system-note',
+      seat: 'A',
+      body: { systemType: 'winner-determined', reason: 'respotted-black-won' },
     },
   ])
   const next = StrilaFrameStateSchema.parse(step.state)

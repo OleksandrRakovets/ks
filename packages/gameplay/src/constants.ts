@@ -1,4 +1,10 @@
-import { BySeatNumberSchema, ControlCommandPresetSchema, type BySeatNumber, type FrameOutcome } from '@ks/core'
+import {
+  BySeatNumberSchema,
+  ControlCommandPresetSchema,
+  type BySeatNumber,
+  type FrameOutcome,
+  type ProtocolEntry,
+} from '@ks/core'
 import { z } from 'zod'
 
 export type GameInputMode = 'pyramid-basic' | 'strila-basic'
@@ -43,7 +49,7 @@ export const GameSummaryProjectionSchema = z.object({
 export type GameCommandResult = {
   state: unknown
   outcome?: FrameOutcome
-  protocolEntries?: unknown[]
+  protocolEntries: ProtocolEntry[]
 }
 
 export type GameCreateStateArgs = {

@@ -77,6 +77,15 @@ describe('match-state room facts', () => {
         gameKey: config.gameKey,
         commandType: 'pot.record',
         command: { seat: 'A', points: 8 },
+        protocolEntries: [
+          {
+            source: 'player',
+            entryType: 'player-command',
+            seat: 'A',
+            scoreAfter: { A: 8, B: 0 },
+            body: { commandType: 'pot.record', points: 8 },
+          },
+        ],
       }),
     )
 

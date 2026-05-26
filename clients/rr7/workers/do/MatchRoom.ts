@@ -492,6 +492,7 @@ export class MatchRoom extends DurableObject<Env> {
         gameKey: config.gameKey,
         commandType: command.commandType,
         command: command.command,
+        protocolEntries: result.protocolEntries,
       },
     }
 

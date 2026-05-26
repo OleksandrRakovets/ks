@@ -18,7 +18,7 @@ export function createInitialGameState(gameKey: RegisteredGameKey, args: GameCre
 export function applyGameCommand(args: { gameKey: RegisteredGameKey; state: unknown; commandType: string; command: unknown }): {
   state: unknown
   outcome?: GameCommandResult['outcome']
-  protocolEntries?: unknown[]
+  protocolEntries: GameCommandResult['protocolEntries']
 } {
   return getGameplayRuntime(args.gameKey).applyCommand({
     state: args.state,
