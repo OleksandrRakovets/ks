@@ -1,6 +1,11 @@
 import { normalizeMatchId, type MatchWriteRepository } from '@ks/competition'
-import { MatchSnapshotSchema, StoredEventSchema, type StoredEvent } from '@ks/core'
-import type { ClientEvent } from '@ks/core'
+import {
+  ControlCommandSectionsSchema,
+  MatchSnapshotSchema,
+  StoredEventSchema,
+  type ControlCommand,
+  type StoredEvent,
+} from '@ks/core'
 import { GameControlProjectionSchema, isRegisteredGameKey, registry } from '@ks/gameplay'
 import type { SupportedLocale } from '@ks/i18n'
 import { z } from 'zod'
@@ -34,6 +39,7 @@ const DoSnapshotResponseSchema = z.union([
     ok: z.literal(true),
     snapshot: MatchSnapshotSchema,
     controlProjection: GameControlProjectionSchema.optional(),
+    controlSections: ControlCommandSectionsSchema.optional(),
   }),
   z.object({
     ok: z.literal(false),
@@ -81,7 +87,13 @@ export async function fetchMatchSnapshot(env: AppEnv, rawMatchId: string, locale
     B: await hydrateParticipant(env, matchRow.seat_b_player_ref, locale),
   }
 
-  return Response.json({ ok: true, snapshot, participants, controlProjection: payload.data.controlProjection })
+  return Response.json({
+    ok: true,
+    snapshot,
+    participants,
+    controlProjection: payload.data.controlProjection,
+    controlSections: payload.data.controlSections,
+  })
 }
 
 export async function getMatchControlSecret(env: AppEnv, rawMatchId: string): Promise<string | null> {
@@ -161,7 +173,7 @@ export async function postMatchEvents(
   env: AppEnv,
   rawMatchId: string,
   controlSecret: string,
-  events: ClientEvent[],
+  commands: ControlCommand[],
 ): Promise<Response> {
   const matchId = normalizeMatchId(rawMatchId)
   const id = env.MATCH_ROOM.idFromName(matchId)
@@ -172,7 +184,7 @@ export async function postMatchEvents(
       'content-type': 'application/json',
       'x-ks-match-id': matchId,
     },
-    body: JSON.stringify({ controlSecret, events }),
+    body: JSON.stringify({ controlSecret, commands }),
   })
 }
 
@@ -221,7 +233,7 @@ export function makeMatchWriteRepository(env: AppEnv): MatchWriteRepository {
     initMatchRoom: async (args) => {
       const id = env.MATCH_ROOM.idFromName(args.matchId)
       const stub = env.MATCH_ROOM.get(id)
-      await stub.fetch('https://do/internal/init', {
+      const response = await stub.fetch('https://do/internal/init', {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
@@ -232,6 +244,9 @@ export function makeMatchWriteRepository(env: AppEnv): MatchWriteRepository {
           config: args.config,
         }),
       })
+      if (!response.ok) {
+        throw new Error(`Failed to initialize match room: ${response.status}`)
+      }
     },
   }
 }

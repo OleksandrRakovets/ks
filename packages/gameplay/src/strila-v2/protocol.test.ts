@@ -22,7 +22,7 @@ describe('protocol projection', () => {
       winReason: null,
       phase: 'open-play',
     }
-    const command: StrilaCommand = { type: 'pot.record', actor: 'A', pottedBalls: [7] }
+    const command: StrilaCommand = { type: 'pot.record', seat: 'A', pottedBalls: [7] }
     const next = apply(previous, command)
 
     expect(projectStrilaProtocolEntries({ previous, command, next })).toEqual([
@@ -42,7 +42,7 @@ describe('protocol projection', () => {
       winReason: null,
       phase: 'open-play',
     }
-    const command: StrilaCommand = { type: 'pot.record', actor: 'A', pottedBalls: [0] }
+    const command: StrilaCommand = { type: 'pot.record', seat: 'A', pottedBalls: [0] }
     const next = apply(previous, command)
 
     expect(projectStrilaProtocolEntries({ previous, command, next })).toEqual([
@@ -67,7 +67,7 @@ describe('protocol projection', () => {
       winReason: null,
       phase: 'respotted-black.opening',
     }
-    const command: StrilaCommand = { type: 'pot.record', actor: 'A', pottedBalls: [0] }
+    const command: StrilaCommand = { type: 'pot.record', seat: 'A', pottedBalls: [0] }
     const next = apply(previous, command)
 
     expect(projectStrilaProtocolEntries({ previous, command, next })).toEqual([
@@ -89,9 +89,9 @@ describe('protocol projection', () => {
 
   test('target reached winner determination', () => {
     let previous = runtime.createInitialState({ targetPointsBySeat: StrilaMeta.defaultTargetPoints })
-    previous = apply(previous, { type: 'frame.commence', actor: 'A' })
-    previous = apply(previous, { type: 'pot.record', actor: 'A', pottedBalls: [1, 2, 3, 4] })
-    const command: StrilaCommand = { type: 'pot.record', actor: 'A', pottedBalls: [5] }
+    previous = apply(previous, { type: 'frame.commence', seat: 'A' })
+    previous = apply(previous, { type: 'pot.record', seat: 'A', pottedBalls: [1, 2, 3, 4] })
+    const command: StrilaCommand = { type: 'pot.record', seat: 'A', pottedBalls: [5] }
     const next = apply(previous, command)
 
     expect(projectStrilaProtocolEntries({ previous, command, next })).toEqual([

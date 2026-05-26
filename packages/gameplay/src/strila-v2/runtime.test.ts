@@ -15,13 +15,13 @@ describe('StrilaGameplayRuntime projections', () => {
   test('derives valid control projection from machine state', () => {
     const runtime = new StrilaGameplayRuntime()
     let state = runtime.createInitialState({ targetPointsBySeat: StrilaMeta.defaultTargetPoints })
-    state = apply(runtime, state, { type: 'frame.commence', actor: 'A' })
-    state = apply(runtime, state, { type: 'foul.commit', actor: 'A' })
+    state = apply(runtime, state, { type: 'frame.commence', seat: 'A' })
+    state = apply(runtime, state, { type: 'foul.commit', seat: 'A' })
 
     const projection = StrilaControlViewSchema.parse(runtime.deriveProjection({ state, projection: 'control' }))
 
     expect(projection.details.phase).toBe('foul-committed.penalty-selection')
-    expect(projection.details.actor).toBe('B')
+    expect(projection.details.seat).toBe('B')
     expect(projection.details.commandSections.secondary.B.map((entry) => entry.command.choice)).toEqual([
       'play-from-position',
       'pass-position',
@@ -32,8 +32,8 @@ describe('StrilaGameplayRuntime projections', () => {
   test('derives valid scoreboard projection from machine state', () => {
     const runtime = new StrilaGameplayRuntime()
     let state = runtime.createInitialState({ targetPointsBySeat: StrilaMeta.defaultTargetPoints })
-    state = apply(runtime, state, { type: 'frame.commence', actor: 'A' })
-    state = apply(runtime, state, { type: 'pot.record', actor: 'A', pottedBalls: [1] })
+    state = apply(runtime, state, { type: 'frame.commence', seat: 'A' })
+    state = apply(runtime, state, { type: 'pot.record', seat: 'A', pottedBalls: [1] })
 
     const projection = StrilaScoreboardViewSchema.parse(runtime.deriveProjection({ state, projection: 'scoreboard' }))
 

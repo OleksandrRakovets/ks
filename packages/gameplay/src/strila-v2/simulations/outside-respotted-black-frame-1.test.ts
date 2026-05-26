@@ -33,10 +33,10 @@ test('simulation: outside: respotted black frame 1', () => {
     gameKey: 'strila-v2',
     state,
     commandType: 'pot.record',
-    command: { actor: 'A', pottedBalls: [7] },
+    command: { seat: 'A', pottedBalls: [7] },
   })
   expect(step.protocolEntries).toEqual([
-    { source: 'player', command: { type: 'pot.record', actor: 'A', pottedBalls: [7] } },
+    { source: 'player', command: { type: 'pot.record', seat: 'A', pottedBalls: [7] } },
     {
       source: 'system',
       systemType: 'winner-determined',

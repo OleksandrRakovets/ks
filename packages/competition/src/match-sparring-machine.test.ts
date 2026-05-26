@@ -1,23 +1,30 @@
 import { describe, expect, test } from 'bun:test'
 
-import type { Seat } from '@ks/core'
-import { StrilaMeta } from '@ks/gameplay'
+import type { BySeatNumber, FrameOutcome, Seat } from '@ks/core'
 
 import { createMatchActor, getMatchPhase, matchSparringMachine, type MatchSparringActor } from './match-sparring-machine'
+
+const DEFAULT_TARGETS: BySeatNumber = { A: 9, B: 9 }
 
 function snap(actor: MatchSparringActor) {
   return actor.getSnapshot()
 }
 
-function playFrame(actor: MatchSparringActor, winner: Seat) {
+function outcome(winnerSeat: Seat, score: BySeatNumber = winnerSeat === 'A' ? { A: 10, B: 0 } : { A: 0, B: 10 }): FrameOutcome {
+  return {
+    winnerSeat,
+    score,
+    winReason: 'target-reached',
+  }
+}
+
+function setup(actor: MatchSparringActor, matchTargetFrames = 3, frameTargetPointsBySeat = DEFAULT_TARGETS) {
+  actor.send({ type: 'match.setup', frameTargetPointsBySeat, matchTargetFrames })
+}
+
+function playFrame(actor: MatchSparringActor, winnerSeat: Seat, score?: BySeatNumber) {
   actor.send({ type: 'frame.start' })
-  actor.send({ type: 'frame.commence', actor: winner })
-  actor.send({ type: 'pot.record', actor: winner, pottedBalls: [1] })
-  actor.send({ type: 'pot.record', actor: winner, pottedBalls: [2] })
-  actor.send({ type: 'pot.record', actor: winner, pottedBalls: [3] })
-  actor.send({ type: 'pot.record', actor: winner, pottedBalls: [4] })
-  actor.send({ type: 'pot.record', actor: winner, pottedBalls: [5] })
-  actor.send({ type: 'frame.award', actor: winner })
+  actor.send({ type: 'frame.completed', outcome: outcome(winnerSeat, score) })
 }
 
 describe('match-sparring: setup', () => {
@@ -28,11 +35,11 @@ describe('match-sparring: setup', () => {
 
   test('match.setup transitions to between-frames', () => {
     const actor = createMatchActor()
-    actor.send({ type: 'match.setup', frameTargetPointsBySeat: StrilaMeta.defaultTargetPoints, matchTargetFrames: 3 })
+    setup(actor)
 
     expect(getMatchPhase(snap(actor))).toBe('between-frames')
     expect(snap(actor).context.matchTargetFrames).toBe(3)
-    expect(snap(actor).context.frameTargetPointsBySeat).toEqual(StrilaMeta.defaultTargetPoints)
+    expect(snap(actor).context.frameTargetPointsBySeat).toEqual(DEFAULT_TARGETS)
   })
 
   test('input defaults are applied', () => {
@@ -45,27 +52,32 @@ describe('match-sparring: setup', () => {
 describe('match-sparring: frame lifecycle', () => {
   test('frame.start transitions to frame-in-progress', () => {
     const actor = createMatchActor()
-    actor.send({ type: 'match.setup', frameTargetPointsBySeat: StrilaMeta.defaultTargetPoints, matchTargetFrames: 3 })
+    setup(actor)
     actor.send({ type: 'frame.start' })
 
     expect(getMatchPhase(snap(actor))).toBe('frame-in-progress')
   })
 
-  test('completed frame returns to between-frames and records result', () => {
+  test('completed frame returns to between-frames and records outcome', () => {
     const actor = createMatchActor()
-    actor.send({ type: 'match.setup', frameTargetPointsBySeat: StrilaMeta.defaultTargetPoints, matchTargetFrames: 3 })
+    setup(actor)
     playFrame(actor, 'A')
 
     expect(getMatchPhase(snap(actor))).toBe('between-frames')
     expect(snap(actor).context.framesWonBySeat).toEqual({ A: 1, B: 0 })
-    expect(snap(actor).context.frames).toHaveLength(1)
-    expect(snap(actor).context.frames[0]?.winner).toBe('A')
-    expect(snap(actor).context.frames[0]?.score).toEqual({ A: 10, B: 0 })
+    expect(snap(actor).context.frames).toEqual([
+      {
+        frameIndex: 1,
+        score: { A: 10, B: 0 },
+        winnerSeat: 'A',
+        winReason: 'target-reached',
+      },
+    ])
   })
 
-  test('second frame starts with fresh child state', () => {
+  test('second frame starts with next frame index', () => {
     const actor = createMatchActor()
-    actor.send({ type: 'match.setup', frameTargetPointsBySeat: StrilaMeta.defaultTargetPoints, matchTargetFrames: 3 })
+    setup(actor)
     playFrame(actor, 'A')
     actor.send({ type: 'frame.start' })
 
@@ -75,33 +87,32 @@ describe('match-sparring: frame lifecycle', () => {
 })
 
 describe('match-sparring: match target', () => {
-  // TODO: concession scenarios
-  test('reaching match target transitions to match-over', () => {
+  test('reaching match target transitions to match-point-reached, not match-over', () => {
     const actor = createMatchActor()
-    actor.send({ type: 'match.setup', frameTargetPointsBySeat: StrilaMeta.defaultTargetPoints, matchTargetFrames: 2 })
+    setup(actor, 2)
     playFrame(actor, 'A')
     playFrame(actor, 'A')
 
-    expect(getMatchPhase(snap(actor))).toBe('match-over')
+    expect(getMatchPhase(snap(actor))).toBe('match-point-reached')
     expect(snap(actor).context.matchWinner).toBe('A')
     expect(snap(actor).context.framesWonBySeat).toEqual({ A: 2, B: 0 })
   })
 
   test('match with alternating frames reaches correct winner', () => {
     const actor = createMatchActor()
-    actor.send({ type: 'match.setup', frameTargetPointsBySeat: StrilaMeta.defaultTargetPoints, matchTargetFrames: 2 })
+    setup(actor, 2)
     playFrame(actor, 'A')
     playFrame(actor, 'B')
     playFrame(actor, 'B')
 
-    expect(getMatchPhase(snap(actor))).toBe('match-over')
+    expect(getMatchPhase(snap(actor))).toBe('match-point-reached')
     expect(snap(actor).context.matchWinner).toBe('B')
     expect(snap(actor).context.framesWonBySeat).toEqual({ A: 1, B: 2 })
   })
 
   test('match.end before target is ignored', () => {
     const actor = createMatchActor()
-    actor.send({ type: 'match.setup', frameTargetPointsBySeat: StrilaMeta.defaultTargetPoints, matchTargetFrames: 3 })
+    setup(actor, 3)
     playFrame(actor, 'A')
     playFrame(actor, 'A')
     actor.send({ type: 'match.end' })
@@ -112,24 +123,40 @@ describe('match-sparring: match target', () => {
 
   test('match.end at 0-0 is ignored', () => {
     const actor = createMatchActor()
-    actor.send({ type: 'match.setup', frameTargetPointsBySeat: StrilaMeta.defaultTargetPoints, matchTargetFrames: 3 })
+    setup(actor, 3)
     actor.send({ type: 'match.end' })
 
     expect(getMatchPhase(snap(actor))).toBe('between-frames')
     expect(snap(actor).context.matchWinner).toBeNull()
   })
+
+  test('match.end finalizes after target is reached', () => {
+    const actor = createMatchActor()
+    setup(actor, 1)
+    playFrame(actor, 'A')
+
+    actor.send({ type: 'match.end' })
+
+    expect(getMatchPhase(snap(actor))).toBe('match-over')
+    expect(snap(actor).context.matchWinner).toBe('A')
+  })
+
+  test('cannot start another frame after target is reached', () => {
+    const actor = createMatchActor()
+    setup(actor, 1)
+    playFrame(actor, 'A')
+
+    actor.send({ type: 'frame.start' })
+
+    expect(getMatchPhase(snap(actor))).toBe('match-point-reached')
+  })
 })
 
 describe('match-sparring: handicap targets', () => {
-  test('A wins frame at 6 pts with handicap target', () => {
+  test('records frame outcome score from frame.completed', () => {
     const actor = createMatchActor({ frameTargetPointsBySeat: { A: 6, B: 9 }, matchTargetFrames: 3 })
-    actor.send({ type: 'match.setup', frameTargetPointsBySeat: { A: 6, B: 9 }, matchTargetFrames: 3 })
-    actor.send({ type: 'frame.start' })
-    actor.send({ type: 'frame.commence', actor: 'A' })
-    actor.send({ type: 'pot.record', actor: 'A', pottedBalls: [1] })
-    actor.send({ type: 'pot.record', actor: 'A', pottedBalls: [2] })
-    actor.send({ type: 'pot.record', actor: 'A', pottedBalls: [3] })
-    actor.send({ type: 'frame.award', actor: 'A' })
+    setup(actor, 3, { A: 6, B: 9 })
+    playFrame(actor, 'A', { A: 6, B: 0 })
 
     expect(snap(actor).context.frames[0]?.score).toEqual({ A: 6, B: 0 })
     expect(snap(actor).context.framesWonBySeat.A).toBe(1)

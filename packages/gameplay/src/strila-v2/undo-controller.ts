@@ -6,7 +6,7 @@ import { replayStrilaRecord } from './replay'
 
 export const StrilaUndoCommandSchema = z.object({
   type: z.literal('undo-last-player-command'),
-  actor: SeatSchema,
+  seat: SeatSchema,
 })
 export type StrilaUndoCommand = z.infer<typeof StrilaUndoCommandSchema>
 
@@ -43,7 +43,7 @@ export type StrilaUndoResult =
       reason: 'nothing-to-undo' | 'frame-already-awarded'
     }
 
-export function undoLastPlayerCommand(controllerEntries: StrilaControllerEntry[], actor: Seat): StrilaUndoResult {
+export function undoLastPlayerCommand(controllerEntries: StrilaControllerEntry[], seat: Seat): StrilaUndoResult {
   const before = replayStrilaRecord(controllerEntries)
 
   if (before.state.phase === 'frame-over') {
@@ -55,7 +55,7 @@ export function undoLastPlayerCommand(controllerEntries: StrilaControllerEntry[]
     return { ok: false, reason: 'nothing-to-undo' }
   }
 
-  const controllerCommand: StrilaUndoCommand = { type: 'undo-last-player-command', actor }
+  const controllerCommand: StrilaUndoCommand = { type: 'undo-last-player-command', seat }
   const nextControllerEntries = [...controllerEntries, controllerCommand]
   const after = replayStrilaRecord(nextControllerEntries)
 

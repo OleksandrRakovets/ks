@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 
 import { ClientEventSchema, newClientId, newEventId, newMatchId, type ClientEvent, type MatchConfig } from '@ks/core'
 
-import { applyMatchEvent, deriveMatchLifecycleDecisions, emptyMatchState, snapshotFromMatchState } from './index'
+import { applyMatchEvent, deriveSparringControlSections, emptyMatchState } from './index'
 
 function baseEvent<TType extends ClientEvent['type']>(
   matchId: string,
@@ -20,11 +20,11 @@ function baseEvent<TType extends ClientEvent['type']>(
   })
 }
 
-function makeConfig(gameKey: MatchConfig['gameKey'], matchTargetFrames = 3): MatchConfig {
+function makeConfig(matchTargetFrames = 3): MatchConfig {
   const matchId = newMatchId()
   return {
     matchId,
-    gameKey,
+    gameKey: 'free-pyramid',
     targets: {
       frameTargetPointsBySeat: { A: 8, B: 8 },
       matchTargetFrames,
@@ -32,300 +32,134 @@ function makeConfig(gameKey: MatchConfig['gameKey'], matchTargetFrames = 3): Mat
   }
 }
 
-describe('free-pyramid', () => {
-  test('does not go below zero', () => {
-    const config = makeConfig('free-pyramid')
-    let s = emptyMatchState()
-    s = applyMatchEvent(s, baseEvent(config.matchId, 'match.created', config))
-    s = applyMatchEvent(s, baseEvent(config.matchId, 'frame.started', { frameIndex: 1 }))
-    s = applyMatchEvent(
-      s,
-      baseEvent(config.matchId, 'game.command', {
-        gameKey: config.gameKey,
-        commandType: 'frame.commence',
-        command: { seat: 'A' },
-      }),
-    )
-    s = applyMatchEvent(
-      s,
-      baseEvent(config.matchId, 'game.command', {
-        gameKey: config.gameKey,
-        commandType: 'pot.record',
-        command: { seat: 'A', points: 1 },
-      }),
-    )
-    s = applyMatchEvent(
-      s,
-      baseEvent(config.matchId, 'game.command', {
-        gameKey: config.gameKey,
-        commandType: 'pot.record',
-        command: { seat: 'A', points: -10 },
-      }),
-    )
-    expect(s.frames[0]?.pointsBySeat.A).toBe(0)
-    expect(s.frames[0]?.gameState).toEqual({
-      pointsBySeat: { A: 0, B: 0 },
-      targetPointsBySeat: { A: 8, B: 8 },
-      phase: 'open-play',
-    })
+function frameStarted(config: MatchConfig, frameIndex: number): ClientEvent {
+  return baseEvent(config.matchId, 'frame.started', {
+    frameIndex,
+    gameKey: config.gameKey,
+    targetPointsBySeat: config.targets.frameTargetPointsBySeat,
+  })
+}
+
+function frameCompleted(config: MatchConfig, frameIndex: number, winnerSeat: 'A' | 'B', score = { A: 8, B: 4 }): ClientEvent {
+  return baseEvent(config.matchId, 'frame.completed', {
+    frameIndex,
+    gameKey: config.gameKey,
+    outcome: {
+      winnerSeat,
+      score,
+      winReason: 'target-reached',
+    },
+  })
+}
+
+describe('match-state room facts', () => {
+  test('starts frame from resolved frame.started fact', () => {
+    const config = makeConfig()
+    let state = emptyMatchState()
+
+    state = applyMatchEvent(state, baseEvent(config.matchId, 'match.created', config))
+    state = applyMatchEvent(state, frameStarted(config, 1))
+
+    expect(state.currentFrameIndex).toBe(1)
+    expect(state.frames).toEqual([{ frameIndex: 1, pointsBySeat: { A: 0, B: 0 } }])
   })
 
-  test('starts frame with initial game state', () => {
-    const config = makeConfig('free-pyramid')
-    let s = emptyMatchState()
-    s = applyMatchEvent(s, baseEvent(config.matchId, 'match.created', config))
-    s = applyMatchEvent(s, baseEvent(config.matchId, 'frame.started', { frameIndex: 1 }))
+  test('game.command is accepted input fact but does not mutate match score', () => {
+    const config = makeConfig()
+    let state = emptyMatchState()
 
-    expect(s.frames[0]?.gameState).toEqual({
-      pointsBySeat: { A: 0, B: 0 },
-      targetPointsBySeat: { A: 8, B: 8 },
-      phase: 'not-started',
-    })
-  })
-})
-
-describe('combined-pyramid-old', () => {
-  test('can go negative', () => {
-    const config = makeConfig('combined-pyramid-old')
-    let s = emptyMatchState()
-    s = applyMatchEvent(s, baseEvent(config.matchId, 'match.created', config))
-    s = applyMatchEvent(s, baseEvent(config.matchId, 'frame.started', { frameIndex: 1 }))
-    s = applyMatchEvent(
-      s,
+    state = applyMatchEvent(state, baseEvent(config.matchId, 'match.created', config))
+    state = applyMatchEvent(state, frameStarted(config, 1))
+    state = applyMatchEvent(
+      state,
       baseEvent(config.matchId, 'game.command', {
-        gameKey: config.gameKey,
-        commandType: 'frame.commence',
-        command: { seat: 'A' },
-      }),
-    )
-    s = applyMatchEvent(
-      s,
-      baseEvent(config.matchId, 'game.command', {
+        frameIndex: 1,
         gameKey: config.gameKey,
         commandType: 'pot.record',
-        command: { seat: 'A', points: -2 },
+        command: { seat: 'A', points: 8 },
       }),
     )
-    expect(s.frames[0]?.pointsBySeat.A).toBe(-2)
+
+    expect(state.frames[0]?.pointsBySeat).toEqual({ A: 0, B: 0 })
+    expect(state.frames[0]?.winnerSeat).toBeUndefined()
   })
-})
 
-test('frame award increments framesWon', () => {
-  const config = makeConfig('free-pyramid')
-  let s = emptyMatchState()
-  s = applyMatchEvent(s, baseEvent(config.matchId, 'match.created', config))
-  s = applyMatchEvent(s, baseEvent(config.matchId, 'frame.started', { frameIndex: 1 }))
-  s = applyMatchEvent(s, baseEvent(config.matchId, 'frame.awarded', { frameIndex: 1, winnerSeat: 'A' }))
-  expect(s.framesWonBySeat.A).toBe(1)
-})
+  test('frame.completed records outcome and increments frames won', () => {
+    const config = makeConfig()
+    let state = emptyMatchState()
 
-test('strila frame.award closes the match frame through gameplay', () => {
-  const config = makeConfig('strila-v2')
-  let s = emptyMatchState()
-  s = applyMatchEvent(s, baseEvent(config.matchId, 'match.created', config))
-  s = applyMatchEvent(s, baseEvent(config.matchId, 'frame.started', { frameIndex: 1 }))
-  s = applyMatchEvent(
-    s,
-    baseEvent(config.matchId, 'game.command', {
-      gameKey: config.gameKey,
-      commandType: 'frame.commence',
-      command: { actor: 'A' },
-    }),
-  )
-  s = applyMatchEvent(
-    s,
-    baseEvent(config.matchId, 'game.command', {
-      gameKey: config.gameKey,
-      commandType: 'frame.concede',
-      command: { actor: 'B' },
-    }),
-  )
+    state = applyMatchEvent(state, baseEvent(config.matchId, 'match.created', config))
+    state = applyMatchEvent(state, frameStarted(config, 1))
+    state = applyMatchEvent(state, frameCompleted(config, 1, 'A', { A: 10, B: 4 }))
 
-  expect(s.frames[0]?.winnerSeat).toBeUndefined()
+    expect(state.frames[0]).toEqual({ frameIndex: 1, pointsBySeat: { A: 10, B: 4 }, winnerSeat: 'A' })
+    expect(state.framesWonBySeat).toEqual({ A: 1, B: 0 })
+  })
 
-  s = applyMatchEvent(
-    s,
-    baseEvent(config.matchId, 'game.command', {
-      gameKey: config.gameKey,
-      commandType: 'frame.award',
-      command: { actor: 'A' },
-    }),
-  )
+  test('can start next frame before match target is reached', () => {
+    const config = makeConfig(2)
+    let state = emptyMatchState()
 
-  expect(s.frames[0]?.winnerSeat).toBe('A')
-  expect(s.framesWonBySeat.A).toBe(1)
-})
+    state = applyMatchEvent(state, baseEvent(config.matchId, 'match.created', config))
+    state = applyMatchEvent(state, frameStarted(config, 1))
+    state = applyMatchEvent(state, frameCompleted(config, 1, 'A'))
+    state = applyMatchEvent(state, frameStarted(config, 2))
 
-test('strila handicap target lets A reach winner-determined at 6', () => {
-  const config = makeConfig('strila-v2')
-  config.targets.frameTargetPointsBySeat = { A: 6, B: 9 }
+    expect(state.currentFrameIndex).toBe(2)
+  })
 
-  let s = emptyMatchState()
-  s = applyMatchEvent(s, baseEvent(config.matchId, 'match.created', config))
-  s = applyMatchEvent(s, baseEvent(config.matchId, 'frame.started', { frameIndex: 1 }))
-  s = applyMatchEvent(
-    s,
-    baseEvent(config.matchId, 'game.command', {
-      gameKey: config.gameKey,
-      commandType: 'frame.commence',
-      command: { actor: 'A' },
-    }),
-  )
-  s = applyMatchEvent(
-    s,
-    baseEvent(config.matchId, 'game.command', {
-      gameKey: config.gameKey,
-      commandType: 'pot.record',
-      command: { actor: 'A', pottedBalls: [1] },
-    }),
-  )
-  s = applyMatchEvent(
-    s,
-    baseEvent(config.matchId, 'game.command', {
-      gameKey: config.gameKey,
-      commandType: 'pot.record',
-      command: { actor: 'A', pottedBalls: [2] },
-    }),
-  )
-  s = applyMatchEvent(
-    s,
-    baseEvent(config.matchId, 'game.command', {
-      gameKey: config.gameKey,
-      commandType: 'pot.record',
-      command: { actor: 'A', pottedBalls: [3] },
-    }),
-  )
+  test('cannot start next frame after match target is reached', () => {
+    const config = makeConfig(1)
+    let state = emptyMatchState()
 
-  expect(s.frames[0]?.pointsBySeat).toEqual({ A: 6, B: 0 })
-  expect(s.frames[0]?.winnerSeat).toBeUndefined()
+    state = applyMatchEvent(state, baseEvent(config.matchId, 'match.created', config))
+    state = applyMatchEvent(state, frameStarted(config, 1))
+    state = applyMatchEvent(state, frameCompleted(config, 1, 'A'))
 
-  s = applyMatchEvent(
-    s,
-    baseEvent(config.matchId, 'game.command', {
-      gameKey: config.gameKey,
-      commandType: 'frame.award',
-      command: { actor: 'A' },
-    }),
-  )
+    expect(() => applyMatchEvent(state, frameStarted(config, 2))).toThrow(
+      'Cannot start new frame after match target is reached',
+    )
+  })
 
-  expect(s.frames[0]?.winnerSeat).toBe('A')
-  expect(s.framesWonBySeat.A).toBe(1)
-})
+  test('final frame still requires explicit match.ended event', () => {
+    const config = makeConfig(1)
+    let state = emptyMatchState()
 
-test('free-pyramid frame.award closes the match frame through gameplay', () => {
-  const config = makeConfig('free-pyramid')
-  let s = emptyMatchState()
-  s = applyMatchEvent(s, baseEvent(config.matchId, 'match.created', config))
-  s = applyMatchEvent(s, baseEvent(config.matchId, 'frame.started', { frameIndex: 1 }))
-  s = applyMatchEvent(
-    s,
-    baseEvent(config.matchId, 'game.command', {
-      gameKey: config.gameKey,
-      commandType: 'frame.commence',
-      command: { seat: 'A' },
-    }),
-  )
-  s = applyMatchEvent(
-    s,
-    baseEvent(config.matchId, 'game.command', {
-      gameKey: config.gameKey,
-      commandType: 'pot.record',
-      command: { seat: 'A', points: 8 },
-    }),
-  )
-  s = applyMatchEvent(
-    s,
-    baseEvent(config.matchId, 'game.command', {
-      gameKey: config.gameKey,
-      commandType: 'pot.record',
-      command: { seat: 'A', points: 2 },
-    }),
-  )
+    state = applyMatchEvent(state, baseEvent(config.matchId, 'match.created', config))
+    state = applyMatchEvent(state, frameStarted(config, 1))
+    state = applyMatchEvent(state, frameCompleted(config, 1, 'A'))
+    expect(state.status).toBe('active')
 
-  expect(s.frames[0]?.winnerSeat).toBeUndefined()
+    const sectionsBeforeEnd = deriveSparringControlSections({ matchState: state })
+    expect(sectionsBeforeEnd.secondary.neutral.map((command) => command.commandType)).toEqual(['match.end'])
 
-  s = applyMatchEvent(
-    s,
-    baseEvent(config.matchId, 'game.command', {
-      gameKey: config.gameKey,
-      commandType: 'frame.award',
-      command: { seat: 'A' },
-    }),
-  )
+    state = applyMatchEvent(state, baseEvent(config.matchId, 'match.ended', { winnerSeat: 'A' }))
+    expect(state.status).toBe('finished')
+  })
 
-  expect(s.frames[0]?.winnerSeat).toBe('A')
-  expect(s.framesWonBySeat.A).toBe(1)
-})
+  test('rejects match.ended before target is reached', () => {
+    const config = makeConfig(2)
+    let state = emptyMatchState()
 
-test('free-pyramid allows break above frame target before frame award', () => {
-  const config = makeConfig('free-pyramid')
-  let s = emptyMatchState()
-  s = applyMatchEvent(s, baseEvent(config.matchId, 'match.created', config))
-  s = applyMatchEvent(s, baseEvent(config.matchId, 'frame.started', { frameIndex: 1 }))
-  s = applyMatchEvent(
-    s,
-    baseEvent(config.matchId, 'game.command', {
-      gameKey: config.gameKey,
-      commandType: 'frame.commence',
-      command: { seat: 'A' },
-    }),
-  )
-  s = applyMatchEvent(
-    s,
-    baseEvent(config.matchId, 'game.command', {
-      gameKey: config.gameKey,
-      commandType: 'pot.record',
-      command: { seat: 'A', points: 8 },
-    }),
-  )
-  s = applyMatchEvent(
-    s,
-    baseEvent(config.matchId, 'game.command', {
-      gameKey: config.gameKey,
-      commandType: 'pot.record',
-      command: { seat: 'A', points: 2 },
-    }),
-  )
+    state = applyMatchEvent(state, baseEvent(config.matchId, 'match.created', config))
+    state = applyMatchEvent(state, frameStarted(config, 1))
+    state = applyMatchEvent(state, frameCompleted(config, 1, 'A'))
 
-  expect(s.frames[0]?.pointsBySeat.A).toBe(10)
-  expect(s.frames[0]?.winnerSeat).toBeUndefined()
-})
+    expect(() => applyMatchEvent(state, baseEvent(config.matchId, 'match.ended', { winnerSeat: 'A' }))).toThrow(
+      'Cannot end match before target',
+    )
+  })
 
-test('can start next frame before match target is reached', () => {
-  const config = makeConfig('free-pyramid', 2)
-  let s = emptyMatchState()
-  s = applyMatchEvent(s, baseEvent(config.matchId, 'match.created', config))
-  s = applyMatchEvent(s, baseEvent(config.matchId, 'frame.started', { frameIndex: 1 }))
-  s = applyMatchEvent(s, baseEvent(config.matchId, 'frame.awarded', { frameIndex: 1, winnerSeat: 'A' }))
-  s = applyMatchEvent(s, baseEvent(config.matchId, 'frame.started', { frameIndex: 2 }))
-  expect(s.currentFrameIndex).toBe(2)
-})
+  test('frame.reopened is reserved until undo controller owns semantics', () => {
+    const config = makeConfig()
+    let state = emptyMatchState()
 
-test('cannot start next frame after match target is reached', () => {
-  const config = makeConfig('free-pyramid', 1)
-  let s = emptyMatchState()
-  s = applyMatchEvent(s, baseEvent(config.matchId, 'match.created', config))
-  s = applyMatchEvent(s, baseEvent(config.matchId, 'frame.started', { frameIndex: 1 }))
-  s = applyMatchEvent(s, baseEvent(config.matchId, 'frame.awarded', { frameIndex: 1, winnerSeat: 'A' }))
+    state = applyMatchEvent(state, baseEvent(config.matchId, 'match.created', config))
+    state = applyMatchEvent(state, frameStarted(config, 1))
+    state = applyMatchEvent(state, frameCompleted(config, 1, 'A'))
 
-  expect(() => applyMatchEvent(s, baseEvent(config.matchId, 'frame.started', { frameIndex: 2 }))).toThrow(
-    'Cannot start new frame after match target is reached',
-  )
-})
-
-test('final frame still requires explicit match.ended event', () => {
-  const config = makeConfig('free-pyramid', 1)
-  let s = emptyMatchState()
-  s = applyMatchEvent(s, baseEvent(config.matchId, 'match.created', config))
-  s = applyMatchEvent(s, baseEvent(config.matchId, 'frame.started', { frameIndex: 1 }))
-  s = applyMatchEvent(s, baseEvent(config.matchId, 'frame.awarded', { frameIndex: 1, winnerSeat: 'A' }))
-  expect(s.status).toBe('active')
-
-  const snapshot = snapshotFromMatchState(s, 3)
-  const decisionsBeforeEnd = deriveMatchLifecycleDecisions(snapshot)
-  expect(decisionsBeforeEnd.canStartNextFrame).toBe(false)
-  expect(decisionsBeforeEnd.canEndMatch).toBe(true)
-
-  s = applyMatchEvent(s, baseEvent(config.matchId, 'match.ended', { reason: 'target-reached' }))
-  expect(s.status).toBe('finished')
+    expect(() => applyMatchEvent(state, baseEvent(config.matchId, 'frame.reopened', { frameIndex: 1 }))).toThrow(
+      'TODO: frame.reopened is reserved for undo controller',
+    )
+  })
 })

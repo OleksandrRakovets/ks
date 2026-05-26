@@ -1,4 +1,11 @@
-import { BySeatNumberSchema, SeatSchema, opponentOf, type Seat } from '@ks/core'
+import {
+  BySeatNumberSchema,
+  ControlCommandSectionsSchema,
+  SeatSchema,
+  emptyControlCommandSections,
+  opponentOf,
+  type FrameOutcome,
+} from '@ks/core'
 import invariant from 'tiny-invariant'
 import { z } from 'zod'
 
@@ -21,6 +28,15 @@ const PyramidFrameStateSchema = z.object({
 })
 
 type PyramidFrameState = z.infer<typeof PyramidFrameStateSchema>
+
+function pyramidOutcome(state: PyramidFrameState): FrameOutcome | undefined {
+  if (state.phase !== 'frame-over' || !state.winnerSeat) return undefined
+  return {
+    winnerSeat: state.winnerSeat,
+    score: state.pointsBySeat,
+    winReason: 'target-reached',
+  }
+}
 
 const ShotRecordedCommandSchema = z.object({
   seat: SeatSchema,
@@ -55,23 +71,20 @@ function pyramidDetails(state: PyramidFrameState) {
   }
 }
 
+const PyramidControlCommandSchema = GameCommandPresetSchema.extend({
+  label: z.string().min(1),
+})
+type PyramidControlCommand = z.infer<typeof PyramidControlCommandSchema>
+
 function command(
   commandType: string,
   payload: Record<string, unknown>,
   label: string,
-  extras: { prominence: 'primary' | 'secondary' | 'tertiary'; effectSummary?: string; warning?: string; helpText?: string },
-) {
-  return { commandType, command: payload, label, ...extras }
+  extras: Omit<PyramidControlCommand, 'source' | 'commandType' | 'command' | 'seat' | 'label'>,
+): PyramidControlCommand {
+  const seat = payload.seat === 'A' || payload.seat === 'B' ? payload.seat : undefined
+  return { source: 'game', commandType, command: payload, seat, label, ...extras }
 }
-
-const PyramidControlCommandSchema = GameCommandPresetSchema.extend({
-  label: z.string().min(1),
-})
-
-const PyramidControlCommandSectionSchema = z.object({
-  A: z.array(PyramidControlCommandSchema),
-  B: z.array(PyramidControlCommandSchema),
-})
 
 const PyramidControlDetailsSchema = z.object({
   phase: z.enum(['not-started', 'open-play', 'frame-over']),
@@ -79,40 +92,18 @@ const PyramidControlDetailsSchema = z.object({
   situationTitle: z.string().min(1),
   situationSummary: z.string().min(1),
   isPotCommandAvailable: z.boolean(),
-  commandSections: z.object({
-    primary: PyramidControlCommandSectionSchema,
-    secondary: PyramidControlCommandSectionSchema,
-    tertiary: PyramidControlCommandSectionSchema,
-  }),
+  commandSections: ControlCommandSectionsSchema,
 })
 
 export const PyramidControlViewSchema = GameControlProjectionSchema.extend({
   details: PyramidControlDetailsSchema,
 })
 
-function seatFromCommandPayload(commandPayload: Record<string, unknown>): Seat | null {
-  const seat = commandPayload.seat
-  if (seat === 'A' || seat === 'B') return seat
-  return null
-}
-
 function deriveCommandSections(commands: z.infer<typeof PyramidControlCommandSchema>[]) {
-  const sections = {
-    primary: { A: [] as z.infer<typeof PyramidControlCommandSchema>[], B: [] as z.infer<typeof PyramidControlCommandSchema>[] },
-    secondary: {
-      A: [] as z.infer<typeof PyramidControlCommandSchema>[],
-      B: [] as z.infer<typeof PyramidControlCommandSchema>[],
-    },
-    tertiary: {
-      A: [] as z.infer<typeof PyramidControlCommandSchema>[],
-      B: [] as z.infer<typeof PyramidControlCommandSchema>[],
-    },
-  }
+  const sections = emptyControlCommandSections()
 
   for (const entry of commands) {
-    const seat = seatFromCommandPayload(entry.command)
-    if (!seat) continue
-    sections[entry.prominence][seat].push(entry)
+    sections[entry.prominence][entry.seat ?? 'neutral'].push(entry)
   }
 
   return sections
@@ -242,12 +233,16 @@ export class PyramidGameplayRuntime extends GameplayRuntime {
       `Cannot award pyramid frame to ${command.seat} before target score`,
     )
 
+    const nextState = {
+      ...state,
+      phase: 'frame-over',
+      winnerSeat: command.seat,
+    } satisfies PyramidFrameState
+    const outcome = pyramidOutcome(nextState)
+
     return {
-      state: {
-        ...state,
-        phase: 'frame-over',
-        winnerSeat: command.seat,
-      } satisfies PyramidFrameState,
+      state: nextState,
+      ...(outcome ? { outcome } : {}),
     }
   }
 
@@ -321,11 +316,7 @@ export class PyramidGameplayRuntime extends GameplayRuntime {
             situationTitle: 'Frame over',
             situationSummary: 'No further scoring commands are available.',
             isPotCommandAvailable: false,
-            commandSections: {
-              primary: { A: [], B: [] },
-              secondary: { A: [], B: [] },
-              tertiary: { A: [], B: [] },
-            },
+            commandSections: emptyControlCommandSections(),
           },
         })
       }

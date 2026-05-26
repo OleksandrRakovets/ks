@@ -1,20 +1,17 @@
-import { deriveMatchLifecycleDecisions } from '@ks/competition'
 import {
-  ClientIdSchema,
-  ClientEventSchema,
+  ControlCommandSectionsSchema,
+  ControlCommandSchema,
   ErrorResponseSchema,
-  FrameStartedEventSchema,
   HydratedMatchParticipantsSchema,
-  GameCommandEventSchema,
   MatchSnapshotSchema,
-  MatchEndedEventSchema,
-  MatchIdSchema,
-  newEventId,
   PostEventsResponseSchema,
   StreamEventSchema,
   StreamReadySchema,
+  emptyControlCommandSections,
+  type ControlCommandSections,
+  type ControlCommandPreset,
 } from '@ks/core'
-import { GameControlProjectionSchema, isRegisteredGameKey, registry, type RegisteredGameKey } from '@ks/gameplay'
+import { GameControlProjectionSchema, isRegisteredGameKey, registry } from '@ks/gameplay'
 import { keys } from '@ks/i18n'
 import { Button } from '@ks/ui'
 import { useEffect, useRef } from 'react'
@@ -37,6 +34,7 @@ type LoaderData = {
   snapshot: Awaited<ReturnType<typeof parseSnapshotBody>>['snapshot']
   participants: HydratedMatchParticipants
   controlProjection: GameControlProjection
+  controlSections: ControlCommandSections
   gameTitle: string
 }
 
@@ -54,6 +52,7 @@ const SnapshotResponseWithControlSchema = z.union([
     snapshot: MatchSnapshotSchema,
     participants: HydratedMatchParticipantsSchema,
     controlProjection: GameControlProjectionSchema.optional(),
+    controlSections: ControlCommandSectionsSchema.optional(),
   }),
   ErrorResponseSchema,
 ])
@@ -63,6 +62,9 @@ function emptyControlProjection(gameKey: string): GameControlProjection {
     gameKey,
     projection: 'control',
     score: { A: 0, B: 0 },
+    details: {
+      commandSections: emptyControlCommandSections(),
+    },
   }
 }
 
@@ -102,6 +104,7 @@ export async function loader({
     snapshot: body.snapshot,
     participants: body.participants,
     controlProjection: body.controlProjection ?? emptyControlProjection(gameKey),
+    controlSections: body.controlSections ?? emptyControlCommandSections(),
     gameTitle,
   }
 }
@@ -126,34 +129,20 @@ export async function action({
 
   const form = await request.formData()
   const actionType = String(form.get('actionType') ?? 'game-command')
-  const frameIndex = Number(form.get('frameIndex') ?? '0')
-  const parsedMatchId = MatchIdSchema.parse(matchId)
-  const parsedClientId = ClientIdSchema.parse('server0000')
+  let command: unknown
 
-  function serverEventBase() {
-    return {
-      eventId: newEventId(),
-      matchId: parsedMatchId,
-      clientId: parsedClientId,
-      clientSeq: 0,
-      at: Date.now(),
+  if (actionType === 'control-command') {
+    const source = String(form.get('source') ?? '')
+    const commandType = String(form.get('commandType') ?? '')
+    const rawCommandJson = String(form.get('commandJson') ?? '{}')
+    let parsedCommand: unknown
+    try {
+      parsedCommand = JSON.parse(rawCommandJson)
+    } catch {
+      return { ok: false, errorKey: keys.match.control.invalidEventPayload }
     }
-  }
 
-  let event: unknown
-
-  if (actionType === 'start-next-frame') {
-    event = FrameStartedEventSchema.parse({
-      ...serverEventBase(),
-      type: 'frame.started',
-      payload: { frameIndex: frameIndex + 1 },
-    })
-  } else if (actionType === 'end-match') {
-    event = MatchEndedEventSchema.parse({
-      ...serverEventBase(),
-      type: 'match.ended',
-      payload: { reason: 'manual-control' },
-    })
+    command = { source, commandType, command: parsedCommand ?? {} }
   } else {
     const gameKey = String(form.get('gameKey') ?? '')
     const commandType = String(form.get('commandType') ?? '')
@@ -169,23 +158,15 @@ export async function action({
       return { ok: false, errorKey: keys.match.control.invalidEventPayload }
     }
 
-    event = GameCommandEventSchema.parse({
-      ...serverEventBase(),
-      type: 'game.command',
-      payload: {
-        gameKey: gameKey as RegisteredGameKey,
-        commandType,
-        command: (parsedCommand ?? {}) as Record<string, unknown>,
-      },
-    })
+    command = { source: 'game', commandType, command: parsedCommand ?? {} }
   }
 
-  const parsedEvent = ClientEventSchema.safeParse(event)
-  if (!parsedEvent.success) {
+  const parsedCommand = ControlCommandSchema.safeParse(command)
+  if (!parsedCommand.success) {
     return { ok: false, errorKey: keys.match.control.invalidEventPayload }
   }
 
-  const res = await postMatchEvents(env, matchId, controlSecret, [parsedEvent.data])
+  const res = await postMatchEvents(env, matchId, controlSecret, [parsedCommand.data])
   const payload = PostEventsResponseSchema.parse(await res.json())
   if (!payload.ok) {
     return { ok: false, error: payload.error }
@@ -211,7 +192,7 @@ export const handle = {
 
 export default function SparringMatchRoute() {
   const { t } = useTranslation()
-  const { snapshot, participants, controlProjection } = useLoaderData<typeof loader>()
+  const { snapshot, participants, controlProjection, controlSections } = useLoaderData<typeof loader>()
   const fetcher = useFetcher<typeof action>()
   const revalidator = useRevalidator()
 
@@ -287,10 +268,25 @@ export default function SparringMatchRoute() {
     }
   }, [snapshot.matchId])
 
-  const decisions = deriveMatchLifecycleDecisions(snapshot)
   const frameIndex = snapshot.currentFrameIndex
   const Renderer = resolveControlRenderer(snapshot.gameKey)
   const isSubmitting = fetcher.state === 'submitting'
+  const snapshotFrame = snapshot.frames[snapshot.currentFrameIndex - 1]
+  const frameScore = snapshotFrame?.winnerSeat ? snapshotFrame.pointsBySeat : controlProjection.score
+  const safeControlSections = controlSections ?? emptyControlCommandSections()
+
+  function submitPreset(command: ControlCommandPreset) {
+    localSubmitInFlightRef.current = true
+    fetcher.submit(
+      {
+        actionType: 'control-command',
+        source: command.source,
+        commandType: command.commandType,
+        commandJson: JSON.stringify(command.command),
+      },
+      { method: 'post' },
+    )
+  }
 
   function submitControlCommand(args: { commandType: string; command: Record<string, unknown> }) {
     localSubmitInFlightRef.current = true
@@ -312,7 +308,7 @@ export default function SparringMatchRoute() {
         nameA={participants.A.displayName}
         nameB={participants.B.displayName}
         matchScore={snapshot.framesWonBySeat}
-        frameScore={snapshot.frames[snapshot.currentFrameIndex - 1].pointsBySeat}
+        frameScore={frameScore}
         matchStatus={snapshot.status}
         frameIndex={frameIndex}
         targetFrames={snapshot.targets.matchTargetFrames}
@@ -327,35 +323,22 @@ export default function SparringMatchRoute() {
           onSubmitCommand={submitControlCommand}
         />
 
-        {decisions.canStartNextFrame ? (
+        {safeControlSections.secondary.neutral.map((command) => (
           <Button
+            key={`${command.source}:${command.commandType}`}
             type="button"
             variant="secondary"
             className="h-auto justify-start rounded-xl px-4 py-3 text-left text-sm"
             disabled={isSubmitting}
-            onClick={() => {
-              localSubmitInFlightRef.current = true
-              fetcher.submit({ actionType: 'start-next-frame', frameIndex: String(frameIndex) }, { method: 'post' })
-            }}
+            onClick={() => submitPreset(command)}
           >
-            {t(keys.match.control.startNextFrame)}
+            {command.commandType === 'frame.start'
+              ? t(keys.match.control.startNextFrame)
+              : command.commandType === 'match.end'
+                ? t(keys.match.control.endMatch)
+                : (command.label ?? command.commandType)}
           </Button>
-        ) : null}
-
-        {decisions.canEndMatch ? (
-          <Button
-            type="button"
-            variant="secondary"
-            className="h-auto justify-start rounded-xl px-4 py-3 text-left text-sm"
-            disabled={isSubmitting}
-            onClick={() => {
-              localSubmitInFlightRef.current = true
-              fetcher.submit({ actionType: 'end-match', frameIndex: String(frameIndex) }, { method: 'post' })
-            }}
-          >
-            {t(keys.match.control.endMatch)}
-          </Button>
-        ) : null}
+        ))}
 
         {fetcher.data?.ok === false ? (
           <p className="text-sm text-destructive">{fetcher.data.errorKey ? t(fetcher.data.errorKey) : fetcher.data.error}</p>

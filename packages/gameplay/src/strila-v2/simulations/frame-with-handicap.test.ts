@@ -10,17 +10,17 @@ test('simulation: internal: handicap basic frame for A to 6', () => {
 
   ;({ next } = applyCommand(next, {
     type: 'frame.commence',
-    actor: 'A',
+    seat: 'A',
   }))
-  ;({ next } = applyCommand(next, { type: 'pot.record', actor: 'A', pottedBalls: [1] }))
+  ;({ next } = applyCommand(next, { type: 'pot.record', seat: 'A', pottedBalls: [1] }))
   expect(next.phase).toBe('open-play')
   expect(next.cueBallSerialPots).toBeNull()
 
-  ;({ next } = applyCommand(next, { type: 'pot.record', actor: 'A', pottedBalls: [2] }))
+  ;({ next } = applyCommand(next, { type: 'pot.record', seat: 'A', pottedBalls: [2] }))
   expect(next.phase).toBe('open-play')
   expect(next.cueBallSerialPots).toBeNull()
 
-  ;({ next } = applyCommand(next, { type: 'pot.record', actor: 'A', pottedBalls: [3] }))
+  ;({ next } = applyCommand(next, { type: 'pot.record', seat: 'A', pottedBalls: [3] }))
   expect(next.score).toEqual({ A: 6, B: 0 })
   expect(next.phase).toBe('winner-determined')
   expect(next.winner).toBe('A')

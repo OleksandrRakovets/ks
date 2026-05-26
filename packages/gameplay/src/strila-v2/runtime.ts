@@ -1,4 +1,4 @@
-import { opponentOf, type Seat } from '@ks/core'
+import { emptyControlCommandSections, opponentOf, type FrameOutcome, type Seat } from '@ks/core'
 import invariant from 'tiny-invariant'
 
 import { type GameCreateStateArgs, type GameProjectionKey, GameplayRuntime } from '../abstract-runtime'
@@ -41,21 +41,17 @@ function command(
   commandType: StrilaEvent['type'],
   payload: Record<string, unknown>,
   label: string,
-  extras: Omit<StrilaControlCommand, 'commandType' | 'command' | 'label'>,
+  extras: Omit<StrilaControlCommand, 'source' | 'commandType' | 'command' | 'seat' | 'label'>,
 ): StrilaControlCommand {
-  return { commandType, command: payload, label, ...extras }
+  const seat = payload.seat === 'A' || payload.seat === 'B' ? payload.seat : undefined
+  return { source: 'game', commandType, command: payload, seat, label, ...extras }
 }
 
 function seatCommands(commandType: StrilaEvent['type'], label: string, prominence: StrilaControlCommand['prominence']) {
   return [
-    command(commandType, { actor: 'A' }, label, { prominence }),
-    command(commandType, { actor: 'B' }, label, { prominence }),
+    command(commandType, { seat: 'A' }, label, { prominence }),
+    command(commandType, { seat: 'B' }, label, { prominence }),
   ]
-}
-
-function actorFromCommand(entry: StrilaControlCommand): Seat | null {
-  const actor = entry.command.actor
-  return actor === 'A' || actor === 'B' ? actor : null
 }
 
 function computeStrilaObjectBalls(coloredBallsOnTable: readonly StrilaColoredBall[]): StrilaColoredBall[] {
@@ -104,16 +100,10 @@ function deriveBallStatuses(state: StrilaFrameState): StrilaControlDetails['ball
 }
 
 function deriveCommandSections(commands: StrilaControlCommand[]): StrilaControlDetails['commandSections'] {
-  const sections: StrilaControlDetails['commandSections'] = {
-    primary: { A: [], B: [] },
-    secondary: { A: [], B: [] },
-    tertiary: { A: [], B: [] },
-  }
+  const sections = emptyControlCommandSections()
 
   commands.forEach((entry) => {
-    const actor = actorFromCommand(entry)
-    if (actor === null) return
-    sections[entry.prominence][actor].push(entry)
+    sections[entry.prominence][entry.seat ?? 'neutral'].push(entry)
   })
 
   return sections
@@ -134,7 +124,7 @@ function view(
     commands: StrilaControlCommand[]
     situationTitle: string
     situationSummary: string
-    actor?: Seat
+    seat?: Seat
     messages?: Array<{ type: 'hint' | 'warning'; text: string }>
   },
 ): StrilaControlView {
@@ -144,7 +134,7 @@ function view(
     score: state.score,
     details: {
       phase: state.phase,
-      actor: args.actor,
+      seat: args.seat,
       situationTitle: args.situationTitle,
       situationSummary: args.situationSummary,
       isPotCommandAvailable: args.commands.some((entry) => entry.commandType === 'pot.record'),
@@ -178,20 +168,20 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
       const chooser = opponentOf(state.foulOffender)
       return view(state, {
         commands: [
-          command('penalty.select', { actor: chooser, choice: 'play-from-position' }, 'Play from position', {
+          command('penalty.select', { seat: chooser, choice: 'play-from-position' }, 'Play from position', {
             prominence: 'secondary',
             effectSummary: '+1 point',
           }),
-          command('penalty.select', { actor: chooser, choice: 'pass-position' }, 'Pass position', {
+          command('penalty.select', { seat: chooser, choice: 'pass-position' }, 'Pass position', {
             prominence: 'secondary',
             effectSummary: '+1 point',
           }),
-          command('penalty.select', { actor: chooser, choice: 'ball-in-hand' }, 'Ball in hand', {
+          command('penalty.select', { seat: chooser, choice: 'ball-in-hand' }, 'Ball in hand', {
             prominence: 'secondary',
             effectSummary: 'No points awarded',
           }),
         ],
-        actor: chooser,
+        seat: chooser,
         situationTitle: 'Select penalty',
         situationSummary: 'Opponent committed a foul. Choose the response.',
       })
@@ -235,9 +225,9 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
       return view(state, {
         commands: [
           ...seatCommands('pot.record', 'Record pot', 'primary'),
-          command('frame.award', { actor: state.winner }, 'Award frame', { prominence: 'primary' }),
+          command('frame.award', { seat: state.winner }, 'Award frame', { prominence: 'primary' }),
         ],
-        actor: state.winner,
+        seat: state.winner,
         situationTitle: 'Winner determined',
         situationSummary: 'The break may continue, or the frame can be awarded now.',
       })
@@ -315,6 +305,15 @@ function restoreSnapshot(state: StrilaFrameState): StrilaSparringSnapshot {
   })
 }
 
+function strilaOutcome(state: StrilaFrameState): FrameOutcome | undefined {
+  if (state.phase !== 'frame-over' || state.winner === null || state.winReason === null) return undefined
+  return {
+    winnerSeat: state.winner,
+    score: state.score,
+    winReason: state.winReason === 'conceded' ? 'conceded' : 'target-reached',
+  }
+}
+
 export class StrilaGameplayRuntime extends GameplayRuntime {
   createInitialState(args: GameCreateStateArgs): StrilaFrameState {
     return serializeSnapshot(createInitialSnapshot(args.targetPointsBySeat))
@@ -324,14 +323,17 @@ export class StrilaGameplayRuntime extends GameplayRuntime {
     return StrilaFrameStateSchema.parse(state)
   }
 
-  applyCommand(input: StrilaCommandEnvelope): { state: unknown; protocolEntries?: unknown[] } {
+  applyCommand(input: StrilaCommandEnvelope): { state: unknown; outcome?: FrameOutcome; protocolEntries?: unknown[] } {
     const previous = this.parseState(input.state)
     const command = parseStrilaCommand(input)
     const next = sendEvent(restoreSnapshot(previous), command)
+    const state = serializeSnapshot(next)
+    const outcome = strilaOutcome(state)
 
     return {
-      state: serializeSnapshot(next),
-      protocolEntries: projectStrilaProtocolEntries({ previous, command, next: serializeSnapshot(next) }),
+      state,
+      ...(outcome ? { outcome } : {}),
+      protocolEntries: projectStrilaProtocolEntries({ previous, command, next: state }),
     }
   }
 

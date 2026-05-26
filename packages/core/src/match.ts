@@ -80,6 +80,16 @@ export const FrameStateSchema = z.object({
 })
 export type FrameState = z.infer<typeof FrameStateSchema>
 
+export const FrameWinReasonSchema = z.enum(['target-reached', 'conceded'])
+export type FrameWinReason = z.infer<typeof FrameWinReasonSchema>
+
+export const FrameOutcomeSchema = z.object({
+  winnerSeat: SeatSchema,
+  score: BySeatNumberSchema,
+  winReason: FrameWinReasonSchema,
+})
+export type FrameOutcome = z.infer<typeof FrameOutcomeSchema>
+
 export const MatchSnapshotSchema = z.object({
   matchId: MatchIdSchema,
   gameKey: GameKeySchema,

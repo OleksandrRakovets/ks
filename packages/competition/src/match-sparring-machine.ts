@@ -1,11 +1,11 @@
-import { type BySeatNumber, type Seat } from '@ks/core'
-import { StrilaGameplayRuntime, type StrilaEvent, type StrilaFrameState } from '@ks/gameplay'
+import { type BySeatNumber, type FrameOutcome, type Seat } from '@ks/core'
 import { assign, createActor, setup, type Actor, type SnapshotFrom } from 'xstate'
 
 type CompletedFrame = {
   frameIndex: number
   score: BySeatNumber
-  winner: Seat
+  winnerSeat: Seat
+  winReason: FrameOutcome['winReason']
 }
 
 type MatchContext = {
@@ -14,31 +14,14 @@ type MatchContext = {
   framesWonBySeat: BySeatNumber
   frames: CompletedFrame[]
   currentFrameIndex: number
-  currentFrame: StrilaFrameState | null
   matchWinner: Seat | null
 }
 
 type MatchEvent =
   | { type: 'match.setup'; frameTargetPointsBySeat: BySeatNumber; matchTargetFrames: number }
   | { type: 'frame.start' }
+  | { type: 'frame.completed'; outcome: FrameOutcome }
   | { type: 'match.end' }
-  | StrilaEvent
-
-const frameRuntime = new StrilaGameplayRuntime()
-
-function currentFrameWinner(context: MatchContext): Seat {
-  const winner = context.currentFrame?.winner
-  if (winner === null || winner === undefined) throw new Error('Current frame has no winner')
-  return winner
-}
-
-function scoreWithCurrentFrame(context: MatchContext): BySeatNumber {
-  const currentWinner = context.currentFrame?.winner
-  return {
-    A: context.framesWonBySeat.A + (currentWinner === 'A' ? 1 : 0),
-    B: context.framesWonBySeat.B + (currentWinner === 'B' ? 1 : 0),
-  }
-}
 
 function matchWinnerFromScore(score: BySeatNumber, target: number): Seat | null {
   const aWon = score.A >= target
@@ -47,6 +30,13 @@ function matchWinnerFromScore(score: BySeatNumber, target: number): Seat | null 
   if (aWon && !bWon) return 'A'
   if (bWon && !aWon) return 'B'
   return null
+}
+
+function scoreAfterOutcome(context: MatchContext, outcome: FrameOutcome): BySeatNumber {
+  return {
+    A: context.framesWonBySeat.A + (outcome.winnerSeat === 'A' ? 1 : 0),
+    B: context.framesWonBySeat.B + (outcome.winnerSeat === 'B' ? 1 : 0),
+  }
 }
 
 export const matchSparringMachine = setup({
@@ -59,12 +49,11 @@ export const matchSparringMachine = setup({
     },
   },
   guards: {
-    isCurrentFrameOver: ({ context }) => context.currentFrame?.phase === 'frame-over',
-    isMatchTargetReached: ({ context }) => {
-      if (context.currentFrame?.winner === null || context.currentFrame?.winner === undefined) return false
-      return matchWinnerFromScore(scoreWithCurrentFrame(context), context.matchTargetFrames) !== null
+    canStartFrame: ({ context }) => matchWinnerFromScore(context.framesWonBySeat, context.matchTargetFrames) === null,
+    isMatchTargetReachedByOutcome: ({ context, event }) => {
+      if (event.type !== 'frame.completed') return false
+      return matchWinnerFromScore(scoreAfterOutcome(context, event.outcome), context.matchTargetFrames) !== null
     },
-    hasMatchWinner: ({ context }) => matchWinnerFromScore(scoreWithCurrentFrame(context), context.matchTargetFrames) !== null,
   },
   actions: {
     applySetup: assign(({ event }) => {
@@ -74,41 +63,29 @@ export const matchSparringMachine = setup({
         matchTargetFrames: e.matchTargetFrames,
       }
     }),
-    startFrame: assign(({ context }) => ({
-      currentFrame: frameRuntime.createInitialState({ targetPointsBySeat: context.frameTargetPointsBySeat }),
-    })),
-    applyFrameCommand: assign(({ context, event }) => {
-      if (context.currentFrame === null) throw new Error('No current frame')
-      return {
-        currentFrame: frameRuntime.applyCommand({
-          state: context.currentFrame,
-          commandType: event.type,
-          command: event,
-        }).state as StrilaFrameState,
-      }
-    }),
-    recordCompletedFrame: assign(({ context }) => {
-      if (context.currentFrame === null) throw new Error('No current frame')
-      const winner = currentFrameWinner(context)
+    recordCompletedFrame: assign(({ context, event }) => {
+      if (event.type !== 'frame.completed') throw new Error('Expected frame.completed')
+      const { outcome } = event
       return {
         framesWonBySeat: {
-          A: context.framesWonBySeat.A + (winner === 'A' ? 1 : 0),
-          B: context.framesWonBySeat.B + (winner === 'B' ? 1 : 0),
+          A: context.framesWonBySeat.A + (outcome.winnerSeat === 'A' ? 1 : 0),
+          B: context.framesWonBySeat.B + (outcome.winnerSeat === 'B' ? 1 : 0),
         },
         frames: [
           ...context.frames,
           {
             frameIndex: context.currentFrameIndex,
-            score: context.currentFrame.score,
-            winner,
+            score: outcome.score,
+            winnerSeat: outcome.winnerSeat,
+            winReason: outcome.winReason,
           },
         ],
         currentFrameIndex: context.currentFrameIndex + 1,
-        currentFrame: null,
       }
     }),
-    setMatchWinner: assign(({ context }) => {
-      const winner = matchWinnerFromScore(scoreWithCurrentFrame(context), context.matchTargetFrames)
+    setMatchWinner: assign(({ context, event }) => {
+      const score = event.type === 'frame.completed' ? scoreAfterOutcome(context, event.outcome) : context.framesWonBySeat
+      const winner = matchWinnerFromScore(score, context.matchTargetFrames)
       if (winner === null) throw new Error('Match has no winner')
 
       return {
@@ -125,7 +102,6 @@ export const matchSparringMachine = setup({
     framesWonBySeat: { A: 0, B: 0 },
     frames: [],
     currentFrameIndex: 1,
-    currentFrame: null,
     matchWinner: null,
   }),
 
@@ -142,38 +118,33 @@ export const matchSparringMachine = setup({
     'between-frames': {
       on: {
         'frame.start': {
+          guard: 'canStartFrame',
           target: 'frame-in-progress',
-          actions: 'startFrame',
-        },
-        'match.end': {
-          guard: 'hasMatchWinner',
-          target: 'match-over',
-          actions: 'setMatchWinner',
         },
       },
     },
 
     'frame-in-progress': {
-      always: [
-        {
-          guard: 'isMatchTargetReached',
-          target: 'match-over',
-          actions: ['setMatchWinner', 'recordCompletedFrame'],
-        },
-        {
-          guard: 'isCurrentFrameOver',
-          target: 'between-frames',
-          actions: 'recordCompletedFrame',
-        },
-      ],
       on: {
-        'frame.commence': { actions: 'applyFrameCommand' },
-        'pot.record': { actions: 'applyFrameCommand' },
-        'miss.record': { actions: 'applyFrameCommand' },
-        'foul.commit': { actions: 'applyFrameCommand' },
-        'penalty.select': { actions: 'applyFrameCommand' },
-        'frame.award': { actions: 'applyFrameCommand' },
-        'frame.concede': { actions: 'applyFrameCommand' },
+        'frame.completed': [
+          {
+            guard: 'isMatchTargetReachedByOutcome',
+            target: 'match-point-reached',
+            actions: ['recordCompletedFrame', 'setMatchWinner'],
+          },
+          {
+            target: 'between-frames',
+            actions: 'recordCompletedFrame',
+          },
+        ],
+      },
+    },
+
+    'match-point-reached': {
+      on: {
+        'match.end': {
+          target: 'match-over',
+        },
       },
     },
 
