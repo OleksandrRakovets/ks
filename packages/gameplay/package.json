@@ -3,8 +3,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./definitions": "./src/definitions.ts",
-    "./server": "./src/server.ts"
+    "./definitions": "./contract/definitions.ts",
+    "./server": "./contract/server.ts"
   },
   "dependencies": {
     "@ks/core": "workspace:*",

@@ -10,9 +10,9 @@ export {
   type GameMeta,
   type GameProjectionKey,
   type LocalizedGameTitle,
-} from './constants'
-export { getGameMeta, isRegisteredGameKey, listGameKeys, registry, type RegisteredGameKey } from './registry'
-export { PyramidControlViewSchema } from './pyramid/definitions'
+} from '../src/constants'
+export { getGameMeta, isRegisteredGameKey, listGameKeys, registry, type RegisteredGameKey } from '../src/registry'
+export { PyramidControlViewSchema } from '../src/pyramid/definitions'
 export {
   StrilaControlDetailsSchema,
   StrilaControlViewSchema,
@@ -22,4 +22,4 @@ export {
   type StrilaCommand,
   type StrilaControlDetails,
   type StrilaControlView,
-} from './strila-v2/definitions'
+} from '../src/strila-v2/definitions'
