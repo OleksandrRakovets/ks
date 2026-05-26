@@ -2,93 +2,157 @@
 
 Date: 2026-05-26
 
-Context: `clients/rr7/app/routes/sparring-match/route-protocol.tsx` is the last public route-shaped module importing `@ks/gameplay/server`. It also knows `MatchSnapshot`, raw `StoredEvent`, game command payload shapes, and how to replay the current frame. This conflicts with the current architecture note: route modules stay thin, shared app code should consume game projections rather than game internals, and event history remains the source of truth.
+Context: `clients/rr7/app/routes/sparring-match/route-protocol.tsx` was the last public route-shaped module importing `@ks/gameplay/server`. It also knew `MatchSnapshot`, raw `StoredEvent`, game command payload shapes, and how to replay the current frame. This conflicted with the current architecture note: route modules stay thin, shared app code should consume game projections/read models rather than game internals, and event history should remain operational rather than becoming the durable protocol archive.
 
 ## Candidate 1: Store Accepted Protocol Effects In Facts
 
-**Files**: `packages/core/src/events.ts`, `packages/gameplay/src/constants.ts`, `packages/gameplay/src/gameplay.ts`, `packages/gameplay/src/pyramid/runtime.ts`, `packages/gameplay/src/strila-v2/runtime.ts`, `clients/rr7/workers/do/MatchRoom.ts`, `clients/rr7/app/routes/sparring-match/route-protocol.tsx`.
+**Files**: `packages/core/src/events.ts`, `packages/gameplay/src/constants.ts`, `packages/gameplay/src/gameplay.ts`, `packages/gameplay/src/pyramid/runtime.ts`, `packages/gameplay/src/strila-v2/runtime.ts`, `clients/rr7/workers/do/MatchRoom.ts`, `clients/rr7/app/routes/sparring-match/route-protocol.tsx`, `clients/rr7/app/routes/sparring-match/protocol-rows.ts`.
 
-**Problem**: The protocol page replays `game.command` facts through the game runtime just to recover serializable facts that already existed at command acceptance time: score after the command and any protocol entries. This makes a public route-shaped module depend on a server-only runtime seam and forces maintainers to understand game internals while editing page display.
+**Problem**: The protocol page replayed `game.command` facts through the game runtime just to recover serializable facts that already existed at command acceptance time: score after the command and any protocol entries. This made a public route-shaped module depend on a server-only runtime seam and forced maintainers to understand game internals while editing page display.
 
-**Solution**: When `MatchRoom` accepts a game command, persist the serializable effects returned by the game runtime with the accepted fact. At minimum this means a score-after value and game-owned protocol entries. The protocol page then prints accepted facts directly instead of booting the game runtime. The game runtime remains used at the command-acceptance seam, where game semantics already belong.
+**Solution**: When `MatchRoom` accepts a game command, make the game runtime return printable, locale-neutral protocol effects. The protocol page consumes those accepted effects rather than booting the game runtime. The game runtime remains used at the command-acceptance seam, where game semantics already belong.
 
-**Benefits**: Locality improves because command semantics, automatic Strila protocol entries, and score-after calculation stay in the game runtime and `MatchRoom` acceptance flow. Leverage improves because every reader of history gets a small fact interface instead of reconstructing state. Tests can assert accepted facts from `MatchRoom` or a fact-acceptance module, then route tests only need serializable rows.
+**Benefits**: Locality improves because command semantics, automatic Strila protocol entries, and score-after calculation stay in the game runtime and `MatchRoom` acceptance flow. Leverage improves because history readers get a small protocol interface instead of reconstructing state. Tests can assert runtime protocol effects; route/read-model tests only need serializable rows.
 
-**Deletion test**: If the route-local replay code is deleted today, replay complexity has to reappear in the page or another caller. If accepted protocol effects are stored in facts, deleting route-local replay removes complexity rather than moving it.
+**Deletion test**: If the route-local replay code is deleted, replay complexity should not have to reappear in the page or another caller. Accepted protocol effects remove complexity rather than moving it.
 
 **Recommendation strength**: Strong.
+
+### Candidate 1 Status
+
+- Done: `protocolEntries` currently live on accepted `game.command` fact payloads as the first working slice.
+- Delayed: `protocolEntries` should not remain only inside `events.payload_json` long term, because completed-match events are expected to be pruned.
+- Done: There is no compatibility fallback or backfill; local D1 can be reset before public use.
+- Done: Protocol entries are locale-neutral structured facts. Display strings are derived later by a read module with locale and participant names.
+- Done: Protocol entries use a small `@ks/core` envelope: `source`, `entryType`, optional `seat`, optional `scoreAfter`, and required game-owned `body`.
+- Done: `source` starts as `player | system`; `entryType` starts as `player-command | system-note | correction`.
+- Done: Every accepted `game.command` fact currently contains a non-empty `protocolEntries` array.
+- Delayed: Once the durable archive table exists, persisted `game.command` facts may no longer need to embed `protocolEntries`; the runtime should still return protocol effects for `MatchRoom` to materialize.
+- Done: Every game runtime returns non-empty `protocolEntries` from `applyGameCommand`.
+- Done: `scoreAfter` is optional and means the specific protocol entry changed the visible frame score. Missing `scoreAfter` means the row should not print a score.
+- Revised: Protocol entries are the durable history interface, but the durable storage target should be a completed-match protocol archive, not the prunable `events` table.
+- Done: Raw command payloads are operational data and may later be pruned or ignored after match completion.
+- Reserved: Undo/correction history is additive. The initial vocabulary reserves `correction`, but this slice does not implement undo behaviour.
+- Done: `route-protocol.tsx` no longer imports `@ks/gameplay/server` or replays game state.
+- Done: Protocol row derivation lives in a pure sidecar module: `clients/rr7/app/routes/sparring-match/protocol-rows.ts`.
+- Done: Match lifecycle facts are included in protocol rows: `frame.started`, `frame.completed`, and `match.ended`.
+- Done: The redundant `frame.completed` row immediately after `game.command: frame.award` is hidden.
+- Done: Active-match newest-first ordering is applied in the loader, not during render.
+- Done: SSE remains server-authoritative revalidation only; no local protocol-row append cache.
 
 ## Candidate 2: Add A Protocol Read Module Behind The Route
 
 **Files**: `clients/rr7/app/routes/sparring-match/route-protocol.tsx`, `clients/rr7/app/server/match-room.ts`, possibly a new server-side module under `clients/rr7/app/server/` or a storage-agnostic module in `packages/competition/src/`.
 
-**Problem**: The route-shaped module currently exposes too much interface to itself: raw event ordering, seat-name labelling, snapshot status, active-frame score fallback, current-game replay, and list ordering. Even if facts become richer, the route still has poor locality because display policy is mixed with route rendering.
+**Problem**: The route-shaped module still exposes too much interface to itself: raw snapshot data, participant hydration, score-box fallback, protocol ordering, active/finished display policy, and SSE status. Even after route-local replay was removed, the route still has poor locality because display policy is mixed with route rendering.
 
-**Solution**: Move protocol-page derivation behind a narrow read module that returns a page-specific read model: header data, score-box data, protocol rows, and navigation state. The route consumes that read model and renders it. The first Adapter can read D1 events and `MatchRoom` snapshot data; if facts are enriched later, only the module implementation changes.
+**Solution**: Move protocol-page derivation behind a narrow read module that returns a page-specific read model: header data, score-box data, protocol rows, and navigation state. The route consumes that read model and renders it. The read module can read active protocol rows from events and completed protocol rows from an archive table without changing the route.
 
-**Benefits**: Locality improves because protocol-page data shaping has one home. Leverage improves because the route interface becomes a single read model rather than snapshots plus participants plus control projection plus stored events. Tests can target the read module interface with stored facts and expected rows, without rendering the route or opening SSE.
+**Benefits**: Locality improves because protocol-page data shaping has one home. Leverage improves because the route interface becomes a single read model rather than snapshots plus participants plus control projection plus stored events. Tests can target the read module interface with stored facts/archive rows and expected page rows, without rendering the route or opening SSE.
 
-**Deletion test**: Deleting this new module would force the route to recover raw event loading, row derivation, score fallback, and display ordering. That means the module would be deep, not a pass-through.
+**Deletion test**: Deleting this module would force the route to recover raw event loading, archive/event source selection, row derivation, score fallback, and display ordering. That means the module would be deep, not a pass-through.
 
 **Recommendation strength**: Strong.
 
-## Candidate 3: Make Game Protocol Projection A Public Gameplay Interface
-
-**Files**: `packages/gameplay/src/abstract-runtime.ts`, `packages/gameplay/src/constants.ts`, `packages/gameplay/src/pyramid/runtime.ts`, `packages/gameplay/src/strila-v2/protocol.ts`, `packages/gameplay/src/strila-v2/definitions.ts`, `packages/gameplay/contract/definitions.ts`, `packages/gameplay/contract/server.ts`.
-
-**Problem**: Strila already has protocol entries, but they are only returned as an optional side effect of `applyCommand`. Pyramid has no equivalent public protocol shape, so the route guesses labels from raw command payloads. The interface is shallow: callers must know command internals to print history.
-
-**Solution**: Treat protocol output as a game-owned display projection. Each game owns its protocol entry vocabulary and the label-worthy serializable facts it emits at command acceptance time. The route does not inspect `pot.record`, balls, points, or actor fields.
-
-**Benefits**: Locality improves because game-specific wording inputs live with the game implementation. Leverage improves because adding a new game requires implementing its protocol projection once, not teaching app routes its command payloads. Tests can assert the gameplay protocol interface per game and a generic app renderer can consume it.
-
-**Deletion test**: If this module is deleted, every history reader must learn each game's command vocabulary. That reintroduces game knowledge across callers, so the module would earn its keep.
-
-**Recommendation strength**: Worth exploring.
-
 ## Candidate 4: Stop Returning Raw Snapshots To Page Routes
 
-**Files**: `clients/rr7/app/server/match-room.ts`, `clients/rr7/app/routes/sparring-match/route-control.tsx`, `clients/rr7/app/routes/sparring-match/route-protocol.tsx`, `clients/rr7/app/routes/public-scoreboard.tsx`, `clients/rr7/workers/do/MatchRoom.ts`.
+**Files**: `clients/rr7/app/server/match-room.ts`, `clients/rr7/app/routes/sparring-match/route-control.tsx`, `clients/rr7/app/routes/sparring-match/route-protocol.tsx`, `clients/rr7/app/routes/public-scoreboard.tsx`, `clients/rr7/workers/do/MatchRoom.ts`, `clients/rr7/migrations/0001_init.sql`.
 
-**Problem**: Page routes currently know the `MatchSnapshot` shape and select frame score from a mix of `controlProjection`, active frame, and completed frame fields. That makes the route interface nearly as complex as the implementation and spreads snapshot knowledge across public display modules.
+**Problem**: Page routes currently know the `MatchSnapshot` shape and select frame score from a mix of `controlProjection`, active frame, and completed frame fields. That makes the route interface nearly as complex as the implementation and spreads snapshot knowledge across public display modules. Separately, completed-match protocol history should survive pruning of the operational `events` table.
 
-**Solution**: Introduce page-specific read models for control, protocol, and public scoreboard routes. `MatchSnapshot` remains a lower-level domain fact/projection used behind the server seam, but pages receive exactly the fields they render.
+**Solution**: Introduce page-specific read models for control, protocol, and public scoreboard routes. `MatchSnapshot` remains a lower-level domain fact/projection used behind the server seam, but pages receive exactly the fields they render. For protocol history, materialize a completed-match archive as one JSON row when the match is complete or locked.
 
-**Benefits**: Locality improves because snapshot interpretation is concentrated near the read Adapter. Leverage improves because future snapshot changes do not require every page to relearn frame status rules. Tests can exercise read-model derivation without route rendering.
+**Protocol archive schema**:
 
-**Deletion test**: If page read models are deleted, snapshot interpretation immediately reappears in each route. That suggests the current snapshot exposure is shallow at page seams.
+```sql
+CREATE TABLE IF NOT EXISTS match_protocol_archives (
+  match_id TEXT PRIMARY KEY,
+  source_latest_seq INTEGER NOT NULL,
+  protocol_version INTEGER NOT NULL,
+  rows_json TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+```
 
-**Recommendation strength**: Worth exploring.
+**Archive row shape**: `rows_json` should store a flattened, locale-neutral array of protocol row facts, not final rendered strings. Each row should include ordering, source timing, optional frame/game context, source/entry metadata, optional seat, optional score-after, and game-owned `body`.
 
-## Candidate 5: Split MatchRoom Acceptance From Persistence And SSE
+Example:
 
-**Files**: `clients/rr7/workers/do/MatchRoom.ts`, possibly `packages/competition/src/` if the extraction can stay storage-agnostic.
+```json
+[
+  {
+    "rowNo": 1,
+    "receivedAt": 1779750000000,
+    "frameIndex": 1,
+    "source": "player",
+    "entryType": "player-command",
+    "seat": "A",
+    "scoreAfter": { "A": 3, "B": 0 },
+    "body": { "commandType": "pot.record", "points": 3 }
+  }
+]
+```
 
-**Problem**: `MatchRoom` currently validates commands, translates commands into accepted facts, applies facts to room state, persists events, updates match rows, persists snapshots, and broadcasts SSE. The class has real depth as the live sequencing module, but its interface is hidden inside a large implementation, so fact-shape changes are harder to test than they should be.
+**Read policy**: Active protocol pages may derive rows from `events`. Finished protocol pages should prefer `match_protocol_archives`; once an archive exists, a daily cron can prune `events` for completed/locked matches without deleting printable protocol history.
 
-**Solution**: Extract the command-to-facts and fact-application behaviour into a storage-agnostic module, leaving `MatchRoom` as the Cloudflare Adapter for sequencing, D1 writes, cache, and SSE. This is a real seam only if tests or another Adapter consume the extracted module; otherwise it risks being a hypothetical seam.
+**Benefits**: Locality improves because snapshot interpretation is concentrated near the read adapter. Leverage improves because future snapshot or storage changes do not require every page to relearn frame status rules. Completed protocol reads become a single archive-row read instead of scanning event history. Tests can exercise read-model derivation without route rendering.
 
-**Benefits**: Locality improves for command acceptance rules and fact effects. Leverage improves because accepted fact shape can be tested without Durable Object setup. Tests can cover the interface that matters: given room state and command, which accepted facts and serializable effects result.
+**Deletion test**: If page read models are deleted, snapshot interpretation and archive/event source selection immediately reappear in each route. That suggests the read models would be deep rather than shallow.
 
-**Deletion test**: If the extraction is deleted after tests target it, fact-generation complexity returns to `MatchRoom`. That is acceptable, but the module earns its keep only if the interface is smaller than the current class and tests use it directly.
+**Recommendation strength**: Strong for protocol route; worth exploring for control and public scoreboard routes.
 
-**Recommendation strength**: Speculative.
+## Current Recommendation
 
-## Top Recommendation
+Keep Candidate 1 as the runtime protocol-effect interface, but stop treating prunable events as the durable protocol store. Implement Candidate 2 for the protocol page next, with Candidate 4's archive table as the completed-match storage path. The route should ask for a protocol page read model; the read module should choose `events` for active matches and `match_protocol_archives` for completed matches.
 
-Start with Candidate 1, but design it together with Candidate 2. Candidate 1 removes the server-only runtime import from the protocol page by making accepted facts printable. Candidate 2 prevents the route from becoming a different shallow module that still knows snapshots, ordering, and display fallbacks. The smallest useful slice is: persist score-after and game protocol entries with future `game.command` facts, then route the protocol page through a narrow read module that consumes those serializable facts.
+## Tomorrow Implementation Plan
 
-The key design decision to resolve next is whether these printable values are part of the accepted fact itself, or separate derived read-model data stored beside facts.
+### Locked Scope
 
-## Candidate 1 Locked Decisions
+- Start with the protocol page only.
+- Public scoreboard is out of scope because it is not implemented yet.
+- Control page read-model cleanup is a later slice after learning from protocol.
+- `ScoreBox` props stay in `route-protocol.tsx` for this slice; the protocol read model owns protocol history only.
+- Event pruning/cron is out of scope.
+- `MatchRoom` tests/refactoring are out of scope except for the minimal hot-path archive write needed by this slice.
 
-- `protocolEntries` live directly on accepted `game.command` fact payloads.
-- There is no compatibility fallback or backfill; local D1 can be reset before public use.
-- Protocol entries are locale-neutral structured facts. Display strings are derived later by a read module with locale and participant names.
-- Protocol entries use a small `@ks/core` envelope: `source`, `entryType`, optional `seat`, optional `scoreAfter`, and required game-owned `body`.
-- `source` starts as `player | system`; `entryType` starts as `player-command | system-note | correction`.
-- Every accepted `game.command` fact must contain a non-empty `protocolEntries` array.
-- Every game runtime must return non-empty `protocolEntries` from `applyGameCommand`.
-- `scoreAfter` is optional and means the specific protocol entry changed the visible frame score. Missing `scoreAfter` means the row should not print a score.
-- Protocol entries are designed as the durable history interface. Raw command payloads are operational data and may later be pruned or ignored after match completion.
-- Undo/correction history is additive. The initial vocabulary reserves `correction`, but this slice does not implement undo behaviour.
+### Locked Decisions
+
+- Completed-match archives are created immediately when `match.ended` is accepted.
+- Archive creation starts in the `MatchRoom` hot path.
+- Active protocol reads derive rows from `events`.
+- Finished protocol reads require `match_protocol_archives`; no fallback to `events`.
+- Keep `protocolEntries` embedded in active `game.command` events for now; pruning removes whole event rows, not payload fragments.
+- Archive rows are strictly display-oriented and do not include `sourceEventSeq` or `sourceEventId`.
+- Archive rows store structured data only; labels are derived at read time.
+- Archive table includes `protocol_version = 1`; read code rejects unsupported versions.
+- Modify `clients/rr7/migrations/0001_init.sql` directly because the schema is still early-stage/reset-friendly.
+- Archive is triggered only by accepted `match.ended` facts.
+- Do not add special recovery/error machinery for archive write failure yet; rely on normal request/write failure semantics.
+- Pure protocol code should live under `clients/rr7/domain/protocol/reader.ts`, with tests and related files nearby.
+
+### Implementation Steps
+
+1. Add archive schema.
+   Update `clients/rr7/migrations/0001_init.sql` with `match_protocol_archives` containing `match_id`, `source_latest_seq`, `protocol_version`, `rows_json`, and `created_at`.
+
+2. Move protocol pure logic.
+   Move `clients/rr7/app/routes/sparring-match/protocol-rows.ts` into `clients/rr7/domain/protocol/reader.ts`. Keep label derivation and event-derived active rows there. Add archive row types/schema with `protocol_version = 1`.
+
+3. Add pure protocol functions.
+   Add functions for deriving structured archive rows from `StoredEvent[]`, rendering structured rows into display `ProtocolRow[]`, and deriving active display rows from `StoredEvent[]` as a convenience wrapper.
+
+4. Add pure tests.
+   Add `clients/rr7/domain/protocol/reader.test.ts`. Cover lifecycle rows, `game.command.protocolEntries[]` expansion, hiding `frame.completed` immediately after `frame.award`, archive version rejection, and ordering policy if it lives in the reader.
+
+5. Add archive persistence in `MatchRoom`.
+   In the `match.ended` acceptance path, materialize protocol archive rows immediately. Use accepted/persisted facts in seq order, including the just-accepted `match.ended`. Insert one archive row into `match_protocol_archives`. Keep current `events` writes unchanged.
+
+6. Add protocol-history read function.
+   Add a server-side read function for protocol history, likely under `clients/rr7/app/server/`. Active match: read `events`, derive active display rows. Finished match: read `match_protocol_archives`, reject missing or unsupported archive.
+
+7. Update `route-protocol.tsx`.
+   Replace `listStoredEvents + deriveProtocolRows` with the protocol-history read function. Keep existing snapshot, participants, game title, and `ScoreBox` wiring. Render receives rows already ordered. SSE remains revalidate-only and active-match-only.
+
+8. Verify.
+   Run focused protocol tests, `bun test`, `bun run typecheck`, `bun run lint`, `bun run format:check`, `bun run check:boundaries`, and `bun run check:zod`.
