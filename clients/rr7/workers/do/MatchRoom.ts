@@ -21,24 +21,33 @@ import {
   type StoredEvent,
 } from '@ks/core'
 import { applyGameCommand, createInitialGameState, deriveGameProjection, parseGameKey } from '@ks/gameplay'
-import { Hono } from 'hono'
-import invariant from 'tiny-invariant'
+import { DurableObject } from 'cloudflare:workers'
 import { z } from 'zod'
 
 import type { Env } from '../env'
-import { badRequest, json, unauthorized } from '../http-utils'
 import { eventExists, getLatestSeq, insertStoredEvent, listEventsAfter } from '../repos/events'
 import { getMatch, markMatchEnded, setMatchLatestSeq } from '../repos/matches'
 import { deleteMatchSnapshot, putLatestMatchSnapshot } from '../repos/snapshots'
 
 const InitBodySchema = z.object({
+  matchId: MatchIdSchema,
   controlSecret: z.string().min(16),
   config: MatchConfigSchema,
 })
 
 const EventsBodySchema = z.object({
+  matchId: MatchIdSchema,
   controlSecret: z.string().min(16),
   commands: z.array(ControlCommandSchema).min(1),
+})
+
+const SnapshotBodySchema = z.object({
+  matchId: MatchIdSchema,
+})
+
+const StreamBodySchema = z.object({
+  matchId: MatchIdSchema,
+  since: z.number().nonnegative().optional(),
 })
 
 const ConcedeFrameCommandSchema = z.object({ seat: SeatSchema })
@@ -63,174 +72,166 @@ function sseHeaders(): HeadersInit {
   }
 }
 
-export class MatchRoom implements DurableObject {
-  private state: DurableObjectState
-  private env: Env
-  private app: Hono
+export class MatchRoom extends DurableObject<Env> {
   private encoder = new TextEncoder()
   private clients = new Set<{
     controller: ReadableStreamDefaultController<Uint8Array>
     pingTimer: ReturnType<typeof setInterval>
   }>()
 
-  /** Creates the in-memory router and registers all Durable Object endpoints. */
-  constructor(state: DurableObjectState, env: Env) {
-    this.state = state
-    this.env = env
-    this.app = new Hono()
+  /** Creates the match room and stores the Cloudflare runtime bindings. */
+  constructor(ctx: DurableObjectState, env: Env) {
+    super(ctx, env)
+  }
 
-    this.app.post('/internal/init', async (c) => {
-      const body = await c.req.json().catch(() => null)
-      const parsed = InitBodySchema.safeParse(body)
-      if (!parsed.success) return badRequest('Invalid init body')
+  /** Initializes a newly-created match room with its first accepted facts. */
+  async init(args: unknown): Promise<{ ok: true; alreadyInitialized?: true } | { ok: false; error: string; status: number }> {
+    const parsed = InitBodySchema.safeParse(args)
+    if (!parsed.success) return { ok: false, error: 'Invalid init body', status: 400 }
 
-      const matchId = await this.matchIdFromRequest(c.req.raw)
-      const row = await getMatch(this.env, matchId)
-      if (!row) return badRequest('Unknown match')
-      if (row.control_secret !== parsed.data.controlSecret) return unauthorized()
+    const { matchId, controlSecret, config } = parsed.data
+    await this.rememberMatchId(matchId)
+    const row = await getMatch(this.env, matchId)
+    if (!row) return { ok: false, error: 'Unknown match', status: 400 }
+    if (row.control_secret !== controlSecret) return { ok: false, error: 'Unauthorized', status: 401 }
 
-      const latest = await getLatestSeq(this.env, matchId)
-      if (latest > 0) return json({ ok: true, alreadyInitialized: true })
+    const latest = await getLatestSeq(this.env, matchId)
+    if (latest > 0) return { ok: true, alreadyInitialized: true }
 
-      const now = Date.now()
-      const parsedMatchId = MatchIdSchema.parse(matchId)
-      const serverClientId = ClientIdSchema.parse('server0000')
-      const base = {
-        matchId: parsedMatchId,
-        clientId: serverClientId,
-        clientSeq: 0,
-        at: now,
-      }
+    const now = Date.now()
+    const serverClientId = ClientIdSchema.parse('server0000')
+    const base = { matchId, clientId: serverClientId, clientSeq: 0, at: now }
 
-      const created: ClientEvent = {
-        ...base,
-        eventId: newEventId(),
-        type: 'match.created',
-        payload: parsed.data.config,
-      }
+    const created: ClientEvent = { ...base, eventId: newEventId(), type: 'match.created', payload: config }
 
-      const started: ClientEvent = {
-        ...base,
-        eventId: newEventId(),
-        type: 'frame.started',
-        payload: {
-          frameIndex: 1,
-          gameKey: parsed.data.config.gameKey,
-          targetPointsBySeat: parsed.data.config.targets.frameTargetPointsBySeat,
-        },
-      }
+    const started: ClientEvent = {
+      ...base,
+      eventId: newEventId(),
+      type: 'frame.started',
+      payload: {
+        frameIndex: 1,
+        gameKey: config.gameKey,
+        targetPointsBySeat: config.targets.frameTargetPointsBySeat,
+      },
+    }
 
-      // Initialization is already expressed as accepted facts: there is no user intent to validate here.
-      await this.appendAcceptedFacts(matchId, [created, started])
-      return json({ ok: true })
+    // Initialization is already expressed as accepted facts: there is no user intent to validate here.
+    await this.appendAcceptedFacts(matchId, [created, started])
+    return { ok: true }
+  }
+
+  /** Returns the current match snapshot and control projections for one room. */
+  async snapshot(
+    args: unknown,
+  ): Promise<
+    | { ok: true; snapshot: unknown; controlProjection: unknown | undefined; controlSections: unknown }
+    | { ok: false; error: string; status: number }
+  > {
+    const parsed = SnapshotBodySchema.safeParse(args)
+    if (!parsed.success) return { ok: false, error: 'Invalid snapshot body', status: 400 }
+
+    const { matchId } = parsed.data
+    await this.rememberMatchId(matchId)
+    const row = await getMatch(this.env, matchId)
+    if (!row) return { ok: false, error: 'Unknown match', status: 400 }
+
+    await this.pruneSnapshotIfExpired(matchId, row.status, row.lock_at)
+    const { roomState, latestSeq } = await this.loadRoomState(matchId)
+    const snapshot = snapshotFromMatchState(roomState.matchState, latestSeq)
+
+    // The match snapshot is domain state; controls are a projection of the current game frame.
+    const controlProjection =
+      roomState.currentFrameState && roomState.matchState.config
+        ? deriveGameProjection({
+            gameKey: parseGameKey(roomState.matchState.config.gameKey),
+            state: roomState.currentFrameState,
+            projection: 'control',
+          })
+        : undefined
+    const controlSections = deriveSparringControlSections({
+      matchState: roomState.matchState,
+      gameControlProjection: controlProjection,
     })
 
-    this.app.get('/snapshot', async (c) => {
-      const matchId = await this.matchIdFromRequest(c.req.raw)
-      const row = await getMatch(this.env, matchId)
-      if (!row) return badRequest('Unknown match')
+    return { ok: true, snapshot, controlProjection, controlSections }
+  }
 
+  /** Accepts control commands, persists resulting facts, and broadcasts them. */
+  async events(
+    args: unknown,
+  ): Promise<{ ok: true; accepted: { seq: number; eventId: string }[] } | { ok: false; error: string; status: number }> {
+    const parsed = EventsBodySchema.safeParse(args)
+    if (!parsed.success) return { ok: false, error: 'Invalid events body', status: 400 }
+
+    const { matchId, controlSecret, commands } = parsed.data
+    await this.rememberMatchId(matchId)
+    const row = await getMatch(this.env, matchId)
+    if (!row) return { ok: false, error: 'Unknown match', status: 400 }
+    if (row.control_secret !== controlSecret) return { ok: false, error: 'Unauthorized', status: 401 }
+
+    if (row.lock_at && Date.now() >= row.lock_at) {
       await this.pruneSnapshotIfExpired(matchId, row.status, row.lock_at)
-      const { roomState, latestSeq } = await this.loadRoomState(matchId)
-      const snapshot = snapshotFromMatchState(roomState.matchState, latestSeq)
+      return { ok: false, error: 'Match is locked', status: 423 }
+    }
 
-      // The match snapshot is domain state; controls are a projection of the current game frame.
-      const controlProjection =
-        roomState.currentFrameState && roomState.matchState.config
-          ? deriveGameProjection({
-              gameKey: parseGameKey(roomState.matchState.config.gameKey),
-              state: roomState.currentFrameState,
-              projection: 'control',
-            })
-          : undefined
-      const controlSections = deriveSparringControlSections({
-        matchState: roomState.matchState,
-        gameControlProjection: controlProjection,
-      })
-
-      return json({ ok: true, snapshot, controlProjection, controlSections })
-    })
-
-    this.app.post('/events', async (c) => {
-      const body = await c.req.json().catch(() => null)
-      const parsed = EventsBodySchema.safeParse(body)
-      if (!parsed.success) return badRequest('Invalid events body')
-
-      const matchId = await this.matchIdFromRequest(c.req.raw)
-      const row = await getMatch(this.env, matchId)
-      if (!row) return badRequest('Unknown match')
-      if (row.control_secret !== parsed.data.controlSecret) return unauthorized()
-
-      if (row.lock_at && Date.now() >= row.lock_at) {
-        await this.pruneSnapshotIfExpired(matchId, row.status, row.lock_at)
-        return json({ ok: false, error: 'Match is locked' }, { status: 423 })
-      }
-
-      const accepted = await this.acceptCommands(matchId, parsed.data.commands)
-      return json({ ok: true, accepted })
-    })
-
-    this.app.get('/stream', async (c) => {
-      const matchId = await this.matchIdFromRequest(c.req.raw)
-      const since = Number(c.req.query('since') ?? '0')
-      const startSeq = Number.isFinite(since) && since >= 0 ? since : 0
-
-      const latestSeq = await getLatestSeq(this.env, matchId)
-
-      let client: {
-        controller: ReadableStreamDefaultController<Uint8Array>
-        pingTimer: ReturnType<typeof setInterval>
-      } | null = null
-
-      const stream = new ReadableStream<Uint8Array>({
-        start: async (controller) => {
-          const sendLine = (line: string) => {
-            controller.enqueue(this.encoder.encode(line))
-          }
-
-          // A new SSE client first receives missed committed facts, then joins live fan-out.
-          const backlog = await listEventsAfter(this.env, matchId, startSeq)
-          sendLine(`event: ready\ndata: ${JSON.stringify({ latestSeq })}\n\n`)
-          for (const ev of backlog) {
-            sendLine(`event: ev\ndata: ${JSON.stringify(ev)}\n\n`)
-          }
-
-          client = {
-            controller,
-            pingTimer: setInterval(() => {
-              try {
-                controller.enqueue(this.encoder.encode(`: ping ${Date.now()}\n\n`))
-              } catch {
-                // if enqueue fails, cancel will run later
-              }
-            }, 25000),
-          }
-          this.clients.add(client)
-        },
-        cancel: () => {
-          if (client) {
-            clearInterval(client.pingTimer)
-            this.clients.delete(client)
-            client = null
-          }
-        },
-      })
-
-      return new Response(stream, { headers: sseHeaders() })
-    })
+    const accepted = await this.acceptCommands(matchId, commands)
+    return { ok: true, accepted }
   }
 
-  /** Delegates the Worker fetch entrypoint to the internal Hono router. */
-  fetch(request: Request): Response | Promise<Response> {
-    return this.app.fetch(request)
+  /** Opens a Server-Sent Events stream for committed room facts. */
+  async stream(args: unknown): Promise<Response> {
+    const parsed = StreamBodySchema.safeParse(args)
+    if (!parsed.success) return Response.json({ ok: false, error: 'Invalid stream body' }, { status: 400 })
+
+    const { matchId, since = 0 } = parsed.data
+    await this.rememberMatchId(matchId)
+    const latestSeq = await getLatestSeq(this.env, matchId)
+
+    let client: {
+      controller: ReadableStreamDefaultController<Uint8Array>
+      pingTimer: ReturnType<typeof setInterval>
+    } | null = null
+
+    const stream = new ReadableStream<Uint8Array>({
+      start: async (controller) => {
+        const sendLine = (line: string) => {
+          controller.enqueue(this.encoder.encode(line))
+        }
+
+        // A new SSE client first receives missed committed facts, then joins live fan-out.
+        const backlog = await listEventsAfter(this.env, matchId, since)
+        sendLine(`event: ready\ndata: ${JSON.stringify({ latestSeq })}\n\n`)
+        for (const ev of backlog) {
+          sendLine(`event: ev\ndata: ${JSON.stringify(ev)}\n\n`)
+        }
+
+        client = {
+          controller,
+          pingTimer: setInterval(() => {
+            try {
+              controller.enqueue(this.encoder.encode(`: ping ${Date.now()}\n\n`))
+            } catch {
+              // if enqueue fails, cancel will run later
+            }
+          }, 25000),
+        }
+        this.clients.add(client)
+      },
+      cancel: () => {
+        if (client) {
+          clearInterval(client.pingTimer)
+          this.clients.delete(client)
+          client = null
+        }
+      },
+    })
+
+    return new Response(stream, { headers: sseHeaders() })
   }
 
-  /** Reads the target match id from the Worker-to-DO request and remembers it locally. */
-  private async matchIdFromRequest(req: Request): Promise<string> {
-    const matchId = req.headers.get('x-ks-match-id')
-    invariant(matchId, 'Missing x-ks-match-id')
-    await this.state.storage.put('matchId', matchId)
-    return matchId
+  /** Remembers the room's match id in Durable Object storage for diagnostics and cache recovery. */
+  private async rememberMatchId(matchId: string): Promise<void> {
+    await this.ctx.storage.put('matchId', matchId)
   }
 
   /** Applies one accepted room fact to both match state and current game-frame state. */
@@ -272,7 +273,7 @@ export class MatchRoom implements DurableObject {
   /** Loads the hot room cache, rebuilding it from the persisted event log when necessary. */
   private async loadRoomState(matchId: string): Promise<{ roomState: RoomState; latestSeq: number }> {
     const latestSeq = await getLatestSeq(this.env, matchId)
-    const cached = await this.state.storage.get<CachedRoomState>('roomState')
+    const cached = await this.ctx.storage.get<CachedRoomState>('roomState')
     if (cached?.latestSeq === latestSeq) return { roomState: cached.roomState, latestSeq }
 
     let roomState: RoomState = { matchState: emptyMatchState(), currentFrameState: null }
@@ -281,7 +282,7 @@ export class MatchRoom implements DurableObject {
     for (const ev of events) {
       roomState = this.applyRoomFact(roomState, ev)
     }
-    await this.state.storage.put('roomState', { latestSeq, roomState } satisfies CachedRoomState)
+    await this.ctx.storage.put('roomState', { latestSeq, roomState } satisfies CachedRoomState)
     return { roomState, latestSeq }
   }
 
@@ -411,9 +412,9 @@ export class MatchRoom implements DurableObject {
   /** Appends already-accepted facts to D1, updates caches, and broadcasts committed facts to SSE clients. */
   private async appendAcceptedFacts(matchId: string, events: ClientEvent[]): Promise<{ seq: number; eventId: string }[]> {
     // blockConcurrencyWhile makes this DO operation single-file, preserving event ordering under concurrent requests.
-    return await this.state.blockConcurrencyWhile(async () => {
+    return await this.ctx.blockConcurrencyWhile(async () => {
       let seq = await getLatestSeq(this.env, matchId)
-      let cached = await this.state.storage.get<CachedRoomState>('roomState')
+      let cached = await this.ctx.storage.get<CachedRoomState>('roomState')
       let roomState = cached?.latestSeq === seq ? cached.roomState : undefined
       if (!roomState) roomState = (await this.loadRoomState(matchId)).roomState
       const receivedAt = Date.now()
@@ -458,7 +459,7 @@ export class MatchRoom implements DurableObject {
         }
       }
 
-      await this.state.storage.put('roomState', { latestSeq: seq, roomState } satisfies CachedRoomState)
+      await this.ctx.storage.put('roomState', { latestSeq: seq, roomState } satisfies CachedRoomState)
       return accepted
     })
   }
@@ -466,9 +467,9 @@ export class MatchRoom implements DurableObject {
   /** Accepts control commands by translating them into facts before persistence or broadcast. */
   private async acceptCommands(matchId: string, commands: ControlCommand[]): Promise<{ seq: number; eventId: string }[]> {
     // Commands are intents and never go to SSE directly; only persisted, sequenced facts are broadcast.
-    return await this.state.blockConcurrencyWhile(async () => {
+    return await this.ctx.blockConcurrencyWhile(async () => {
       let seq = await getLatestSeq(this.env, matchId)
-      let cached = await this.state.storage.get<CachedRoomState>('roomState')
+      let cached = await this.ctx.storage.get<CachedRoomState>('roomState')
       let roomState = cached?.latestSeq === seq ? cached.roomState : undefined
       if (!roomState) roomState = (await this.loadRoomState(matchId)).roomState
       const receivedAt = Date.now()
@@ -516,7 +517,7 @@ export class MatchRoom implements DurableObject {
         }
       }
 
-      await this.state.storage.put('roomState', { latestSeq: seq, roomState } satisfies CachedRoomState)
+      await this.ctx.storage.put('roomState', { latestSeq: seq, roomState } satisfies CachedRoomState)
       return accepted
     })
   }

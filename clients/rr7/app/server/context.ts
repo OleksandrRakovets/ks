@@ -1,3 +1,5 @@
+import invariant from 'tiny-invariant'
+
 export type AppEnv = {
   DB: {
     prepare: (sql: string) => {
@@ -9,16 +11,18 @@ export type AppEnv = {
     }
   }
   MATCH_ROOM: {
-    idFromName: (name: string) => unknown
-    get: (id: unknown) => {
-      fetch: (request: Request | string, init?: RequestInit) => Promise<Response>
+    getByName: (name: string) => {
+      init: (args: unknown) => Promise<{ ok: true; alreadyInitialized?: true } | { ok: false; error: string; status: number }>
+      snapshot: (args: unknown) => Promise<unknown>
+      events: (
+        args: unknown,
+      ) => Promise<{ ok: true; accepted: { seq: number; eventId: string }[] } | { ok: false; error: string; status: number }>
+      stream: (args: unknown) => Promise<Response>
     }
   }
   ADMIN_USER: string
   ADMIN_PASS: string
 }
-
-import invariant from 'tiny-invariant'
 
 export type AppLoadContext = {
   cloudflare?: {

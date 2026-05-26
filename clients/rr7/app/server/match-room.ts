@@ -57,20 +57,15 @@ function tryParseJson(raw: string): unknown | null {
 
 export async function fetchMatchSnapshot(env: AppEnv, rawMatchId: string, locale: SupportedLocale): Promise<Response> {
   const matchId = normalizeMatchId(rawMatchId)
-  const id = env.MATCH_ROOM.idFromName(matchId)
-  const stub = env.MATCH_ROOM.get(id)
-  const response = await stub.fetch(
-    new Request('https://do/snapshot', {
-      headers: { 'x-ks-match-id': matchId },
-    }),
-  )
-  const payload = DoSnapshotResponseSchema.safeParse(await response.json())
+  const stub = env.MATCH_ROOM.getByName(matchId)
+  const result = await stub.snapshot({ matchId })
+  const payload = DoSnapshotResponseSchema.safeParse(result)
   if (!payload.success) {
     return Response.json({ ok: false, error: 'Failed to parse snapshot response' }, { status: 502 })
   }
 
   if (!payload.data.ok) {
-    const status = payload.data.error === 'Unknown match' ? 404 : response.status
+    const status = payload.data.error === 'Unknown match' ? 404 : 502
     return Response.json({ ok: false, error: payload.data.error ?? 'Failed to load snapshot' }, { status })
   }
   const snapshot = payload.data.snapshot
@@ -176,35 +171,16 @@ export async function postMatchEvents(
   commands: ControlCommand[],
 ): Promise<Response> {
   const matchId = normalizeMatchId(rawMatchId)
-  const id = env.MATCH_ROOM.idFromName(matchId)
-  const stub = env.MATCH_ROOM.get(id)
-  return stub.fetch('https://do/events', {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-ks-match-id': matchId,
-    },
-    body: JSON.stringify({ controlSecret, commands }),
-  })
+  const stub = env.MATCH_ROOM.getByName(matchId)
+  const result = await stub.events({ matchId, controlSecret, commands })
+  return Response.json(result, { status: result.ok ? 200 : result.status })
 }
 
 export async function streamMatchEvents(env: AppEnv, rawMatchId: string, since?: string | null): Promise<Response> {
   const matchId = normalizeMatchId(rawMatchId)
-  const id = env.MATCH_ROOM.idFromName(matchId)
-  const stub = env.MATCH_ROOM.get(id)
-  const query = new URLSearchParams()
-  if (since && since.length > 0) {
-    query.set('since', since)
-  }
-  const target = query.size > 0 ? `https://do/stream?${query.toString()}` : 'https://do/stream'
-  return stub.fetch(
-    new Request(target, {
-      headers: {
-        accept: 'text/event-stream',
-        'x-ks-match-id': matchId,
-      },
-    }),
-  )
+  const stub = env.MATCH_ROOM.getByName(matchId)
+  const parsedSince = since && since.length > 0 ? Number(since) : undefined
+  return stub.stream({ matchId, ...(Number.isFinite(parsedSince) && parsedSince !== undefined ? { since: parsedSince } : {}) })
 }
 
 export function makeMatchWriteRepository(env: AppEnv): MatchWriteRepository {
@@ -231,21 +207,14 @@ export function makeMatchWriteRepository(env: AppEnv): MatchWriteRepository {
         .run()
     },
     initMatchRoom: async (args) => {
-      const id = env.MATCH_ROOM.idFromName(args.matchId)
-      const stub = env.MATCH_ROOM.get(id)
-      const response = await stub.fetch('https://do/internal/init', {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          'x-ks-match-id': args.matchId,
-        },
-        body: JSON.stringify({
-          controlSecret: args.controlSecret,
-          config: args.config,
-        }),
+      const stub = env.MATCH_ROOM.getByName(args.matchId)
+      const result = await stub.init({
+        matchId: args.matchId,
+        controlSecret: args.controlSecret,
+        config: args.config,
       })
-      if (!response.ok) {
-        throw new Error(`Failed to initialize match room: ${response.status}`)
+      if (!result.ok) {
+        throw new Error(`Failed to initialize match room: ${result.status}`)
       }
     },
   }
