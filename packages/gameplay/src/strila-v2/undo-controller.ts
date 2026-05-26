@@ -8,7 +8,7 @@ export const StrilaUndoCommandSchema = z.object({
   type: z.literal('undo-last-player-command'),
   seat: SeatSchema,
 })
-export type StrilaUndoCommand = z.infer<typeof StrilaUndoCommandSchema>
+type StrilaUndoCommand = z.infer<typeof StrilaUndoCommandSchema>
 
 export const StrilaUndoableCommandTypeSchema = z.enum([
   'frame.commence',
@@ -18,12 +18,12 @@ export const StrilaUndoableCommandTypeSchema = z.enum([
   'penalty.select',
   'frame.award',
 ])
-export type StrilaUndoableCommandType = z.infer<typeof StrilaUndoableCommandTypeSchema>
+type StrilaUndoableCommandType = z.infer<typeof StrilaUndoableCommandTypeSchema>
 
 export const StrilaControllerEntrySchema = z.union([StrilaCommandSchema, StrilaUndoCommandSchema])
 export type StrilaControllerEntry = z.infer<typeof StrilaControllerEntrySchema>
 
-export type StrilaControllerEvent = {
+type StrilaControllerEvent = {
   type: 'undo-applied'
   undoneCommandType: StrilaUndoableCommandType
 }

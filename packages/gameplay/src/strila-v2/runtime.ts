@@ -5,17 +5,17 @@ import { type GameCreateStateArgs, type GameProjectionKey, GameplayRuntime } fro
 import {
   StrilaMeta,
   StrilaBallStatusesSchema,
+  StrilaCommandSchema,
   StrilaControlViewSchema,
-  StrilaEventSchema,
   StrilaFrameStateSchema,
   StrilaScoreboardViewSchema,
   StrilaSummaryViewSchema,
+  type StrilaCommand,
   type StrilaColoredBall,
   type StrilaContext,
   type StrilaControlCommand,
   type StrilaControlDetails,
   type StrilaControlView,
-  type StrilaEvent,
   type StrilaFrameState,
   type StrilaPhase,
   type StrilaScoreboardView,
@@ -38,7 +38,7 @@ type StrilaCommandEnvelope = {
 }
 
 function command(
-  commandType: StrilaEvent['type'],
+  commandType: StrilaCommand['type'],
   payload: Record<string, unknown>,
   label: string,
   extras: Omit<StrilaControlCommand, 'source' | 'commandType' | 'command' | 'seat' | 'label'>,
@@ -47,7 +47,7 @@ function command(
   return { source: 'game', commandType, command: payload, seat, label, ...extras }
 }
 
-function seatCommands(commandType: StrilaEvent['type'], label: string, prominence: StrilaControlCommand['prominence']) {
+function seatCommands(commandType: StrilaCommand['type'], label: string, prominence: StrilaControlCommand['prominence']) {
   return [
     command(commandType, { seat: 'A' }, label, { prominence }),
     command(commandType, { seat: 'B' }, label, { prominence }),
@@ -266,11 +266,11 @@ function deriveStrilaSummaryView(state: StrilaFrameState): unknown {
   })
 }
 
-function parseStrilaCommand(input: StrilaCommandEnvelope): StrilaEvent {
+function parseStrilaCommand(input: StrilaCommandEnvelope): StrilaCommand {
   if (typeof input.command !== 'object' || input.command === null) {
-    return StrilaEventSchema.parse({ type: input.commandType })
+    return StrilaCommandSchema.parse({ type: input.commandType })
   }
-  return StrilaEventSchema.parse({ ...input.command, type: input.commandType })
+  return StrilaCommandSchema.parse({ ...input.command, type: input.commandType })
 }
 
 function phaseToSnapshotValue(phase: StrilaPhase): StrilaSparringSnapshot['value'] {

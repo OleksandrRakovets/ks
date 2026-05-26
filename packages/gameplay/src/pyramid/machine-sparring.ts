@@ -2,18 +2,18 @@ import { opponentOf, type BySeatNumber, type Seat } from '@ks/core'
 import invariant from 'tiny-invariant'
 import { assign, getInitialSnapshot, getNextSnapshot, setup, type SnapshotFrom } from 'xstate'
 
-export type PyramidWinReason = 'target-reached'
+type PyramidWinReason = 'target-reached'
 
 export type PyramidPhase = 'not-started' | 'open-play' | 'winner-determined' | 'frame-over'
 
-export type PyramidFoulPenalty = 'opponent-plus-one' | 'offender-minus-one'
+type PyramidFoulPenalty = 'opponent-plus-one' | 'offender-minus-one'
 
 export type PyramidRules = {
   allowNegative: boolean
   foulPenalty: PyramidFoulPenalty
 }
 
-export type PyramidContext = {
+type PyramidContext = {
   score: BySeatNumber
   targetPoints: BySeatNumber
   rules: PyramidRules
@@ -221,11 +221,6 @@ export const pyramidSparringMachine = setup({
 })
 
 export type PyramidSparringSnapshot = SnapshotFrom<typeof pyramidSparringMachine>
-export type PyramidSparringOutput = {
-  winner: Seat
-  winReason: PyramidWinReason
-  score: BySeatNumber
-}
 
 export function createInitialSnapshot(rules: PyramidRules, targetPointsBySeat: BySeatNumber): PyramidSparringSnapshot {
   return getInitialSnapshot(pyramidSparringMachine, { targetPointsBySeat, rules })

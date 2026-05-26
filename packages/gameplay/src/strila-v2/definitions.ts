@@ -39,7 +39,7 @@ export const StrilaMeta = {
 
 const FoulResponseChoiceSchema = z.enum(['play-from-position', 'pass-position', 'ball-in-hand'])
 
-export const StrilaEventSchema = z.discriminatedUnion('type', [
+export const StrilaCommandSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('frame.commence'), seat: SeatSchema }),
   z.object({ type: z.literal('pot.record'), seat: SeatSchema, pottedBalls: PottedBallsSchema }),
   z.object({ type: z.literal('miss.record'), seat: SeatSchema }),
@@ -47,9 +47,7 @@ export const StrilaEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('penalty.select'), seat: SeatSchema, choice: FoulResponseChoiceSchema }),
   z.object({ type: z.literal('frame.award'), seat: SeatSchema }),
 ])
-export type StrilaEvent = z.infer<typeof StrilaEventSchema>
-export const StrilaCommandSchema = StrilaEventSchema
-export type StrilaCommand = StrilaEvent
+export type StrilaCommand = z.infer<typeof StrilaCommandSchema>
 
 export const StrilaPhaseSchema = z.enum([
   'not-started',

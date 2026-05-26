@@ -2,7 +2,7 @@ import type { MatchState } from '@ks/competition'
 
 import type { Env } from '../env'
 
-export type MatchSnapshotRow = {
+type MatchSnapshotRow = {
   match_id: string
   latest_seq: number
   state_json: string

@@ -17,10 +17,6 @@ export const GameKeySchema = z
   .regex(/^[a-z0-9-]+$/)
 export type GameKey = z.infer<typeof GameKeySchema>
 
-// Backward-compatible aliases while old references are being migrated.
-export const GameIdSchema = GameKeySchema
-export type GameId = GameKey
-
 export const BySeatNumberSchema = z.object({ A: z.number().int(), B: z.number().int() })
 export type BySeatNumber = z.infer<typeof BySeatNumberSchema>
 
@@ -53,7 +49,7 @@ const MatchConfigWireSchema = z
     targets: MatchTargetsSchema,
   })
   .superRefine((value, ctx) => {
-    if (!value.gameKey && !value.gameId) {
+    if (!value.gameKey) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'gameKey is required',
@@ -61,14 +57,10 @@ const MatchConfigWireSchema = z
     }
   })
 
-export const MatchConfigSchema = MatchConfigWireSchema.transform(({ gameKey, gameId, ...rest }) => {
-  const resolvedGameKey = gameKey ?? gameId
-  invariant(resolvedGameKey, 'gameKey is required')
+export const MatchConfigSchema = MatchConfigWireSchema.transform(({ gameKey, ...rest }) => {
+  invariant(gameKey, 'gameKey is required')
 
-  return {
-    ...rest,
-    gameKey: resolvedGameKey,
-  }
+  return { ...rest, gameKey }
 })
 
 export type MatchConfig = z.infer<typeof MatchConfigSchema>

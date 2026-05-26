@@ -3,7 +3,7 @@ import { opponentOf } from '@ks/core'
 import { createBrowserInspector } from '@statelyai/inspect'
 import { createActor } from 'xstate'
 
-import type { StrilaBall, StrilaEvent } from '../../../packages/gameplay/src/strila-v2/definitions'
+import type { StrilaBall, StrilaCommand } from '../../../packages/gameplay/src/strila-v2/definitions'
 import {
   strilaSparringMachine,
   getPhase,
@@ -193,7 +193,7 @@ function renderFrameControls(snap: StrilaSparringSnapshot) {
             frameActor.send({
               type: 'pot.record',
               seat,
-              pottedBalls: [...selectedBalls] as StrilaEvent[] extends { pottedBalls: infer P }[] ? P : never,
+              pottedBalls: [...selectedBalls] as StrilaCommand[] extends { pottedBalls: infer P }[] ? P : never,
             })
             selectedBalls.clear()
           } catch (e) {

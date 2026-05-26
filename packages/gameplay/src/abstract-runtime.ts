@@ -1,41 +1,31 @@
-import { ControlCommandPresetSchema, type BySeatNumber, type FrameOutcome } from '@ks/core'
+import { ControlCommandPresetSchema, BySeatNumberSchema, type BySeatNumber, type FrameOutcome } from '@ks/core'
 import { z } from 'zod'
 
 export const GameProjectionKeySchema = z.enum(['control', 'scoreboard', 'summary'])
 export type GameProjectionKey = z.infer<typeof GameProjectionKeySchema>
-
-export const GameScoreSchema = z.object({
-  A: z.number().int(),
-  B: z.number().int(),
-})
 
 export const GameCommandPresetSchema = ControlCommandPresetSchema.extend({ source: z.literal('game') })
 
 export const GameControlProjectionSchema = z.object({
   gameKey: z.string().min(1),
   projection: z.literal('control'),
-  score: GameScoreSchema,
+  score: BySeatNumberSchema,
   details: z.unknown().optional(),
 })
 
 export const GameScoreboardProjectionSchema = z.object({
   gameKey: z.string().min(1),
   projection: z.literal('scoreboard'),
-  score: GameScoreSchema,
+  score: BySeatNumberSchema,
   details: z.unknown().optional(),
 })
 
 export const GameSummaryProjectionSchema = z.object({
   gameKey: z.string().min(1),
   projection: z.literal('summary'),
-  score: GameScoreSchema,
+  score: BySeatNumberSchema,
   details: z.unknown().optional(),
 })
-
-export type GameCommandEnvelope = {
-  commandType: string
-  command: unknown
-}
 
 export type GameCommandResult = {
   state: unknown

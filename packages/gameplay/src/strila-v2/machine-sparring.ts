@@ -5,9 +5,9 @@ import { assign, getInitialSnapshot, getNextSnapshot, setup, type SnapshotFrom }
 import {
   StrilaPhaseSchema,
   StrilaMeta,
+  type StrilaCommand,
   type StrilaColoredBall,
   type StrilaContext,
-  type StrilaEvent,
   type StrilaPhase,
   type StrilaWinReason,
   type StrilaBall,
@@ -38,26 +38,26 @@ function nextCueBallSerialPots(
   return { seat: seat, count: prev.count >= 2 ? 2 : 2 }
 }
 
-type PotEvent = Extract<StrilaEvent, { type: 'pot.record' }>
-type FoulCommitEvent = Extract<StrilaEvent, { type: 'foul.commit' }>
-type PenaltySelectEvent = Extract<StrilaEvent, { type: 'penalty.select' }>
+type PotEvent = Extract<StrilaCommand, { type: 'pot.record' }>
+type FoulCommitEvent = Extract<StrilaCommand, { type: 'foul.commit' }>
+type PenaltySelectEvent = Extract<StrilaCommand, { type: 'penalty.select' }>
 
-function potEvent(event: StrilaEvent): PotEvent {
+function potEvent(event: StrilaCommand): PotEvent {
   invariant(event.type === 'pot.record', `Expected pot.record event, received ${event.type}`)
   return event
 }
 
-function foulResponseEvent(event: StrilaEvent): PotEvent | FoulCommitEvent {
+function foulResponseEvent(event: StrilaCommand): PotEvent | FoulCommitEvent {
   invariant(event.type === 'pot.record' || event.type === 'foul.commit', `Expected foul response event, received ${event.type}`)
   return event
 }
 
-function foulCommitEvent(event: StrilaEvent): FoulCommitEvent {
+function foulCommitEvent(event: StrilaCommand): FoulCommitEvent {
   invariant(event.type === 'foul.commit', `Expected foul.commit event, received ${event.type}`)
   return event
 }
 
-function penaltySelectEvent(event: StrilaEvent): PenaltySelectEvent {
+function penaltySelectEvent(event: StrilaCommand): PenaltySelectEvent {
   invariant(event.type === 'penalty.select', `Expected penalty.select event, received ${event.type}`)
   return event
 }
@@ -80,7 +80,7 @@ function outputWinReason(context: StrilaContext): StrilaWinReason {
 export const strilaSparringMachine = setup({
   types: {
     context: {} as StrilaContext,
-    events: {} as StrilaEvent,
+    events: {} as StrilaCommand,
     input: {} as { targetPointsBySeat?: BySeatNumber },
   },
   guards: {
@@ -400,11 +400,6 @@ export const strilaSparringMachine = setup({
 })
 
 export type StrilaSparringSnapshot = SnapshotFrom<typeof strilaSparringMachine>
-export type StrilaSparringOutput = {
-  winner: Seat
-  winReason: StrilaWinReason
-  score: BySeatNumber
-}
 
 export function createInitialSnapshot(targetPointsBySeat: BySeatNumber): StrilaSparringSnapshot {
   return getInitialSnapshot(strilaSparringMachine, { targetPointsBySeat })
@@ -425,7 +420,7 @@ export function getPhase(snapshot: StrilaSparringSnapshot): StrilaPhase {
   throw new Error(`Unknown Strila phase: ${JSON.stringify(value)}`)
 }
 
-export function sendEvent(snapshot: StrilaSparringSnapshot, event: StrilaEvent): StrilaSparringSnapshot {
+export function sendEvent(snapshot: StrilaSparringSnapshot, event: StrilaCommand): StrilaSparringSnapshot {
   if (!snapshot.can(event)) {
     throw new Error(`Invalid Strila event ${event.type} in phase ${getPhase(snapshot)}`)
   }
