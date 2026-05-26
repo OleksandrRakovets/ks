@@ -1,6 +1,6 @@
 import { opponentOf, type BySeatNumber, type Seat } from '@ks/core'
 import invariant from 'tiny-invariant'
-import { assign, getInitialSnapshot, getNextSnapshot, setup, type SnapshotFrom } from 'xstate'
+import { assign, initialTransition, setup, transition, type SnapshotFrom } from 'xstate'
 
 type PyramidWinReason = 'target-reached'
 
@@ -223,7 +223,8 @@ export const pyramidSparringMachine = setup({
 export type PyramidSparringSnapshot = SnapshotFrom<typeof pyramidSparringMachine>
 
 export function createInitialSnapshot(rules: PyramidRules, targetPointsBySeat: BySeatNumber): PyramidSparringSnapshot {
-  return getInitialSnapshot(pyramidSparringMachine, { targetPointsBySeat, rules })
+  const [snapshot] = initialTransition(pyramidSparringMachine, { targetPointsBySeat, rules })
+  return snapshot
 }
 
 export function getPhase(snapshot: PyramidSparringSnapshot): PyramidPhase {
@@ -233,5 +234,6 @@ export function getPhase(snapshot: PyramidSparringSnapshot): PyramidPhase {
 }
 
 export function sendEvent(snapshot: PyramidSparringSnapshot, event: PyramidEvent): PyramidSparringSnapshot {
-  return getNextSnapshot(pyramidSparringMachine, snapshot, event)
+  const [nextSnapshot] = transition(pyramidSparringMachine, snapshot, event)
+  return nextSnapshot
 }

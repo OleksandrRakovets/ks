@@ -1,6 +1,6 @@
 import { opponentOf, type BySeatNumber, type Seat } from '@ks/core'
 import invariant from 'tiny-invariant'
-import { assign, getInitialSnapshot, getNextSnapshot, setup, type SnapshotFrom } from 'xstate'
+import { assign, initialTransition, setup, transition, type SnapshotFrom } from 'xstate'
 
 import {
   StrilaPhaseSchema,
@@ -402,7 +402,8 @@ export const strilaSparringMachine = setup({
 export type StrilaSparringSnapshot = SnapshotFrom<typeof strilaSparringMachine>
 
 export function createInitialSnapshot(targetPointsBySeat: BySeatNumber): StrilaSparringSnapshot {
-  return getInitialSnapshot(strilaSparringMachine, { targetPointsBySeat })
+  const [snapshot] = initialTransition(strilaSparringMachine, { targetPointsBySeat })
+  return snapshot
 }
 
 export function getPhase(snapshot: StrilaSparringSnapshot): StrilaPhase {
@@ -432,5 +433,6 @@ export function sendEvent(snapshot: StrilaSparringSnapshot, event: StrilaCommand
       }
     }
   }
-  return getNextSnapshot(strilaSparringMachine, snapshot, event)
+  const [nextSnapshot] = transition(strilaSparringMachine, snapshot, event)
+  return nextSnapshot
 }
