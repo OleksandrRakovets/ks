@@ -12,12 +12,13 @@ import { useTranslation } from 'react-i18next'
 import { Link, useLoaderData, useRevalidator } from 'react-router'
 import { z } from 'zod'
 
+import type { ProtocolRow } from '../../../domain/protocol/reader'
 import type { HydratedMatchParticipants } from '../../features/match-control/renderers'
 import type { AppLoadContext } from '../../server/context'
 import { requireEnv } from '../../server/context'
 import { localeFromCookie } from '../../server/locale'
-import { fetchMatchSnapshot, listStoredEvents } from '../../server/match-room'
-import { deriveProtocolRows, type ProtocolRow } from './protocol-rows'
+import { fetchMatchSnapshot } from '../../server/match-room'
+import { readProtocolHistory } from '../../server/protocol-history'
 import { ScoreBox } from './score-box'
 
 type LoaderData = {
@@ -62,20 +63,25 @@ export async function loader({
   const locale = localeFromCookie(request.headers.get('cookie'))
   const res = await fetchMatchSnapshot(env, matchId, locale)
   const body = await parseSnapshotBody(res)
-  const protocolEntries = await listStoredEvents(env, matchId)
   const { gameKey } = body.snapshot
   const gameTitle = isRegisteredGameKey(gameKey) ? registry[gameKey].meta.title[locale] : gameKey
 
-  const protocolRows = deriveProtocolRows(protocolEntries, {
-    A: body.participants.A.displayName,
-    B: body.participants.B.displayName,
-  })
+  const protocolRows = await readProtocolHistory(
+    env,
+    matchId,
+    body.snapshot.status,
+    {
+      A: body.participants.A.displayName,
+      B: body.participants.B.displayName,
+    },
+    'UTC',
+  )
 
   return {
     snapshot: body.snapshot,
     participants: body.participants,
     controlProjection: body.controlProjection,
-    protocolRows: body.snapshot.status === 'active' ? protocolRows.reverse() : protocolRows,
+    protocolRows,
     gameTitle,
   }
 }
@@ -94,7 +100,7 @@ function ProtocolPanel(props: { rows: ProtocolRow[]; emptyLabel: string }) {
             {row.score ? <span className="text-xs text-muted-foreground">{`${row.score.A}:${row.score.B}`}</span> : null}
           </span>
           <span className="text-xs text-muted-foreground tabular-nums">
-            {new Date(row.receivedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
+            <time dateTime={new Date(row.receivedAt).toISOString()}>{row.timeLabel}</time>
           </span>
         </div>
       ))}

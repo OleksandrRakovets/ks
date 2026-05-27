@@ -156,3 +156,7 @@ Keep Candidate 1 as the runtime protocol-effect interface, but stop treating pru
 
 8. Verify.
    Run focused protocol tests, `bun test`, `bun run typecheck`, `bun run lint`, `bun run format:check`, `bun run check:boundaries`, and `bun run check:zod`.
+
+### Follow-Up Note
+
+- `MatchRoom` currently has two separate fact-append paths: `appendAcceptedFacts()` for already-built init facts and `acceptCommands()` for command-derived facts. Archive creation for this slice should use the minimal `acceptCommands()` hot-path hook when `match.ended` is accepted. After archive implementation, revisit whether command-derived facts should flow through a shared append helper so lifecycle side effects such as archive creation, snapshot persistence, cache updates, and broadcast ordering have one obvious seam.

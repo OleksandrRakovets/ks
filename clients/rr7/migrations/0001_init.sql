@@ -40,6 +40,14 @@ CREATE TABLE IF NOT EXISTS match_snapshots (
   created_at INTEGER NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS match_protocol_archives (
+  match_id TEXT PRIMARY KEY,
+  source_latest_seq INTEGER NOT NULL,
+  protocol_version INTEGER NOT NULL,
+  rows_json TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS guest_players (
   guest_player_id TEXT PRIMARY KEY,
   first_name_uk TEXT NOT NULL,

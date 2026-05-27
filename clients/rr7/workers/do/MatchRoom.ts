@@ -29,6 +29,8 @@ import { applyGameCommand, createInitialGameState, deriveGameProjection, parseGa
 import { DurableObject } from 'cloudflare:workers'
 import { z } from 'zod'
 
+import { prepareProtocolRowsForArchive } from '../../domain/protocol/reader'
+import { insertProtocolArchive } from '../../domain/protocol/repo'
 import type { Env } from '../env'
 import { eventExists, getLatestSeq, insertStoredEvent, listEventsAfter } from '../repos/events'
 import { getMatch, markMatchEnded, matchExists, setMatchLatestSeq } from '../repos/matches'
@@ -607,6 +609,8 @@ export class MatchRoom extends DurableObject<Env> {
           if (fact.type === 'match.ended') {
             const endedAt = receivedAt
             const lockAt = endedAt + 10 * 60 * 1000
+            const archiveSourceEvents = await listEventsAfter(this.env, matchId, 0)
+            await insertProtocolArchive(this.env, matchId, seq, prepareProtocolRowsForArchive(archiveSourceEvents), endedAt)
             await markMatchEnded(this.env, matchId, endedAt, lockAt)
           }
 

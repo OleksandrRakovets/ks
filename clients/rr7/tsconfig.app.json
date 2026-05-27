@@ -27,5 +27,6 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["app", ".react-router/types/**/*"]
+  "include": ["app", "domain", ".react-router/types/**/*"],
+  "exclude": ["domain/**/*.test.ts"]
 }
