@@ -4,9 +4,7 @@
     "composite": true,
     "noEmit": true,
     "paths": {
-      "@/*": ["./app/*"],
-      "@ks/ui": ["../../packages/ui/src/index.ts"],
-      "@ks/ui/*": ["../../packages/ui/src/*"]
+      "@/*": ["./app/*"]
     },
     "types": []
   },

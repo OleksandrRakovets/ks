@@ -1,5 +1,6 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["unicorn", "typescript", "oxc", "react", "react-perf", "jsx-a11y"],
   "ignorePatterns": ["**/node_modules/**", "**/dist/**", "**/.wrangler/**", "**/.react-router/**", "**/.agents/**"],
   "overrides": [
     {
