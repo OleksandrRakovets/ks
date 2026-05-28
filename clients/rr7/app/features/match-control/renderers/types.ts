@@ -1,5 +1,5 @@
 import type { ControlCommandPreset, ControlCommandSections, MatchSnapshot } from '@ks/core'
-import { GameControlProjectionSchema } from '@ks/gameplay'
+import { GameControlProjectionSchema } from '@ks/gameplay/definitions'
 import type { z } from 'zod'
 
 export type GameControlProjection = z.infer<typeof GameControlProjectionSchema>

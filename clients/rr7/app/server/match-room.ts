@@ -6,7 +6,7 @@ import {
   type ControlCommand,
   type StoredEvent,
 } from '@ks/core'
-import { GameControlProjectionSchema, isRegisteredGameKey, registry } from '@ks/gameplay'
+import { GameControlProjectionSchema, isRegisteredGameKey, registry } from '@ks/gameplay/definitions'
 import type { SupportedLocale } from '@ks/i18n'
 import { z } from 'zod'
 

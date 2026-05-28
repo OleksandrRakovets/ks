@@ -1,0 +1,21 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "noUpdateNotifier": true,
+  "ui": "tui",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", "build/**", ".react-router/**", "worker-configuration.d.ts"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "@ks/client-rr7#dev": {
+      "dependsOn": ["^build"],
+      "with": ["@ks/ui#dev"],
+      "cache": false,
+      "persistent": true
+    }
+  }
+}

@@ -1,4 +1,4 @@
-import { BySeatNumberSchema, ControlCommandSectionsSchema, SeatSchema } from '@ks/core'
+import { BySeatNumberSchema, ControlCommandSectionsSchema, ProtocolEntrySchema, SeatSchema } from '@ks/core'
 import { z } from 'zod'
 
 import {
@@ -6,7 +6,7 @@ import {
   GameControlProjectionSchema,
   GameScoreboardProjectionSchema,
   GameSummaryProjectionSchema,
-} from '../abstract-runtime'
+} from '../constants'
 
 const CueBallSchema = z.literal(0)
 const ColoredBallSchema = z.union([
@@ -155,34 +155,22 @@ const AutomaticFoulReasonSchema = z.enum([
   'respotted-black-opening-illegal-pot',
 ])
 
-const PlayerProtocolEntrySchema = z.object({
-  source: z.literal('player'),
-  command: StrilaCommandSchema,
-})
-
-const AutomaticFoulProtocolEntrySchema = z.object({
-  source: z.literal('system'),
-  systemType: z.literal('automatic-foul'),
-  offender: SeatSchema,
-  reason: AutomaticFoulReasonSchema,
-})
-
-const WinnerDeterminedProtocolEntrySchema = z.object({
-  source: z.literal('system'),
-  systemType: z.literal('winner-determined'),
-  winner: SeatSchema,
-  reason: WinnerDeterminedReasonSchema,
-})
-
-const RespottedBlackDeclaredProtocolEntrySchema = z.object({
-  source: z.literal('system'),
-  systemType: z.literal('respotted-black-declared'),
-})
-
-export const StrilaProtocolEntrySchema = z.union([
-  PlayerProtocolEntrySchema,
-  AutomaticFoulProtocolEntrySchema,
-  WinnerDeterminedProtocolEntrySchema,
-  RespottedBlackDeclaredProtocolEntrySchema,
+const StrilaPlayerProtocolEntryBodySchema = z.discriminatedUnion('commandType', [
+  z.object({ commandType: z.literal('frame.commence') }),
+  z.object({ commandType: z.literal('pot.record'), pottedBalls: PottedBallsSchema }),
+  z.object({ commandType: z.literal('miss.record') }),
+  z.object({ commandType: z.literal('foul.commit') }),
+  z.object({ commandType: z.literal('penalty.select'), choice: FoulResponseChoiceSchema }),
+  z.object({ commandType: z.literal('frame.award') }),
 ])
+
+const StrilaSystemProtocolEntryBodySchema = z.discriminatedUnion('systemType', [
+  z.object({ systemType: z.literal('automatic-foul'), reason: AutomaticFoulReasonSchema }),
+  z.object({ systemType: z.literal('winner-determined'), reason: WinnerDeterminedReasonSchema }),
+  z.object({ systemType: z.literal('respotted-black-declared') }),
+])
+
+export const StrilaProtocolEntrySchema = ProtocolEntrySchema.extend({
+  body: z.union([StrilaPlayerProtocolEntryBodySchema, StrilaSystemProtocolEntryBodySchema]),
+})
 export type StrilaProtocolEntry = z.infer<typeof StrilaProtocolEntrySchema>

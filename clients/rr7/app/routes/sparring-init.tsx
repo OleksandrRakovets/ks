@@ -1,5 +1,5 @@
 import { newMatchId, type BySeatNumber } from '@ks/core'
-import { isRegisteredGameKey, registry } from '@ks/gameplay'
+import { isRegisteredGameKey, registry } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
 import { Button, Input, Label, NumberInput } from '@ks/ui'
 import { useTranslation } from 'react-i18next'

@@ -21,5 +21,6 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["vite.config.ts", "react-router.config.ts", "workers/**/*.ts", "workers/**/*.d.ts"]
+  "include": ["vite.config.ts", "react-router.config.ts", "domain/**/*.ts", "workers/**/*.ts", "workers/**/*.d.ts"],
+  "exclude": ["domain/**/*.test.ts"]
 }

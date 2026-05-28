@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 
-import { applyGameCommand, createInitialGameState } from '../../index'
+import { applyGameCommand, createInitialGameState } from '../../gameplay'
 import { StrilaFrameStateSchema, StrilaMeta, type StrilaFrameState } from '../definitions'
 import { deriveStrilaControlView } from '../projections/control'
 import { deriveStrilaScoreboardView } from '../projections/scoreboard'
@@ -16,7 +16,9 @@ test('simulation: outside: basic frame 1', () => {
   expect(control.commandSections.primary.B.map((entry) => entry.commandType)).toEqual(['frame.commence'])
 
   let step = applyGameCommand({ gameKey: 'strila-v2', state, commandType: 'frame.commence', command: { seat: 'A' } })
-  expect(step.protocolEntries).toEqual([{ source: 'player', command: { type: 'frame.commence', seat: 'A' } }])
+  expect(step.protocolEntries).toEqual([
+    { source: 'player', entryType: 'player-command', seat: 'A', body: { commandType: 'frame.commence' } },
+  ])
   control = deriveStrilaControlView(parseState(step.state)).details
   expect([
     ...control.commandSections.primary.A.map((entry) => `${entry.commandType}:${entry.command.seat}`),
@@ -34,7 +36,15 @@ test('simulation: outside: basic frame 1', () => {
     commandType: 'pot.record',
     command: { seat: 'A', pottedBalls: [1] },
   })
-  expect(step.protocolEntries).toEqual([{ source: 'player', command: { type: 'pot.record', seat: 'A', pottedBalls: [1] } }])
+  expect(step.protocolEntries).toEqual([
+    {
+      source: 'player',
+      entryType: 'player-command',
+      seat: 'A',
+      scoreAfter: { A: 2, B: 0 },
+      body: { commandType: 'pot.record', pottedBalls: [1] },
+    },
+  ])
   expect(deriveStrilaScoreboardView(parseState(step.state)).details.objectBalls).toEqual([2, 3])
   state = parseState(step.state)
 

@@ -2,14 +2,8 @@ import { describe, expect, test } from 'bun:test'
 
 import type { BySeatNumber, Seat } from '@ks/core'
 
-import {
-  applyGameCommand,
-  createInitialGameState,
-  deriveGameProjection,
-  getGameMeta,
-  listGameKeys,
-  parseGameKey,
-} from './index'
+import { applyGameCommand, createInitialGameState, deriveGameProjection, parseGameKey } from './gameplay'
+import { getGameMeta, listGameKeys } from './registry'
 
 describe('gameplay runtime api', () => {
   test('lists registered game keys', () => {
@@ -32,10 +26,6 @@ describe('gameplay runtime api', () => {
         uk: 'Вільна піраміда',
         en: 'Free pyramid',
       },
-      description: {
-        uk: 'Удари по будь-якій кулі: +1, +2 або +4 очки. Фол — суперник +1.',
-        en: 'Pot any ball for +1, +2, or +4 points. Foul gives opponent +1.',
-      },
       inputMode: 'pyramid-basic',
       defaultFrameTargetPointsBySeat: { A: 8, B: 8 },
     })
@@ -47,10 +37,6 @@ describe('gameplay runtime api', () => {
         uk: 'Вільна піраміда з продовженням',
         en: 'Free pyramid (long)',
       },
-      description: {
-        uk: 'Вільна піраміда до 30 очок — довга партія для серйозної гри.',
-        en: 'Free pyramid to 30 points — extended frame for a serious game.',
-      },
       inputMode: 'pyramid-basic',
       defaultFrameTargetPointsBySeat: { A: 30, B: 30 },
     })
@@ -61,10 +47,6 @@ describe('gameplay runtime api', () => {
       title: {
         uk: 'Стріла',
         en: 'Strila',
-      },
-      description: {
-        uk: 'Класична стріла — чергування ходів, забивання кольорових куль.',
-        en: 'Classic Strila — alternating shots, potting coloured balls.',
       },
       inputMode: 'strila-basic',
       defaultFrameTargetPointsBySeat: { A: 9, B: 9 },
@@ -80,7 +62,8 @@ describe('gameplay runtime api', () => {
       phase: 'not-started',
     })
 
-    ;({ state } = applyGameCommand({
+    let protocolEntries
+    ;({ state, protocolEntries } = applyGameCommand({
       gameKey: 'free-pyramid',
       state,
       commandType: 'frame.commence',
@@ -92,8 +75,11 @@ describe('gameplay runtime api', () => {
       targetPointsBySeat: { A: 8, B: 8 },
       phase: 'open-play',
     })
+    expect(protocolEntries).toEqual([
+      { source: 'player', entryType: 'player-command', seat: 'A', body: { commandType: 'frame.commence' } },
+    ])
 
-    ;({ state } = applyGameCommand({
+    ;({ state, protocolEntries } = applyGameCommand({
       gameKey: 'free-pyramid',
       state,
       commandType: 'pot.record',
@@ -105,6 +91,15 @@ describe('gameplay runtime api', () => {
       targetPointsBySeat: { A: 8, B: 8 },
       phase: 'open-play',
     })
+    expect(protocolEntries).toEqual([
+      {
+        source: 'player',
+        entryType: 'player-command',
+        seat: 'A',
+        scoreAfter: { A: 3, B: 0 },
+        body: { commandType: 'pot.record', points: 3 },
+      },
+    ])
   })
 
   test('free pyramid clamps score at zero', () => {
@@ -291,7 +286,7 @@ describe('gameplay runtime api', () => {
   })
 
   test('free pyramid frame.award closes gameplay state', () => {
-    const { state } = applyGameCommand({
+    const { state, protocolEntries } = applyGameCommand({
       gameKey: 'free-pyramid',
       state: { pointsBySeat: { A: 10, B: 2 }, targetPointsBySeat: { A: 8, B: 8 }, phase: 'open-play' },
       commandType: 'frame.award',
@@ -304,6 +299,9 @@ describe('gameplay runtime api', () => {
       phase: 'frame-over',
       winnerSeat: 'A',
     })
+    expect(protocolEntries).toEqual([
+      { source: 'player', entryType: 'player-command', seat: 'A', body: { commandType: 'frame.award' } },
+    ])
   })
 
   test('creates and updates Strila game state', () => {

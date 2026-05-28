@@ -4,6 +4,13 @@
   // Keep diagnostics aligned with this repo's JS/TS tooling.
   "lsp": {
     "biome": { "disabled": true },
+
+    // Temporary workaround for OpenCode oxlint built-in detection bugs.
+    // Remove once upstream oxlint LSP startup is fixed and released.
+    "oxlint": {
+      "command": ["bunx", "--no-install", "oxlint", "--lsp"],
+      "extensions": [".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".mts", ".cts", ".vue", ".astro", ".svelte"],
+    },
   },
 
   // Prefer ox* formatting over Biome/Prettier.

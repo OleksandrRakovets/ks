@@ -15,6 +15,7 @@ build/
 **/.wrangler/
 **/*.tsbuildinfo
 .vite/
+.turbo/
 .opencode/
 
 # Logs

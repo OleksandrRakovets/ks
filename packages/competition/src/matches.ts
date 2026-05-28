@@ -1,5 +1,5 @@
 import { MatchConfigSchema, MatchIdSchema, MatchSeatAssignmentSchema, stripOptionalPrefix, type MatchConfig } from '@ks/core'
-import { isRegisteredGameKey } from '@ks/gameplay'
+import { isRegisteredGameKey } from '@ks/gameplay/definitions'
 import { z } from 'zod'
 
 export const CreateMatchRequestSchema = z

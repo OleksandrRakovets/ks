@@ -1,42 +1,31 @@
-import { applyMatchEvent, emptyMatchState } from '@ks/competition'
 import {
-  type ClientEvent,
   ErrorResponseSchema,
   HydratedMatchParticipantsSchema,
   MatchSnapshotSchema,
   StreamEventSchema,
   StreamReadySchema,
-  type StoredEvent,
-  type BySeatNumber,
-  type Seat,
 } from '@ks/core'
-import {
-  applyGameCommand,
-  createInitialGameState,
-  deriveGameProjection,
-  GameControlProjectionSchema,
-  isRegisteredGameKey,
-  parseGameKey,
-  registry,
-} from '@ks/gameplay'
+import { GameControlProjectionSchema, isRegisteredGameKey, registry } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useLoaderData, useRevalidator } from 'react-router'
 import { z } from 'zod'
 
+import type { ProtocolRow } from '../../../domain/protocol/reader'
 import type { HydratedMatchParticipants } from '../../features/match-control/renderers'
 import type { AppLoadContext } from '../../server/context'
 import { requireEnv } from '../../server/context'
 import { localeFromCookie } from '../../server/locale'
-import { fetchMatchSnapshot, listStoredEvents } from '../../server/match-room'
+import { fetchMatchSnapshot } from '../../server/match-room'
+import { readProtocolHistory } from '../../server/protocol-history'
 import { ScoreBox } from './score-box'
 
 type LoaderData = {
   snapshot: Awaited<ReturnType<typeof parseSnapshotBody>>['snapshot']
   participants: HydratedMatchParticipants
   controlProjection?: Awaited<ReturnType<typeof parseSnapshotBody>>['controlProjection']
-  protocolEntries: StoredEvent[]
+  protocolRows: ProtocolRow[]
   gameTitle: string
 }
 
@@ -74,130 +63,27 @@ export async function loader({
   const locale = localeFromCookie(request.headers.get('cookie'))
   const res = await fetchMatchSnapshot(env, matchId, locale)
   const body = await parseSnapshotBody(res)
-  const protocolEntries = await listStoredEvents(env, matchId)
   const { gameKey } = body.snapshot
   const gameTitle = isRegisteredGameKey(gameKey) ? registry[gameKey].meta.title[locale] : gameKey
+
+  const protocolRows = await readProtocolHistory(
+    env,
+    matchId,
+    body.snapshot.status,
+    {
+      A: body.participants.A.displayName,
+      B: body.participants.B.displayName,
+    },
+    'UTC',
+  )
 
   return {
     snapshot: body.snapshot,
     participants: body.participants,
     controlProjection: body.controlProjection,
-    protocolEntries,
+    protocolRows,
     gameTitle,
   }
-}
-
-function protocolLabel(event: StoredEvent, seatNames: { A: string; B: string }): string {
-  const seatLabel = (seat: Seat) => seatNames[seat]
-
-  if (event.type === 'game.command') {
-    if (event.payload.commandType === 'pot.record') {
-      const command = event.payload.command as { actor?: unknown; seat?: unknown; points?: unknown; pottedBalls?: unknown }
-
-      if (Array.isArray(command.pottedBalls)) {
-        const actor = command.seat === 'A' || command.seat === 'B' ? command.seat : '?'
-        const pottedBalls = command.pottedBalls
-          .filter((ball): ball is number => typeof ball === 'number')
-          .map((ball) => {
-            if (ball === 0) return 'cue'
-            if (ball === 1) return 'red'
-            if (ball === 2) return 'yellow'
-            if (ball === 3) return 'green'
-            if (ball === 4) return 'brown'
-            if (ball === 5) return 'blue'
-            if (ball === 6) return 'pink'
-            if (ball === 7) return 'black'
-            return String(ball)
-          })
-        const summary = pottedBalls.length > 0 ? pottedBalls.join(', ') : 'none'
-        const actorLabel = actor === 'A' || actor === 'B' ? seatLabel(actor) : actor
-        return `${actorLabel}: pot (${summary})`
-      }
-
-      const seat = command.seat
-      const points = typeof command.points === 'number' ? command.points : null
-      const seatText = seat === 'A' || seat === 'B' ? seatLabel(seat) : '?'
-      if (points != null) {
-        const signed = points >= 0 ? `+${points}` : String(points)
-        return `${seatText}: pot ${signed}`
-      }
-      return `${seatText}: pot`
-    }
-
-    const command = event.payload.command as { actor?: unknown; seat?: unknown }
-    const actor = command.actor
-    if (actor === 'A' || actor === 'B') {
-      return `${seatLabel(actor)}: ${event.payload.commandType}`
-    }
-    const seat = command.seat
-    if (seat === 'A' || seat === 'B') {
-      return `${seatLabel(seat)}: ${event.payload.commandType}`
-    }
-    return event.payload.commandType
-  }
-  if (event.type === 'frame.started') {
-    return `Frame ${event.payload.frameIndex} started`
-  }
-  if (event.type === 'frame.completed') {
-    return `${seatLabel(event.payload.outcome.winnerSeat)}: frame completed`
-  }
-  if (event.type === 'match.ended') {
-    return `${seatLabel(event.payload.winnerSeat)}: match ended`
-  }
-  return event.type
-}
-
-type ProtocolRow = {
-  entry: StoredEvent
-  label: string
-  score: BySeatNumber
-}
-
-function deriveProtocolRows(entries: StoredEvent[], seatNames: { A: string; B: string }): ProtocolRow[] {
-  const ordered = [...entries].sort((a, b) => a.seq - b.seq)
-  let state = emptyMatchState()
-  let currentGameState: unknown | null = null
-  let currentGameKey: string | null = null
-  let score: BySeatNumber = { A: 0, B: 0 }
-
-  return ordered.map((entry) => {
-    const { seq: _seq, receivedAt: _receivedAt, ...clientEvent } = entry
-    state = applyMatchEvent(state, clientEvent as ClientEvent)
-
-    if (entry.type === 'frame.started') {
-      currentGameKey = entry.payload.gameKey
-      currentGameState = createInitialGameState(parseGameKey(entry.payload.gameKey), {
-        targetPointsBySeat: entry.payload.targetPointsBySeat,
-      })
-      score = { A: 0, B: 0 }
-    }
-
-    if (entry.type === 'game.command' && currentGameState !== null && currentGameKey !== null) {
-      const result = applyGameCommand({
-        gameKey: parseGameKey(currentGameKey),
-        state: currentGameState,
-        commandType: entry.payload.commandType,
-        command: entry.payload.command,
-      })
-      currentGameState = result.state
-      const projection = GameControlProjectionSchema.safeParse(
-        deriveGameProjection({ gameKey: parseGameKey(currentGameKey), state: currentGameState, projection: 'control' }),
-      )
-      if (projection.success) score = projection.data.score
-    }
-
-    if (entry.type === 'frame.completed') {
-      score = entry.payload.outcome.score
-      currentGameState = null
-      currentGameKey = null
-    }
-
-    return {
-      entry,
-      label: protocolLabel(entry, seatNames),
-      score,
-    }
-  })
 }
 
 function ProtocolPanel(props: { rows: ProtocolRow[]; emptyLabel: string }) {
@@ -208,18 +94,13 @@ function ProtocolPanel(props: { rows: ProtocolRow[]; emptyLabel: string }) {
   return (
     <div className="grid gap-2">
       {props.rows.map((row) => (
-        <div
-          key={`${row.entry.seq}-${row.entry.eventId}`}
-          className="flex items-baseline justify-between gap-3 border-b border-border/60 pb-2 text-sm"
-        >
+        <div key={row.key} className="flex items-baseline justify-between gap-3 border-b border-border/60 pb-2 text-sm">
           <span className="flex min-w-0 flex-col">
             <span>{row.label}</span>
-            <span className="text-xs text-muted-foreground">
-              {row.score.A}:{row.score.B}
-            </span>
+            {row.score ? <span className="text-xs text-muted-foreground">{`${row.score.A}:${row.score.B}`}</span> : null}
           </span>
           <span className="text-xs text-muted-foreground tabular-nums">
-            {new Date(row.entry.receivedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
+            <time dateTime={new Date(row.receivedAt).toISOString()}>{row.timeLabel}</time>
           </span>
         </div>
       ))}
@@ -236,10 +117,9 @@ export const handle = {
 
 export default function SparringMatchProtocolRoute() {
   const { t } = useTranslation()
-  const { snapshot, participants, controlProjection, protocolEntries: initialProtocolEntries } = useLoaderData<typeof loader>()
+  const { snapshot, participants, controlProjection, protocolRows } = useLoaderData<typeof loader>()
   const revalidator = useRevalidator()
 
-  const [protocolEntries, setProtocolEntries] = useState<StoredEvent[]>(initialProtocolEntries)
   const latestSeqRef = useRef(snapshot.latestSeq)
   const revalidateFnRef = useRef(revalidator.revalidate)
 
@@ -283,11 +163,6 @@ export default function SparringMatchProtocolRoute() {
       const parsed = StreamEventSchema.safeParse(decoded)
       if (!parsed.success) return
 
-      setProtocolEntries((prev) => {
-        if (prev.some((entry) => entry.eventId === parsed.data.eventId)) return prev
-        return [...prev, parsed.data]
-      })
-
       if (parsed.data.seq > latestSeqRef.current) {
         latestSeqRef.current = parsed.data.seq
         revalidateFnRef.current()
@@ -305,18 +180,6 @@ export default function SparringMatchProtocolRoute() {
 
   const frameIndex = snapshot.currentFrameIndex
   const snapshotFrame = snapshot.frames[frameIndex - 1]
-  const seatNames = useMemo(
-    () => ({
-      A: participants.A.displayName,
-      B: participants.B.displayName,
-    }),
-    [participants.A.displayName, participants.B.displayName],
-  )
-  const protocolRows = useMemo(() => {
-    const rows = deriveProtocolRows(protocolEntries, seatNames)
-    return snapshot.status === 'active' ? [...rows].reverse() : rows
-  }, [protocolEntries, seatNames, snapshot.status])
-
   return (
     <main className="mx-auto flex flex-1 flex-col bg-surface lg:w-4xl">
       <ScoreBox

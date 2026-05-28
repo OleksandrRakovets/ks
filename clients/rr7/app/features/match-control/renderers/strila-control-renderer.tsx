@@ -1,5 +1,5 @@
 import type { ControlCommandPreset } from '@ks/core'
-import { StrilaMeta, StrilaControlViewSchema, type StrilaBall } from '@ks/gameplay'
+import { StrilaMeta, StrilaControlViewSchema, type StrilaBall } from '@ks/gameplay/definitions'
 import { Button } from '@ks/ui'
 import { useMemo, useState } from 'react'
 
@@ -136,13 +136,15 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
         {StrilaMeta.allBalls.map((ball) => {
           const colors = BALL_COLORS[ball]
           const status = details.ballStatuses[ball]
+          const ballLabel = `${BALL_LABELS[ball]} (${status})`
           const isPotted = status === 'potted'
           const isSelected = details.isPotCommandAvailable && selectedBalls.includes(ball) && !isPotted
           return (
             <div key={ball} className="flex items-center justify-center">
               <button
                 type="button"
-                title={`${BALL_LABELS[ball]} (${status})`}
+                aria-label={ballLabel}
+                title={ballLabel}
                 onClick={() => {
                   if (!details.isPotCommandAvailable || isPotted) return
                   setSelectedBalls((prev) => (prev.includes(ball) ? prev.filter((b) => b !== ball) : [...prev, ball]))

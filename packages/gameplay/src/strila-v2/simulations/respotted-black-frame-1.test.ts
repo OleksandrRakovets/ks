@@ -71,8 +71,14 @@ test('simulation: internal: respotted black frame 1', () => {
     },
   })
   expect(protocolEntries).toEqual([
-    { source: 'player', command: { type: 'pot.record', seat: 'B', pottedBalls: [0] } },
-    { source: 'system', systemType: 'respotted-black-declared' },
+    {
+      source: 'player',
+      entryType: 'player-command',
+      seat: 'B',
+      scoreAfter: { A: 8, B: 8 },
+      body: { commandType: 'pot.record', pottedBalls: [0] },
+    },
+    { source: 'system', entryType: 'system-note', body: { systemType: 'respotted-black-declared' } },
   ])
 
   ;({ next, protocolEntries } = applyCommand(next, { type: 'pot.record', seat: 'A', pottedBalls: [7] }))
@@ -94,12 +100,18 @@ test('simulation: internal: respotted black frame 1', () => {
     },
   })
   expect(protocolEntries).toEqual([
-    { source: 'player', command: { type: 'pot.record', seat: 'A', pottedBalls: [7] } },
+    {
+      source: 'player',
+      entryType: 'player-command',
+      seat: 'A',
+      scoreAfter: { A: 10, B: 8 },
+      body: { commandType: 'pot.record', pottedBalls: [7] },
+    },
     {
       source: 'system',
-      systemType: 'winner-determined',
-      winner: 'A',
-      reason: 'respotted-black-won',
+      entryType: 'system-note',
+      seat: 'A',
+      body: { systemType: 'winner-determined', reason: 'respotted-black-won' },
     },
   ])
 

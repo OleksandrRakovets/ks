@@ -26,8 +26,14 @@ describe('protocol projection', () => {
     const next = apply(previous, command)
 
     expect(projectStrilaProtocolEntries({ previous, command, next })).toEqual([
-      { source: 'player', command },
-      { source: 'system', systemType: 'respotted-black-declared' },
+      {
+        source: 'player',
+        entryType: 'player-command',
+        seat: 'A',
+        scoreAfter: { A: 8, B: 8 },
+        body: { commandType: 'pot.record', pottedBalls: [7] },
+      },
+      { source: 'system', entryType: 'system-note', body: { systemType: 'respotted-black-declared' } },
     ])
   })
 
@@ -46,12 +52,17 @@ describe('protocol projection', () => {
     const next = apply(previous, command)
 
     expect(projectStrilaProtocolEntries({ previous, command, next })).toEqual([
-      { source: 'player', command },
+      {
+        source: 'player',
+        entryType: 'player-command',
+        seat: 'A',
+        body: { commandType: 'pot.record', pottedBalls: [0] },
+      },
       {
         source: 'system',
-        systemType: 'automatic-foul',
-        offender: 'A',
-        reason: 'third-consecutive-cue-ball-pot',
+        entryType: 'system-note',
+        seat: 'A',
+        body: { systemType: 'automatic-foul', reason: 'third-consecutive-cue-ball-pot' },
       },
     ])
   })
@@ -71,18 +82,23 @@ describe('protocol projection', () => {
     const next = apply(previous, command)
 
     expect(projectStrilaProtocolEntries({ previous, command, next })).toEqual([
-      { source: 'player', command },
       {
-        source: 'system',
-        systemType: 'automatic-foul',
-        offender: 'A',
-        reason: 'respotted-black-opening-illegal-pot',
+        source: 'player',
+        entryType: 'player-command',
+        seat: 'A',
+        body: { commandType: 'pot.record', pottedBalls: [0] },
       },
       {
         source: 'system',
-        systemType: 'winner-determined',
-        winner: 'B',
-        reason: 'automatic-foul',
+        entryType: 'system-note',
+        seat: 'A',
+        body: { systemType: 'automatic-foul', reason: 'respotted-black-opening-illegal-pot' },
+      },
+      {
+        source: 'system',
+        entryType: 'system-note',
+        seat: 'B',
+        body: { systemType: 'winner-determined', reason: 'automatic-foul' },
       },
     ])
   })
@@ -95,12 +111,18 @@ describe('protocol projection', () => {
     const next = apply(previous, command)
 
     expect(projectStrilaProtocolEntries({ previous, command, next })).toEqual([
-      { source: 'player', command },
+      {
+        source: 'player',
+        entryType: 'player-command',
+        seat: 'A',
+        scoreAfter: { A: 10, B: 0 },
+        body: { commandType: 'pot.record', pottedBalls: [5] },
+      },
       {
         source: 'system',
-        systemType: 'winner-determined',
-        winner: 'A',
-        reason: 'target-reached',
+        entryType: 'system-note',
+        seat: 'A',
+        body: { systemType: 'winner-determined', reason: 'target-reached' },
       },
     ])
   })

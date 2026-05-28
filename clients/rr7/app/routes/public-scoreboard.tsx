@@ -1,5 +1,5 @@
 import { SnapshotResponseSchema, StreamEventSchema, StreamReadySchema } from '@ks/core'
-import { GameControlProjectionSchema } from '@ks/gameplay'
+import { GameControlProjectionSchema } from '@ks/gameplay/definitions'
 import { themes } from '@ks/themes'
 import { useEffect, useRef } from 'react'
 import { useLoaderData, useParams, useRevalidator, useSearchParams } from 'react-router'
