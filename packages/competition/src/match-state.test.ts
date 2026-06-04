@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
 import { ClientFactSchema, newClientId, newFactId, newMatchId, type ClientFact, type MatchConfig } from '@ks/core'
+import * as v from 'valibot'
 
 import { applyMatchFact, deriveSparringControlSections, emptyMatchState } from './index'
 
@@ -9,7 +10,7 @@ function baseFact<TType extends ClientFact['type']>(
   type: TType,
   payload: Extract<ClientFact, { type: TType }>['payload'],
 ): ClientFact {
-  return ClientFactSchema.parse({
+  return v.parse(ClientFactSchema, {
     factId: newFactId(),
     matchId,
     clientId: newClientId(),

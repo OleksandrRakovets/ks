@@ -7,10 +7,11 @@ import {
   type MatchSnapshot,
   type Seat,
 } from '@ks/core'
-import { z } from 'zod'
+import { NonNegativeIntegerSchema, PositiveIntegerSchema } from '@ks/core'
+import * as v from 'valibot'
 
 export type MatchState = {
-  config?: z.infer<typeof MatchConfigSchema>
+  config?: v.InferOutput<typeof MatchConfigSchema>
   status: 'empty' | 'active' | 'finished'
   frames: {
     frameIndex: number
@@ -27,18 +28,18 @@ function assert(condition: unknown, message: string): asserts condition {
   }
 }
 
-const MatchStateFrameSchema = z.object({
-  frameIndex: z.number().int().positive(),
+const MatchStateFrameSchema = v.object({
+  frameIndex: PositiveIntegerSchema,
   pointsBySeat: BySeatNumberSchema,
-  winnerSeat: SeatSchema.optional(),
+  winnerSeat: v.optional(SeatSchema),
 })
 
-export const MatchStateSchema = z.object({
-  config: MatchConfigSchema.optional(),
-  status: z.enum(['empty', 'active', 'finished']),
-  frames: z.array(MatchStateFrameSchema),
+export const MatchStateSchema = v.object({
+  config: v.optional(MatchConfigSchema),
+  status: v.picklist(['empty', 'active', 'finished']),
+  frames: v.array(MatchStateFrameSchema),
   framesWonBySeat: BySeatNumberSchema,
-  currentFrameIndex: z.number().int().nonnegative(),
+  currentFrameIndex: NonNegativeIntegerSchema,
 })
 
 export function emptyMatchState(): MatchState {

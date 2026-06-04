@@ -1,10 +1,11 @@
 import { describe, expect, test } from 'bun:test'
 
 import { newMatchId } from '@ks/core'
+import * as v from 'valibot'
 
 import { assignmentsBySeat, buildMatchConfig, CreateMatchRequestSchema } from './matches'
 
-const request = CreateMatchRequestSchema.parse({
+const request = v.parse(CreateMatchRequestSchema, {
   gameKey: 'strila-v2',
   targets: {
     frameTargetPointsBySeat: { A: 8, B: 8 },

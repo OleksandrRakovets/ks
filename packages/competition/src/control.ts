@@ -5,6 +5,7 @@ import {
   type ControlCommandSections,
   type Seat,
 } from '@ks/core'
+import * as v from 'valibot'
 
 import type { MatchState } from './match-state'
 
@@ -24,8 +25,8 @@ function extractGameControlSections(gameControlProjection: unknown): ControlComm
   const details = gameControlProjection.details
   if (typeof details !== 'object' || details === null || !('commandSections' in details)) return undefined
 
-  const parsed = ControlCommandSectionsSchema.safeParse(details.commandSections)
-  return parsed.success ? parsed.data : undefined
+  const parsed = v.safeParse(ControlCommandSectionsSchema, details.commandSections)
+  return parsed.success ? parsed.output : undefined
 }
 
 function deriveSparringMatchControlSections(matchState: MatchState): ControlCommandSections {
