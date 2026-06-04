@@ -26,7 +26,6 @@
   },
   "scripts": {
     "check:boundaries": "node ./scripts/check-boundaries.mjs",
-    "check:zod": "node ./scripts/check-zod.mjs",
     "build": "turbo run build",
     "db:migrate:local": "bun run --cwd apps/play db:migrate:local",
     "dev": "turbo run dev --filter=@ks/play",
