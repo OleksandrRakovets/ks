@@ -3,3 +3,6 @@
 
 ADMIN_USER=admin
 ADMIN_PASS=admin
+
+# Favicons default to amber unless production is explicit.
+KS_DEPLOY_ENV=development

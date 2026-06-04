@@ -2,6 +2,7 @@ import { type RouteConfig, index, layout, route } from '@react-router/dev/routes
 
 export default [
   route('favicon.ico', 'routes/tech/favicon.ts'),
+  route('site.webmanifest', 'routes/tech/site-webmanifest.ts'),
   route('robots.txt', 'routes/tech/robots-txt.ts'),
   route('api/m/:matchId/stream', 'routes/api-match-stream.ts'),
   route('api/theme', 'routes/api-theme.ts'),

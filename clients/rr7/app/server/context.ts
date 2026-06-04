@@ -25,6 +25,7 @@ export type AppEnv = {
   }
   ADMIN_USER: string
   ADMIN_PASS: string
+  KS_DEPLOY_ENV?: string
 }
 
 export type AppLoadContext = {

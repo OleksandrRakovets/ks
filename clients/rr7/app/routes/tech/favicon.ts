@@ -1,5 +1,14 @@
+import { iconBasePath, iconVariantFromContext } from '../../server/icon-assets'
 import type { Route } from './+types/favicon'
 
-export function loader(_args: Route.LoaderArgs) {
-  return new Response(null, { status: 204 })
+export function loader({ context }: Route.LoaderArgs) {
+  const variant = iconVariantFromContext(context)
+
+  return new Response(null, {
+    status: 302,
+    headers: {
+      'Cache-Control': 'no-store',
+      Location: `${iconBasePath(variant)}/favicon.ico`,
+    },
+  })
 }

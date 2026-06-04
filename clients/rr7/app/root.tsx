@@ -11,6 +11,7 @@ import {
 } from 'react-router'
 
 import type { Route } from './+types/root'
+import { iconBasePath, iconThemeColor, iconVariantFromContext } from './server/icon-assets'
 import { themeFromCookie, type AppTheme } from './server/theme'
 
 const LOCALE_COOKIE_NAME = 'ks.locale'
@@ -26,9 +27,12 @@ function localeFromCookie(cookieHeader: string | null): SupportedLocale {
   return 'uk'
 }
 
-export function loader({ request }: Route.LoaderArgs) {
+export function loader({ request, context }: Route.LoaderArgs) {
   const cookie = request.headers.get('cookie')
+  const iconVariant = iconVariantFromContext(context)
+
   return {
+    iconVariant,
     locale: localeFromCookie(cookie),
     theme: themeFromCookie(cookie),
   }
@@ -50,6 +54,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const data = useRouteLoaderData<RootLoaderData>('root')
   const locale = data?.locale ?? 'uk'
   const theme = data?.theme ?? 'club-dark'
+  const iconVariant = data?.iconVariant ?? 'amber'
+  const iconPath = iconBasePath(iconVariant)
 
   const htmlClass = theme === 'club-light' ? 'club-light' : theme === 'club-dark' ? 'club-dark' : ''
 
@@ -58,6 +64,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+        <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+        <link rel="icon" type="image/png" sizes="32x32" href={`${iconPath}/favicon-32x32.png`} />
+        <link rel="apple-touch-icon" sizes="180x180" href={`${iconPath}/apple-touch-icon.png`} />
+        <link rel="manifest" href="/site.webmanifest" />
+        <meta name="theme-color" content={iconThemeColor(iconVariant)} />
         <Meta />
         <Links />
       </head>
