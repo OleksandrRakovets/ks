@@ -3,7 +3,7 @@ import { isRegisteredGameKey, registry } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
 import { Button, Input, Label, NumberInput } from '@ks/ui'
 import { useTranslation } from 'react-i18next'
-import { Form, redirect, useActionData, useLoaderData, useNavigation } from 'react-router'
+import { Form, Link, redirect, useActionData, useLoaderData, useNavigation } from 'react-router'
 
 import type { AppLoadContext } from '../server/context'
 import { requireEnv } from '../server/context'
@@ -144,6 +144,15 @@ export default function SparringInitRoute() {
   return (
     <main className="flex-1 bg-background px-4 py-6 text-foreground">
       <div className="mx-auto w-full max-w-2xl">
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h1 className="text-3xl font-semibold tracking-tight">{t(keys.match.sparring.setupTitle)}</h1>
+          </div>
+          <Button asChild variant="outline">
+            <Link to="/sparring">{t(keys.match.sparring.chooseAnotherGame)}</Link>
+          </Button>
+        </div>
+
         <Form
           method="post"
           className="grid gap-6"

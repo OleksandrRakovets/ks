@@ -1,4 +1,5 @@
 import { keys } from '@ks/i18n'
+import { Badge, Button } from '@ks/ui'
 import { useTranslation } from 'react-i18next'
 import { Link, useLoaderData } from 'react-router'
 
@@ -31,13 +32,18 @@ export default function SparringMatchesRoute() {
   return (
     <main className="flex-1 bg-background px-4 py-6 text-foreground">
       <div className="mx-auto w-full max-w-3xl">
-        <div className="mb-6">
-          <h1 className="text-3xl font-semibold tracking-tight">{t(keys.match.sparring.title)}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Останні спаринг-матчі.</p>
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h1 className="text-3xl font-semibold tracking-tight">{t(keys.match.sparring.recentMatches)}</h1>
+            <p className="mt-1 text-sm text-muted-foreground">{t(keys.match.sparring.recentMatchesSubtitle)}</p>
+          </div>
+          <Button asChild variant="outline">
+            <Link to="/sparring">{t(keys.match.sparring.newMatch)}</Link>
+          </Button>
         </div>
 
         {matches.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Матчів ще немає.</p>
+          <p className="text-sm text-muted-foreground">{t(keys.match.sparring.noRecentMatches)}</p>
         ) : (
           <div className="divide-y divide-border rounded-lg border border-border">
             {matches.map((match) => (
@@ -58,10 +64,7 @@ export default function SparringMatchesRoute() {
                 </div>
                 <div className="shrink-0">
                   {match.status === 'active' ? (
-                    <span className="flex items-center gap-1.5 text-xs font-medium text-[--a-green]">
-                      <span className="h-1.5 w-1.5 rounded-full bg-[--a-green]" />
-                      Live
-                    </span>
+                    <Badge>Live</Badge>
                   ) : (
                     <span className="text-xs text-muted-foreground">Завершено</span>
                   )}

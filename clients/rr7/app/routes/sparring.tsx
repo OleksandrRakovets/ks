@@ -1,5 +1,5 @@
 import { keys } from '@ks/i18n'
-import { Card, CardDescription, CardHeader, CardTitle } from '@ks/ui'
+import { Button, Card, CardDescription, CardHeader, CardTitle } from '@ks/ui'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 
@@ -83,9 +83,14 @@ export default function SparringRoute() {
   return (
     <main className="flex-1 bg-background px-4 py-6 text-foreground">
       <div className="mx-auto w-full max-w-5xl">
-        <div className="mb-6">
-          <h1 className="text-3xl font-semibold tracking-tight">{t(keys.match.sparring.title)}</h1>
-          <p className="mt-1 text-text-lo">{t(keys.match.sparring.subtitle)}</p>
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h1 className="text-3xl font-semibold tracking-tight">{t(keys.match.sparring.title)}</h1>
+            <p className="mt-1 text-text-lo">{t(keys.match.sparring.subtitle)}</p>
+          </div>
+          <Button asChild variant="outline">
+            <Link to="/sparring/matches">{t(keys.match.sparring.recentMatches)}</Link>
+          </Button>
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
