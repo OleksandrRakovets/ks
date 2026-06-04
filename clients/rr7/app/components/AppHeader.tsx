@@ -1,9 +1,13 @@
+import { keys, type I18nKey } from '@ks/i18n'
+import { useTranslation } from 'react-i18next'
 import { useMatches, Link } from 'react-router'
 
 import { BurgerMenu } from './BurgerMenu'
 
 export type HeaderConfig = {
   title?: string
+  titleKey?: I18nKey
+  titleParams?: Record<string, unknown>
   backTo?: string
 }
 
@@ -17,6 +21,7 @@ function BackArrowIcon() {
 
 export function AppHeader() {
   const matches = useMatches()
+  const { t } = useTranslation()
 
   const config =
     [...matches].reverse().reduce<HeaderConfig | null>((found, match) => {
@@ -29,14 +34,14 @@ export function AppHeader() {
     <header className="sticky top-0 z-40 flex h-11 shrink-0 items-center justify-between border-b border-divider bg-deep ">
       <div className="w-12">
         {config.backTo ? (
-          <Link to={config.backTo} aria-label="Назад" className="flex h-11 items-center px-4 text-green">
+          <Link to={config.backTo} aria-label={t(keys.nav.back)} className="flex h-11 items-center px-4 text-green">
             <BackArrowIcon />
           </Link>
         ) : null}
       </div>
 
       <div className="flex-1 truncate text-center text-sm font-semibold tracking-[0.01em]">
-        {config.title ?? 'Play & Keep Score'}
+        {config.titleKey ? t(config.titleKey, config.titleParams) : (config.title ?? t(keys.appTitle))}
       </div>
 
       <div className="flex w-12 justify-end">

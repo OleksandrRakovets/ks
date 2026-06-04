@@ -110,7 +110,8 @@ function ProtocolPanel(props: { rows: ProtocolRow[]; emptyLabel: string }) {
 
 export const handle = {
   headerConfig: (data: LoaderData) => ({
-    title: `Протокол: ${data.gameTitle}`,
+    titleKey: keys.match.sparring.protocolHeaderTitle,
+    titleParams: { gameTitle: data.gameTitle },
     backTo: data.snapshot.status === 'active' ? `/sparring/matches/${data.snapshot.matchId}` : '/sparring/matches',
   }),
 }

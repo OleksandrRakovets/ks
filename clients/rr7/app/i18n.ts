@@ -5,7 +5,7 @@ import { initReactI18next } from 'react-i18next'
 const LOCALE_COOKIE_NAME = 'ks.locale'
 
 function normalizeLocale(value: string | null | undefined): SupportedLocale {
-  return value === 'en' ? 'en' : 'uk'
+  return value === 'uk' ? 'uk' : 'en'
 }
 
 function persistLocaleCookie(locale: SupportedLocale) {
@@ -16,7 +16,7 @@ function persistLocaleCookie(locale: SupportedLocale) {
 
 function pickLocale(): SupportedLocale {
   if (typeof document === 'undefined') {
-    return 'uk'
+    return 'en'
   }
 
   const fromHtml = normalizeLocale(document.documentElement.lang)
@@ -33,7 +33,7 @@ function syncDocumentLang(locale: SupportedLocale) {
 void i18n.use(initReactI18next).init({
   resources,
   lng: pickLocale(),
-  fallbackLng: 'uk',
+  fallbackLng: 'en',
   interpolation: { escapeValue: false },
 })
 

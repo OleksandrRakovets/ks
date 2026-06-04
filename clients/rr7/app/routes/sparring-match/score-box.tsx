@@ -1,5 +1,7 @@
 import type { BySeatNumber } from '@ks/core'
+import { keys } from '@ks/i18n'
 import cn from 'classnames'
+import { useTranslation } from 'react-i18next'
 
 type Props = {
   nameA: string
@@ -12,6 +14,7 @@ type Props = {
 }
 
 export function ScoreBox({ nameA, nameB, matchStatus, matchScore, frameScore, frameIndex, targetFrames }: Props) {
+  const { t } = useTranslation()
   const isLive = matchStatus === 'active'
   const numberA = isLive ? frameScore.A : matchScore.A
   const numberB = isLive ? frameScore.B : matchScore.B
@@ -21,7 +24,9 @@ export function ScoreBox({ nameA, nameB, matchStatus, matchScore, frameScore, fr
   return (
     <div className="sticky top-11 z-10 border-b border-divider bg-background">
       <div className={cn('flex items-center gap-x-5 border-b border-divider py-1 text-sm text-text-lo', {})}>
-        <span className={cn('flex-1 text-right', { hidden: !isLive })}>Партія {frameIndex}</span>
+        <span className={cn('flex-1 text-right', { hidden: !isLive })}>
+          {t(keys.match.scoreboard.frameWithNumber, { frameIndex })}
+        </span>
 
         <div className={cn('flex items-center text-text-hi', { hidden: !isLive })}>
           <span className="text-2xl font-semibold tracking-tight tabular-nums">{matchScore.A}</span>
@@ -29,7 +34,9 @@ export function ScoreBox({ nameA, nameB, matchStatus, matchScore, frameScore, fr
           <span className="text-2xl font-semibold tracking-tight tabular-nums">{matchScore.B}</span>
         </div>
 
-        <span className={cn('flex-1', { 'text-left': isLive, 'text-center': !isLive })}>до {targetFrames} перемог</span>
+        <span className={cn('flex-1', { 'text-left': isLive, 'text-center': !isLive })}>
+          {t(keys.match.scoreboard.raceToWins, { targetFrames })}
+        </span>
       </div>
 
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-x-3 px-4 py-3">

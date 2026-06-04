@@ -73,7 +73,7 @@ const SPARRING_GAMES: SparringGame[] = [
 ]
 
 export const handle = {
-  headerConfig: () => ({ title: 'Спаринг' }),
+  headerConfig: () => ({ titleKey: keys.nav.sparring }),
 }
 
 export default function SparringRoute() {

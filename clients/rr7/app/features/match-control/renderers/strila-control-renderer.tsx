@@ -1,7 +1,9 @@
 import type { ControlCommandPreset } from '@ks/core'
 import { StrilaMeta, StrilaControlViewSchema, type StrilaBall } from '@ks/gameplay/definitions'
+import { keys } from '@ks/i18n'
 import { Button } from '@ks/ui'
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import type { MatchControlRendererProps } from './types'
 
@@ -100,6 +102,7 @@ function NeutralCommandRows(props: { commands: ControlCommandPreset[]; onSubmit:
 export function StrilaControlRenderer(props: MatchControlRendererProps) {
   const [selectedBalls, setSelectedBalls] = useState<StrilaBall[]>([])
   const [showTertiary, setShowTertiary] = useState(false)
+  const { t } = useTranslation()
 
   const parsed = useMemo(() => StrilaControlViewSchema.safeParse(props.projection), [props.projection])
   const commandSections = props.commandSections
@@ -126,7 +129,7 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
   return (
     <div aria-label="Strila container" className="grid">
       <p className="mt-4 px-4 text-sm leading-none font-semibold tracking-widest text-text-ghost uppercase">
-        Обери забиту кулю
+        {t(keys.match.control.choosePottedBall)}
       </p>
       <div
         aria-label="Ball grid"
@@ -207,7 +210,7 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
             className="text-left text-xs text-muted-foreground hover:text-foreground"
             onClick={() => setShowTertiary((v) => !v)}
           >
-            {showTertiary ? '▲ Сховати' : '··· Більше'}
+            {showTertiary ? t(keys.match.control.showLess) : t(keys.match.control.showMore)}
           </button>
           {showTertiary && (
             <CommandRows

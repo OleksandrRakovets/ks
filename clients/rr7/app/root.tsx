@@ -1,4 +1,6 @@
 import type { SupportedLocale } from '@ks/i18n'
+import { keys } from '@ks/i18n'
+import { useTranslation } from 'react-i18next'
 import {
   isRouteErrorResponse,
   Links,
@@ -11,20 +13,21 @@ import {
 } from 'react-router'
 
 import type { Route } from './+types/root'
+import { i18n } from './i18n'
 import { iconBasePath, iconThemeColor, iconVariantFromContext } from './server/icon-assets'
 import { themeFromCookie, type AppTheme } from './server/theme'
 
 const LOCALE_COOKIE_NAME = 'ks.locale'
 
 function localeFromCookie(cookieHeader: string | null): SupportedLocale {
-  if (!cookieHeader) return 'uk'
+  if (!cookieHeader) return 'en'
   for (const part of cookieHeader.split(';')) {
     const [rawKey, rawValue] = part.trim().split('=')
     if (rawKey === LOCALE_COOKIE_NAME) {
-      return rawValue === 'en' ? 'en' : 'uk'
+      return rawValue === 'uk' ? 'uk' : 'en'
     }
   }
-  return 'uk'
+  return 'en'
 }
 
 export function loader({ request, context }: Route.LoaderArgs) {
@@ -42,7 +45,7 @@ export type RootLoaderData = ReturnType<typeof loader>
 
 export function useRootLocale(): SupportedLocale {
   const data = useRouteLoaderData<RootLoaderData>('root')
-  return data?.locale ?? 'uk'
+  return data?.locale ?? 'en'
 }
 
 export function useRootTheme(): AppTheme {
@@ -52,10 +55,14 @@ export function useRootTheme(): AppTheme {
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const data = useRouteLoaderData<RootLoaderData>('root')
-  const locale = data?.locale ?? 'uk'
+  const locale = data?.locale ?? 'en'
   const theme = data?.theme ?? 'club-dark'
   const iconVariant = data?.iconVariant ?? 'amber'
   const iconPath = iconBasePath(iconVariant)
+
+  if (i18n.resolvedLanguage !== locale) {
+    void i18n.changeLanguage(locale)
+  }
 
   const htmlClass = theme === 'club-light' ? 'club-light' : theme === 'club-dark' ? 'club-dark' : ''
 
@@ -87,16 +94,15 @@ export default function App() {
 
 export function ErrorBoundary() {
   const error = useRouteError()
+  const { t } = useTranslation()
 
   if (isRouteErrorResponse(error) && error.status === 404) {
     return (
       <main className="flex min-h-dvh flex-1 items-center justify-center bg-background px-6 text-foreground">
         <div className="w-full max-w-lg rounded-2xl border border-border bg-card p-8 text-center">
-          <p className="text-sm tracking-[0.2em] text-muted-foreground uppercase">404</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight">Not found</h1>
-          <p className="mt-3 text-sm text-muted-foreground">
-            This page is unavailable or the match no longer exists in local storage.
-          </p>
+          <p className="text-sm tracking-[0.2em] text-muted-foreground uppercase">{t(keys.app.notFound.eyebrow)}</p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight">{t(keys.app.notFound.title)}</h1>
+          <p className="mt-3 text-sm text-muted-foreground">{t(keys.app.notFound.description)}</p>
         </div>
       </main>
     )
@@ -105,8 +111,8 @@ export function ErrorBoundary() {
   return (
     <main className="flex min-h-dvh flex-1 items-center justify-center bg-background px-6 text-foreground">
       <div className="w-full max-w-lg rounded-2xl border border-border bg-card p-8 text-center">
-        <p className="text-sm tracking-[0.2em] text-muted-foreground uppercase">Error</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight">Something went wrong</h1>
+        <p className="text-sm tracking-[0.2em] text-muted-foreground uppercase">{t(keys.app.error.eyebrow)}</p>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight">{t(keys.app.error.title)}</h1>
       </div>
     </main>
   )

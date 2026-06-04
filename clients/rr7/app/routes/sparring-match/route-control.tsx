@@ -184,7 +184,8 @@ export async function action({
 
 export const handle = {
   headerConfig: (data: LoaderData) => ({
-    title: `Спаринг: ${data.gameTitle}`,
+    titleKey: keys.match.sparring.controlHeaderTitle,
+    titleParams: { gameTitle: data.gameTitle },
     backTo: '/sparring/matches',
   }),
 }

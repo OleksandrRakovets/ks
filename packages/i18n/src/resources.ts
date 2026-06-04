@@ -2,6 +2,27 @@ export const resources = {
   uk: {
     translation: {
       'app.title': 'KS - Keep Score',
+      'app.homeComingSoon': 'Скоро все буде!',
+      'app.notFound.eyebrow': '404',
+      'app.notFound.title': 'Не знайдено',
+      'app.notFound.description': 'Ця сторінка недоступна або матч більше не існує в локальному сховищі.',
+      'app.error.eyebrow': 'Помилка',
+      'app.error.title': 'Щось пішло не так',
+
+      'nav.back': 'Назад',
+      'nav.menu': 'Меню',
+      'nav.close': 'Закрити',
+      'nav.section': 'Навігація',
+      'nav.sparring': 'Спаринг',
+      'nav.recentMatches': 'Останні матчі',
+
+      'theme.section': 'Тема',
+      'theme.dark': 'Темна',
+      'theme.light': 'Світла',
+      'theme.auto': 'Авто',
+
+      'status.live': 'Live',
+      'status.finished': 'Завершено',
 
       'match.create.title': 'Створити матч',
       'match.create.game': 'Гра',
@@ -26,10 +47,15 @@ export const resources = {
       'match.control.targetReached': 'Ціль досягнута',
       'match.control.undo': 'Скасувати',
       'match.control.offline': 'Офлайн',
+      'match.control.choosePottedBall': 'Обери забиту кулю',
+      'match.control.showMore': '··· Більше',
+      'match.control.showLess': '▲ Сховати',
 
       'match.scoreboard.frames': 'Фрейми',
       'match.scoreboard.frame': 'Фрейм',
+      'match.scoreboard.frameWithNumber': 'Партія {{frameIndex}}',
       'match.scoreboard.points': 'Очки',
+      'match.scoreboard.raceToWins': 'до {{targetFrames}} перемог',
 
       'match.sparring.title': 'Почати спаринг-матч',
       'match.sparring.subtitle': 'Оберіть гру, щоб перейти до налаштування матчу.',
@@ -55,12 +81,35 @@ export const resources = {
       'match.sparring.tabControl': 'Керування',
       'match.sparring.tabProtocol': 'Протокол',
       'match.sparring.protocolTitle': 'Протокол',
+      'match.sparring.controlHeaderTitle': 'Спаринг: {{gameTitle}}',
+      'match.sparring.protocolHeaderTitle': 'Протокол: {{gameTitle}}',
       'match.sparring.protocolEmpty': 'Записів протоколу ще немає.',
     },
   },
   en: {
     translation: {
       'app.title': 'KS - Keep Score',
+      'app.homeComingSoon': 'Coming soon!',
+      'app.notFound.eyebrow': '404',
+      'app.notFound.title': 'Not found',
+      'app.notFound.description': 'This page is unavailable or the match no longer exists in local storage.',
+      'app.error.eyebrow': 'Error',
+      'app.error.title': 'Something went wrong',
+
+      'nav.back': 'Back',
+      'nav.menu': 'Menu',
+      'nav.close': 'Close',
+      'nav.section': 'Navigation',
+      'nav.sparring': 'Sparring',
+      'nav.recentMatches': 'Recent matches',
+
+      'theme.section': 'Theme',
+      'theme.dark': 'Dark',
+      'theme.light': 'Light',
+      'theme.auto': 'Auto',
+
+      'status.live': 'Live',
+      'status.finished': 'Finished',
 
       'match.create.title': 'Create match',
       'match.create.game': 'Game',
@@ -85,10 +134,15 @@ export const resources = {
       'match.control.targetReached': 'Target reached',
       'match.control.undo': 'Undo',
       'match.control.offline': 'Offline',
+      'match.control.choosePottedBall': 'Choose potted ball',
+      'match.control.showMore': '··· More',
+      'match.control.showLess': '▲ Hide',
 
       'match.scoreboard.frames': 'Frames',
       'match.scoreboard.frame': 'Frame',
+      'match.scoreboard.frameWithNumber': 'Frame {{frameIndex}}',
       'match.scoreboard.points': 'Points',
+      'match.scoreboard.raceToWins': 'race to {{targetFrames}} wins',
 
       'match.sparring.title': 'Start sparring match',
       'match.sparring.subtitle': 'Choose a game to continue to match setup.',
@@ -114,6 +168,8 @@ export const resources = {
       'match.sparring.tabControl': 'Control',
       'match.sparring.tabProtocol': 'Protocol',
       'match.sparring.protocolTitle': 'Protocol',
+      'match.sparring.controlHeaderTitle': 'Sparring: {{gameTitle}}',
+      'match.sparring.protocolHeaderTitle': 'Protocol: {{gameTitle}}',
       'match.sparring.protocolEmpty': 'No protocol entries yet.',
     },
   },

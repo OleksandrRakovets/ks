@@ -22,7 +22,7 @@ export async function loader({ request, context }: { request: Request; context: 
 }
 
 export const handle = {
-  headerConfig: () => ({ title: 'Останні матчі', backTo: '/sparring' }),
+  headerConfig: () => ({ titleKey: keys.nav.recentMatches, backTo: '/sparring' }),
 }
 
 export default function SparringMatchesRoute() {
@@ -64,9 +64,9 @@ export default function SparringMatchesRoute() {
                 </div>
                 <div className="shrink-0">
                   {match.status === 'active' ? (
-                    <Badge>Live</Badge>
+                    <Badge>{t(keys.status.live)}</Badge>
                   ) : (
-                    <span className="text-xs text-muted-foreground">Завершено</span>
+                    <span className="text-xs text-muted-foreground">{t(keys.status.finished)}</span>
                   )}
                 </div>
               </Link>

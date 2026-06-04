@@ -1,5 +1,35 @@
 export const keys = {
   appTitle: 'app.title',
+  app: {
+    homeComingSoon: 'app.homeComingSoon',
+    notFound: {
+      eyebrow: 'app.notFound.eyebrow',
+      title: 'app.notFound.title',
+      description: 'app.notFound.description',
+    },
+    error: {
+      eyebrow: 'app.error.eyebrow',
+      title: 'app.error.title',
+    },
+  },
+  nav: {
+    back: 'nav.back',
+    menu: 'nav.menu',
+    close: 'nav.close',
+    section: 'nav.section',
+    sparring: 'nav.sparring',
+    recentMatches: 'nav.recentMatches',
+  },
+  theme: {
+    section: 'theme.section',
+    dark: 'theme.dark',
+    light: 'theme.light',
+    auto: 'theme.auto',
+  },
+  status: {
+    live: 'status.live',
+    finished: 'status.finished',
+  },
   match: {
     create: {
       title: 'match.create.title',
@@ -26,11 +56,16 @@ export const keys = {
       targetReached: 'match.control.targetReached',
       undo: 'match.control.undo',
       offline: 'match.control.offline',
+      choosePottedBall: 'match.control.choosePottedBall',
+      showMore: 'match.control.showMore',
+      showLess: 'match.control.showLess',
     },
     scoreboard: {
       frames: 'match.scoreboard.frames',
       frame: 'match.scoreboard.frame',
+      frameWithNumber: 'match.scoreboard.frameWithNumber',
       points: 'match.scoreboard.points',
+      raceToWins: 'match.scoreboard.raceToWins',
     },
     sparring: {
       title: 'match.sparring.title',
@@ -57,9 +92,13 @@ export const keys = {
       tabControl: 'match.sparring.tabControl',
       tabProtocol: 'match.sparring.tabProtocol',
       protocolTitle: 'match.sparring.protocolTitle',
+      controlHeaderTitle: 'match.sparring.controlHeaderTitle',
+      protocolHeaderTitle: 'match.sparring.protocolHeaderTitle',
       protocolEmpty: 'match.sparring.protocolEmpty',
     },
   },
 } as const
 
-export type I18nKey = (typeof keys)[keyof typeof keys] | string
+type LeafValues<T> = T extends string ? T : T extends Record<string, unknown> ? LeafValues<T[keyof T]> : never
+
+export type I18nKey = LeafValues<typeof keys> | string

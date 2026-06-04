@@ -1,7 +1,9 @@
 import type { ControlCommandPreset } from '@ks/core'
 import { PyramidControlViewSchema } from '@ks/gameplay/definitions'
+import { keys } from '@ks/i18n'
 import { Button } from '@ks/ui'
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import type { MatchControlRendererProps } from './types'
 
@@ -58,6 +60,7 @@ function NeutralCommandRows(props: { commands: ControlCommandPreset[]; onSubmit:
 
 export function PyramidControlRenderer(props: MatchControlRendererProps) {
   const [showTertiary, setShowTertiary] = useState(false)
+  const { t } = useTranslation()
   const parsed = useMemo(() => PyramidControlViewSchema.safeParse(props.projection), [props.projection])
   const commandSections = props.commandSections
   const hasNeutral = commandSections.neutral.length > 0
@@ -89,7 +92,7 @@ export function PyramidControlRenderer(props: MatchControlRendererProps) {
             className="text-left text-xs text-muted-foreground hover:text-foreground"
             onClick={() => setShowTertiary((v) => !v)}
           >
-            {showTertiary ? '▲ Сховати' : '··· Більше'}
+            {showTertiary ? t(keys.match.control.showLess) : t(keys.match.control.showMore)}
           </button>
           {showTertiary && (
             <CommandRows title="Tertiary" commands={commandSections.tertiary} onSubmit={props.onSubmitCommand} />
