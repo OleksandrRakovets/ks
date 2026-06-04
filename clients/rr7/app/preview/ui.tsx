@@ -82,14 +82,44 @@ export default function PreviewUiRoute() {
             </div>
           </SubSection>
           <SubSection label="States">
-            <div className="flex flex-wrap gap-2">
-              <Button disabled>Disabled</Button>
-              <Button variant="outline" disabled>
-                Outline disabled
-              </Button>
-              <Button variant="destructive" disabled>
-                Destructive disabled
-              </Button>
+            <div className="grid gap-3">
+              <div className="flex flex-wrap gap-2">
+                <Button>Default</Button>
+                <Button variant="secondary">Secondary</Button>
+                <Button variant="outline">Outline</Button>
+                <Button variant="ghost">Ghost</Button>
+                <Button variant="destructive">Destructive</Button>
+                <Button variant="link">Link</Button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button disabled>Default disabled</Button>
+                <Button variant="secondary" disabled>
+                  Secondary disabled
+                </Button>
+                <Button variant="outline" disabled>
+                  Outline disabled
+                </Button>
+                <Button variant="ghost" disabled>
+                  Ghost disabled
+                </Button>
+                <Button variant="destructive" disabled>
+                  Destructive disabled
+                </Button>
+                <Button variant="link" disabled>
+                  Link disabled
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button size="touch" disabled>
+                  Touch disabled
+                </Button>
+                <Button variant="secondary" size="touch" disabled>
+                  Touch secondary disabled
+                </Button>
+                <Button variant="destructive" size="touch" disabled>
+                  Touch destructive disabled
+                </Button>
+              </div>
             </div>
           </SubSection>
         </Section>

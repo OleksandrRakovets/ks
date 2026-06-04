@@ -13,6 +13,7 @@
 
   --a-green: oklch(60% 0.16 152);
   --a-green-dim: oklch(60% 0.16 152 / 0.18);
+  --c-green-tint: oklch(21% 0.055 152);
   --a-amber: oklch(78% 0.16 72);
   --a-amber-dim: oklch(78% 0.16 72 / 0.14);
   --a-red: oklch(60% 0.2 25);
@@ -36,6 +37,7 @@
 
   --a-green: oklch(38% 0.18 152);
   --a-green-dim: oklch(38% 0.18 152 / 0.12);
+  --c-green-tint: oklch(91% 0.04 152);
   --a-amber: oklch(58% 0.21 64);
   --a-amber-dim: oklch(58% 0.21 64 / 0.15);
   --a-red: oklch(44% 0.21 25);
@@ -59,6 +61,7 @@
 
     --a-green: oklch(38% 0.18 152);
     --a-green-dim: oklch(38% 0.18 152 / 0.12);
+    --c-green-tint: oklch(91% 0.04 152);
     --a-amber: oklch(58% 0.21 64);
     --a-amber-dim: oklch(58% 0.21 64 / 0.15);
     --a-red: oklch(44% 0.21 25);
@@ -82,6 +85,7 @@
 
   --color-green: var(--a-green);
   --color-green-dim: var(--a-green-dim);
+  --color-green-tint: var(--c-green-tint);
   --color-amber: var(--a-amber);
   --color-amber-dim: var(--a-amber-dim);
   --color-red: var(--a-red);

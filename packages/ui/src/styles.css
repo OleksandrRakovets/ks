@@ -16,7 +16,7 @@
   --primary: var(--a-green);
   --primary-foreground: #fff;
   --secondary: var(--c-overlay);
-  --secondary-foreground: var(--t-secondary);
+  --secondary-foreground: var(--t-primary);
   --muted: var(--c-raised);
   --muted-foreground: var(--t-muted);
   --accent: var(--c-overlay);
