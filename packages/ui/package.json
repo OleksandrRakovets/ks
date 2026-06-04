@@ -12,7 +12,7 @@
   },
   "scripts": {
     "build": "vite build && tsc -p tsconfig.build.json",
-    "dev": "vite build --watch --mode development"
+    "dev": "turbo watch build --filter=@ks/ui --ui=stream"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",
