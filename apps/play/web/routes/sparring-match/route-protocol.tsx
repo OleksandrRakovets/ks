@@ -10,7 +10,7 @@ import { keys } from '@ks/i18n'
 import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useLoaderData, useRevalidator } from 'react-router'
-import { z } from 'zod'
+import * as v from 'valibot'
 
 import type { ProtocolRow } from '../../../domain/protocol/reader'
 import type { HydratedMatchParticipants } from '../../features/match-control/renderers'
@@ -29,18 +29,18 @@ type LoaderData = {
   gameTitle: string
 }
 
-const SnapshotResponseSchema = z.union([
-  z.object({
-    ok: z.literal(true),
+const SnapshotResponseSchema = v.union([
+  v.object({
+    ok: v.literal(true),
     snapshot: MatchSnapshotSchema,
     participants: HydratedMatchParticipantsSchema,
-    controlProjection: GameControlProjectionSchema.optional(),
+    controlProjection: v.optional(GameControlProjectionSchema),
   }),
   ErrorResponseSchema,
 ])
 
 async function parseSnapshotBody(res: Response) {
-  const body = SnapshotResponseSchema.parse(await res.json())
+  const body = v.parse(SnapshotResponseSchema, await res.json())
   if (!body.ok) {
     throw new Response(body.error, { status: res.status === 200 ? 500 : res.status })
   }
@@ -145,10 +145,10 @@ export default function SparringMatchProtocolRoute() {
       } catch {
         return
       }
-      const parsed = StreamReadySchema.safeParse(decoded)
+      const parsed = v.safeParse(StreamReadySchema, decoded)
       if (!parsed.success) return
-      if (parsed.data.latestSeq > latestSeqRef.current) {
-        latestSeqRef.current = parsed.data.latestSeq
+      if (parsed.output.latestSeq > latestSeqRef.current) {
+        latestSeqRef.current = parsed.output.latestSeq
         revalidateFnRef.current()
       }
     }
@@ -161,11 +161,11 @@ export default function SparringMatchProtocolRoute() {
       } catch {
         return
       }
-      const parsed = StreamFactSchema.safeParse(decoded)
+      const parsed = v.safeParse(StreamFactSchema, decoded)
       if (!parsed.success) return
 
-      if (parsed.data.seq > latestSeqRef.current) {
-        latestSeqRef.current = parsed.data.seq
+      if (parsed.output.seq > latestSeqRef.current) {
+        latestSeqRef.current = parsed.output.seq
         revalidateFnRef.current()
       }
     }

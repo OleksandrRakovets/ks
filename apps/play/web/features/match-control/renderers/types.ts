@@ -1,8 +1,8 @@
 import type { ControlCommandPreset, ControlCommandSections, MatchSnapshot } from '@ks/core'
 import { GameControlProjectionSchema } from '@ks/gameplay/definitions'
-import type { z } from 'zod'
+import type * as v from 'valibot'
 
-export type GameControlProjection = z.infer<typeof GameControlProjectionSchema>
+export type GameControlProjection = v.InferOutput<typeof GameControlProjectionSchema>
 
 export type HydratedMatchParticipants = {
   A: { playerRef: string; displayName: string; shortDisplayName: string }

@@ -4,6 +4,7 @@ import { keys } from '@ks/i18n'
 import { Button } from '@ks/ui'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import * as v from 'valibot'
 
 import type { MatchControlRendererProps } from './types'
 
@@ -61,7 +62,7 @@ function NeutralCommandRows(props: { commands: ControlCommandPreset[]; onSubmit:
 export function PyramidControlRenderer(props: MatchControlRendererProps) {
   const [showTertiary, setShowTertiary] = useState(false)
   const { t } = useTranslation()
-  const parsed = useMemo(() => PyramidControlViewSchema.safeParse(props.projection), [props.projection])
+  const parsed = useMemo(() => v.safeParse(PyramidControlViewSchema, props.projection), [props.projection])
   const commandSections = props.commandSections
   const hasNeutral = commandSections.neutral.length > 0
 

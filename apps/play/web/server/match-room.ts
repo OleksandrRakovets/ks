@@ -2,13 +2,15 @@ import { normalizeMatchId } from '@ks/competition'
 import {
   ControlCommandSectionsSchema,
   MatchSnapshotSchema,
+  NonEmptyStringSchema,
+  PositiveIntegerSchema,
   StoredFactSchema,
   type ControlCommand,
   type StoredFact,
 } from '@ks/core'
 import { GameControlProjectionSchema, isRegisteredGameKey, registry } from '@ks/gameplay/definitions'
 import type { SupportedLocale } from '@ks/i18n'
-import { z } from 'zod'
+import * as v from 'valibot'
 
 import type { AppEnv } from './context'
 import { hydrateParticipant } from './players'
@@ -34,17 +36,17 @@ export type HydratedMatchListEntry = {
   }
 }
 
-const DoSnapshotResponseSchema = z.union([
-  z.object({
-    ok: z.literal(true),
+const DoSnapshotResponseSchema = v.union([
+  v.object({
+    ok: v.literal(true),
     snapshot: MatchSnapshotSchema,
-    controlProjection: GameControlProjectionSchema.optional(),
-    controlSections: ControlCommandSectionsSchema.optional(),
+    controlProjection: v.optional(GameControlProjectionSchema),
+    controlSections: v.optional(ControlCommandSectionsSchema),
   }),
-  z.object({
-    ok: z.literal(false),
-    error: z.string().min(1),
-    status: z.number().int().positive().optional(),
+  v.object({
+    ok: v.literal(false),
+    error: NonEmptyStringSchema,
+    status: v.optional(PositiveIntegerSchema),
   }),
 ])
 
@@ -60,16 +62,16 @@ export async function fetchMatchSnapshot(env: AppEnv, rawMatchId: string, locale
   const matchId = normalizeMatchId(rawMatchId)
   const stub = env.MATCH_ROOM.getByName(matchId)
   const result = await stub.snapshot({ matchId })
-  const payload = DoSnapshotResponseSchema.safeParse(result)
+  const payload = v.safeParse(DoSnapshotResponseSchema, result)
   if (!payload.success) {
     return Response.json({ ok: false, error: 'Failed to parse snapshot response' }, { status: 502 })
   }
 
-  if (!payload.data.ok) {
-    const status = payload.data.error === 'Unknown match' ? 404 : payload.data.status === 409 ? 409 : 502
-    return Response.json({ ok: false, error: payload.data.error ?? 'Failed to load snapshot' }, { status })
+  if (!payload.output.ok) {
+    const status = payload.output.error === 'Unknown match' ? 404 : payload.output.status === 409 ? 409 : 502
+    return Response.json({ ok: false, error: payload.output.error ?? 'Failed to load snapshot' }, { status })
   }
-  const snapshot = payload.data.snapshot
+  const snapshot = payload.output.snapshot
 
   const matchRow = await env.DB.prepare('SELECT seat_a_player_ref, seat_b_player_ref FROM matches WHERE match_id = ?')
     .bind(matchId)
@@ -87,8 +89,8 @@ export async function fetchMatchSnapshot(env: AppEnv, rawMatchId: string, locale
     ok: true,
     snapshot,
     participants,
-    controlProjection: payload.data.controlProjection,
-    controlSections: payload.data.controlSections,
+    controlProjection: payload.output.controlProjection,
+    controlSections: payload.output.controlSections,
   })
 }
 
@@ -148,7 +150,7 @@ export async function listStoredFacts(env: AppEnv, rawMatchId: string): Promise<
       const payload = tryParseJson(row.payload_json)
       if (payload === null) return null
 
-      const parsed = StoredFactSchema.safeParse({
+      const parsed = v.safeParse(StoredFactSchema, {
         seq: row.seq,
         factId: row.fact_id,
         matchId,
@@ -160,7 +162,7 @@ export async function listStoredFacts(env: AppEnv, rawMatchId: string): Promise<
         payload,
       })
 
-      return parsed.success ? parsed.data : null
+      return parsed.success ? parsed.output : null
     })
     .flatMap((entry) => (entry ? [entry] : []))
 }

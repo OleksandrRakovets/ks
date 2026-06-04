@@ -3,6 +3,7 @@ import { GameControlProjectionSchema } from '@ks/gameplay/definitions'
 import { themes } from '@ks/themes'
 import { useEffect, useRef } from 'react'
 import { useLoaderData, useParams, useRevalidator, useSearchParams } from 'react-router'
+import * as v from 'valibot'
 
 import type { AppLoadContext } from '../server/context'
 import { requireEnv } from '../server/context'
@@ -23,7 +24,7 @@ export async function loader({
   if (!matchId) throw new Response('Missing matchId', { status: 400 })
 
   const res = await fetchMatchSnapshot(env, matchId, localeFromCookie(request.headers.get('cookie')))
-  const body = SnapshotResponseSchema.parse(await res.json())
+  const body = v.parse(SnapshotResponseSchema, await res.json())
   if (!body.ok) throw new Response(body.error, { status: res.status === 200 ? 500 : res.status })
   return { snapshot: body.snapshot, participants: body.participants, controlProjection: body.controlProjection }
 }
@@ -65,13 +66,13 @@ export default function PublicScoreboardRoute() {
         return
       }
 
-      const parsed = StreamReadySchema.safeParse(decoded)
+      const parsed = v.safeParse(StreamReadySchema, decoded)
       if (!parsed.success) {
-        console.error('Malformed SSE ready event payload', parsed.error)
+        console.error('Malformed SSE ready event payload', parsed.issues)
         return
       }
 
-      if (parsed.data.latestSeq > latestSeqRef.current) {
+      if (parsed.output.latestSeq > latestSeqRef.current) {
         revalidate()
       }
     }
@@ -84,14 +85,14 @@ export default function PublicScoreboardRoute() {
         return
       }
 
-      const parsed = StreamFactSchema.safeParse(decoded)
+      const parsed = v.safeParse(StreamFactSchema, decoded)
       if (!parsed.success) {
-        console.error('Malformed SSE match fact payload', parsed.error)
+        console.error('Malformed SSE match fact payload', parsed.issues)
         return
       }
 
-      if (parsed.data.seq <= latestSeqRef.current) return
-      latestSeqRef.current = parsed.data.seq
+      if (parsed.output.seq <= latestSeqRef.current) return
+      latestSeqRef.current = parsed.output.seq
       revalidate()
     }
 
@@ -109,11 +110,12 @@ export default function PublicScoreboardRoute() {
   const themeId = rawThemeId && isThemeId(rawThemeId) ? rawThemeId : 'club'
   const themeVars = themes[themeId]
   const cur = snapshot.frames[snapshot.frames.length - 1]
-  const controlProjection = GameControlProjectionSchema.safeParse(
+  const controlProjection = v.safeParse(
+    GameControlProjectionSchema,
     snapshot.status === 'active' ? rawControlProjection : undefined,
   )
-  const pointsA = controlProjection.success ? controlProjection.data.score.A : (cur?.pointsBySeat?.A ?? 0)
-  const pointsB = controlProjection.success ? controlProjection.data.score.B : (cur?.pointsBySeat?.B ?? 0)
+  const pointsA = controlProjection.success ? controlProjection.output.score.A : (cur?.pointsBySeat?.A ?? 0)
+  const pointsB = controlProjection.success ? controlProjection.output.score.B : (cur?.pointsBySeat?.B ?? 0)
   const framesA = snapshot.framesWonBySeat?.A ?? 0
   const framesB = snapshot.framesWonBySeat?.B ?? 0
   const frameIndex = snapshot.currentFrameIndex ?? 1

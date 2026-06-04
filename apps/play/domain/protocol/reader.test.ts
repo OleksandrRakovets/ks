@@ -1,11 +1,12 @@
 import { describe, expect, test } from 'bun:test'
 
 import { ClientIdSchema, FactIdSchema, MatchIdSchema, type ClientFact, type StoredFact } from '@ks/core'
+import * as v from 'valibot'
 
 import { deriveProtocolRows, prepareProtocolRowsForArchive, ProtocolArchiveSchema } from './reader'
 
-const matchId = MatchIdSchema.parse('01ARZ3NDEKTSV4RRFFQ69G5FAV')
-const clientId = ClientIdSchema.parse('server0000')
+const matchId = v.parse(MatchIdSchema, '01ARZ3NDEKTSV4RRFFQ69G5FAV')
+const clientId = v.parse(ClientIdSchema, 'server0000')
 
 function stored(seq: number, fact: Omit<ClientFact, 'at' | 'clientId' | 'clientSeq' | 'factId' | 'matchId'>): StoredFact {
   return {
@@ -13,7 +14,7 @@ function stored(seq: number, fact: Omit<ClientFact, 'at' | 'clientId' | 'clientS
     clientId,
     clientSeq: 0,
     at: 1000 + seq,
-    factId: FactIdSchema.parse(`01ARZ3NDEKTSV4RRFFQ69G5FA${seq}`),
+    factId: v.parse(FactIdSchema, `01ARZ3NDEKTSV4RRFFQ69G5FA${seq}`),
     receivedAt: 2000 + seq,
     seq,
     ...fact,
@@ -96,6 +97,6 @@ describe('protocol reader', () => {
   })
 
   test('rejects unsupported archive versions', () => {
-    expect(ProtocolArchiveSchema.safeParse({ protocolVersion: 2, rows: [] }).success).toBe(false)
+    expect(v.safeParse(ProtocolArchiveSchema, { protocolVersion: 2, rows: [] }).success).toBe(false)
   })
 })

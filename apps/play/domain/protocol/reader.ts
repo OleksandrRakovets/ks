@@ -1,29 +1,42 @@
-import { opponentOf, type BySeatNumber, type ProtocolEntry, type Seat, type StoredFact } from '@ks/core'
-import { z } from 'zod'
+import {
+  BySeatNumberSchema,
+  NonNegativeIntegerSchema,
+  PositiveIntegerSchema,
+  ProtocolEntrySourceSchema,
+  ProtocolEntryTypeSchema,
+  SeatSchema,
+  UnknownObjectSchema,
+  opponentOf,
+  type BySeatNumber,
+  type ProtocolEntry,
+  type Seat,
+  type StoredFact,
+} from '@ks/core'
+import * as v from 'valibot'
 
 export const PROTOCOL_ARCHIVE_VERSION = 1
 
-const ArchiveBodySchema = z.record(z.string(), z.unknown())
+const ArchiveBodySchema = UnknownObjectSchema
 
-export const ProtocolArchiveRowSchema = z.object({
-  rowNo: z.number().int().positive(),
-  receivedAt: z.number().int().nonnegative(),
-  frameIndex: z.number().int().positive().optional(),
-  source: z.enum(['player', 'system']),
-  entryType: z.enum(['player-command', 'system-note', 'correction']),
-  seat: z.enum(['A', 'B']).optional(),
-  scoreAfter: z.object({ A: z.number(), B: z.number() }).optional(),
+export const ProtocolArchiveRowSchema = v.object({
+  rowNo: PositiveIntegerSchema,
+  receivedAt: NonNegativeIntegerSchema,
+  frameIndex: v.optional(PositiveIntegerSchema),
+  source: ProtocolEntrySourceSchema,
+  entryType: ProtocolEntryTypeSchema,
+  seat: v.optional(SeatSchema),
+  scoreAfter: v.optional(BySeatNumberSchema),
   body: ArchiveBodySchema,
 })
-export type ProtocolArchiveRow = z.infer<typeof ProtocolArchiveRowSchema>
+export type ProtocolArchiveRow = v.InferOutput<typeof ProtocolArchiveRowSchema>
 
-export const ProtocolArchiveRowsSchema = z.array(ProtocolArchiveRowSchema)
+export const ProtocolArchiveRowsSchema = v.array(ProtocolArchiveRowSchema)
 
-export const ProtocolArchiveSchema = z.object({
-  protocolVersion: z.literal(PROTOCOL_ARCHIVE_VERSION),
+export const ProtocolArchiveSchema = v.object({
+  protocolVersion: v.literal(PROTOCOL_ARCHIVE_VERSION),
   rows: ProtocolArchiveRowsSchema,
 })
-export type ProtocolArchive = z.infer<typeof ProtocolArchiveSchema>
+export type ProtocolArchive = v.InferOutput<typeof ProtocolArchiveSchema>
 
 type SeatNames = { A: string; B: string }
 type StoredGameCommandFact = Extract<StoredFact, { type: 'game.command' }>

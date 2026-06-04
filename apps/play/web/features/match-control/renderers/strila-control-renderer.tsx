@@ -4,6 +4,7 @@ import { keys } from '@ks/i18n'
 import { Button } from '@ks/ui'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import * as v from 'valibot'
 
 import type { MatchControlRendererProps } from './types'
 
@@ -104,7 +105,7 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
   const [showTertiary, setShowTertiary] = useState(false)
   const { t } = useTranslation()
 
-  const parsed = useMemo(() => StrilaControlViewSchema.safeParse(props.projection), [props.projection])
+  const parsed = useMemo(() => v.safeParse(StrilaControlViewSchema, props.projection), [props.projection])
   const commandSections = props.commandSections
   const hasNeutral = commandSections.neutral.length > 0
 
@@ -121,7 +122,7 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
     )
   }
 
-  const details = parsed.data.details
+  const details = parsed.output.details
   const hasPrimary = commandSections.primary.A.length > 0 || commandSections.primary.B.length > 0
   const hasSecondary = commandSections.secondary.A.length > 0 || commandSections.secondary.B.length > 0
   const hasTertiary = commandSections.tertiary.A.length > 0 || commandSections.tertiary.B.length > 0

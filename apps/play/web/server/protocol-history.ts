@@ -1,4 +1,5 @@
 import { normalizeMatchId } from '@ks/competition'
+import * as v from 'valibot'
 
 import {
   deriveProtocolRows,
@@ -42,8 +43,8 @@ export async function readProtocolHistory(
   if (archive.protocolVersion !== PROTOCOL_ARCHIVE_VERSION)
     throw new Response('Unsupported protocol archive version', { status: 500 })
 
-  const parsedRows = ProtocolArchiveRowsSchema.safeParse(parseRowsJson(archive.rowsJson))
+  const parsedRows = v.safeParse(ProtocolArchiveRowsSchema, parseRowsJson(archive.rowsJson))
   if (!parsedRows.success) throw new Response('Failed to parse protocol archive from DB', { status: 500 })
 
-  return renderProtocolRows(parsedRows.data, seatNames, timeZone)
+  return renderProtocolRows(parsedRows.output, seatNames, timeZone)
 }

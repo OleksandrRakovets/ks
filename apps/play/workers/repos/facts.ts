@@ -1,4 +1,5 @@
 import { StoredFactSchema, type ClientFact, type StoredFact } from '@ks/core'
+import * as v from 'valibot'
 
 import type { Env } from '../env'
 import { getMatchLatestSeq } from './matches'
@@ -43,7 +44,7 @@ export async function listFactsAfter(env: Env, matchId: string, sinceSeq: number
       const payload = tryParseJson(r.payload_json)
       if (payload === null) return null
 
-      const parsed = StoredFactSchema.safeParse({
+      const parsed = v.safeParse(StoredFactSchema, {
         seq: r.seq,
         factId: r.fact_id,
         matchId,
@@ -55,7 +56,7 @@ export async function listFactsAfter(env: Env, matchId: string, sinceSeq: number
         payload,
       })
 
-      return parsed.success ? parsed.data : null
+      return parsed.success ? parsed.output : null
     })
     .flatMap((parsed) => (parsed ? [parsed] : []))
 }

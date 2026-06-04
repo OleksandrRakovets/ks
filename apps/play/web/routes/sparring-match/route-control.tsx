@@ -16,7 +16,7 @@ import { keys } from '@ks/i18n'
 import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, redirect, useFetcher, useLoaderData, useRevalidator } from 'react-router'
-import { z } from 'zod'
+import * as v from 'valibot'
 
 import {
   resolveControlRenderer,
@@ -45,13 +45,13 @@ type ActionData =
       errorKey?: typeof keys.match.control.invalidFactPayload | typeof keys.match.control.factRejectedByRules
     }
 
-const SnapshotResponseWithControlSchema = z.union([
-  z.object({
-    ok: z.literal(true),
+const SnapshotResponseWithControlSchema = v.union([
+  v.object({
+    ok: v.literal(true),
     snapshot: MatchSnapshotSchema,
     participants: HydratedMatchParticipantsSchema,
-    controlProjection: GameControlProjectionSchema.optional(),
-    controlSections: ControlCommandSectionsSchema.optional(),
+    controlProjection: v.optional(GameControlProjectionSchema),
+    controlSections: v.optional(ControlCommandSectionsSchema),
   }),
   ErrorResponseSchema,
 ])
@@ -68,7 +68,7 @@ function emptyControlProjection(gameKey: string): GameControlProjection {
 }
 
 async function parseSnapshotBody(res: Response) {
-  const body = SnapshotResponseWithControlSchema.parse(await res.json())
+  const body = v.parse(SnapshotResponseWithControlSchema, await res.json())
   if (!body.ok) {
     throw new Response(body.error, { status: res.status === 200 ? 500 : res.status })
   }
@@ -160,13 +160,13 @@ export async function action({
     command = { source: 'game', commandType, command: parsedCommand ?? {} }
   }
 
-  const parsedCommand = ControlCommandSchema.safeParse(command)
+  const parsedCommand = v.safeParse(ControlCommandSchema, command)
   if (!parsedCommand.success) {
     return { ok: false, errorKey: keys.match.control.invalidFactPayload }
   }
 
-  const res = await postMatchFacts(env, matchId, controlSecret, [parsedCommand.data])
-  const payload = PostFactsResponseSchema.parse(await res.json())
+  const res = await postMatchFacts(env, matchId, controlSecret, [parsedCommand.output])
+  const payload = v.parse(PostFactsResponseSchema, await res.json())
   if (!payload.ok) {
     return { ok: false, error: payload.error }
   }
@@ -230,11 +230,11 @@ export default function SparringMatchRoute() {
       } catch {
         return
       }
-      const parsed = StreamReadySchema.safeParse(decoded)
+      const parsed = v.safeParse(StreamReadySchema, decoded)
       if (!parsed.success) return
-      if (parsed.data.latestSeq > latestSeqRef.current) {
-        latestSeqRef.current = parsed.data.latestSeq
-        if (!localSubmitInFlightRef.current && parsed.data.latestSeq > suppressRevalidateUntilSeqRef.current) {
+      if (parsed.output.latestSeq > latestSeqRef.current) {
+        latestSeqRef.current = parsed.output.latestSeq
+        if (!localSubmitInFlightRef.current && parsed.output.latestSeq > suppressRevalidateUntilSeqRef.current) {
           revalidateFnRef.current()
         }
       }
@@ -248,12 +248,12 @@ export default function SparringMatchRoute() {
       } catch {
         return
       }
-      const parsed = StreamFactSchema.safeParse(decoded)
+      const parsed = v.safeParse(StreamFactSchema, decoded)
       if (!parsed.success) return
 
-      if (parsed.data.seq > latestSeqRef.current) {
-        latestSeqRef.current = parsed.data.seq
-        if (!localSubmitInFlightRef.current && parsed.data.seq > suppressRevalidateUntilSeqRef.current) {
+      if (parsed.output.seq > latestSeqRef.current) {
+        latestSeqRef.current = parsed.output.seq
+        if (!localSubmitInFlightRef.current && parsed.output.seq > suppressRevalidateUntilSeqRef.current) {
           revalidateFnRef.current()
         }
       }

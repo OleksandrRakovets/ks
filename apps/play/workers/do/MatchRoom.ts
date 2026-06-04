@@ -13,6 +13,8 @@ import {
   ClientIdSchema,
   ControlCommandSchema,
   BySeatNumberSchema,
+  NonEmptyStringSchema,
+  NonNegativeIntegerSchema,
   MatchConfigSchema,
   MatchIdSchema,
   MatchSeatAssignmentSchema,
@@ -27,7 +29,7 @@ import {
 } from '@ks/core'
 import { applyGameCommand, createInitialGameState, deriveGameProjection, parseGameKey } from '@ks/gameplay/server'
 import { DurableObject } from 'cloudflare:workers'
-import { z } from 'zod'
+import * as v from 'valibot'
 
 import { prepareProtocolRowsForArchive } from '../../domain/protocol/reader'
 import { insertProtocolArchive } from '../../domain/protocol/repo'
@@ -36,37 +38,39 @@ import { factExists, getLatestSeq, insertStoredFact, listFactsAfter } from '../r
 import { getMatch, markMatchEnded, matchExists, setMatchLatestSeq } from '../repos/matches'
 import { deleteMatchSnapshot, putLatestMatchSnapshot } from '../repos/snapshots'
 
-const InitBodySchema = z.object({
+const ControlSecretSchema = v.pipe(v.string(), v.minLength(16))
+
+const InitBodySchema = v.object({
   matchId: MatchIdSchema,
-  controlSecret: z.string().min(16),
+  controlSecret: ControlSecretSchema,
   config: MatchConfigSchema,
 })
 
-const CreateBodySchema = z.object({
+const CreateBodySchema = v.object({
   matchId: MatchIdSchema,
-  controlSecret: z.string().min(16),
-  gameKey: z.string().min(1),
+  controlSecret: ControlSecretSchema,
+  gameKey: NonEmptyStringSchema,
   targets: MatchTargetsSchema,
-  participants: z.array(MatchSeatAssignmentSchema).length(2),
+  participants: v.pipe(v.array(MatchSeatAssignmentSchema), v.length(2)),
 })
 
-const FactsBodySchema = z.object({
+const FactsBodySchema = v.object({
   matchId: MatchIdSchema,
-  controlSecret: z.string().min(16),
-  commands: z.array(ControlCommandSchema).min(1),
+  controlSecret: ControlSecretSchema,
+  commands: v.pipe(v.array(ControlCommandSchema), v.minLength(1)),
 })
 
-const SnapshotBodySchema = z.object({
+const SnapshotBodySchema = v.object({
   matchId: MatchIdSchema,
 })
 
-const StreamBodySchema = z.object({
+const StreamBodySchema = v.object({
   matchId: MatchIdSchema,
-  since: z.number().nonnegative().optional(),
+  since: v.optional(NonNegativeIntegerSchema),
 })
 
-const ConcedeFrameCommandSchema = z.object({ seat: SeatSchema })
-const GameScoreProjectionSchema = z.object({ score: BySeatNumberSchema })
+const ConcedeFrameCommandSchema = v.object({ seat: SeatSchema })
+const GameScoreProjectionSchema = v.object({ score: BySeatNumberSchema })
 
 type RoomState = {
   matchState: MatchState
@@ -101,10 +105,10 @@ export class MatchRoom extends DurableObject<Env> {
 
   /** Initializes a newly-created match room with its first accepted facts. */
   async init(args: unknown): Promise<{ ok: true; alreadyInitialized?: true } | { ok: false; error: string; status: number }> {
-    const parsed = InitBodySchema.safeParse(args)
+    const parsed = v.safeParse(InitBodySchema, args)
     if (!parsed.success) return { ok: false, error: 'Invalid init body', status: 400 }
 
-    const { matchId, controlSecret, config } = parsed.data
+    const { matchId, controlSecret, config } = parsed.output
     await this.rememberMatchId(matchId)
     const row = await getMatch(this.env, matchId)
     if (!row) return { ok: false, error: 'Unknown match', status: 400 }
@@ -120,7 +124,7 @@ export class MatchRoom extends DurableObject<Env> {
     }
 
     const now = Date.now()
-    const serverClientId = ClientIdSchema.parse('server0000')
+    const serverClientId = v.parse(ClientIdSchema, 'server0000')
     const base = { matchId, clientId: serverClientId, clientSeq: 0, at: now }
 
     const created: ClientFact = { ...base, factId: newFactId(), type: 'match.created', payload: config }
@@ -146,22 +150,22 @@ export class MatchRoom extends DurableObject<Env> {
   async create(
     args: unknown,
   ): Promise<{ ok: true; matchId: string; controlSecret: string } | { ok: false; error: string; status: number }> {
-    const parsed = CreateBodySchema.safeParse(args)
+    const parsed = v.safeParse(CreateBodySchema, args)
     if (!parsed.success) return { ok: false, error: 'Invalid create body', status: 400 }
 
-    const { matchId, controlSecret, ...request } = parsed.data
+    const { matchId, controlSecret, ...request } = parsed.output
     await this.rememberMatchId(matchId)
 
     return await this.ctx.blockConcurrencyWhile(async () => {
       if (await matchExists(this.env, matchId)) return { ok: false, error: 'Match already exists', status: 409 }
 
-      const createRequest = CreateMatchRequestSchema.safeParse(request)
+      const createRequest = v.safeParse(CreateMatchRequestSchema, request)
       if (!createRequest.success) return { ok: false, error: 'Invalid create body', status: 400 }
 
-      const config = buildMatchConfig(matchId, createRequest.data)
-      const seats = assignmentsBySeat(createRequest.data.participants)
+      const config = buildMatchConfig(matchId, createRequest.output)
+      const seats = assignmentsBySeat(createRequest.output.participants)
       const now = Date.now()
-      const base = { matchId, clientId: ClientIdSchema.parse('server0000'), clientSeq: 0, at: now }
+      const base = { matchId, clientId: v.parse(ClientIdSchema, 'server0000'), clientSeq: 0, at: now }
       const facts: [ClientFact, ClientFact] = [
         { ...base, factId: newFactId(), type: 'match.created', payload: config },
         {
@@ -174,7 +178,7 @@ export class MatchRoom extends DurableObject<Env> {
 
       let roomState: RoomState = { matchState: emptyMatchState(), currentFrameState: null }
       for (const fact of facts) {
-        const validFact = ClientFactSchema.parse(fact)
+        const validFact = v.parse(ClientFactSchema, fact)
         roomState = this.applyRoomFact(roomState, validFact)
       }
 
@@ -228,10 +232,10 @@ export class MatchRoom extends DurableObject<Env> {
     | { ok: true; snapshot: unknown; controlProjection: unknown | undefined; controlSections: unknown }
     | { ok: false; error: string; status: number }
   > {
-    const parsed = SnapshotBodySchema.safeParse(args)
+    const parsed = v.safeParse(SnapshotBodySchema, args)
     if (!parsed.success) return { ok: false, error: 'Invalid snapshot body', status: 400 }
 
-    const { matchId } = parsed.data
+    const { matchId } = parsed.output
     await this.rememberMatchId(matchId)
     const row = await getMatch(this.env, matchId)
     if (!row) return { ok: false, error: 'Unknown match', status: 400 }
@@ -264,10 +268,10 @@ export class MatchRoom extends DurableObject<Env> {
   async facts(
     args: unknown,
   ): Promise<{ ok: true; accepted: { seq: number; factId: string }[] } | { ok: false; error: string; status: number }> {
-    const parsed = FactsBodySchema.safeParse(args)
+    const parsed = v.safeParse(FactsBodySchema, args)
     if (!parsed.success) return { ok: false, error: 'Invalid facts body', status: 400 }
 
-    const { matchId, controlSecret, commands } = parsed.data
+    const { matchId, controlSecret, commands } = parsed.output
     await this.rememberMatchId(matchId)
     const row = await getMatch(this.env, matchId)
     if (!row) return { ok: false, error: 'Unknown match', status: 400 }
@@ -284,10 +288,10 @@ export class MatchRoom extends DurableObject<Env> {
 
   /** Opens a Server-Sent Events stream for committed room facts. */
   async stream(args: unknown): Promise<Response> {
-    const parsed = StreamBodySchema.safeParse(args)
+    const parsed = v.safeParse(StreamBodySchema, args)
     if (!parsed.success) return Response.json({ ok: false, error: 'Invalid stream body' }, { status: 400 })
 
-    const { matchId, since = 0 } = parsed.data
+    const { matchId, since = 0 } = parsed.output
     await this.rememberMatchId(matchId)
     const latestSeq = await getLatestSeq(this.env, matchId)
 
@@ -393,8 +397,8 @@ export class MatchRoom extends DurableObject<Env> {
   /** Builds the shared metadata used by server-originated room facts. */
   private factBase(matchId: string): Omit<ClientFact, 'factId' | 'type' | 'payload'> {
     return {
-      matchId: MatchIdSchema.parse(matchId),
-      clientId: ClientIdSchema.parse('server0000'),
+      matchId: v.parse(MatchIdSchema, matchId),
+      clientId: v.parse(ClientIdSchema, 'server0000'),
       clientSeq: 0,
       at: Date.now(),
     }
@@ -446,8 +450,9 @@ export class MatchRoom extends DurableObject<Env> {
       const currentFrame = roomState.matchState.frames[roomState.matchState.frames.length - 1]
       if (!currentFrame || currentFrame.winnerSeat) throw new Error('No active frame')
 
-      const concede = ConcedeFrameCommandSchema.parse(command.command)
-      const projection = GameScoreProjectionSchema.parse(
+      const concede = v.parse(ConcedeFrameCommandSchema, command.command)
+      const projection = v.parse(
+        GameScoreProjectionSchema,
         deriveGameProjection({
           gameKey: parseGameKey(config.gameKey),
           state: roomState.currentFrameState,
@@ -526,36 +531,36 @@ export class MatchRoom extends DurableObject<Env> {
       const accepted: { seq: number; factId: string }[] = []
 
       for (const fact of facts) {
-        const parsed = ClientFactSchema.safeParse(fact)
+        const parsed = v.safeParse(ClientFactSchema, fact)
         if (!parsed.success) continue
 
-        const factId = parsed.data.factId
+        const factId = parsed.output.factId
         if (await factExists(this.env, matchId, factId)) {
           continue
         }
 
         try {
-          roomState = this.applyRoomFact(roomState, parsed.data)
+          roomState = this.applyRoomFact(roomState, parsed.output)
         } catch {
           continue
         }
 
         const nextSeq = seq + 1
-        await insertStoredFact(this.env, matchId, nextSeq, parsed.data, receivedAt)
+        await insertStoredFact(this.env, matchId, nextSeq, parsed.output, receivedAt)
         await setMatchLatestSeq(this.env, matchId, nextSeq)
 
         seq = nextSeq
 
         accepted.push({ seq, factId })
-        await this.broadcast({ ...parsed.data, seq, receivedAt })
+        await this.broadcast({ ...parsed.output, seq, receivedAt })
 
-        if (parsed.data.type === 'match.ended') {
+        if (parsed.output.type === 'match.ended') {
           const endedAt = receivedAt
           const lockAt = endedAt + 10 * 60 * 1000
           await markMatchEnded(this.env, matchId, endedAt, lockAt)
         }
 
-        if (this.shouldPersistSnapshot(parsed.data.type, seq)) {
+        if (this.shouldPersistSnapshot(parsed.output.type, seq)) {
           await putLatestMatchSnapshot(this.env, {
             matchId,
             latestSeq: seq,
