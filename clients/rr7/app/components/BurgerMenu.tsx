@@ -1,9 +1,10 @@
 import { keys } from '@ks/i18n'
+import type { SupportedLocale } from '@ks/i18n'
 import { Button, Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@ks/ui'
 import { useTranslation } from 'react-i18next'
 import { useFetcher, Link } from 'react-router'
 
-import { useRootTheme } from '../root'
+import { useRootLocale, useRootTheme } from '../root'
 import type { AppTheme } from '../server/theme'
 
 const THEME_OPTIONS: { value: AppTheme; labelKey: string }[] = [
@@ -12,13 +13,24 @@ const THEME_OPTIONS: { value: AppTheme; labelKey: string }[] = [
   { value: 'auto', labelKey: keys.theme.auto },
 ]
 
+const LOCALE_OPTIONS: { value: SupportedLocale; labelKey: string }[] = [
+  { value: 'uk', labelKey: keys.language.ukrainian },
+  { value: 'en', labelKey: keys.language.english },
+]
+
 export function BurgerMenu() {
+  const currentLocale = useRootLocale()
   const currentTheme = useRootTheme()
   const fetcher = useFetcher()
-  const { t } = useTranslation()
+  const { i18n, t } = useTranslation()
 
   function changeTheme(theme: AppTheme) {
-    fetcher.submit({ theme }, { method: 'post', action: '/api/theme' })
+    fetcher.submit({ theme }, { method: 'post', action: '/ui-preferences/theme' })
+  }
+
+  function changeLocale(locale: SupportedLocale) {
+    void i18n.changeLanguage(locale)
+    fetcher.submit({ locale }, { method: 'post', action: '/ui-preferences/locale' })
   }
 
   return (
@@ -65,6 +77,22 @@ export function BurgerMenu() {
                 size="sm"
                 variant={currentTheme === value ? 'default' : 'outline'}
                 onClick={() => changeTheme(value)}
+              >
+                {t(labelKey)}
+              </Button>
+            ))}
+          </div>
+
+          <p className="mt-5 mb-3 text-xs font-semibold tracking-widest text-text-ghost uppercase">
+            {t(keys.language.section)}
+          </p>
+          <div className="flex gap-2">
+            {LOCALE_OPTIONS.map(({ value, labelKey }) => (
+              <Button
+                key={value}
+                size="sm"
+                variant={currentLocale === value ? 'default' : 'outline'}
+                onClick={() => changeLocale(value)}
               >
                 {t(labelKey)}
               </Button>

@@ -1,7 +1,9 @@
 import type { SupportedLocale } from '@ks/i18n'
 import { keys } from '@ks/i18n'
+import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
+  data,
   isRouteErrorResponse,
   Links,
   Meta,
@@ -15,33 +17,32 @@ import {
 import type { Route } from './+types/root'
 import { i18n } from './i18n'
 import { iconBasePath, iconThemeColor, iconVariantFromContext } from './server/icon-assets'
+import { hasValidLocaleCookie, localeCookieValue, localeFromCookie } from './server/locale'
 import { themeFromCookie, type AppTheme } from './server/theme'
 
-const LOCALE_COOKIE_NAME = 'ks.locale'
-
-function localeFromCookie(cookieHeader: string | null): SupportedLocale {
-  if (!cookieHeader) return 'en'
-  for (const part of cookieHeader.split(';')) {
-    const [rawKey, rawValue] = part.trim().split('=')
-    if (rawKey === LOCALE_COOKIE_NAME) {
-      return rawValue === 'uk' ? 'uk' : 'en'
-    }
-  }
-  return 'en'
+export type RootLoaderData = {
+  iconVariant: ReturnType<typeof iconVariantFromContext>
+  locale: SupportedLocale
+  theme: AppTheme
 }
 
 export function loader({ request, context }: Route.LoaderArgs) {
   const cookie = request.headers.get('cookie')
   const iconVariant = iconVariantFromContext(context)
+  const locale = localeFromCookie(cookie)
 
-  return {
+  const payload: RootLoaderData = {
     iconVariant,
-    locale: localeFromCookie(cookie),
+    locale,
     theme: themeFromCookie(cookie),
   }
-}
 
-export type RootLoaderData = ReturnType<typeof loader>
+  if (!hasValidLocaleCookie(cookie)) {
+    return data(payload, { headers: { 'Set-Cookie': localeCookieValue(locale) } })
+  }
+
+  return payload
+}
 
 export function useRootLocale(): SupportedLocale {
   const data = useRouteLoaderData<RootLoaderData>('root')
@@ -60,9 +61,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const iconVariant = data?.iconVariant ?? 'amber'
   const iconPath = iconBasePath(iconVariant)
 
-  if (i18n.resolvedLanguage !== locale) {
+  if (typeof document === 'undefined' && i18n.resolvedLanguage !== locale) {
     void i18n.changeLanguage(locale)
   }
+
+  useEffect(() => {
+    if (i18n.resolvedLanguage !== locale) {
+      void i18n.changeLanguage(locale)
+    }
+  }, [locale])
 
   const htmlClass = theme === 'club-light' ? 'club-light' : theme === 'club-dark' ? 'club-dark' : ''
 

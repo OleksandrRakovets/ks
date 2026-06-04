@@ -26,6 +26,11 @@ export const keys = {
     light: 'theme.light',
     auto: 'theme.auto',
   },
+  language: {
+    section: 'language.section',
+    english: 'language.english',
+    ukrainian: 'language.ukrainian',
+  },
   status: {
     live: 'status.live',
     finished: 'status.finished',

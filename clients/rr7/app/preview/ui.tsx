@@ -1,12 +1,8 @@
 import { Badge, Button, Input, Label, Separator, Textarea } from '@ks/ui'
-import { useFetcher } from 'react-router'
-
-import { useRootTheme } from '../root'
-import type { AppTheme } from '../server/theme'
 
 function Section({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
   return (
-    <section className="border-t border-divider py-6">
+    <section className="border-b border-divider py-6">
       <div className="mb-4">
         <h2 className="text-sm font-semibold text-text-hi">{title}</h2>
         {description && <p className="mt-0.5 text-xs text-text-ghost">{description}</p>}
@@ -30,26 +26,9 @@ export const handle = {
 }
 
 export default function PreviewUiRoute() {
-  const currentTheme = useRootTheme()
-  const fetcher = useFetcher()
-
-  function setTheme(theme: AppTheme) {
-    fetcher.submit({ theme }, { method: 'post', action: '/api/theme' })
-  }
-
   return (
     <div className="min-h-dvh bg-background pb-12 text-foreground">
       <div className="mx-auto w-full">
-        <div className="flex justify-end gap-2 py-4">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setTheme(currentTheme === 'club-light' ? 'club-dark' : 'club-light')}
-          >
-            {currentTheme === 'club-light' ? 'Dark' : 'Light'}
-          </Button>
-        </div>
-
         <Section title="Buttons" description="All variants × sizes.">
           <SubSection label="Variants">
             <div className="flex flex-wrap gap-2">
