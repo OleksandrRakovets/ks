@@ -8,7 +8,7 @@ KS is a billiards scorekeeping app for a local club. Core use case: two-player m
 - Work in small slices: interview -> design -> implementation.
 - Respect explicit user phase: architecture-only (no code) vs implementation (code allowed).
 - Ask before introducing new layers, packages, or major abstractions.
-- Keep durable architecture notes in `.tracker/decisions/`; keep progress notes in `.tracker/`.
+- Keep durable architecture notes in `.tracker/decisions/`.
 
 ## Repo map (actual entrypoints)
 
