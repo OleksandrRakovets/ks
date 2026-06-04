@@ -4,7 +4,7 @@
     "composite": true,
     "noEmit": true,
     "paths": {
-      "@/*": ["./app/*"]
+      "@/*": ["./web/*"]
     },
     "types": []
   },

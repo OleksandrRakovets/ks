@@ -4,7 +4,7 @@ Project DB binding name: `ks` (Cloudflare D1)
 
 ## 1) Connect and inspect values
 
-Run commands from `clients/rr7` (or use `bun run --cwd clients/rr7 ...` from repo root).
+Run commands from `apps/play` (or use `bun run --cwd apps/play ...` from repo root).
 
 ### Local DB
 
@@ -27,7 +27,7 @@ Because we are still iterating on initial migrations, easiest local reset is del
 
 From repo root:
 
-- `rm -rf clients/rr7/.wrangler/state/v3/d1`
+- `rm -rf apps/play/.wrangler/state/v3/d1`
 - `bun run db:migrate:local`
 
 After reset, restart dev server if it was running.

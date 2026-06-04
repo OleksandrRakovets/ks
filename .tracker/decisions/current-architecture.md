@@ -4,7 +4,7 @@ This file captures the architecture constraints that still matter while the road
 
 ## Runtime Shape
 
-- Production runtime stays a single RR7 worker on Cloudflare.
+- Production runtime stays a single React Router worker on Cloudflare.
 - Route modules stay thin orchestration layers.
 - Business logic lives in shared domain services, not inside routes.
 - Do not add same-process HTTP hops by default.

@@ -11,7 +11,7 @@
       "cache": false,
       "persistent": true
     },
-    "@ks/client-rr7#dev": {
+    "@ks/play#dev": {
       "dependsOn": ["^build"],
       "with": ["@ks/ui#dev"],
       "cache": false,

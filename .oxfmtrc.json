@@ -5,7 +5,7 @@
   "singleQuote": true,
   "sortImports": {},
   "sortTailwindcss": {
-    "stylesheet": "./clients/rr7/app/base.css",
+    "stylesheet": "./apps/play/web/base.css",
     "functions": ["clsx", "cn"],
     "preserveWhitespace": true
   }

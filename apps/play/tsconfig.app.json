@@ -16,7 +16,7 @@
     "moduleDetection": "force",
     "rootDirs": [".", "./.react-router/types"],
     "paths": {
-      "@/*": ["./app/*"]
+      "@/*": ["./web/*"]
     },
     "noEmit": true,
     "jsx": "react-jsx",
@@ -27,6 +27,6 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["app", "domain", ".react-router/types/**/*"],
+  "include": ["web", "domain", ".react-router/types/**/*"],
   "exclude": ["domain/**/*.test.ts"]
 }

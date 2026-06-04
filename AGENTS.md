@@ -12,23 +12,23 @@ KS is a billiards scorekeeping app for a local club. Core use case: two-player m
 
 ## Repo map (actual entrypoints)
 
-- Bun workspaces monorepo: `packages/*` (shared libs) + `clients/rr7` (runtime app).
-- Cloudflare worker entrypoint: `clients/rr7/workers/app.ts`.
-- Durable Object for sequencing/SSE: `clients/rr7/workers/do/MatchRoom.ts`.
-- React Router route tree: `clients/rr7/app/routes.ts`; server adapters live in `clients/rr7/app/server/*`.
+- Bun workspaces monorepo: `packages/*` (shared libs) + `apps/play` (runtime app).
+- Cloudflare worker entrypoint: `apps/play/workers/app.ts`.
+- Durable Object for sequencing/SSE: `apps/play/workers/do/MatchRoom.ts`.
+- React Router route tree: `apps/play/web/routes.ts`; server adapters live in `apps/play/web/server/*`.
 - Domain direction is `core <- gameplay <- competition <- runtime-app`.
 
-## Commands (source of truth: root `package.json` + `clients/rr7/package.json`)
+## Commands (source of truth: root `package.json` + `apps/play/package.json`)
 
 - Install deps: `bun install`
 - Dev server (strict port `7529`): `bun run dev`
 - Local DB migrate: `bun run db:migrate:local`
-- Local DB seed: `bun run --cwd clients/rr7 db:seed:local`
+- Local DB seed: `bun run --cwd apps/play db:seed:local`
 - Lint/format: `bun run lint`, `bun run lint:fix`, `bun run format`, `bun run format:check`
   - Always make sure these are passing before making commits
 - Repo lint/format tooling is `oxlint` + `oxfmt` (Biome/Prettier are intentionally disabled).
 - Typecheck workspace graph: `bun run typecheck`
-- Typecheck rr7 app (also regenerates Wrangler + RR types): `bun run --cwd clients/rr7 typecheck`
+- Typecheck Play app (also regenerates Wrangler + RR types): `bun run --cwd apps/play typecheck`
 - Boundary and schema guards: `bun run check:boundaries`, `bun run check:zod`
 - Tests: `bun test` (single file: `bun test packages/gameplay/src/strila-v2/runtime.test.ts`)
 
@@ -54,10 +54,10 @@ KS is a billiards scorekeeping app for a local club. Core use case: two-player m
 
 ## Runtime and data quirks
 
-- Current runtime track is one RR7 Cloudflare worker; there is no CI workflow in this repo right now.
-- Local worker env vars come from `clients/rr7/.dev.vars` (start from `.dev.vars.example`).
-- D1 schema is still early-stage and currently a single migration: `clients/rr7/migrations/0001_init.sql`.
-- Local DB reset: delete `clients/rr7/.wrangler/state/v3/d1`, then run `bun run db:migrate:local`.
+- Current runtime track is one React Router Cloudflare worker; there is no CI workflow in this repo right now.
+- Local worker env vars come from `apps/play/.dev.vars` (start from `.dev.vars.example`).
+- D1 schema is still early-stage and currently a single migration: `apps/play/migrations/0001_init.sql`.
+- Local DB reset: delete `apps/play/.wrangler/state/v3/d1`, then run `bun run db:migrate:local`.
 - Durable Object coordinates ordering + SSE fan-out; D1 facts remain the persistent source of truth.
 
 ## Generated assets

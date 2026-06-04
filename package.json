@@ -4,7 +4,7 @@
   "workspaces": {
     "packages": [
       "packages/*",
-      "clients/*"
+      "apps/*"
     ],
     "catalog": {
       "@babel/core": "^7.29.0",
@@ -28,13 +28,13 @@
     "check:boundaries": "node ./scripts/check-boundaries.mjs",
     "check:zod": "node ./scripts/check-zod.mjs",
     "build": "turbo run build",
-    "db:migrate:local": "bun run --cwd clients/rr7 db:migrate:local",
-    "dev": "turbo run dev --filter=@ks/client-rr7",
+    "db:migrate:local": "bun run --cwd apps/play db:migrate:local",
+    "dev": "turbo run dev --filter=@ks/play",
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
     "lint": "oxlint .",
     "lint:fix": "oxlint --fix .",
-    "machine:explore": "bun --cwd clients/machine-explorer dev",
+    "machine:explore": "bun --cwd apps/machine-explorer dev",
     "test": "bun test",
     "typecheck": "tsc -b"
   },
