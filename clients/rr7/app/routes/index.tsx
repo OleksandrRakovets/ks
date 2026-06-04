@@ -1,12 +1,8 @@
 import { keys } from '@ks/i18n'
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router'
+// import { Link } from 'react-router'
 
 import { BrandWordmark } from '../components/BrandWordmark'
-
-// export function loader(_args: Route.LoaderArgs) {
-//   return redirect('/admin/create')
-// }
 
 export default function Index() {
   const { t } = useTranslation()
@@ -27,7 +23,7 @@ export default function Index() {
             to="/sparring/matches"
             className="flex h-12 items-center justify-center rounded-sm border border-divider bg-raised px-4 text-sm font-semibold text-text-hi transition-colors hover:bg-overlay"
           >
-            {t(keys.nav.recentMatches)}
+            {t(keys.nav.allMatches)}
           </Link>
         </nav>*/}
 

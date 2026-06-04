@@ -18,7 +18,8 @@ export const keys = {
     close: 'nav.close',
     section: 'nav.section',
     sparring: 'nav.sparring',
-    recentMatches: 'nav.recentMatches',
+    allMatches: 'nav.allMatches',
+    newMatch: 'nav.newMatch',
   },
   theme: {
     section: 'theme.section',

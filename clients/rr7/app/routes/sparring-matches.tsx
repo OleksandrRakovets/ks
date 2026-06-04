@@ -22,7 +22,7 @@ export async function loader({ request, context }: { request: Request; context: 
 }
 
 export const handle = {
-  headerConfig: () => ({ titleKey: keys.nav.recentMatches, backTo: '/sparring' }),
+  headerConfig: () => ({ titleKey: keys.nav.allMatches, backTo: '/sparring' }),
 }
 
 export default function SparringMatchesRoute() {
@@ -31,7 +31,7 @@ export default function SparringMatchesRoute() {
 
   return (
     <main className="flex-1 bg-background px-4 py-6 text-foreground">
-      <div className="mx-auto w-full max-w-3xl">
+      <div className="mx-auto w-full">
         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h1 className="text-3xl font-semibold tracking-tight">{t(keys.match.sparring.recentMatches)}</h1>

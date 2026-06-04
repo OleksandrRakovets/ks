@@ -54,15 +54,15 @@ export function BurgerMenu() {
         </SheetHeader>
 
         <nav className="flex flex-col gap-1 px-4 py-4">
-          <p className="text-xs font-semibold tracking-widest text-text-ghost uppercase">{t(keys.nav.section)}</p>
+          <p className="text-xs font-semibold tracking-widest text-text-ghost uppercase">{t(keys.nav.sparring)}</p>
           <SheetClose asChild>
             <Link to="/sparring" className="py-2.5 text-sm font-medium text-text-hi underline-offset-4 hover:underline">
-              {t(keys.nav.sparring)}
+              {t(keys.nav.newMatch)}
             </Link>
           </SheetClose>
           <SheetClose asChild>
             <Link to="/sparring/matches" className="py-2.5 text-sm font-medium text-text-hi underline-offset-4 hover:underline">
-              {t(keys.nav.recentMatches)}
+              {t(keys.nav.allMatches)}
             </Link>
           </SheetClose>
         </nav>

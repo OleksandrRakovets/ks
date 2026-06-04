@@ -20,7 +20,8 @@ export const resources = {
         close: 'Закрити',
         section: 'Навігація',
         sparring: 'Спаринг',
-        recentMatches: 'Останні матчі',
+        allMatches: 'Усі матчі',
+        newMatch: 'Розпочати матч',
       },
       theme: {
         section: 'Тема',
@@ -127,7 +128,8 @@ export const resources = {
         close: 'Close',
         section: 'Navigation',
         sparring: 'Sparring',
-        recentMatches: 'Recent matches',
+        allMatches: 'All matches',
+        newMatch: 'Start a new match',
       },
       theme: {
         section: 'Theme',
