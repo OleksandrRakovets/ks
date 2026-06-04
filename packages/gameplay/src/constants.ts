@@ -55,3 +55,10 @@ export type GameCommandResult = {
 export type GameCreateStateArgs = {
   targetPointsBySeat: BySeatNumber
 }
+
+export interface GameplayRuntime {
+  createInitialState(args: GameCreateStateArgs): unknown
+  parseState(state: unknown): unknown
+  applyCommand(args: { state: unknown; commandType: string; command: unknown }): GameCommandResult
+  deriveProjection(args: { state: unknown; projection: GameProjectionKey }): unknown
+}

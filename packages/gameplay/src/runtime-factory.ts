@@ -1,6 +1,6 @@
 import invariant from 'tiny-invariant'
 
-import type { GameplayRuntime } from './abstract-runtime'
+import type { GameplayRuntime } from './constants'
 import { PyramidGameplayRuntime } from './pyramid/runtime'
 import type { RegisteredGameKey } from './registry'
 import { StrilaGameplayRuntime } from './strila-v2/runtime'

@@ -10,8 +10,8 @@ import {
 import invariant from 'tiny-invariant'
 import { z } from 'zod'
 
-import { GameplayRuntime } from '../abstract-runtime'
 import {
+  type GameplayRuntime,
   type GameCreateStateArgs,
   GameCommandPresetSchema,
   GameScoreboardProjectionSchema,
@@ -122,7 +122,7 @@ function deriveCommandSections(commands: z.infer<typeof PyramidControlCommandSch
 }
 
 // TODO: declare winner as well, but allow the break to continue
-export class PyramidGameplayRuntime extends GameplayRuntime {
+export class PyramidGameplayRuntime implements GameplayRuntime {
   private readonly config: {
     gameKey: string
     allowNegative: boolean
@@ -136,7 +136,6 @@ export class PyramidGameplayRuntime extends GameplayRuntime {
     foulPenalty: 'opponent-plus-one' | 'offender-minus-one'
     shotPointOptions: number[]
   }) {
-    super()
     this.config = config
   }
 

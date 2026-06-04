@@ -1,8 +1,7 @@
 import { emptyControlCommandSections, opponentOf, type FrameOutcome, type Seat } from '@ks/core'
 import invariant from 'tiny-invariant'
 
-import { GameplayRuntime } from '../abstract-runtime'
-import type { GameCommandResult, GameCreateStateArgs, GameProjectionKey } from '../constants'
+import type { GameplayRuntime, GameCommandResult, GameCreateStateArgs, GameProjectionKey } from '../constants'
 import {
   StrilaMeta,
   StrilaBallStatusesSchema,
@@ -315,7 +314,7 @@ function strilaOutcome(state: StrilaFrameState): FrameOutcome | undefined {
   }
 }
 
-export class StrilaGameplayRuntime extends GameplayRuntime {
+export class StrilaGameplayRuntime implements GameplayRuntime {
   createInitialState(args: GameCreateStateArgs): StrilaFrameState {
     return serializeSnapshot(createInitialSnapshot(args.targetPointsBySeat))
   }
