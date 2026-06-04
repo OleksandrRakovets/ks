@@ -1,4 +1,4 @@
-import { opponentOf, type BySeatNumber, type ProtocolEntry, type Seat, type StoredEvent } from '@ks/core'
+import { opponentOf, type BySeatNumber, type ProtocolEntry, type Seat, type StoredFact } from '@ks/core'
 import { z } from 'zod'
 
 export const PROTOCOL_ARCHIVE_VERSION = 1
@@ -26,7 +26,7 @@ export const ProtocolArchiveSchema = z.object({
 export type ProtocolArchive = z.infer<typeof ProtocolArchiveSchema>
 
 type SeatNames = { A: string; B: string }
-type StoredGameCommandEvent = Extract<StoredEvent, { type: 'game.command' }>
+type StoredGameCommandFact = Extract<StoredFact, { type: 'game.command' }>
 
 export type ProtocolRow = {
   key: string
@@ -119,10 +119,10 @@ function entryLabel(entry: Pick<ProtocolArchiveRow, 'body' | 'entryType' | 'seat
   return commandType ?? systemType ?? entry.entryType
 }
 
-function rowFromProtocolEntry(event: StoredGameCommandEvent, entry: ProtocolEntry): ProtocolArchiveRowDraft {
+function rowFromProtocolEntry(fact: StoredGameCommandFact, entry: ProtocolEntry): ProtocolArchiveRowDraft {
   return {
-    receivedAt: event.receivedAt,
-    frameIndex: event.payload.frameIndex,
+    receivedAt: fact.receivedAt,
+    frameIndex: fact.payload.frameIndex,
     source: entry.source,
     entryType: entry.entryType,
     ...(entry.seat ? { seat: entry.seat } : {}),
@@ -131,43 +131,43 @@ function rowFromProtocolEntry(event: StoredGameCommandEvent, entry: ProtocolEntr
   }
 }
 
-function lifecycleRowsForEvent(event: StoredEvent, previous: StoredEvent | undefined): ProtocolArchiveRowDraft[] {
-  if (event.type === 'frame.started') {
+function lifecycleRowsForFact(fact: StoredFact, previous: StoredFact | undefined): ProtocolArchiveRowDraft[] {
+  if (fact.type === 'frame.started') {
     return [
       {
-        receivedAt: event.receivedAt,
-        frameIndex: event.payload.frameIndex,
+        receivedAt: fact.receivedAt,
+        frameIndex: fact.payload.frameIndex,
         source: 'system',
         entryType: 'system-note',
-        body: { systemType: 'frame-started', frameIndex: event.payload.frameIndex },
+        body: { systemType: 'frame-started', frameIndex: fact.payload.frameIndex },
       },
     ]
   }
 
-  if (event.type === 'frame.completed') {
+  if (fact.type === 'frame.completed') {
     if (previous?.type === 'game.command' && previous.payload.commandType === 'frame.award') return []
 
-    const conceded = event.payload.outcome.winReason === 'conceded'
+    const conceded = fact.payload.outcome.winReason === 'conceded'
     return [
       {
-        receivedAt: event.receivedAt,
-        frameIndex: event.payload.frameIndex,
+        receivedAt: fact.receivedAt,
+        frameIndex: fact.payload.frameIndex,
         source: 'system',
         entryType: 'system-note',
-        seat: conceded ? opponentOf(event.payload.outcome.winnerSeat) : event.payload.outcome.winnerSeat,
-        scoreAfter: event.payload.outcome.score,
-        body: { systemType: conceded ? 'frame-conceded' : 'frame-completed', winReason: event.payload.outcome.winReason },
+        seat: conceded ? opponentOf(fact.payload.outcome.winnerSeat) : fact.payload.outcome.winnerSeat,
+        scoreAfter: fact.payload.outcome.score,
+        body: { systemType: conceded ? 'frame-conceded' : 'frame-completed', winReason: fact.payload.outcome.winReason },
       },
     ]
   }
 
-  if (event.type === 'match.ended') {
+  if (fact.type === 'match.ended') {
     return [
       {
-        receivedAt: event.receivedAt,
+        receivedAt: fact.receivedAt,
         source: 'system',
         entryType: 'system-note',
-        seat: event.payload.winnerSeat,
+        seat: fact.payload.winnerSeat,
         body: { systemType: 'match-ended' },
       },
     ]
@@ -176,11 +176,11 @@ function lifecycleRowsForEvent(event: StoredEvent, previous: StoredEvent | undef
   return []
 }
 
-export function prepareProtocolRowsForArchive(events: StoredEvent[]): ProtocolArchiveRow[] {
-  const ordered = [...events].sort((a, b) => a.seq - b.seq)
-  const drafts = ordered.flatMap((event, eventIndex): ProtocolArchiveRowDraft[] => {
-    if (event.type === 'game.command') return event.payload.protocolEntries.map((entry) => rowFromProtocolEntry(event, entry))
-    return lifecycleRowsForEvent(event, ordered[eventIndex - 1])
+export function prepareProtocolRowsForArchive(facts: StoredFact[]): ProtocolArchiveRow[] {
+  const ordered = [...facts].sort((a, b) => a.seq - b.seq)
+  const drafts = ordered.flatMap((fact, factIndex): ProtocolArchiveRowDraft[] => {
+    if (fact.type === 'game.command') return fact.payload.protocolEntries.map((entry) => rowFromProtocolEntry(fact, entry))
+    return lifecycleRowsForFact(fact, ordered[factIndex - 1])
   })
 
   return drafts.map((row, index) => ({ ...row, rowNo: index + 1 }))
@@ -201,6 +201,6 @@ export function renderProtocolRows(rows: ProtocolArchiveRow[], seatNames: SeatNa
   }))
 }
 
-export function deriveProtocolRows(events: StoredEvent[], seatNames: SeatNames, timeZone: string): ProtocolRow[] {
-  return renderProtocolRows(prepareProtocolRowsForArchive(events), seatNames, timeZone)
+export function deriveProtocolRows(facts: StoredFact[], seatNames: SeatNames, timeZone: string): ProtocolRow[] {
+  return renderProtocolRows(prepareProtocolRowsForArchive(facts), seatNames, timeZone)
 }

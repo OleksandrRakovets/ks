@@ -1,4 +1,4 @@
-import { SnapshotResponseSchema, StreamEventSchema, StreamReadySchema } from '@ks/core'
+import { SnapshotResponseSchema, StreamFactSchema, StreamReadySchema } from '@ks/core'
 import { GameControlProjectionSchema } from '@ks/gameplay/definitions'
 import { themes } from '@ks/themes'
 import { useEffect, useRef } from 'react'
@@ -80,13 +80,13 @@ export default function PublicScoreboardRoute() {
       if (!(event instanceof MessageEvent)) return
       const decoded = tryParseJson(event.data)
       if (decoded === null) {
-        console.error('Malformed SSE match event JSON', event.data)
+        console.error('Malformed SSE match fact JSON', event.data)
         return
       }
 
-      const parsed = StreamEventSchema.safeParse(decoded)
+      const parsed = StreamFactSchema.safeParse(decoded)
       if (!parsed.success) {
-        console.error('Malformed SSE match event payload', parsed.error)
+        console.error('Malformed SSE match fact payload', parsed.error)
         return
       }
 

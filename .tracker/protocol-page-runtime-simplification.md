@@ -2,7 +2,7 @@
 
 Date: 2026-05-26
 
-Context: `clients/rr7/app/routes/sparring-match/route-protocol.tsx` was the last public route-shaped module importing `@ks/gameplay/server`. It also knew `MatchSnapshot`, raw `StoredEvent`, game command payload shapes, and how to replay the current frame. This conflicted with the current architecture note: route modules stay thin, shared app code should consume game projections/read models rather than game internals, and event history should remain operational rather than becoming the durable protocol archive.
+Context: `clients/rr7/app/routes/sparring-match/route-protocol.tsx` was the last public route-shaped module importing `@ks/gameplay/server`. It also knew `MatchSnapshot`, raw `StoredFact`, game command payload shapes, and how to replay the current frame. This conflicted with the current architecture note: route modules stay thin, shared app code should consume game projections/read models rather than game internals, and fact history should remain operational rather than becoming the durable protocol archive.
 
 ## Candidate 1: Store Accepted Protocol Effects In Facts
 
@@ -21,7 +21,7 @@ Context: `clients/rr7/app/routes/sparring-match/route-protocol.tsx` was the last
 ### Candidate 1 Status
 
 - Done: `protocolEntries` currently live on accepted `game.command` fact payloads as the first working slice.
-- Delayed: `protocolEntries` should not remain only inside `events.payload_json` long term, because completed-match events are expected to be pruned.
+- Delayed: `protocolEntries` should not remain only inside `facts.payload_json` long term, because completed-match facts are expected to be pruned.
 - Done: There is no compatibility fallback or backfill; local D1 can be reset before public use.
 - Done: Protocol entries are locale-neutral structured facts. Display strings are derived later by a read module with locale and participant names.
 - Done: Protocol entries use a small `@ks/core` envelope: `source`, `entryType`, optional `seat`, optional `scoreAfter`, and required game-owned `body`.
@@ -48,7 +48,7 @@ Context: `clients/rr7/app/routes/sparring-match/route-protocol.tsx` was the last
 
 **Solution**: Move protocol-page derivation behind a narrow read module that returns a page-specific read model: header data, score-box data, protocol rows, and navigation state. The route consumes that read model and renders it. The read module can read active protocol rows from events and completed protocol rows from an archive table without changing the route.
 
-**Benefits**: Locality improves because protocol-page data shaping has one home. Leverage improves because the route interface becomes a single read model rather than snapshots plus participants plus control projection plus stored events. Tests can target the read module interface with stored facts/archive rows and expected page rows, without rendering the route or opening SSE.
+**Benefits**: Locality improves because protocol-page data shaping has one home. Leverage improves because the route interface becomes a single read model rather than snapshots plus participants plus control projection plus stored facts. Tests can target the read module interface with stored facts/archive rows and expected page rows, without rendering the route or opening SSE.
 
 **Deletion test**: Deleting this module would force the route to recover raw event loading, archive/event source selection, row derivation, score fallback, and display ordering. That means the module would be deep, not a pass-through.
 
@@ -95,7 +95,7 @@ Example:
 
 **Read policy**: Active protocol pages may derive rows from `events`. Finished protocol pages should prefer `match_protocol_archives`; once an archive exists, a daily cron can prune `events` for completed/locked matches without deleting printable protocol history.
 
-**Benefits**: Locality improves because snapshot interpretation is concentrated near the read adapter. Leverage improves because future snapshot or storage changes do not require every page to relearn frame status rules. Completed protocol reads become a single archive-row read instead of scanning event history. Tests can exercise read-model derivation without route rendering.
+**Benefits**: Locality improves because snapshot interpretation is concentrated near the read adapter. Leverage improves because future snapshot or storage changes do not require every page to relearn frame status rules. Completed protocol reads become a single archive-row read instead of scanning fact history. Tests can exercise read-model derivation without route rendering.
 
 **Deletion test**: If page read models are deleted, snapshot interpretation and archive/event source selection immediately reappear in each route. That suggests the read models would be deep rather than shallow.
 
@@ -123,7 +123,7 @@ Keep Candidate 1 as the runtime protocol-effect interface, but stop treating pru
 - Active protocol reads derive rows from `events`.
 - Finished protocol reads require `match_protocol_archives`; no fallback to `events`.
 - Keep `protocolEntries` embedded in active `game.command` events for now; pruning removes whole event rows, not payload fragments.
-- Archive rows are strictly display-oriented and do not include `sourceEventSeq` or `sourceEventId`.
+- Archive rows are strictly display-oriented and do not include `sourceFactSeq` or `sourceFactId`.
 - Archive rows store structured data only; labels are derived at read time.
 - Archive table includes `protocol_version = 1`; read code rejects unsupported versions.
 - Modify `clients/rr7/migrations/0001_init.sql` directly because the schema is still early-stage/reset-friendly.
@@ -140,19 +140,19 @@ Keep Candidate 1 as the runtime protocol-effect interface, but stop treating pru
    Move `clients/rr7/app/routes/sparring-match/protocol-rows.ts` into `clients/rr7/domain/protocol/reader.ts`. Keep label derivation and event-derived active rows there. Add archive row types/schema with `protocol_version = 1`.
 
 3. Add pure protocol functions.
-   Add functions for deriving structured archive rows from `StoredEvent[]`, rendering structured rows into display `ProtocolRow[]`, and deriving active display rows from `StoredEvent[]` as a convenience wrapper.
+   Add functions for deriving structured archive rows from `StoredFact[]`, rendering structured rows into display `ProtocolRow[]`, and deriving active display rows from `StoredFact[]` as a convenience wrapper.
 
 4. Add pure tests.
    Add `clients/rr7/domain/protocol/reader.test.ts`. Cover lifecycle rows, `game.command.protocolEntries[]` expansion, hiding `frame.completed` immediately after `frame.award`, archive version rejection, and ordering policy if it lives in the reader.
 
 5. Add archive persistence in `MatchRoom`.
-   In the `match.ended` acceptance path, materialize protocol archive rows immediately. Use accepted/persisted facts in seq order, including the just-accepted `match.ended`. Insert one archive row into `match_protocol_archives`. Keep current `events` writes unchanged.
+   In the `match.ended` acceptance path, materialize protocol archive rows immediately. Use accepted/persisted facts in seq order, including the just-accepted `match.ended`. Insert one archive row into `match_protocol_archives`. Keep current `facts` writes unchanged.
 
 6. Add protocol-history read function.
    Add a server-side read function for protocol history, likely under `clients/rr7/app/server/`. Active match: read `events`, derive active display rows. Finished match: read `match_protocol_archives`, reject missing or unsupported archive.
 
 7. Update `route-protocol.tsx`.
-   Replace `listStoredEvents + deriveProtocolRows` with the protocol-history read function. Keep existing snapshot, participants, game title, and `ScoreBox` wiring. Render receives rows already ordered. SSE remains revalidate-only and active-match-only.
+   Replace `listStoredFacts + deriveProtocolRows` with the protocol-history read function. Keep existing snapshot, participants, game title, and `ScoreBox` wiring. Render receives rows already ordered. SSE remains revalidate-only and active-match-only.
 
 8. Verify.
    Run focused protocol tests, `bun test`, `bun run typecheck`, `bun run lint`, `bun run format:check`, `bun run check:boundaries`, and `bun run check:zod`.

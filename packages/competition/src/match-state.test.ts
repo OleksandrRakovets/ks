@@ -1,16 +1,16 @@
 import { describe, expect, test } from 'bun:test'
 
-import { ClientEventSchema, newClientId, newEventId, newMatchId, type ClientEvent, type MatchConfig } from '@ks/core'
+import { ClientFactSchema, newClientId, newFactId, newMatchId, type ClientFact, type MatchConfig } from '@ks/core'
 
-import { applyMatchEvent, deriveSparringControlSections, emptyMatchState } from './index'
+import { applyMatchFact, deriveSparringControlSections, emptyMatchState } from './index'
 
-function baseEvent<TType extends ClientEvent['type']>(
+function baseFact<TType extends ClientFact['type']>(
   matchId: string,
   type: TType,
-  payload: Extract<ClientEvent, { type: TType }>['payload'],
-): ClientEvent {
-  return ClientEventSchema.parse({
-    eventId: newEventId(),
+  payload: Extract<ClientFact, { type: TType }>['payload'],
+): ClientFact {
+  return ClientFactSchema.parse({
+    factId: newFactId(),
     matchId,
     clientId: newClientId(),
     clientSeq: 1,
@@ -32,16 +32,16 @@ function makeConfig(matchTargetFrames = 3): MatchConfig {
   }
 }
 
-function frameStarted(config: MatchConfig, frameIndex: number): ClientEvent {
-  return baseEvent(config.matchId, 'frame.started', {
+function frameStarted(config: MatchConfig, frameIndex: number): ClientFact {
+  return baseFact(config.matchId, 'frame.started', {
     frameIndex,
     gameKey: config.gameKey,
     targetPointsBySeat: config.targets.frameTargetPointsBySeat,
   })
 }
 
-function frameCompleted(config: MatchConfig, frameIndex: number, winnerSeat: 'A' | 'B', score = { A: 8, B: 4 }): ClientEvent {
-  return baseEvent(config.matchId, 'frame.completed', {
+function frameCompleted(config: MatchConfig, frameIndex: number, winnerSeat: 'A' | 'B', score = { A: 8, B: 4 }): ClientFact {
+  return baseFact(config.matchId, 'frame.completed', {
     frameIndex,
     gameKey: config.gameKey,
     outcome: {
@@ -57,8 +57,8 @@ describe('match-state room facts', () => {
     const config = makeConfig()
     let state = emptyMatchState()
 
-    state = applyMatchEvent(state, baseEvent(config.matchId, 'match.created', config))
-    state = applyMatchEvent(state, frameStarted(config, 1))
+    state = applyMatchFact(state, baseFact(config.matchId, 'match.created', config))
+    state = applyMatchFact(state, frameStarted(config, 1))
 
     expect(state.currentFrameIndex).toBe(1)
     expect(state.frames).toEqual([{ frameIndex: 1, pointsBySeat: { A: 0, B: 0 } }])
@@ -68,11 +68,11 @@ describe('match-state room facts', () => {
     const config = makeConfig()
     let state = emptyMatchState()
 
-    state = applyMatchEvent(state, baseEvent(config.matchId, 'match.created', config))
-    state = applyMatchEvent(state, frameStarted(config, 1))
-    state = applyMatchEvent(
+    state = applyMatchFact(state, baseFact(config.matchId, 'match.created', config))
+    state = applyMatchFact(state, frameStarted(config, 1))
+    state = applyMatchFact(
       state,
-      baseEvent(config.matchId, 'game.command', {
+      baseFact(config.matchId, 'game.command', {
         frameIndex: 1,
         gameKey: config.gameKey,
         commandType: 'pot.record',
@@ -97,9 +97,9 @@ describe('match-state room facts', () => {
     const config = makeConfig()
     let state = emptyMatchState()
 
-    state = applyMatchEvent(state, baseEvent(config.matchId, 'match.created', config))
-    state = applyMatchEvent(state, frameStarted(config, 1))
-    state = applyMatchEvent(state, frameCompleted(config, 1, 'A', { A: 10, B: 4 }))
+    state = applyMatchFact(state, baseFact(config.matchId, 'match.created', config))
+    state = applyMatchFact(state, frameStarted(config, 1))
+    state = applyMatchFact(state, frameCompleted(config, 1, 'A', { A: 10, B: 4 }))
 
     expect(state.frames[0]).toEqual({ frameIndex: 1, pointsBySeat: { A: 10, B: 4 }, winnerSeat: 'A' })
     expect(state.framesWonBySeat).toEqual({ A: 1, B: 0 })
@@ -109,10 +109,10 @@ describe('match-state room facts', () => {
     const config = makeConfig(2)
     let state = emptyMatchState()
 
-    state = applyMatchEvent(state, baseEvent(config.matchId, 'match.created', config))
-    state = applyMatchEvent(state, frameStarted(config, 1))
-    state = applyMatchEvent(state, frameCompleted(config, 1, 'A'))
-    state = applyMatchEvent(state, frameStarted(config, 2))
+    state = applyMatchFact(state, baseFact(config.matchId, 'match.created', config))
+    state = applyMatchFact(state, frameStarted(config, 1))
+    state = applyMatchFact(state, frameCompleted(config, 1, 'A'))
+    state = applyMatchFact(state, frameStarted(config, 2))
 
     expect(state.currentFrameIndex).toBe(2)
   })
@@ -121,28 +121,26 @@ describe('match-state room facts', () => {
     const config = makeConfig(1)
     let state = emptyMatchState()
 
-    state = applyMatchEvent(state, baseEvent(config.matchId, 'match.created', config))
-    state = applyMatchEvent(state, frameStarted(config, 1))
-    state = applyMatchEvent(state, frameCompleted(config, 1, 'A'))
+    state = applyMatchFact(state, baseFact(config.matchId, 'match.created', config))
+    state = applyMatchFact(state, frameStarted(config, 1))
+    state = applyMatchFact(state, frameCompleted(config, 1, 'A'))
 
-    expect(() => applyMatchEvent(state, frameStarted(config, 2))).toThrow(
-      'Cannot start new frame after match target is reached',
-    )
+    expect(() => applyMatchFact(state, frameStarted(config, 2))).toThrow('Cannot start new frame after match target is reached')
   })
 
   test('final frame still requires explicit match.ended event', () => {
     const config = makeConfig(1)
     let state = emptyMatchState()
 
-    state = applyMatchEvent(state, baseEvent(config.matchId, 'match.created', config))
-    state = applyMatchEvent(state, frameStarted(config, 1))
-    state = applyMatchEvent(state, frameCompleted(config, 1, 'A'))
+    state = applyMatchFact(state, baseFact(config.matchId, 'match.created', config))
+    state = applyMatchFact(state, frameStarted(config, 1))
+    state = applyMatchFact(state, frameCompleted(config, 1, 'A'))
     expect(state.status).toBe('active')
 
     const sectionsBeforeEnd = deriveSparringControlSections({ matchState: state })
     expect(sectionsBeforeEnd.neutral.map((command) => command.commandType)).toEqual(['match.end'])
 
-    state = applyMatchEvent(state, baseEvent(config.matchId, 'match.ended', { winnerSeat: 'A' }))
+    state = applyMatchFact(state, baseFact(config.matchId, 'match.ended', { winnerSeat: 'A' }))
     expect(state.status).toBe('finished')
   })
 
@@ -150,11 +148,11 @@ describe('match-state room facts', () => {
     const config = makeConfig(2)
     let state = emptyMatchState()
 
-    state = applyMatchEvent(state, baseEvent(config.matchId, 'match.created', config))
-    state = applyMatchEvent(state, frameStarted(config, 1))
-    state = applyMatchEvent(state, frameCompleted(config, 1, 'A'))
+    state = applyMatchFact(state, baseFact(config.matchId, 'match.created', config))
+    state = applyMatchFact(state, frameStarted(config, 1))
+    state = applyMatchFact(state, frameCompleted(config, 1, 'A'))
 
-    expect(() => applyMatchEvent(state, baseEvent(config.matchId, 'match.ended', { winnerSeat: 'A' }))).toThrow(
+    expect(() => applyMatchFact(state, baseFact(config.matchId, 'match.ended', { winnerSeat: 'A' }))).toThrow(
       'Cannot end match before target',
     )
   })
@@ -163,11 +161,11 @@ describe('match-state room facts', () => {
     const config = makeConfig()
     let state = emptyMatchState()
 
-    state = applyMatchEvent(state, baseEvent(config.matchId, 'match.created', config))
-    state = applyMatchEvent(state, frameStarted(config, 1))
-    state = applyMatchEvent(state, frameCompleted(config, 1, 'A'))
+    state = applyMatchFact(state, baseFact(config.matchId, 'match.created', config))
+    state = applyMatchFact(state, frameStarted(config, 1))
+    state = applyMatchFact(state, frameCompleted(config, 1, 'A'))
 
-    expect(() => applyMatchEvent(state, baseEvent(config.matchId, 'frame.reopened', { frameIndex: 1 }))).toThrow(
+    expect(() => applyMatchFact(state, baseFact(config.matchId, 'frame.reopened', { frameIndex: 1 }))).toThrow(
       'TODO: frame.reopened is reserved for undo controller',
     )
   })

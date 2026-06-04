@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
-import { StoredEventSchema } from './events'
-import { EventIdSchema } from './ids'
+import { StoredFactSchema } from './facts'
+import { FactIdSchema } from './ids'
 import { HydratedMatchParticipantsSchema, MatchSnapshotSchema } from './match'
 
 export const ErrorResponseSchema = z.object({
@@ -19,15 +19,15 @@ export const SnapshotResponseSchema = z.union([
   ErrorResponseSchema,
 ])
 
-export const AcceptedEventSchema = z.object({
+export const AcceptedFactSchema = z.object({
   seq: z.number().int().positive(),
-  eventId: EventIdSchema,
+  factId: FactIdSchema,
 })
 
-export const PostEventsResponseSchema = z.union([
+export const PostFactsResponseSchema = z.union([
   z.object({
     ok: z.literal(true),
-    accepted: z.array(AcceptedEventSchema),
+    accepted: z.array(AcceptedFactSchema),
   }),
   ErrorResponseSchema,
 ])
@@ -36,4 +36,4 @@ export const StreamReadySchema = z.object({
   latestSeq: z.number().int().nonnegative(),
 })
 
-export const StreamEventSchema = StoredEventSchema
+export const StreamFactSchema = StoredFactSchema

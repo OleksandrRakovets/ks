@@ -9,7 +9,7 @@ import {
 } from '../../domain/protocol/reader'
 import { getProtocolArchive } from '../../domain/protocol/repo'
 import type { AppEnv } from './context'
-import { listStoredEvents } from './match-room'
+import { listStoredFacts } from './match-room'
 
 type SeatNames = { A: string; B: string }
 
@@ -31,7 +31,7 @@ export async function readProtocolHistory(
   const matchId = normalizeMatchId(rawMatchId)
 
   if (status === 'active') {
-    const rows = deriveProtocolRows(await listStoredEvents(env, matchId), seatNames, timeZone)
+    const rows = deriveProtocolRows(await listStoredFacts(env, matchId), seatNames, timeZone)
     return rows.reverse()
   }
 

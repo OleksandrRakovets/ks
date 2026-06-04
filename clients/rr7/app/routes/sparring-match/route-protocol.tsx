@@ -2,7 +2,7 @@ import {
   ErrorResponseSchema,
   HydratedMatchParticipantsSchema,
   MatchSnapshotSchema,
-  StreamEventSchema,
+  StreamFactSchema,
   StreamReadySchema,
 } from '@ks/core'
 import { GameControlProjectionSchema, isRegisteredGameKey, registry } from '@ks/gameplay/definitions'
@@ -160,7 +160,7 @@ export default function SparringMatchProtocolRoute() {
       } catch {
         return
       }
-      const parsed = StreamEventSchema.safeParse(decoded)
+      const parsed = StreamFactSchema.safeParse(decoded)
       if (!parsed.success) return
 
       if (parsed.data.seq > latestSeqRef.current) {

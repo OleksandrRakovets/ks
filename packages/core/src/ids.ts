@@ -46,7 +46,7 @@ export type GuestPlayerId = Brand<string, 'GuestPlayerId'>
 export type VerifiedPlayerId = Brand<string, 'VerifiedPlayerId'>
 export type PlayerRef = Brand<string, 'PlayerRef'>
 export type MatchId = Brand<string, 'MatchId'>
-export type EventId = Brand<string, 'EventId'>
+export type FactId = Brand<string, 'FactId'>
 export type ClientId = Brand<string, 'ClientId'>
 
 function toBrand<B extends string>(value: string): Brand<string, B> {
@@ -74,7 +74,7 @@ export const PlayerRefSchema = z
   .regex(/^(gp|vp)_[0-9A-HJKMNP-TV-Z]{26}$/)
   .transform((value) => toBrand<'PlayerRef'>(value))
 export const MatchIdSchema = ulidBrandedSchema<'MatchId'>()
-export const EventIdSchema = ulidBrandedSchema<'EventId'>()
+export const FactIdSchema = ulidBrandedSchema<'FactId'>()
 export const ClientIdSchema = minLengthBrandedSchema<'ClientId'>(8)
 
 export function newGuestPlayerId(): GuestPlayerId {
@@ -89,8 +89,8 @@ export function newMatchId(): MatchId {
   return MatchIdSchema.parse(ulidWeb())
 }
 
-export function newEventId(): EventId {
-  return EventIdSchema.parse(ulidWeb())
+export function newFactId(): FactId {
+  return FactIdSchema.parse(ulidWeb())
 }
 
 export function newClientId(): ClientId {

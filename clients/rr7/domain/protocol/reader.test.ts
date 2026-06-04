@@ -1,23 +1,23 @@
 import { describe, expect, test } from 'bun:test'
 
-import { ClientIdSchema, EventIdSchema, MatchIdSchema, type ClientEvent, type StoredEvent } from '@ks/core'
+import { ClientIdSchema, FactIdSchema, MatchIdSchema, type ClientFact, type StoredFact } from '@ks/core'
 
 import { deriveProtocolRows, prepareProtocolRowsForArchive, ProtocolArchiveSchema } from './reader'
 
 const matchId = MatchIdSchema.parse('01ARZ3NDEKTSV4RRFFQ69G5FAV')
 const clientId = ClientIdSchema.parse('server0000')
 
-function stored(seq: number, event: Omit<ClientEvent, 'at' | 'clientId' | 'clientSeq' | 'eventId' | 'matchId'>): StoredEvent {
+function stored(seq: number, fact: Omit<ClientFact, 'at' | 'clientId' | 'clientSeq' | 'factId' | 'matchId'>): StoredFact {
   return {
     matchId,
     clientId,
     clientSeq: 0,
     at: 1000 + seq,
-    eventId: EventIdSchema.parse(`01ARZ3NDEKTSV4RRFFQ69G5FA${seq}`),
+    factId: FactIdSchema.parse(`01ARZ3NDEKTSV4RRFFQ69G5FA${seq}`),
     receivedAt: 2000 + seq,
     seq,
-    ...event,
-  } as StoredEvent
+    ...fact,
+  } as StoredFact
 }
 
 describe('protocol reader', () => {

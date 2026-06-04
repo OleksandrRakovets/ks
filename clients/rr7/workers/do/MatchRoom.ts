@@ -1,5 +1,5 @@
 import {
-  applyMatchEvent,
+  applyMatchFact,
   assignmentsBySeat,
   buildMatchConfig,
   CreateMatchRequestSchema,
@@ -9,7 +9,7 @@ import {
   type MatchState,
 } from '@ks/competition'
 import {
-  ClientEventSchema,
+  ClientFactSchema,
   ClientIdSchema,
   ControlCommandSchema,
   BySeatNumberSchema,
@@ -17,13 +17,13 @@ import {
   MatchIdSchema,
   MatchSeatAssignmentSchema,
   MatchTargetsSchema,
-  newEventId,
+  newFactId,
   opponentOf,
   SeatSchema,
-  type ClientEvent,
+  type ClientFact,
   type ControlCommand,
   type MatchConfig,
-  type StoredEvent,
+  type StoredFact,
 } from '@ks/core'
 import { applyGameCommand, createInitialGameState, deriveGameProjection, parseGameKey } from '@ks/gameplay/server'
 import { DurableObject } from 'cloudflare:workers'
@@ -32,7 +32,7 @@ import { z } from 'zod'
 import { prepareProtocolRowsForArchive } from '../../domain/protocol/reader'
 import { insertProtocolArchive } from '../../domain/protocol/repo'
 import type { Env } from '../env'
-import { eventExists, getLatestSeq, insertStoredEvent, listEventsAfter } from '../repos/events'
+import { factExists, getLatestSeq, insertStoredFact, listFactsAfter } from '../repos/facts'
 import { getMatch, markMatchEnded, matchExists, setMatchLatestSeq } from '../repos/matches'
 import { deleteMatchSnapshot, putLatestMatchSnapshot } from '../repos/snapshots'
 
@@ -50,7 +50,7 @@ const CreateBodySchema = z.object({
   participants: z.array(MatchSeatAssignmentSchema).length(2),
 })
 
-const EventsBodySchema = z.object({
+const FactsBodySchema = z.object({
   matchId: MatchIdSchema,
   controlSecret: z.string().min(16),
   commands: z.array(ControlCommandSchema).min(1),
@@ -112,7 +112,7 @@ export class MatchRoom extends DurableObject<Env> {
 
     const latest = await getLatestSeq(this.env, matchId)
     if (latest > 0) {
-      const initialFacts = await listEventsAfter(this.env, matchId, 0)
+      const initialFacts = await listFactsAfter(this.env, matchId, 0)
       if (latest >= 2 && initialFacts[0]?.type === 'match.created' && initialFacts[1]?.type === 'frame.started') {
         return { ok: true, alreadyInitialized: true }
       }
@@ -123,11 +123,11 @@ export class MatchRoom extends DurableObject<Env> {
     const serverClientId = ClientIdSchema.parse('server0000')
     const base = { matchId, clientId: serverClientId, clientSeq: 0, at: now }
 
-    const created: ClientEvent = { ...base, eventId: newEventId(), type: 'match.created', payload: config }
+    const created: ClientFact = { ...base, factId: newFactId(), type: 'match.created', payload: config }
 
-    const started: ClientEvent = {
+    const started: ClientFact = {
       ...base,
-      eventId: newEventId(),
+      factId: newFactId(),
       type: 'frame.started',
       payload: {
         frameIndex: 1,
@@ -162,11 +162,11 @@ export class MatchRoom extends DurableObject<Env> {
       const seats = assignmentsBySeat(createRequest.data.participants)
       const now = Date.now()
       const base = { matchId, clientId: ClientIdSchema.parse('server0000'), clientSeq: 0, at: now }
-      const facts: [ClientEvent, ClientEvent] = [
-        { ...base, eventId: newEventId(), type: 'match.created', payload: config },
+      const facts: [ClientFact, ClientFact] = [
+        { ...base, factId: newFactId(), type: 'match.created', payload: config },
         {
           ...base,
-          eventId: newEventId(),
+          factId: newFactId(),
           type: 'frame.started',
           payload: { frameIndex: 1, gameKey: config.gameKey, targetPointsBySeat: config.targets.frameTargetPointsBySeat },
         },
@@ -174,7 +174,7 @@ export class MatchRoom extends DurableObject<Env> {
 
       let roomState: RoomState = { matchState: emptyMatchState(), currentFrameState: null }
       for (const fact of facts) {
-        const validFact = ClientEventSchema.parse(fact)
+        const validFact = ClientFactSchema.parse(fact)
         roomState = this.applyRoomFact(roomState, validFact)
       }
 
@@ -187,11 +187,11 @@ export class MatchRoom extends DurableObject<Env> {
           ].join(' '),
         ).bind(matchId, controlSecret, config.gameKey, JSON.stringify(config), 2, seats.A, seats.B, 'active', now),
         this.env.DB.prepare(
-          'INSERT INTO events (match_id, seq, event_id, type, payload_json, client_id, client_seq, at, received_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          'INSERT INTO facts (match_id, seq, fact_id, type, payload_json, client_id, client_seq, at, received_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
         ).bind(
           matchId,
           1,
-          facts[0].eventId,
+          facts[0].factId,
           facts[0].type,
           JSON.stringify(facts[0].payload),
           facts[0].clientId,
@@ -200,11 +200,11 @@ export class MatchRoom extends DurableObject<Env> {
           now,
         ),
         this.env.DB.prepare(
-          'INSERT INTO events (match_id, seq, event_id, type, payload_json, client_id, client_seq, at, received_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          'INSERT INTO facts (match_id, seq, fact_id, type, payload_json, client_id, client_seq, at, received_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
         ).bind(
           matchId,
           2,
-          facts[1].eventId,
+          facts[1].factId,
           facts[1].type,
           JSON.stringify(facts[1].payload),
           facts[1].clientId,
@@ -261,11 +261,11 @@ export class MatchRoom extends DurableObject<Env> {
   }
 
   /** Accepts control commands, persists resulting facts, and broadcasts them. */
-  async events(
+  async facts(
     args: unknown,
-  ): Promise<{ ok: true; accepted: { seq: number; eventId: string }[] } | { ok: false; error: string; status: number }> {
-    const parsed = EventsBodySchema.safeParse(args)
-    if (!parsed.success) return { ok: false, error: 'Invalid events body', status: 400 }
+  ): Promise<{ ok: true; accepted: { seq: number; factId: string }[] } | { ok: false; error: string; status: number }> {
+    const parsed = FactsBodySchema.safeParse(args)
+    if (!parsed.success) return { ok: false, error: 'Invalid facts body', status: 400 }
 
     const { matchId, controlSecret, commands } = parsed.data
     await this.rememberMatchId(matchId)
@@ -303,7 +303,7 @@ export class MatchRoom extends DurableObject<Env> {
         }
 
         // A new SSE client first receives missed committed facts, then joins live fan-out.
-        const backlog = await listEventsAfter(this.env, matchId, since)
+        const backlog = await listFactsAfter(this.env, matchId, since)
         sendLine(`event: ready\ndata: ${JSON.stringify({ latestSeq })}\n\n`)
         for (const ev of backlog) {
           sendLine(`event: ev\ndata: ${JSON.stringify(ev)}\n\n`)
@@ -339,27 +339,27 @@ export class MatchRoom extends DurableObject<Env> {
   }
 
   /** Applies one accepted room fact to both match state and current game-frame state. */
-  private applyRoomFact(roomState: RoomState, event: ClientEvent): RoomState {
-    const matchState = applyMatchEvent(structuredClone(roomState.matchState), event)
+  private applyRoomFact(roomState: RoomState, fact: ClientFact): RoomState {
+    const matchState = applyMatchFact(structuredClone(roomState.matchState), fact)
 
-    if (event.type === 'frame.started') {
+    if (fact.type === 'frame.started') {
       // Starting a frame opens a fresh game runtime state for the configured game and targets.
       return {
         matchState,
-        currentFrameState: createInitialGameState(parseGameKey(event.payload.gameKey), {
-          targetPointsBySeat: event.payload.targetPointsBySeat,
+        currentFrameState: createInitialGameState(parseGameKey(fact.payload.gameKey), {
+          targetPointsBySeat: fact.payload.targetPointsBySeat,
         }),
       }
     }
 
-    if (event.type === 'game.command') {
+    if (fact.type === 'game.command') {
       if (roomState.currentFrameState === null) throw new Error('No current frame')
       // Game facts are replayed through gameplay so the hot cache can rebuild from only persisted facts.
       const result = applyGameCommand({
-        gameKey: parseGameKey(event.payload.gameKey),
+        gameKey: parseGameKey(fact.payload.gameKey),
         state: roomState.currentFrameState,
-        commandType: event.payload.commandType,
-        command: event.payload.command,
+        commandType: fact.payload.commandType,
+        command: fact.payload.command,
       })
       return {
         matchState,
@@ -367,31 +367,31 @@ export class MatchRoom extends DurableObject<Env> {
       }
     }
 
-    if (event.type === 'frame.completed') {
+    if (fact.type === 'frame.completed') {
       return { matchState, currentFrameState: null }
     }
 
     return { matchState, currentFrameState: roomState.currentFrameState }
   }
 
-  /** Loads the hot room cache, rebuilding it from the persisted event log when necessary. */
+  /** Loads the hot room cache, rebuilding it from the persisted fact log when necessary. */
   private async loadRoomState(matchId: string): Promise<{ roomState: RoomState; latestSeq: number }> {
     const latestSeq = await getLatestSeq(this.env, matchId)
     const cached = await this.ctx.storage.get<CachedRoomState>('roomState')
     if (cached?.latestSeq === latestSeq) return { roomState: cached.roomState, latestSeq }
 
     let roomState: RoomState = { matchState: emptyMatchState(), currentFrameState: null }
-    // D1 events are the source of truth; Durable Object storage is only a warm cache.
-    const events = await listEventsAfter(this.env, matchId, 0)
-    for (const ev of events) {
-      roomState = this.applyRoomFact(roomState, ev)
+    // D1 facts are the source of truth; Durable Object storage is only a warm cache.
+    const facts = await listFactsAfter(this.env, matchId, 0)
+    for (const fact of facts) {
+      roomState = this.applyRoomFact(roomState, fact)
     }
     await this.ctx.storage.put('roomState', { latestSeq, roomState } satisfies CachedRoomState)
     return { roomState, latestSeq }
   }
 
   /** Builds the shared metadata used by server-originated room facts. */
-  private eventBase(matchId: string): Omit<ClientEvent, 'eventId' | 'type' | 'payload'> {
+  private factBase(matchId: string): Omit<ClientFact, 'factId' | 'type' | 'payload'> {
     return {
       matchId: MatchIdSchema.parse(matchId),
       clientId: ClientIdSchema.parse('server0000'),
@@ -408,16 +408,16 @@ export class MatchRoom extends DurableObject<Env> {
   }
 
   /** Converts one accepted control command into the room facts it implies. */
-  private factsForCommand(roomState: RoomState, matchId: string, command: ControlCommand): ClientEvent[] {
+  private factsForCommand(roomState: RoomState, matchId: string, command: ControlCommand): ClientFact[] {
     const config = roomState.matchState.config
     if (!config) throw new Error('Missing match config')
-    const base = this.eventBase(matchId)
+    const base = this.factBase(matchId)
 
     if (command.source === 'match' && command.commandType === 'frame.start') {
       return [
         {
           ...base,
-          eventId: newEventId(),
+          factId: newFactId(),
           type: 'frame.started',
           payload: {
             frameIndex: roomState.matchState.currentFrameIndex + 1,
@@ -434,7 +434,7 @@ export class MatchRoom extends DurableObject<Env> {
       return [
         {
           ...base,
-          eventId: newEventId(),
+          factId: newFactId(),
           type: 'match.ended',
           payload: { winnerSeat },
         },
@@ -458,7 +458,7 @@ export class MatchRoom extends DurableObject<Env> {
       return [
         {
           ...base,
-          eventId: newEventId(),
+          factId: newFactId(),
           type: 'frame.completed',
           payload: {
             frameIndex: currentFrame.frameIndex,
@@ -485,9 +485,9 @@ export class MatchRoom extends DurableObject<Env> {
       command: command.command,
     })
 
-    const gameCommand: ClientEvent = {
+    const gameCommand: ClientFact = {
       ...base,
-      eventId: newEventId(),
+      factId: newFactId(),
       type: 'game.command',
       payload: {
         frameIndex: currentFrame.frameIndex,
@@ -503,7 +503,7 @@ export class MatchRoom extends DurableObject<Env> {
       gameCommand,
       {
         ...base,
-        eventId: newEventId(),
+        factId: newFactId(),
         type: 'frame.completed',
         payload: {
           frameIndex: currentFrame.frameIndex,
@@ -515,7 +515,7 @@ export class MatchRoom extends DurableObject<Env> {
   }
 
   /** Appends already-accepted facts to D1, updates caches, and broadcasts committed facts to SSE clients. */
-  private async appendAcceptedFacts(matchId: string, events: ClientEvent[]): Promise<{ seq: number; eventId: string }[]> {
+  private async appendAcceptedFacts(matchId: string, facts: ClientFact[]): Promise<{ seq: number; factId: string }[]> {
     // blockConcurrencyWhile makes this DO operation single-file, preserving event ordering under concurrent requests.
     return await this.ctx.blockConcurrencyWhile(async () => {
       let seq = await getLatestSeq(this.env, matchId)
@@ -523,14 +523,14 @@ export class MatchRoom extends DurableObject<Env> {
       let roomState = cached?.latestSeq === seq ? cached.roomState : undefined
       if (!roomState) roomState = (await this.loadRoomState(matchId)).roomState
       const receivedAt = Date.now()
-      const accepted: { seq: number; eventId: string }[] = []
+      const accepted: { seq: number; factId: string }[] = []
 
-      for (const ev of events) {
-        const parsed = ClientEventSchema.safeParse(ev)
+      for (const fact of facts) {
+        const parsed = ClientFactSchema.safeParse(fact)
         if (!parsed.success) continue
 
-        const eventId = parsed.data.eventId
-        if (await eventExists(this.env, matchId, eventId)) {
+        const factId = parsed.data.factId
+        if (await factExists(this.env, matchId, factId)) {
           continue
         }
 
@@ -541,12 +541,12 @@ export class MatchRoom extends DurableObject<Env> {
         }
 
         const nextSeq = seq + 1
-        await insertStoredEvent(this.env, matchId, nextSeq, parsed.data, receivedAt)
+        await insertStoredFact(this.env, matchId, nextSeq, parsed.data, receivedAt)
         await setMatchLatestSeq(this.env, matchId, nextSeq)
 
         seq = nextSeq
 
-        accepted.push({ seq, eventId })
+        accepted.push({ seq, factId })
         await this.broadcast({ ...parsed.data, seq, receivedAt })
 
         if (parsed.data.type === 'match.ended') {
@@ -570,7 +570,7 @@ export class MatchRoom extends DurableObject<Env> {
   }
 
   /** Accepts control commands by translating them into facts before persistence or broadcast. */
-  private async acceptCommands(matchId: string, commands: ControlCommand[]): Promise<{ seq: number; eventId: string }[]> {
+  private async acceptCommands(matchId: string, commands: ControlCommand[]): Promise<{ seq: number; factId: string }[]> {
     // Commands are intents and never go to SSE directly; only persisted, sequenced facts are broadcast.
     return await this.ctx.blockConcurrencyWhile(async () => {
       let seq = await getLatestSeq(this.env, matchId)
@@ -578,10 +578,10 @@ export class MatchRoom extends DurableObject<Env> {
       let roomState = cached?.latestSeq === seq ? cached.roomState : undefined
       if (!roomState) roomState = (await this.loadRoomState(matchId)).roomState
       const receivedAt = Date.now()
-      const accepted: { seq: number; eventId: string }[] = []
+      const accepted: { seq: number; factId: string }[] = []
 
       for (const command of commands) {
-        let facts: ClientEvent[]
+        let facts: ClientFact[]
         try {
           facts = this.factsForCommand(roomState, matchId, command)
         } catch {
@@ -597,20 +597,20 @@ export class MatchRoom extends DurableObject<Env> {
           }
 
           const nextSeq = seq + 1
-          await insertStoredEvent(this.env, matchId, nextSeq, fact, receivedAt)
+          await insertStoredFact(this.env, matchId, nextSeq, fact, receivedAt)
           await setMatchLatestSeq(this.env, matchId, nextSeq)
 
           seq = nextSeq
           roomState = nextRoomState
 
-          accepted.push({ seq, eventId: fact.eventId })
+          accepted.push({ seq, factId: fact.factId })
           await this.broadcast({ ...fact, seq, receivedAt })
 
           if (fact.type === 'match.ended') {
             const endedAt = receivedAt
             const lockAt = endedAt + 10 * 60 * 1000
-            const archiveSourceEvents = await listEventsAfter(this.env, matchId, 0)
-            await insertProtocolArchive(this.env, matchId, seq, prepareProtocolRowsForArchive(archiveSourceEvents), endedAt)
+            const archiveSourceFacts = await listFactsAfter(this.env, matchId, 0)
+            await insertProtocolArchive(this.env, matchId, seq, prepareProtocolRowsForArchive(archiveSourceFacts), endedAt)
             await markMatchEnded(this.env, matchId, endedAt, lockAt)
           }
 
@@ -630,10 +630,10 @@ export class MatchRoom extends DurableObject<Env> {
   }
 
   /** Decides whether the current fact boundary should refresh the D1 snapshot row. */
-  private shouldPersistSnapshot(eventType: ClientEvent['type'], seq: number): boolean {
+  private shouldPersistSnapshot(factType: ClientFact['type'], seq: number): boolean {
     if (seq % 10 === 0) return true
-    if (eventType === 'frame.completed') return true
-    if (eventType === 'match.ended') return true
+    if (factType === 'frame.completed') return true
+    if (factType === 'match.ended') return true
     return false
   }
 
@@ -646,8 +646,8 @@ export class MatchRoom extends DurableObject<Env> {
   }
 
   /** Sends one committed fact to every currently connected SSE client. */
-  private async broadcast(storedEvent: StoredEvent): Promise<void> {
-    const line = `event: ev\ndata: ${JSON.stringify(storedEvent)}\n\n`
+  private async broadcast(storedFact: StoredFact): Promise<void> {
+    const line = `event: ev\ndata: ${JSON.stringify(storedFact)}\n\n`
     const bytes = this.encoder.encode(line)
     for (const client of this.clients) {
       try {

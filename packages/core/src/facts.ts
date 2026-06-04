@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { ClientIdSchema, EventIdSchema, MatchIdSchema } from './ids'
+import { ClientIdSchema, FactIdSchema, MatchIdSchema } from './ids'
 import { BySeatNumberSchema, FrameOutcomeSchema, GameKeySchema, MatchConfigSchema, SeatSchema } from './match'
 
 export const ProtocolEntrySourceSchema = z.enum(['player', 'system'])
@@ -18,20 +18,20 @@ export const ProtocolEntrySchema = z.object({
 })
 export type ProtocolEntry = z.infer<typeof ProtocolEntrySchema>
 
-const BaseClientEventSchema = z.object({
-  eventId: EventIdSchema,
+const BaseClientFactSchema = z.object({
+  factId: FactIdSchema,
   matchId: MatchIdSchema,
   clientId: ClientIdSchema,
   clientSeq: z.number().int().nonnegative(),
   at: z.number().int().nonnegative(),
 })
 
-export const MatchCreatedEventSchema = BaseClientEventSchema.extend({
+export const MatchCreatedFactSchema = BaseClientFactSchema.extend({
   type: z.literal('match.created'),
   payload: MatchConfigSchema,
 })
 
-export const FrameStartedEventSchema = BaseClientEventSchema.extend({
+export const FrameStartedFactSchema = BaseClientFactSchema.extend({
   type: z.literal('frame.started'),
   payload: z.object({
     frameIndex: z.number().int().positive(),
@@ -40,7 +40,7 @@ export const FrameStartedEventSchema = BaseClientEventSchema.extend({
   }),
 })
 
-export const GameCommandEventSchema = BaseClientEventSchema.extend({
+export const GameCommandFactSchema = BaseClientFactSchema.extend({
   type: z.literal('game.command'),
   payload: z.object({
     frameIndex: z.number().int().positive(),
@@ -51,7 +51,7 @@ export const GameCommandEventSchema = BaseClientEventSchema.extend({
   }),
 })
 
-export const FrameCompletedEventSchema = BaseClientEventSchema.extend({
+export const FrameCompletedFactSchema = BaseClientFactSchema.extend({
   type: z.literal('frame.completed'),
   payload: z.object({
     frameIndex: z.number().int().positive(),
@@ -60,7 +60,7 @@ export const FrameCompletedEventSchema = BaseClientEventSchema.extend({
   }),
 })
 
-export const FrameReopenedEventSchema = BaseClientEventSchema.extend({
+export const FrameReopenedFactSchema = BaseClientFactSchema.extend({
   type: z.literal('frame.reopened'),
   payload: z.object({
     frameIndex: z.number().int().positive(),
@@ -68,27 +68,27 @@ export const FrameReopenedEventSchema = BaseClientEventSchema.extend({
   }),
 })
 
-export const MatchEndedEventSchema = BaseClientEventSchema.extend({
+export const MatchEndedFactSchema = BaseClientFactSchema.extend({
   type: z.literal('match.ended'),
   payload: z.object({ winnerSeat: SeatSchema }),
 })
 
-export const ClientEventSchema = z.discriminatedUnion('type', [
-  MatchCreatedEventSchema,
-  FrameStartedEventSchema,
-  GameCommandEventSchema,
-  FrameCompletedEventSchema,
-  FrameReopenedEventSchema,
-  MatchEndedEventSchema,
+export const ClientFactSchema = z.discriminatedUnion('type', [
+  MatchCreatedFactSchema,
+  FrameStartedFactSchema,
+  GameCommandFactSchema,
+  FrameCompletedFactSchema,
+  FrameReopenedFactSchema,
+  MatchEndedFactSchema,
 ])
 
-export type ClientEvent = z.infer<typeof ClientEventSchema>
+export type ClientFact = z.infer<typeof ClientFactSchema>
 
-export const StoredEventSchema = ClientEventSchema.and(
+export const StoredFactSchema = ClientFactSchema.and(
   z.object({
     seq: z.number().int().positive(),
     receivedAt: z.number().int().nonnegative(),
   }),
 )
 
-export type StoredEvent = z.infer<typeof StoredEventSchema>
+export type StoredFact = z.infer<typeof StoredFactSchema>

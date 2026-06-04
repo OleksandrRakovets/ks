@@ -13,7 +13,7 @@ Run commands from `clients/rr7` (or use `bun run --cwd clients/rr7 ...` from rep
 - Check matches:
   - `bunx wrangler d1 execute ks --local --command "SELECT match_id, game_key, status, created_at FROM matches ORDER BY created_at DESC LIMIT 20;"`
 - Check recent events for one match:
-  - `bunx wrangler d1 execute ks --local --command "SELECT seq, type, client_id, at FROM events WHERE match_id = '<match-id>' ORDER BY seq DESC LIMIT 50;"`
+  - `bunx wrangler d1 execute ks --local --command "SELECT seq, type, client_id, at FROM facts WHERE match_id = '<match-id>' ORDER BY seq DESC LIMIT 50;"`
 
 ### Remote DB
 

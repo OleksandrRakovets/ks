@@ -17,10 +17,10 @@ CREATE TABLE IF NOT EXISTS matches (
   CHECK (seat_b_player_ref GLOB 'gp_*' OR seat_b_player_ref GLOB 'vp_*')
 );
 
-CREATE TABLE IF NOT EXISTS events (
+CREATE TABLE IF NOT EXISTS facts (
   match_id TEXT NOT NULL,
   seq INTEGER NOT NULL,
-  event_id TEXT NOT NULL,
+  fact_id TEXT NOT NULL,
   type TEXT NOT NULL,
   payload_json TEXT NOT NULL,
   client_id TEXT NOT NULL,
@@ -28,10 +28,10 @@ CREATE TABLE IF NOT EXISTS events (
   at INTEGER NOT NULL,
   received_at INTEGER NOT NULL,
   PRIMARY KEY (match_id, seq),
-  UNIQUE (match_id, event_id)
+  UNIQUE (match_id, fact_id)
 );
 
-CREATE INDEX IF NOT EXISTS events_match_id_seq ON events(match_id, seq);
+CREATE INDEX IF NOT EXISTS facts_match_id_seq ON facts(match_id, seq);
 
 CREATE TABLE IF NOT EXISTS match_snapshots (
   match_id TEXT PRIMARY KEY,

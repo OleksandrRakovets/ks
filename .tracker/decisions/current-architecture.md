@@ -58,7 +58,7 @@ Dependency direction:
 
 - The current production shape is `Worker route -> MatchRoom Durable Object -> D1` for match creation and command acceptance.
 - The Durable Object is a per-match coordinator: it serializes accepted facts, maintains warm runtime cache, and broadcasts SSE updates.
-- D1 owns durable match rows, event history, and persisted snapshots.
+- D1 owns durable match rows, fact history, and persisted snapshots.
 - Direct Worker-to-D1 reads are acceptable for list, lookup, history, and hydration paths that do not need live coordination.
 - Treat Cloudflare Worker, Durable Object, and D1 placement as independent until measured otherwise; observe production latency before adding location hints or regional constraints.
 

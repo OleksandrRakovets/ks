@@ -4,8 +4,8 @@ import {
   ErrorResponseSchema,
   HydratedMatchParticipantsSchema,
   MatchSnapshotSchema,
-  PostEventsResponseSchema,
-  StreamEventSchema,
+  PostFactsResponseSchema,
+  StreamFactSchema,
   StreamReadySchema,
   emptyControlCommandSections,
   type ControlCommandSections,
@@ -26,7 +26,7 @@ import {
 import type { AppLoadContext } from '../../server/context'
 import { requireEnv } from '../../server/context'
 import { localeFromCookie } from '../../server/locale'
-import { fetchMatchSnapshot, getMatchControlSecret, postMatchEvents } from '../../server/match-room'
+import { fetchMatchSnapshot, getMatchControlSecret, postMatchFacts } from '../../server/match-room'
 import { ScoreBox } from './score-box'
 
 type LoaderData = {
@@ -42,7 +42,7 @@ type ActionData =
   | {
       ok: false
       error?: string
-      errorKey?: typeof keys.match.control.invalidEventPayload | typeof keys.match.control.eventRejectedByRules
+      errorKey?: typeof keys.match.control.invalidFactPayload | typeof keys.match.control.factRejectedByRules
     }
 
 const SnapshotResponseWithControlSchema = z.union([
@@ -138,7 +138,7 @@ export async function action({
     try {
       parsedCommand = JSON.parse(rawCommandJson)
     } catch {
-      return { ok: false, errorKey: keys.match.control.invalidEventPayload }
+      return { ok: false, errorKey: keys.match.control.invalidFactPayload }
     }
 
     command = { source, commandType, command: parsedCommand ?? {} }
@@ -150,11 +150,11 @@ export async function action({
     try {
       parsedCommand = JSON.parse(rawCommandJson)
     } catch {
-      return { ok: false, errorKey: keys.match.control.invalidEventPayload }
+      return { ok: false, errorKey: keys.match.control.invalidFactPayload }
     }
 
     if (!isRegisteredGameKey(gameKey)) {
-      return { ok: false, errorKey: keys.match.control.invalidEventPayload }
+      return { ok: false, errorKey: keys.match.control.invalidFactPayload }
     }
 
     command = { source: 'game', commandType, command: parsedCommand ?? {} }
@@ -162,16 +162,16 @@ export async function action({
 
   const parsedCommand = ControlCommandSchema.safeParse(command)
   if (!parsedCommand.success) {
-    return { ok: false, errorKey: keys.match.control.invalidEventPayload }
+    return { ok: false, errorKey: keys.match.control.invalidFactPayload }
   }
 
-  const res = await postMatchEvents(env, matchId, controlSecret, [parsedCommand.data])
-  const payload = PostEventsResponseSchema.parse(await res.json())
+  const res = await postMatchFacts(env, matchId, controlSecret, [parsedCommand.data])
+  const payload = PostFactsResponseSchema.parse(await res.json())
   if (!payload.ok) {
     return { ok: false, error: payload.error }
   }
   if (payload.accepted.length === 0) {
-    return { ok: false, errorKey: keys.match.control.eventRejectedByRules }
+    return { ok: false, errorKey: keys.match.control.factRejectedByRules }
   }
 
   const acceptedSeqMax = payload.accepted.reduce<number | null>((max, entry) => {
@@ -247,7 +247,7 @@ export default function SparringMatchRoute() {
       } catch {
         return
       }
-      const parsed = StreamEventSchema.safeParse(decoded)
+      const parsed = StreamFactSchema.safeParse(decoded)
       if (!parsed.success) return
 
       if (parsed.data.seq > latestSeqRef.current) {

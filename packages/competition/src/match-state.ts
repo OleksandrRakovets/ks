@@ -3,7 +3,7 @@ import {
   MatchConfigSchema,
   SeatSchema,
   type BySeatNumber,
-  type ClientEvent,
+  type ClientFact,
   type MatchSnapshot,
   type Seat,
 } from '@ks/core'
@@ -64,13 +64,13 @@ function getCurrentFrame(state: MatchState): MatchState['frames'][number] {
   return frame
 }
 
-export function applyMatchEvent(prev: MatchState, event: ClientEvent): MatchState {
+export function applyMatchFact(prev: MatchState, fact: ClientFact): MatchState {
   const state = prev.status === 'empty' ? emptyMatchState() : prev
 
-  switch (event.type) {
+  switch (fact.type) {
     case 'match.created': {
       return {
-        config: event.payload,
+        config: fact.payload,
         status: 'active',
         frames: [],
         framesWonBySeat: { A: 0, B: 0 },
@@ -80,10 +80,10 @@ export function applyMatchEvent(prev: MatchState, event: ClientEvent): MatchStat
     case 'frame.started': {
       assert(state.status === 'active', 'Cannot start frame when not active')
       const config = requireConfig(state)
-      assert(event.payload.gameKey === config.gameKey, 'Started frame game key does not match match config')
+      assert(fact.payload.gameKey === config.gameKey, 'Started frame game key does not match match config')
       assert(
-        event.payload.targetPointsBySeat.A === config.targets.frameTargetPointsBySeat.A &&
-          event.payload.targetPointsBySeat.B === config.targets.frameTargetPointsBySeat.B,
+        fact.payload.targetPointsBySeat.A === config.targets.frameTargetPointsBySeat.A &&
+          fact.payload.targetPointsBySeat.B === config.targets.frameTargetPointsBySeat.B,
         'Started frame target does not match match config',
       )
 
@@ -91,7 +91,7 @@ export function applyMatchEvent(prev: MatchState, event: ClientEvent): MatchStat
       const isMatchTargetReached = state.framesWonBySeat.A >= matchTargetFrames || state.framesWonBySeat.B >= matchTargetFrames
       assert(!isMatchTargetReached, 'Cannot start new frame after match target is reached')
 
-      const { frameIndex } = event.payload
+      const { frameIndex } = fact.payload
       const last = state.frames[state.frames.length - 1]
       assert(!last || last.winnerSeat, 'Cannot start a new frame while current is unawarded')
       assert(frameIndex === state.currentFrameIndex + 1, 'Frame index must be sequential')
@@ -106,21 +106,21 @@ export function applyMatchEvent(prev: MatchState, event: ClientEvent): MatchStat
     case 'game.command': {
       assert(state.status === 'active', 'Cannot apply game command when not active')
       const config = requireConfig(state)
-      assert(event.payload.gameKey === config.gameKey, 'Game command key does not match match config')
+      assert(fact.payload.gameKey === config.gameKey, 'Game command key does not match match config')
       const frame = getCurrentFrame(state)
-      assert(event.payload.frameIndex === frame.frameIndex, 'Game command frame index does not match current frame')
+      assert(fact.payload.frameIndex === frame.frameIndex, 'Game command frame index does not match current frame')
       return state
     }
     case 'frame.completed': {
       assert(state.status === 'active', 'Cannot complete frame when not active')
       const config = requireConfig(state)
-      assert(event.payload.gameKey === config.gameKey, 'Completed frame game key does not match match config')
+      assert(fact.payload.gameKey === config.gameKey, 'Completed frame game key does not match match config')
       const frame = getCurrentFrame(state)
-      assert(event.payload.frameIndex === frame.frameIndex, 'Completed frame index does not match current frame')
+      assert(fact.payload.frameIndex === frame.frameIndex, 'Completed frame index does not match current frame')
 
-      frame.pointsBySeat = event.payload.outcome.score
-      frame.winnerSeat = event.payload.outcome.winnerSeat
-      state.framesWonBySeat[event.payload.outcome.winnerSeat] += 1
+      frame.pointsBySeat = fact.payload.outcome.score
+      frame.winnerSeat = fact.payload.outcome.winnerSeat
+      state.framesWonBySeat[fact.payload.outcome.winnerSeat] += 1
       return state
     }
     case 'frame.reopened': {
@@ -130,7 +130,7 @@ export function applyMatchEvent(prev: MatchState, event: ClientEvent): MatchStat
       assert(state.status === 'active', 'Cannot end match when not active')
       const config = requireConfig(state)
       assert(
-        state.framesWonBySeat[event.payload.winnerSeat] >= config.targets.matchTargetFrames,
+        state.framesWonBySeat[fact.payload.winnerSeat] >= config.targets.matchTargetFrames,
         'Cannot end match before target',
       )
       state.status = 'finished'
@@ -153,19 +153,19 @@ export function snapshotFromMatchState(state: MatchState, latestSeq: number): Ma
   }
 }
 
-export function deriveMatchState(events: ClientEvent[], baseState: MatchState = emptyMatchState()): MatchState {
+export function deriveMatchState(facts: ClientFact[], baseState: MatchState = emptyMatchState()): MatchState {
   let state = baseState
-  for (const event of events) {
-    state = applyMatchEvent(state, event)
+  for (const fact of facts) {
+    state = applyMatchFact(state, fact)
   }
   return state
 }
 
 export function deriveMatchSnapshot(
-  events: ClientEvent[],
+  facts: ClientFact[],
   latestSeq: number,
   baseState: MatchState = emptyMatchState(),
 ): MatchSnapshot {
-  const state = deriveMatchState(events, baseState)
+  const state = deriveMatchState(facts, baseState)
   return snapshotFromMatchState(state, latestSeq)
 }

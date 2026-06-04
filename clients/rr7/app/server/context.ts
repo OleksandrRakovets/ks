@@ -17,9 +17,9 @@ export type AppEnv = {
       ) => Promise<{ ok: true; matchId: string; controlSecret: string } | { ok: false; error: string; status: number }>
       init: (args: unknown) => Promise<{ ok: true; alreadyInitialized?: true } | { ok: false; error: string; status: number }>
       snapshot: (args: unknown) => Promise<unknown>
-      events: (
+      facts: (
         args: unknown,
-      ) => Promise<{ ok: true; accepted: { seq: number; eventId: string }[] } | { ok: false; error: string; status: number }>
+      ) => Promise<{ ok: true; accepted: { seq: number; factId: string }[] } | { ok: false; error: string; status: number }>
       stream: (args: unknown) => Promise<Response>
     }
   }

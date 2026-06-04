@@ -58,7 +58,7 @@ KS is a billiards scorekeeping app for a local club. Core use case: two-player m
 - Local worker env vars come from `clients/rr7/.dev.vars` (start from `.dev.vars.example`).
 - D1 schema is still early-stage and currently a single migration: `clients/rr7/migrations/0001_init.sql`.
 - Local DB reset: delete `clients/rr7/.wrangler/state/v3/d1`, then run `bun run db:migrate:local`.
-- Durable Object coordinates ordering + SSE fan-out; D1 events remain the persistent source of truth.
+- Durable Object coordinates ordering + SSE fan-out; D1 facts remain the persistent source of truth.
 
 ## Generated assets
 

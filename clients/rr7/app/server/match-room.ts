@@ -2,9 +2,9 @@ import { normalizeMatchId } from '@ks/competition'
 import {
   ControlCommandSectionsSchema,
   MatchSnapshotSchema,
-  StoredEventSchema,
+  StoredFactSchema,
   type ControlCommand,
-  type StoredEvent,
+  type StoredFact,
 } from '@ks/core'
 import { GameControlProjectionSchema, isRegisteredGameKey, registry } from '@ks/gameplay/definitions'
 import type { SupportedLocale } from '@ks/i18n'
@@ -126,15 +126,15 @@ export async function listMatches(env: AppEnv, locale: SupportedLocale): Promise
   )
 }
 
-export async function listStoredEvents(env: AppEnv, rawMatchId: string): Promise<StoredEvent[]> {
+export async function listStoredFacts(env: AppEnv, rawMatchId: string): Promise<StoredFact[]> {
   const matchId = normalizeMatchId(rawMatchId)
   const res = await env.DB.prepare(
-    'SELECT seq, event_id, type, payload_json, client_id, client_seq, at, received_at FROM events WHERE match_id = ? ORDER BY seq ASC',
+    'SELECT seq, fact_id, type, payload_json, client_id, client_seq, at, received_at FROM facts WHERE match_id = ? ORDER BY seq ASC',
   )
     .bind(matchId)
     .all<{
       seq: number
-      event_id: string
+      fact_id: string
       type: string
       payload_json: string
       client_id: string
@@ -148,9 +148,9 @@ export async function listStoredEvents(env: AppEnv, rawMatchId: string): Promise
       const payload = tryParseJson(row.payload_json)
       if (payload === null) return null
 
-      const parsed = StoredEventSchema.safeParse({
+      const parsed = StoredFactSchema.safeParse({
         seq: row.seq,
-        eventId: row.event_id,
+        factId: row.fact_id,
         matchId,
         clientId: row.client_id,
         clientSeq: row.client_seq,
@@ -165,7 +165,7 @@ export async function listStoredEvents(env: AppEnv, rawMatchId: string): Promise
     .flatMap((entry) => (entry ? [entry] : []))
 }
 
-export async function postMatchEvents(
+export async function postMatchFacts(
   env: AppEnv,
   rawMatchId: string,
   controlSecret: string,
@@ -173,11 +173,11 @@ export async function postMatchEvents(
 ): Promise<Response> {
   const matchId = normalizeMatchId(rawMatchId)
   const stub = env.MATCH_ROOM.getByName(matchId)
-  const result = await stub.events({ matchId, controlSecret, commands })
+  const result = await stub.facts({ matchId, controlSecret, commands })
   return Response.json(result, { status: result.ok ? 200 : result.status })
 }
 
-export async function streamMatchEvents(env: AppEnv, rawMatchId: string, since?: string | null): Promise<Response> {
+export async function streamMatchFacts(env: AppEnv, rawMatchId: string, since?: string | null): Promise<Response> {
   const matchId = normalizeMatchId(rawMatchId)
   const stub = env.MATCH_ROOM.getByName(matchId)
   const parsedSince = since && since.length > 0 ? Number(since) : undefined
