@@ -35,7 +35,7 @@ function SheetContent({ className, children, ...props }: React.ComponentProps<ty
 }
 
 function SheetHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn('flex h-11 items-center justify-between border-b border-divider pl-4', className)} {...props} />
+  return <div className={cn('flex h-11 items-center justify-between pl-4', className)} {...props} />
 }
 
 function SheetTitle({ className, ...props }: React.ComponentProps<typeof Dialog.Title>) {

@@ -20,6 +20,7 @@
   --a-red-dim: oklch(60% 0.2 25 / 0.16);
 
   --f-score: 80px;
+  --ks-wordmark-badge-shadow: 0 0 0 rgb(0 0 0 / 0);
   --ball-shadow: 0 3px 10px rgba(0, 0, 0, 0.55), 0 1px 3px rgba(0, 0, 0, 0.4);
   --ball-shadow-selected: 0 0 0 3px var(--a-amber-dim), 0 3px 10px rgba(0, 0, 0, 0.6);
 }
@@ -43,6 +44,7 @@
   --a-red: oklch(44% 0.21 25);
   --a-red-dim: oklch(44% 0.21 25 / 0.1);
 
+  --ks-wordmark-badge-shadow: 0 10px 14px rgb(0 0 0 / 0.16);
   --ball-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
   --ball-shadow-selected: 0 0 0 3px var(--a-amber-dim), 0 1px 4px rgba(0, 0, 0, 0.2);
 }
@@ -67,6 +69,7 @@
     --a-red: oklch(44% 0.21 25);
     --a-red-dim: oklch(44% 0.21 25 / 0.1);
 
+    --ks-wordmark-badge-shadow: 0 10px 14px rgb(0 0 0 / 0.16);
     --ball-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
     --ball-shadow-selected: 0 0 0 3px var(--a-amber-dim), 0 1px 4px rgba(0, 0, 0, 0.2);
   }
