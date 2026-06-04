@@ -1,12 +1,14 @@
 import { expect, test } from 'bun:test'
 
+import * as v from 'valibot'
+
 import { applyGameCommand, createInitialGameState } from '../../gameplay'
 import { StrilaFrameStateSchema, StrilaMeta, type StrilaFrameState } from '../definitions'
 import { deriveStrilaControlView } from '../projections/control'
 import { deriveStrilaScoreboardView } from '../projections/scoreboard'
 
 function parseState(state: unknown): StrilaFrameState {
-  return StrilaFrameStateSchema.parse(state)
+  return v.parse(StrilaFrameStateSchema, state)
 }
 
 test('simulation: outside: basic frame 1', () => {

@@ -1,4 +1,5 @@
 import invariant from 'tiny-invariant'
+import * as v from 'valibot'
 
 import { StrilaProtocolEntrySchema, type StrilaCommand, type StrilaFrameState, type StrilaProtocolEntry } from './definitions'
 
@@ -30,7 +31,7 @@ function playerEntry(previous: StrilaFrameState, command: StrilaCommand, next: S
     }
   })()
 
-  return StrilaProtocolEntrySchema.parse({
+  return v.parse(StrilaProtocolEntrySchema, {
     source: 'player',
     entryType: 'player-command',
     seat: command.seat,
@@ -68,7 +69,7 @@ export function projectStrilaProtocolEntries(args: {
 
   if (previous.phase !== 'respotted-black.opening' && next.phase === 'respotted-black.opening') {
     entries.push(
-      StrilaProtocolEntrySchema.parse({
+      v.parse(StrilaProtocolEntrySchema, {
         source: 'system',
         entryType: 'system-note',
         body: { systemType: 'respotted-black-declared' },
@@ -78,7 +79,7 @@ export function projectStrilaProtocolEntries(args: {
 
   if (isThirdConsecutiveCueBallPot(previous, command)) {
     entries.push(
-      StrilaProtocolEntrySchema.parse({
+      v.parse(StrilaProtocolEntrySchema, {
         source: 'system',
         entryType: 'system-note',
         seat: command.seat,
@@ -89,7 +90,7 @@ export function projectStrilaProtocolEntries(args: {
 
   if (isMixedBallInHandPot(previous, command)) {
     entries.push(
-      StrilaProtocolEntrySchema.parse({
+      v.parse(StrilaProtocolEntrySchema, {
         source: 'system',
         entryType: 'system-note',
         seat: command.seat,
@@ -100,7 +101,7 @@ export function projectStrilaProtocolEntries(args: {
 
   if (isRespottedBlackOpeningIllegalPot(previous, command)) {
     entries.push(
-      StrilaProtocolEntrySchema.parse({
+      v.parse(StrilaProtocolEntrySchema, {
         source: 'system',
         entryType: 'system-note',
         seat: command.seat,
@@ -113,7 +114,7 @@ export function projectStrilaProtocolEntries(args: {
     invariant(next.winner !== null, 'Winner is required when protocol records winner determination')
     invariant(next.winReason !== null, 'Win reason is required when protocol records winner determination')
     entries.push(
-      StrilaProtocolEntrySchema.parse({
+      v.parse(StrilaProtocolEntrySchema, {
         source: 'system',
         entryType: 'system-note',
         seat: next.winner,

@@ -1,5 +1,6 @@
 import { opponentOf, type BySeatNumber, type Seat } from '@ks/core'
 import invariant from 'tiny-invariant'
+import * as v from 'valibot'
 import { assign, initialTransition, setup, transition, type SnapshotFrom } from 'xstate'
 
 import {
@@ -408,14 +409,14 @@ export function createInitialSnapshot(targetPointsBySeat: BySeatNumber): StrilaS
 
 export function getPhase(snapshot: StrilaSparringSnapshot): StrilaPhase {
   const value = snapshot.value
-  if (typeof value === 'string') return StrilaPhaseSchema.parse(value)
+  if (typeof value === 'string') return v.parse(StrilaPhaseSchema, value)
 
   if ('foul-committed' in value) {
-    return StrilaPhaseSchema.parse(`foul-committed.${value['foul-committed']}`)
+    return v.parse(StrilaPhaseSchema, `foul-committed.${value['foul-committed']}`)
   }
 
   if ('respotted-black' in value) {
-    return StrilaPhaseSchema.parse(`respotted-black.${value['respotted-black']}`)
+    return v.parse(StrilaPhaseSchema, `respotted-black.${value['respotted-black']}`)
   }
 
   throw new Error(`Unknown Strila phase: ${JSON.stringify(value)}`)

@@ -1,5 +1,7 @@
 import {
   BySeatNumberSchema,
+  IntegerSchema,
+  NonEmptyStringSchema,
   ProtocolEntrySchema,
   SeatSchema,
   emptyControlCommandSections,
@@ -8,7 +10,7 @@ import {
   type ProtocolEntry,
 } from '@ks/core'
 import invariant from 'tiny-invariant'
-import { z } from 'zod'
+import * as v from 'valibot'
 
 import {
   type GameplayRuntime,
@@ -20,14 +22,14 @@ import {
 } from '../constants'
 import { PyramidControlViewSchema } from './definitions'
 
-const PyramidFrameStateSchema = z.object({
+const PyramidFrameStateSchema = v.object({
   pointsBySeat: BySeatNumberSchema,
   targetPointsBySeat: BySeatNumberSchema,
-  phase: z.enum(['not-started', 'open-play', 'frame-over']),
-  winnerSeat: SeatSchema.optional(),
+  phase: v.picklist(['not-started', 'open-play', 'frame-over']),
+  winnerSeat: v.optional(SeatSchema),
 })
 
-type PyramidFrameState = z.infer<typeof PyramidFrameStateSchema>
+type PyramidFrameState = v.InferOutput<typeof PyramidFrameStateSchema>
 
 function pyramidOutcome(state: PyramidFrameState): FrameOutcome | undefined {
   if (state.phase !== 'frame-over' || !state.winnerSeat) return undefined
@@ -38,31 +40,32 @@ function pyramidOutcome(state: PyramidFrameState): FrameOutcome | undefined {
   }
 }
 
-const ShotRecordedCommandSchema = z.object({
+const ShotRecordedCommandSchema = v.object({
   seat: SeatSchema,
-  points: z.number().int(),
+  points: IntegerSchema,
 })
 
-const BreakOffCommandSchema = z.object({
-  seat: SeatSchema,
-})
-
-const FoulCommittedCommandSchema = z.object({
+const BreakOffCommandSchema = v.object({
   seat: SeatSchema,
 })
 
-const AwardFrameCommandSchema = z.object({
+const FoulCommittedCommandSchema = v.object({
   seat: SeatSchema,
 })
 
-const PyramidProtocolEntryBodySchema = z.discriminatedUnion('commandType', [
-  z.object({ commandType: z.literal('frame.commence') }),
-  z.object({ commandType: z.literal('pot.record'), points: z.number().int() }),
-  z.object({ commandType: z.literal('foul.commit'), penalty: z.enum(['opponent-plus-one', 'offender-minus-one']) }),
-  z.object({ commandType: z.literal('frame.award') }),
+const AwardFrameCommandSchema = v.object({
+  seat: SeatSchema,
+})
+
+const PyramidProtocolEntryBodySchema = v.variant('commandType', [
+  v.object({ commandType: v.literal('frame.commence') }),
+  v.object({ commandType: v.literal('pot.record'), points: IntegerSchema }),
+  v.object({ commandType: v.literal('foul.commit'), penalty: v.picklist(['opponent-plus-one', 'offender-minus-one']) }),
+  v.object({ commandType: v.literal('frame.award') }),
 ])
 
-const PyramidProtocolEntrySchema = ProtocolEntrySchema.extend({
+const PyramidProtocolEntrySchema = v.object({
+  ...ProtocolEntrySchema.entries,
   body: PyramidProtocolEntryBodySchema,
 })
 
@@ -72,11 +75,11 @@ function scoreChanged(previous: PyramidFrameState, next: PyramidFrameState): boo
 
 function protocolEntry(args: {
   seat: 'A' | 'B'
-  body: z.infer<typeof PyramidProtocolEntryBodySchema>
+  body: v.InferOutput<typeof PyramidProtocolEntryBodySchema>
   previous: PyramidFrameState
   next: PyramidFrameState
 }): ProtocolEntry {
-  return PyramidProtocolEntrySchema.parse({
+  return v.parse(PyramidProtocolEntrySchema, {
     source: 'player',
     entryType: 'player-command',
     seat: args.seat,
@@ -92,10 +95,11 @@ function pyramidDetails(state: PyramidFrameState) {
   }
 }
 
-const PyramidControlCommandSchema = GameCommandPresetSchema.extend({
-  label: z.string().min(1),
+const PyramidControlCommandSchema = v.object({
+  ...GameCommandPresetSchema.entries,
+  label: NonEmptyStringSchema,
 })
-type PyramidControlCommand = z.infer<typeof PyramidControlCommandSchema>
+type PyramidControlCommand = v.InferOutput<typeof PyramidControlCommandSchema>
 
 function command(
   commandType: string,
@@ -107,7 +111,7 @@ function command(
   return { source: 'game', commandType, command: payload, seat, label, ...extras }
 }
 
-function deriveCommandSections(commands: z.infer<typeof PyramidControlCommandSchema>[]) {
+function deriveCommandSections(commands: v.InferOutput<typeof PyramidControlCommandSchema>[]) {
   const sections = emptyControlCommandSections()
 
   for (const entry of commands) {
@@ -148,7 +152,7 @@ export class PyramidGameplayRuntime implements GameplayRuntime {
   }
 
   parseState(state: unknown): PyramidFrameState {
-    return PyramidFrameStateSchema.parse(state)
+    return v.parse(PyramidFrameStateSchema, state)
   }
 
   applyCommand(input: { state: unknown; commandType: string; command: unknown }) {
@@ -156,7 +160,7 @@ export class PyramidGameplayRuntime implements GameplayRuntime {
     invariant(state.phase !== 'frame-over', 'Cannot apply pyramid command after frame-over')
 
     if (input.commandType === 'frame.commence') {
-      const command = BreakOffCommandSchema.parse(input.command)
+      const command = v.parse(BreakOffCommandSchema, input.command)
       invariant(state.phase === 'not-started', 'Pyramid frame.commence is only allowed before open play starts')
       const nextState = {
         ...state,
@@ -173,7 +177,7 @@ export class PyramidGameplayRuntime implements GameplayRuntime {
 
     if (input.commandType === 'pot.record') {
       invariant(state.phase === 'open-play', 'Cannot record pyramid shot before frame.commence')
-      const command = ShotRecordedCommandSchema.parse(input.command)
+      const command = v.parse(ShotRecordedCommandSchema, input.command)
       const current = state.pointsBySeat[command.seat]
       const next = current + command.points
 
@@ -206,7 +210,7 @@ export class PyramidGameplayRuntime implements GameplayRuntime {
 
     if (input.commandType === 'foul.commit') {
       invariant(state.phase === 'open-play', 'Cannot record pyramid foul before frame.commence')
-      const command = FoulCommittedCommandSchema.parse(input.command)
+      const command = v.parse(FoulCommittedCommandSchema, input.command)
 
       if (this.config.foulPenalty === 'opponent-plus-one') {
         const targetSeat = opponentOf(command.seat)
@@ -269,7 +273,7 @@ export class PyramidGameplayRuntime implements GameplayRuntime {
     }
 
     invariant(input.commandType === 'frame.award', `Unsupported commandType: ${input.commandType}`)
-    const command = AwardFrameCommandSchema.parse(input.command)
+    const command = v.parse(AwardFrameCommandSchema, input.command)
     invariant(
       state.pointsBySeat[command.seat] >= state.targetPointsBySeat[command.seat],
       `Cannot award pyramid frame to ${command.seat} before target score`,
@@ -301,7 +305,7 @@ export class PyramidGameplayRuntime implements GameplayRuntime {
             command('frame.commence', { seat: 'A' }, 'Break-off (A)', { prominence: 'primary' }),
             command('frame.commence', { seat: 'B' }, 'Break-off (B)', { prominence: 'primary' }),
           ]
-          return PyramidControlViewSchema.parse({
+          return v.parse(PyramidControlViewSchema, {
             gameKey: this.config.gameKey,
             projection: 'control',
             score: state.pointsBySeat,
@@ -340,7 +344,7 @@ export class PyramidGameplayRuntime implements GameplayRuntime {
               : []),
           ]
 
-          return PyramidControlViewSchema.parse({
+          return v.parse(PyramidControlViewSchema, {
             gameKey: this.config.gameKey,
             projection: 'control',
             score: state.pointsBySeat,
@@ -354,7 +358,7 @@ export class PyramidGameplayRuntime implements GameplayRuntime {
           })
         }
 
-        return PyramidControlViewSchema.parse({
+        return v.parse(PyramidControlViewSchema, {
           gameKey: this.config.gameKey,
           projection: 'control',
           score: state.pointsBySeat,
@@ -368,14 +372,14 @@ export class PyramidGameplayRuntime implements GameplayRuntime {
         })
       }
       case 'scoreboard':
-        return GameScoreboardProjectionSchema.parse({
+        return v.parse(GameScoreboardProjectionSchema, {
           gameKey: this.config.gameKey,
           projection: 'scoreboard',
           score: state.pointsBySeat,
           details: pyramidDetails(state),
         })
       case 'summary':
-        return GameSummaryProjectionSchema.parse({
+        return v.parse(GameSummaryProjectionSchema, {
           gameKey: this.config.gameKey,
           projection: 'summary',
           score: state.pointsBySeat,

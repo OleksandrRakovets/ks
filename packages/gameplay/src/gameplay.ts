@@ -1,12 +1,13 @@
 import { GameKeySchema } from '@ks/core'
 import invariant from 'tiny-invariant'
+import * as v from 'valibot'
 
 import { GameProjectionKeySchema, type GameCommandResult, type GameCreateStateArgs, type GameProjectionKey } from './constants'
 import { isRegisteredGameKey, type RegisteredGameKey } from './registry'
 import { getGameplayRuntime } from './runtime-factory'
 
 export function parseGameKey(value: unknown): RegisteredGameKey {
-  const gameKey = GameKeySchema.parse(value)
+  const gameKey = v.parse(GameKeySchema, value)
   invariant(isRegisteredGameKey(gameKey), `Unsupported game key: ${gameKey}`)
   return gameKey
 }
@@ -34,6 +35,6 @@ export function deriveGameProjection(args: {
 }): unknown {
   return getGameplayRuntime(args.gameKey).deriveProjection({
     state: args.state,
-    projection: GameProjectionKeySchema.parse(args.projection),
+    projection: v.parse(GameProjectionKeySchema, args.projection),
   })
 }
