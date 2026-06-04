@@ -1,42 +1,44 @@
-import { z } from 'zod'
+import * as v from 'valibot'
 
 import { SeatSchema } from './match'
+import { NonEmptyStringSchema, UnknownObjectSchema } from './valicombos'
 
-const ControlCommandSourceSchema = z.enum(['match', 'game'])
+const ControlCommandSourceSchema = v.picklist(['match', 'game'])
 
-const ControlCommandBaseSchema = z.object({
+const ControlCommandBaseSchema = v.object({
   source: ControlCommandSourceSchema,
-  commandType: z.string().min(1),
-  command: z.record(z.string(), z.unknown()),
+  commandType: NonEmptyStringSchema,
+  command: UnknownObjectSchema,
 })
 
 export const ControlCommandSchema = ControlCommandBaseSchema
-export type ControlCommand = z.infer<typeof ControlCommandSchema>
+export type ControlCommand = v.InferOutput<typeof ControlCommandSchema>
 
-const ControlCommandProminenceSchema = z.enum(['primary', 'secondary', 'tertiary'])
+const ControlCommandProminenceSchema = v.picklist(['primary', 'secondary', 'tertiary'])
 
-export const ControlCommandPresetSchema = ControlCommandBaseSchema.extend({
-  seat: SeatSchema.optional(),
-  label: z.string().min(1).optional(),
-  effectSummary: z.string().min(1).optional(),
-  warning: z.string().min(1).optional(),
-  helpText: z.string().min(1).optional(),
+export const ControlCommandPresetSchema = v.object({
+  ...ControlCommandBaseSchema.entries,
+  seat: v.optional(SeatSchema),
+  label: v.optional(NonEmptyStringSchema),
+  effectSummary: v.optional(NonEmptyStringSchema),
+  warning: v.optional(NonEmptyStringSchema),
+  helpText: v.optional(NonEmptyStringSchema),
   prominence: ControlCommandProminenceSchema,
 })
-export type ControlCommandPreset = z.infer<typeof ControlCommandPresetSchema>
+export type ControlCommandPreset = v.InferOutput<typeof ControlCommandPresetSchema>
 
-const SeatControlCommandBucketSchema = z.object({
-  A: z.array(ControlCommandPresetSchema),
-  B: z.array(ControlCommandPresetSchema),
+const SeatControlCommandBucketSchema = v.object({
+  A: v.array(ControlCommandPresetSchema),
+  B: v.array(ControlCommandPresetSchema),
 })
 
-export const ControlCommandSectionsSchema = z.object({
-  neutral: z.array(ControlCommandPresetSchema),
+export const ControlCommandSectionsSchema = v.object({
+  neutral: v.array(ControlCommandPresetSchema),
   primary: SeatControlCommandBucketSchema,
   secondary: SeatControlCommandBucketSchema,
   tertiary: SeatControlCommandBucketSchema,
 })
-export type ControlCommandSections = z.infer<typeof ControlCommandSectionsSchema>
+export type ControlCommandSections = v.InferOutput<typeof ControlCommandSectionsSchema>
 
 export function emptyControlCommandSections(): ControlCommandSections {
   return {

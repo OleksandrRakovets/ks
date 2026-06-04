@@ -1,39 +1,40 @@
-import { z } from 'zod'
+import * as v from 'valibot'
 
 import { StoredFactSchema } from './facts'
 import { FactIdSchema } from './ids'
 import { HydratedMatchParticipantsSchema, MatchSnapshotSchema } from './match'
+import { NonEmptyStringSchema, NonNegativeIntegerSchema, PositiveIntegerSchema } from './valicombos'
 
-export const ErrorResponseSchema = z.object({
-  ok: z.literal(false),
-  error: z.string().min(1),
+export const ErrorResponseSchema = v.object({
+  ok: v.literal(false),
+  error: NonEmptyStringSchema,
 })
 
-export const SnapshotResponseSchema = z.union([
-  z.object({
-    ok: z.literal(true),
+export const SnapshotResponseSchema = v.union([
+  v.object({
+    ok: v.literal(true),
     snapshot: MatchSnapshotSchema,
     participants: HydratedMatchParticipantsSchema,
-    controlProjection: z.unknown().optional(),
+    controlProjection: v.optional(v.unknown()),
   }),
   ErrorResponseSchema,
 ])
 
-export const AcceptedFactSchema = z.object({
-  seq: z.number().int().positive(),
+export const AcceptedFactSchema = v.object({
+  seq: PositiveIntegerSchema,
   factId: FactIdSchema,
 })
 
-export const PostFactsResponseSchema = z.union([
-  z.object({
-    ok: z.literal(true),
-    accepted: z.array(AcceptedFactSchema),
+export const PostFactsResponseSchema = v.union([
+  v.object({
+    ok: v.literal(true),
+    accepted: v.array(AcceptedFactSchema),
   }),
   ErrorResponseSchema,
 ])
 
-export const StreamReadySchema = z.object({
-  latestSeq: z.number().int().nonnegative(),
+export const StreamReadySchema = v.object({
+  latestSeq: NonNegativeIntegerSchema,
 })
 
 export const StreamFactSchema = StoredFactSchema

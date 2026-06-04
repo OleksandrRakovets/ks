@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import * as v from 'valibot'
 
 import type { Brand } from './brand'
 
@@ -54,47 +54,50 @@ function toBrand<B extends string>(value: string): Brand<string, B> {
 }
 
 function ulidBrandedSchema<B extends string>() {
-  return z
-    .string()
-    .regex(ULID_RE)
-    .transform((value) => toBrand<B>(value))
+  return v.pipe(
+    v.string(),
+    v.regex(ULID_RE),
+    v.transform((value) => toBrand<B>(value)),
+  )
 }
 
 function minLengthBrandedSchema<B extends string>(minLength: number) {
-  return z
-    .string()
-    .min(minLength)
-    .transform((value) => toBrand<B>(value))
+  return v.pipe(
+    v.string(),
+    v.minLength(minLength),
+    v.transform((value) => toBrand<B>(value)),
+  )
 }
 
 export const GuestPlayerIdSchema = ulidBrandedSchema<'GuestPlayerId'>()
 export const VerifiedPlayerIdSchema = ulidBrandedSchema<'VerifiedPlayerId'>()
-export const PlayerRefSchema = z
-  .string()
-  .regex(/^(gp|vp)_[0-9A-HJKMNP-TV-Z]{26}$/)
-  .transform((value) => toBrand<'PlayerRef'>(value))
+export const PlayerRefSchema = v.pipe(
+  v.string(),
+  v.regex(/^(gp|vp)_[0-9A-HJKMNP-TV-Z]{26}$/),
+  v.transform((value) => toBrand<'PlayerRef'>(value)),
+)
 export const MatchIdSchema = ulidBrandedSchema<'MatchId'>()
 export const FactIdSchema = ulidBrandedSchema<'FactId'>()
 export const ClientIdSchema = minLengthBrandedSchema<'ClientId'>(8)
 
 export function newGuestPlayerId(): GuestPlayerId {
-  return GuestPlayerIdSchema.parse(ulidWeb())
+  return v.parse(GuestPlayerIdSchema, ulidWeb())
 }
 
 export function newVerifiedPlayerId(): VerifiedPlayerId {
-  return VerifiedPlayerIdSchema.parse(ulidWeb())
+  return v.parse(VerifiedPlayerIdSchema, ulidWeb())
 }
 
 export function newMatchId(): MatchId {
-  return MatchIdSchema.parse(ulidWeb())
+  return v.parse(MatchIdSchema, ulidWeb())
 }
 
 export function newFactId(): FactId {
-  return FactIdSchema.parse(ulidWeb())
+  return v.parse(FactIdSchema, ulidWeb())
 }
 
 export function newClientId(): ClientId {
-  return ClientIdSchema.parse(ulidWeb())
+  return v.parse(ClientIdSchema, ulidWeb())
 }
 
 export function formatPrefixedId(prefix: 'm' | 'e' | 'c', id: string): string {
@@ -102,7 +105,7 @@ export function formatPrefixedId(prefix: 'm' | 'e' | 'c', id: string): string {
 }
 
 export function formatPlayerRef(kind: 'gp' | 'vp', id: string): PlayerRef {
-  return PlayerRefSchema.parse(`${kind}_${id}`)
+  return v.parse(PlayerRefSchema, `${kind}_${id}`)
 }
 
 export function stripOptionalPrefix(value: string): string {
