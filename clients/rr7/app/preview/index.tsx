@@ -12,7 +12,7 @@ const previewPages = [
 export default function PreviewIndexRoute() {
   return (
     <main className="min-h-dvh flex-1 bg-background px-4 py-6 text-foreground">
-      <div className="mx-auto w-full max-w-4xl space-y-4">
+      <div className="mx-auto w-full space-y-4">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">Top-secret previews</h1>
           <p className="mt-1 text-sm text-muted-foreground">

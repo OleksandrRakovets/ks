@@ -10,7 +10,7 @@ export default function LayoutBase() {
   const showHeader = location.pathname !== '/'
   return (
     <div className="flex min-h-dvh w-full flex-col">
-      <div className="mx-auto flex w-full flex-1 flex-col lg:w-7xl">
+      <div className="flex w-full flex-1 flex-col lg:mx-auto lg:w-4xl">
         {showHeader && <AppHeader />}
         <Outlet />
       </div>

@@ -287,7 +287,7 @@ export default function SparringMatchRoute() {
   }
 
   return (
-    <main className="mx-auto flex flex-1 flex-col bg-surface lg:w-4xl">
+    <main className="flex flex-1 flex-col bg-surface">
       <ScoreBox
         nameA={participants.A.displayName}
         nameB={participants.B.displayName}
@@ -313,7 +313,7 @@ export default function SparringMatchRoute() {
         ) : null}
       </section>
 
-      <nav className="sticky bottom-0 z-10 mt-auto flex border-t border-border bg-background px-4">
+      <nav className="sticky bottom-0 z-10 mt-auto flex border-t border-border bg-background">
         <span className="-mt-px flex-1 border-t-2 border-primary py-2.5 text-center text-sm font-medium text-foreground">
           {t(keys.match.sparring.tabControl)}
         </span>

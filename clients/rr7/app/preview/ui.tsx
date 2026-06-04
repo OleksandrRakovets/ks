@@ -38,8 +38,8 @@ export default function PreviewUiRoute() {
   }
 
   return (
-    <div className="min-h-dvh bg-background px-4 pb-12 text-foreground">
-      <div className="mx-auto w-full max-w-3xl">
+    <div className="min-h-dvh bg-background pb-12 text-foreground">
+      <div className="mx-auto w-full">
         <div className="flex justify-end gap-2 py-4">
           <Button
             variant="outline"
