@@ -47,10 +47,7 @@ export function BurgerMenu() {
           <SheetTitle className="sr-only">{t(keys.appTitle)}</SheetTitle>
           <BrandWordmark className="h-12" title={t(keys.appTitle)} />
           <SheetClose asChild>
-            <button
-              aria-label={t(keys.nav.close)}
-              className="mr-1 flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-overlay"
-            >
+            <button aria-label={t(keys.nav.close)} className="flex h-full w-14 justify-center px-4 pt-4 text-text-ghost">
               <CloseIcon />
             </button>
           </SheetClose>
@@ -70,9 +67,9 @@ export function BurgerMenu() {
           </SheetClose>
         </nav>
 
-        <div className="px-4 py-4">
+        <div className="px-4 pt-4">
           <p className="mb-3 text-xs font-semibold tracking-widest text-text-ghost uppercase">{t(keys.theme.section)}</p>
-          <div className="flex gap-2">
+          <div className="flex gap-3">
             {THEME_OPTIONS.map(({ value, labelKey }) => (
               <Button
                 key={value}
@@ -84,11 +81,13 @@ export function BurgerMenu() {
               </Button>
             ))}
           </div>
+        </div>
 
+        <div className="px-4 pt-4">
           <p className="mt-5 mb-3 text-xs font-semibold tracking-widest text-text-ghost uppercase">
             {t(keys.language.section)}
           </p>
-          <div className="flex gap-2">
+          <div className="flex gap-3">
             {LOCALE_OPTIONS.map(({ value, labelKey }) => (
               <Button
                 key={value}
