@@ -4,8 +4,6 @@ import * as v from 'valibot'
 import type { Env } from '../env'
 import { getMatchLatestSeq } from './matches'
 
-const StoredFactPayloadJsonSchema = v.pipe(v.string(), v.parseJson())
-
 export async function factExists(env: Env, matchId: string, factId: string): Promise<boolean> {
   const row = await env.DB.prepare('SELECT 1 AS one FROM facts WHERE match_id = ? AND fact_id = ?')
     .bind(matchId, factId)
@@ -35,7 +33,7 @@ export async function listFactsAfter(env: Env, matchId: string, sinceSeq: number
 
   return (res.results ?? [])
     .map((r) => {
-      const payload = v.safeParse(StoredFactPayloadJsonSchema, r.payload_json)
+      const payload = v.safeParse(v.pipe(v.string(), v.parseJson()), r.payload_json)
       if (!payload.success) return null
 
       const parsed = v.safeParse(StoredFactSchema, {

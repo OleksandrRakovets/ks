@@ -14,4 +14,4 @@ export function resolveControlRenderer(gameKey: string): ControlRenderer {
   throw new Error(`Unsupported control renderer for game key: ${gameKey}`)
 }
 
-export type { GameControlProjection, HydratedMatchParticipants } from './types'
+export type { HydratedMatchParticipants } from './types'
