@@ -19,7 +19,7 @@ export const CreateMatchRequestSchema = v.pipe(
       }),
       matchTargetFrames: PositiveIntegerSchema,
     }),
-    participants: v.pipe(v.array(MatchSeatAssignmentSchema), v.length(2)),
+    participants: v.tuple([MatchSeatAssignmentSchema, MatchSeatAssignmentSchema]),
   }),
   v.check((value) => isRegisteredGameKey(value.gameKey), 'Unsupported game key'),
   v.check(

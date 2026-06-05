@@ -5,6 +5,7 @@ export {
   GameScoreboardProjectionSchema,
   GameSummaryProjectionSchema,
   type GameCommandResult,
+  type GameControlProjection,
   type GameCreateStateArgs,
   type GameInputMode,
   type GameMeta,

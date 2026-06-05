@@ -1,4 +1,3 @@
-import invariant from 'tiny-invariant'
 import * as v from 'valibot'
 
 import { MatchIdSchema, PlayerRefSchema } from './ids'
@@ -38,24 +37,11 @@ export const HydratedMatchParticipantsSchema = v.object({
   B: HydratedMatchParticipantSchema,
 })
 
-const MatchConfigWireSchema = v.pipe(
-  v.object({
-    matchId: MatchIdSchema,
-    gameKey: v.optional(GameKeySchema),
-    gameId: v.optional(GameKeySchema),
-    targets: MatchTargetsSchema,
-  }),
-  v.check((value) => Boolean(value.gameKey), 'gameKey is required'),
-)
-
-export const MatchConfigSchema = v.pipe(
-  MatchConfigWireSchema,
-  v.transform(({ gameKey, ...rest }) => {
-    invariant(gameKey, 'gameKey is required')
-
-    return { ...rest, gameKey }
-  }),
-)
+export const MatchConfigSchema = v.object({
+  matchId: MatchIdSchema,
+  gameKey: GameKeySchema,
+  targets: MatchTargetsSchema,
+})
 
 export type MatchConfig = v.InferOutput<typeof MatchConfigSchema>
 

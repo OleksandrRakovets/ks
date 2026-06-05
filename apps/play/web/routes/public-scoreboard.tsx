@@ -33,13 +33,8 @@ function isThemeId(value: string): value is keyof typeof themes {
   return value in themes
 }
 
-function tryParseJson(raw: string): unknown | null {
-  try {
-    return JSON.parse(raw)
-  } catch {
-    return null
-  }
-}
+const StreamReadyEventSchema = v.pipe(v.string(), v.parseJson(), StreamReadySchema)
+const StreamFactEventSchema = v.pipe(v.string(), v.parseJson(), StreamFactSchema)
 
 export default function PublicScoreboardRoute() {
   const { snapshot, participants, controlProjection: rawControlProjection } = useLoaderData<typeof loader>()
@@ -60,13 +55,7 @@ export default function PublicScoreboardRoute() {
 
     const handleReady = (event: Event) => {
       if (!(event instanceof MessageEvent)) return
-      const decoded = tryParseJson(event.data)
-      if (decoded === null) {
-        console.error('Malformed SSE ready event JSON', event.data)
-        return
-      }
-
-      const parsed = v.safeParse(StreamReadySchema, decoded)
+      const parsed = v.safeParse(StreamReadyEventSchema, event.data)
       if (!parsed.success) {
         console.error('Malformed SSE ready event payload', parsed.issues)
         return
@@ -79,13 +68,7 @@ export default function PublicScoreboardRoute() {
 
     const handleEvent = (event: Event) => {
       if (!(event instanceof MessageEvent)) return
-      const decoded = tryParseJson(event.data)
-      if (decoded === null) {
-        console.error('Malformed SSE match fact JSON', event.data)
-        return
-      }
-
-      const parsed = v.safeParse(StreamFactSchema, decoded)
+      const parsed = v.safeParse(StreamFactEventSchema, event.data)
       if (!parsed.success) {
         console.error('Malformed SSE match fact payload', parsed.issues)
         return

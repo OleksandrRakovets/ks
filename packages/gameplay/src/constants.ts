@@ -32,6 +32,7 @@ export const GameControlProjectionSchema = v.object({
   score: BySeatNumberSchema,
   details: v.optional(v.unknown()),
 })
+export type GameControlProjection = v.InferOutput<typeof GameControlProjectionSchema>
 
 export const GameScoreboardProjectionSchema = v.object({
   gameKey: NonEmptyStringSchema,

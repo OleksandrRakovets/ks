@@ -14,13 +14,7 @@ import { listStoredFacts } from './match-room'
 
 type SeatNames = { A: string; B: string }
 
-function parseRowsJson(raw: string): unknown | null {
-  try {
-    return JSON.parse(raw)
-  } catch {
-    return null
-  }
-}
+const ProtocolArchiveRowsJsonSchema = v.pipe(v.string(), v.parseJson(), ProtocolArchiveRowsSchema)
 
 export async function readProtocolHistory(
   env: AppEnv,
@@ -43,7 +37,7 @@ export async function readProtocolHistory(
   if (archive.protocolVersion !== PROTOCOL_ARCHIVE_VERSION)
     throw new Response('Unsupported protocol archive version', { status: 500 })
 
-  const parsedRows = v.safeParse(ProtocolArchiveRowsSchema, parseRowsJson(archive.rowsJson))
+  const parsedRows = v.safeParse(ProtocolArchiveRowsJsonSchema, archive.rowsJson)
   if (!parsedRows.success) throw new Response('Failed to parse protocol archive from DB', { status: 500 })
 
   return renderProtocolRows(parsedRows.output, seatNames, timeZone)

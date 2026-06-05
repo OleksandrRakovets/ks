@@ -50,13 +50,7 @@ const DoSnapshotResponseSchema = v.union([
   }),
 ])
 
-function tryParseJson(raw: string): unknown | null {
-  try {
-    return JSON.parse(raw)
-  } catch {
-    return null
-  }
-}
+const StoredFactPayloadJsonSchema = v.pipe(v.string(), v.parseJson())
 
 export async function fetchMatchSnapshot(env: AppEnv, rawMatchId: string, locale: SupportedLocale): Promise<Response> {
   const matchId = normalizeMatchId(rawMatchId)
@@ -147,8 +141,8 @@ export async function listStoredFacts(env: AppEnv, rawMatchId: string): Promise<
 
   return (res.results ?? [])
     .map((row) => {
-      const payload = tryParseJson(row.payload_json)
-      if (payload === null) return null
+      const payload = v.safeParse(StoredFactPayloadJsonSchema, row.payload_json)
+      if (!payload.success) return null
 
       const parsed = v.safeParse(StoredFactSchema, {
         seq: row.seq,
@@ -159,7 +153,7 @@ export async function listStoredFacts(env: AppEnv, rawMatchId: string): Promise<
         at: row.at,
         receivedAt: row.received_at,
         type: row.type,
-        payload,
+        payload: payload.output,
       })
 
       return parsed.success ? parsed.output : null

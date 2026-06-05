@@ -1,6 +1,5 @@
 import {
   BySeatNumberSchema,
-  NonNegativeIntegerSchema,
   PositiveIntegerSchema,
   ProtocolEntrySourceSchema,
   ProtocolEntryTypeSchema,
@@ -20,7 +19,7 @@ const ArchiveBodySchema = UnknownObjectSchema
 
 export const ProtocolArchiveRowSchema = v.object({
   rowNo: PositiveIntegerSchema,
-  receivedAt: NonNegativeIntegerSchema,
+  receivedAt: PositiveIntegerSchema,
   frameIndex: v.optional(PositiveIntegerSchema),
   source: ProtocolEntrySourceSchema,
   entryType: ProtocolEntryTypeSchema,

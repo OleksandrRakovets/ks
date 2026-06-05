@@ -24,7 +24,7 @@ const BaseClientFactSchema = v.object({
   matchId: MatchIdSchema,
   clientId: ClientIdSchema,
   clientSeq: NonNegativeIntegerSchema,
-  at: NonNegativeIntegerSchema,
+  at: PositiveIntegerSchema,
 })
 
 export const MatchCreatedFactSchema = v.object({
@@ -95,7 +95,7 @@ export const StoredFactSchema = v.intersect([
   ClientFactSchema,
   v.object({
     seq: PositiveIntegerSchema,
-    receivedAt: NonNegativeIntegerSchema,
+    receivedAt: PositiveIntegerSchema,
   }),
 ])
 

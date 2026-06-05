@@ -7,6 +7,7 @@ import {
   PostFactsResponseSchema,
   StreamFactSchema,
   StreamReadySchema,
+  UnknownObjectSchema,
   emptyControlCommandSections,
   type ControlCommandSections,
   type ControlCommandPreset,
@@ -55,6 +56,10 @@ const SnapshotResponseWithControlSchema = v.union([
   }),
   ErrorResponseSchema,
 ])
+
+const CommandJsonSchema = v.pipe(v.string(), v.parseJson(), UnknownObjectSchema)
+const StreamReadyEventSchema = v.pipe(v.string(), v.parseJson(), StreamReadySchema)
+const StreamFactEventSchema = v.pipe(v.string(), v.parseJson(), StreamFactSchema)
 
 function emptyControlProjection(gameKey: string): GameControlProjection {
   return {
@@ -134,22 +139,18 @@ export async function action({
     const source = String(form.get('source') ?? '')
     const commandType = String(form.get('commandType') ?? '')
     const rawCommandJson = String(form.get('commandJson') ?? '{}')
-    let parsedCommand: unknown
-    try {
-      parsedCommand = JSON.parse(rawCommandJson)
-    } catch {
+    const parsedCommand = v.safeParse(CommandJsonSchema, rawCommandJson)
+    if (!parsedCommand.success) {
       return { ok: false, errorKey: keys.match.control.invalidFactPayload }
     }
 
-    command = { source, commandType, command: parsedCommand ?? {} }
+    command = { source, commandType, command: parsedCommand.output }
   } else {
     const gameKey = String(form.get('gameKey') ?? '')
     const commandType = String(form.get('commandType') ?? '')
     const rawCommandJson = String(form.get('commandJson') ?? '{}')
-    let parsedCommand: unknown
-    try {
-      parsedCommand = JSON.parse(rawCommandJson)
-    } catch {
+    const parsedCommand = v.safeParse(CommandJsonSchema, rawCommandJson)
+    if (!parsedCommand.success) {
       return { ok: false, errorKey: keys.match.control.invalidFactPayload }
     }
 
@@ -157,7 +158,7 @@ export async function action({
       return { ok: false, errorKey: keys.match.control.invalidFactPayload }
     }
 
-    command = { source: 'game', commandType, command: parsedCommand ?? {} }
+    command = { source: 'game', commandType, command: parsedCommand.output }
   }
 
   const parsedCommand = v.safeParse(ControlCommandSchema, command)
@@ -224,13 +225,7 @@ export default function SparringMatchRoute() {
 
     const onReady = (event: Event) => {
       if (!(event instanceof MessageEvent)) return
-      let decoded: unknown
-      try {
-        decoded = JSON.parse(event.data)
-      } catch {
-        return
-      }
-      const parsed = v.safeParse(StreamReadySchema, decoded)
+      const parsed = v.safeParse(StreamReadyEventSchema, event.data)
       if (!parsed.success) return
       if (parsed.output.latestSeq > latestSeqRef.current) {
         latestSeqRef.current = parsed.output.latestSeq
@@ -242,13 +237,7 @@ export default function SparringMatchRoute() {
 
     const onEvent = (event: Event) => {
       if (!(event instanceof MessageEvent)) return
-      let decoded: unknown
-      try {
-        decoded = JSON.parse(event.data)
-      } catch {
-        return
-      }
-      const parsed = v.safeParse(StreamFactSchema, decoded)
+      const parsed = v.safeParse(StreamFactEventSchema, event.data)
       if (!parsed.success) return
 
       if (parsed.output.seq > latestSeqRef.current) {

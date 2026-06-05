@@ -51,7 +51,7 @@ const CreateBodySchema = v.object({
   controlSecret: ControlSecretSchema,
   gameKey: NonEmptyStringSchema,
   targets: MatchTargetsSchema,
-  participants: v.pipe(v.array(MatchSeatAssignmentSchema), v.length(2)),
+  participants: v.tuple([MatchSeatAssignmentSchema, MatchSeatAssignmentSchema]),
 })
 
 const FactsBodySchema = v.object({

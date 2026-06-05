@@ -39,6 +39,9 @@ const SnapshotResponseSchema = v.union([
   ErrorResponseSchema,
 ])
 
+const StreamReadyEventSchema = v.pipe(v.string(), v.parseJson(), StreamReadySchema)
+const StreamFactEventSchema = v.pipe(v.string(), v.parseJson(), StreamFactSchema)
+
 async function parseSnapshotBody(res: Response) {
   const body = v.parse(SnapshotResponseSchema, await res.json())
   if (!body.ok) {
@@ -139,13 +142,7 @@ export default function SparringMatchProtocolRoute() {
 
     const onReady = (event: Event) => {
       if (!(event instanceof MessageEvent)) return
-      let decoded: unknown
-      try {
-        decoded = JSON.parse(event.data)
-      } catch {
-        return
-      }
-      const parsed = v.safeParse(StreamReadySchema, decoded)
+      const parsed = v.safeParse(StreamReadyEventSchema, event.data)
       if (!parsed.success) return
       if (parsed.output.latestSeq > latestSeqRef.current) {
         latestSeqRef.current = parsed.output.latestSeq
@@ -155,13 +152,7 @@ export default function SparringMatchProtocolRoute() {
 
     const onEvent = (event: Event) => {
       if (!(event instanceof MessageEvent)) return
-      let decoded: unknown
-      try {
-        decoded = JSON.parse(event.data)
-      } catch {
-        return
-      }
-      const parsed = v.safeParse(StreamFactSchema, decoded)
+      const parsed = v.safeParse(StreamFactEventSchema, event.data)
       if (!parsed.success) return
 
       if (parsed.output.seq > latestSeqRef.current) {

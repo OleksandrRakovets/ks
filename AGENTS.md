@@ -40,6 +40,7 @@ KS is a billiards scorekeeping app for a local club. Core use case: two-player m
   - `packages/competition` must not import client packages.
 - Schemas use Valibot (`valibot`) across the repo.
 - Prefer built-in Valibot actions in schemas; use `v.trim()` rather than adding one-off trim helper functions.
+- Prefer Valibot JSON actions such as `v.parseJson()` over one-off `JSON.parse` helper functions when validating JSON strings.
 
 ## Architecture guardrails
 
