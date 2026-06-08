@@ -1,7 +1,6 @@
 {
   "$schema": "https://turborepo.com/schema.json",
   "noUpdateNotifier": true,
-  "ui": "tui",
   "tasks": {
     "build": {
       "dependsOn": ["^build"],

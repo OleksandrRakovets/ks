@@ -29,6 +29,7 @@
     "build": "turbo run build",
     "db:migrate:local": "bun run --cwd apps/play db:migrate:local",
     "dev": "turbo run dev --filter=@ks/play",
+    "dev:human": "turbo run dev --filter=@ks/play --ui=tui",
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
     "lint": "oxlint .",
