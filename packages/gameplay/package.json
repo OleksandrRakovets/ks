@@ -9,7 +9,7 @@
   "dependencies": {
     "@ks/core": "workspace:*",
     "tiny-invariant": "catalog:",
-    "xstate": "catalog:",
-    "zod": "catalog:"
+    "valibot": "catalog:",
+    "xstate": "catalog:"
   }
 }

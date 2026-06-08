@@ -7,22 +7,24 @@ import {
   PostFactsResponseSchema,
   StreamFactSchema,
   StreamReadySchema,
+  UnknownObjectSchema,
   emptyControlCommandSections,
   type ControlCommandSections,
   type ControlCommandPreset,
 } from '@ks/core'
-import { GameControlProjectionSchema, isRegisteredGameKey, registry } from '@ks/gameplay/definitions'
+import {
+  GameControlProjectionSchema,
+  isRegisteredGameKey,
+  registry,
+  type GameControlProjection,
+} from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
 import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, redirect, useFetcher, useLoaderData, useRevalidator } from 'react-router'
-import { z } from 'zod'
+import * as v from 'valibot'
 
-import {
-  resolveControlRenderer,
-  type GameControlProjection,
-  type HydratedMatchParticipants,
-} from '../../features/match-control/renderers'
+import { resolveControlRenderer, type HydratedMatchParticipants } from '../../features/match-control/renderers'
 import type { AppLoadContext } from '../../server/context'
 import { requireEnv } from '../../server/context'
 import { localeFromCookie } from '../../server/locale'
@@ -45,16 +47,20 @@ type ActionData =
       errorKey?: typeof keys.match.control.invalidFactPayload | typeof keys.match.control.factRejectedByRules
     }
 
-const SnapshotResponseWithControlSchema = z.union([
-  z.object({
-    ok: z.literal(true),
+const SnapshotResponseWithControlSchema = v.union([
+  v.object({
+    ok: v.literal(true),
     snapshot: MatchSnapshotSchema,
     participants: HydratedMatchParticipantsSchema,
-    controlProjection: GameControlProjectionSchema.optional(),
-    controlSections: ControlCommandSectionsSchema.optional(),
+    controlProjection: v.optional(GameControlProjectionSchema),
+    controlSections: v.optional(ControlCommandSectionsSchema),
   }),
   ErrorResponseSchema,
 ])
+
+const CommandJsonSchema = v.pipe(v.string(), v.parseJson(), UnknownObjectSchema)
+const StreamReadyEventSchema = v.pipe(v.string(), v.parseJson(), StreamReadySchema)
+const StreamFactEventSchema = v.pipe(v.string(), v.parseJson(), StreamFactSchema)
 
 function emptyControlProjection(gameKey: string): GameControlProjection {
   return {
@@ -68,7 +74,7 @@ function emptyControlProjection(gameKey: string): GameControlProjection {
 }
 
 async function parseSnapshotBody(res: Response) {
-  const body = SnapshotResponseWithControlSchema.parse(await res.json())
+  const body = v.parse(SnapshotResponseWithControlSchema, await res.json())
   if (!body.ok) {
     throw new Response(body.error, { status: res.status === 200 ? 500 : res.status })
   }
@@ -134,22 +140,18 @@ export async function action({
     const source = String(form.get('source') ?? '')
     const commandType = String(form.get('commandType') ?? '')
     const rawCommandJson = String(form.get('commandJson') ?? '{}')
-    let parsedCommand: unknown
-    try {
-      parsedCommand = JSON.parse(rawCommandJson)
-    } catch {
+    const parsedCommand = v.safeParse(CommandJsonSchema, rawCommandJson)
+    if (!parsedCommand.success) {
       return { ok: false, errorKey: keys.match.control.invalidFactPayload }
     }
 
-    command = { source, commandType, command: parsedCommand ?? {} }
+    command = { source, commandType, command: parsedCommand.output }
   } else {
     const gameKey = String(form.get('gameKey') ?? '')
     const commandType = String(form.get('commandType') ?? '')
     const rawCommandJson = String(form.get('commandJson') ?? '{}')
-    let parsedCommand: unknown
-    try {
-      parsedCommand = JSON.parse(rawCommandJson)
-    } catch {
+    const parsedCommand = v.safeParse(CommandJsonSchema, rawCommandJson)
+    if (!parsedCommand.success) {
       return { ok: false, errorKey: keys.match.control.invalidFactPayload }
     }
 
@@ -157,16 +159,16 @@ export async function action({
       return { ok: false, errorKey: keys.match.control.invalidFactPayload }
     }
 
-    command = { source: 'game', commandType, command: parsedCommand ?? {} }
+    command = { source: 'game', commandType, command: parsedCommand.output }
   }
 
-  const parsedCommand = ControlCommandSchema.safeParse(command)
+  const parsedCommand = v.safeParse(ControlCommandSchema, command)
   if (!parsedCommand.success) {
     return { ok: false, errorKey: keys.match.control.invalidFactPayload }
   }
 
-  const res = await postMatchFacts(env, matchId, controlSecret, [parsedCommand.data])
-  const payload = PostFactsResponseSchema.parse(await res.json())
+  const res = await postMatchFacts(env, matchId, controlSecret, [parsedCommand.output])
+  const payload = v.parse(PostFactsResponseSchema, await res.json())
   if (!payload.ok) {
     return { ok: false, error: payload.error }
   }
@@ -224,17 +226,11 @@ export default function SparringMatchRoute() {
 
     const onReady = (event: Event) => {
       if (!(event instanceof MessageEvent)) return
-      let decoded: unknown
-      try {
-        decoded = JSON.parse(event.data)
-      } catch {
-        return
-      }
-      const parsed = StreamReadySchema.safeParse(decoded)
+      const parsed = v.safeParse(StreamReadyEventSchema, event.data)
       if (!parsed.success) return
-      if (parsed.data.latestSeq > latestSeqRef.current) {
-        latestSeqRef.current = parsed.data.latestSeq
-        if (!localSubmitInFlightRef.current && parsed.data.latestSeq > suppressRevalidateUntilSeqRef.current) {
+      if (parsed.output.latestSeq > latestSeqRef.current) {
+        latestSeqRef.current = parsed.output.latestSeq
+        if (!localSubmitInFlightRef.current && parsed.output.latestSeq > suppressRevalidateUntilSeqRef.current) {
           revalidateFnRef.current()
         }
       }
@@ -242,18 +238,12 @@ export default function SparringMatchRoute() {
 
     const onEvent = (event: Event) => {
       if (!(event instanceof MessageEvent)) return
-      let decoded: unknown
-      try {
-        decoded = JSON.parse(event.data)
-      } catch {
-        return
-      }
-      const parsed = StreamFactSchema.safeParse(decoded)
+      const parsed = v.safeParse(StreamFactEventSchema, event.data)
       if (!parsed.success) return
 
-      if (parsed.data.seq > latestSeqRef.current) {
-        latestSeqRef.current = parsed.data.seq
-        if (!localSubmitInFlightRef.current && parsed.data.seq > suppressRevalidateUntilSeqRef.current) {
+      if (parsed.output.seq > latestSeqRef.current) {
+        latestSeqRef.current = parsed.output.seq
+        if (!localSubmitInFlightRef.current && parsed.output.seq > suppressRevalidateUntilSeqRef.current) {
           revalidateFnRef.current()
         }
       }

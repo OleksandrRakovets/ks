@@ -1,16 +1,16 @@
 import { SeatSchema, type Seat } from '@ks/core'
-import { z } from 'zod'
+import * as v from 'valibot'
 
 import { StrilaCommandSchema } from './definitions'
 import { replayStrilaRecord } from './replay'
 
-export const StrilaUndoCommandSchema = z.object({
-  type: z.literal('undo-last-player-command'),
+export const StrilaUndoCommandSchema = v.object({
+  type: v.literal('undo-last-player-command'),
   seat: SeatSchema,
 })
-type StrilaUndoCommand = z.infer<typeof StrilaUndoCommandSchema>
+type StrilaUndoCommand = v.InferOutput<typeof StrilaUndoCommandSchema>
 
-export const StrilaUndoableCommandTypeSchema = z.enum([
+export const StrilaUndoableCommandTypeSchema = v.picklist([
   'frame.commence',
   'pot.record',
   'miss.record',
@@ -18,10 +18,10 @@ export const StrilaUndoableCommandTypeSchema = z.enum([
   'penalty.select',
   'frame.award',
 ])
-type StrilaUndoableCommandType = z.infer<typeof StrilaUndoableCommandTypeSchema>
+type StrilaUndoableCommandType = v.InferOutput<typeof StrilaUndoableCommandTypeSchema>
 
-export const StrilaControllerEntrySchema = z.union([StrilaCommandSchema, StrilaUndoCommandSchema])
-export type StrilaControllerEntry = z.infer<typeof StrilaControllerEntrySchema>
+export const StrilaControllerEntrySchema = v.union([StrilaCommandSchema, StrilaUndoCommandSchema])
+export type StrilaControllerEntry = v.InferOutput<typeof StrilaControllerEntrySchema>
 
 type StrilaControllerEvent = {
   type: 'undo-applied'

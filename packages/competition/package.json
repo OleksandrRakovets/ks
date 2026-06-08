@@ -9,7 +9,7 @@
   "dependencies": {
     "@ks/core": "workspace:*",
     "@ks/gameplay": "workspace:*",
-    "xstate": "catalog:",
-    "zod": "catalog:"
+    "valibot": "catalog:",
+    "xstate": "catalog:"
   }
 }

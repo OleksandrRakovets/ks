@@ -4,6 +4,7 @@ import { keys } from '@ks/i18n'
 import { Button, Input, Label, NumberInput } from '@ks/ui'
 import { useTranslation } from 'react-i18next'
 import { Form, Link, redirect, useActionData, useLoaderData, useNavigation } from 'react-router'
+import * as v from 'valibot'
 
 import type { AppLoadContext } from '../server/context'
 import { requireEnv } from '../server/context'
@@ -24,6 +25,13 @@ type ActionData = {
     | typeof keys.match.sparring.errorMatchTargetFramesRequired
     | typeof keys.match.sparring.errorHandicapMustBePositiveInt
 }
+
+const DisplayNameSchema = v.pipe(
+  v.string(),
+  v.trim(),
+  v.transform((value) => value.replace(/\s+/g, ' ')),
+  v.minLength(1),
+)
 
 function parsePositiveInt(raw: FormDataEntryValue | null, fallback?: number): number | null {
   if (raw == null || raw === '') {
@@ -75,16 +83,16 @@ export async function action({
   const defaultFrameTargetPointsBySeat = registry[gameKey].meta.defaultFrameTargetPointsBySeat
 
   const form = await request.formData()
-  const seatAName = normalizeDisplayName(String(form.get('seatAName') ?? ''))
-  const seatBName = normalizeDisplayName(String(form.get('seatBName') ?? ''))
+  const seatAName = v.safeParse(DisplayNameSchema, String(form.get('seatAName') ?? ''))
+  const seatBName = v.safeParse(DisplayNameSchema, String(form.get('seatBName') ?? ''))
   const matchTargetFrames = parsePositiveInt(form.get('matchTargetFrames'))
   const targetA = parsePositiveInt(form.get('targetA'), defaultFrameTargetPointsBySeat.A)
   const targetB = parsePositiveInt(form.get('targetB'), defaultFrameTargetPointsBySeat.B)
 
-  if (!seatAName || !seatBName) {
+  if (!seatAName.success || !seatBName.success) {
     return { ok: false, errorKey: keys.match.sparring.errorBothNamesRequired } as const
   }
-  if (seatAName === seatBName) {
+  if (seatAName.output === seatBName.output) {
     return { ok: false, errorKey: keys.match.sparring.errorNamesMustDiffer } as const
   }
   if (matchTargetFrames == null) {
@@ -98,8 +106,8 @@ export async function action({
   const matchId = newMatchId()
   const controlSecret = randomSecret()
   const [seatAPlayerRef, seatBPlayerRef] = await Promise.all([
-    getOrCreateGuestPlayerRef(env, seatAName),
-    getOrCreateGuestPlayerRef(env, seatBName),
+    getOrCreateGuestPlayerRef(env, seatAName.output),
+    getOrCreateGuestPlayerRef(env, seatBName.output),
   ])
 
   const result = await env.MATCH_ROOM.getByName(matchId).create({
@@ -126,10 +134,6 @@ export async function action({
   return redirect(`/sparring/matches/${matchId}`)
 }
 
-function normalizeDisplayName(value: string): string {
-  return value.trim().replace(/\s+/g, ' ')
-}
-
 export const handle = {
   headerConfig: (data: LoaderData) => ({ title: data.title, backTo: '/sparring' }),
 }
@@ -153,21 +157,7 @@ export default function SparringInitRoute() {
           </Button>
         </div>
 
-        <Form
-          method="post"
-          className="grid gap-6"
-          onSubmit={(event) => {
-            const form = event.currentTarget
-            const seatA = form.elements.namedItem('seatAName')
-            const seatB = form.elements.namedItem('seatBName')
-            if (seatA instanceof HTMLInputElement) seatA.value = normalizeDisplayName(seatA.value)
-            if (seatB instanceof HTMLInputElement) seatB.value = normalizeDisplayName(seatB.value)
-
-            if (!form.reportValidity()) {
-              event.preventDefault()
-            }
-          }}
-        >
+        <Form method="post" className="grid gap-6">
           <div className="grid gap-4">
             <div className="grid gap-2">
               <Label htmlFor="seatAName">{t(keys.match.sparring.playerA)}</Label>

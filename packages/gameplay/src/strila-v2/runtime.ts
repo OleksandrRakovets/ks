@@ -1,5 +1,6 @@
 import { emptyControlCommandSections, opponentOf, type FrameOutcome, type Seat } from '@ks/core'
 import invariant from 'tiny-invariant'
+import * as v from 'valibot'
 
 import type { GameplayRuntime, GameCommandResult, GameCreateStateArgs, GameProjectionKey } from '../constants'
 import {
@@ -69,7 +70,7 @@ function deriveBallStatuses(state: StrilaFrameState): StrilaControlDetails['ball
   const objectBalls = new Set(computeStrilaObjectBalls(state.coloredBallsOnTable))
   const onTableColored = new Set(state.coloredBallsOnTable)
   const cueStatus: 'object' | 'on-table' = state.phase === 'respotted-black.opening' ? 'on-table' : 'object'
-  const ballStatuses = StrilaBallStatusesSchema.parse({
+  const ballStatuses = v.parse(StrilaBallStatusesSchema, {
     0: cueStatus,
     1: 'potted',
     2: 'potted',
@@ -132,7 +133,7 @@ function view(
     messages?: Array<{ type: 'hint' | 'warning'; text: string }>
   },
 ): StrilaControlView {
-  return StrilaControlViewSchema.parse({
+  return v.parse(StrilaControlViewSchema, {
     gameKey: 'strila-v2',
     projection: 'control',
     score: state.score,
@@ -241,7 +242,7 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
 }
 
 export function deriveStrilaScoreboardView(state: StrilaFrameState): StrilaScoreboardView {
-  return StrilaScoreboardViewSchema.parse({
+  return v.parse(StrilaScoreboardViewSchema, {
     gameKey: 'strila-v2',
     projection: 'scoreboard',
     score: state.score,
@@ -256,7 +257,7 @@ export function deriveStrilaScoreboardView(state: StrilaFrameState): StrilaScore
 }
 
 function deriveStrilaSummaryView(state: StrilaFrameState): unknown {
-  return StrilaSummaryViewSchema.parse({
+  return v.parse(StrilaSummaryViewSchema, {
     gameKey: 'strila-v2',
     projection: 'summary',
     score: state.score,
@@ -268,9 +269,9 @@ function deriveStrilaSummaryView(state: StrilaFrameState): unknown {
 
 function parseStrilaCommand(input: StrilaCommandEnvelope): StrilaCommand {
   if (typeof input.command !== 'object' || input.command === null) {
-    return StrilaCommandSchema.parse({ type: input.commandType })
+    return v.parse(StrilaCommandSchema, { type: input.commandType })
   }
-  return StrilaCommandSchema.parse({ ...input.command, type: input.commandType })
+  return v.parse(StrilaCommandSchema, { ...input.command, type: input.commandType })
 }
 
 function phaseToSnapshotValue(phase: StrilaPhase): StrilaSparringSnapshot['value'] {
@@ -289,7 +290,7 @@ function phaseToSnapshotValue(phase: StrilaPhase): StrilaSparringSnapshot['value
 }
 
 function serializeSnapshot(snapshot: StrilaSparringSnapshot): StrilaFrameState {
-  return StrilaFrameStateSchema.parse({
+  return v.parse(StrilaFrameStateSchema, {
     ...snapshot.context,
     phase: getPhase(snapshot),
   })
@@ -320,7 +321,7 @@ export class StrilaGameplayRuntime implements GameplayRuntime {
   }
 
   parseState(state: unknown): StrilaFrameState {
-    return StrilaFrameStateSchema.parse(state)
+    return v.parse(StrilaFrameStateSchema, state)
   }
 
   applyCommand(input: StrilaCommandEnvelope): GameCommandResult {

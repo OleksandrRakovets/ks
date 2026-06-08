@@ -7,6 +7,6 @@
   },
   "dependencies": {
     "tiny-invariant": "catalog:",
-    "zod": "catalog:"
+    "valibot": "catalog:"
   }
 }

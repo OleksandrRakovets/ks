@@ -1,17 +1,18 @@
-import { ControlCommandSectionsSchema, SeatSchema } from '@ks/core'
-import { z } from 'zod'
+import { ControlCommandSectionsSchema, NonEmptyStringSchema, SeatSchema } from '@ks/core'
+import * as v from 'valibot'
 
 import { GameControlProjectionSchema } from '../constants'
 
-const PyramidControlDetailsSchema = z.object({
-  phase: z.enum(['not-started', 'open-play', 'frame-over']),
-  winner: SeatSchema.optional(),
-  situationTitle: z.string().min(1),
-  situationSummary: z.string().min(1),
-  isPotCommandAvailable: z.boolean(),
+const PyramidControlDetailsSchema = v.object({
+  phase: v.picklist(['not-started', 'open-play', 'frame-over']),
+  winner: v.optional(SeatSchema),
+  situationTitle: NonEmptyStringSchema,
+  situationSummary: NonEmptyStringSchema,
+  isPotCommandAvailable: v.boolean(),
   commandSections: ControlCommandSectionsSchema,
 })
 
-export const PyramidControlViewSchema = GameControlProjectionSchema.extend({
+export const PyramidControlViewSchema = v.object({
+  ...GameControlProjectionSchema.entries,
   details: PyramidControlDetailsSchema,
 })

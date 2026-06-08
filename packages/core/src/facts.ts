@@ -1,79 +1,86 @@
-import { z } from 'zod'
+import * as v from 'valibot'
 
 import { ClientIdSchema, FactIdSchema, MatchIdSchema } from './ids'
 import { BySeatNumberSchema, FrameOutcomeSchema, GameKeySchema, MatchConfigSchema, SeatSchema } from './match'
+import { NonNegativeIntegerSchema, PositiveIntegerSchema, SizedStringSchema, UnknownObjectSchema } from './valicombos'
 
-export const ProtocolEntrySourceSchema = z.enum(['player', 'system'])
-export type ProtocolEntrySource = z.infer<typeof ProtocolEntrySourceSchema>
+export const ProtocolEntrySourceSchema = v.picklist(['player', 'system'])
+export type ProtocolEntrySource = v.InferOutput<typeof ProtocolEntrySourceSchema>
 
-export const ProtocolEntryTypeSchema = z.enum(['player-command', 'system-note', 'correction'])
-export type ProtocolEntryType = z.infer<typeof ProtocolEntryTypeSchema>
+export const ProtocolEntryTypeSchema = v.picklist(['player-command', 'system-note', 'correction'])
+export type ProtocolEntryType = v.InferOutput<typeof ProtocolEntryTypeSchema>
 
-export const ProtocolEntrySchema = z.object({
+export const ProtocolEntrySchema = v.object({
   source: ProtocolEntrySourceSchema,
   entryType: ProtocolEntryTypeSchema,
-  seat: SeatSchema.optional(),
-  scoreAfter: BySeatNumberSchema.optional(),
-  body: z.record(z.string(), z.unknown()),
+  seat: v.optional(SeatSchema),
+  scoreAfter: v.optional(BySeatNumberSchema),
+  body: UnknownObjectSchema,
 })
-export type ProtocolEntry = z.infer<typeof ProtocolEntrySchema>
+export type ProtocolEntry = v.InferOutput<typeof ProtocolEntrySchema>
 
-const BaseClientFactSchema = z.object({
+const BaseClientFactSchema = v.object({
   factId: FactIdSchema,
   matchId: MatchIdSchema,
   clientId: ClientIdSchema,
-  clientSeq: z.number().int().nonnegative(),
-  at: z.number().int().nonnegative(),
+  clientSeq: NonNegativeIntegerSchema,
+  at: PositiveIntegerSchema,
 })
 
-export const MatchCreatedFactSchema = BaseClientFactSchema.extend({
-  type: z.literal('match.created'),
+export const MatchCreatedFactSchema = v.object({
+  ...BaseClientFactSchema.entries,
+  type: v.literal('match.created'),
   payload: MatchConfigSchema,
 })
 
-export const FrameStartedFactSchema = BaseClientFactSchema.extend({
-  type: z.literal('frame.started'),
-  payload: z.object({
-    frameIndex: z.number().int().positive(),
+export const FrameStartedFactSchema = v.object({
+  ...BaseClientFactSchema.entries,
+  type: v.literal('frame.started'),
+  payload: v.object({
+    frameIndex: PositiveIntegerSchema,
     gameKey: GameKeySchema,
     targetPointsBySeat: BySeatNumberSchema,
   }),
 })
 
-export const GameCommandFactSchema = BaseClientFactSchema.extend({
-  type: z.literal('game.command'),
-  payload: z.object({
-    frameIndex: z.number().int().positive(),
+export const GameCommandFactSchema = v.object({
+  ...BaseClientFactSchema.entries,
+  type: v.literal('game.command'),
+  payload: v.object({
+    frameIndex: PositiveIntegerSchema,
     gameKey: GameKeySchema,
-    commandType: z.string().min(1).max(64),
-    command: z.record(z.string(), z.unknown()),
-    protocolEntries: z.array(ProtocolEntrySchema).min(1),
+    commandType: SizedStringSchema(1, 64),
+    command: UnknownObjectSchema,
+    protocolEntries: v.pipe(v.array(ProtocolEntrySchema), v.minLength(1)),
   }),
 })
 
-export const FrameCompletedFactSchema = BaseClientFactSchema.extend({
-  type: z.literal('frame.completed'),
-  payload: z.object({
-    frameIndex: z.number().int().positive(),
+export const FrameCompletedFactSchema = v.object({
+  ...BaseClientFactSchema.entries,
+  type: v.literal('frame.completed'),
+  payload: v.object({
+    frameIndex: PositiveIntegerSchema,
     gameKey: GameKeySchema,
     outcome: FrameOutcomeSchema,
   }),
 })
 
-export const FrameReopenedFactSchema = BaseClientFactSchema.extend({
-  type: z.literal('frame.reopened'),
-  payload: z.object({
-    frameIndex: z.number().int().positive(),
-    reason: z.string().min(1).max(64).optional(),
+export const FrameReopenedFactSchema = v.object({
+  ...BaseClientFactSchema.entries,
+  type: v.literal('frame.reopened'),
+  payload: v.object({
+    frameIndex: PositiveIntegerSchema,
+    reason: v.optional(SizedStringSchema(1, 64)),
   }),
 })
 
-export const MatchEndedFactSchema = BaseClientFactSchema.extend({
-  type: z.literal('match.ended'),
-  payload: z.object({ winnerSeat: SeatSchema }),
+export const MatchEndedFactSchema = v.object({
+  ...BaseClientFactSchema.entries,
+  type: v.literal('match.ended'),
+  payload: v.object({ winnerSeat: SeatSchema }),
 })
 
-export const ClientFactSchema = z.discriminatedUnion('type', [
+export const ClientFactSchema = v.variant('type', [
   MatchCreatedFactSchema,
   FrameStartedFactSchema,
   GameCommandFactSchema,
@@ -82,13 +89,14 @@ export const ClientFactSchema = z.discriminatedUnion('type', [
   MatchEndedFactSchema,
 ])
 
-export type ClientFact = z.infer<typeof ClientFactSchema>
+export type ClientFact = v.InferOutput<typeof ClientFactSchema>
 
-export const StoredFactSchema = ClientFactSchema.and(
-  z.object({
-    seq: z.number().int().positive(),
-    receivedAt: z.number().int().nonnegative(),
+export const StoredFactSchema = v.intersect([
+  ClientFactSchema,
+  v.object({
+    seq: PositiveIntegerSchema,
+    receivedAt: PositiveIntegerSchema,
   }),
-)
+])
 
-export type StoredFact = z.infer<typeof StoredFactSchema>
+export type StoredFact = v.InferOutput<typeof StoredFactSchema>

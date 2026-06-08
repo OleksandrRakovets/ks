@@ -29,7 +29,7 @@ KS is a billiards scorekeeping app for a local club. Core use case: two-player m
 - Repo lint/format tooling is `oxlint` + `oxfmt` (Biome/Prettier are intentionally disabled).
 - Typecheck workspace graph: `bun run typecheck`
 - Typecheck Play app (also regenerates Wrangler + RR types): `bun run --cwd apps/play typecheck`
-- Boundary and schema guards: `bun run check:boundaries`, `bun run check:zod`
+- Boundary guards: `bun run check:boundaries`
 - Tests: `bun test` (single file: `bun test packages/gameplay/src/strila-v2/runtime.test.ts`)
 
 ## Enforced constraints (do not fight these)
@@ -38,10 +38,9 @@ KS is a billiards scorekeeping app for a local club. Core use case: two-player m
   - `packages/core` must not import `@ks/competition` or `@ks/gameplay`.
   - `packages/gameplay` must not import `@ks/competition`.
   - `packages/competition` must not import client packages.
-- `check:zod` enforces:
-  - import from `zod` only (never `zod/v4`),
-  - any package using zod must declare direct `zod` dependency,
-  - zod version must either match root pin (`overrides.zod`) or defer to root by `catalog:`.
+- Schemas use Valibot (`valibot`) across the repo.
+- Prefer built-in Valibot actions in schemas; use `v.trim()` rather than adding one-off trim helper functions.
+- Prefer Valibot JSON actions such as `v.parseJson()` over one-off `JSON.parse` helper functions when validating JSON strings.
 
 ## Architecture guardrails
 

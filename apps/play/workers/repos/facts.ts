@@ -1,15 +1,8 @@
 import { StoredFactSchema, type ClientFact, type StoredFact } from '@ks/core'
+import * as v from 'valibot'
 
 import type { Env } from '../env'
 import { getMatchLatestSeq } from './matches'
-
-function tryParseJson(raw: string): unknown | null {
-  try {
-    return JSON.parse(raw)
-  } catch {
-    return null
-  }
-}
 
 export async function factExists(env: Env, matchId: string, factId: string): Promise<boolean> {
   const row = await env.DB.prepare('SELECT 1 AS one FROM facts WHERE match_id = ? AND fact_id = ?')
@@ -40,10 +33,10 @@ export async function listFactsAfter(env: Env, matchId: string, sinceSeq: number
 
   return (res.results ?? [])
     .map((r) => {
-      const payload = tryParseJson(r.payload_json)
-      if (payload === null) return null
+      const payload = v.safeParse(v.pipe(v.string(), v.parseJson()), r.payload_json)
+      if (!payload.success) return null
 
-      const parsed = StoredFactSchema.safeParse({
+      const parsed = v.safeParse(StoredFactSchema, {
         seq: r.seq,
         factId: r.fact_id,
         matchId,
@@ -52,10 +45,10 @@ export async function listFactsAfter(env: Env, matchId: string, sinceSeq: number
         at: r.at,
         receivedAt: r.received_at,
         type: r.type,
-        payload,
+        payload: payload.output,
       })
 
-      return parsed.success ? parsed.data : null
+      return parsed.success ? parsed.output : null
     })
     .flatMap((parsed) => (parsed ? [parsed] : []))
 }

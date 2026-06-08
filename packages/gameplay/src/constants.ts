@@ -1,11 +1,12 @@
 import {
   BySeatNumberSchema,
   ControlCommandPresetSchema,
+  NonEmptyStringSchema,
   type BySeatNumber,
   type FrameOutcome,
   type ProtocolEntry,
 } from '@ks/core'
-import { z } from 'zod'
+import * as v from 'valibot'
 
 export type GameInputMode = 'pyramid-basic' | 'strila-basic'
 
@@ -20,30 +21,31 @@ export type GameMeta = {
   defaultFrameTargetPointsBySeat: BySeatNumber
 }
 
-export const GameProjectionKeySchema = z.enum(['control', 'scoreboard', 'summary'])
-export type GameProjectionKey = z.infer<typeof GameProjectionKeySchema>
+export const GameProjectionKeySchema = v.picklist(['control', 'scoreboard', 'summary'])
+export type GameProjectionKey = v.InferOutput<typeof GameProjectionKeySchema>
 
-export const GameCommandPresetSchema = ControlCommandPresetSchema.extend({ source: z.literal('game') })
+export const GameCommandPresetSchema = v.object({ ...ControlCommandPresetSchema.entries, source: v.literal('game') })
 
-export const GameControlProjectionSchema = z.object({
-  gameKey: z.string().min(1),
-  projection: z.literal('control'),
+export const GameControlProjectionSchema = v.object({
+  gameKey: NonEmptyStringSchema,
+  projection: v.literal('control'),
   score: BySeatNumberSchema,
-  details: z.unknown().optional(),
+  details: v.optional(v.unknown()),
+})
+export type GameControlProjection = v.InferOutput<typeof GameControlProjectionSchema>
+
+export const GameScoreboardProjectionSchema = v.object({
+  gameKey: NonEmptyStringSchema,
+  projection: v.literal('scoreboard'),
+  score: BySeatNumberSchema,
+  details: v.optional(v.unknown()),
 })
 
-export const GameScoreboardProjectionSchema = z.object({
-  gameKey: z.string().min(1),
-  projection: z.literal('scoreboard'),
+export const GameSummaryProjectionSchema = v.object({
+  gameKey: NonEmptyStringSchema,
+  projection: v.literal('summary'),
   score: BySeatNumberSchema,
-  details: z.unknown().optional(),
-})
-
-export const GameSummaryProjectionSchema = z.object({
-  gameKey: z.string().min(1),
-  projection: z.literal('summary'),
-  score: BySeatNumberSchema,
-  details: z.unknown().optional(),
+  details: v.optional(v.unknown()),
 })
 
 export type GameCommandResult = {

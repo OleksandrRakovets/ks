@@ -1,8 +1,5 @@
 import type { ControlCommandPreset, ControlCommandSections, MatchSnapshot } from '@ks/core'
-import { GameControlProjectionSchema } from '@ks/gameplay/definitions'
-import type { z } from 'zod'
-
-export type GameControlProjection = z.infer<typeof GameControlProjectionSchema>
+import type { GameControlProjection } from '@ks/gameplay/definitions'
 
 export type HydratedMatchParticipants = {
   A: { playerRef: string; displayName: string; shortDisplayName: string }

@@ -1,39 +1,34 @@
-import { MatchConfigSchema, MatchIdSchema, MatchSeatAssignmentSchema, stripOptionalPrefix, type MatchConfig } from '@ks/core'
+import {
+  MatchConfigSchema,
+  MatchIdSchema,
+  MatchSeatAssignmentSchema,
+  PositiveIntegerSchema,
+  stripOptionalPrefix,
+  type MatchConfig,
+} from '@ks/core'
 import { isRegisteredGameKey } from '@ks/gameplay/definitions'
-import { z } from 'zod'
+import * as v from 'valibot'
 
-export const CreateMatchRequestSchema = z
-  .object({
-    gameKey: z.string().min(1),
-    targets: z.object({
-      frameTargetPointsBySeat: z.object({
-        A: z.number().int().positive(),
-        B: z.number().int().positive(),
+export const CreateMatchRequestSchema = v.pipe(
+  v.object({
+    gameKey: v.pipe(v.string(), v.minLength(1)),
+    targets: v.object({
+      frameTargetPointsBySeat: v.object({
+        A: PositiveIntegerSchema,
+        B: PositiveIntegerSchema,
       }),
-      matchTargetFrames: z.number().int().positive(),
+      matchTargetFrames: PositiveIntegerSchema,
     }),
-    participants: z.array(MatchSeatAssignmentSchema).length(2),
-  })
-  .superRefine((value, ctx) => {
-    if (!isRegisteredGameKey(value.gameKey)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Unsupported game key',
-        path: ['gameKey'],
-      })
-    }
+    participants: v.tuple([MatchSeatAssignmentSchema, MatchSeatAssignmentSchema]),
+  }),
+  v.check((value) => isRegisteredGameKey(value.gameKey), 'Unsupported game key'),
+  v.check(
+    (value) => new Set(value.participants.map((participant) => participant.seat)).size === 2,
+    'Participants must include one A and one B seat',
+  ),
+)
 
-    const seats = new Set(value.participants.map((participant) => participant.seat))
-    if (seats.size !== 2) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Participants must include one A and one B seat',
-        path: ['participants'],
-      })
-    }
-  })
-
-export type CreateMatchRequest = z.infer<typeof CreateMatchRequestSchema>
+export type CreateMatchRequest = v.InferOutput<typeof CreateMatchRequestSchema>
 
 export function assignmentsBySeat(participants: CreateMatchRequest['participants']): { A: string; B: string } {
   const seatA = participants.find((participant) => participant.seat === 'A')
@@ -48,7 +43,7 @@ export function assignmentsBySeat(participants: CreateMatchRequest['participants
 }
 
 export function buildMatchConfig(matchId: string, input: CreateMatchRequest): MatchConfig {
-  return MatchConfigSchema.parse({
+  return v.parse(MatchConfigSchema, {
     matchId,
     gameKey: input.gameKey,
     targets: input.targets,
@@ -56,5 +51,5 @@ export function buildMatchConfig(matchId: string, input: CreateMatchRequest): Ma
 }
 
 export function normalizeMatchId(raw: string): string {
-  return MatchIdSchema.parse(stripOptionalPrefix(raw))
+  return v.parse(MatchIdSchema, stripOptionalPrefix(raw))
 }

@@ -1,5 +1,7 @@
 import { expect, test } from 'bun:test'
 
+import * as v from 'valibot'
+
 import { applyGameCommand } from '../../gameplay'
 import { StrilaFrameStateSchema, StrilaMeta, type StrilaFrameState } from '../definitions'
 import { deriveStrilaControlView } from '../projections/control'
@@ -48,7 +50,7 @@ test('simulation: outside: respotted black frame 1', () => {
       body: { systemType: 'winner-determined', reason: 'respotted-black-won' },
     },
   ])
-  const next = StrilaFrameStateSchema.parse(step.state)
+  const next = v.parse(StrilaFrameStateSchema, step.state)
   expect(deriveStrilaControlView(next).details.commandSections.primary.A.map((entry) => entry.commandType)).toEqual([
     'pot.record',
     'frame.award',

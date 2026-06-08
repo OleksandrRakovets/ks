@@ -1,95 +1,75 @@
-import invariant from 'tiny-invariant'
-import { z } from 'zod'
+import * as v from 'valibot'
 
 import { MatchIdSchema, PlayerRefSchema } from './ids'
+import { IntegerSchema, NonNegativeIntegerSchema, PositiveIntegerSchema, SizedStringSchema } from './valicombos'
 
-export const SeatSchema = z.enum(['A', 'B'])
-export type Seat = z.infer<typeof SeatSchema>
+export const SeatSchema = v.picklist(['A', 'B'])
+export type Seat = v.InferOutput<typeof SeatSchema>
 
 export function opponentOf(seat: Seat): Seat {
   return seat === 'A' ? 'B' : 'A'
 }
 
-export const GameKeySchema = z
-  .string()
-  .min(1)
-  .max(64)
-  .regex(/^[a-z0-9-]+$/)
-export type GameKey = z.infer<typeof GameKeySchema>
+export const GameKeySchema = v.pipe(SizedStringSchema(1, 64), v.regex(/^[a-z0-9-]+$/))
+export type GameKey = v.InferOutput<typeof GameKeySchema>
 
-export const BySeatNumberSchema = z.object({ A: z.number().int(), B: z.number().int() })
-export type BySeatNumber = z.infer<typeof BySeatNumberSchema>
+export const BySeatNumberSchema = v.object({ A: IntegerSchema, B: IntegerSchema })
+export type BySeatNumber = v.InferOutput<typeof BySeatNumberSchema>
 
-export const MatchTargetsSchema = z.object({
+export const MatchTargetsSchema = v.object({
   frameTargetPointsBySeat: BySeatNumberSchema,
-  matchTargetFrames: z.number().int().positive(),
+  matchTargetFrames: PositiveIntegerSchema,
 })
 
-export const MatchSeatAssignmentSchema = z.object({
+export const MatchSeatAssignmentSchema = v.object({
   seat: SeatSchema,
   playerRef: PlayerRefSchema,
 })
 
-export const HydratedMatchParticipantSchema = z.object({
+export const HydratedMatchParticipantSchema = v.object({
   playerRef: PlayerRefSchema,
-  displayName: z.string().min(1).max(128),
-  shortDisplayName: z.string().min(1).max(128),
+  displayName: SizedStringSchema(1, 128),
+  shortDisplayName: SizedStringSchema(1, 128),
 })
 
-export const HydratedMatchParticipantsSchema = z.object({
+export const HydratedMatchParticipantsSchema = v.object({
   A: HydratedMatchParticipantSchema,
   B: HydratedMatchParticipantSchema,
 })
 
-const MatchConfigWireSchema = z
-  .object({
-    matchId: MatchIdSchema,
-    gameKey: GameKeySchema.optional(),
-    gameId: GameKeySchema.optional(),
-    targets: MatchTargetsSchema,
-  })
-  .superRefine((value, ctx) => {
-    if (!value.gameKey) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'gameKey is required',
-      })
-    }
-  })
-
-export const MatchConfigSchema = MatchConfigWireSchema.transform(({ gameKey, ...rest }) => {
-  invariant(gameKey, 'gameKey is required')
-
-  return { ...rest, gameKey }
+export const MatchConfigSchema = v.object({
+  matchId: MatchIdSchema,
+  gameKey: GameKeySchema,
+  targets: MatchTargetsSchema,
 })
 
-export type MatchConfig = z.infer<typeof MatchConfigSchema>
+export type MatchConfig = v.InferOutput<typeof MatchConfigSchema>
 
-export const FrameStateSchema = z.object({
-  frameIndex: z.number().int().positive(),
+export const FrameStateSchema = v.object({
+  frameIndex: PositiveIntegerSchema,
   pointsBySeat: BySeatNumberSchema,
-  winnerSeat: SeatSchema.optional(),
+  winnerSeat: v.optional(SeatSchema),
 })
-export type FrameState = z.infer<typeof FrameStateSchema>
+export type FrameState = v.InferOutput<typeof FrameStateSchema>
 
-export const FrameWinReasonSchema = z.enum(['target-reached', 'conceded'])
-export type FrameWinReason = z.infer<typeof FrameWinReasonSchema>
+export const FrameWinReasonSchema = v.picklist(['target-reached', 'conceded'])
+export type FrameWinReason = v.InferOutput<typeof FrameWinReasonSchema>
 
-export const FrameOutcomeSchema = z.object({
+export const FrameOutcomeSchema = v.object({
   winnerSeat: SeatSchema,
   score: BySeatNumberSchema,
   winReason: FrameWinReasonSchema,
 })
-export type FrameOutcome = z.infer<typeof FrameOutcomeSchema>
+export type FrameOutcome = v.InferOutput<typeof FrameOutcomeSchema>
 
-export const MatchSnapshotSchema = z.object({
+export const MatchSnapshotSchema = v.object({
   matchId: MatchIdSchema,
   gameKey: GameKeySchema,
   targets: MatchTargetsSchema,
-  status: z.enum(['active', 'finished']),
-  currentFrameIndex: z.number().int().nonnegative(),
+  status: v.picklist(['active', 'finished']),
+  currentFrameIndex: NonNegativeIntegerSchema,
   framesWonBySeat: BySeatNumberSchema,
-  frames: z.array(FrameStateSchema),
-  latestSeq: z.number().int().nonnegative(),
+  frames: v.array(FrameStateSchema),
+  latestSeq: NonNegativeIntegerSchema,
 })
-export type MatchSnapshot = z.infer<typeof MatchSnapshotSchema>
+export type MatchSnapshot = v.InferOutput<typeof MatchSnapshotSchema>
