@@ -28,10 +28,10 @@ export function ScoreBox({ nameA, nameB, matchStatus, matchScore, frameScore, fr
           {t(keys.match.scoreboard.frameWithNumber, { frameIndex })}
         </span>
 
-        <div className={cn('flex items-center text-text-hi', { hidden: !isLive })}>
-          <span className="text-2xl font-semibold tracking-tight tabular-nums">{matchScore.A}</span>
+        <div className={cn('grid w-18 grid-cols-[1fr_auto_1fr] items-center text-text-hi', { hidden: !isLive })}>
+          <span className="text-right text-2xl font-semibold tracking-tight tabular-nums">{matchScore.A}</span>
           <span className="mx-1 text-xl font-extralight tracking-tight">:</span>
-          <span className="text-2xl font-semibold tracking-tight tabular-nums">{matchScore.B}</span>
+          <span className="text-left text-2xl font-semibold tracking-tight tabular-nums">{matchScore.B}</span>
         </div>
 
         <span className={cn('flex-1', { 'text-left': isLive, 'text-center': !isLive })}>
@@ -43,12 +43,14 @@ export function ScoreBox({ nameA, nameB, matchStatus, matchScore, frameScore, fr
         <span className={cn('line-clamp-2 min-w-0 text-lg leading-tight font-semibold', { 'text-primary': isAWinner })}>
           {nameA}
         </span>
-        <div className={cn('flex items-center', { 'text-amber': isLive })}>
-          <span className={cn('text-center text-7xl font-bold tracking-tight tabular-nums', { 'text-primary': isAWinner })}>
+        <div className={cn('grid w-52 grid-cols-[1fr_auto_1fr] items-center', { 'text-amber': isLive })}>
+          <span className={cn('text-right text-7xl font-bold tracking-tight tabular-nums', { 'text-primary': isAWinner })}>
             {numberA}
           </span>
           <span className="mx-2 text-4xl font-extralight tracking-tight">:</span>
-          <span className={cn('text-7xl font-bold tracking-tight tabular-nums', { 'text-primary': isBWinner })}>{numberB}</span>
+          <span className={cn('text-left text-7xl font-bold tracking-tight tabular-nums', { 'text-primary': isBWinner })}>
+            {numberB}
+          </span>
         </div>
         <span
           className={cn('line-clamp-2 min-w-0 text-right text-lg leading-tight font-semibold', { 'text-primary': isBWinner })}
