@@ -13,7 +13,7 @@ export type HeaderConfig = {
 
 function BackArrowIcon() {
   return (
-    <svg width="7" height="12" viewBox="0 0 7 12" fill="none" aria-hidden>
+    <svg width="10" height="18" viewBox="0 0 7 12" fill="none" aria-hidden>
       <path d="M6 1L1 6l5 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
@@ -31,16 +31,16 @@ export function AppHeader() {
     }, null) ?? {}
 
   return (
-    <header className="sticky top-0 z-40 flex h-11 shrink-0 items-center justify-between border-b border-divider bg-deep ">
+    <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center justify-between border-b border-divider bg-deep ">
       <div className="w-12">
         {config.backTo ? (
-          <Link to={config.backTo} aria-label={t(keys.nav.back)} className="flex h-11 items-center px-4 text-green">
+          <Link to={config.backTo} aria-label={t(keys.nav.back)} className="flex h-14 items-center px-4 text-green">
             <BackArrowIcon />
           </Link>
         ) : null}
       </div>
 
-      <div className="flex-1 truncate text-center text-sm font-semibold tracking-[0.01em]">
+      <div className="flex-1 truncate text-center text-base font-semibold tracking-[0.01em]">
         {config.titleKey ? t(config.titleKey, config.titleParams) : (config.title ?? t(keys.appTitle))}
       </div>
 

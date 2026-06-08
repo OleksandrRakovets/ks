@@ -300,17 +300,19 @@ export default function SparringMatchRoute() {
         />
 
         {fetcher.data?.ok === false ? (
-          <p className="text-sm text-destructive">{fetcher.data.errorKey ? t(fetcher.data.errorKey) : fetcher.data.error}</p>
+          <p className="px-4 py-2 text-base text-destructive">
+            {fetcher.data.errorKey ? t(fetcher.data.errorKey) : fetcher.data.error}
+          </p>
         ) : null}
       </section>
 
-      <nav className="sticky bottom-0 z-10 mt-auto flex border-t border-border bg-background">
-        <span className="-mt-px flex-1 border-t-2 border-primary py-2.5 text-center text-sm font-medium text-foreground">
+      <nav className="sticky bottom-0 z-10 mt-auto flex h-14 border-t border-border bg-background">
+        <span className="-mt-px flex flex-1 items-center justify-center border-t-2 border-primary text-center text-base font-medium text-foreground">
           {t(keys.match.sparring.tabControl)}
         </span>
         <Link
           to={`/sparring/matches/${snapshot.matchId}/protocol`}
-          className="-mt-px flex-1 border-t-2 border-transparent py-2.5 text-center text-sm font-medium text-muted-foreground hover:text-foreground"
+          className="-mt-px flex flex-1 items-center justify-center border-t-2 border-transparent text-center text-base font-medium text-muted-foreground hover:text-foreground"
         >
           {t(keys.match.sparring.tabProtocol)}
         </Link>

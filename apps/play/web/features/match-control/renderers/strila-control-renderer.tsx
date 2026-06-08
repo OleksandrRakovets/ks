@@ -58,23 +58,22 @@ function CommandRows({
         <Button
           type="button"
           variant={prominenceVariant(cmd.prominence)}
-          size="touch"
+          size="control"
           disabled={isPot && selectedBalls.length === 0}
           onClick={() => onSubmit(preset)}
         >
           {cmd.label ?? cmd.commandType}
         </Button>
-        {cmd.effectSummary && <p className="text-center text-sm text-text-lo">{cmd.effectSummary}</p>}
+        {cmd.effectSummary && <p className="text-center text-base text-text-lo">{cmd.effectSummary}</p>}
       </div>
     )
   }
 
   return (
-    <section aria-label="Visible commands" className="border-b border-divider px-4 pt-1 pb-4">
-      <p className="mt-2 text-xs leading-none font-semibold tracking-widest text-text-ghost uppercase">{title}</p>
-      <div className="mt-3 grid grid-cols-2 gap-6">
-        <div className="grid gap-3">{commands.A.map((cmd, index) => renderButton(cmd, `A-${cmd.commandType}-${index}`))}</div>
-        <div className="grid gap-3">{commands.B.map((cmd, index) => renderButton(cmd, `B-${cmd.commandType}-${index}`))}</div>
+    <section aria-label={`${title} commands`} className="border-b border-divider px-4 py-2">
+      <div className="grid grid-cols-2 gap-6">
+        <div className="grid gap-3.5">{commands.A.map((cmd, index) => renderButton(cmd, `A-${cmd.commandType}-${index}`))}</div>
+        <div className="grid gap-3.5">{commands.B.map((cmd, index) => renderButton(cmd, `B-${cmd.commandType}-${index}`))}</div>
       </div>
     </section>
   )
@@ -82,14 +81,14 @@ function CommandRows({
 
 function NeutralCommandRows(props: { commands: ControlCommandPreset[]; onSubmit: (command: ControlCommandPreset) => void }) {
   return (
-    <section aria-label="Neutral commands" className="border-b border-divider px-4 pt-1 pb-4">
-      <div className="mx-auto mt-3 grid w-1/2 gap-3">
+    <section aria-label="Neutral commands" className="border-b border-divider px-4 py-2">
+      <div className="mx-auto grid w-2/3 gap-3.5">
         {props.commands.map((command, index) => (
           <Button
             key={`${command.source}-${command.commandType}-${index}`}
             type="button"
             variant={prominenceVariant(command.prominence)}
-            size="touch"
+            size="control"
             onClick={() => props.onSubmit(command)}
           >
             {command.label ?? command.commandType}
@@ -129,13 +128,11 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
 
   return (
     <div aria-label="Strila container" className="grid">
-      <p className="mt-4 px-4 text-sm leading-none font-semibold tracking-widest text-text-ghost uppercase">
-        {t(keys.match.control.choosePottedBall)}
-      </p>
+      <p className="sr-only">{t(keys.match.control.choosePottedBall)}</p>
       <div
         aria-label="Ball grid"
-        className="mx-auto grid gap-x-3 border-b border-divider px-4 py-4"
-        style={{ gridTemplateColumns: 'repeat(8, 1fr)', width: 'min(100%, 468px)' }}
+        className="mx-auto grid gap-1.5 border-b border-divider px-4 py-2"
+        style={{ gridTemplateColumns: 'repeat(8, minmax(0, 1fr))', justifyContent: 'center', width: 'min(100%, 528px)' }}
       >
         {StrilaMeta.allBalls.map((ball) => {
           const colors = BALL_COLORS[ball]
@@ -154,8 +151,7 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
                   setSelectedBalls((prev) => (prev.includes(ball) ? prev.filter((b) => b !== ball) : [...prev, ball]))
                 }}
                 style={{
-                  width: status === 'object' ? '100%' : '80%',
-                  maxWidth: status === 'object' ? '48px' : '38px',
+                  width: 'min(100%, 56px)',
                   aspectRatio: '1',
                   borderRadius: '50%',
                   background: colors.bg,
@@ -198,7 +194,7 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
       {details.messages.map((message) => (
         <p
           key={`${message.type}:${message.text}`}
-          className={`px-4 pt-2 text-sm font-semibold ${message.type === 'warning' ? 'text-destructive' : 'text-muted-foreground'}`}
+          className={`px-4 pt-2 text-base leading-tight font-semibold ${message.type === 'warning' ? 'text-destructive' : 'text-muted-foreground'}`}
         >
           {message.text}
         </p>
@@ -208,7 +204,7 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
         <div className="grid gap-3">
           <button
             type="button"
-            className="text-left text-xs text-muted-foreground hover:text-foreground"
+            className="px-4 py-3 text-left text-base text-muted-foreground hover:text-foreground"
             onClick={() => setShowTertiary((v) => !v)}
           >
             {showTertiary ? t(keys.match.control.showLess) : t(keys.match.control.showMore)}

@@ -189,14 +189,14 @@ export default function SparringMatchProtocolRoute() {
       </div>
 
       {snapshot.status === 'active' ? (
-        <nav className="sticky bottom-0 z-10 mt-auto flex border-t border-border bg-background">
+        <nav className="sticky bottom-0 z-10 mt-auto flex h-14 border-t border-border bg-background">
           <Link
             to={`/sparring/matches/${snapshot.matchId}`}
-            className="-mt-px flex-1 border-t-2 border-transparent py-2.5 text-center text-sm font-medium text-muted-foreground hover:text-foreground"
+            className="-mt-px flex flex-1 items-center justify-center border-t-2 border-transparent text-center text-base font-medium text-muted-foreground hover:text-foreground"
           >
             {t(keys.match.sparring.tabControl)}
           </Link>
-          <span className="-mt-px flex-1 border-t-2 border-primary py-2.5 text-center text-sm font-medium text-foreground">
+          <span className="-mt-px flex flex-1 items-center justify-center border-t-2 border-primary text-center text-base font-medium text-foreground">
             {t(keys.match.sparring.tabProtocol)}
           </span>
         </nav>

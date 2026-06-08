@@ -22,8 +22,8 @@ export function ScoreBox({ nameA, nameB, matchStatus, matchScore, frameScore, fr
   const isBWinner = !isLive && numberB > numberA
 
   return (
-    <div className="sticky top-11 z-10 border-b border-divider bg-background">
-      <div className={cn('flex items-center gap-x-5 border-b border-divider py-1 text-sm text-text-lo', {})}>
+    <div className="sticky top-14 z-10 border-b border-divider bg-background">
+      <div className={cn('flex items-center gap-x-5 border-b border-divider py-2 text-base text-text-lo', {})}>
         <span className={cn('flex-1 text-right', { hidden: !isLive })}>
           {t(keys.match.scoreboard.frameWithNumber, { frameIndex })}
         </span>
@@ -40,7 +40,9 @@ export function ScoreBox({ nameA, nameB, matchStatus, matchScore, frameScore, fr
       </div>
 
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-x-3 px-4 py-3">
-        <span className={cn('line-clamp-2 font-semibold', { 'text-primary': isAWinner })}>{nameA}</span>
+        <span className={cn('line-clamp-2 min-w-0 text-lg leading-tight font-semibold', { 'text-primary': isAWinner })}>
+          {nameA}
+        </span>
         <div className={cn('flex items-center', { 'text-amber': isLive })}>
           <span className={cn('text-center text-7xl font-bold tracking-tight tabular-nums', { 'text-primary': isAWinner })}>
             {numberA}
@@ -48,7 +50,11 @@ export function ScoreBox({ nameA, nameB, matchStatus, matchScore, frameScore, fr
           <span className="mx-2 text-4xl font-extralight tracking-tight">:</span>
           <span className={cn('text-7xl font-bold tracking-tight tabular-nums', { 'text-primary': isBWinner })}>{numberB}</span>
         </div>
-        <span className={cn('line-clamp-2 text-right font-semibold', { 'text-primary': isBWinner })}>{nameB}</span>
+        <span
+          className={cn('line-clamp-2 min-w-0 text-right text-lg leading-tight font-semibold', { 'text-primary': isBWinner })}
+        >
+          {nameB}
+        </span>
       </div>
     </div>
   )

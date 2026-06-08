@@ -62,9 +62,17 @@ Dependency direction:
 - Direct Worker-to-D1 reads are acceptable for list, lookup, history, and hydration paths that do not need live coordination.
 - Treat Cloudflare Worker, Durable Object, and D1 placement as independent until measured otherwise; observe production latency before adding location hints or regional constraints.
 
+## Active Match UI
+
+- Active match controls optimize for fast table-top scoring on an iPhone 16-class vertical screen.
+- Use the dedicated `control` button size for live scoring commands instead of globally enlarging ordinary app buttons.
+- Keep visible active-match text at 16px or larger unless it is screen-reader-only.
+- Preserve centered neutral actions when centering carries meaning; avoid full-width neutral controls by default.
+- Do not show command-tier labels such as Primary, Secondary, or Tertiary in the scoring surface.
+
 ## Validation And Schemas
 
-- Standardize schema imports on `zod`.
+- Standardize schema imports on `valibot`.
 - Shared schemas originate in `packages/core`.
 - Client-side validation is helpful, but server-side validation is mandatory.
 

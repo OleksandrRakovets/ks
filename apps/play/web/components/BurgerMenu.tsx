@@ -37,7 +37,7 @@ export function BurgerMenu() {
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <button aria-label={t(keys.nav.menu)} className="flex h-11 items-center justify-center px-4 text-green">
+        <button aria-label={t(keys.nav.menu)} className="flex h-14 items-center justify-center px-4 text-green">
           <HamburgerIcon />
         </button>
       </SheetTrigger>
@@ -107,7 +107,7 @@ export function BurgerMenu() {
 
 function HamburgerIcon() {
   return (
-    <svg width="16" height="12" viewBox="0 0 16 12" fill="none" aria-hidden>
+    <svg width="22" height="17" viewBox="0 0 16 12" fill="none" aria-hidden>
       <path d="M0 1h16M0 6h16M0 11h16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
     </svg>
   )
