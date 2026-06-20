@@ -1,7 +1,14 @@
 import * as v from 'valibot'
 
 import { ClientIdSchema, FactIdSchema, MatchIdSchema } from './ids'
-import { BySeatNumberSchema, FrameOutcomeSchema, GameKeySchema, MatchConfigSchema, SeatSchema } from './match'
+import {
+  BySeatNumberSchema,
+  FrameOutcomeSchema,
+  GameConfigurationSchema,
+  GameKeySchema,
+  MatchConfigSchema,
+  SeatSchema,
+} from './match'
 import { NonNegativeIntegerSchema, PositiveIntegerSchema, SizedStringSchema, UnknownObjectSchema } from './valicombos'
 
 export const ProtocolEntrySourceSchema = v.picklist(['player', 'system'])
@@ -40,6 +47,7 @@ export const FrameStartedFactSchema = v.object({
     frameIndex: PositiveIntegerSchema,
     gameKey: GameKeySchema,
     targetPointsBySeat: BySeatNumberSchema,
+    gameConfiguration: v.optional(GameConfigurationSchema),
   }),
 })
 

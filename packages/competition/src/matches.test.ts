@@ -28,6 +28,29 @@ describe('match creation helpers', () => {
     })
   })
 
+  test('requires and preserves long free pyramid game configuration', () => {
+    expect(
+      v.safeParse(CreateMatchRequestSchema, {
+        ...request,
+        gameKey: 'free-pyramid-long',
+      }).success,
+    ).toBe(false)
+
+    const longRequest = v.parse(CreateMatchRequestSchema, {
+      ...request,
+      gameKey: 'free-pyramid-long',
+      gameConfiguration: { rackRollover: 14 },
+    })
+    const matchId = newMatchId()
+
+    expect(buildMatchConfig(matchId, longRequest)).toEqual({
+      matchId,
+      gameKey: 'free-pyramid-long',
+      targets: request.targets,
+      gameConfiguration: { rackRollover: 14 },
+    })
+  })
+
   test('maps participants by seat', () => {
     expect(assignmentsBySeat(request.participants)).toEqual({
       A: 'gp_01HX0000000000000000000000',

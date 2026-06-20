@@ -4,6 +4,7 @@ import {
   NonEmptyStringSchema,
   type BySeatNumber,
   type FrameOutcome,
+  type GameConfiguration,
   type ProtocolEntry,
 } from '@ks/core'
 import * as v from 'valibot'
@@ -56,6 +57,7 @@ export type GameCommandResult = {
 
 export type GameCreateStateArgs = {
   targetPointsBySeat: BySeatNumber
+  gameConfiguration?: GameConfiguration
 }
 
 export interface GameplayRuntime {

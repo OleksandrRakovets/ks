@@ -137,6 +137,7 @@ export class MatchRoom extends DurableObject<Env> {
         frameIndex: 1,
         gameKey: config.gameKey,
         targetPointsBySeat: config.targets.frameTargetPointsBySeat,
+        ...(config.gameConfiguration ? { gameConfiguration: config.gameConfiguration } : {}),
       },
     }
 
@@ -172,7 +173,12 @@ export class MatchRoom extends DurableObject<Env> {
           ...base,
           factId: newFactId(),
           type: 'frame.started',
-          payload: { frameIndex: 1, gameKey: config.gameKey, targetPointsBySeat: config.targets.frameTargetPointsBySeat },
+          payload: {
+            frameIndex: 1,
+            gameKey: config.gameKey,
+            targetPointsBySeat: config.targets.frameTargetPointsBySeat,
+            gameConfiguration: config.gameConfiguration,
+          },
         },
       ]
 
@@ -352,6 +358,7 @@ export class MatchRoom extends DurableObject<Env> {
         matchState,
         currentFrameState: createInitialGameState(parseGameKey(fact.payload.gameKey), {
           targetPointsBySeat: fact.payload.targetPointsBySeat,
+          gameConfiguration: fact.payload.gameConfiguration,
         }),
       }
     }
@@ -427,6 +434,7 @@ export class MatchRoom extends DurableObject<Env> {
             frameIndex: roomState.matchState.currentFrameIndex + 1,
             gameKey: config.gameKey,
             targetPointsBySeat: config.targets.frameTargetPointsBySeat,
+            gameConfiguration: config.gameConfiguration,
           },
         },
       ]

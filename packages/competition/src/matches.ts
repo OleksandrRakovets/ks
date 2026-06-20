@@ -3,6 +3,7 @@ import {
   MatchIdSchema,
   MatchSeatAssignmentSchema,
   PositiveIntegerSchema,
+  GameConfigurationSchema,
   stripOptionalPrefix,
   type MatchConfig,
 } from '@ks/core'
@@ -19,9 +20,17 @@ export const CreateMatchRequestSchema = v.pipe(
       }),
       matchTargetFrames: PositiveIntegerSchema,
     }),
+    gameConfiguration: v.optional(GameConfigurationSchema),
     participants: v.tuple([MatchSeatAssignmentSchema, MatchSeatAssignmentSchema]),
   }),
   v.check((value) => isRegisteredGameKey(value.gameKey), 'Unsupported game key'),
+  v.check(
+    (value) =>
+      value.gameKey !== 'free-pyramid-long' ||
+      value.gameConfiguration?.rackRollover === 14 ||
+      value.gameConfiguration?.rackRollover === 15,
+    'Long free pyramid requires rack rollover configuration',
+  ),
   v.check(
     (value) => new Set(value.participants.map((participant) => participant.seat)).size === 2,
     'Participants must include one A and one B seat',
@@ -47,6 +56,7 @@ export function buildMatchConfig(matchId: string, input: CreateMatchRequest): Ma
     matchId,
     gameKey: input.gameKey,
     targets: input.targets,
+    gameConfiguration: input.gameConfiguration,
   })
 }
 

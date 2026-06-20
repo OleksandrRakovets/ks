@@ -13,6 +13,13 @@ export {
   type LocalizedGameTitle,
 } from '../src/constants'
 export { getGameMeta, isRegisteredGameKey, listGameKeys, registry, type RegisteredGameKey } from '../src/registry'
+export {
+  LongFreePyramidControlDetailsSchema,
+  LongFreePyramidControlViewSchema,
+  LongFreePyramidRackSchema,
+  type LongFreePyramidControlDetails,
+  type LongFreePyramidControlView,
+} from '../src/long-free-pyramid/definitions'
 export { PyramidControlViewSchema } from '../src/pyramid/definitions'
 export {
   StrilaControlDetailsSchema,

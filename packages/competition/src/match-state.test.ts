@@ -38,6 +38,7 @@ function frameStarted(config: MatchConfig, frameIndex: number): ClientFact {
     frameIndex,
     gameKey: config.gameKey,
     targetPointsBySeat: config.targets.frameTargetPointsBySeat,
+    gameConfiguration: config.gameConfiguration,
   })
 }
 
@@ -63,6 +64,32 @@ describe('match-state room facts', () => {
 
     expect(state.currentFrameIndex).toBe(1)
     expect(state.frames).toEqual([{ frameIndex: 1, pointsBySeat: { A: 0, B: 0 } }])
+  })
+
+  test('requires frame.started game configuration to match match config', () => {
+    const config: MatchConfig = {
+      ...makeConfig(1),
+      gameKey: 'free-pyramid-long',
+      gameConfiguration: { rackRollover: 14 },
+    }
+    let state = emptyMatchState()
+
+    state = applyMatchFact(state, baseFact(config.matchId, 'match.created', config))
+
+    expect(() =>
+      applyMatchFact(
+        state,
+        baseFact(config.matchId, 'frame.started', {
+          frameIndex: 1,
+          gameKey: config.gameKey,
+          targetPointsBySeat: config.targets.frameTargetPointsBySeat,
+          gameConfiguration: { rackRollover: 15 },
+        }),
+      ),
+    ).toThrow('Started frame game configuration does not match match config')
+
+    state = applyMatchFact(state, frameStarted(config, 1))
+    expect(state.currentFrameIndex).toBe(1)
   })
 
   test('game.command is accepted input fact but does not mutate match score', () => {
