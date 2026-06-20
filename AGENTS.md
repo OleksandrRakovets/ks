@@ -32,6 +32,14 @@ KS is a billiards scorekeeping app for a local club. Core use case: two-player m
 - Boundary guards: `bun run check:boundaries`
 - Tests: `bun test` (single file: `bun test packages/gameplay/src/strila-v2/runtime.test.ts`)
 
+## Dependency workflow
+
+- Check outdated deps across the monorepo with `bun outdated --recursive`; plain `bun outdated` only checks the current workspace.
+- Shared dependency versions live in root `workspaces.catalog`; package consumers should keep `"catalog:"` instead of hardcoded ranges.
+- To update a catalog-managed dependency, edit the root `workspaces.catalog` version first, then run `bun install` to regenerate `bun.lock`.
+- To update a non-catalog dependency, edit the package that owns it, then run `bun install`.
+- Bun installs intentionally use a 7-day minimum release age cooldown from machine config; do not override it with CLI flags.
+
 ## Enforced constraints (do not fight these)
 
 - `check:boundaries` enforces:
