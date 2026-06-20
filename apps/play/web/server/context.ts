@@ -1,3 +1,4 @@
+import { createContext, type RouterContextProvider } from 'react-router'
 import invariant from 'tiny-invariant'
 
 export type AppEnv = {
@@ -28,15 +29,17 @@ export type AppEnv = {
   KS_DEPLOY_ENV?: string
 }
 
-export type AppLoadContext = {
-  cloudflare?: {
-    env: AppEnv
-    ctx: unknown
-  }
+export type CloudflareLoadContext = {
+  env: unknown
+  ctx: unknown
 }
 
+export type AppLoadContext = Pick<RouterContextProvider, 'get'>
+
+export const cloudflareContext = createContext<CloudflareLoadContext | undefined>(undefined)
+
 export function requireEnv(context: AppLoadContext): AppEnv {
-  const env = context.cloudflare?.env
+  const env = context.get(cloudflareContext)?.env as AppEnv | undefined
   invariant(env, 'Missing cloudflare env in route context')
   return env
 }

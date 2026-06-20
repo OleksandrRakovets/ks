@@ -1,21 +1,19 @@
+import type { RouterContextProvider } from 'react-router'
+
+import { cloudflareContext } from './context'
+
 export type IconVariant = 'green' | 'amber'
 
 type IconEnv = {
   KS_DEPLOY_ENV?: string
 }
 
-type IconContext = {
-  cloudflare?: {
-    env?: IconEnv
-  }
-}
-
 export function iconVariantFromEnv(env: IconEnv | undefined): IconVariant {
   return env?.KS_DEPLOY_ENV === 'production' ? 'green' : 'amber'
 }
 
-export function iconVariantFromContext(context: unknown): IconVariant {
-  return iconVariantFromEnv((context as IconContext).cloudflare?.env)
+export function iconVariantFromContext(context: Pick<RouterContextProvider, 'get'>): IconVariant {
+  return iconVariantFromEnv(context.get(cloudflareContext)?.env as IconEnv | undefined)
 }
 
 export function iconBasePath(variant: IconVariant): string {

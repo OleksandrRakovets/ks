@@ -1,17 +1,9 @@
-import { createRequestHandler } from 'react-router'
+import { createRequestHandler, RouterContextProvider } from 'react-router'
 import type { ServerBuild } from 'react-router'
 
+import { cloudflareContext } from '../web/server/context'
 import { MatchRoom } from './do/MatchRoom'
 import type { Env } from './env'
-
-declare module 'react-router' {
-  interface AppLoadContext {
-    cloudflare: {
-      env: Env
-      ctx: ExecutionContextLike
-    }
-  }
-}
 
 const requestHandler = createRequestHandler(
   () =>
@@ -29,8 +21,9 @@ type ExecutionContextLike = {
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContextLike) {
-    return requestHandler(request, {
-      cloudflare: { env, ctx },
-    })
+    const context = new RouterContextProvider()
+    context.set(cloudflareContext, { env, ctx })
+
+    return requestHandler(request, context)
   },
 }
