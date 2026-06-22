@@ -9,7 +9,7 @@ import {
 import * as v from 'valibot'
 
 import {
-  GameCommandPresetSchema,
+  GameControlCommandSchema,
   GameControlProjectionSchema,
   GameScoreboardProjectionSchema,
   GameSummaryProjectionSchema,
@@ -111,11 +111,7 @@ const ControlMessageSchema = v.object({
   text: NonEmptyStringSchema,
 })
 
-const ControlCommandSchema = v.object({
-  ...GameCommandPresetSchema.entries,
-  label: NonEmptyStringSchema,
-})
-export type StrilaControlCommand = v.InferOutput<typeof ControlCommandSchema>
+export type StrilaControlCommand = v.InferOutput<typeof GameControlCommandSchema>
 
 export const StrilaControlDetailsSchema = v.object({
   phase: StrilaPhaseSchema,

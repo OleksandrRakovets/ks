@@ -2,6 +2,7 @@ import {
   BySeatNumberSchema,
   ControlCommandPresetSchema,
   NonEmptyStringSchema,
+  emptyControlCommandSections,
   type BySeatNumber,
   type FrameOutcome,
   type GameConfiguration,
@@ -27,6 +28,23 @@ export const GameProjectionKeySchema = v.picklist(['control', 'scoreboard', 'sum
 export type GameProjectionKey = v.InferOutput<typeof GameProjectionKeySchema>
 
 export const GameCommandPresetSchema = v.object({ ...ControlCommandPresetSchema.entries, source: v.literal('game') })
+
+export const GameControlCommandSchema = v.object({
+  ...GameCommandPresetSchema.entries,
+  label: NonEmptyStringSchema,
+})
+export type GameControlCommand = v.InferOutput<typeof GameControlCommandSchema>
+
+export function deriveGameCommandSections(commands: readonly GameControlCommand[]) {
+  const sections = emptyControlCommandSections()
+
+  for (const entry of commands) {
+    if (entry.seat) sections[entry.prominence][entry.seat].push(entry)
+    else sections.neutral.push(entry)
+  }
+
+  return sections
+}
 
 export const GameControlProjectionSchema = v.object({
   gameKey: NonEmptyStringSchema,

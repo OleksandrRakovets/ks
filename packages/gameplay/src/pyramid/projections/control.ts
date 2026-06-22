@@ -1,38 +1,18 @@
-import { NonEmptyStringSchema, emptyControlCommandSections } from '@ks/core'
+import { emptyControlCommandSections } from '@ks/core'
 import invariant from 'tiny-invariant'
 import * as v from 'valibot'
 
-import { GameCommandPresetSchema } from '../../constants'
+import { deriveGameCommandSections, type GameControlCommand } from '../../constants'
 import { PyramidControlViewSchema, type PyramidFrameState, type PyramidRuntimeConfig } from '../definitions'
-
-const PyramidControlCommandSchema = v.object({
-  ...GameCommandPresetSchema.entries,
-  label: NonEmptyStringSchema,
-})
-type PyramidControlCommand = v.InferOutput<typeof PyramidControlCommandSchema>
 
 function command(
   commandType: string,
   payload: Record<string, unknown>,
   label: string,
-  extras: Omit<PyramidControlCommand, 'source' | 'commandType' | 'command' | 'seat' | 'label'>,
-): PyramidControlCommand {
+  extras: Omit<GameControlCommand, 'source' | 'commandType' | 'command' | 'seat' | 'label'>,
+): GameControlCommand {
   const seat = payload.seat === 'A' || payload.seat === 'B' ? payload.seat : undefined
   return { source: 'game', commandType, command: payload, seat, label, ...extras }
-}
-
-function deriveCommandSections(commands: PyramidControlCommand[]) {
-  const sections = emptyControlCommandSections()
-
-  for (const entry of commands) {
-    if (entry.seat) {
-      sections[entry.prominence][entry.seat].push(entry)
-    } else {
-      sections.neutral.push(entry)
-    }
-  }
-
-  return sections
 }
 
 function pyramidDetails(state: PyramidFrameState) {
@@ -84,7 +64,7 @@ export function derivePyramidControlView(state: PyramidFrameState, config: Pyram
         situationTitle: 'Open play',
         situationSummary: 'Record shot value or foul for either player.',
         isPotCommandAvailable: true,
-        commandSections: deriveCommandSections(commands),
+        commandSections: deriveGameCommandSections(commands),
       },
     })
   }
@@ -105,7 +85,7 @@ export function derivePyramidControlView(state: PyramidFrameState, config: Pyram
         situationTitle: 'Winner determined',
         situationSummary: 'The winner may continue scoring, or the frame can be awarded now.',
         isPotCommandAvailable: true,
-        commandSections: deriveCommandSections(commands),
+        commandSections: deriveGameCommandSections(commands),
       },
     })
   }

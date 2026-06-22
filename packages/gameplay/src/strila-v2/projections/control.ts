@@ -1,7 +1,8 @@
-import { emptyControlCommandSections, opponentOf, type Seat } from '@ks/core'
+import { opponentOf, type Seat } from '@ks/core'
 import invariant from 'tiny-invariant'
 import * as v from 'valibot'
 
+import { deriveGameCommandSections } from '../../constants'
 import {
   StrilaMeta,
   StrilaBallStatusesSchema,
@@ -65,20 +66,6 @@ function deriveBallStatuses(state: StrilaFrameState): StrilaControlDetails['ball
   return ballStatuses
 }
 
-function deriveCommandSections(commands: StrilaControlCommand[]): StrilaControlDetails['commandSections'] {
-  const sections = emptyControlCommandSections()
-
-  commands.forEach((entry) => {
-    if (entry.seat) {
-      sections[entry.prominence][entry.seat].push(entry)
-    } else {
-      sections.neutral.push(entry)
-    }
-  })
-
-  return sections
-}
-
 function messages(entries: Array<{ type: 'hint' | 'warning'; text: string }>) {
   const seen = new Set<string>()
   return entries.filter((entry) => {
@@ -109,7 +96,7 @@ function view(
       situationSummary: args.situationSummary,
       isPotCommandAvailable: args.commands.some((entry) => entry.commandType === 'pot.record'),
       ballStatuses: deriveBallStatuses(state),
-      commandSections: deriveCommandSections(args.commands),
+      commandSections: deriveGameCommandSections(args.commands),
       messages: messages(args.messages ?? []),
     },
   })

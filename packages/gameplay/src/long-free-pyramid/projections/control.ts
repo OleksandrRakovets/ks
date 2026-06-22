@@ -1,29 +1,21 @@
-import { NonEmptyStringSchema, emptyControlCommandSections, type BySeatNumber, type Seat } from '@ks/core'
+import { type BySeatNumber, type Seat } from '@ks/core'
 import * as v from 'valibot'
 
-import { GameCommandPresetSchema, GameControlProjectionSchema } from '../../constants'
-import type { LongFreePyramidFrameState, LongFreePyramidProjectionDetails } from '../definitions'
-
-const ControlCommandSchema = v.object({ ...GameCommandPresetSchema.entries, label: NonEmptyStringSchema })
-type ControlCommand = v.InferOutput<typeof ControlCommandSchema>
+import { deriveGameCommandSections, type GameControlCommand } from '../../constants'
+import {
+  LongFreePyramidControlViewSchema,
+  type LongFreePyramidFrameState,
+  type LongFreePyramidProjectionDetails,
+} from '../definitions'
 
 function command(
   commandType: string,
   payload: Record<string, unknown>,
   label: string,
-  prominence: ControlCommand['prominence'],
-): ControlCommand {
+  prominence: GameControlCommand['prominence'],
+): GameControlCommand {
   const seat = payload.seat === 'A' || payload.seat === 'B' ? payload.seat : undefined
   return { source: 'game', commandType, command: payload, seat, label, prominence }
-}
-
-function commandSections(commands: ControlCommand[]) {
-  const sections = emptyControlCommandSections()
-  for (const entry of commands) {
-    if (entry.seat) sections[entry.prominence][entry.seat].push(entry)
-    else sections.neutral.push(entry)
-  }
-  return sections
 }
 
 export function deriveLongFreePyramidControlView(args: {
@@ -60,14 +52,14 @@ export function deriveLongFreePyramidControlView(args: {
 
   const isPotCommandAvailable = args.state.phase === 'open-play' || args.state.phase === 'winner-determined'
 
-  return v.parse(GameControlProjectionSchema, {
+  return v.parse(LongFreePyramidControlViewSchema, {
     gameKey: 'free-pyramid-long',
     projection: 'control',
     score: args.score,
     details: {
       ...args.details,
       isPotCommandAvailable: isPotCommandAvailable && args.ballsOnTable > 0,
-      commandSections: commandSections(commands),
+      commandSections: deriveGameCommandSections(commands),
     },
   })
 }

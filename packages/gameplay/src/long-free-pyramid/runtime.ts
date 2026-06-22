@@ -10,7 +10,7 @@ import {
 import invariant from 'tiny-invariant'
 import * as v from 'valibot'
 
-import { type GameCreateStateArgs, type GameProjectionKey, type GameplayRuntime } from '../constants'
+import type { GameCreateStateArgs, GameProjectionKey, GameplayRuntime } from '../constants'
 import {
   LongFreePyramidFrameStateSchema,
   type LongFreePyramidFrameState,
@@ -20,8 +20,6 @@ import {
 import { deriveLongFreePyramidControlView } from './projections/control'
 import { deriveLongFreePyramidScoreboardView } from './projections/scoreboard'
 import { deriveLongFreePyramidSummaryView } from './projections/summary'
-
-const RACK_BALLS = 16
 
 const PotRecordedCommandSchema = v.object({ seat: SeatSchema, points: v.pipe(IntegerSchema, v.minValue(1), v.maxValue(4)) })
 const SeatCommandSchema = v.object({ seat: SeatSchema })
@@ -57,7 +55,7 @@ function removedByRack(rack: LongFreePyramidRack): number {
 }
 
 function ballsOnTable(state: LongFreePyramidFrameState): number {
-  return Math.max(0, RACK_BALLS - removedByRack(currentRack(state)))
+  return Math.max(0, 16 - removedByRack(currentRack(state)))
 }
 
 function addRackScore(rack: LongFreePyramidRack, seat: Seat, points: number): LongFreePyramidRack {
