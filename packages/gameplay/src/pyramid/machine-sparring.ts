@@ -103,6 +103,7 @@ export const pyramidSparringMachine = setup({
       const e = frameAwardEvent(event)
       return context.winner === e.actor
     },
+    isActorWinner: ({ context, event }) => context.winner === event.actor,
   },
   actions: {
     commence: assign(() => ({
@@ -194,10 +195,12 @@ export const pyramidSparringMachine = setup({
     'winner-determined': {
       on: {
         'pot.record': {
+          guard: 'isActorWinner',
           target: 'winner-determined',
           actions: 'applyPot',
         },
         'foul.commit': {
+          guard: 'isActorWinner',
           target: 'winner-determined',
           actions: 'applyFoul',
         },

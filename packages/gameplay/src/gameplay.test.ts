@@ -220,10 +220,31 @@ describe('gameplay runtime api', () => {
     expect(projection.details.commandSections.primary.B.map((entry) => entry.commandType)).toEqual([])
   })
 
-  test('free pyramid control keeps scoring after target and exposes frame.award', () => {
+  test('free pyramid enters winner-determined after target', () => {
+    const { state } = applyGameCommand({
+      gameKey: 'free-pyramid',
+      state: { pointsBySeat: { A: 7, B: 2 }, targetPointsBySeat: { A: 8, B: 8 }, phase: 'open-play' },
+      commandType: 'pot.record',
+      command: { seat: 'A', points: 1 },
+    })
+
+    expect(state).toEqual({
+      pointsBySeat: { A: 8, B: 2 },
+      targetPointsBySeat: { A: 8, B: 8 },
+      phase: 'winner-determined',
+      winnerSeat: 'A',
+    })
+  })
+
+  test('free pyramid winner-determined control exposes award before winner +1 only', () => {
     const projection = deriveGameProjection({
       gameKey: 'free-pyramid',
-      state: { pointsBySeat: { A: 10, B: 2 }, targetPointsBySeat: { A: 8, B: 8 }, phase: 'open-play' },
+      state: {
+        pointsBySeat: { A: 10, B: 2 },
+        targetPointsBySeat: { A: 8, B: 8 },
+        phase: 'winner-determined',
+        winnerSeat: 'A',
+      },
       projection: 'control',
     }) as {
       details: {
@@ -236,21 +257,26 @@ describe('gameplay runtime api', () => {
     }
 
     expect(projection.details.isPotCommandAvailable).toBe(true)
-    expect(projection.details.commandSections.primary.A.map((entry) => entry.commandType)).toEqual([
-      'pot.record',
-      'frame.award',
-    ])
-    expect(projection.details.commandSections.primary.B.map((entry) => entry.commandType)).toEqual(['pot.record'])
-    expect(projection.details.commandSections.secondary.A.map((entry) => entry.commandType)).toEqual([
-      'pot.record',
-      'pot.record',
-      'foul.commit',
-    ])
-    expect(projection.details.commandSections.secondary.B.map((entry) => entry.commandType)).toEqual([
-      'pot.record',
-      'pot.record',
-      'foul.commit',
-    ])
+    expect(projection.details.commandSections.primary.A.map((entry) => entry.commandType)).toEqual(['frame.award'])
+    expect(projection.details.commandSections.primary.B.map((entry) => entry.commandType)).toEqual([])
+    expect(projection.details.commandSections.secondary.A.map((entry) => entry.commandType)).toEqual(['pot.record'])
+    expect(projection.details.commandSections.secondary.B.map((entry) => entry.commandType)).toEqual([])
+  })
+
+  test('free pyramid loser cannot score after winner is determined', () => {
+    expect(() =>
+      applyGameCommand({
+        gameKey: 'free-pyramid',
+        state: {
+          pointsBySeat: { A: 10, B: 2 },
+          targetPointsBySeat: { A: 8, B: 8 },
+          phase: 'winner-determined',
+          winnerSeat: 'A',
+        },
+        commandType: 'pot.record',
+        command: { seat: 'B', points: 1 },
+      }),
+    ).toThrow('Only determined winner may continue scoring')
   })
 
   test('combined pyramid old control projects +1, +2 and foul deduction', () => {
@@ -288,7 +314,12 @@ describe('gameplay runtime api', () => {
   test('free pyramid frame.award closes gameplay state', () => {
     const { state, protocolEntries } = applyGameCommand({
       gameKey: 'free-pyramid',
-      state: { pointsBySeat: { A: 10, B: 2 }, targetPointsBySeat: { A: 8, B: 8 }, phase: 'open-play' },
+      state: {
+        pointsBySeat: { A: 10, B: 2 },
+        targetPointsBySeat: { A: 8, B: 8 },
+        phase: 'winner-determined',
+        winnerSeat: 'A',
+      },
       commandType: 'frame.award',
       command: { seat: 'A' },
     })

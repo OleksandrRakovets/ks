@@ -25,7 +25,7 @@ import { PyramidControlViewSchema } from './definitions'
 const PyramidFrameStateSchema = v.object({
   pointsBySeat: BySeatNumberSchema,
   targetPointsBySeat: BySeatNumberSchema,
-  phase: v.picklist(['not-started', 'open-play', 'frame-over']),
+  phase: v.picklist(['not-started', 'open-play', 'winner-determined', 'frame-over']),
   winnerSeat: v.optional(SeatSchema),
 })
 
@@ -125,7 +125,6 @@ function deriveCommandSections(commands: v.InferOutput<typeof PyramidControlComm
   return sections
 }
 
-// TODO: declare winner as well, but allow the break to continue
 export class PyramidGameplayRuntime implements GameplayRuntime {
   private readonly config: {
     gameKey: string
@@ -176,12 +175,14 @@ export class PyramidGameplayRuntime implements GameplayRuntime {
     }
 
     if (input.commandType === 'pot.record') {
-      invariant(state.phase === 'open-play', 'Cannot record pyramid shot before frame.commence')
       const command = v.parse(ShotRecordedCommandSchema, input.command)
+      invariant(state.phase === 'open-play' || state.phase === 'winner-determined', 'Cannot record pyramid shot now')
+      if (state.phase === 'winner-determined')
+        invariant(command.seat === state.winnerSeat, 'Only determined winner may continue scoring')
       const current = state.pointsBySeat[command.seat]
       const next = current + command.points
 
-      const nextState = {
+      let nextState = {
         ...state,
         pointsBySeat:
           command.seat === 'A'
@@ -194,6 +195,10 @@ export class PyramidGameplayRuntime implements GameplayRuntime {
                 B: this.config.allowNegative ? next : Math.max(0, next),
               },
       } satisfies PyramidFrameState
+
+      if (state.phase === 'open-play' && nextState.pointsBySeat[command.seat] >= nextState.targetPointsBySeat[command.seat]) {
+        nextState = { ...nextState, phase: 'winner-determined', winnerSeat: command.seat }
+      }
 
       return {
         state: nextState,
@@ -209,14 +214,16 @@ export class PyramidGameplayRuntime implements GameplayRuntime {
     }
 
     if (input.commandType === 'foul.commit') {
-      invariant(state.phase === 'open-play', 'Cannot record pyramid foul before frame.commence')
       const command = v.parse(FoulCommittedCommandSchema, input.command)
+      invariant(state.phase === 'open-play' || state.phase === 'winner-determined', 'Cannot record pyramid foul now')
+      if (state.phase === 'winner-determined')
+        invariant(command.seat === state.winnerSeat, 'Only determined winner may foul after target')
 
       if (this.config.foulPenalty === 'opponent-plus-one') {
         const targetSeat = opponentOf(command.seat)
         const current = state.pointsBySeat[targetSeat]
 
-        const nextState = {
+        let nextState = {
           ...state,
           pointsBySeat:
             targetSeat === 'A'
@@ -229,6 +236,10 @@ export class PyramidGameplayRuntime implements GameplayRuntime {
                   B: current + 1,
                 },
         } satisfies PyramidFrameState
+
+        if (state.phase === 'open-play' && nextState.pointsBySeat[targetSeat] >= nextState.targetPointsBySeat[targetSeat]) {
+          nextState = { ...nextState, phase: 'winner-determined', winnerSeat: targetSeat }
+        }
 
         return {
           state: nextState,
@@ -245,7 +256,7 @@ export class PyramidGameplayRuntime implements GameplayRuntime {
 
       const current = state.pointsBySeat[command.seat]
       const next = current - 1
-      const nextState = {
+      let nextState = {
         ...state,
         pointsBySeat:
           command.seat === 'A'
@@ -258,6 +269,10 @@ export class PyramidGameplayRuntime implements GameplayRuntime {
                 B: this.config.allowNegative ? next : Math.max(0, next),
               },
       } satisfies PyramidFrameState
+
+      if (state.phase === 'open-play' && nextState.pointsBySeat[command.seat] >= nextState.targetPointsBySeat[command.seat]) {
+        nextState = { ...nextState, phase: 'winner-determined', winnerSeat: command.seat }
+      }
 
       return {
         state: nextState,
@@ -274,10 +289,8 @@ export class PyramidGameplayRuntime implements GameplayRuntime {
 
     invariant(input.commandType === 'frame.award', `Unsupported commandType: ${input.commandType}`)
     const command = v.parse(AwardFrameCommandSchema, input.command)
-    invariant(
-      state.pointsBySeat[command.seat] >= state.targetPointsBySeat[command.seat],
-      `Cannot award pyramid frame to ${command.seat} before target score`,
-    )
+    invariant(state.phase === 'winner-determined', 'Cannot award pyramid frame before winner')
+    invariant(state.winnerSeat === command.seat, `Cannot award pyramid frame to ${command.seat}`)
 
     const nextState = {
       ...state,
@@ -332,12 +345,6 @@ export class PyramidGameplayRuntime implements GameplayRuntime {
                     : 'Offender -1 point (negative allowed)',
               }),
             ),
-            ...(state.pointsBySeat.A >= state.targetPointsBySeat.A
-              ? [command('frame.award', { seat: 'A' }, 'Award frame', { prominence: 'primary' })]
-              : []),
-            ...(state.pointsBySeat.B >= state.targetPointsBySeat.B
-              ? [command('frame.award', { seat: 'B' }, 'Award frame', { prominence: 'primary' })]
-              : []),
           ]
 
           return v.parse(PyramidControlViewSchema, {
@@ -348,6 +355,27 @@ export class PyramidGameplayRuntime implements GameplayRuntime {
               ...pyramidDetails(state),
               situationTitle: 'Open play',
               situationSummary: 'Record shot value or foul for either player.',
+              isPotCommandAvailable: true,
+              commandSections: deriveCommandSections(commands),
+            },
+          })
+        }
+
+        if (state.phase === 'winner-determined') {
+          invariant(state.winnerSeat, 'Winner is required before awarding a determined pyramid frame')
+          const commands = [
+            command('frame.award', { seat: state.winnerSeat }, 'Award frame', { prominence: 'primary' }),
+            command('pot.record', { seat: state.winnerSeat, points: 1 }, '+1', { prominence: 'secondary' }),
+          ]
+
+          return v.parse(PyramidControlViewSchema, {
+            gameKey: this.config.gameKey,
+            projection: 'control',
+            score: state.pointsBySeat,
+            details: {
+              ...pyramidDetails(state),
+              situationTitle: 'Winner determined',
+              situationSummary: 'The winner may continue scoring, or the frame can be awarded now.',
               isPotCommandAvailable: true,
               commandSections: deriveCommandSections(commands),
             },

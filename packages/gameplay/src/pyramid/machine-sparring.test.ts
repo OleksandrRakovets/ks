@@ -76,6 +76,16 @@ describe('pyramid machine-sparring: basic', () => {
     expect(getPhase(snap)).toBe('winner-determined')
     expect(snap.context.score).toEqual({ A: 3, B: 0 })
   })
+
+  test('loser pots in winner-determined are ignored', () => {
+    let snap = start(STANDARD_RULES, { A: 2, B: 8 })
+    snap = sendEvent(snap, { type: 'frame.commence', actor: 'A' })
+    snap = sendEvent(snap, { type: 'pot.record', actor: 'A', points: 2 })
+    snap = sendEvent(snap, { type: 'pot.record', actor: 'B', points: 1 })
+
+    expect(getPhase(snap)).toBe('winner-determined')
+    expect(snap.context.score).toEqual({ A: 2, B: 0 })
+  })
 })
 
 describe('pyramid machine-sparring: foul handling', () => {
