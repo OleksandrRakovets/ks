@@ -1,4 +1,4 @@
-import { newMatchId, SeatSchema } from '@ks/core'
+import { newMatchId, SeatSchema, type Seat } from '@ks/core'
 import { isRegisteredGameKey, registry } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
 import { Button } from '@ks/ui'
@@ -149,6 +149,7 @@ export default function SparringInitRoute() {
   const recentPlayers = useRecentPlayers()
   const [seatAName, setSeatAName] = useState('')
   const [seatBName, setSeatBName] = useState('')
+  const [firstBreakerSeat, setFirstBreakerSeat] = useState<Seat | null>(null)
 
   const normalizedSeatAName = safeNormalizeDisplayName(seatAName)
   const normalizedSeatBName = safeNormalizeDisplayName(seatBName)
@@ -158,8 +159,18 @@ export default function SparringInitRoute() {
   const suggestionsB = useMemo(() => recentPlayerSuggestions(recentPlayers, seatAName), [recentPlayers, seatAName])
 
   function handleSubmit() {
-    if (!canShowSettings) return
+    if (!canShowSettings || firstBreakerSeat === null) return
     rememberRecentPlayers([seatAName, seatBName])
+  }
+
+  function handleSeatANameChange(value: string) {
+    setSeatAName(value)
+    setFirstBreakerSeat(null)
+  }
+
+  function handleSeatBNameChange(value: string) {
+    setSeatBName(value)
+    setFirstBreakerSeat(null)
   }
 
   return (
@@ -180,15 +191,19 @@ export default function SparringInitRoute() {
             seatBName={seatBName}
             suggestionsA={suggestionsA}
             suggestionsB={suggestionsB}
-            onSeatANameChange={setSeatAName}
-            onSeatBNameChange={setSeatBName}
+            onSeatANameChange={handleSeatANameChange}
+            onSeatBNameChange={handleSeatBNameChange}
           />
 
           {canShowSettings ? (
             <div className="grid gap-6">
               <MatchTargetFramesField profile={profile} />
               <RackRolloverField profile={profile} />
-              <FirstBreakerField playerNames={{ A: normalizedSeatAName, B: normalizedSeatBName }} />
+              <FirstBreakerField
+                playerNames={{ A: normalizedSeatAName, B: normalizedSeatBName }}
+                firstBreakerSeat={firstBreakerSeat}
+                onFirstBreakerSeatChange={setFirstBreakerSeat}
+              />
               <FrameTargetFields
                 playerNames={{ A: normalizedSeatAName, B: normalizedSeatBName }}
                 defaults={profile.defaultFrameTargetPointsBySeat}
@@ -198,7 +213,12 @@ export default function SparringInitRoute() {
 
           {actionData?.ok === false ? <p className="text-sm text-destructive">{t(actionData.errorKey)}</p> : null}
 
-          <Button type="submit" size="touch" className="w-full" disabled={isSubmitting || !canShowSettings}>
+          <Button
+            type="submit"
+            size="touch"
+            className="w-full"
+            disabled={isSubmitting || !canShowSettings || firstBreakerSeat === null}
+          >
             {isSubmitting ? t(keys.match.sparring.creatingMatch) : t(keys.match.sparring.createMatch)}
           </Button>
         </Form>
