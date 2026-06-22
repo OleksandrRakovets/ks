@@ -94,6 +94,7 @@ export const keys = {
       errorNamesMustDiffer: 'match.sparring.errorNamesMustDiffer',
       errorMatchTargetFramesRequired: 'match.sparring.errorMatchTargetFramesRequired',
       errorHandicapMustBePositiveInt: 'match.sparring.errorHandicapMustBePositiveInt',
+      errorRackRolloverRequired: 'match.sparring.errorRackRolloverRequired',
       matchControlTitle: 'match.sparring.matchControlTitle',
       tabControl: 'match.sparring.tabControl',
       tabProtocol: 'match.sparring.tabProtocol',

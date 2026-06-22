@@ -13,6 +13,7 @@ import {
   ClientIdSchema,
   ControlCommandSchema,
   BySeatNumberSchema,
+  GameConfigurationSchema,
   NonEmptyStringSchema,
   NonNegativeIntegerSchema,
   MatchConfigSchema,
@@ -51,6 +52,7 @@ const CreateBodySchema = v.object({
   controlSecret: ControlSecretSchema,
   gameKey: NonEmptyStringSchema,
   targets: MatchTargetsSchema,
+  gameConfiguration: v.optional(GameConfigurationSchema),
   participants: v.tuple([MatchSeatAssignmentSchema, MatchSeatAssignmentSchema]),
 })
 

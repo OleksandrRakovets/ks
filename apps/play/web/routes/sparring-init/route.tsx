@@ -1,20 +1,25 @@
-import { newMatchId, type BySeatNumber } from '@ks/core'
+import { newMatchId } from '@ks/core'
 import { isRegisteredGameKey, registry } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
-import { Button, Input, Label, NumberInput } from '@ks/ui'
+import { Button } from '@ks/ui'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Form, Link, redirect, useActionData, useLoaderData, useNavigation } from 'react-router'
 import * as v from 'valibot'
 
-import type { AppLoadContext } from '../server/context'
-import { requireEnv } from '../server/context'
-import { getOrCreateGuestPlayerRef } from '../server/guest-players'
-import { localeFromCookie } from '../server/locale'
+import type { AppLoadContext } from '../../server/context'
+import { requireEnv } from '../../server/context'
+import { getOrCreateGuestPlayerRef } from '../../server/guest-players'
+import { localeFromCookie } from '../../server/locale'
+import { FrameTargetFields, MatchTargetFramesField, PlayerNameFields, RackRolloverField } from './fields'
+import { createProfileForGame, type MatchCreateProfile } from './profile'
+import { recentPlayerSuggestions, rememberRecentPlayers, useRecentPlayers } from './recent-players'
+import { DisplayNameSchema, parsePositiveInt, parseRackRollover, safeNormalizeDisplayName } from './validation'
 
 type LoaderData = {
   gameKey: string
   title: string
-  defaultFrameTargetPointsBySeat: BySeatNumber
+  profile: MatchCreateProfile
 }
 
 type ActionData = {
@@ -24,24 +29,7 @@ type ActionData = {
     | typeof keys.match.sparring.errorNamesMustDiffer
     | typeof keys.match.sparring.errorMatchTargetFramesRequired
     | typeof keys.match.sparring.errorHandicapMustBePositiveInt
-}
-
-const DisplayNameSchema = v.pipe(
-  v.string(),
-  v.trim(),
-  v.transform((value) => value.replace(/\s+/g, ' ')),
-  v.minLength(1),
-)
-
-function parsePositiveInt(raw: FormDataEntryValue | null, fallback?: number): number | null {
-  if (raw == null || raw === '') {
-    return fallback ?? null
-  }
-  const parsed = Number(raw)
-  if (!Number.isInteger(parsed) || parsed <= 0) {
-    return null
-  }
-  return parsed
+    | typeof keys.match.sparring.errorRackRolloverRequired
 }
 
 function randomSecret(): string {
@@ -62,7 +50,7 @@ export async function loader({ params, request }: { params: { gameKey?: string }
   return {
     gameKey,
     title: registry[gameKey].meta.title[locale],
-    defaultFrameTargetPointsBySeat: registry[gameKey].meta.defaultFrameTargetPointsBySeat,
+    profile: createProfileForGame(gameKey),
   }
 }
 
@@ -74,20 +62,25 @@ export async function action({
   params: { gameKey?: string }
   request: Request
   context: AppLoadContext
-}) {
+}): Promise<ActionData | Response> {
   const gameKey = params.gameKey
   if (!gameKey || !isRegisteredGameKey(gameKey)) {
     throw new Response('Unknown gameKey', { status: 404 })
   }
 
-  const defaultFrameTargetPointsBySeat = registry[gameKey].meta.defaultFrameTargetPointsBySeat
+  const profile = createProfileForGame(gameKey)
+  const defaultFrameTargetPointsBySeat = profile.defaultFrameTargetPointsBySeat
 
   const form = await request.formData()
   const seatAName = v.safeParse(DisplayNameSchema, String(form.get('seatAName') ?? ''))
   const seatBName = v.safeParse(DisplayNameSchema, String(form.get('seatBName') ?? ''))
-  const matchTargetFrames = parsePositiveInt(form.get('matchTargetFrames'))
+  const matchTargetFrames =
+    profile.matchTargetFrames.mode === 'fixed'
+      ? profile.matchTargetFrames.fixedValue
+      : parsePositiveInt(form.get('matchTargetFrames'))
   const targetA = parsePositiveInt(form.get('targetA'), defaultFrameTargetPointsBySeat.A)
   const targetB = parsePositiveInt(form.get('targetB'), defaultFrameTargetPointsBySeat.B)
+  const rackRollover = profile.rackRollover ? parseRackRollover(form.get('rackRollover')) : null
 
   if (!seatAName.success || !seatBName.success) {
     return { ok: false, errorKey: keys.match.sparring.errorBothNamesRequired } as const
@@ -100,6 +93,9 @@ export async function action({
   }
   if (targetA == null || targetB == null) {
     return { ok: false, errorKey: keys.match.sparring.errorHandicapMustBePositiveInt } as const
+  }
+  if (profile.rackRollover && rackRollover == null) {
+    return { ok: false, errorKey: keys.match.sparring.errorRackRolloverRequired } as const
   }
 
   const env = requireEnv(context)
@@ -121,6 +117,7 @@ export async function action({
       },
       matchTargetFrames,
     },
+    ...(rackRollover ? { gameConfiguration: { rackRollover } } : {}),
     participants: [
       { seat: 'A', playerRef: seatAPlayerRef },
       { seat: 'B', playerRef: seatBPlayerRef },
@@ -140,10 +137,25 @@ export const handle = {
 
 export default function SparringInitRoute() {
   const { t } = useTranslation()
-  const { defaultFrameTargetPointsBySeat } = useLoaderData<typeof loader>()
-  const actionData = useActionData() as ActionData | undefined
+  const { profile } = useLoaderData<typeof loader>()
+  const actionData = useActionData<typeof action>()
   const navigation = useNavigation()
   const isSubmitting = navigation.state === 'submitting'
+  const recentPlayers = useRecentPlayers()
+  const [seatAName, setSeatAName] = useState('')
+  const [seatBName, setSeatBName] = useState('')
+
+  const normalizedSeatAName = safeNormalizeDisplayName(seatAName)
+  const normalizedSeatBName = safeNormalizeDisplayName(seatBName)
+  const canShowSettings =
+    normalizedSeatAName != null && normalizedSeatBName != null && normalizedSeatAName !== normalizedSeatBName
+  const suggestionsA = useMemo(() => recentPlayerSuggestions(recentPlayers, seatBName), [recentPlayers, seatBName])
+  const suggestionsB = useMemo(() => recentPlayerSuggestions(recentPlayers, seatAName), [recentPlayers, seatAName])
+
+  function handleSubmit() {
+    if (!canShowSettings) return
+    rememberRecentPlayers([seatAName, seatBName])
+  }
 
   return (
     <main className="flex-1 bg-background px-4 py-6 text-foreground">
@@ -157,61 +169,30 @@ export default function SparringInitRoute() {
           </Button>
         </div>
 
-        <Form method="post" className="grid gap-6">
-          <div className="grid gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="seatAName">{t(keys.match.sparring.playerA)}</Label>
-              <Input id="seatAName" name="seatAName" autoComplete="off" required />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="seatBName">{t(keys.match.sparring.playerB)}</Label>
-              <Input id="seatBName" name="seatBName" autoComplete="off" required />
-            </div>
-          </div>
+        <Form method="post" className="grid gap-6" onSubmit={handleSubmit}>
+          <PlayerNameFields
+            seatAName={seatAName}
+            seatBName={seatBName}
+            suggestionsA={suggestionsA}
+            suggestionsB={suggestionsB}
+            onSeatANameChange={setSeatAName}
+            onSeatBNameChange={setSeatBName}
+          />
 
-          <div className="grid gap-2">
-            <Label htmlFor="matchTargetFrames">{t(keys.match.sparring.matchTargetFrames)}</Label>
-            <NumberInput
-              id="matchTargetFrames"
-              name="matchTargetFrames"
-              inputMode="numeric"
-              min={1}
-              defaultValue={3}
-              required
-            />
-          </div>
-
-          <details className="rounded-lg border border-border p-3">
-            <summary className="cursor-pointer text-sm font-medium select-none">
-              {t(keys.match.sparring.handicapAdvanced)}
-            </summary>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <div className="grid gap-2">
-                <Label htmlFor="targetA">{t(keys.match.sparring.seatATargetPoints)}</Label>
-                <NumberInput
-                  id="targetA"
-                  name="targetA"
-                  inputMode="numeric"
-                  min={1}
-                  defaultValue={defaultFrameTargetPointsBySeat.A}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="targetB">{t(keys.match.sparring.seatBTargetPoints)}</Label>
-                <NumberInput
-                  id="targetB"
-                  name="targetB"
-                  inputMode="numeric"
-                  min={1}
-                  defaultValue={defaultFrameTargetPointsBySeat.B}
-                />
-              </div>
+          {canShowSettings ? (
+            <div className="grid gap-6">
+              <MatchTargetFramesField profile={profile} />
+              <RackRolloverField profile={profile} />
+              <FrameTargetFields
+                playerNames={{ A: normalizedSeatAName, B: normalizedSeatBName }}
+                defaults={profile.defaultFrameTargetPointsBySeat}
+              />
             </div>
-          </details>
+          ) : null}
 
           {actionData?.ok === false ? <p className="text-sm text-destructive">{t(actionData.errorKey)}</p> : null}
 
-          <Button type="submit" size="touch" className="w-full" disabled={isSubmitting}>
+          <Button type="submit" size="touch" className="w-full" disabled={isSubmitting || !canShowSettings}>
             {isSubmitting ? t(keys.match.sparring.creatingMatch) : t(keys.match.sparring.createMatch)}
           </Button>
         </Form>
