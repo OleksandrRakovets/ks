@@ -6,6 +6,9 @@
     ".": "./src/index.ts",
     "./match-sparring-machine": "./src/match-sparring-machine.ts"
   },
+  "scripts": {
+    "typecheck": "tsc -b"
+  },
   "dependencies": {
     "@ks/core": "workspace:*",
     "@ks/gameplay": "workspace:*",

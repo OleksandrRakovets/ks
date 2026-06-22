@@ -9,8 +9,8 @@
     "db:seed:local": "wrangler d1 execute ks --local --file ./seeds/local-players.sql",
     "build": "react-router build",
     "preview": "react-router build && vite preview",
-    "cf-typegen": "wrangler types",
-    "typecheck": "wrangler types && react-router typegen && tsc -b"
+    "cf-typegen": "CI=1 wrangler types",
+    "typecheck": "CI=1 wrangler types && react-router typegen && tsc -b"
   },
   "dependencies": {
     "@ks/competition": "workspace:*",

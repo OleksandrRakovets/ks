@@ -24,8 +24,10 @@ KS is a billiards scorekeeping app for a local club. Core use case: two-player m
 - Dev server (strict port `7529`): `bun run dev`
 - Local DB migrate: `bun run db:migrate:local`
 - Local DB seed: `bun run --cwd apps/play db:seed:local`
+- Full repo check/gate: `bun run check`
+  - Runs format check, lint, boundary guards, workspace typecheck, and tests.
+  - Use this as the default final verification before commits or deploy/build handoff.
 - Lint/format: `bun run lint`, `bun run lint:fix`, `bun run format`, `bun run format:check`
-  - Always make sure these are passing before making commits
 - Repo lint/format tooling is `oxlint` + `oxfmt` (Biome/Prettier are intentionally disabled).
 - Typecheck workspace graph: `bun run typecheck`
 - Typecheck Play app (also regenerates Wrangler + RR types): `bun run --cwd apps/play typecheck`

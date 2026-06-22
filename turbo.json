@@ -4,15 +4,32 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**", "build/**", ".react-router/**", "worker-configuration.d.ts"]
+      "outputs": []
+    },
+    "typecheck": {
+      "dependsOn": ["^typecheck"],
+      "outputs": []
+    },
+    "//#check": {
+      "cache": false,
+      "outputs": []
     },
     "dev": {
       "cache": false,
       "persistent": true
     },
+    "@ks/ui#build": {
+      "outputs": ["dist/**"]
+    },
+    "@ks/play#build": {
+      "dependsOn": ["//#check", "@ks/ui#build"],
+      "outputs": ["build/**", ".react-router/**"]
+    },
+    "machine-explorer#build": {
+      "outputs": ["dist/**"]
+    },
     "@ks/play#dev": {
-      "dependsOn": ["^build"],
-      "with": ["@ks/ui#dev"],
+      "dependsOn": ["@ks/ui#build"],
       "cache": false,
       "persistent": true
     }

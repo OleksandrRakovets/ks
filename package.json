@@ -25,18 +25,19 @@
     }
   },
   "scripts": {
+    "check": "bun run format:check && bun run lint && bun run check:boundaries && bun run typecheck && bun test",
     "check:boundaries": "node ./scripts/check-boundaries.mjs",
     "build": "turbo run build",
     "db:migrate:local": "bun run --cwd apps/play db:migrate:local",
-    "dev": "turbo run dev --filter=@ks/play",
-    "dev:human": "turbo run dev --filter=@ks/play --ui=tui",
+    "dev": "turbo watch dev --filter=@ks/play",
+    "dev:human": "turbo watch dev --filter=@ks/play --ui=tui",
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
     "lint": "oxlint .",
     "lint:fix": "oxlint --fix .",
     "machine:explore": "bun --cwd apps/machine-explorer dev",
     "test": "bun test",
-    "typecheck": "tsc -b"
+    "typecheck": "turbo run typecheck"
   },
   "devDependencies": {
     "bun-types": "latest",
