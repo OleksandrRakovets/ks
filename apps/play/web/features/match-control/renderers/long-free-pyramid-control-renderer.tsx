@@ -1,7 +1,9 @@
 import type { ControlCommandPreset } from '@ks/core'
 import { LongFreePyramidControlViewSchema } from '@ks/gameplay/definitions'
+import { keys } from '@ks/i18n'
 import { Button } from '@ks/ui'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import * as v from 'valibot'
 
 import type { MatchControlRendererProps } from './types'
@@ -64,9 +66,12 @@ function NeutralCommandRows(props: { commands: ControlCommandPreset[]; onSubmit:
 }
 
 export function LongFreePyramidControlRenderer(props: MatchControlRendererProps) {
+  const [showTertiary, setShowTertiary] = useState(false)
+  const { t } = useTranslation()
   const parsed = useMemo(() => v.safeParse(LongFreePyramidControlViewSchema, props.projection), [props.projection])
   const commandSections = props.commandSections
   const hasNeutral = commandSections.neutral.length > 0
+  const hasTertiary = commandSections.tertiary.A.length > 0 || commandSections.tertiary.B.length > 0
   const scoringCommands = {
     A: [...commandSections.primary.A, ...commandSections.secondary.A],
     B: [...commandSections.primary.B, ...commandSections.secondary.B],
@@ -111,6 +116,18 @@ export function LongFreePyramidControlRenderer(props: MatchControlRendererProps)
 
       {hasNeutral ? <NeutralCommandRows commands={commandSections.neutral} onSubmit={props.onSubmitCommand} /> : null}
       {hasScoringCommands ? <CommandRows commands={scoringCommands} onSubmit={props.onSubmitCommand} /> : null}
+      {hasTertiary ? (
+        <div className="grid">
+          <button
+            type="button"
+            className="px-4 py-2 text-left text-base text-muted-foreground hover:text-foreground"
+            onClick={() => setShowTertiary((v) => !v)}
+          >
+            {showTertiary ? t(keys.match.control.showLess) : t(keys.match.control.showMore)}
+          </button>
+          {showTertiary ? <CommandRows commands={commandSections.tertiary} onSubmit={props.onSubmitCommand} /> : null}
+        </div>
+      ) : null}
     </div>
   )
 }
