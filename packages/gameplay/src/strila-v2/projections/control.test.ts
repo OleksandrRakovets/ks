@@ -10,7 +10,7 @@ const baseState = {
   cueBallSerialPots: null,
   foulOffender: null,
   winner: null,
-  winReason: null,
+  winnerDeterminationReason: null,
   phase: 'not-started',
 } satisfies StrilaFrameState
 
@@ -110,7 +110,7 @@ describe('projection: control', () => {
       score: { A: 4, B: 9 },
       coloredBallsOnTable: [6, 7],
       winner: 'B',
-      winReason: 'target-reached',
+      winnerDeterminationReason: 'target-reached',
       phase: 'winner-determined',
     }
 

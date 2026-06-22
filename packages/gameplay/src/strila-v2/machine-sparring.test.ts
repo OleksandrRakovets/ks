@@ -50,7 +50,7 @@ describe('machine-sparring: basic', () => {
     expect(snap.context.score).toEqual({ A: 10, B: 0 })
     expect(getPhase(snap)).toBe('winner-determined')
     expect(snap.context.winner).toBe('A')
-    expect(snap.context.winReason).toBe('target-reached')
+    expect(snap.context.winnerDeterminationReason).toBe('target-reached')
   })
 
   test('frame.award closes a winner-determined frame', () => {
@@ -153,7 +153,7 @@ describe('machine-sparring: respotted black', () => {
     expect(snap.context.coloredBallsOnTable).toEqual([])
     expect(getPhase(snap)).toBe('winner-determined')
     expect(snap.context.winner).toBe('A')
-    expect(snap.context.winReason).toBe('respotted-black-won')
+    expect(snap.context.winnerDeterminationReason).toBe('respotted-black-won')
   })
 
   test('opening non-black pot determines opponent as winner (automatic foul)', () => {
@@ -162,7 +162,7 @@ describe('machine-sparring: respotted black', () => {
 
     expect(getPhase(snap)).toBe('winner-determined')
     expect(snap.context.winner).toBe('B')
-    expect(snap.context.winReason).toBe('automatic-foul')
+    expect(snap.context.winnerDeterminationReason).toBe('automatic-foul')
     expect(snap.context.coloredBallsOnTable).toEqual([7])
   })
 
@@ -172,7 +172,7 @@ describe('machine-sparring: respotted black', () => {
 
     expect(getPhase(snap)).toBe('winner-determined')
     expect(snap.context.winner).toBe('B')
-    expect(snap.context.winReason).toBe('automatic-foul')
+    expect(snap.context.winnerDeterminationReason).toBe('automatic-foul')
     expect(snap.context.coloredBallsOnTable).toEqual([7])
   })
 
@@ -191,7 +191,7 @@ describe('machine-sparring: respotted black', () => {
     expect(snap.context.score).toEqual({ A: 8, B: 10 })
     expect(getPhase(snap)).toBe('winner-determined')
     expect(snap.context.winner).toBe('B')
-    expect(snap.context.winReason).toBe('respotted-black-won')
+    expect(snap.context.winnerDeterminationReason).toBe('respotted-black-won')
   })
 
   test('respotted-black.play cue ball pot determines winner', () => {
@@ -202,7 +202,7 @@ describe('machine-sparring: respotted black', () => {
     expect(snap.context.score).toEqual({ A: 8, B: 9 })
     expect(getPhase(snap)).toBe('winner-determined')
     expect(snap.context.winner).toBe('B')
-    expect(snap.context.winReason).toBe('respotted-black-won')
+    expect(snap.context.winnerDeterminationReason).toBe('respotted-black-won')
   })
 
   test('foul in respotted-black.play determines opponent as winner', () => {
@@ -212,7 +212,7 @@ describe('machine-sparring: respotted black', () => {
 
     expect(getPhase(snap)).toBe('winner-determined')
     expect(snap.context.winner).toBe('A')
-    expect(snap.context.winReason).toBe('automatic-foul')
+    expect(snap.context.winnerDeterminationReason).toBe('automatic-foul')
   })
 
   test('foul in respotted-black.opening determines opponent as winner', () => {
@@ -221,7 +221,7 @@ describe('machine-sparring: respotted black', () => {
 
     expect(getPhase(snap)).toBe('winner-determined')
     expect(snap.context.winner).toBe('B')
-    expect(snap.context.winReason).toBe('automatic-foul')
+    expect(snap.context.winnerDeterminationReason).toBe('automatic-foul')
   })
 })
 
@@ -236,7 +236,7 @@ describe('machine-sparring: handicap', () => {
     expect(snap.context.score).toEqual({ A: 6, B: 0 })
     expect(getPhase(snap)).toBe('winner-determined')
     expect(snap.context.winner).toBe('A')
-    expect(snap.context.winReason).toBe('target-reached')
+    expect(snap.context.winnerDeterminationReason).toBe('target-reached')
   })
 })
 

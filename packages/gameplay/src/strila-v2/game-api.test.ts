@@ -13,7 +13,7 @@ describe('Strila game api', () => {
       cueBallSerialPots: null,
       foulOffender: null,
       winner: null,
-      winReason: null,
+      winnerDeterminationReason: null,
       phase: 'not-started',
     })
   })
@@ -29,7 +29,7 @@ describe('Strila game api', () => {
           cueBallSerialPots: null,
           foulOffender: null,
           winner: null,
-          winReason: null,
+          winnerDeterminationReason: null,
           phase: 'open-play',
         },
         projection: 'scoreboard',

@@ -94,7 +94,7 @@ test('simulation: runtime: basic frame 1', () => {
   expect(next.coloredBallsOnTable).toEqual([6, 7])
   expect(next.phase).toBe('winner-determined')
   expect(next.winner).toBe('B')
-  expect(next.winReason).toBe('target-reached')
+  expect(next.winnerDeterminationReason).toBe('target-reached')
   expect(deriveStrilaScoreboardView(next)).toEqual({
     gameKey: 'strila-v2',
     projection: 'scoreboard',

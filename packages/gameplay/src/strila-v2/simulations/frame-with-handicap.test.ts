@@ -24,5 +24,5 @@ test('simulation: runtime: handicap basic frame for A to 6', () => {
   expect(next.score).toEqual({ A: 6, B: 0 })
   expect(next.phase).toBe('winner-determined')
   expect(next.winner).toBe('A')
-  expect(next.winReason).toBe('target-reached')
+  expect(next.winnerDeterminationReason).toBe('target-reached')
 })

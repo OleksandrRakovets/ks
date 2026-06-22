@@ -10,7 +10,7 @@ import {
   type StrilaColoredBall,
   type StrilaContext,
   type StrilaPhase,
-  type StrilaWinReason,
+  type StrilaWinnerDeterminationReason,
   type StrilaBall,
 } from './definitions'
 
@@ -73,9 +73,9 @@ function outputWinner(context: StrilaContext): Seat {
   return context.winner
 }
 
-function outputWinReason(context: StrilaContext): StrilaWinReason {
-  invariant(context.winReason !== null, 'Win reason is required for Strila machine output')
-  return context.winReason
+function outputWinnerDeterminationReason(context: StrilaContext): StrilaWinnerDeterminationReason {
+  invariant(context.winnerDeterminationReason !== null, 'Winner determination reason is required for Strila machine output')
+  return context.winnerDeterminationReason
 }
 
 export const strilaSparringMachine = setup({
@@ -135,12 +135,12 @@ export const strilaSparringMachine = setup({
         score: addPoints(context.score, e.seat, pointsForPottedBalls(e.pottedBalls)),
         coloredBallsOnTable: [],
         winner: e.seat,
-        winReason: 'respotted-black-won',
+        winnerDeterminationReason: 'respotted-black-won',
       }
     }),
     setWinnerFromTarget: assign(({ context }) => ({
       winner: winnerFromTarget(context),
-      winReason: 'target-reached',
+      winnerDeterminationReason: 'target-reached',
     })),
     setRespottedBlackOpening: assign({
       coloredBallsOnTable: RESPOTTED_BLACK,
@@ -156,14 +156,14 @@ export const strilaSparringMachine = setup({
       return {
         coloredBallsOnTable: RESPOTTED_BLACK,
         winner: opponentOf(e.seat),
-        winReason: 'automatic-foul',
+        winnerDeterminationReason: 'automatic-foul',
       }
     }),
     setFoulWinner: assign(({ event }) => {
       const e = foulCommitEvent(event)
       return {
         winner: opponentOf(e.seat),
-        winReason: 'automatic-foul',
+        winnerDeterminationReason: 'automatic-foul',
       }
     }),
     applyBallInHand: assign(() => {
@@ -217,7 +217,7 @@ export const strilaSparringMachine = setup({
     cueBallSerialPots: null,
     foulOffender: null,
     winner: null,
-    winReason: null,
+    winnerDeterminationReason: null,
   }),
 
   states: {
@@ -395,7 +395,7 @@ export const strilaSparringMachine = setup({
 
   output: ({ context }) => ({
     winner: outputWinner(context),
-    winReason: outputWinReason(context),
+    winnerDeterminationReason: outputWinnerDeterminationReason(context),
     score: context.score,
   }),
 })

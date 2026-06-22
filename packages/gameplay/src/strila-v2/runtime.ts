@@ -70,7 +70,7 @@ function restoreSnapshot(state: StrilaFrameState): StrilaSparringSnapshot {
 }
 
 function strilaOutcome(state: StrilaFrameState): FrameOutcome | undefined {
-  if (state.phase !== 'frame-over' || state.winner === null || state.winReason === null) return undefined
+  if (state.phase !== 'frame-over' || state.winner === null || state.winnerDeterminationReason === null) return undefined
   return {
     winnerSeat: state.winner,
     score: state.score,

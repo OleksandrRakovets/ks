@@ -28,7 +28,7 @@ test('simulation: game api: respotted black frame 1', () => {
     cueBallSerialPots: null,
     foulOffender: null,
     winner: null,
-    winReason: null,
+    winnerDeterminationReason: null,
     phase: 'respotted-black.opening',
   }
 

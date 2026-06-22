@@ -19,7 +19,7 @@ describe('protocol projection', () => {
       cueBallSerialPots: null,
       foulOffender: null,
       winner: null,
-      winReason: null,
+      winnerDeterminationReason: null,
       phase: 'open-play',
     }
     const command: StrilaCommand = { type: 'pot.record', seat: 'A', pottedBalls: [7] }
@@ -45,7 +45,7 @@ describe('protocol projection', () => {
       cueBallSerialPots: { seat: 'A', count: 2 },
       foulOffender: null,
       winner: null,
-      winReason: null,
+      winnerDeterminationReason: null,
       phase: 'open-play',
     }
     const command: StrilaCommand = { type: 'pot.record', seat: 'A', pottedBalls: [0] }
@@ -75,7 +75,7 @@ describe('protocol projection', () => {
       cueBallSerialPots: null,
       foulOffender: null,
       winner: null,
-      winReason: null,
+      winnerDeterminationReason: null,
       phase: 'respotted-black.opening',
     }
     const command: StrilaCommand = { type: 'pot.record', seat: 'A', pottedBalls: [0] }

@@ -53,3 +53,23 @@ describe('StrilaGameplayRuntime projections', () => {
     expect(projection.details.phase).toBe('not-started')
   })
 })
+
+describe('StrilaGameplayRuntime outcomes', () => {
+  test('respotted black records Strila determination reason but emits target-reached frame outcome', () => {
+    const runtime = new StrilaGameplayRuntime()
+    let state = runtime.createInitialState({ targetPointsBySeat: StrilaMeta.defaultTargetPoints, breakerSeat: 'A' })
+    state = {
+      ...state,
+      score: { A: 8, B: 8 },
+      coloredBallsOnTable: [7],
+      phase: 'respotted-black.opening',
+    }
+
+    state = apply(runtime, state, { type: 'pot.record', seat: 'A', pottedBalls: [7] })
+    expect(state.winnerDeterminationReason).toBe('respotted-black-won')
+
+    const result = runtime.applyCommand({ state, commandType: 'frame.award', command: { seat: 'A' } })
+
+    expect(result.outcome).toEqual({ winnerSeat: 'A', score: { A: 10, B: 8 }, winReason: 'target-reached' })
+  })
+})

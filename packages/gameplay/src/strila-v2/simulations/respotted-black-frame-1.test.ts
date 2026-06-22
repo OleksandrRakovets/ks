@@ -12,7 +12,7 @@ test('simulation: runtime: respotted black frame 1', () => {
     cueBallSerialPots: null,
     foulOffender: null,
     winner: null,
-    winReason: null,
+    winnerDeterminationReason: null,
     phase: 'open-play',
   }
 
@@ -86,7 +86,7 @@ test('simulation: runtime: respotted black frame 1', () => {
   expect(next.coloredBallsOnTable).toEqual([])
   expect(next.phase).toBe('winner-determined')
   expect(next.winner).toBe('A')
-  expect(next.winReason).toBe('respotted-black-won')
+  expect(next.winnerDeterminationReason).toBe('respotted-black-won')
   expect(deriveStrilaScoreboardView(next)).toEqual({
     gameKey: 'strila-v2',
     projection: 'scoreboard',

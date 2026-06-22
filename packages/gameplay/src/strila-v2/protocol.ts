@@ -112,13 +112,16 @@ export function projectStrilaProtocolEntries(args: {
 
   if (previous.phase !== 'winner-determined' && next.phase === 'winner-determined') {
     invariant(next.winner !== null, 'Winner is required when protocol records winner determination')
-    invariant(next.winReason !== null, 'Win reason is required when protocol records winner determination')
+    invariant(
+      next.winnerDeterminationReason !== null,
+      'Winner determination reason is required when protocol records winner determination',
+    )
     entries.push(
       v.parse(StrilaProtocolEntrySchema, {
         source: 'system',
         entryType: 'system-note',
         seat: next.winner,
-        body: { systemType: 'winner-determined', reason: next.winReason },
+        body: { systemType: 'winner-determined', reason: next.winnerDeterminationReason },
       }),
     )
   }

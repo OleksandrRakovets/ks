@@ -97,7 +97,7 @@ function renderFrame(snap: StrilaSparringSnapshot) {
 
   status.innerHTML = `
     <div class="state-label">${phase}</div>
-    <div class="context-block">${JSON.stringify({ score: ctx.score, target: ctx.targetPoints, balls: ctx.coloredBallsOnTable, cueBallStreak: ctx.cueBallSerialPots, winner: ctx.winner, winReason: ctx.winReason, foulOffender: ctx.foulOffender }, null, 2)}</div>
+    <div class="context-block">${JSON.stringify({ score: ctx.score, target: ctx.targetPoints, balls: ctx.coloredBallsOnTable, cueBallStreak: ctx.cueBallSerialPots, winner: ctx.winner, winnerDeterminationReason: ctx.winnerDeterminationReason, foulOffender: ctx.foulOffender }, null, 2)}</div>
   `
   renderFrameControls(snap)
 }

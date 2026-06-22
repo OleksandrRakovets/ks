@@ -69,8 +69,8 @@ export const StrilaPhaseSchema = v.picklist([
 ])
 export type StrilaPhase = v.InferOutput<typeof StrilaPhaseSchema>
 
-const WinnerDeterminedReasonSchema = v.picklist(['target-reached', 'respotted-black-won', 'automatic-foul'])
-export type StrilaWinReason = v.InferOutput<typeof WinnerDeterminedReasonSchema>
+const WinnerDeterminationReasonSchema = v.picklist(['target-reached', 'respotted-black-won', 'automatic-foul'])
+export type StrilaWinnerDeterminationReason = v.InferOutput<typeof WinnerDeterminationReasonSchema>
 
 const ContextSchema = v.object({
   score: BySeatNumberSchema,
@@ -84,7 +84,7 @@ const ContextSchema = v.object({
   ),
   foulOffender: v.nullable(SeatSchema),
   winner: v.nullable(SeatSchema),
-  winReason: v.nullable(WinnerDeterminedReasonSchema),
+  winnerDeterminationReason: v.nullable(WinnerDeterminationReasonSchema),
 })
 export type StrilaContext = v.InferOutput<typeof ContextSchema>
 
@@ -175,7 +175,7 @@ const StrilaPlayerProtocolEntryBodySchema = v.variant('commandType', [
 
 const StrilaSystemProtocolEntryBodySchema = v.variant('systemType', [
   v.object({ systemType: v.literal('automatic-foul'), reason: AutomaticFoulReasonSchema }),
-  v.object({ systemType: v.literal('winner-determined'), reason: WinnerDeterminedReasonSchema }),
+  v.object({ systemType: v.literal('winner-determined'), reason: WinnerDeterminationReasonSchema }),
   v.object({ systemType: v.literal('respotted-black-declared') }),
 ])
 
