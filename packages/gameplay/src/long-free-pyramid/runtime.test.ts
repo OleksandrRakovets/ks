@@ -97,6 +97,21 @@ describe('long free pyramid runtime', () => {
     expect((state as { phase: string; winnerSeat: Seat }).phase).toBe('winner-determined')
     expect((state as { phase: string; winnerSeat: Seat }).winnerSeat).toBe('A')
 
+    const winnerControl = deriveGameProjection({ gameKey: 'free-pyramid-long', state, projection: 'control' }) as {
+      details: {
+        commandSections: {
+          primary: { A: Array<{ commandType: string }>; B: Array<{ commandType: string }> }
+          secondary: { A: Array<{ commandType: string; command: { points?: number } }>; B: Array<{ commandType: string }> }
+        }
+      }
+    }
+    expect(winnerControl.details.commandSections.primary.A.map((entry) => entry.commandType)).toEqual(['frame.award'])
+    expect(winnerControl.details.commandSections.primary.B).toEqual([])
+    expect(
+      winnerControl.details.commandSections.secondary.A.map((entry) => `${entry.commandType}:${entry.command.points}`),
+    ).toEqual(['pot.record:1'])
+    expect(winnerControl.details.commandSections.secondary.B).toEqual([])
+
     expect(() =>
       applyGameCommand({ gameKey: 'free-pyramid-long', state, commandType: 'pot.record', command: { seat: 'B', points: 1 } }),
     ).toThrow('Only determined winner may continue scoring')

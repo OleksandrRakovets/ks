@@ -267,24 +267,30 @@ export class LongFreePyramidGameplayRuntime implements GameplayRuntime {
     const stateScore = score(state)
     if (args.projection === 'control') {
       const seats: Seat[] = ['A', 'B']
-      const potPoints = [1, 2, 3, 4].filter((points) => points <= ballsOnTable(state))
-      const canScoreSeats = state.phase === 'winner-determined' && state.winnerSeat ? [state.winnerSeat] : seats
       const commands =
         state.phase === 'not-started'
           ? seats.map((seat) => command('frame.commence', { seat }, `Break-off (${seat})`, 'primary'))
-          : state.phase === 'open-play' || state.phase === 'winner-determined'
+          : state.phase === 'open-play'
             ? [
-                ...canScoreSeats.flatMap((seat) =>
-                  potPoints.map((points, index) =>
-                    command('pot.record', { seat, points }, `+${points}`, index === 0 ? 'primary' : 'secondary'),
-                  ),
+                ...seats.flatMap((seat) =>
+                  [1, 2, 3, 4]
+                    .filter((points) => points <= ballsOnTable(state))
+                    .map((points, index) =>
+                      command('pot.record', { seat, points }, `+${points}`, index === 0 ? 'primary' : 'secondary'),
+                    ),
                 ),
-                ...canScoreSeats.map((seat) => command('foul.commit', { seat }, 'Фол', 'secondary')),
-                ...(state.winnerSeat ? [command('frame.award', { seat: state.winnerSeat }, 'Award frame', 'primary')] : []),
+                ...seats.map((seat) => command('foul.commit', { seat }, 'Фол', 'secondary')),
               ]
-            : state.phase === 'awaiting-award' && state.winnerSeat
-              ? [command('frame.award', { seat: state.winnerSeat }, 'Award frame', 'primary')]
-              : []
+            : state.phase === 'winner-determined' && state.winnerSeat
+              ? [
+                  command('frame.award', { seat: state.winnerSeat }, 'Award frame', 'primary'),
+                  ...(ballsOnTable(state) >= 1
+                    ? [command('pot.record', { seat: state.winnerSeat, points: 1 }, '+1', 'secondary')]
+                    : []),
+                ]
+              : state.phase === 'awaiting-award' && state.winnerSeat
+                ? [command('frame.award', { seat: state.winnerSeat }, 'Award frame', 'primary')]
+                : []
 
       const isPotCommandAvailable = state.phase === 'open-play' || state.phase === 'winner-determined'
 
@@ -294,7 +300,7 @@ export class LongFreePyramidGameplayRuntime implements GameplayRuntime {
         score: stateScore,
         details: {
           ...details(state),
-          isPotCommandAvailable: isPotCommandAvailable && potPoints.length > 0,
+          isPotCommandAvailable: isPotCommandAvailable && ballsOnTable(state) > 0,
           commandSections: commandSections(commands),
         },
       })

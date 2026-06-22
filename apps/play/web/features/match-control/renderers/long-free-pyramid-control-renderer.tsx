@@ -82,6 +82,10 @@ export function LongFreePyramidControlRenderer(props: MatchControlRendererProps)
   }
 
   const details = parsed.output.details
+  const previousRackScores = details.rackHistory
+    .slice(0, -1)
+    .map((rack) => `${rack.scoreBySeat.A}:${rack.scoreBySeat.B}`)
+    .join(', ')
 
   return (
     <div className="grid">
@@ -92,8 +96,11 @@ export function LongFreePyramidControlRenderer(props: MatchControlRendererProps)
             <span className="text-muted-foreground tabular-nums">{details.ballsOnTable} balls on table</span>
           </div>
           <div className="text-sm text-muted-foreground tabular-nums">
-            Rack score {details.currentRack.scoreBySeat.A}:{details.currentRack.scoreBySeat.B} · removed {details.ballsRemoved}
+            Rack score {details.currentRack.scoreBySeat.A}:{details.currentRack.scoreBySeat.B}
           </div>
+          {previousRackScores ? (
+            <div className="text-sm text-muted-foreground tabular-nums">Previous racks: {previousRackScores}</div>
+          ) : null}
           {details.messages.map((message) => (
             <p key={message} className="text-sm text-primary">
               {message}
