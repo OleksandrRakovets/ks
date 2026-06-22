@@ -59,10 +59,26 @@ describe('gameplay runtime api', () => {
     expect(state).toEqual({
       pointsBySeat: { A: 0, B: 0 },
       targetPointsBySeat: { A: 8, B: 8 },
-      phase: 'open-play',
+      phase: 'not-started',
     })
 
     let protocolEntries
+    ;({ state, protocolEntries } = applyGameCommand({
+      gameKey: 'free-pyramid',
+      state,
+      commandType: 'frame.commence',
+      command: { seat: 'A' },
+    }))
+
+    expect(state).toEqual({
+      pointsBySeat: { A: 0, B: 0 },
+      targetPointsBySeat: { A: 8, B: 8 },
+      phase: 'open-play',
+    })
+    expect(protocolEntries).toEqual([
+      { source: 'player', entryType: 'player-command', seat: 'A', body: { commandType: 'frame.commence' } },
+    ])
+
     ;({ state, protocolEntries } = applyGameCommand({
       gameKey: 'free-pyramid',
       state,
@@ -299,7 +315,7 @@ describe('gameplay runtime api', () => {
       foulOffender: null,
       winner: null,
       winReason: null,
-      phase: 'open-play',
+      phase: 'not-started',
     })
   })
 

@@ -317,10 +317,7 @@ function strilaOutcome(state: StrilaFrameState): FrameOutcome | undefined {
 
 export class StrilaGameplayRuntime implements GameplayRuntime {
   createInitialState(args: GameCreateStateArgs): StrilaFrameState {
-    const initial = serializeSnapshot(createInitialSnapshot(args.targetPointsBySeat))
-    return this.parseState(
-      this.applyCommand({ state: initial, commandType: 'frame.commence', command: { seat: args.breakerSeat } }).state,
-    )
+    return serializeSnapshot(createInitialSnapshot(args.targetPointsBySeat))
   }
 
   parseState(state: unknown): StrilaFrameState {

@@ -147,7 +147,7 @@ export class PyramidGameplayRuntime implements GameplayRuntime {
     return {
       pointsBySeat: { A: 0, B: 0 },
       targetPointsBySeat: args.targetPointsBySeat,
-      phase: 'open-play',
+      phase: 'not-started',
     }
   }
 

@@ -14,7 +14,19 @@ export function deriveSparringControlSections(args: {
   gameControlProjection?: unknown
 }): ControlCommandSections {
   const gameSections = extractGameControlSections(args.gameControlProjection)
-  return mergeControlCommandSections(deriveSparringMatchControlSections(args.matchState), gameSections)
+  return mergeControlCommandSections(
+    deriveSparringMatchControlSections(args.matchState, extractGamePhase(args.gameControlProjection)),
+    gameSections,
+  )
+}
+
+function extractGamePhase(gameControlProjection: unknown): string | undefined {
+  if (typeof gameControlProjection !== 'object' || gameControlProjection === null || !('details' in gameControlProjection)) {
+    return undefined
+  }
+  const details = gameControlProjection.details
+  if (typeof details !== 'object' || details === null || !('phase' in details)) return undefined
+  return typeof details.phase === 'string' ? details.phase : undefined
 }
 
 function extractGameControlSections(gameControlProjection: unknown): ControlCommandSections | undefined {
@@ -29,7 +41,7 @@ function extractGameControlSections(gameControlProjection: unknown): ControlComm
   return parsed.success ? parsed.output : undefined
 }
 
-function deriveSparringMatchControlSections(matchState: MatchState): ControlCommandSections {
+function deriveSparringMatchControlSections(matchState: MatchState, gamePhase?: string): ControlCommandSections {
   const currentFrame = matchState.frames[matchState.frames.length - 1]
   const winnerSeat = currentFrame?.winnerSeat
   const matchTargetFrames = matchState.config?.targets.matchTargetFrames
@@ -38,7 +50,18 @@ function deriveSparringMatchControlSections(matchState: MatchState): ControlComm
     (matchState.framesWonBySeat.A >= matchTargetFrames || matchState.framesWonBySeat.B >= matchTargetFrames)
   const sections = emptyControlCommandSections()
 
-  if (matchState.status === 'active' && currentFrame && !winnerSeat) {
+  if (matchState.status === 'active' && currentFrame && !winnerSeat && gamePhase === 'not-started') {
+    sections.primary[currentFrame.breakerSeat].push({
+      source: 'match',
+      commandType: 'frame.commence',
+      command: { seat: currentFrame.breakerSeat },
+      seat: currentFrame.breakerSeat,
+      label: 'Break-off',
+      prominence: 'primary',
+    })
+  }
+
+  if (matchState.status === 'active' && currentFrame && !winnerSeat && gamePhase !== 'not-started') {
     sections.tertiary.A.push(concedeFrameCommand('A'))
     sections.tertiary.B.push(concedeFrameCommand('B'))
   }

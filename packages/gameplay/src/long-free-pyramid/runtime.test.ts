@@ -20,7 +20,7 @@ describe('long free pyramid runtime', () => {
       racks: [{ rackNumber: 1, scoreBySeat: { A: 0, B: 0 } }],
       targetPointsBySeat: { A: 30, B: 30 },
       rackRollover: 14,
-      phase: 'open-play',
+      phase: 'not-started',
       messages: [],
     })
   })
@@ -31,6 +31,12 @@ describe('long free pyramid runtime', () => {
       breakerSeat: 'A',
       gameConfiguration: { rackRollover: 14 },
     })
+    ;({ state } = applyGameCommand({
+      gameKey: 'free-pyramid-long',
+      state,
+      commandType: 'frame.commence',
+      command: { seat: 'A' },
+    }))
     for (const points of [4, 4, 4, 1]) {
       ;({ state } = applyGameCommand({
         gameKey: 'free-pyramid-long',
@@ -79,6 +85,12 @@ describe('long free pyramid runtime', () => {
       breakerSeat: 'A',
       gameConfiguration: { rackRollover: 15 },
     })
+    ;({ state } = applyGameCommand({
+      gameKey: 'free-pyramid-long',
+      state,
+      commandType: 'frame.commence',
+      command: { seat: 'A' },
+    }))
     ;({ state } = applyGameCommand({
       gameKey: 'free-pyramid-long',
       state,

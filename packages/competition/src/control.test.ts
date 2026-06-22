@@ -113,6 +113,34 @@ describe('deriveSparringControlSections', () => {
     expect(sections.secondary).toEqual(emptyControlCommandSections().secondary)
   })
 
+  test('emits one match-owned break-off control before game open play', () => {
+    const sections = deriveSparringControlSections({
+      matchState: matchState({
+        frames: [
+          {
+            frameIndex: 1,
+            pointsBySeat: { A: 0, B: 0 },
+            breakerSeat: 'A',
+          },
+        ],
+      }),
+      gameControlProjection: { details: { phase: 'not-started', commandSections: emptyControlCommandSections() } },
+    })
+
+    expect(sections.primary.A).toEqual([
+      {
+        source: 'match',
+        commandType: 'frame.commence',
+        command: { seat: 'A' },
+        seat: 'A',
+        label: 'Break-off',
+        prominence: 'primary',
+      },
+    ])
+    expect(sections.primary.B).toEqual([])
+    expect(sections.tertiary).toEqual(emptyControlCommandSections().tertiary)
+  })
+
   test('merges match and game commands without moving buckets', () => {
     const gameSections = emptyControlCommandSections()
     gameSections.primary.A.push({

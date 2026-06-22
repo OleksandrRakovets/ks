@@ -73,6 +73,7 @@ const StreamBodySchema = v.object({
 })
 
 const ConcedeFrameCommandSchema = v.object({ seat: SeatSchema })
+const CommenceFrameCommandSchema = v.object({ seat: SeatSchema })
 const GameScoreProjectionSchema = v.object({ score: BySeatNumberSchema })
 
 type RoomState = {
@@ -461,6 +462,37 @@ export class MatchRoom extends DurableObject<Env> {
           factId: newFactId(),
           type: 'match.ended',
           payload: { winnerSeat },
+        },
+      ]
+    }
+
+    if (command.source === 'match' && command.commandType === 'frame.commence') {
+      if (roomState.currentFrameState === null) throw new Error('No current frame')
+      const currentFrame = roomState.matchState.frames[roomState.matchState.frames.length - 1]
+      if (!currentFrame || currentFrame.winnerSeat) throw new Error('No active frame')
+
+      const commence = v.parse(CommenceFrameCommandSchema, command.command)
+      if (commence.seat !== currentFrame.breakerSeat) throw new Error('Frame break-off seat does not match match order')
+
+      const result = applyGameCommand({
+        gameKey: parseGameKey(config.gameKey),
+        state: roomState.currentFrameState,
+        commandType: 'frame.commence',
+        command: commence,
+      })
+
+      return [
+        {
+          ...base,
+          factId: newFactId(),
+          type: 'game.command',
+          payload: {
+            frameIndex: currentFrame.frameIndex,
+            gameKey: config.gameKey,
+            commandType: 'frame.commence',
+            command: commence,
+            protocolEntries: result.protocolEntries,
+          },
         },
       ]
     }

@@ -166,7 +166,7 @@ export class LongFreePyramidGameplayRuntime implements GameplayRuntime {
       racks: [{ rackNumber: 1, scoreBySeat: zeroScore() }],
       targetPointsBySeat: args.targetPointsBySeat,
       rackRollover,
-      phase: 'open-play',
+      phase: 'not-started',
       messages: [],
     }
   }

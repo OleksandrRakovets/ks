@@ -15,6 +15,8 @@ test('simulation: outside: basic frame 1', () => {
   let state = parseState(
     createInitialGameState('strila-v2', { targetPointsBySeat: StrilaMeta.defaultTargetPoints, breakerSeat: 'A' }),
   )
+  let step = applyGameCommand({ gameKey: 'strila-v2', state, commandType: 'frame.commence', command: { seat: 'A' } })
+  state = parseState(step.state)
   let control = deriveStrilaControlView(state).details
   expect([
     ...control.commandSections.primary.A.map((entry) => `${entry.commandType}:${entry.command.seat}`),
@@ -25,7 +27,7 @@ test('simulation: outside: basic frame 1', () => {
     ...control.commandSections.tertiary.B.map((entry) => `${entry.commandType}:${entry.command.seat}`),
   ]).toEqual(['pot.record:A', 'pot.record:B', 'foul.commit:A', 'foul.commit:B'])
 
-  let step = applyGameCommand({
+  step = applyGameCommand({
     gameKey: 'strila-v2',
     state,
     commandType: 'pot.record',

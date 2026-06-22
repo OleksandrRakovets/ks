@@ -17,6 +17,7 @@ describe('StrilaGameplayRuntime projections', () => {
   test('derives valid control projection from machine state', () => {
     const runtime = new StrilaGameplayRuntime()
     let state = runtime.createInitialState({ targetPointsBySeat: StrilaMeta.defaultTargetPoints, breakerSeat: 'A' })
+    state = apply(runtime, state, { type: 'frame.commence', seat: 'A' })
     state = apply(runtime, state, { type: 'foul.commit', seat: 'A' })
 
     const projection = v.parse(StrilaControlViewSchema, runtime.deriveProjection({ state, projection: 'control' }))
@@ -33,6 +34,7 @@ describe('StrilaGameplayRuntime projections', () => {
   test('derives valid scoreboard projection from machine state', () => {
     const runtime = new StrilaGameplayRuntime()
     let state = runtime.createInitialState({ targetPointsBySeat: StrilaMeta.defaultTargetPoints, breakerSeat: 'A' })
+    state = apply(runtime, state, { type: 'frame.commence', seat: 'A' })
     state = apply(runtime, state, { type: 'pot.record', seat: 'A', pottedBalls: [1] })
 
     const projection = v.parse(StrilaScoreboardViewSchema, runtime.deriveProjection({ state, projection: 'scoreboard' }))
@@ -48,6 +50,6 @@ describe('StrilaGameplayRuntime projections', () => {
 
     const projection = v.parse(StrilaSummaryViewSchema, runtime.deriveProjection({ state, projection: 'summary' }))
 
-    expect(projection.details.phase).toBe('open-play')
+    expect(projection.details.phase).toBe('not-started')
   })
 })

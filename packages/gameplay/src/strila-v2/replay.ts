@@ -29,6 +29,7 @@ function getEffectiveCommands(recordedCommands: StrilaControllerEntry[]): Strila
 
 function replayEffectiveCommands(commands: StrilaCommand[]): { state: StrilaFrameState; applied: AppliedCommand[] } {
   let state = runtime.createInitialState({ targetPointsBySeat: StrilaMeta.defaultTargetPoints, breakerSeat: 'A' })
+  state = runtime.parseState(runtime.applyCommand({ state, commandType: 'frame.commence', command: { seat: 'A' } }).state)
   const applied: AppliedCommand[] = []
 
   for (const command of commands) {
