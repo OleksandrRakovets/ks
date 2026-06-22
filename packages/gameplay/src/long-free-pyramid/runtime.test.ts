@@ -6,20 +6,21 @@ import { applyGameCommand, createInitialGameState, deriveGameProjection } from '
 
 describe('long free pyramid runtime', () => {
   test('requires and stores rack rollover configuration', () => {
-    expect(() => createInitialGameState('free-pyramid-long', { targetPointsBySeat: { A: 30, B: 30 } })).toThrow(
-      'Long free pyramid requires rackRollover 14 or 15',
-    )
+    expect(() =>
+      createInitialGameState('free-pyramid-long', { targetPointsBySeat: { A: 30, B: 30 }, breakerSeat: 'A' }),
+    ).toThrow('Long free pyramid requires rackRollover 14 or 15')
 
     expect(
       createInitialGameState('free-pyramid-long', {
         targetPointsBySeat: { A: 30, B: 30 },
+        breakerSeat: 'A',
         gameConfiguration: { rackRollover: 14 },
       }),
     ).toEqual({
       racks: [{ rackNumber: 1, scoreBySeat: { A: 0, B: 0 } }],
       targetPointsBySeat: { A: 30, B: 30 },
       rackRollover: 14,
-      phase: 'not-started',
+      phase: 'open-play',
       messages: [],
     })
   })
@@ -27,14 +28,9 @@ describe('long free pyramid runtime', () => {
   test('tracks racks and rolls over without completing the frame', () => {
     let state = createInitialGameState('free-pyramid-long', {
       targetPointsBySeat: { A: 30, B: 30 },
+      breakerSeat: 'A',
       gameConfiguration: { rackRollover: 14 },
     })
-    ;({ state } = applyGameCommand({
-      gameKey: 'free-pyramid-long',
-      state,
-      commandType: 'frame.commence',
-      command: { seat: 'A' },
-    }))
     for (const points of [4, 4, 4, 1]) {
       ;({ state } = applyGameCommand({
         gameKey: 'free-pyramid-long',
@@ -80,14 +76,9 @@ describe('long free pyramid runtime', () => {
   test('winner flow keeps first winner and restricts award', () => {
     let state = createInitialGameState('free-pyramid-long', {
       targetPointsBySeat: { A: 4, B: 4 },
+      breakerSeat: 'A',
       gameConfiguration: { rackRollover: 15 },
     })
-    ;({ state } = applyGameCommand({
-      gameKey: 'free-pyramid-long',
-      state,
-      commandType: 'frame.commence',
-      command: { seat: 'A' },
-    }))
     ;({ state } = applyGameCommand({
       gameKey: 'free-pyramid-long',
       state,

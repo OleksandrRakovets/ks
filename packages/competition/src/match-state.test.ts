@@ -30,6 +30,7 @@ function makeConfig(matchTargetFrames = 3): MatchConfig {
       frameTargetPointsBySeat: { A: 8, B: 8 },
       matchTargetFrames,
     },
+    firstBreakerSeat: 'A',
   }
 }
 
@@ -38,6 +39,7 @@ function frameStarted(config: MatchConfig, frameIndex: number): ClientFact {
     frameIndex,
     gameKey: config.gameKey,
     targetPointsBySeat: config.targets.frameTargetPointsBySeat,
+    breakerSeat: frameIndex % 2 === 1 ? config.firstBreakerSeat : config.firstBreakerSeat === 'A' ? 'B' : 'A',
     gameConfiguration: config.gameConfiguration,
   })
 }
@@ -63,7 +65,7 @@ describe('match-state room facts', () => {
     state = applyMatchFact(state, frameStarted(config, 1))
 
     expect(state.currentFrameIndex).toBe(1)
-    expect(state.frames).toEqual([{ frameIndex: 1, pointsBySeat: { A: 0, B: 0 } }])
+    expect(state.frames).toEqual([{ frameIndex: 1, pointsBySeat: { A: 0, B: 0 }, breakerSeat: 'A' }])
   })
 
   test('requires frame.started game configuration to match match config', () => {
@@ -83,6 +85,7 @@ describe('match-state room facts', () => {
           frameIndex: 1,
           gameKey: config.gameKey,
           targetPointsBySeat: config.targets.frameTargetPointsBySeat,
+          breakerSeat: 'A',
           gameConfiguration: { rackRollover: 15 },
         }),
       ),
@@ -129,7 +132,7 @@ describe('match-state room facts', () => {
     state = applyMatchFact(state, frameStarted(config, 1))
     state = applyMatchFact(state, frameCompleted(config, 1, 'A', { A: 10, B: 4 }))
 
-    expect(state.frames[0]).toEqual({ frameIndex: 1, pointsBySeat: { A: 10, B: 4 }, winnerSeat: 'A' })
+    expect(state.frames[0]).toEqual({ frameIndex: 1, pointsBySeat: { A: 10, B: 4 }, breakerSeat: 'A', winnerSeat: 'A' })
     expect(state.framesWonBySeat).toEqual({ A: 1, B: 0 })
   })
 
@@ -143,6 +146,27 @@ describe('match-state room facts', () => {
     state = applyMatchFact(state, frameStarted(config, 2))
 
     expect(state.currentFrameIndex).toBe(2)
+    expect(state.frames[1]?.breakerSeat).toBe('B')
+  })
+
+  test('rejects frame breaker outside alternating match order', () => {
+    const config = makeConfig()
+    let state = emptyMatchState()
+
+    state = applyMatchFact(state, baseFact(config.matchId, 'match.created', config))
+
+    expect(() =>
+      applyMatchFact(
+        state,
+        baseFact(config.matchId, 'frame.started', {
+          frameIndex: 1,
+          gameKey: config.gameKey,
+          targetPointsBySeat: config.targets.frameTargetPointsBySeat,
+          breakerSeat: 'B',
+          gameConfiguration: config.gameConfiguration,
+        }),
+      ),
+    ).toThrow('Frame breaker seat must follow match order')
   })
 
   test('cannot start next frame after match target is reached', () => {

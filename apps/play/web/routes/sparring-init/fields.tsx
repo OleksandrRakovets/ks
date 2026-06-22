@@ -101,6 +101,29 @@ export function FrameTargetFields(props: { playerNames: { A: string; B: string }
   )
 }
 
+export function FirstBreakerField(props: { playerNames: { A: string; B: string } }) {
+  return (
+    <fieldset className="grid gap-3 rounded-lg border border-border p-3">
+      <legend className="px-1 text-sm font-medium">First break-off</legend>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {(['A', 'B'] as const).map((seat) => (
+          <label key={seat} className="flex cursor-pointer items-center gap-2 rounded-md border border-border p-3">
+            <input
+              type="radio"
+              name="firstBreakerSeat"
+              value={seat}
+              aria-label={`${props.playerNames[seat]} breaks first`}
+              defaultChecked={seat === 'A'}
+              required
+            />
+            <span className="font-medium">{props.playerNames[seat]}</span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  )
+}
+
 export function RackRolloverField(props: { profile: MatchCreateProfile }) {
   if (!props.profile.rackRollover) return null
 

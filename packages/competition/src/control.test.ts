@@ -14,6 +14,7 @@ function matchState(args?: Partial<MatchState>): MatchState {
         frameTargetPointsBySeat: { A: 9, B: 9 },
         matchTargetFrames: 3,
       },
+      firstBreakerSeat: 'A',
     },
     status: 'active',
     currentFrameIndex: 1,
@@ -22,6 +23,7 @@ function matchState(args?: Partial<MatchState>): MatchState {
       {
         frameIndex: 1,
         pointsBySeat: { A: 9, B: 4 },
+        breakerSeat: 'A',
         winnerSeat: 'A',
       },
     ],
@@ -55,6 +57,7 @@ describe('deriveSparringControlSections', () => {
           {
             frameIndex: 4,
             pointsBySeat: { A: 9, B: 4 },
+            breakerSeat: 'B',
             winnerSeat: 'A',
           },
         ],
@@ -80,6 +83,7 @@ describe('deriveSparringControlSections', () => {
           {
             frameIndex: 1,
             pointsBySeat: { A: 4, B: 4 },
+            breakerSeat: 'A',
           },
         ],
       }),
@@ -138,6 +142,7 @@ describe('deriveSparringControlSections', () => {
           {
             frameIndex: 4,
             pointsBySeat: { A: 9, B: 4 },
+            breakerSeat: 'B',
             winnerSeat: 'A',
           },
         ],

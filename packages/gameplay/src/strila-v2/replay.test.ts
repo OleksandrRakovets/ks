@@ -6,7 +6,6 @@ import { type StrilaControllerEntry, undoLastPlayerCommand } from './undo-contro
 describe('replay undo', () => {
   test('can undo two mistaken shots one by one', () => {
     let recorded: StrilaControllerEntry[] = [
-      { type: 'frame.commence', seat: 'A' },
       { type: 'pot.record', seat: 'A', pottedBalls: [1] },
       { type: 'pot.record', seat: 'B', pottedBalls: [2] },
       { type: 'pot.record', seat: 'B', pottedBalls: [3] },
@@ -33,7 +32,6 @@ describe('replay undo', () => {
 
   test('cannot undo after frame was awarded', () => {
     const recorded: StrilaControllerEntry[] = [
-      { type: 'frame.commence', seat: 'A' },
       { type: 'pot.record', seat: 'A', pottedBalls: [1, 2, 3, 4, 5] },
       { type: 'frame.award', seat: 'A' },
     ]

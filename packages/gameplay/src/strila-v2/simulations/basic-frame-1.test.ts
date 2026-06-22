@@ -8,12 +8,7 @@ import { applyCommand } from './applyCommand'
 const runtime = new StrilaGameplayRuntime()
 
 test('simulation: internal: basic frame 1', () => {
-  let next = runtime.createInitialState({ targetPointsBySeat: StrilaMeta.defaultTargetPoints })
-
-  ;({ next } = applyCommand(next, {
-    type: 'frame.commence',
-    seat: 'A',
-  }))
+  let next = runtime.createInitialState({ targetPointsBySeat: StrilaMeta.defaultTargetPoints, breakerSeat: 'A' })
   expect(next.phase).toBe('open-play')
   expect(next.cueBallSerialPots).toBeNull()
   expect(deriveStrilaScoreboardView(next)).toEqual({

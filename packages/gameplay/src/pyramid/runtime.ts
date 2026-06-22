@@ -147,7 +147,7 @@ export class PyramidGameplayRuntime implements GameplayRuntime {
     return {
       pointsBySeat: { A: 0, B: 0 },
       targetPointsBySeat: args.targetPointsBySeat,
-      phase: 'not-started',
+      phase: 'open-play',
     }
   }
 
@@ -301,10 +301,6 @@ export class PyramidGameplayRuntime implements GameplayRuntime {
     switch (args.projection) {
       case 'control': {
         if (state.phase === 'not-started') {
-          const commands = [
-            command('frame.commence', { seat: 'A' }, 'Break-off (A)', { prominence: 'primary' }),
-            command('frame.commence', { seat: 'B' }, 'Break-off (B)', { prominence: 'primary' }),
-          ]
           return v.parse(PyramidControlViewSchema, {
             gameKey: this.config.gameKey,
             projection: 'control',
@@ -312,9 +308,9 @@ export class PyramidGameplayRuntime implements GameplayRuntime {
             details: {
               ...pyramidDetails(state),
               situationTitle: 'Break-off',
-              situationSummary: 'Choose the player to open the frame.',
+              situationSummary: 'Waiting for the match to open the frame.',
               isPotCommandAvailable: false,
-              commandSections: deriveCommandSections(commands),
+              commandSections: emptyControlCommandSections(),
             },
           })
         }

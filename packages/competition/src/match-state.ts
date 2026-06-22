@@ -1,6 +1,7 @@
 import {
   BySeatNumberSchema,
   MatchConfigSchema,
+  opponentOf,
   SeatSchema,
   type BySeatNumber,
   type ClientFact,
@@ -16,6 +17,7 @@ export type MatchState = {
   frames: {
     frameIndex: number
     pointsBySeat: BySeatNumber
+    breakerSeat: Seat
     winnerSeat?: Seat
   }[]
   framesWonBySeat: BySeatNumber
@@ -31,6 +33,7 @@ function assert(condition: unknown, message: string): asserts condition {
 const MatchStateFrameSchema = v.object({
   frameIndex: PositiveIntegerSchema,
   pointsBySeat: BySeatNumberSchema,
+  breakerSeat: SeatSchema,
   winnerSeat: v.optional(SeatSchema),
 })
 
@@ -69,6 +72,10 @@ function gameConfigurationsMatch(left: unknown, right: unknown): boolean {
   return JSON.stringify(left ?? null) === JSON.stringify(right ?? null)
 }
 
+function expectedBreakerSeat(config: NonNullable<MatchState['config']>, frameIndex: number): Seat {
+  return frameIndex % 2 === 1 ? config.firstBreakerSeat : opponentOf(config.firstBreakerSeat)
+}
+
 export function applyMatchFact(prev: MatchState, fact: ClientFact): MatchState {
   const state = prev.status === 'empty' ? emptyMatchState() : prev
 
@@ -104,11 +111,13 @@ export function applyMatchFact(prev: MatchState, fact: ClientFact): MatchState {
       const last = state.frames[state.frames.length - 1]
       assert(!last || last.winnerSeat, 'Cannot start a new frame while current is unawarded')
       assert(frameIndex === state.currentFrameIndex + 1, 'Frame index must be sequential')
+      assert(fact.payload.breakerSeat === expectedBreakerSeat(config, frameIndex), 'Frame breaker seat must follow match order')
 
       state.currentFrameIndex = frameIndex
       state.frames.push({
         frameIndex,
         pointsBySeat: { A: 0, B: 0 },
+        breakerSeat: fact.payload.breakerSeat,
       })
       return state
     }

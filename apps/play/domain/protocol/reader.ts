@@ -105,6 +105,7 @@ function entryLabel(entry: Pick<ProtocolArchiveRow, 'body' | 'entryType' | 'seat
   const systemType = typeof entry.body.systemType === 'string' ? entry.body.systemType : null
   switch (systemType) {
     case 'frame-started':
+      if (entry.seat) return `Frame ${entry.body.frameIndex} started, ${seatLabel(entry.seat)} breaks`
       return `Frame ${entry.body.frameIndex} started`
     case 'frame-completed':
       return `${actor}frame completed`
@@ -151,6 +152,7 @@ function lifecycleRowsForFact(fact: StoredFact, previous: StoredFact | undefined
         frameIndex: fact.payload.frameIndex,
         source: 'system',
         entryType: 'system-note',
+        seat: fact.payload.breakerSeat,
         body: { systemType: 'frame-started', frameIndex: fact.payload.frameIndex },
       },
     ]

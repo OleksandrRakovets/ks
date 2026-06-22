@@ -52,6 +52,7 @@ const CreateBodySchema = v.object({
   controlSecret: ControlSecretSchema,
   gameKey: NonEmptyStringSchema,
   targets: MatchTargetsSchema,
+  firstBreakerSeat: SeatSchema,
   gameConfiguration: v.optional(GameConfigurationSchema),
   participants: v.tuple([MatchSeatAssignmentSchema, MatchSeatAssignmentSchema]),
 })
@@ -139,6 +140,7 @@ export class MatchRoom extends DurableObject<Env> {
         frameIndex: 1,
         gameKey: config.gameKey,
         targetPointsBySeat: config.targets.frameTargetPointsBySeat,
+        breakerSeat: this.breakerSeat(config, 1),
         ...(config.gameConfiguration ? { gameConfiguration: config.gameConfiguration } : {}),
       },
     }
@@ -179,6 +181,7 @@ export class MatchRoom extends DurableObject<Env> {
             frameIndex: 1,
             gameKey: config.gameKey,
             targetPointsBySeat: config.targets.frameTargetPointsBySeat,
+            breakerSeat: this.breakerSeat(config, 1),
             gameConfiguration: config.gameConfiguration,
           },
         },
@@ -360,6 +363,7 @@ export class MatchRoom extends DurableObject<Env> {
         matchState,
         currentFrameState: createInitialGameState(parseGameKey(fact.payload.gameKey), {
           targetPointsBySeat: fact.payload.targetPointsBySeat,
+          breakerSeat: fact.payload.breakerSeat,
           gameConfiguration: fact.payload.gameConfiguration,
         }),
       }
@@ -420,6 +424,10 @@ export class MatchRoom extends DurableObject<Env> {
     return null
   }
 
+  private breakerSeat(config: MatchConfig, frameIndex: number): 'A' | 'B' {
+    return frameIndex % 2 === 1 ? config.firstBreakerSeat : opponentOf(config.firstBreakerSeat)
+  }
+
   /** Converts one accepted control command into the room facts it implies. */
   private factsForCommand(roomState: RoomState, matchId: string, command: ControlCommand): ClientFact[] {
     const config = roomState.matchState.config
@@ -427,15 +435,17 @@ export class MatchRoom extends DurableObject<Env> {
     const base = this.factBase(matchId)
 
     if (command.source === 'match' && command.commandType === 'frame.start') {
+      const frameIndex = roomState.matchState.currentFrameIndex + 1
       return [
         {
           ...base,
           factId: newFactId(),
           type: 'frame.started',
           payload: {
-            frameIndex: roomState.matchState.currentFrameIndex + 1,
+            frameIndex,
             gameKey: config.gameKey,
             targetPointsBySeat: config.targets.frameTargetPointsBySeat,
+            breakerSeat: this.breakerSeat(config, frameIndex),
             gameConfiguration: config.gameConfiguration,
           },
         },

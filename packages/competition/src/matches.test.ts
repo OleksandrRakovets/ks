@@ -11,6 +11,7 @@ const request = v.parse(CreateMatchRequestSchema, {
     frameTargetPointsBySeat: { A: 8, B: 8 },
     matchTargetFrames: 3,
   },
+  firstBreakerSeat: 'A',
   participants: [
     { seat: 'A', playerRef: 'gp_01HX0000000000000000000000' },
     { seat: 'B', playerRef: 'gp_01HX0000000000000000000001' },
@@ -25,6 +26,7 @@ describe('match creation helpers', () => {
       matchId,
       gameKey: 'strila-v2',
       targets: request.targets,
+      firstBreakerSeat: 'A',
     })
   })
 
@@ -47,6 +49,7 @@ describe('match creation helpers', () => {
       matchId,
       gameKey: 'free-pyramid-long',
       targets: request.targets,
+      firstBreakerSeat: 'A',
       gameConfiguration: { rackRollover: 14 },
     })
   })

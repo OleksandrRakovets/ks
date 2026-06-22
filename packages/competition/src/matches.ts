@@ -4,6 +4,7 @@ import {
   MatchSeatAssignmentSchema,
   PositiveIntegerSchema,
   GameConfigurationSchema,
+  SeatSchema,
   stripOptionalPrefix,
   type MatchConfig,
 } from '@ks/core'
@@ -20,6 +21,7 @@ export const CreateMatchRequestSchema = v.pipe(
       }),
       matchTargetFrames: PositiveIntegerSchema,
     }),
+    firstBreakerSeat: SeatSchema,
     gameConfiguration: v.optional(GameConfigurationSchema),
     participants: v.tuple([MatchSeatAssignmentSchema, MatchSeatAssignmentSchema]),
   }),
@@ -56,6 +58,7 @@ export function buildMatchConfig(matchId: string, input: CreateMatchRequest): Ma
     matchId,
     gameKey: input.gameKey,
     targets: input.targets,
+    firstBreakerSeat: input.firstBreakerSeat,
     gameConfiguration: input.gameConfiguration,
   })
 }

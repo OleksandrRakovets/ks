@@ -26,7 +26,7 @@ describe('protocol reader', () => {
     const rows = prepareProtocolRowsForArchive([
       stored(1, {
         type: 'frame.started',
-        payload: { frameIndex: 1, gameKey: 'strila-v2', targetPointsBySeat: { A: 8, B: 8 } },
+        payload: { frameIndex: 1, gameKey: 'strila-v2', targetPointsBySeat: { A: 8, B: 8 }, breakerSeat: 'A' },
       }),
       stored(2, {
         type: 'game.command',
@@ -58,6 +58,7 @@ describe('protocol reader', () => {
       { commandType: 'pot.record', pottedBalls: [7] },
       { systemType: 'match-ended' },
     ])
+    expect(rows[0]?.seat).toBe('A')
   })
 
   test('hides frame.completed immediately after frame.award', () => {

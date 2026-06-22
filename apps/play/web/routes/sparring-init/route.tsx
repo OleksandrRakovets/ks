@@ -1,4 +1,4 @@
-import { newMatchId } from '@ks/core'
+import { newMatchId, SeatSchema } from '@ks/core'
 import { isRegisteredGameKey, registry } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
 import { Button } from '@ks/ui'
@@ -11,7 +11,7 @@ import type { AppLoadContext } from '../../server/context'
 import { requireEnv } from '../../server/context'
 import { getOrCreateGuestPlayerRef } from '../../server/guest-players'
 import { localeFromCookie } from '../../server/locale'
-import { FrameTargetFields, MatchTargetFramesField, PlayerNameFields, RackRolloverField } from './fields'
+import { FirstBreakerField, FrameTargetFields, MatchTargetFramesField, PlayerNameFields, RackRolloverField } from './fields'
 import { createProfileForGame, type MatchCreateProfile } from './profile'
 import { recentPlayerSuggestions, rememberRecentPlayers, useRecentPlayers } from './recent-players'
 import { DisplayNameSchema, parsePositiveInt, parseRackRollover, safeNormalizeDisplayName } from './validation'
@@ -80,6 +80,7 @@ export async function action({
       : parsePositiveInt(form.get('matchTargetFrames'))
   const targetA = parsePositiveInt(form.get('targetA'), defaultFrameTargetPointsBySeat.A)
   const targetB = parsePositiveInt(form.get('targetB'), defaultFrameTargetPointsBySeat.B)
+  const firstBreakerSeat = v.safeParse(SeatSchema, form.get('firstBreakerSeat'))
   const rackRollover = profile.rackRollover ? parseRackRollover(form.get('rackRollover')) : null
 
   if (!seatAName.success || !seatBName.success) {
@@ -96,6 +97,9 @@ export async function action({
   }
   if (profile.rackRollover && rackRollover == null) {
     return { ok: false, errorKey: keys.match.sparring.errorRackRolloverRequired } as const
+  }
+  if (!firstBreakerSeat.success) {
+    throw new Response('Invalid first breaker', { status: 400 })
   }
 
   const env = requireEnv(context)
@@ -117,6 +121,7 @@ export async function action({
       },
       matchTargetFrames,
     },
+    firstBreakerSeat: firstBreakerSeat.output,
     ...(rackRollover ? { gameConfiguration: { rackRollover } } : {}),
     participants: [
       { seat: 'A', playerRef: seatAPlayerRef },
@@ -183,6 +188,7 @@ export default function SparringInitRoute() {
             <div className="grid gap-6">
               <MatchTargetFramesField profile={profile} />
               <RackRolloverField profile={profile} />
+              <FirstBreakerField playerNames={{ A: normalizedSeatAName, B: normalizedSeatBName }} />
               <FrameTargetFields
                 playerNames={{ A: normalizedSeatAName, B: normalizedSeatBName }}
                 defaults={profile.defaultFrameTargetPointsBySeat}

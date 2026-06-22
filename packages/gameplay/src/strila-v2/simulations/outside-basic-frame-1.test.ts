@@ -12,16 +12,10 @@ function parseState(state: unknown): StrilaFrameState {
 }
 
 test('simulation: outside: basic frame 1', () => {
-  let state = parseState(createInitialGameState('strila-v2', { targetPointsBySeat: StrilaMeta.defaultTargetPoints }))
+  let state = parseState(
+    createInitialGameState('strila-v2', { targetPointsBySeat: StrilaMeta.defaultTargetPoints, breakerSeat: 'A' }),
+  )
   let control = deriveStrilaControlView(state).details
-  expect(control.commandSections.primary.A.map((entry) => entry.commandType)).toEqual(['frame.commence'])
-  expect(control.commandSections.primary.B.map((entry) => entry.commandType)).toEqual(['frame.commence'])
-
-  let step = applyGameCommand({ gameKey: 'strila-v2', state, commandType: 'frame.commence', command: { seat: 'A' } })
-  expect(step.protocolEntries).toEqual([
-    { source: 'player', entryType: 'player-command', seat: 'A', body: { commandType: 'frame.commence' } },
-  ])
-  control = deriveStrilaControlView(parseState(step.state)).details
   expect([
     ...control.commandSections.primary.A.map((entry) => `${entry.commandType}:${entry.command.seat}`),
     ...control.commandSections.primary.B.map((entry) => `${entry.commandType}:${entry.command.seat}`),
@@ -30,9 +24,8 @@ test('simulation: outside: basic frame 1', () => {
     ...control.commandSections.tertiary.A.map((entry) => `${entry.commandType}:${entry.command.seat}`),
     ...control.commandSections.tertiary.B.map((entry) => `${entry.commandType}:${entry.command.seat}`),
   ]).toEqual(['pot.record:A', 'pot.record:B', 'foul.commit:A', 'foul.commit:B'])
-  state = parseState(step.state)
 
-  step = applyGameCommand({
+  let step = applyGameCommand({
     gameKey: 'strila-v2',
     state,
     commandType: 'pot.record',

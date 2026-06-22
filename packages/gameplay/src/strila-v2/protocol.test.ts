@@ -104,8 +104,7 @@ describe('protocol projection', () => {
   })
 
   test('target reached winner determination', () => {
-    let previous = runtime.createInitialState({ targetPointsBySeat: StrilaMeta.defaultTargetPoints })
-    previous = apply(previous, { type: 'frame.commence', seat: 'A' })
+    let previous = runtime.createInitialState({ targetPointsBySeat: StrilaMeta.defaultTargetPoints, breakerSeat: 'A' })
     previous = apply(previous, { type: 'pot.record', seat: 'A', pottedBalls: [1, 2, 3, 4] })
     const command: StrilaCommand = { type: 'pot.record', seat: 'A', pottedBalls: [5] }
     const next = apply(previous, command)

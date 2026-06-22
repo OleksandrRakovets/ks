@@ -154,9 +154,9 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
   switch (state.phase) {
     case 'not-started':
       return view(state, {
-        commands: seatCommands('frame.commence', 'Break-off', 'primary'),
+        commands: [],
         situationTitle: 'Break-off',
-        situationSummary: 'Record the opening shot.',
+        situationSummary: 'Waiting for the match to open the frame.',
       })
     case 'open-play':
       return view(state, {
@@ -317,7 +317,10 @@ function strilaOutcome(state: StrilaFrameState): FrameOutcome | undefined {
 
 export class StrilaGameplayRuntime implements GameplayRuntime {
   createInitialState(args: GameCreateStateArgs): StrilaFrameState {
-    return serializeSnapshot(createInitialSnapshot(args.targetPointsBySeat))
+    const initial = serializeSnapshot(createInitialSnapshot(args.targetPointsBySeat))
+    return this.parseState(
+      this.applyCommand({ state: initial, commandType: 'frame.commence', command: { seat: args.breakerSeat } }).state,
+    )
   }
 
   parseState(state: unknown): StrilaFrameState {

@@ -6,6 +6,7 @@ import {
   type FrameOutcome,
   type GameConfiguration,
   type ProtocolEntry,
+  type Seat,
 } from '@ks/core'
 import * as v from 'valibot'
 
@@ -57,6 +58,7 @@ export type GameCommandResult = {
 
 export type GameCreateStateArgs = {
   targetPointsBySeat: BySeatNumber
+  breakerSeat: Seat
   gameConfiguration?: GameConfiguration
 }
 

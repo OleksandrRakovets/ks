@@ -15,7 +15,7 @@ const baseState = {
 } satisfies StrilaFrameState
 
 describe('projection: control', () => {
-  test('not-started exposes frame.commence', () => {
+  test('not-started waits for match-owned break-off', () => {
     const state: StrilaFrameState = {
       ...baseState,
     }
@@ -27,7 +27,8 @@ describe('projection: control', () => {
       details: {
         phase: 'not-started',
         situationTitle: 'Break-off',
-        situationSummary: 'Record the opening shot.',
+        seat: undefined,
+        situationSummary: 'Waiting for the match to open the frame.',
         isPotCommandAvailable: false,
         ballStatuses: {
           0: 'object',
@@ -42,26 +43,8 @@ describe('projection: control', () => {
         commandSections: {
           neutral: [],
           primary: {
-            A: [
-              {
-                source: 'game',
-                commandType: 'frame.commence',
-                command: { seat: 'A' },
-                seat: 'A',
-                label: 'Break-off',
-                prominence: 'primary',
-              },
-            ],
-            B: [
-              {
-                source: 'game',
-                commandType: 'frame.commence',
-                command: { seat: 'B' },
-                seat: 'B',
-                label: 'Break-off',
-                prominence: 'primary',
-              },
-            ],
+            A: [],
+            B: [],
           },
           secondary: { A: [], B: [] },
           tertiary: { A: [], B: [] },

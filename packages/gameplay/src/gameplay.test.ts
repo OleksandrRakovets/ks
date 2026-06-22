@@ -54,31 +54,15 @@ describe('gameplay runtime api', () => {
   })
 
   test('creates and updates free pyramid game state', () => {
-    let state = createInitialGameState('free-pyramid', { targetPointsBySeat: { A: 8, B: 8 } })
-
-    expect(state).toEqual({
-      pointsBySeat: { A: 0, B: 0 },
-      targetPointsBySeat: { A: 8, B: 8 },
-      phase: 'not-started',
-    })
-
-    let protocolEntries
-    ;({ state, protocolEntries } = applyGameCommand({
-      gameKey: 'free-pyramid',
-      state,
-      commandType: 'frame.commence',
-      command: { seat: 'A' },
-    }))
+    let state = createInitialGameState('free-pyramid', { targetPointsBySeat: { A: 8, B: 8 }, breakerSeat: 'A' })
 
     expect(state).toEqual({
       pointsBySeat: { A: 0, B: 0 },
       targetPointsBySeat: { A: 8, B: 8 },
       phase: 'open-play',
     })
-    expect(protocolEntries).toEqual([
-      { source: 'player', entryType: 'player-command', seat: 'A', body: { commandType: 'frame.commence' } },
-    ])
 
+    let protocolEntries
     ;({ state, protocolEntries } = applyGameCommand({
       gameKey: 'free-pyramid',
       state,
@@ -192,7 +176,7 @@ describe('gameplay runtime api', () => {
     })
   })
 
-  test('free pyramid control starts with frame.commence choices', () => {
+  test('free pyramid control has no manual break-off choices', () => {
     const projection = deriveGameProjection({
       gameKey: 'free-pyramid',
       state: { pointsBySeat: { A: 0, B: 0 }, targetPointsBySeat: { A: 8, B: 8 }, phase: 'not-started' },
@@ -216,8 +200,8 @@ describe('gameplay runtime api', () => {
     expect(projection.score).toEqual({ A: 0, B: 0 })
     expect(projection.details.phase).toBe('not-started')
     expect(projection.details.isPotCommandAvailable).toBe(false)
-    expect(projection.details.commandSections.primary.A.map((entry) => entry.commandType)).toEqual(['frame.commence'])
-    expect(projection.details.commandSections.primary.B.map((entry) => entry.commandType)).toEqual(['frame.commence'])
+    expect(projection.details.commandSections.primary.A.map((entry) => entry.commandType)).toEqual([])
+    expect(projection.details.commandSections.primary.B.map((entry) => entry.commandType)).toEqual([])
   })
 
   test('free pyramid control keeps scoring after target and exposes frame.award', () => {
@@ -305,25 +289,7 @@ describe('gameplay runtime api', () => {
   })
 
   test('creates and updates Strila game state', () => {
-    let state = createInitialGameState('strila-v2', { targetPointsBySeat: { A: 9, B: 9 } })
-
-    expect(state).toEqual({
-      score: { A: 0, B: 0 },
-      targetPoints: { A: 9, B: 9 },
-      coloredBallsOnTable: [1, 2, 3, 4, 5, 6, 7],
-      cueBallSerialPots: null,
-      foulOffender: null,
-      winner: null,
-      winReason: null,
-      phase: 'not-started',
-    })
-
-    ;({ state } = applyGameCommand({
-      gameKey: 'strila-v2',
-      state,
-      commandType: 'frame.commence',
-      command: { seat: 'A' },
-    }))
+    const state = createInitialGameState('strila-v2', { targetPointsBySeat: { A: 9, B: 9 }, breakerSeat: 'A' })
 
     expect(state).toEqual({
       score: { A: 0, B: 0 },

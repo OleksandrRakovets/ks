@@ -166,7 +166,7 @@ export class LongFreePyramidGameplayRuntime implements GameplayRuntime {
       racks: [{ rackNumber: 1, scoreBySeat: zeroScore() }],
       targetPointsBySeat: args.targetPointsBySeat,
       rackRollover,
-      phase: 'not-started',
+      phase: 'open-play',
       messages: [],
     }
   }
@@ -269,7 +269,7 @@ export class LongFreePyramidGameplayRuntime implements GameplayRuntime {
       const seats: Seat[] = ['A', 'B']
       const commands =
         state.phase === 'not-started'
-          ? seats.map((seat) => command('frame.commence', { seat }, `Break-off (${seat})`, 'primary'))
+          ? []
           : state.phase === 'open-play'
             ? [
                 ...seats.flatMap((seat) =>

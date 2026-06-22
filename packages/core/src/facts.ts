@@ -47,6 +47,7 @@ export const FrameStartedFactSchema = v.object({
     frameIndex: PositiveIntegerSchema,
     gameKey: GameKeySchema,
     targetPointsBySeat: BySeatNumberSchema,
+    breakerSeat: SeatSchema,
     gameConfiguration: v.optional(GameConfigurationSchema),
   }),
 })

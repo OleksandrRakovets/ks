@@ -46,6 +46,7 @@ export const MatchConfigSchema = v.object({
   matchId: MatchIdSchema,
   gameKey: GameKeySchema,
   targets: MatchTargetsSchema,
+  firstBreakerSeat: SeatSchema,
   gameConfiguration: v.optional(GameConfigurationSchema),
 })
 
@@ -54,6 +55,7 @@ export type MatchConfig = v.InferOutput<typeof MatchConfigSchema>
 export const FrameStateSchema = v.object({
   frameIndex: PositiveIntegerSchema,
   pointsBySeat: BySeatNumberSchema,
+  breakerSeat: SeatSchema,
   winnerSeat: v.optional(SeatSchema),
 })
 export type FrameState = v.InferOutput<typeof FrameStateSchema>
