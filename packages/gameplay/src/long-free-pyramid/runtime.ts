@@ -1,10 +1,7 @@
 import {
-  BySeatNumberSchema,
   IntegerSchema,
-  NonEmptyStringSchema,
   ProtocolEntrySchema,
   SeatSchema,
-  emptyControlCommandSections,
   opponentOf,
   type FrameOutcome,
   type ProtocolEntry,
@@ -13,34 +10,18 @@ import {
 import invariant from 'tiny-invariant'
 import * as v from 'valibot'
 
+import { type GameCreateStateArgs, type GameProjectionKey, type GameplayRuntime } from '../constants'
 import {
-  type GameCreateStateArgs,
-  type GameProjectionKey,
-  GameCommandPresetSchema,
-  GameControlProjectionSchema,
-  GameScoreboardProjectionSchema,
-  GameSummaryProjectionSchema,
-  type GameplayRuntime,
-} from '../constants'
+  LongFreePyramidFrameStateSchema,
+  type LongFreePyramidFrameState,
+  type LongFreePyramidProjectionDetails,
+  type LongFreePyramidRack,
+} from './definitions'
+import { deriveLongFreePyramidControlView } from './projections/control'
+import { deriveLongFreePyramidScoreboardView } from './projections/scoreboard'
+import { deriveLongFreePyramidSummaryView } from './projections/summary'
 
 const RACK_BALLS = 16
-
-const RackSchema = v.object({
-  rackNumber: v.pipe(IntegerSchema, v.minValue(1)),
-  scoreBySeat: BySeatNumberSchema,
-})
-
-const LongFreePyramidFrameStateSchema = v.object({
-  racks: v.pipe(v.array(RackSchema), v.minLength(1)),
-  targetPointsBySeat: BySeatNumberSchema,
-  rackRollover: v.picklist([14, 15]),
-  phase: v.picklist(['not-started', 'open-play', 'winner-determined', 'awaiting-award', 'frame-over']),
-  winnerSeat: v.optional(SeatSchema),
-  messages: v.array(NonEmptyStringSchema),
-})
-
-type LongFreePyramidFrameState = v.InferOutput<typeof LongFreePyramidFrameStateSchema>
-type Rack = v.InferOutput<typeof RackSchema>
 
 const PotRecordedCommandSchema = v.object({ seat: SeatSchema, points: v.pipe(IntegerSchema, v.minValue(1), v.maxValue(4)) })
 const SeatCommandSchema = v.object({ seat: SeatSchema })
@@ -57,9 +38,6 @@ const LongFreePyramidProtocolEntrySchema = v.object({
   body: ProtocolEntryBodySchema,
 })
 
-const ControlCommandSchema = v.object({ ...GameCommandPresetSchema.entries, label: NonEmptyStringSchema })
-type ControlCommand = v.InferOutput<typeof ControlCommandSchema>
-
 function zeroScore() {
   return { A: 0, B: 0 }
 }
@@ -68,13 +46,13 @@ function score(state: LongFreePyramidFrameState) {
   return state.racks.reduce((sum, rack) => ({ A: sum.A + rack.scoreBySeat.A, B: sum.B + rack.scoreBySeat.B }), zeroScore())
 }
 
-function currentRack(state: LongFreePyramidFrameState): Rack {
+function currentRack(state: LongFreePyramidFrameState): LongFreePyramidRack {
   const rack = state.racks.at(-1)
   invariant(rack, 'Long free pyramid state must contain at least one rack')
   return rack
 }
 
-function removedByRack(rack: Rack): number {
+function removedByRack(rack: LongFreePyramidRack): number {
   return rack.scoreBySeat.A + rack.scoreBySeat.B
 }
 
@@ -82,11 +60,11 @@ function ballsOnTable(state: LongFreePyramidFrameState): number {
   return Math.max(0, RACK_BALLS - removedByRack(currentRack(state)))
 }
 
-function addRackScore(rack: Rack, seat: Seat, points: number): Rack {
+function addRackScore(rack: LongFreePyramidRack, seat: Seat, points: number): LongFreePyramidRack {
   return { ...rack, scoreBySeat: { ...rack.scoreBySeat, [seat]: rack.scoreBySeat[seat] + points } }
 }
 
-function replaceCurrentRack(state: LongFreePyramidFrameState, rack: Rack): LongFreePyramidFrameState {
+function replaceCurrentRack(state: LongFreePyramidFrameState, rack: LongFreePyramidRack): LongFreePyramidFrameState {
   return { ...state, racks: [...state.racks.slice(0, -1), rack] }
 }
 
@@ -121,26 +99,7 @@ function protocolEntry(args: {
   })
 }
 
-function command(
-  commandType: string,
-  payload: Record<string, unknown>,
-  label: string,
-  prominence: ControlCommand['prominence'],
-): ControlCommand {
-  const seat = payload.seat === 'A' || payload.seat === 'B' ? payload.seat : undefined
-  return { source: 'game', commandType, command: payload, seat, label, prominence }
-}
-
-function commandSections(commands: ControlCommand[]) {
-  const sections = emptyControlCommandSections()
-  for (const entry of commands) {
-    if (entry.seat) sections[entry.prominence][entry.seat].push(entry)
-    else sections.neutral.push(entry)
-  }
-  return sections
-}
-
-function details(state: LongFreePyramidFrameState) {
+function details(state: LongFreePyramidFrameState): LongFreePyramidProjectionDetails {
   const rack = currentRack(state)
   return {
     phase: state.phase,
@@ -265,52 +224,20 @@ export class LongFreePyramidGameplayRuntime implements GameplayRuntime {
   deriveProjection(args: { state: unknown; projection: GameProjectionKey }) {
     const state = this.parseState(args.state)
     const stateScore = score(state)
-    if (args.projection === 'control') {
-      const seats: Seat[] = ['A', 'B']
-      const commands =
-        state.phase === 'not-started'
-          ? []
-          : state.phase === 'open-play'
-            ? [
-                ...seats.flatMap((seat) =>
-                  [1, 2, 3, 4]
-                    .filter((points) => points <= ballsOnTable(state))
-                    .map((points, index) =>
-                      command('pot.record', { seat, points }, `+${points}`, index === 0 ? 'primary' : 'secondary'),
-                    ),
-                ),
-                ...seats.map((seat) => command('foul.commit', { seat }, 'Фол', 'secondary')),
-              ]
-            : state.phase === 'winner-determined' && state.winnerSeat
-              ? [
-                  command('frame.award', { seat: state.winnerSeat }, 'Award frame', 'primary'),
-                  ...(ballsOnTable(state) >= 1
-                    ? [command('pot.record', { seat: state.winnerSeat, points: 1 }, '+1', 'secondary')]
-                    : []),
-                ]
-              : state.phase === 'awaiting-award' && state.winnerSeat
-                ? [command('frame.award', { seat: state.winnerSeat }, 'Award frame', 'primary')]
-                : []
+    const projectionDetails = details(state)
 
-      const isPotCommandAvailable = state.phase === 'open-play' || state.phase === 'winner-determined'
-
-      return v.parse(GameControlProjectionSchema, {
-        gameKey: 'free-pyramid-long',
-        projection: 'control',
-        score: stateScore,
-        details: {
-          ...details(state),
-          isPotCommandAvailable: isPotCommandAvailable && ballsOnTable(state) > 0,
-          commandSections: commandSections(commands),
-        },
-      })
+    switch (args.projection) {
+      case 'control':
+        return deriveLongFreePyramidControlView({
+          state,
+          score: stateScore,
+          details: projectionDetails,
+          ballsOnTable: ballsOnTable(state),
+        })
+      case 'scoreboard':
+        return deriveLongFreePyramidScoreboardView({ score: stateScore, details: projectionDetails })
+      case 'summary':
+        return deriveLongFreePyramidSummaryView({ score: stateScore, details: projectionDetails })
     }
-    const schema = args.projection === 'scoreboard' ? GameScoreboardProjectionSchema : GameSummaryProjectionSchema
-    return v.parse(schema, {
-      gameKey: 'free-pyramid-long',
-      projection: args.projection,
-      score: stateScore,
-      details: details(state),
-    })
   }
 }

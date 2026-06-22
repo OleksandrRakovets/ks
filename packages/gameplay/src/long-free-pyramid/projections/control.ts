@@ -1,0 +1,73 @@
+import { NonEmptyStringSchema, emptyControlCommandSections, type BySeatNumber, type Seat } from '@ks/core'
+import * as v from 'valibot'
+
+import { GameCommandPresetSchema, GameControlProjectionSchema } from '../../constants'
+import type { LongFreePyramidFrameState, LongFreePyramidProjectionDetails } from '../definitions'
+
+const ControlCommandSchema = v.object({ ...GameCommandPresetSchema.entries, label: NonEmptyStringSchema })
+type ControlCommand = v.InferOutput<typeof ControlCommandSchema>
+
+function command(
+  commandType: string,
+  payload: Record<string, unknown>,
+  label: string,
+  prominence: ControlCommand['prominence'],
+): ControlCommand {
+  const seat = payload.seat === 'A' || payload.seat === 'B' ? payload.seat : undefined
+  return { source: 'game', commandType, command: payload, seat, label, prominence }
+}
+
+function commandSections(commands: ControlCommand[]) {
+  const sections = emptyControlCommandSections()
+  for (const entry of commands) {
+    if (entry.seat) sections[entry.prominence][entry.seat].push(entry)
+    else sections.neutral.push(entry)
+  }
+  return sections
+}
+
+export function deriveLongFreePyramidControlView(args: {
+  state: LongFreePyramidFrameState
+  score: BySeatNumber
+  details: LongFreePyramidProjectionDetails
+  ballsOnTable: number
+}) {
+  const seats: Seat[] = ['A', 'B']
+  const commands =
+    args.state.phase === 'not-started'
+      ? []
+      : args.state.phase === 'open-play'
+        ? [
+            ...seats.flatMap((seat) =>
+              [1, 2, 3, 4]
+                .filter((points) => points <= args.ballsOnTable)
+                .map((points, index) =>
+                  command('pot.record', { seat, points }, `+${points}`, index === 0 ? 'primary' : 'secondary'),
+                ),
+            ),
+            ...seats.map((seat) => command('foul.commit', { seat }, 'Фол', 'secondary')),
+          ]
+        : args.state.phase === 'winner-determined' && args.state.winnerSeat
+          ? [
+              command('frame.award', { seat: args.state.winnerSeat }, 'Award frame', 'primary'),
+              ...(args.ballsOnTable >= 1
+                ? [command('pot.record', { seat: args.state.winnerSeat, points: 1 }, '+1', 'secondary')]
+                : []),
+            ]
+          : args.state.phase === 'awaiting-award' && args.state.winnerSeat
+            ? [command('frame.award', { seat: args.state.winnerSeat }, 'Award frame', 'primary')]
+            : []
+
+  const isPotCommandAvailable = args.state.phase === 'open-play' || args.state.phase === 'winner-determined'
+
+  return v.parse(GameControlProjectionSchema, {
+    gameKey: 'free-pyramid-long',
+    projection: 'control',
+    score: args.score,
+    details: {
+      ...args.details,
+      isPotCommandAvailable: isPotCommandAvailable && args.ballsOnTable > 0,
+      commandSections: commandSections(commands),
+    },
+  })
+}

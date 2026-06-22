@@ -1,35 +1,12 @@
-import {
-  BySeatNumberSchema,
-  IntegerSchema,
-  NonEmptyStringSchema,
-  ProtocolEntrySchema,
-  SeatSchema,
-  emptyControlCommandSections,
-  opponentOf,
-  type FrameOutcome,
-  type ProtocolEntry,
-} from '@ks/core'
+import { IntegerSchema, ProtocolEntrySchema, SeatSchema, opponentOf, type FrameOutcome, type ProtocolEntry } from '@ks/core'
 import invariant from 'tiny-invariant'
 import * as v from 'valibot'
 
-import {
-  type GameplayRuntime,
-  type GameCreateStateArgs,
-  GameCommandPresetSchema,
-  GameScoreboardProjectionSchema,
-  GameSummaryProjectionSchema,
-  type GameProjectionKey,
-} from '../constants'
-import { PyramidControlViewSchema } from './definitions'
-
-const PyramidFrameStateSchema = v.object({
-  pointsBySeat: BySeatNumberSchema,
-  targetPointsBySeat: BySeatNumberSchema,
-  phase: v.picklist(['not-started', 'open-play', 'winner-determined', 'frame-over']),
-  winnerSeat: v.optional(SeatSchema),
-})
-
-type PyramidFrameState = v.InferOutput<typeof PyramidFrameStateSchema>
+import { type GameplayRuntime, type GameCreateStateArgs, type GameProjectionKey } from '../constants'
+import { PyramidFrameStateSchema, type PyramidFrameState, type PyramidRuntimeConfig } from './definitions'
+import { derivePyramidControlView } from './projections/control'
+import { derivePyramidScoreboardView } from './projections/scoreboard'
+import { derivePyramidSummaryView } from './projections/summary'
 
 function pyramidOutcome(state: PyramidFrameState): FrameOutcome | undefined {
   if (state.phase !== 'frame-over' || !state.winnerSeat) return undefined
@@ -88,57 +65,10 @@ function protocolEntry(args: {
   })
 }
 
-function pyramidDetails(state: PyramidFrameState) {
-  return {
-    phase: state.phase,
-    winner: state.winnerSeat,
-  }
-}
-
-const PyramidControlCommandSchema = v.object({
-  ...GameCommandPresetSchema.entries,
-  label: NonEmptyStringSchema,
-})
-type PyramidControlCommand = v.InferOutput<typeof PyramidControlCommandSchema>
-
-function command(
-  commandType: string,
-  payload: Record<string, unknown>,
-  label: string,
-  extras: Omit<PyramidControlCommand, 'source' | 'commandType' | 'command' | 'seat' | 'label'>,
-): PyramidControlCommand {
-  const seat = payload.seat === 'A' || payload.seat === 'B' ? payload.seat : undefined
-  return { source: 'game', commandType, command: payload, seat, label, ...extras }
-}
-
-function deriveCommandSections(commands: v.InferOutput<typeof PyramidControlCommandSchema>[]) {
-  const sections = emptyControlCommandSections()
-
-  for (const entry of commands) {
-    if (entry.seat) {
-      sections[entry.prominence][entry.seat].push(entry)
-    } else {
-      sections.neutral.push(entry)
-    }
-  }
-
-  return sections
-}
-
 export class PyramidGameplayRuntime implements GameplayRuntime {
-  private readonly config: {
-    gameKey: string
-    allowNegative: boolean
-    foulPenalty: 'opponent-plus-one' | 'offender-minus-one'
-    shotPointOptions: number[]
-  }
+  private readonly config: PyramidRuntimeConfig
 
-  constructor(config: {
-    gameKey: string
-    allowNegative: boolean
-    foulPenalty: 'opponent-plus-one' | 'offender-minus-one'
-    shotPointOptions: number[]
-  }) {
+  constructor(config: PyramidRuntimeConfig) {
     this.config = config
   }
 
@@ -312,103 +242,12 @@ export class PyramidGameplayRuntime implements GameplayRuntime {
     const state = this.parseState(args.state)
 
     switch (args.projection) {
-      case 'control': {
-        if (state.phase === 'not-started') {
-          return v.parse(PyramidControlViewSchema, {
-            gameKey: this.config.gameKey,
-            projection: 'control',
-            score: state.pointsBySeat,
-            details: {
-              ...pyramidDetails(state),
-              situationTitle: 'Break-off',
-              situationSummary: 'Waiting for the match to open the frame.',
-              isPotCommandAvailable: false,
-              commandSections: emptyControlCommandSections(),
-            },
-          })
-        }
-
-        if (state.phase === 'open-play') {
-          const seats: Array<'A' | 'B'> = ['A', 'B']
-          const commands = [
-            ...seats.flatMap((seat) =>
-              this.config.shotPointOptions.map((points, index) =>
-                command('pot.record', { seat, points }, `+${points}`, { prominence: index === 0 ? 'primary' : 'secondary' }),
-              ),
-            ),
-            ...seats.map((seat) =>
-              command('foul.commit', { seat }, 'Фол', {
-                prominence: 'secondary',
-                effectSummary:
-                  this.config.foulPenalty === 'opponent-plus-one'
-                    ? 'Opponent +1 point'
-                    : 'Offender -1 point (negative allowed)',
-              }),
-            ),
-          ]
-
-          return v.parse(PyramidControlViewSchema, {
-            gameKey: this.config.gameKey,
-            projection: 'control',
-            score: state.pointsBySeat,
-            details: {
-              ...pyramidDetails(state),
-              situationTitle: 'Open play',
-              situationSummary: 'Record shot value or foul for either player.',
-              isPotCommandAvailable: true,
-              commandSections: deriveCommandSections(commands),
-            },
-          })
-        }
-
-        if (state.phase === 'winner-determined') {
-          invariant(state.winnerSeat, 'Winner is required before awarding a determined pyramid frame')
-          const commands = [
-            command('frame.award', { seat: state.winnerSeat }, 'Award frame', { prominence: 'primary' }),
-            command('pot.record', { seat: state.winnerSeat, points: 1 }, '+1', { prominence: 'secondary' }),
-          ]
-
-          return v.parse(PyramidControlViewSchema, {
-            gameKey: this.config.gameKey,
-            projection: 'control',
-            score: state.pointsBySeat,
-            details: {
-              ...pyramidDetails(state),
-              situationTitle: 'Winner determined',
-              situationSummary: 'The winner may continue scoring, or the frame can be awarded now.',
-              isPotCommandAvailable: true,
-              commandSections: deriveCommandSections(commands),
-            },
-          })
-        }
-
-        return v.parse(PyramidControlViewSchema, {
-          gameKey: this.config.gameKey,
-          projection: 'control',
-          score: state.pointsBySeat,
-          details: {
-            ...pyramidDetails(state),
-            situationTitle: 'Frame over',
-            situationSummary: 'No further scoring commands are available.',
-            isPotCommandAvailable: false,
-            commandSections: emptyControlCommandSections(),
-          },
-        })
-      }
+      case 'control':
+        return derivePyramidControlView(state, this.config)
       case 'scoreboard':
-        return v.parse(GameScoreboardProjectionSchema, {
-          gameKey: this.config.gameKey,
-          projection: 'scoreboard',
-          score: state.pointsBySeat,
-          details: pyramidDetails(state),
-        })
+        return derivePyramidScoreboardView(state, this.config)
       case 'summary':
-        return v.parse(GameSummaryProjectionSchema, {
-          gameKey: this.config.gameKey,
-          projection: 'summary',
-          score: state.pointsBySeat,
-          details: pyramidDetails(state),
-        })
+        return derivePyramidSummaryView(state, this.config)
     }
   }
 }
