@@ -65,6 +65,10 @@ function getCurrentFrame(state: MatchState): MatchState['frames'][number] {
   return frame
 }
 
+function gameConfigurationsMatch(left: unknown, right: unknown): boolean {
+  return JSON.stringify(left ?? null) === JSON.stringify(right ?? null)
+}
+
 export function applyMatchFact(prev: MatchState, fact: ClientFact): MatchState {
   const state = prev.status === 'empty' ? emptyMatchState() : prev
 
@@ -86,6 +90,10 @@ export function applyMatchFact(prev: MatchState, fact: ClientFact): MatchState {
         fact.payload.targetPointsBySeat.A === config.targets.frameTargetPointsBySeat.A &&
           fact.payload.targetPointsBySeat.B === config.targets.frameTargetPointsBySeat.B,
         'Started frame target does not match match config',
+      )
+      assert(
+        gameConfigurationsMatch(fact.payload.gameConfiguration, config.gameConfiguration),
+        'Started frame game configuration does not match match config',
       )
 
       const matchTargetFrames = config.targets.matchTargetFrames

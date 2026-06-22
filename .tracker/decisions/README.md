@@ -7,3 +7,4 @@ Keep only concise, durable architecture notes here when they are still true acro
 Current active note:
 
 - [Current architecture](./current-architecture.md)
+- [Long Free Pyramid rack tracking](./long-free-pyramid-rack-tracking.md)

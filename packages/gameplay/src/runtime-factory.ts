@@ -1,6 +1,7 @@
 import invariant from 'tiny-invariant'
 
 import type { GameplayRuntime } from './constants'
+import { LongFreePyramidGameplayRuntime } from './long-free-pyramid/runtime'
 import { PyramidGameplayRuntime } from './pyramid/runtime'
 import type { RegisteredGameKey } from './registry'
 import { StrilaGameplayRuntime } from './strila-v2/runtime'
@@ -14,13 +15,7 @@ const runtimeFactories = {
       foulPenalty: 'opponent-plus-one',
       shotPointOptions: [1, 2, 4],
     }),
-  'free-pyramid-long': () =>
-    new PyramidGameplayRuntime({
-      gameKey: 'free-pyramid-long',
-      allowNegative: false,
-      foulPenalty: 'opponent-plus-one',
-      shotPointOptions: [1, 2, 4],
-    }),
+  'free-pyramid-long': () => new LongFreePyramidGameplayRuntime(),
   'combined-pyramid': () =>
     new PyramidGameplayRuntime({
       gameKey: 'combined-pyramid',

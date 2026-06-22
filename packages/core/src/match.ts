@@ -21,6 +21,11 @@ export const MatchTargetsSchema = v.object({
   matchTargetFrames: PositiveIntegerSchema,
 })
 
+export const GameConfigurationSchema = v.object({
+  rackRollover: v.optional(v.picklist([14, 15])),
+})
+export type GameConfiguration = v.InferOutput<typeof GameConfigurationSchema>
+
 export const MatchSeatAssignmentSchema = v.object({
   seat: SeatSchema,
   playerRef: PlayerRefSchema,
@@ -41,6 +46,7 @@ export const MatchConfigSchema = v.object({
   matchId: MatchIdSchema,
   gameKey: GameKeySchema,
   targets: MatchTargetsSchema,
+  gameConfiguration: v.optional(GameConfigurationSchema),
 })
 
 export type MatchConfig = v.InferOutput<typeof MatchConfigSchema>

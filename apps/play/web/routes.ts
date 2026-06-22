@@ -9,7 +9,7 @@ export default [
   layout('routes/layout-base.tsx', [
     index('routes/index.tsx'),
     route('sparring', 'routes/sparring.tsx'),
-    route('sparring/init/:gameKey', 'routes/sparring-init.tsx'),
+    route('sparring/init/:gameKey', 'routes/sparring-init/route.tsx'),
     route('sparring/matches', 'routes/sparring-matches.tsx'),
     route('sparring/matches/:matchId', 'routes/sparring-match/route-control.tsx'),
     route('sparring/matches/:matchId/protocol', 'routes/sparring-match/route-protocol.tsx'),
