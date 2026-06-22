@@ -2,12 +2,25 @@ import { expect, test } from 'bun:test'
 
 import * as v from 'valibot'
 
-import { applyGameCommand } from '../../gameplay'
-import { StrilaFrameStateSchema, StrilaMeta, type StrilaFrameState } from '../definitions'
-import { deriveStrilaControlView } from '../projections/control'
-import { deriveStrilaScoreboardView } from '../projections/scoreboard'
+import { applyGameCommand, deriveGameProjection } from '../../gameplay'
+import {
+  StrilaControlViewSchema,
+  StrilaFrameStateSchema,
+  StrilaMeta,
+  StrilaScoreboardViewSchema,
+  type StrilaFrameState,
+} from '../definitions'
 
-test('simulation: outside: respotted black frame 1', () => {
+function controlDetails(state: unknown) {
+  return v.parse(StrilaControlViewSchema, deriveGameProjection({ gameKey: 'strila-v2', state, projection: 'control' })).details
+}
+
+function scoreboardDetails(state: unknown) {
+  return v.parse(StrilaScoreboardViewSchema, deriveGameProjection({ gameKey: 'strila-v2', state, projection: 'scoreboard' }))
+    .details
+}
+
+test('simulation: game api: respotted black frame 1', () => {
   const state: StrilaFrameState = {
     score: { A: 8, B: 8 },
     targetPoints: StrilaMeta.defaultTargetPoints,
@@ -19,15 +32,13 @@ test('simulation: outside: respotted black frame 1', () => {
     phase: 'respotted-black.opening',
   }
 
-  expect(deriveStrilaScoreboardView(state).details.objectBalls).toEqual([7])
-  expect(deriveStrilaControlView(state).details.commandSections.primary.A.map((entry) => entry.commandType)).toEqual([
+  expect(scoreboardDetails(state).objectBalls).toEqual([7])
+  expect(controlDetails(state).commandSections.primary.A.map((entry) => entry.commandType)).toEqual([
     'pot.record',
     'miss.record',
   ])
-  expect(deriveStrilaControlView(state).details.commandSections.secondary.A.map((entry) => entry.commandType)).toEqual([
-    'foul.commit',
-  ])
-  expect(deriveStrilaControlView(state).details.commandSections.tertiary.A.map((entry) => entry.commandType)).toEqual([])
+  expect(controlDetails(state).commandSections.secondary.A.map((entry) => entry.commandType)).toEqual(['foul.commit'])
+  expect(controlDetails(state).commandSections.tertiary.A.map((entry) => entry.commandType)).toEqual([])
 
   const step = applyGameCommand({
     gameKey: 'strila-v2',
@@ -51,9 +62,9 @@ test('simulation: outside: respotted black frame 1', () => {
     },
   ])
   const next = v.parse(StrilaFrameStateSchema, step.state)
-  expect(deriveStrilaControlView(next).details.commandSections.primary.A.map((entry) => entry.commandType)).toEqual([
+  expect(controlDetails(next).commandSections.primary.A.map((entry) => entry.commandType)).toEqual([
     'pot.record',
     'frame.award',
   ])
-  expect(deriveStrilaScoreboardView(next).details.winner).toBe('A')
+  expect(scoreboardDetails(next).winner).toBe('A')
 })

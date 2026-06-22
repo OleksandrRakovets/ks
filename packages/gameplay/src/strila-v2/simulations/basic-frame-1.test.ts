@@ -7,7 +7,7 @@ import { applyCommand } from './applyCommand'
 
 const runtime = new StrilaGameplayRuntime()
 
-test('simulation: internal: basic frame 1', () => {
+test('simulation: runtime: basic frame 1', () => {
   let next = runtime.createInitialState({ targetPointsBySeat: StrilaMeta.defaultTargetPoints, breakerSeat: 'A' })
 
   ;({ next } = applyCommand(next, {

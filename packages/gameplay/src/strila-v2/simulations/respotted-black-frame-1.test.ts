@@ -4,7 +4,7 @@ import { StrilaMeta, type StrilaFrameState } from '../definitions'
 import { deriveStrilaScoreboardView } from '../projections/scoreboard'
 import { applyCommand } from './applyCommand'
 
-test('simulation: internal: respotted black frame 1', () => {
+test('simulation: runtime: respotted black frame 1', () => {
   let next: StrilaFrameState = {
     score: { A: 0, B: 0 },
     targetPoints: StrilaMeta.defaultTargetPoints,

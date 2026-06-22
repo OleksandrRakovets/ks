@@ -5,7 +5,7 @@ import { applyCommand } from './applyCommand'
 
 const runtime = new StrilaGameplayRuntime()
 
-test('simulation: internal: handicap basic frame for A to 6', () => {
+test('simulation: runtime: handicap basic frame for A to 6', () => {
   let next = runtime.createInitialState({ targetPointsBySeat: { A: 6, B: 9 }, breakerSeat: 'A' })
 
   ;({ next } = applyCommand(next, {

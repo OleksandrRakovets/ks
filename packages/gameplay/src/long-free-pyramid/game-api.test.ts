@@ -4,7 +4,7 @@ import type { BySeatNumber, Seat } from '@ks/core'
 
 import { applyGameCommand, createInitialGameState, deriveGameProjection } from '../gameplay'
 
-describe('long free pyramid runtime', () => {
+describe('long free pyramid: game api', () => {
   test('requires and stores rack rollover configuration', () => {
     expect(() =>
       createInitialGameState('free-pyramid-long', { targetPointsBySeat: { A: 30, B: 30 }, breakerSeat: 'A' }),
