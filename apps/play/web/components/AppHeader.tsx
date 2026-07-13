@@ -27,7 +27,7 @@ export function AppHeader() {
     [...matches].reverse().reduce<HeaderConfig | null>((found, match) => {
       if (found) return found
       const handle = match.handle as { headerConfig?: (data: unknown) => HeaderConfig } | undefined
-      return handle?.headerConfig?.(match.data) ?? null
+      return handle?.headerConfig?.(match.loaderData) ?? null
     }, null) ?? {}
 
   return (
