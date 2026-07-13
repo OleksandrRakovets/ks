@@ -26,12 +26,12 @@ export function BurgerMenu() {
   const { i18n, t } = useTranslation()
 
   function changeTheme(theme: AppTheme) {
-    fetcher.submit({ theme }, { method: 'post', action: '/ui-preferences/theme' })
+    fetcher.submit({ theme }, { method: 'post', action: '/ui-preferences/theme/' })
   }
 
   function changeLocale(locale: SupportedLocale) {
     void i18n.changeLanguage(locale)
-    fetcher.submit({ locale }, { method: 'post', action: '/ui-preferences/locale' })
+    fetcher.submit({ locale }, { method: 'post', action: '/ui-preferences/locale/' })
   }
 
   return (
@@ -56,12 +56,15 @@ export function BurgerMenu() {
         <nav className="flex flex-col gap-1 px-4 py-4">
           <p className="text-xs font-semibold tracking-widest text-text-ghost uppercase">{t(keys.nav.sparring)}</p>
           <SheetClose asChild>
-            <Link to="/sparring" className="py-2.5 text-sm font-medium text-text-hi underline-offset-4 hover:underline">
+            <Link to="/sparring/" className="py-2.5 text-sm font-medium text-text-hi underline-offset-4 hover:underline">
               {t(keys.nav.newMatch)}
             </Link>
           </SheetClose>
           <SheetClose asChild>
-            <Link to="/sparring/matches" className="py-2.5 text-sm font-medium text-text-hi underline-offset-4 hover:underline">
+            <Link
+              to="/sparring/matches/"
+              className="py-2.5 text-sm font-medium text-text-hi underline-offset-4 hover:underline"
+            >
               {t(keys.nav.allMatches)}
             </Link>
           </SheetClose>

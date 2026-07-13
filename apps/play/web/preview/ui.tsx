@@ -22,7 +22,7 @@ function SubSection({ label, children }: { label: string; children: React.ReactN
 }
 
 export const handle = {
-  headerConfig: () => ({ title: 'UI Preview Lab', backTo: '/top-secret/preview' }),
+  headerConfig: () => ({ title: 'UI Preview Lab', backTo: '/top-secret/preview/' }),
 }
 
 export default function PreviewUiRoute() {

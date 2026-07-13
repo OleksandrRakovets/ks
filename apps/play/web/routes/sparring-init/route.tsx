@@ -133,11 +133,11 @@ export async function action({
     throw new Response('Could not create match', { status: result.status })
   }
 
-  return redirect(`/sparring/matches/${matchId}`)
+  return redirect(`/sparring/matches/${matchId}/`)
 }
 
 export const handle = {
-  headerConfig: (data: LoaderData) => ({ title: data.title, backTo: '/sparring' }),
+  headerConfig: (data: LoaderData) => ({ title: data.title, backTo: '/sparring/' }),
 }
 
 export default function SparringInitRoute() {
@@ -181,7 +181,7 @@ export default function SparringInitRoute() {
             <h1 className="text-3xl font-semibold tracking-tight">{t(keys.match.sparring.setupTitle)}</h1>
           </div>
           <Button asChild variant="outline">
-            <Link to="/sparring">{t(keys.match.sparring.chooseAnotherGame)}</Link>
+            <Link to="/sparring/">{t(keys.match.sparring.chooseAnotherGame)}</Link>
           </Button>
         </div>
 

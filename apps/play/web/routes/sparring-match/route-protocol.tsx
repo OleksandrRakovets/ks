@@ -115,7 +115,7 @@ export const handle = {
   headerConfig: (data: LoaderData) => ({
     titleKey: keys.match.sparring.protocolHeaderTitle,
     titleParams: { gameTitle: data.gameTitle },
-    backTo: data.snapshot.status === 'active' ? `/sparring/matches/${data.snapshot.matchId}` : '/sparring/matches',
+    backTo: data.snapshot.status === 'active' ? `/sparring/matches/${data.snapshot.matchId}/` : '/sparring/matches/',
   }),
 }
 
@@ -138,7 +138,7 @@ export default function SparringMatchProtocolRoute() {
   useEffect(() => {
     if (snapshot.status !== 'active') return
 
-    const stream = new EventSource(`/api/m/${snapshot.matchId}/stream?since=${latestSeqRef.current}`)
+    const stream = new EventSource(`/api/m/${snapshot.matchId}/stream/?since=${latestSeqRef.current}`)
 
     const onReady = (event: Event) => {
       if (!(event instanceof MessageEvent)) return
@@ -191,7 +191,7 @@ export default function SparringMatchProtocolRoute() {
       {snapshot.status === 'active' ? (
         <nav className="sticky bottom-0 z-10 mt-auto flex h-14 border-t border-border bg-background">
           <Link
-            to={`/sparring/matches/${snapshot.matchId}`}
+            to={`/sparring/matches/${snapshot.matchId}/`}
             className="-mt-px flex flex-1 items-center justify-center border-t-2 border-transparent text-center text-base font-medium text-muted-foreground hover:text-foreground"
           >
             {t(keys.match.sparring.tabControl)}

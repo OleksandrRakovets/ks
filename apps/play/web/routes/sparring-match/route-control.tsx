@@ -99,7 +99,7 @@ export async function loader({
   const body = await parseSnapshotBody(res)
 
   if (body.snapshot.status !== 'active') {
-    throw redirect(`/sparring/matches/${matchId}/protocol`)
+    throw redirect(`/sparring/matches/${matchId}/protocol/`)
   }
 
   const { gameKey } = body.snapshot
@@ -188,7 +188,7 @@ export const handle = {
   headerConfig: (data: LoaderData) => ({
     titleKey: keys.match.sparring.controlHeaderTitle,
     titleParams: { gameTitle: data.gameTitle },
-    backTo: '/sparring/matches',
+    backTo: '/sparring/matches/',
   }),
 }
 
@@ -222,7 +222,7 @@ export default function SparringMatchRoute() {
   }, [fetcher.state])
 
   useEffect(() => {
-    const stream = new EventSource(`/api/m/${snapshot.matchId}/stream?since=${latestSeqRef.current}`)
+    const stream = new EventSource(`/api/m/${snapshot.matchId}/stream/?since=${latestSeqRef.current}`)
 
     const onReady = (event: Event) => {
       if (!(event instanceof MessageEvent)) return
@@ -311,7 +311,7 @@ export default function SparringMatchRoute() {
           {t(keys.match.sparring.tabControl)}
         </span>
         <Link
-          to={`/sparring/matches/${snapshot.matchId}/protocol`}
+          to={`/sparring/matches/${snapshot.matchId}/protocol/`}
           className="-mt-px flex flex-1 items-center justify-center border-t-2 border-transparent text-center text-base font-medium text-muted-foreground hover:text-foreground"
         >
           {t(keys.match.sparring.tabProtocol)}

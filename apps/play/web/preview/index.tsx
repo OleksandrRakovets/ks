@@ -3,7 +3,7 @@ import { Link } from 'react-router'
 
 const previewPages = [
   {
-    href: '/top-secret/preview/ui',
+    href: '/top-secret/preview/ui/',
     title: 'UI Preview',
     description: 'Package component playground and theme checks.',
   },

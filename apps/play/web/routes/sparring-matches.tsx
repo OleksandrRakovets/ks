@@ -22,7 +22,7 @@ export async function loader({ request, context }: { request: Request; context: 
 }
 
 export const handle = {
-  headerConfig: () => ({ titleKey: keys.nav.allMatches, backTo: '/sparring' }),
+  headerConfig: () => ({ titleKey: keys.nav.allMatches, backTo: '/sparring/' }),
 }
 
 export default function SparringMatchesRoute() {
@@ -38,7 +38,7 @@ export default function SparringMatchesRoute() {
             <p className="mt-1 text-sm text-muted-foreground">{t(keys.match.sparring.recentMatchesSubtitle)}</p>
           </div>
           <Button asChild variant="outline">
-            <Link to="/sparring">{t(keys.match.sparring.newMatch)}</Link>
+            <Link to="/sparring/">{t(keys.match.sparring.newMatch)}</Link>
           </Button>
         </div>
 
@@ -51,8 +51,8 @@ export default function SparringMatchesRoute() {
                 key={match.matchId}
                 to={
                   match.status === 'active'
-                    ? `/sparring/matches/${match.matchId}`
-                    : `/sparring/matches/${match.matchId}/protocol`
+                    ? `/sparring/matches/${match.matchId}/`
+                    : `/sparring/matches/${match.matchId}/protocol/`
                 }
                 className="flex items-center justify-between gap-4 px-4 py-3 transition-colors hover:bg-muted/40"
               >

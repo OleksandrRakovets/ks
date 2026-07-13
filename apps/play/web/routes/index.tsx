@@ -14,13 +14,13 @@ export default function Index() {
 
         {/*<nav className="flex w-full flex-col gap-3">
           <Link
-            to="/sparring"
+            to="/sparring/"
             className="flex h-12 items-center justify-center rounded-sm bg-green px-4 text-sm font-semibold text-white transition-opacity hover:opacity-90"
           >
             {t(keys.nav.sparring)}
           </Link>
           <Link
-            to="/sparring/matches"
+            to="/sparring/matches/"
             className="flex h-12 items-center justify-center rounded-sm border border-divider bg-raised px-4 text-sm font-semibold text-text-hi transition-colors hover:bg-overlay"
           >
             {t(keys.nav.allMatches)}

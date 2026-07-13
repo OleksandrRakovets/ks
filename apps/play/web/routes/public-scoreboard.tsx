@@ -51,7 +51,7 @@ export default function PublicScoreboardRoute() {
   useEffect(() => {
     if (!matchId) return
 
-    const stream = new EventSource(`/api/m/${matchId}/stream?since=${latestSeqRef.current}`)
+    const stream = new EventSource(`/api/m/${matchId}/stream/?since=${latestSeqRef.current}`)
 
     const handleReady = (event: Event) => {
       if (!(event instanceof MessageEvent)) return

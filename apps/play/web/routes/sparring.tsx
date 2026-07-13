@@ -89,7 +89,7 @@ export default function SparringRoute() {
             <p className="mt-1 text-text-lo">{t(keys.match.sparring.subtitle)}</p>
           </div>
           <Button asChild variant="outline">
-            <Link to="/sparring/matches">{t(keys.match.sparring.recentMatches)}</Link>
+            <Link to="/sparring/matches/">{t(keys.match.sparring.recentMatches)}</Link>
           </Button>
         </div>
 
@@ -98,7 +98,7 @@ export default function SparringRoute() {
             <Card key={game.gameKey}>
               <CardHeader>
                 <CardTitle className="text-lg">
-                  <Link className="underline-offset-4 hover:underline" to={`/sparring/init/${game.gameKey}`}>
+                  <Link className="underline-offset-4 hover:underline" to={`/sparring/init/${game.gameKey}/`}>
                     {game.title[locale]}
                   </Link>
                 </CardTitle>
