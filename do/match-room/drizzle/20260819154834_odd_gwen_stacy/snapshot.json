@@ -1,7 +1,7 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "788e2ea9-0ceb-43ea-a05d-98c653e46fad",
+  "id": "85461f63-4737-4ecf-b8cc-78d2ef3d7a3b",
   "prevIds": ["00000000-0000-0000-0000-000000000000"],
   "ddl": [
     {
@@ -133,6 +133,16 @@
       "default": null,
       "generated": null,
       "name": "latest_seq",
+      "entityType": "columns",
+      "table": "active_matches"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "created_at",
       "entityType": "columns",
       "table": "active_matches"
     },

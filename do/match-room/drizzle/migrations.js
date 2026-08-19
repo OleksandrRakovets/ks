@@ -1,7 +1,7 @@
-import m0000 from './20260819153410_overjoyed_sugar_man/migration.sql'
+import m0000 from './20260819154834_odd_gwen_stacy/migration.sql'
 
 export default {
   migrations: {
-    '20260819153410_overjoyed_sugar_man': m0000,
+    '20260819154834_odd_gwen_stacy': m0000,
   },
 }

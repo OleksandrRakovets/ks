@@ -1,29 +1,40 @@
-import { StoredFactSchema, type ClientFact, type StoredFact } from '@ks/core'
+import { AcceptedFactSchema, StoredFactSchema, type ClientFact, type StoredFact } from '@ks/core'
 import { asc, eq, gt } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/durable-sqlite'
 import * as v from 'valibot'
 
 import * as schema from './schema'
 
-export type Receipt = { requestJson: string; accepted: { seq: number; factId: string }[] }
+export type Accepted = { seq: number; factId: string }
+export type ActiveMatchRecord = typeof schema.activeMatches.$inferSelect
+export type Receipt = { requestJson: string; accepted: Accepted[] }
+
+type Initialization = {
+  matchId: string
+  controlSecret: string
+  configJson: string
+  createdAt: number
+}
+
+type CommitReceipt = {
+  commandId: string
+  requestJson: string
+}
+
+type CommitResult = {
+  accepted: Accepted[]
+  storedFacts: StoredFact[]
+}
 
 export class ActiveMatchStore {
   readonly db
-  private readonly storage: DurableObjectStorage
 
   constructor(storage: DurableObjectStorage) {
-    this.storage = storage
-    // SAFETY: durable-sqlite accepts the runtime schema; RC.4's declaration omits the schema config generic.
-    this.db = drizzle(storage, { schema } as never)
+    this.db = drizzle(storage)
   }
 
-  match(): { matchId: string; controlSecret: string; configJson: string; latestSeq: number } | null {
-    const row = this.db.select().from(schema.activeMatches).get()
-    return row ?? null
-  }
-
-  create(matchId: string, controlSecret: string, configJson: string): void {
-    this.db.insert(schema.activeMatches).values({ matchId, controlSecret, configJson, latestSeq: 0 }).run()
+  match(): ActiveMatchRecord | null {
+    return this.db.select().from(schema.activeMatches).limit(1).all()[0] ?? null
   }
 
   factsAfter(since: number): StoredFact[] {
@@ -53,48 +64,85 @@ export class ActiveMatchStore {
       })
   }
 
+  factsForAccepted(accepted: Accepted[]): StoredFact[] {
+    if (accepted.length === 0) return []
+    const acceptedSequences = accepted.map(({ seq }) => seq)
+    const acceptedSequenceSet = new Set(acceptedSequences)
+    const firstSequence = Math.min(...acceptedSequences)
+    return this.factsAfter(firstSequence - 1).filter(({ seq }) => acceptedSequenceSet.has(seq))
+  }
+
   receipt(commandId: string): Receipt | null {
-    const row = this.db.select().from(schema.commandReceipts).where(eq(schema.commandReceipts.commandId, commandId)).get()
+    const row = this.db
+      .select()
+      .from(schema.commandReceipts)
+      .where(eq(schema.commandReceipts.commandId, commandId))
+      .limit(1)
+      .all()[0]
     if (!row) return null
-    const accepted = v.safeParse(
-      v.pipe(v.string(), v.parseJson(), v.array(v.object({ seq: v.number(), factId: v.string() }))),
-      row.acceptedJson,
-    )
+    const accepted = v.safeParse(v.pipe(v.string(), v.parseJson(), v.array(AcceptedFactSchema)), row.acceptedJson)
     return accepted.success ? { requestJson: row.requestJson, accepted: accepted.output } : null
   }
 
-  commit(facts: ClientFact[], receipt: { commandId: string; requestJson: string; accepted: Receipt['accepted'] } | null): void {
-    const match = this.match()
-    if (!match) throw new Error('Unknown match')
-    this.storage.transactionSync(() => {
-      let seq = match.latestSeq
-      const receivedAt = Date.now()
-      for (const fact of facts) {
-        seq += 1
-        this.db
+  commitAccepted(args: { facts: ClientFact[]; receipt: CommitReceipt | null; initialization?: Initialization }): CommitResult {
+    const existingMatch = this.match()
+    if (!existingMatch && !args.initialization) throw new Error('Unknown match')
+    if (existingMatch && args.initialization) throw new Error('Match already exists')
+
+    const matchId = existingMatch?.matchId ?? args.initialization?.matchId
+    if (!matchId) throw new Error('Missing match ID')
+
+    const receivedAt = Date.now()
+    let nextSequence = existingMatch?.latestSeq ?? 0
+    const storedFacts = args.facts.map((fact) => {
+      nextSequence += 1
+      return v.parse(StoredFactSchema, { ...fact, seq: nextSequence, receivedAt })
+    })
+
+    const accepted = storedFacts.map(({ seq, factId }) => ({ seq, factId }))
+
+    return this.db.transaction((transaction) => {
+      if (args.initialization) {
+        transaction
+          .insert(schema.activeMatches)
+          .values({ ...args.initialization, latestSeq: 0 })
+          .run()
+      }
+
+      for (const fact of storedFacts) {
+        transaction
           .insert(schema.acceptedFacts)
           .values({
-            seq,
+            seq: fact.seq,
             factId: fact.factId,
             type: fact.type,
             payloadJson: JSON.stringify(fact.payload),
             clientId: fact.clientId,
             clientSeq: fact.clientSeq,
             at: fact.at,
-            receivedAt,
+            receivedAt: fact.receivedAt,
           })
           .run()
       }
-      this.db.update(schema.activeMatches).set({ latestSeq: seq }).where(eq(schema.activeMatches.matchId, match.matchId)).run()
-      if (receipt)
-        this.db
+
+      transaction
+        .update(schema.activeMatches)
+        .set({ latestSeq: nextSequence })
+        .where(eq(schema.activeMatches.matchId, matchId))
+        .run()
+
+      if (args.receipt) {
+        transaction
           .insert(schema.commandReceipts)
           .values({
-            commandId: receipt.commandId,
-            requestJson: receipt.requestJson,
-            acceptedJson: JSON.stringify(receipt.accepted),
+            commandId: args.receipt.commandId,
+            requestJson: args.receipt.requestJson,
+            acceptedJson: JSON.stringify(accepted),
           })
           .run()
+      }
+
+      return { accepted, storedFacts }
     })
   }
 }

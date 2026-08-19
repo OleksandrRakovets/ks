@@ -1,3 +1,4 @@
+import { recordCompletedMatchInCatalog, registerActiveMatchInCatalog } from '@ks/application/match-room'
 import {
   assignmentsBySeat,
   buildMatchConfig,
@@ -10,6 +11,7 @@ import {
 } from '@ks/competition'
 import {
   BySeatNumberSchema,
+  ClientFactSchema,
   ClientIdSchema,
   MatchIdSchema,
   newFactId,
@@ -18,6 +20,7 @@ import {
   type ClientFact,
   type ControlCommand,
   type MatchConfig,
+  type StoredFact,
 } from '@ks/core'
 import { applyGameCommand, createInitialGameState, deriveGameProjection, parseGameKey } from '@ks/gameplay/server'
 import { DurableObject } from 'cloudflare:workers'
@@ -37,10 +40,9 @@ import {
   type SnapshotBody,
   type StreamBody,
 } from './rpc-contract'
-import { ActiveMatchStore } from './storage/store'
+import { ActiveMatchStore, type Accepted } from './storage/store'
 
 type RoomState = { matchState: MatchState; currentFrameState: unknown | null }
-type Accepted = { seq: number; factId: string }
 const ConcedeFrameCommandSchema = v.object({ seat: SeatSchema })
 const CommenceFrameCommandSchema = v.object({ seat: SeatSchema })
 const GameScoreProjectionSchema = v.object({ score: BySeatNumberSchema })
@@ -66,21 +68,43 @@ export class MatchRoom extends DurableObject<Env> {
     const parsed = v.safeParse(CreateBodySchema, args)
     if (!parsed.success) return { ok: false, error: 'Invalid create body', status: 400 }
     return await this.ctx.blockConcurrencyWhile(async () => {
-      if (this.store.match()) return { ok: false, error: 'Match already exists', status: 409 }
       const request = v.safeParse(CreateMatchRequestSchema, parsed.output)
       if (!request.success) return { ok: false, error: 'Invalid create body', status: 400 }
+
       const config = buildMatchConfig(parsed.output.matchId, request.output)
-      const facts = this.initialFacts(parsed.output.matchId, config)
-      this.store.create(parsed.output.matchId, parsed.output.controlSecret, JSON.stringify(config))
-      const accepted = facts.map((fact, index) => ({ seq: index + 1, factId: fact.factId }))
-      this.commitAccepted(facts, accepted, null)
-      // Catalog registration is intentionally recoverable rather than falsely cross-store atomic.
+      const configJson = JSON.stringify(config)
+      let match = this.store.match()
+      if (match) {
+        if (
+          match.matchId !== parsed.output.matchId ||
+          match.controlSecret !== parsed.output.controlSecret ||
+          match.configJson !== configJson
+        ) {
+          return { ok: false, error: 'Match already exists', status: 409 }
+        }
+      } else {
+        const createdAt = Date.now()
+        this.commitAccepted(this.initialFacts(parsed.output.matchId, config), null, {
+          matchId: parsed.output.matchId,
+          controlSecret: parsed.output.controlSecret,
+          configJson,
+          createdAt,
+        })
+        match = this.store.match()
+      }
+
+      if (!match) throw new Error('Failed to initialize active match')
       const seats = assignmentsBySeat(request.output.participants)
-      await this.env.DB.prepare(
-        'INSERT OR IGNORE INTO matches (match_id, game_key, seat_a_player_ref, seat_b_player_ref, status, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-      )
-        .bind(parsed.output.matchId, config.gameKey, seats.A, seats.B, 'active', Date.now())
-        .run()
+      // Catalog registration is intentionally idempotent and outside the local SQLite transaction.
+      // If D1 fails, an identical create retry reuses local state and retries only this operation.
+      await registerActiveMatchInCatalog(this.env.DB, {
+        matchId: match.matchId,
+        gameKey: config.gameKey,
+        seatAPlayerRef: seats.A,
+        seatBPlayerRef: seats.B,
+        createdAt: match.createdAt,
+      })
+
       return { ok: true, matchId: parsed.output.matchId, controlSecret: parsed.output.controlSecret }
     })
   }
@@ -131,25 +155,32 @@ export class MatchRoom extends DurableObject<Env> {
       if (match.controlSecret !== parsed.output.controlSecret) return { ok: false, error: 'unauthorized', status: 401 }
       const requestJson = JSON.stringify(parsed.output.commands)
       const previous = this.store.receipt(parsed.output.commandId)
-      if (previous)
-        return previous.requestJson === requestJson
-          ? { ok: true, accepted: previous.accepted }
-          : { ok: false, error: 'invalid-facts-body', status: 409 }
+      if (previous) {
+        if (previous.requestJson !== requestJson) {
+          return { ok: false, error: 'invalid-facts-body', status: 409 }
+        }
+        await this.recordTerminalFacts(this.store.factsForAccepted(previous.accepted))
+        return { ok: true, accepted: previous.accepted }
+      }
+
       const state = this.loadState()
       const facts: ClientFact[] = []
       let next = state
       for (const command of parsed.output.commands) {
         try {
           const derived = this.factsForCommand(next, match.matchId, command)
-          for (const fact of derived) next = this.apply(next, fact)
+          let commandState = next
+          for (const fact of derived) commandState = this.apply(commandState, fact)
           facts.push(...derived)
+          next = commandState
         } catch {
           /* rejected gameplay intent produces no facts */
         }
       }
-      const accepted = facts.map((fact, index) => ({ seq: match.latestSeq + index + 1, factId: fact.factId }))
-      this.commitAccepted(facts, accepted, { commandId: parsed.output.commandId, requestJson })
-      return { ok: true, accepted }
+
+      const committed = this.commitAccepted(facts, { commandId: parsed.output.commandId, requestJson })
+      await this.recordTerminalFacts(committed.storedFacts)
+      return { ok: true, accepted: committed.accepted }
     })
   }
 
@@ -163,9 +194,12 @@ export class MatchRoom extends DurableObject<Env> {
     return this.live.stream(match.latestSeq, this.store.factsAfter(parsed.output.since ?? 0))
   }
 
-  async factsForProtocol(args: { matchId: string }) {
+  async listFacts(args: SnapshotBody): Promise<StoredFact[]> {
+    await this.ready
+    const parsed = v.safeParse(SnapshotBodySchema, args)
+    if (!parsed.success) return []
     const match = this.store.match()
-    return !match || match.matchId !== args.matchId ? [] : this.store.factsAfter(0)
+    return !match || match.matchId !== parsed.output.matchId ? [] : this.store.factsAfter(0)
   }
 
   private initialFacts(matchId: string, config: MatchConfig): ClientFact[] {
@@ -175,10 +209,9 @@ export class MatchRoom extends DurableObject<Env> {
       clientSeq: 0,
       at: Date.now(),
     }
-    // SAFETY: both literals are validated ClientFact shapes generated from the validated match config.
     return [
-      { ...base, factId: newFactId(), type: 'match.created', payload: config },
-      {
+      v.parse(ClientFactSchema, { ...base, factId: newFactId(), type: 'match.created', payload: config }),
+      v.parse(ClientFactSchema, {
         ...base,
         factId: newFactId(),
         type: 'frame.started',
@@ -189,8 +222,8 @@ export class MatchRoom extends DurableObject<Env> {
           breakerSeat: config.firstBreakerSeat,
           gameConfiguration: config.gameConfiguration,
         },
-      },
-    ] as ClientFact[]
+      }),
+    ]
   }
 
   private loadState(): RoomState {
@@ -205,13 +238,28 @@ export class MatchRoom extends DurableObject<Env> {
 
   private commitAccepted(
     facts: ClientFact[],
-    accepted: Accepted[],
     receipt: { commandId: string; requestJson: string } | null,
-  ): void {
-    this.store.commit(facts, receipt && { ...receipt, accepted })
+    initialization?: { matchId: string; controlSecret: string; configJson: string; createdAt: number },
+  ): { accepted: Accepted[]; storedFacts: StoredFact[] } {
+    const committed = initialization
+      ? this.store.commitAccepted({ facts, receipt, initialization })
+      : this.store.commitAccepted({ facts, receipt })
     const state = this.loadState()
-    for (const fact of this.store.factsAfter((this.store.match()?.latestSeq ?? 0) - facts.length)) this.live.broadcast(fact)
+    for (const fact of committed.storedFacts) this.live.broadcast(fact)
     this.cache = { latestSeq: this.store.match()?.latestSeq ?? 0, state }
+    return committed
+  }
+
+  private async recordTerminalFacts(storedFacts: StoredFact[]): Promise<void> {
+    const terminalFact = storedFacts.find((fact) => fact.type === 'match.ended')
+    if (!terminalFact) return
+
+    await recordCompletedMatchInCatalog(this.env.DB, {
+      matchId: terminalFact.matchId,
+      sourceLatestSeq: terminalFact.seq,
+      facts: this.store.factsAfter(0),
+      endedAt: terminalFact.receivedAt,
+    })
   }
 
   private apply(room: RoomState, fact: ClientFact): RoomState {

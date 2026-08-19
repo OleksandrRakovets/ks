@@ -24,7 +24,7 @@ type MatchRoomStub = {
   facts(args: { matchId: string; controlSecret: string; commandId: CommandId; commands: ControlCommand[] }): Promise<unknown>
   stream(args: { matchId: string; since?: number }): Promise<Response>
   // oxlint-disable-next-line anti-slop/no-unknown-returns -- The DO response is untrusted and parsed by this adapter.
-  factsForProtocol(args: { matchId: string }): Promise<unknown>
+  listFacts(args: { matchId: string }): Promise<unknown>
 }
 
 const SnapshotResultSchema = v.union([
@@ -84,7 +84,7 @@ export function createMatchRoomClient(namespace: { getByName(name: string): obje
     stream: async (matchId: string, since?: number) =>
       since === undefined ? await stubFor(matchId).stream({ matchId }) : await stubFor(matchId).stream({ matchId, since }),
     facts: async (matchId: string) => {
-      const parsed = v.safeParse(v.array(StoredFactSchema), await stubFor(matchId).factsForProtocol({ matchId }))
+      const parsed = v.safeParse(v.array(StoredFactSchema), await stubFor(matchId).listFacts({ matchId }))
       return parsed.success ? parsed.output : []
     },
   }

@@ -13,7 +13,8 @@ CREATE TABLE `active_matches` (
 	`match_id` text PRIMARY KEY,
 	`control_secret` text NOT NULL,
 	`config_json` text NOT NULL,
-	`latest_seq` integer NOT NULL
+	`latest_seq` integer NOT NULL,
+	`created_at` integer NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE `command_receipts` (

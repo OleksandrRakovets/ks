@@ -15,7 +15,13 @@ export class Broadcaster {
         for (const fact of backlog) controller.enqueue(encoder.encode(`event: ev\ndata: ${JSON.stringify(fact)}\n\n`))
         client = {
           controller,
-          pingTimer: setInterval(() => controller.enqueue(encoder.encode(`: ping ${Date.now()}\n\n`)), 25000),
+          pingTimer: setInterval(() => {
+            try {
+              controller.enqueue(encoder.encode(`: ping ${Date.now()}\n\n`))
+            } catch {
+              this.remove(client)
+            }
+          }, 25000),
         }
         this.clients.add(client)
       },

@@ -140,7 +140,7 @@ describe('application orchestration', () => {
           snapshot: unused,
           stream: unused,
           facts: async () => ({ ok: false, error: 'unauthorized', status: 401 }),
-          factsForProtocol: unused,
+          listFacts: unused,
         }),
       }),
     })

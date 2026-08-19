@@ -5,6 +5,7 @@ export const activeMatches = sqliteTable('active_matches', {
   controlSecret: text('control_secret').notNull(),
   configJson: text('config_json').notNull(),
   latestSeq: integer('latest_seq').notNull(),
+  createdAt: integer('created_at').notNull(),
 })
 
 export const acceptedFacts = sqliteTable('accepted_facts', {
