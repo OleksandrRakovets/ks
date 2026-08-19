@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { newCommandId, PlayerRefSchema, type ControlCommand } from '@ks/core'
+import { UnixEpochMillisecondsSchema, newCommandId, PlayerRefSchema, type ControlCommand } from '@ks/core'
 import * as v from 'valibot'
 
 import type { MatchRoomCreateRequest } from './match-room-client'
@@ -17,7 +17,7 @@ function unused(): never {
 
 describe('application orchestration', () => {
   test('creates both guest players before creating the room with generated credentials', async () => {
-    const createdAt = 1_700_000_000_000
+    const createdAt = v.parse(UnixEpochMillisecondsSchema, 1_700_000_000_000)
     const lifecycle: unknown[] = []
     const playerNames: string[] = []
     let roomRequest: MatchRoomCreateRequest | undefined
@@ -120,6 +120,7 @@ describe('application orchestration', () => {
   })
 
   test('archives terminal commands from the private room descriptor without exposing it', async () => {
+    const endedAt = v.parse(UnixEpochMillisecondsSchema, 1_700_000_000_999)
     const archived: unknown[] = []
     const room = {
       create: unused,
@@ -128,7 +129,7 @@ describe('application orchestration', () => {
         return {
           ok: true as const,
           accepted: [{ seq: 9, factId: '01ARZ3NDEKTSV4RRFFQ69G5FAC' }],
-          completion: { sourceLatestSeq: 9, endedAt: 1_700_000_000_999 },
+          completion: { sourceLatestSeq: 9, endedAt },
         }
       },
       async facts() {
@@ -165,7 +166,7 @@ describe('application orchestration', () => {
       {
         matchId,
         sourceLatestSeq: 9,
-        endedAt: 1_700_000_000_999,
+        endedAt,
         protocolVersion: 1,
         rowsJson: '[]',
       },

@@ -1,5 +1,5 @@
 import type { CreateMatchRequest } from '@ks/competition'
-import type { CommandId, ControlCommand, MatchSnapshot } from '@ks/core'
+import type { CommandId, ControlCommand, MatchSnapshot, UnixEpochMilliseconds } from '@ks/core'
 import type { GameControlProjection } from '@ks/gameplay/definitions'
 import type { SupportedLocale } from '@ks/i18n'
 
@@ -27,7 +27,7 @@ export type MatchListEntry = {
   gameKey: string
   gameTitle: string
   status: 'active' | 'finished'
-  createdAt: number
+  createdAt: UnixEpochMilliseconds
   participants: HydratedParticipants
 }
 

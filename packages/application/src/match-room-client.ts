@@ -1,12 +1,16 @@
 import type { CreateMatchRequest } from '@ks/competition'
-import type { CommandId, ControlCommand } from '@ks/core'
+import type { CommandId, ControlCommand, UnixEpochMilliseconds } from '@ks/core'
 import type { MatchRoom } from '@ks/match-room'
 
 import type { CommandMatchResult, CreateMatchResult, ReadMatchResult } from './contracts'
 
-export type MatchRoomCreateRequest = CreateMatchRequest & { matchId: string; controlSecret: string; createdAt: number }
+export type MatchRoomCreateRequest = CreateMatchRequest & {
+  matchId: string
+  controlSecret: string
+  createdAt: UnixEpochMilliseconds
+}
 export type MatchRoomCommandResult = CommandMatchResult & {
-  completion?: { sourceLatestSeq: number; endedAt: number } | undefined
+  completion?: { sourceLatestSeq: number; endedAt: UnixEpochMilliseconds } | undefined
 }
 
 export type MatchRoomClient = ReturnType<typeof createMatchRoomClient>

@@ -1,3 +1,4 @@
+import type { UnixEpochMilliseconds } from '@ks/core'
 import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 export const activeMatches = sqliteTable('active_matches', {
@@ -5,7 +6,7 @@ export const activeMatches = sqliteTable('active_matches', {
   controlSecret: text('control_secret').notNull(),
   configJson: text('config_json').notNull(),
   latestSeq: integer('latest_seq').notNull(),
-  createdAt: integer('created_at').notNull(),
+  createdAt: integer('created_at').$type<UnixEpochMilliseconds>().notNull(),
 })
 
 export const acceptedFacts = sqliteTable('accepted_facts', {
@@ -15,8 +16,8 @@ export const acceptedFacts = sqliteTable('accepted_facts', {
   payloadJson: text('payload_json').notNull(),
   clientId: text('client_id').notNull(),
   clientSeq: integer('client_seq').notNull(),
-  at: integer('at').notNull(),
-  receivedAt: integer('received_at').notNull(),
+  at: integer('at').$type<UnixEpochMilliseconds>().notNull(),
+  receivedAt: integer('received_at').$type<UnixEpochMilliseconds>().notNull(),
 })
 
 export const commandReceipts = sqliteTable('command_receipts', {

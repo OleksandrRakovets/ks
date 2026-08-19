@@ -9,6 +9,7 @@ import {
   MatchConfigSchema,
   SeatSchema,
 } from './match'
+import { UnixEpochMillisecondsSchema } from './time'
 import { NonNegativeIntegerSchema, PositiveIntegerSchema, SizedStringSchema, UnknownObjectSchema } from './valicombos'
 
 export const ProtocolEntrySourceSchema = v.picklist(['player', 'system'])
@@ -31,7 +32,7 @@ const BaseClientFactSchema = v.object({
   matchId: MatchIdSchema,
   clientId: ClientIdSchema,
   clientSeq: NonNegativeIntegerSchema,
-  at: PositiveIntegerSchema,
+  at: UnixEpochMillisecondsSchema,
 })
 
 export const MatchCreatedFactSchema = v.object({
@@ -104,7 +105,7 @@ export const StoredFactSchema = v.intersect([
   ClientFactSchema,
   v.object({
     seq: PositiveIntegerSchema,
-    receivedAt: PositiveIntegerSchema,
+    receivedAt: UnixEpochMillisecondsSchema,
   }),
 ])
 

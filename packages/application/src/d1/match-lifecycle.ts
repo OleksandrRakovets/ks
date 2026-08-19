@@ -1,6 +1,7 @@
+import type { UnixEpochMilliseconds } from '@ks/core'
 import { eq } from 'drizzle-orm'
 
-import { matchProtocolArchives, matches } from './schema'
+import { matchProtocolArchives, matches, StoredMatchStatus } from './schema'
 import type { ApplicationDatabase } from './types'
 
 export type ActiveMatchCatalogInput = {
@@ -8,7 +9,7 @@ export type ActiveMatchCatalogInput = {
   gameKey: string
   seatAPlayerRef: string
   seatBPlayerRef: string
-  createdAt: number
+  createdAt: UnixEpochMilliseconds
 }
 
 export async function beginMatchCreation(db: ApplicationDatabase, input: ActiveMatchCatalogInput): Promise<void> {
@@ -19,7 +20,7 @@ export async function beginMatchCreation(db: ApplicationDatabase, input: ActiveM
       gameKey: input.gameKey,
       seatAPlayerRef: input.seatAPlayerRef,
       seatBPlayerRef: input.seatBPlayerRef,
-      status: 'creating',
+      status: StoredMatchStatus.creating,
       createdAt: input.createdAt,
     })
     .onConflictDoNothing({ target: matches.matchId })
@@ -41,7 +42,7 @@ export async function beginMatchCreation(db: ApplicationDatabase, input: ActiveM
     stored.gameKey !== input.gameKey ||
     stored.seatAPlayerRef !== input.seatAPlayerRef ||
     stored.seatBPlayerRef !== input.seatBPlayerRef ||
-    !['creating', 'active'].includes(stored.status) ||
+    (stored.status !== StoredMatchStatus.creating && stored.status !== StoredMatchStatus.active) ||
     stored.createdAt !== input.createdAt
   ) {
     throw new Error('Match catalog entry conflicts with room creation')
@@ -49,7 +50,7 @@ export async function beginMatchCreation(db: ApplicationDatabase, input: ActiveM
 }
 
 export async function activateMatch(db: ApplicationDatabase, matchId: string): Promise<void> {
-  await db.update(matches).set({ status: 'active' }).where(eq(matches.matchId, matchId))
+  await db.update(matches).set({ status: StoredMatchStatus.active }).where(eq(matches.matchId, matchId))
 }
 
 export async function recordCompletedMatch(
@@ -59,7 +60,7 @@ export async function recordCompletedMatch(
     sourceLatestSeq: number
     protocolVersion: number
     rowsJson: string
-    endedAt: number
+    endedAt: UnixEpochMilliseconds
   },
 ): Promise<void> {
   await db.batch([
@@ -84,7 +85,7 @@ export async function recordCompletedMatch(
       .returning(),
     db
       .update(matches)
-      .set({ status: 'finished', endedAt: input.endedAt })
+      .set({ status: StoredMatchStatus.finished, endedAt: input.endedAt })
       .where(eq(matches.matchId, input.matchId))
       .returning(),
   ])

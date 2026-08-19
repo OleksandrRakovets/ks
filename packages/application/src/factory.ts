@@ -1,5 +1,5 @@
 import type { D1Database } from '@cloudflare/workers-types'
-import { newMatchId } from '@ks/core'
+import { newMatchId, nowUnixEpochMilliseconds } from '@ks/core'
 import type { MatchRoom } from '@ks/match-room'
 
 import { getOrCreateGuestPlayerRef } from './d1/guest-players'
@@ -29,7 +29,7 @@ export function createApplication(bindings: ApplicationBindings) {
   return createApplicationWithDependencies({
     newMatchId,
     newControlSecret,
-    now: Date.now,
+    now: nowUnixEpochMilliseconds,
     getOrCreateGuestPlayerRef: async (displayName) => await getOrCreateGuestPlayerRef(db, displayName),
     hydrateParticipant: async (playerRef, locale) => await hydrateParticipant(db, playerRef, locale),
     listMatchRecords: async () =>

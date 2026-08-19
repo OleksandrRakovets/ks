@@ -13,6 +13,7 @@ import {
   ClientIdSchema,
   MatchIdSchema,
   newFactId,
+  nowUnixEpochMilliseconds,
   opponentOf,
   SeatSchema,
   type ClientFact,
@@ -21,6 +22,7 @@ import {
   type MatchConfig,
   type MatchSnapshot,
   type StoredFact,
+  type UnixEpochMilliseconds,
 } from '@ks/core'
 import { GameControlProjectionSchema, type GameControlProjection } from '@ks/gameplay/definitions'
 import { applyGameCommand, createInitialGameState, deriveGameProjection, parseGameKey } from '@ks/gameplay/server'
@@ -44,7 +46,7 @@ import {
 import { ActiveMatchStore, type Accepted } from './storage/store'
 
 type RoomState = { matchState: MatchState; currentFrameState: unknown | null }
-type CompletionDescriptor = { sourceLatestSeq: number; endedAt: number }
+type CompletionDescriptor = { sourceLatestSeq: number; endedAt: UnixEpochMilliseconds }
 const ConcedeFrameCommandSchema = v.object({ seat: SeatSchema })
 const CommenceFrameCommandSchema = v.object({ seat: SeatSchema })
 const GameScoreProjectionSchema = v.object({ score: BySeatNumberSchema })
@@ -196,7 +198,7 @@ export class MatchRoom extends DurableObject<Env> {
       matchId: v.parse(MatchIdSchema, matchId),
       clientId: v.parse(ClientIdSchema, 'server0000'),
       clientSeq: 0,
-      at: Date.now(),
+      at: nowUnixEpochMilliseconds(),
     }
     return [
       v.parse(ClientFactSchema, { ...base, factId: newFactId(), type: 'match.created', payload: config }),
@@ -228,7 +230,7 @@ export class MatchRoom extends DurableObject<Env> {
   private commitAccepted(
     facts: ClientFact[],
     receipt: { commandId: string; requestJson: string } | null,
-    initialization?: { matchId: string; controlSecret: string; configJson: string; createdAt: number },
+    initialization?: { matchId: string; controlSecret: string; configJson: string; createdAt: UnixEpochMilliseconds },
   ): { accepted: Accepted[]; storedFacts: StoredFact[] } {
     const committed = initialization
       ? this.store.commitAccepted({ facts, receipt, initialization })
@@ -277,7 +279,7 @@ export class MatchRoom extends DurableObject<Env> {
       matchId: v.parse(MatchIdSchema, matchId),
       clientId: v.parse(ClientIdSchema, 'server0000'),
       clientSeq: 0,
-      at: Date.now(),
+      at: nowUnixEpochMilliseconds(),
     }
     if (command.source === 'match' && command.commandType === 'frame.start') {
       const frameIndex = room.matchState.currentFrameIndex + 1

@@ -7,8 +7,8 @@ import {
   MatchTargetsSchema,
   NonEmptyStringSchema,
   NonNegativeIntegerSchema,
-  PositiveIntegerSchema,
   SeatSchema,
+  UnixEpochMillisecondsSchema,
 } from '@ks/core'
 import * as v from 'valibot'
 
@@ -22,7 +22,7 @@ export const CreateBodySchema = v.object({
   firstBreakerSeat: SeatSchema,
   gameConfiguration: v.optional(GameConfigurationSchema),
   participants: v.tuple([MatchSeatAssignmentSchema, MatchSeatAssignmentSchema]),
-  createdAt: PositiveIntegerSchema,
+  createdAt: UnixEpochMillisecondsSchema,
 })
 
 export const FactsBodySchema = v.object({

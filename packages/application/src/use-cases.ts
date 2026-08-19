@@ -1,5 +1,5 @@
 import { normalizeMatchId, type CreateMatchRequest } from '@ks/competition'
-import type { CommandId, ControlCommand, PlayerRef, StoredFact } from '@ks/core'
+import type { CommandId, ControlCommand, PlayerRef, StoredFact, UnixEpochMilliseconds } from '@ks/core'
 import { isRegisteredGameKey, registry } from '@ks/gameplay/definitions'
 import type { SupportedLocale } from '@ks/i18n'
 import * as v from 'valibot'
@@ -27,14 +27,14 @@ type MatchListRecord = {
   matchId: string
   gameKey: string
   status: string
-  createdAt: number
+  createdAt: UnixEpochMilliseconds
   participantRefs: { A: string; B: string }
 }
 
 type ApplicationDependencies = {
   newMatchId(): string
   newControlSecret(): string
-  now(): number
+  now(): UnixEpochMilliseconds
   getOrCreateGuestPlayerRef(displayName: string): Promise<PlayerRef>
   hydrateParticipant(playerRef: string, locale: SupportedLocale): Promise<HydratedParticipant>
   listMatchRecords(): Promise<MatchListRecord[]>
@@ -46,7 +46,7 @@ type ApplicationDependencies = {
     gameKey: string
     seatAPlayerRef: string
     seatBPlayerRef: string
-    createdAt: number
+    createdAt: UnixEpochMilliseconds
   }): Promise<void>
   activateMatch(matchId: string): Promise<void>
   recordCompletedMatch(input: {
@@ -54,7 +54,7 @@ type ApplicationDependencies = {
     sourceLatestSeq: number
     protocolVersion: number
     rowsJson: string
-    endedAt: number
+    endedAt: UnixEpochMilliseconds
   }): Promise<void>
   matchRoom: MatchRoomClient
 }

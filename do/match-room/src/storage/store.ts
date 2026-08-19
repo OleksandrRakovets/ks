@@ -1,4 +1,11 @@
-import { AcceptedFactSchema, StoredFactSchema, type ClientFact, type StoredFact } from '@ks/core'
+import {
+  AcceptedFactSchema,
+  StoredFactSchema,
+  nowUnixEpochMilliseconds,
+  type ClientFact,
+  type StoredFact,
+  type UnixEpochMilliseconds,
+} from '@ks/core'
 import { asc, eq, gt } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/durable-sqlite'
 import * as v from 'valibot'
@@ -13,7 +20,7 @@ type Initialization = {
   matchId: string
   controlSecret: string
   configJson: string
-  createdAt: number
+  createdAt: UnixEpochMilliseconds
 }
 
 type CommitReceipt = {
@@ -66,10 +73,8 @@ export class ActiveMatchStore {
 
   factsForAccepted(accepted: Accepted[]): StoredFact[] {
     if (accepted.length === 0) return []
-    const acceptedSequences = accepted.map(({ seq }) => seq)
-    const acceptedSequenceSet = new Set(acceptedSequences)
-    const firstSequence = Math.min(...acceptedSequences)
-    return this.factsAfter(firstSequence - 1).filter(({ seq }) => acceptedSequenceSet.has(seq))
+    const firstSequence = accepted.reduce((lowest, { seq }) => Math.min(lowest, seq), Number.POSITIVE_INFINITY)
+    return this.factsAfter(firstSequence - 1).slice(0, accepted.length)
   }
 
   receipt(commandId: string): Receipt | null {
@@ -92,7 +97,7 @@ export class ActiveMatchStore {
     const matchId = existingMatch?.matchId ?? args.initialization?.matchId
     if (!matchId) throw new Error('Missing match ID')
 
-    const receivedAt = Date.now()
+    const receivedAt = nowUnixEpochMilliseconds()
     let nextSequence = existingMatch?.latestSeq ?? 0
     const storedFacts = args.facts.map((fact) => {
       nextSequence += 1
