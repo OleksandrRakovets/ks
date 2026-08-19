@@ -1,13 +1,9 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "ec5b7b31-4906-41fb-aa85-4a9ea64cd583",
+  "id": "4c8aea42-072c-42c1-863d-414c09989bd3",
   "prevIds": ["00000000-0000-0000-0000-000000000000"],
   "ddl": [
-    {
-      "name": "facts",
-      "entityType": "tables"
-    },
     {
       "name": "guest_players",
       "entityType": "tables"
@@ -17,106 +13,12 @@
       "entityType": "tables"
     },
     {
-      "name": "match_snapshots",
-      "entityType": "tables"
-    },
-    {
       "name": "matches",
       "entityType": "tables"
     },
     {
       "name": "verified_players",
       "entityType": "tables"
-    },
-    {
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "match_id",
-      "entityType": "columns",
-      "table": "facts"
-    },
-    {
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "seq",
-      "entityType": "columns",
-      "table": "facts"
-    },
-    {
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "fact_id",
-      "entityType": "columns",
-      "table": "facts"
-    },
-    {
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "type",
-      "entityType": "columns",
-      "table": "facts"
-    },
-    {
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "payload_json",
-      "entityType": "columns",
-      "table": "facts"
-    },
-    {
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "client_id",
-      "entityType": "columns",
-      "table": "facts"
-    },
-    {
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "client_seq",
-      "entityType": "columns",
-      "table": "facts"
-    },
-    {
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "at",
-      "entityType": "columns",
-      "table": "facts"
-    },
-    {
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "received_at",
-      "entityType": "columns",
-      "table": "facts"
     },
     {
       "type": "text",
@@ -219,6 +121,16 @@
       "table": "match_protocol_archives"
     },
     {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "snapshot_json",
+      "entityType": "columns",
+      "table": "match_protocol_archives"
+    },
+    {
       "type": "integer",
       "notNull": true,
       "autoincrement": false,
@@ -236,56 +148,6 @@
       "generated": null,
       "name": "match_id",
       "entityType": "columns",
-      "table": "match_snapshots"
-    },
-    {
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "latest_seq",
-      "entityType": "columns",
-      "table": "match_snapshots"
-    },
-    {
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "state_json",
-      "entityType": "columns",
-      "table": "match_snapshots"
-    },
-    {
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "created_at",
-      "entityType": "columns",
-      "table": "match_snapshots"
-    },
-    {
-      "type": "text",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "match_id",
-      "entityType": "columns",
-      "table": "matches"
-    },
-    {
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "control_secret",
-      "entityType": "columns",
       "table": "matches"
     },
     {
@@ -295,26 +157,6 @@
       "default": null,
       "generated": null,
       "name": "game_key",
-      "entityType": "columns",
-      "table": "matches"
-    },
-    {
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "config_json",
-      "entityType": "columns",
-      "table": "matches"
-    },
-    {
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "latest_seq",
       "entityType": "columns",
       "table": "matches"
     },
@@ -365,16 +207,6 @@
       "default": null,
       "generated": null,
       "name": "ended_at",
-      "entityType": "columns",
-      "table": "matches"
-    },
-    {
-      "type": "integer",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "lock_at",
       "entityType": "columns",
       "table": "matches"
     },
@@ -439,13 +271,6 @@
       "table": "verified_players"
     },
     {
-      "columns": ["match_id", "seq"],
-      "nameExplicit": false,
-      "name": "facts_pk",
-      "entityType": "pks",
-      "table": "facts"
-    },
-    {
       "columns": ["guest_player_id"],
       "nameExplicit": false,
       "name": "guest_players_pk",
@@ -462,13 +287,6 @@
     {
       "columns": ["match_id"],
       "nameExplicit": false,
-      "name": "match_snapshots_pk",
-      "table": "match_snapshots",
-      "entityType": "pks"
-    },
-    {
-      "columns": ["match_id"],
-      "nameExplicit": false,
       "name": "matches_pk",
       "table": "matches",
       "entityType": "pks"
@@ -479,31 +297,6 @@
       "name": "verified_players_pk",
       "table": "verified_players",
       "entityType": "pks"
-    },
-    {
-      "columns": [
-        {
-          "value": "match_id",
-          "isExpression": false
-        },
-        {
-          "value": "seq",
-          "isExpression": false
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "origin": "manual",
-      "name": "facts_match_id_seq",
-      "entityType": "indexes",
-      "table": "facts"
-    },
-    {
-      "columns": ["match_id", "fact_id"],
-      "nameExplicit": true,
-      "name": "facts_match_id_fact_id_unique",
-      "entityType": "uniques",
-      "table": "facts"
     },
     {
       "value": "\"seat_a_player_ref\" != \"seat_b_player_ref\"",

@@ -14,6 +14,7 @@ CREATE TABLE `active_matches` (
 	`control_secret` text NOT NULL,
 	`config_json` text NOT NULL,
 	`latest_seq` integer NOT NULL,
+	`status` text NOT NULL,
 	`created_at` integer NOT NULL
 );
 --> statement-breakpoint
