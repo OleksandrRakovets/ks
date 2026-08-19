@@ -22,6 +22,10 @@
       "dependsOn": ["//#check"],
       "outputs": ["build/**", ".react-router/**"]
     },
+    "@ks/match-room#build": {
+      "dependsOn": ["//#check"],
+      "outputs": ["dist/**"]
+    },
     "machine-explorer#build": {
       "outputs": ["dist/**"]
     },

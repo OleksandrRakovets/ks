@@ -18,6 +18,6 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "catalog:",
-    "bun-types": "latest"
+    "bun-types": "catalog:"
   }
 }

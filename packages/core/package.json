@@ -10,6 +10,10 @@
   },
   "dependencies": {
     "tiny-invariant": "catalog:",
+    "ulid": "^3.0.2",
     "valibot": "catalog:"
+  },
+  "devDependencies": {
+    "bun-types": "catalog:"
   }
 }

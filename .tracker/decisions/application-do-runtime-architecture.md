@@ -52,7 +52,15 @@ d1/
 
 `do/*` participates in the Bun workspace as a deployable workspace, not as shared package logic. `packages/ui` is merged into `apps/play/web/components`.
 
-Both Workers bind the same D1 database because both need capabilities implemented by `@ks/application`. Play binds the external MatchRoom namespace by `script_name`; MatchRoom is created as a new SQLite-backed class/namespace because the existing `new_classes` backend cannot be converted in place.
+Both Workers bind the same D1 database because both need capabilities implemented by `@ks/application`. Play binds the external MatchRoom namespace by `script_name`.
+
+The project had not been deployed before this extraction, so its first deployment intentionally starts with a clean SQLite-backed MatchRoom namespace. Play owns no Durable Object migration or class export. No old local Durable Object storage is carried forward, and no remote deletion or transfer migration is needed because no legacy remote namespace exists.
+
+First-deployment order:
+
+1. Deploy `ks-match-room`; its `new_sqlite_classes` migration creates the namespace.
+2. Deploy Play with its `script_name: "ks-match-room"` binding only after the MatchRoom deployment succeeds.
+3. Verify create, snapshot, command, and live replay through the deployed pair.
 
 ## Persistence and Completion
 

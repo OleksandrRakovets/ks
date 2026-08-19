@@ -1,4 +1,4 @@
-import { StoredFactSchema, type ClientFact, type StoredFact } from '@ks/core'
+import { type ClientFact, StoredFactSchema, type StoredFact } from '@ks/core'
 import * as v from 'valibot'
 
 import type { Env } from '../env'

@@ -12,15 +12,8 @@ import {
 import {
   ClientFactSchema,
   ClientIdSchema,
-  ControlCommandSchema,
   BySeatNumberSchema,
-  GameConfigurationSchema,
-  NonEmptyStringSchema,
-  NonNegativeIntegerSchema,
-  MatchConfigSchema,
   MatchIdSchema,
-  MatchSeatAssignmentSchema,
-  MatchTargetsSchema,
   newFactId,
   opponentOf,
   SeatSchema,
@@ -33,50 +26,23 @@ import { applyGameCommand, createInitialGameState, deriveGameProjection, parseGa
 import { DurableObject } from 'cloudflare:workers'
 import * as v from 'valibot'
 
-import type { Env } from '../env'
-import { factExists, getLatestSeq, insertStoredFact, listFactsAfter } from '../repos/facts'
-import { getMatch, markMatchEnded, matchExists, setMatchLatestSeq } from '../repos/matches'
-import { insertProtocolArchive } from '../repos/protocol-archives'
-import { deleteMatchSnapshot, putLatestMatchSnapshot } from '../repos/snapshots'
-
-const ControlSecretSchema = v.pipe(v.string(), v.minLength(16))
-
-const InitBodySchema = v.object({
-  matchId: MatchIdSchema,
-  controlSecret: ControlSecretSchema,
-  config: MatchConfigSchema,
-})
-
-const CreateBodySchema = v.object({
-  matchId: MatchIdSchema,
-  controlSecret: ControlSecretSchema,
-  gameKey: NonEmptyStringSchema,
-  targets: MatchTargetsSchema,
-  firstBreakerSeat: SeatSchema,
-  gameConfiguration: v.optional(GameConfigurationSchema),
-  participants: v.tuple([MatchSeatAssignmentSchema, MatchSeatAssignmentSchema]),
-})
-
-const FactsBodySchema = v.object({
-  matchId: MatchIdSchema,
-  controlSecret: ControlSecretSchema,
-  commands: v.pipe(v.array(ControlCommandSchema), v.minLength(1)),
-})
-
-const SnapshotBodySchema = v.object({
-  matchId: MatchIdSchema,
-})
-
-const StreamBodySchema = v.object({
-  matchId: MatchIdSchema,
-  since: v.optional(NonNegativeIntegerSchema),
-})
-
-type InitBody = v.InferInput<typeof InitBodySchema>
-type CreateBody = v.InferInput<typeof CreateBodySchema>
-type FactsBody = v.InferInput<typeof FactsBodySchema>
-type SnapshotBody = v.InferInput<typeof SnapshotBodySchema>
-type StreamBody = v.InferInput<typeof StreamBodySchema>
+import type { Env } from './env'
+import { factExists, getLatestSeq, insertStoredFact, listFactsAfter } from './repos/facts'
+import { getMatch, markMatchEnded, matchExists, setMatchLatestSeq } from './repos/matches'
+import { insertProtocolArchive } from './repos/protocol-archives'
+import { deleteMatchSnapshot, putLatestMatchSnapshot } from './repos/snapshots'
+import {
+  CreateBodySchema,
+  FactsBodySchema,
+  InitBodySchema,
+  SnapshotBodySchema,
+  StreamBodySchema,
+  type CreateBody,
+  type FactsBody,
+  type InitBody,
+  type SnapshotBody,
+  type StreamBody,
+} from './rpc-contract'
 
 const ConcedeFrameCommandSchema = v.object({ seat: SeatSchema })
 const CommenceFrameCommandSchema = v.object({ seat: SeatSchema })
@@ -369,13 +335,22 @@ export class MatchRoom extends DurableObject<Env> {
 
     if (fact.type === 'frame.started') {
       // Starting a frame opens a fresh game runtime state for the configured game and targets.
+      const gameKey = parseGameKey(fact.payload.gameKey)
+      const currentFrameState =
+        fact.payload.gameConfiguration === undefined
+          ? createInitialGameState(gameKey, {
+              targetPointsBySeat: fact.payload.targetPointsBySeat,
+              breakerSeat: fact.payload.breakerSeat,
+            })
+          : createInitialGameState(gameKey, {
+              targetPointsBySeat: fact.payload.targetPointsBySeat,
+              breakerSeat: fact.payload.breakerSeat,
+              gameConfiguration: fact.payload.gameConfiguration,
+            })
+
       return {
         matchState,
-        currentFrameState: createInitialGameState(parseGameKey(fact.payload.gameKey), {
-          targetPointsBySeat: fact.payload.targetPointsBySeat,
-          breakerSeat: fact.payload.breakerSeat,
-          gameConfiguration: fact.payload.gameConfiguration,
-        }),
+        currentFrameState,
       }
     }
 

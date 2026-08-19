@@ -11,7 +11,10 @@ export default defineConfig({
     tsconfigPaths: true,
   },
   plugins: [
-    cloudflare({ viteEnvironment: { name: 'ssr' } }),
+    cloudflare({
+      viteEnvironment: { name: 'ssr' },
+      auxiliaryWorkers: [{ configPath: '../../do/match-room/wrangler.jsonc', devOnly: true }],
+    }),
     tailwindcss(),
     reactRouter(),
     babel({ presets: [reactCompilerPreset()] }),

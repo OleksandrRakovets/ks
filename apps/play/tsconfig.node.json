@@ -26,8 +26,9 @@
     "react-router.config.ts",
     "domain/**/*.ts",
     "web/server/context.ts",
-    "workers/**/*.ts",
-    "workers/**/*.d.ts"
+    "workers/app.ts",
+    "workers/env.ts",
+    "workers/virtual.d.ts"
   ],
   "exclude": ["domain/**/*.test.ts"]
 }

@@ -1,5 +1,4 @@
-import type { D1Database } from '@cloudflare/workers-types'
-import { PROTOCOL_ARCHIVE_VERSION, type ProtocolArchiveRow } from '@ks/application/match-room'
+import { type ProtocolArchiveRow, PROTOCOL_ARCHIVE_VERSION } from '@ks/application/match-room'
 
 type ProtocolArchiveWriteEnv = {
   DB: Pick<D1Database, 'prepare'>

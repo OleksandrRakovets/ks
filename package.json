@@ -4,23 +4,27 @@
   "workspaces": {
     "packages": [
       "packages/*",
-      "apps/*"
+      "apps/*",
+      "do/*"
     ],
     "catalog": {
       "@babel/core": "^7.29.7",
       "@cloudflare/workers-types": "^4.20260702.1",
       "@rolldown/plugin-babel": "^0.2.3",
       "@types/babel__core": "^7.20.5",
+      "@types/node": "^26.2.0",
       "@types/react": "^19.2.18",
       "@types/react-dom": "^19.2.4",
       "@vitejs/plugin-react": "^6.0.5",
       "babel-plugin-react-compiler": "^1.0.0",
+      "bun-types": "1.3.14",
       "react": "^19.2.8",
       "react-dom": "^19.2.8",
       "tailwindcss": "^4.3.3",
       "tiny-invariant": "^1.3.3",
       "typescript": "^6.0.3",
       "vite": "^8.2.1",
+      "wrangler": "^4.123.0",
       "xstate": "^5.32.5",
       "valibot": "^1.4.2"
     }
@@ -43,7 +47,7 @@
   },
   "devDependencies": {
     "@oxlint/plugins": "1.78.0",
-    "bun-types": "latest",
+    "bun-types": "catalog:",
     "oxfmt": "^0.62.0",
     "oxlint": "1.78.0",
     "tailwindcss": "catalog:",
