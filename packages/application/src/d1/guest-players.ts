@@ -1,10 +1,8 @@
 import { formatPlayerRef, newGuestPlayerId, type PlayerRef } from '@ks/core'
+import { and, eq } from 'drizzle-orm'
 
+import { guestPlayers } from './schema'
 import type { ApplicationDatabase } from './types'
-
-type GuestPlayerIdRow = {
-  guest_player_id: string
-}
 
 type PlayerName = { firstName: string; lastName: string }
 
@@ -17,30 +15,29 @@ function splitGuestDisplayName(displayName: string): PlayerName {
 export async function getOrCreateGuestPlayerRef(db: ApplicationDatabase, displayName: string): Promise<PlayerRef> {
   const { firstName, lastName } = splitGuestDisplayName(displayName)
   const existing = await db
-    .prepare(
-      [
-        'SELECT guest_player_id FROM guest_players',
-        'WHERE first_name_uk = ? AND last_name_uk = ?',
-        'AND first_name_en = ? AND last_name_en = ?',
-        'LIMIT 1',
-      ].join(' '),
+    .select({ guestPlayerId: guestPlayers.guestPlayerId })
+    .from(guestPlayers)
+    .where(
+      and(
+        eq(guestPlayers.firstNameUk, firstName),
+        eq(guestPlayers.lastNameUk, lastName),
+        eq(guestPlayers.firstNameEn, firstName),
+        eq(guestPlayers.lastNameEn, lastName),
+      ),
     )
-    .bind(firstName, lastName, firstName, lastName)
-    .first<GuestPlayerIdRow>()
+    .limit(1)
 
-  if (existing?.guest_player_id) return formatPlayerRef('gp', existing.guest_player_id)
+  if (existing[0]?.guestPlayerId) return formatPlayerRef('gp', existing[0].guestPlayerId)
 
   const guestPlayerId = newGuestPlayerId()
-  await db
-    .prepare(
-      [
-        'INSERT INTO guest_players (',
-        'guest_player_id, first_name_uk, last_name_uk, first_name_en, last_name_en, created_at',
-        ') VALUES (?, ?, ?, ?, ?, ?)',
-      ].join(' '),
-    )
-    .bind(guestPlayerId, firstName, lastName, firstName, lastName, Date.now())
-    .run()
+  await db.insert(guestPlayers).values({
+    guestPlayerId,
+    firstNameUk: firstName,
+    lastNameUk: lastName,
+    firstNameEn: firstName,
+    lastNameEn: lastName,
+    createdAt: Date.now(),
+  })
 
   return formatPlayerRef('gp', guestPlayerId)
 }
