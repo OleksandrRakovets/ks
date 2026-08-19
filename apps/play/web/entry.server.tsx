@@ -3,19 +3,23 @@ import { renderToReadableStream } from 'react-dom/server'
 import type { EntryContext } from 'react-router'
 import { ServerRouter } from 'react-router'
 
+import type { AppLoadContext } from './server/context'
+
+type RenderError = Parameters<NonNullable<NonNullable<Parameters<typeof renderToReadableStream>[1]>['onError']>>[0]
+
 export default async function handleRequest(
   request: Request,
   responseStatusCode: number,
   responseHeaders: Headers,
   routerContext: EntryContext,
-  _loadContext: unknown,
+  _loadContext: AppLoadContext,
 ) {
   let statusCode = responseStatusCode
   let shellRendered = false
   const userAgent = request.headers.get('user-agent')
 
   const body = await renderToReadableStream(<ServerRouter context={routerContext} url={request.url} />, {
-    onError(error: unknown) {
+    onError(error: RenderError) {
       statusCode = 500
       if (shellRendered) {
         console.error(error)

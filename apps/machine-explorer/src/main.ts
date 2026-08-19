@@ -11,7 +11,7 @@ import {
 } from '../../../packages/gameplay/src/strila-v2/machine-sparring'
 
 const BALLS: StrilaBall[] = [0, 1, 2, 3, 4, 5, 6, 7]
-const BALL_LABELS: Record<StrilaBall, string> = { 0: 'Q', 1: '1', 2: '2', 3: '3', 4: '4', 5: '5', 6: '6', 7: '7' }
+const BALL_LABELS = { 0: 'Q', 1: '1', 2: '2', 3: '3', 4: '4', 5: '5', 6: '6', 7: '7' } satisfies Record<StrilaBall, string>
 
 // ── Inspector ────────────────────────────────────────────────────────────────
 
@@ -165,7 +165,7 @@ function renderFrameControls(snap: StrilaSparringSnapshot) {
   potRow.append(label('Pot:'))
   const ballRow = div('display:flex;gap:6px;flex-wrap:wrap', 'ball-row')
   for (const ball of BALLS) {
-    const available = ball === 0 || ctx.coloredBallsOnTable.includes(ball as (typeof ctx.coloredBallsOnTable)[number])
+    const available = ball === 0 || ctx.coloredBallsOnTable.some((coloredBall) => coloredBall === ball)
     const b = document.createElement('button')
     b.textContent = BALL_LABELS[ball]
     b.className = 'ball-btn'
@@ -190,10 +190,11 @@ function renderFrameControls(snap: StrilaSparringSnapshot) {
             return
           }
           try {
+            const pottedBalls: Extract<StrilaCommand, { type: 'pot.record' }>['pottedBalls'] = [...selectedBalls]
             frameActor.send({
               type: 'pot.record',
               seat,
-              pottedBalls: [...selectedBalls] as StrilaCommand[] extends { pottedBalls: infer P }[] ? P : never,
+              pottedBalls,
             })
             selectedBalls.clear()
           } catch (e) {

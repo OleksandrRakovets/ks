@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import * as v from 'valibot'
 
 import { safeNormalizeDisplayName } from './validation'
 
@@ -15,6 +16,11 @@ type RecentPlayersStore = {
   players: RecentPlayer[]
 }
 
+const RecentPlayersStoreSchema = v.object({
+  version: v.literal(1),
+  players: v.array(v.object({ name: v.string(), lastUsedAt: v.number() })),
+})
+
 function normalizeRecentKey(name: string): string {
   return name.trim().replace(/\s+/g, ' ').toLocaleLowerCase()
 }
@@ -23,11 +29,8 @@ function readRecentPlayers(): RecentPlayer[] {
   try {
     const raw = localStorage.getItem(RECENT_PLAYERS_KEY)
     if (!raw) return []
-    const parsed = JSON.parse(raw) as Partial<RecentPlayersStore>
-    if (parsed.version !== 1 || !Array.isArray(parsed.players)) return []
-    return parsed.players
-      .filter((player): player is RecentPlayer => typeof player?.name === 'string' && typeof player?.lastUsedAt === 'number')
-      .slice(0, MAX_RECENT_PLAYERS)
+    const parsed = v.safeParse(v.pipe(v.string(), v.parseJson(), RecentPlayersStoreSchema), raw)
+    return parsed.success ? parsed.output.players.slice(0, MAX_RECENT_PLAYERS) : []
   } catch {
     return []
   }

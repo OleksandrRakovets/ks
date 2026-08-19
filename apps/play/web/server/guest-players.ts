@@ -6,7 +6,9 @@ type GuestPlayerIdRow = {
   guest_player_id: string
 }
 
-function splitGuestDisplayName(displayName: string): { firstName: string; lastName: string } {
+type PlayerName = { firstName: string; lastName: string }
+
+function splitGuestDisplayName(displayName: string): PlayerName {
   const parts = displayName.split(' ')
   if (parts.length <= 1) {
     return {

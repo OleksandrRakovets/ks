@@ -15,6 +15,8 @@ type HydratedParticipant = {
   shortDisplayName: string
 }
 
+type PlayerName = { firstName: string; lastName: string }
+
 function formatDisplayName(firstName: string, lastName: string): string {
   return `${firstName} ${lastName}`.trim()
 }
@@ -24,7 +26,7 @@ function formatShortDisplayName(firstName: string, lastName: string): string {
   return initial ? `${initial}. ${lastName}`.trim() : lastName.trim()
 }
 
-function selectLocalizedNames(row: LocalizedPlayerRow, locale: SupportedLocale): { firstName: string; lastName: string } {
+function selectLocalizedNames(row: LocalizedPlayerRow, locale: SupportedLocale): PlayerName {
   if (locale === 'en') {
     return {
       firstName: row.first_name_en,

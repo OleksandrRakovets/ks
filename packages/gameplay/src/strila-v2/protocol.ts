@@ -35,7 +35,7 @@ function playerEntry(previous: StrilaFrameState, command: StrilaCommand, next: S
     source: 'player',
     entryType: 'player-command',
     seat: command.seat,
-    ...(scoreChanged(previous, next) ? { scoreAfter: next.score } : {}),
+    scoreAfter: scoreChanged(previous, next) ? next.score : undefined,
     body,
   })
 }

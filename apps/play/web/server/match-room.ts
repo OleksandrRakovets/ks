@@ -175,5 +175,5 @@ export async function streamMatchFacts(env: AppEnv, rawMatchId: string, since?: 
   const matchId = normalizeMatchId(rawMatchId)
   const stub = env.MATCH_ROOM.getByName(matchId)
   const parsedSince = since && since.length > 0 ? Number(since) : undefined
-  return stub.stream({ matchId, ...(Number.isFinite(parsedSince) && parsedSince !== undefined ? { since: parsedSince } : {}) })
+  return stub.stream({ matchId, since: Number.isFinite(parsedSince) ? parsedSince : undefined })
 }

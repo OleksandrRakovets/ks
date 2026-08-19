@@ -72,6 +72,12 @@ const StreamBodySchema = v.object({
   since: v.optional(NonNegativeIntegerSchema),
 })
 
+type InitBody = v.InferInput<typeof InitBodySchema>
+type CreateBody = v.InferInput<typeof CreateBodySchema>
+type FactsBody = v.InferInput<typeof FactsBodySchema>
+type SnapshotBody = v.InferInput<typeof SnapshotBodySchema>
+type StreamBody = v.InferInput<typeof StreamBodySchema>
+
 const ConcedeFrameCommandSchema = v.object({ seat: SeatSchema })
 const CommenceFrameCommandSchema = v.object({ seat: SeatSchema })
 const GameScoreProjectionSchema = v.object({ score: BySeatNumberSchema })
@@ -108,7 +114,7 @@ export class MatchRoom extends DurableObject<Env> {
   }
 
   /** Initializes a newly-created match room with its first accepted facts. */
-  async init(args: unknown): Promise<{ ok: true; alreadyInitialized?: true } | { ok: false; error: string; status: number }> {
+  async init(args: InitBody): Promise<{ ok: true; alreadyInitialized?: true } | { ok: false; error: string; status: number }> {
     const parsed = v.safeParse(InitBodySchema, args)
     if (!parsed.success) return { ok: false, error: 'Invalid init body', status: 400 }
 
@@ -142,7 +148,7 @@ export class MatchRoom extends DurableObject<Env> {
         gameKey: config.gameKey,
         targetPointsBySeat: config.targets.frameTargetPointsBySeat,
         breakerSeat: this.breakerSeat(config, 1),
-        ...(config.gameConfiguration ? { gameConfiguration: config.gameConfiguration } : {}),
+        gameConfiguration: config.gameConfiguration,
       },
     }
 
@@ -154,7 +160,7 @@ export class MatchRoom extends DurableObject<Env> {
 
   /** Creates a match row and its initial accepted facts as one DO-coordinated operation. */
   async create(
-    args: unknown,
+    args: CreateBody,
   ): Promise<{ ok: true; matchId: string; controlSecret: string } | { ok: false; error: string; status: number }> {
     const parsed = v.safeParse(CreateBodySchema, args)
     if (!parsed.success) return { ok: false, error: 'Invalid create body', status: 400 }
@@ -231,7 +237,7 @@ export class MatchRoom extends DurableObject<Env> {
       ])
       this.ctx.storage
         .put('roomState', { latestSeq: 2, roomState } satisfies CachedRoomState)
-        .catch((error: unknown) => console.error('Failed to warm MatchRoom cache after create', { matchId, error }))
+        .catch(() => console.error('Failed to warm MatchRoom cache after create', { matchId }))
 
       return { ok: true, matchId, controlSecret }
     })
@@ -239,7 +245,7 @@ export class MatchRoom extends DurableObject<Env> {
 
   /** Returns the current match snapshot and control projections for one room. */
   async snapshot(
-    args: unknown,
+    args: SnapshotBody,
   ): Promise<
     | { ok: true; snapshot: unknown; controlProjection: unknown | undefined; controlSections: unknown }
     | { ok: false; error: string; status: number }
@@ -278,7 +284,7 @@ export class MatchRoom extends DurableObject<Env> {
 
   /** Accepts control commands, persists resulting facts, and broadcasts them. */
   async facts(
-    args: unknown,
+    args: FactsBody,
   ): Promise<
     | { ok: true; accepted: { seq: number; factId: string }[] }
     | { ok: false; error: 'invalid-facts-body' | 'unknown-match' | 'unauthorized' | 'match-locked'; status: number }
@@ -302,7 +308,7 @@ export class MatchRoom extends DurableObject<Env> {
   }
 
   /** Opens a Server-Sent Events stream for committed room facts. */
-  async stream(args: unknown): Promise<Response> {
+  async stream(args: StreamBody): Promise<Response> {
     const parsed = v.safeParse(StreamBodySchema, args)
     if (!parsed.success) return Response.json({ ok: false, error: 'Invalid stream body' }, { status: 400 })
 

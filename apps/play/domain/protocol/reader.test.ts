@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { ClientIdSchema, FactIdSchema, MatchIdSchema, type ClientFact, type StoredFact } from '@ks/core'
+import { ClientIdSchema, FactIdSchema, MatchIdSchema, StoredFactSchema, type ClientFact, type StoredFact } from '@ks/core'
 import * as v from 'valibot'
 
 import {
@@ -15,7 +15,7 @@ const matchId = v.parse(MatchIdSchema, '01ARZ3NDEKTSV4RRFFQ69G5FAV')
 const clientId = v.parse(ClientIdSchema, 'server0000')
 
 function stored(seq: number, fact: Omit<ClientFact, 'at' | 'clientId' | 'clientSeq' | 'factId' | 'matchId'>): StoredFact {
-  return {
+  return v.parse(StoredFactSchema, {
     matchId,
     clientId,
     clientSeq: 0,
@@ -24,7 +24,7 @@ function stored(seq: number, fact: Omit<ClientFact, 'at' | 'clientId' | 'clientS
     receivedAt: 2000 + seq,
     seq,
     ...fact,
-  } as StoredFact
+  })
 }
 
 describe('protocol reader', () => {
@@ -130,12 +130,20 @@ describe('protocol reader', () => {
         entryType: 'system-note',
         body: { systemType: 'winner-determined', reason: 'invalid' },
       },
+      {
+        rowNo: 4,
+        receivedAt: 4,
+        source: 'player',
+        entryType: 'player-command',
+        body: { commandType: 'pot.record', points: 'legacy' },
+      },
     ])
 
     expect(renderProtocolRows(rows, { A: 'Alice', B: 'Bob' }, 'UTC').map((row) => row.message.key)).toEqual([
       'match.protocol.commands.penalty.select.default',
       'match.protocol.system.automatic-foul.default',
       'match.protocol.system.winner-determined.default',
+      'match.protocol.unknown',
     ])
   })
 })

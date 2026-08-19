@@ -1,3 +1,5 @@
+import type { D1Database } from '@cloudflare/workers-types'
+
 import { PROTOCOL_ARCHIVE_VERSION, type ProtocolArchiveRow } from './reader'
 
 type ProtocolArchiveRecord = {
@@ -10,23 +12,24 @@ type ProtocolArchiveRowRecord = {
   rows_json: string
 }
 
-type BoundProtocolArchiveStatement = {
-  run(): Promise<unknown>
+type ProtocolArchiveWriteEnv = {
+  DB: Pick<D1Database, 'prepare'>
+}
+
+type BoundProtocolArchiveRead = {
   first<T>(): Promise<T | null>
 }
 
-type ProtocolArchiveStatement = {
-  bind(...values: unknown[]): BoundProtocolArchiveStatement
-}
-
-type ProtocolArchiveEnv = {
+type ProtocolArchiveReadEnv = {
   DB: {
-    prepare(query: string): ProtocolArchiveStatement
+    prepare(query: string): {
+      bind(...values: unknown[]): BoundProtocolArchiveRead
+    }
   }
 }
 
 export async function insertProtocolArchive(
-  env: ProtocolArchiveEnv,
+  env: ProtocolArchiveWriteEnv,
   matchId: string,
   sourceLatestSeq: number,
   rows: ProtocolArchiveRow[],
@@ -39,7 +42,7 @@ export async function insertProtocolArchive(
     .run()
 }
 
-export async function getProtocolArchive(env: ProtocolArchiveEnv, matchId: string): Promise<ProtocolArchiveRecord | null> {
+export async function getProtocolArchive(env: ProtocolArchiveReadEnv, matchId: string): Promise<ProtocolArchiveRecord | null> {
   const row = await env.DB.prepare('SELECT protocol_version, rows_json FROM match_protocol_archives WHERE match_id = ?')
     .bind(matchId)
     .first<ProtocolArchiveRowRecord>()

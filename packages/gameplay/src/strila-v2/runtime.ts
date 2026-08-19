@@ -31,10 +31,11 @@ type StrilaCommandEnvelope = {
 }
 
 function parseStrilaCommand(input: StrilaCommandEnvelope): StrilaCommand {
-  if (typeof input.command !== 'object' || input.command === null) {
+  const payload = v.safeParse(v.looseObject({}), input.command)
+  if (!payload.success) {
     return v.parse(StrilaCommandSchema, { type: input.commandType })
   }
-  return v.parse(StrilaCommandSchema, { ...input.command, type: input.commandType })
+  return v.parse(StrilaCommandSchema, { ...payload.output, type: input.commandType })
 }
 
 function phaseToSnapshotValue(phase: StrilaPhase): StrilaSparringSnapshot['value'] {
@@ -96,7 +97,7 @@ export class StrilaGameplayRuntime implements GameplayRuntime {
 
     return {
       state,
-      ...(outcome ? { outcome } : {}),
+      outcome,
       protocolEntries: projectStrilaProtocolEntries({ previous, command, next: state }),
     }
   }

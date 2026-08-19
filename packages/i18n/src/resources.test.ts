@@ -2,11 +2,14 @@ import { expect, test } from 'bun:test'
 
 import { resources } from './resources'
 
-function messageKeys(value: Record<string, unknown>, prefix = ''): string[] {
+type MessageTree = { [key: string]: string | MessageTree }
+
+function messageKeys(value: MessageTree, prefix = ''): string[] {
   return Object.entries(value).flatMap(([key, entry]) => {
     const path = prefix ? `${prefix}.${key}` : key
-    if (typeof entry === 'string') return [path]
-    return messageKeys(entry as Record<string, unknown>, path)
+    if (Object.prototype.toString.call(entry) === '[object String]') return [path]
+    // SAFETY: MessageTree has only string leaves, so a non-primitive entry is another MessageTree.
+    return messageKeys(entry as MessageTree, path)
   })
 }
 

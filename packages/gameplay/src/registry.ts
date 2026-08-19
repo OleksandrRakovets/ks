@@ -64,7 +64,11 @@ export function isRegisteredGameKey(value: string): value is RegisteredGameKey {
 }
 
 export function listGameKeys(): RegisteredGameKey[] {
-  return Object.keys(registry) as RegisteredGameKey[]
+  const keys: RegisteredGameKey[] = []
+  for (const key of Object.keys(registry)) {
+    if (isRegisteredGameKey(key)) keys.push(key)
+  }
+  return keys
 }
 
 export function getGameMeta(gameKey: RegisteredGameKey): GameMeta {

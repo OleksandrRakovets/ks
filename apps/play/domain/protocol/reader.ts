@@ -57,6 +57,16 @@ type ProtocolArchiveRowDraft = Omit<ProtocolArchiveRow, 'rowNo'>
 const ProtocolBallSchema = v.picklist([0, 1, 2, 3, 4, 5, 6, 7])
 type ProtocolBall = v.InferOutput<typeof ProtocolBallSchema>
 const PottedBallsSchema = v.pipe(v.array(ProtocolBallSchema), v.minLength(1))
+const ProtocolMessageBodySchema = v.object({
+  commandType: v.optional(v.string()),
+  systemType: v.optional(v.string()),
+  pottedBalls: v.optional(v.unknown()),
+  points: v.optional(v.number()),
+  penalty: v.optional(v.string()),
+  choice: v.optional(v.string()),
+  frameIndex: v.optional(v.unknown()),
+  reason: v.optional(v.string()),
+})
 
 function entryMessage(
   entry: Pick<ProtocolArchiveRow, 'body' | 'entryType' | 'seat'>,
@@ -64,19 +74,21 @@ function entryMessage(
 ): ProtocolRow['message'] {
   const seatLabel = (seat: Seat) => seatNames[seat]
   const actor = entry.seat && seatLabel(entry.seat)
-  const commandType = typeof entry.body.commandType === 'string' ? entry.body.commandType : null
+  const parsedBody = v.safeParse(ProtocolMessageBodySchema, entry.body)
+  const body = parsedBody.success ? parsedBody.output : {}
+  const commandType = body.commandType ?? null
 
   switch (commandType) {
     case 'frame.commence':
       return { key: 'match.protocol.commands.frame.commence', actor }
     case 'pot.record': {
-      const pottedBalls = v.safeParse(PottedBallsSchema, entry.body.pottedBalls)
+      const pottedBalls = v.safeParse(PottedBallsSchema, body.pottedBalls)
       if (pottedBalls.success) {
         return { key: 'match.protocol.commands.pot.record.balls', actor, pottedBalls: pottedBalls.output }
       }
 
-      const points = entry.body.points
-      if (typeof points === 'number') {
+      const points = body.points
+      if (points !== undefined) {
         return {
           key: 'match.protocol.commands.pot.record.points',
           actor,
@@ -88,15 +100,15 @@ function entryMessage(
     case 'miss.record':
       return { key: 'match.protocol.commands.miss.record', actor }
     case 'foul.commit':
-      if (entry.body.penalty === 'opponent-plus-one') {
+      if (body.penalty === 'opponent-plus-one') {
         return { key: 'match.protocol.commands.foul.commit.opponent-plus-one', actor }
       }
-      if (entry.body.penalty === 'offender-minus-one') {
+      if (body.penalty === 'offender-minus-one') {
         return { key: 'match.protocol.commands.foul.commit.offender-minus-one', actor }
       }
       return { key: 'match.protocol.commands.foul.commit.default', actor }
     case 'penalty.select':
-      switch (entry.body.choice) {
+      switch (body.choice) {
         case 'play-from-position':
           return { key: 'match.protocol.commands.penalty.select.play-from-position', actor }
         case 'pass-position':
@@ -110,17 +122,17 @@ function entryMessage(
       return { key: 'match.protocol.commands.frame.award', actor }
   }
 
-  const systemType = typeof entry.body.systemType === 'string' ? entry.body.systemType : null
+  const systemType = body.systemType ?? null
   switch (systemType) {
     case 'frame-started':
       if (entry.seat) {
         return {
           key: 'match.protocol.system.frame-started.breaker',
           actor: seatLabel(entry.seat),
-          params: { frameIndex: String(entry.body.frameIndex) },
+          params: { frameIndex: String(body.frameIndex) },
         }
       }
-      return { key: 'match.protocol.system.frame-started.default', params: { frameIndex: String(entry.body.frameIndex) } }
+      return { key: 'match.protocol.system.frame-started.default', params: { frameIndex: String(body.frameIndex) } }
     case 'frame-completed':
       return { key: 'match.protocol.system.frame-completed', actor }
     case 'frame-conceded':
@@ -128,7 +140,7 @@ function entryMessage(
     case 'match-ended':
       return { key: 'match.protocol.system.match-ended', actor }
     case 'automatic-foul':
-      switch (entry.body.reason) {
+      switch (body.reason) {
         case 'third-consecutive-cue-ball-pot':
           return { key: 'match.protocol.system.automatic-foul.third-consecutive-cue-ball-pot' }
         case 'illegal-ball-in-hand-pot':
@@ -139,7 +151,7 @@ function entryMessage(
           return { key: 'match.protocol.system.automatic-foul.default' }
       }
     case 'winner-determined':
-      switch (entry.body.reason) {
+      switch (body.reason) {
         case 'target-reached':
           return { key: 'match.protocol.system.winner-determined.target-reached' }
         case 'automatic-foul':
@@ -166,8 +178,8 @@ function rowFromProtocolEntry(fact: StoredGameCommandFact, entry: ProtocolEntry)
     frameIndex: fact.payload.frameIndex,
     source: entry.source,
     entryType: entry.entryType,
-    ...(entry.seat ? { seat: entry.seat } : {}),
-    ...(entry.scoreAfter ? { scoreAfter: entry.scoreAfter } : {}),
+    seat: entry.seat,
+    scoreAfter: entry.scoreAfter,
     body: entry.body,
   }
 }
@@ -234,18 +246,20 @@ export function renderProtocolRows(
   timeZone: string,
   locale = 'en',
 ): ProtocolRow[] {
-  return rows.map((row) => ({
-    key: `protocol-${row.rowNo}`,
-    message: entryMessage(row, seatNames),
-    ...(row.scoreAfter ? { score: row.scoreAfter } : {}),
-    receivedAt: row.receivedAt,
-    timeLabel: new Date(row.receivedAt).toLocaleTimeString(locale, {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-      timeZone,
-    }),
-  }))
+  return rows.map((row) => {
+    return {
+      key: `protocol-${row.rowNo}`,
+      message: entryMessage(row, seatNames),
+      score: row.scoreAfter,
+      receivedAt: row.receivedAt,
+      timeLabel: new Date(row.receivedAt).toLocaleTimeString(locale, {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+        timeZone,
+      }),
+    }
+  })
 }
 
 export function deriveProtocolRows(facts: StoredFact[], seatNames: SeatNames, timeZone: string, locale = 'en'): ProtocolRow[] {

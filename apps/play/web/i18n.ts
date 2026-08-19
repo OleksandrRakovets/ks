@@ -9,24 +9,24 @@ function normalizeLocale(value: string | null | undefined): SupportedLocale {
 }
 
 function persistLocaleCookie(locale: SupportedLocale) {
-  if (typeof document !== 'undefined') {
-    document.cookie = `${LOCALE_COOKIE_NAME}=${locale}; Path=/; Max-Age=31536000; SameSite=Lax`
+  if (globalThis.document) {
+    globalThis.document.cookie = `${LOCALE_COOKIE_NAME}=${locale}; Path=/; Max-Age=31536000; SameSite=Lax`
   }
 }
 
 function pickLocale(): SupportedLocale {
-  if (typeof document === 'undefined') {
+  if (!globalThis.document) {
     return 'en'
   }
 
-  const fromHtml = normalizeLocale(document.documentElement.lang)
+  const fromHtml = normalizeLocale(globalThis.document.documentElement.lang)
   persistLocaleCookie(fromHtml)
   return fromHtml
 }
 
 function syncDocumentLang(locale: SupportedLocale) {
-  if (typeof document !== 'undefined') {
-    document.documentElement.lang = locale
+  if (globalThis.document) {
+    globalThis.document.documentElement.lang = locale
   }
 }
 

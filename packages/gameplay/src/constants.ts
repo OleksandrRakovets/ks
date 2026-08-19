@@ -67,7 +67,7 @@ export const GameSummaryProjectionSchema = v.object({
 
 export type GameCommandResult = {
   state: unknown
-  outcome?: FrameOutcome
+  outcome?: FrameOutcome | undefined
   protocolEntries: ProtocolEntry[]
 }
 

@@ -60,7 +60,7 @@ function protocolEntry(args: {
     source: 'player',
     entryType: 'player-command',
     seat: args.seat,
-    ...(scoreChanged(args.previous, args.next) ? { scoreAfter: args.next.pointsBySeat } : {}),
+    scoreAfter: scoreChanged(args.previous, args.next) ? args.next.pointsBySeat : undefined,
     body: args.body,
   })
 }
@@ -231,7 +231,7 @@ export class PyramidGameplayRuntime implements GameplayRuntime {
 
     return {
       state: nextState,
-      ...(outcome ? { outcome } : {}),
+      outcome,
       protocolEntries: [
         protocolEntry({ seat: command.seat, body: { commandType: 'frame.award' }, previous: state, next: nextState }),
       ],

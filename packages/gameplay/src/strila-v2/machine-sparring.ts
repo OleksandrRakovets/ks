@@ -16,6 +16,14 @@ import {
 
 const RESPOTTED_BLACK: StrilaColoredBall[] = [7]
 
+type StrilaMachineInput = {
+  targetPointsBySeat?: BySeatNumber
+}
+
+const FoulSnapshotValueSchema = v.object({ 'foul-committed': v.picklist(['penalty-selection', 'ball-in-hand']) })
+const RespottedBlackSnapshotValueSchema = v.object({ 'respotted-black': v.picklist(['opening', 'play']) })
+const StrilaSnapshotValueSchema = v.union([StrilaPhaseSchema, FoulSnapshotValueSchema, RespottedBlackSnapshotValueSchema])
+
 function pointsForPottedBalls(pottedBalls: StrilaBall[]): number {
   return pottedBalls.reduce<number>((sum, ball) => sum + (ball === StrilaMeta.cueBall ? 1 : 2), 0)
 }
@@ -80,9 +88,12 @@ function outputWinnerDeterminationReason(context: StrilaContext): StrilaWinnerDe
 
 export const strilaSparringMachine = setup({
   types: {
+    // SAFETY: XState's setup API uses empty values solely to capture these compile-time contracts.
     context: {} as StrilaContext,
+    // SAFETY: XState's setup API uses empty values solely to capture these compile-time contracts.
     events: {} as StrilaCommand,
-    input: {} as { targetPointsBySeat?: BySeatNumber },
+    // SAFETY: XState's setup API uses empty values solely to capture these compile-time contracts.
+    input: {} as StrilaMachineInput,
   },
   guards: {
     isThirdCueBallPot: ({ context, event }) => {
@@ -408,16 +419,15 @@ export function createInitialSnapshot(targetPointsBySeat: BySeatNumber): StrilaS
 }
 
 export function getPhase(snapshot: StrilaSparringSnapshot): StrilaPhase {
-  const value = snapshot.value
-  if (typeof value === 'string') return v.parse(StrilaPhaseSchema, value)
+  const value = v.parse(StrilaSnapshotValueSchema, snapshot.value)
+  const phase = v.safeParse(StrilaPhaseSchema, value)
+  if (phase.success) return phase.output
 
-  if ('foul-committed' in value) {
-    return v.parse(StrilaPhaseSchema, `foul-committed.${value['foul-committed']}`)
-  }
+  const foul = v.safeParse(FoulSnapshotValueSchema, value)
+  if (foul.success) return v.parse(StrilaPhaseSchema, `foul-committed.${foul.output['foul-committed']}`)
 
-  if ('respotted-black' in value) {
-    return v.parse(StrilaPhaseSchema, `respotted-black.${value['respotted-black']}`)
-  }
+  const respottedBlack = v.safeParse(RespottedBlackSnapshotValueSchema, value)
+  if (respottedBlack.success) return v.parse(StrilaPhaseSchema, `respotted-black.${respottedBlack.output['respotted-black']}`)
 
   throw new Error(`Unknown Strila phase: ${JSON.stringify(value)}`)
 }

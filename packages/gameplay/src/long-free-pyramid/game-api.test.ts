@@ -1,8 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 
-import type { BySeatNumber, Seat } from '@ks/core'
+import * as v from 'valibot'
 
 import { applyGameCommand, createInitialGameState, deriveGameProjection } from '../gameplay'
+import { LongFreePyramidControlViewSchema, LongFreePyramidFrameStateSchema } from './definitions'
 
 describe('long free pyramid: game api', () => {
   test('requires and stores rack rollover configuration', () => {
@@ -63,15 +64,10 @@ describe('long free pyramid: game api', () => {
       messages: [{ code: 'rack-started', rackNumber: 2 }],
     })
 
-    const projection = deriveGameProjection({ gameKey: 'free-pyramid-long', state, projection: 'control' }) as {
-      score: BySeatNumber
-      details: {
-        ballsOnTable: number
-        ballsRemoved: number
-        messages: Array<{ code: string; rackNumber: number }>
-        commandSections: { secondary: { A: Array<{ command: { points: number } }> } }
-      }
-    }
+    const projection = v.parse(
+      LongFreePyramidControlViewSchema,
+      deriveGameProjection({ gameKey: 'free-pyramid-long', state, projection: 'control' }),
+    )
     expect(projection.score).toEqual({ A: 13, B: 2 })
     expect(projection.details.ballsOnTable).toBe(16)
     expect(projection.details.ballsRemoved).toBe(0)
@@ -97,17 +93,14 @@ describe('long free pyramid: game api', () => {
       commandType: 'pot.record',
       command: { seat: 'A', points: 4 },
     }))
-    expect((state as { phase: string; winnerSeat: Seat }).phase).toBe('winner-determined')
-    expect((state as { phase: string; winnerSeat: Seat }).winnerSeat).toBe('A')
+    let parsedState = v.parse(LongFreePyramidFrameStateSchema, state)
+    expect(parsedState.phase).toBe('winner-determined')
+    expect(parsedState.winnerSeat).toBe('A')
 
-    const winnerControl = deriveGameProjection({ gameKey: 'free-pyramid-long', state, projection: 'control' }) as {
-      details: {
-        commandSections: {
-          primary: { A: Array<{ commandType: string }>; B: Array<{ commandType: string }> }
-          secondary: { A: Array<{ commandType: string; command: { points?: number } }>; B: Array<{ commandType: string }> }
-        }
-      }
-    }
+    const winnerControl = v.parse(
+      LongFreePyramidControlViewSchema,
+      deriveGameProjection({ gameKey: 'free-pyramid-long', state, projection: 'control' }),
+    )
     expect(winnerControl.details.commandSections.primary.A.map((entry) => entry.commandType)).toEqual(['frame.award'])
     expect(winnerControl.details.commandSections.primary.B).toEqual([])
     expect(
@@ -120,8 +113,9 @@ describe('long free pyramid: game api', () => {
     ).toThrow('Only determined winner may continue scoring')
 
     ;({ state } = applyGameCommand({ gameKey: 'free-pyramid-long', state, commandType: 'foul.commit', command: { seat: 'A' } }))
-    expect((state as { phase: string; winnerSeat: Seat }).phase).toBe('awaiting-award')
-    expect((state as { phase: string; winnerSeat: Seat }).winnerSeat).toBe('A')
+    parsedState = v.parse(LongFreePyramidFrameStateSchema, state)
+    expect(parsedState.phase).toBe('awaiting-award')
+    expect(parsedState.winnerSeat).toBe('A')
 
     const result = applyGameCommand({ gameKey: 'free-pyramid-long', state, commandType: 'frame.award', command: { seat: 'A' } })
     expect(result.outcome).toEqual({ winnerSeat: 'A', score: { A: 4, B: 1 }, winReason: 'target-reached' })

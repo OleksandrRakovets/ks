@@ -50,6 +50,7 @@ export type FactId = Brand<string, 'FactId'>
 export type ClientId = Brand<string, 'ClientId'>
 
 function toBrand<B extends string>(value: string): Brand<string, B> {
+  // SAFETY: Brand only adds a phantom marker; the enclosing Valibot pipeline validates the string first.
   return value as Brand<string, B>
 }
 

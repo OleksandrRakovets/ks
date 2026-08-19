@@ -1,15 +1,17 @@
 import { keys, type I18nKey } from '@ks/i18n'
 import { useTranslation } from 'react-i18next'
-import { useMatches, Link } from 'react-router'
+import { useMatches, Link, type UIMatch } from 'react-router'
 
 import { BurgerMenu } from './BurgerMenu'
 
 export type HeaderConfig = {
   title?: string
   titleKey?: I18nKey
-  titleParams?: Record<string, unknown>
+  titleParams?: Record<string, string>
   backTo?: string
 }
+
+type HeaderHandle = { headerConfig?: (data: UIMatch['loaderData']) => HeaderConfig }
 
 function BackArrowIcon() {
   return (
@@ -26,7 +28,8 @@ export function AppHeader() {
   const config =
     [...matches].reverse().reduce<HeaderConfig | null>((found, match) => {
       if (found) return found
-      const handle = match.handle as { headerConfig?: (data: unknown) => HeaderConfig } | undefined
+      // SAFETY: Route handles in this app expose only the optional headerConfig convention declared here.
+      const handle = match.handle as HeaderHandle | undefined
       return handle?.headerConfig?.(match.loaderData) ?? null
     }, null) ?? {}
 

@@ -1,5 +1,6 @@
 import { opponentOf, type BySeatNumber, type Seat } from '@ks/core'
 import invariant from 'tiny-invariant'
+import * as v from 'valibot'
 import { assign, initialTransition, setup, transition, type SnapshotFrom } from 'xstate'
 
 type PyramidWinReason = 'target-reached'
@@ -20,6 +21,13 @@ type PyramidContext = {
   winner: Seat | null
   winReason: PyramidWinReason | null
 }
+
+type PyramidMachineInput = {
+  targetPointsBySeat: BySeatNumber
+  rules: PyramidRules
+}
+
+const PyramidPhaseSchema = v.picklist(['not-started', 'open-play', 'winner-determined', 'frame-over'])
 
 export type PyramidEvent =
   | { type: 'frame.commence'; actor: Seat }
@@ -84,9 +92,12 @@ function outputWinReason(context: PyramidContext): PyramidWinReason {
 
 export const pyramidSparringMachine = setup({
   types: {
+    // SAFETY: XState's setup API uses empty values solely to capture these compile-time contracts.
     context: {} as PyramidContext,
+    // SAFETY: XState's setup API uses empty values solely to capture these compile-time contracts.
     events: {} as PyramidEvent,
-    input: {} as { targetPointsBySeat: BySeatNumber; rules: PyramidRules },
+    // SAFETY: XState's setup API uses empty values solely to capture these compile-time contracts.
+    input: {} as PyramidMachineInput,
   },
   guards: {
     isTargetReachedAfterPot: ({ context, event }) => {
@@ -231,9 +242,7 @@ export function createInitialSnapshot(rules: PyramidRules, targetPointsBySeat: B
 }
 
 export function getPhase(snapshot: PyramidSparringSnapshot): PyramidPhase {
-  const value = snapshot.value
-  invariant(typeof value === 'string', `Unexpected Pyramid phase: ${JSON.stringify(value)}`)
-  return value as PyramidPhase
+  return v.parse(PyramidPhaseSchema, snapshot.value)
 }
 
 export function sendEvent(snapshot: PyramidSparringSnapshot, event: PyramidEvent): PyramidSparringSnapshot {

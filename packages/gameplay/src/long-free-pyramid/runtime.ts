@@ -92,7 +92,7 @@ function protocolEntry(args: {
     source: 'player',
     entryType: 'player-command',
     seat: args.seat,
-    ...(previousScore.A !== nextScore.A || previousScore.B !== nextScore.B ? { scoreAfter: nextScore } : {}),
+    scoreAfter: previousScore.A !== nextScore.A || previousScore.B !== nextScore.B ? nextScore : undefined,
     body: args.body,
   })
 }
@@ -214,7 +214,7 @@ export class LongFreePyramidGameplayRuntime implements GameplayRuntime {
     const frameOutcome = outcome(next)
     return {
       state: next,
-      ...(frameOutcome ? { outcome: frameOutcome } : {}),
+      outcome: frameOutcome,
       protocolEntries: [protocolEntry({ seat: command.seat, body: { commandType: 'frame.award' }, previous: state, next })],
     }
   }

@@ -61,7 +61,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const iconVariant = data?.iconVariant ?? 'amber'
   const iconPath = iconBasePath(iconVariant)
 
-  if (typeof document === 'undefined' && i18n.resolvedLanguage !== locale) {
+  if (!globalThis.document && i18n.resolvedLanguage !== locale) {
     void i18n.changeLanguage(locale)
   }
 

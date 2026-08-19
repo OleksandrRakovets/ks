@@ -5,6 +5,7 @@ import {
   SeatSchema,
   type BySeatNumber,
   type ClientFact,
+  type GameConfiguration,
   type MatchSnapshot,
   type Seat,
 } from '@ks/core'
@@ -24,7 +25,7 @@ export type MatchState = {
   currentFrameIndex: number
 }
 
-function assert(condition: unknown, message: string): asserts condition {
+function assert(condition: boolean, message: string): asserts condition {
   if (!condition) {
     throw new Error(message)
   }
@@ -56,19 +57,19 @@ export function emptyMatchState(): MatchState {
 
 function requireConfig(state: MatchState): NonNullable<MatchState['config']> {
   const config = state.config
-  assert(config, 'Missing match config')
+  if (!config) throw new Error('Missing match config')
   return config
 }
 
 function getCurrentFrame(state: MatchState): MatchState['frames'][number] {
   const current = state.frames[state.frames.length - 1]
-  assert(current && current.frameIndex === state.currentFrameIndex, 'No active frame')
+  if (!current || current.frameIndex !== state.currentFrameIndex) throw new Error('No active frame')
   const frame = current
   assert(!frame.winnerSeat, 'Frame already awarded')
   return frame
 }
 
-function gameConfigurationsMatch(left: unknown, right: unknown): boolean {
+function gameConfigurationsMatch(left: GameConfiguration | undefined, right: GameConfiguration | undefined): boolean {
   return JSON.stringify(left ?? null) === JSON.stringify(right ?? null)
 }
 
@@ -109,7 +110,7 @@ export function applyMatchFact(prev: MatchState, fact: ClientFact): MatchState {
 
       const { frameIndex } = fact.payload
       const last = state.frames[state.frames.length - 1]
-      assert(!last || last.winnerSeat, 'Cannot start a new frame while current is unawarded')
+      assert(!last || Boolean(last.winnerSeat), 'Cannot start a new frame while current is unawarded')
       assert(frameIndex === state.currentFrameIndex + 1, 'Frame index must be sequential')
       assert(fact.payload.breakerSeat === expectedBreakerSeat(config, frameIndex), 'Frame breaker seat must follow match order')
 

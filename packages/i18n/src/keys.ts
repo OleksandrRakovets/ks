@@ -144,6 +144,6 @@ export const keys = {
   },
 } as const
 
-type LeafValues<T> = T extends string ? T : T extends Record<string, unknown> ? LeafValues<T[keyof T]> : never
+type LeafValues<T> = T extends string ? T : T extends object ? LeafValues<T[keyof T]> : never
 
 export type I18nKey = LeafValues<typeof keys> | string

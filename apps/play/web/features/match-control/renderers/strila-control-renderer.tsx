@@ -9,7 +9,7 @@ import * as v from 'valibot'
 import { controlCommandEffect, controlCommandLabel } from './control-copy'
 import type { MatchControlRendererProps } from './types'
 
-const BALL_COLORS: Record<StrilaBall, { bg: string; border: string }> = {
+const BALL_COLORS = {
   0: { bg: '#F0EDE6', border: '#C0BDB5' },
   1: { bg: '#C8102E', border: '#9E0E24' },
   2: { bg: '#F5C518', border: '#C9A00E' },
@@ -18,7 +18,7 @@ const BALL_COLORS: Record<StrilaBall, { bg: string; border: string }> = {
   5: { bg: '#005EB8', border: '#004A92' },
   6: { bg: '#E8729A', border: '#C85580' },
   7: { bg: '#2a2a2a', border: '#555555' },
-}
+} satisfies Record<StrilaBall, { bg: string; border: string }>
 
 type SeatCommands = MatchControlRendererProps['commandSections']['primary']
 

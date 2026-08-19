@@ -41,7 +41,9 @@ export const CreateMatchRequestSchema = v.pipe(
 
 export type CreateMatchRequest = v.InferOutput<typeof CreateMatchRequestSchema>
 
-export function assignmentsBySeat(participants: CreateMatchRequest['participants']): { A: string; B: string } {
+type MatchAssignmentsBySeat = { A: string; B: string }
+
+export function assignmentsBySeat(participants: CreateMatchRequest['participants']): MatchAssignmentsBySeat {
   const seatA = participants.find((participant) => participant.seat === 'A')
   const seatB = participants.find((participant) => participant.seat === 'B')
   if (!seatA || !seatB) {

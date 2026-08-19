@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { Form, Link, redirect, useActionData, useLoaderData, useNavigation } from 'react-router'
 import * as v from 'valibot'
 
-import type { AppLoadContext } from '../../server/context'
+import type { AppLoadContext, CreateMatchRequest } from '../../server/context'
 import { requireEnv } from '../../server/context'
 import { getOrCreateGuestPlayerRef } from '../../server/guest-players'
 import { localeFromCookie } from '../../server/locale'
@@ -110,7 +110,11 @@ export async function action({
     getOrCreateGuestPlayerRef(env, seatBName.output),
   ])
 
-  const result = await env.MATCH_ROOM.getByName(matchId).create({
+  const participants: CreateMatchRequest['participants'] = [
+    { seat: 'A', playerRef: seatAPlayerRef },
+    { seat: 'B', playerRef: seatBPlayerRef },
+  ]
+  const createRequest = {
     matchId,
     controlSecret,
     gameKey,
@@ -122,12 +126,10 @@ export async function action({
       matchTargetFrames,
     },
     firstBreakerSeat: firstBreakerSeat.output,
-    ...(rackRollover ? { gameConfiguration: { rackRollover } } : {}),
-    participants: [
-      { seat: 'A', playerRef: seatAPlayerRef },
-      { seat: 'B', playerRef: seatBPlayerRef },
-    ],
-  })
+    gameConfiguration: rackRollover ? { rackRollover } : undefined,
+    participants,
+  }
+  const result = await env.MATCH_ROOM.getByName(matchId).create(createRequest)
 
   if (!result.ok) {
     throw new Response('Could not create match', { status: result.status })

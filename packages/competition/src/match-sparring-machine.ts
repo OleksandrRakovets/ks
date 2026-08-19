@@ -1,4 +1,5 @@
 import { type BySeatNumber, type FrameOutcome, type Seat } from '@ks/core'
+import * as v from 'valibot'
 import { assign, createActor, setup, type Actor, type SnapshotFrom } from 'xstate'
 
 type CompletedFrame = {
@@ -23,6 +24,11 @@ type MatchEvent =
   | { type: 'frame.completed'; outcome: FrameOutcome }
   | { type: 'match.end' }
 
+type MatchInput = {
+  frameTargetPointsBySeat?: BySeatNumber
+  matchTargetFrames?: number
+}
+
 function matchWinnerFromScore(score: BySeatNumber, target: number): Seat | null {
   const aWon = score.A >= target
   const bWon = score.B >= target
@@ -41,12 +47,12 @@ function scoreAfterOutcome(context: MatchContext, outcome: FrameOutcome): BySeat
 
 export const matchSparringMachine = setup({
   types: {
+    // SAFETY: XState reads this assertion value only to capture the declared context contract.
     context: {} as MatchContext,
+    // SAFETY: XState reads this assertion value only to capture the declared event contract.
     events: {} as MatchEvent,
-    input: {} as {
-      frameTargetPointsBySeat?: BySeatNumber
-      matchTargetFrames?: number
-    },
+    // SAFETY: XState reads this assertion value only to capture the declared input contract.
+    input: {} as MatchInput,
   },
   guards: {
     canStartFrame: ({ context }) => matchWinnerFromScore(context.framesWonBySeat, context.matchTargetFrames) === null,
@@ -57,10 +63,10 @@ export const matchSparringMachine = setup({
   },
   actions: {
     applySetup: assign(({ event }) => {
-      const e = event as Extract<MatchEvent, { type: 'match.setup' }>
+      if (event.type !== 'match.setup') throw new Error('Expected match.setup')
       return {
-        frameTargetPointsBySeat: e.frameTargetPointsBySeat,
-        matchTargetFrames: e.matchTargetFrames,
+        frameTargetPointsBySeat: event.frameTargetPointsBySeat,
+        matchTargetFrames: event.matchTargetFrames,
       }
     }),
     recordCompletedFrame: assign(({ context, event }) => {
@@ -158,13 +164,11 @@ export type MatchSparringSnapshot = SnapshotFrom<typeof matchSparringMachine>
 export type MatchSparringActor = Actor<typeof matchSparringMachine>
 
 export function getMatchPhase(snapshot: MatchSparringSnapshot): string {
-  return typeof snapshot.value === 'string' ? snapshot.value : JSON.stringify(snapshot.value)
+  const stateName = v.safeParse(v.string(), snapshot.value)
+  return stateName.success ? stateName.output : JSON.stringify(snapshot.value)
 }
 
-export function createMatchActor(input?: {
-  frameTargetPointsBySeat?: BySeatNumber
-  matchTargetFrames?: number
-}): MatchSparringActor {
+export function createMatchActor(input?: MatchInput): MatchSparringActor {
   const actor = createActor(matchSparringMachine, { input: input ?? {} })
   actor.start()
   return actor

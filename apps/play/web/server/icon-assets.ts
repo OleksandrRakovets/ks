@@ -13,7 +13,7 @@ export function iconVariantFromEnv(env: IconEnv | undefined): IconVariant {
 }
 
 export function iconVariantFromContext(context: Pick<RouterContextProvider, 'get'>): IconVariant {
-  return iconVariantFromEnv(context.get(cloudflareContext)?.env as IconEnv | undefined)
+  return iconVariantFromEnv(context.get(cloudflareContext)?.env)
 }
 
 export function iconBasePath(variant: IconVariant): string {

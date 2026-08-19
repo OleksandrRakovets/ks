@@ -11,11 +11,11 @@ import {
   type StrilaFrameState,
 } from '../definitions'
 
-function controlDetails(state: unknown) {
+function controlDetails<State>(state: State) {
   return v.parse(StrilaControlViewSchema, deriveGameProjection({ gameKey: 'strila-v2', state, projection: 'control' })).details
 }
 
-function scoreboardDetails(state: unknown) {
+function scoreboardDetails<State>(state: State) {
   return v.parse(StrilaScoreboardViewSchema, deriveGameProjection({ gameKey: 'strila-v2', state, projection: 'scoreboard' }))
     .details
 }
