@@ -1,8 +1,9 @@
 import { opponentOf, type Seat } from '@ks/core'
 import { keys } from '@ks/i18n'
-import { Button } from '@ks/ui'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+
+import { Button } from '@/components/ui'
 
 function playerInitial(name: string): string {
   return name.trim().slice(0, 1).toLocaleUpperCase()

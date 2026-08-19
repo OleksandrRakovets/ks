@@ -1,7 +1,8 @@
 import { keys } from '@ks/i18n'
-import { Button, Card, CardDescription, CardHeader, CardTitle } from '@ks/ui'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
+
+import { Button, Card, CardDescription, CardHeader, CardTitle } from '@/components/ui'
 
 type LocalizedSparringGameText = {
   uk: string

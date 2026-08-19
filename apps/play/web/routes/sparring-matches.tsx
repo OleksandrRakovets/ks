@@ -1,7 +1,8 @@
 import { keys } from '@ks/i18n'
-import { Badge, Button } from '@ks/ui'
 import { useTranslation } from 'react-i18next'
 import { Link, useLoaderData } from 'react-router'
+
+import { Badge, Button } from '@/components/ui'
 
 import type { AppLoadContext } from '../server/context'
 import { requireEnv } from '../server/context'

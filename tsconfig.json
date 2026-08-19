@@ -5,7 +5,6 @@
     { "path": "packages/competition" },
     { "path": "packages/gameplay" },
     { "path": "packages/i18n" },
-    { "path": "packages/ui" },
     { "path": "apps/machine-explorer" },
     { "path": "apps/play" }
   ]

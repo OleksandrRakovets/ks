@@ -18,18 +18,14 @@
       "cache": false,
       "persistent": true
     },
-    "@ks/ui#build": {
-      "outputs": ["dist/**"]
-    },
     "@ks/play#build": {
-      "dependsOn": ["//#check", "@ks/ui#build"],
+      "dependsOn": ["//#check"],
       "outputs": ["build/**", ".react-router/**"]
     },
     "machine-explorer#build": {
       "outputs": ["dist/**"]
     },
     "@ks/play#dev": {
-      "dependsOn": ["@ks/ui#build"],
       "cache": false,
       "persistent": true
     }

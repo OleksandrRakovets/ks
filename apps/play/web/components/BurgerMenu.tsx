@@ -1,12 +1,12 @@
 import { keys } from '@ks/i18n'
 import type { SupportedLocale } from '@ks/i18n'
-import { Button, Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@ks/ui'
 import { useTranslation } from 'react-i18next'
 import { useFetcher, Link } from 'react-router'
 
 import { useRootLocale, useRootTheme } from '../root'
 import type { AppTheme } from '../server/theme'
 import { BrandWordmark } from './BrandWordmark'
+import { Button, Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from './ui'
 
 const THEME_OPTIONS: { value: AppTheme; labelKey: string }[] = [
   { value: 'club-dark', labelKey: keys.theme.dark },

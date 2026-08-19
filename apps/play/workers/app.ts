@@ -4,10 +4,7 @@ import { cloudflareContext } from '../web/server/context'
 import { MatchRoom } from './do/MatchRoom'
 import type { Env } from './env'
 
-const requestHandler = createRequestHandler(
-  () => import('virtual:react-router/server-build').then(({ default: serverBuild }) => serverBuild),
-  process.env.NODE_ENV,
-)
+const requestHandler = createRequestHandler(() => import('virtual:react-router/server-build'), import.meta.env.MODE)
 
 export { MatchRoom }
 

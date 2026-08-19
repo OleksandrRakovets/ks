@@ -1,10 +1,11 @@
 import type { ControlCommandPreset } from '@ks/core'
 import { PyramidControlViewSchema } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
-import { Button } from '@ks/ui'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import * as v from 'valibot'
+
+import { Button } from '@/components/ui'
 
 import { controlCommandEffect, controlCommandLabel } from './control-copy'
 import type { MatchControlRendererProps } from './types'

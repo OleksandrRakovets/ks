@@ -1,4 +1,4 @@
-import { Badge, Button, Input, Label, Separator, Textarea } from '@ks/ui'
+import { Badge, Button, Input, Label, Separator, Textarea } from '@/components/ui'
 
 function Section({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
   return (

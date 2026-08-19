@@ -1,5 +1,6 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@ks/ui'
 import { Link } from 'react-router'
+
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui'
 
 const previewPages = [
   {

@@ -5,7 +5,7 @@
   "tsx": true,
   "tailwind": {
     "config": "",
-    "css": "../../packages/ui/src/styles.css",
+    "css": "./web/components/ui/styles.css",
     "baseColor": "neutral",
     "cssVariables": true
   },
@@ -14,7 +14,7 @@
     "components": "@/components",
     "hooks": "@/hooks",
     "lib": "@/lib",
-    "utils": "@ks/ui/lib/utils",
-    "ui": "@ks/ui/components"
+    "utils": "@/components/ui/utils",
+    "ui": "@/components/ui"
   }
 }

@@ -81,9 +81,6 @@ fi
 echo "Installing workspace dependencies..."
 bun install --frozen-lockfile
 
-echo "Building shared UI package..."
-bunx turbo run build --filter=@ks/ui
-
 echo "Applying local D1 migrations..."
 CI=1 bun run db:migrate:local
 

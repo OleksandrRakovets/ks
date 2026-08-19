@@ -1,11 +1,12 @@
 import { newMatchId, SeatSchema, type Seat } from '@ks/core'
 import { isRegisteredGameKey, registry } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
-import { Button } from '@ks/ui'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Form, Link, redirect, useActionData, useLoaderData, useNavigation } from 'react-router'
 import * as v from 'valibot'
+
+import { Button } from '@/components/ui'
 
 import type { AppLoadContext, CreateMatchRequest } from '../../server/context'
 import { requireEnv } from '../../server/context'
