@@ -24,6 +24,7 @@
       "valibot": "^1.4.2"
     }
   },
+  "type": "module",
   "scripts": {
     "check": "bun run format:check && bun run lint && bun run check:boundaries && bun run typecheck && bun test",
     "check:boundaries": "node ./scripts/check-boundaries.mjs",
@@ -40,9 +41,10 @@
     "typecheck": "turbo run typecheck"
   },
   "devDependencies": {
+    "@oxlint/plugins": "1.78.0",
     "bun-types": "latest",
     "oxfmt": "^0.45.0",
-    "oxlint": "^1.72.0",
+    "oxlint": "1.78.0",
     "tailwindcss": "catalog:",
     "turbo": "^2.10.3",
     "typescript": "catalog:"
