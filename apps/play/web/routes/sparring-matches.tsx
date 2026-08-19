@@ -1,3 +1,4 @@
+import type { MatchListEntry } from '@ks/application'
 import { keys } from '@ks/i18n'
 import { useTranslation } from 'react-i18next'
 import { Link, useLoaderData } from 'react-router'
@@ -5,20 +6,19 @@ import { Link, useLoaderData } from 'react-router'
 import { Badge, Button } from '@/components/ui'
 
 import type { AppLoadContext } from '../server/context'
-import { requireEnv } from '../server/context'
+import { requireApplication } from '../server/context'
 import { localeFromCookie } from '../server/locale'
-import { listMatches } from '../server/match-room'
 
 type LoaderData = {
-  matches: Awaited<ReturnType<typeof listMatches>>
+  matches: MatchListEntry[]
 }
 
 export async function loader({ request, context }: { request: Request; context: AppLoadContext }): Promise<LoaderData> {
-  const env = requireEnv(context)
+  const application = requireApplication(context)
   const locale = localeFromCookie(request.headers.get('cookie'))
 
   return {
-    matches: await listMatches(env, locale),
+    matches: await application.listMatches(locale),
   }
 }
 

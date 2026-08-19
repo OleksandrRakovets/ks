@@ -1,4 +1,5 @@
-import { newMatchId, SeatSchema, type Seat } from '@ks/core'
+import type { CreateMatchInput } from '@ks/application'
+import { SeatSchema, type Seat } from '@ks/core'
 import { isRegisteredGameKey, registry } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
 import { useMemo, useState } from 'react'
@@ -8,9 +9,8 @@ import * as v from 'valibot'
 
 import { Button } from '@/components/ui'
 
-import type { AppLoadContext, CreateMatchRequest } from '../../server/context'
-import { requireEnv } from '../../server/context'
-import { getOrCreateGuestPlayerRef } from '../../server/guest-players'
+import type { AppLoadContext } from '../../server/context'
+import { requireApplication } from '../../server/context'
 import { localeFromCookie } from '../../server/locale'
 import { FirstBreakerField, FrameTargetFields, MatchTargetFramesField, PlayerNameFields, RackRolloverField } from './fields'
 import { createProfileForGame, type MatchCreateProfile } from './profile'
@@ -31,14 +31,6 @@ type ActionData = {
     | typeof keys.match.sparring.errorMatchTargetFramesRequired
     | typeof keys.match.sparring.errorHandicapMustBePositiveInt
     | typeof keys.match.sparring.errorRackRolloverRequired
-}
-
-function randomSecret(): string {
-  const bytes = new Uint8Array(24)
-  crypto.getRandomValues(bytes)
-  let bin = ''
-  for (const b of bytes) bin += String.fromCharCode(b)
-  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
 }
 
 export async function loader({ params, request }: { params: { gameKey?: string }; request: Request }): Promise<LoaderData> {
@@ -103,21 +95,8 @@ export async function action({
     throw new Response('Invalid first breaker', { status: 400 })
   }
 
-  const env = requireEnv(context)
-  const matchId = newMatchId()
-  const controlSecret = randomSecret()
-  const [seatAPlayerRef, seatBPlayerRef] = await Promise.all([
-    getOrCreateGuestPlayerRef(env, seatAName.output),
-    getOrCreateGuestPlayerRef(env, seatBName.output),
-  ])
-
-  const participants: CreateMatchRequest['participants'] = [
-    { seat: 'A', playerRef: seatAPlayerRef },
-    { seat: 'B', playerRef: seatBPlayerRef },
-  ]
-  const createRequest = {
-    matchId,
-    controlSecret,
+  const application = requireApplication(context)
+  const createInput: CreateMatchInput = {
     gameKey,
     targets: {
       frameTargetPointsBySeat: {
@@ -127,16 +106,16 @@ export async function action({
       matchTargetFrames,
     },
     firstBreakerSeat: firstBreakerSeat.output,
-    gameConfiguration: rackRollover ? { rackRollover } : undefined,
-    participants,
+    playerNames: { A: seatAName.output, B: seatBName.output },
   }
-  const result = await env.MATCH_ROOM.getByName(matchId).create(createRequest)
+  if (rackRollover) createInput.gameConfiguration = { rackRollover }
+  const result = await application.createMatch(createInput)
 
   if (!result.ok) {
     throw new Response('Could not create match', { status: result.status })
   }
 
-  return redirect(`/sparring/matches/${matchId}/`)
+  return redirect(`/sparring/matches/${result.matchId}/`)
 }
 
 export const handle = {

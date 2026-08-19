@@ -9,7 +9,7 @@ import {
   ProtocolArchiveRowsSchema,
   ProtocolArchiveSchema,
   renderProtocolRows,
-} from './reader'
+} from './protocol'
 
 const matchId = v.parse(MatchIdSchema, '01ARZ3NDEKTSV4RRFFQ69G5FAV')
 const clientId = v.parse(ClientIdSchema, 'server0000')

@@ -1,23 +1,14 @@
 import {
-  ControlCommandSectionsSchema,
   ControlCommandSchema,
-  ErrorResponseSchema,
-  HydratedMatchParticipantsSchema,
-  MatchSnapshotSchema,
-  PostFactsResponseSchema,
   StreamFactSchema,
   StreamReadySchema,
   UnknownObjectSchema,
   emptyControlCommandSections,
   type ControlCommandSections,
   type ControlCommandPreset,
+  type MatchSnapshot,
 } from '@ks/core'
-import {
-  GameControlProjectionSchema,
-  isRegisteredGameKey,
-  registry,
-  type GameControlProjection,
-} from '@ks/gameplay/definitions'
+import { isRegisteredGameKey, registry, type GameControlProjection } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
 import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -26,13 +17,12 @@ import * as v from 'valibot'
 
 import { resolveControlRenderer, type HydratedMatchParticipants } from '../../features/match-control/renderers'
 import type { AppLoadContext } from '../../server/context'
-import { requireEnv } from '../../server/context'
+import { requireApplication } from '../../server/context'
 import { localeFromCookie } from '../../server/locale'
-import { fetchMatchSnapshot, getMatchControlSecret, postMatchFacts } from '../../server/match-room'
 import { ScoreBox } from './score-box'
 
 type LoaderData = {
-  snapshot: Awaited<ReturnType<typeof parseSnapshotBody>>['snapshot']
+  snapshot: MatchSnapshot
   participants: HydratedMatchParticipants
   controlProjection: GameControlProjection
   controlSections: ControlCommandSections
@@ -47,17 +37,6 @@ type ActionErrorKey =
   | typeof keys.match.control.matchLocked
 
 type ActionData = { ok: true; acceptedSeqMax: number | null } | { ok: false; errorKey: ActionErrorKey }
-
-const SnapshotResponseWithControlSchema = v.union([
-  v.object({
-    ok: v.literal(true),
-    snapshot: MatchSnapshotSchema,
-    participants: HydratedMatchParticipantsSchema,
-    controlProjection: v.optional(GameControlProjectionSchema),
-    controlSections: v.optional(ControlCommandSectionsSchema),
-  }),
-  ErrorResponseSchema,
-])
 
 const CommandJsonSchema = v.pipe(v.string(), v.parseJson(), UnknownObjectSchema)
 const StreamReadyEventSchema = v.pipe(v.string(), v.parseJson(), StreamReadySchema)
@@ -81,14 +60,6 @@ function emptyControlProjection(gameKey: string): GameControlProjection {
   }
 }
 
-async function parseSnapshotBody(res: Response) {
-  const body = v.parse(SnapshotResponseWithControlSchema, await res.json())
-  if (!body.ok) {
-    throw new Response(body.error, { status: res.status === 200 ? 500 : res.status })
-  }
-  return body
-}
-
 export async function loader({
   params,
   request,
@@ -98,26 +69,26 @@ export async function loader({
   request: Request
   context: AppLoadContext
 }): Promise<LoaderData> {
-  const env = requireEnv(context)
+  const application = requireApplication(context)
   const matchId = params.matchId
   if (!matchId) throw new Response('Missing matchId', { status: 400 })
 
   const locale = localeFromCookie(request.headers.get('cookie'))
-  const res = await fetchMatchSnapshot(env, matchId, locale)
-  const body = await parseSnapshotBody(res)
+  const result = await application.readMatch(matchId, locale)
+  if (!result.ok) throw new Response(result.error, { status: result.status })
 
-  if (body.snapshot.status !== 'active') {
+  if (result.snapshot.status !== 'active') {
     throw redirect(`/sparring/matches/${matchId}/protocol/`)
   }
 
-  const { gameKey } = body.snapshot
+  const { gameKey } = result.snapshot
   const gameTitle = isRegisteredGameKey(gameKey) ? registry[gameKey].meta.title[locale] : gameKey
 
   return {
-    snapshot: body.snapshot,
-    participants: body.participants,
-    controlProjection: body.controlProjection ?? emptyControlProjection(gameKey),
-    controlSections: body.controlSections ?? emptyControlCommandSections(),
+    snapshot: result.snapshot,
+    participants: result.participants,
+    controlProjection: result.controlProjection ?? emptyControlProjection(gameKey),
+    controlSections: result.controlSections ?? emptyControlCommandSections(),
     gameTitle,
   }
 }
@@ -131,14 +102,9 @@ export async function action({
   request: Request
   context: AppLoadContext
 }): Promise<ActionData> {
-  const env = requireEnv(context)
+  const application = requireApplication(context)
   const matchId = params.matchId
   if (!matchId) throw new Response('Missing matchId', { status: 400 })
-
-  const controlSecret = await getMatchControlSecret(env, matchId)
-  if (!controlSecret) {
-    return { ok: false, errorKey: keys.match.control.unknownMatch }
-  }
 
   const form = await request.formData()
   const actionType = String(form.get('actionType') ?? 'game-command')
@@ -177,16 +143,15 @@ export async function action({
     return { ok: false, errorKey: keys.match.control.invalidFactPayload }
   }
 
-  const res = await postMatchFacts(env, matchId, controlSecret, [parsedCommand.output])
-  const payload = v.parse(PostFactsResponseSchema, await res.json())
-  if (!payload.ok) {
-    return { ok: false, errorKey: postFactsErrorKey(payload.error) }
+  const result = await application.commandMatch(matchId, [parsedCommand.output])
+  if (!result.ok) {
+    return { ok: false, errorKey: postFactsErrorKey(result.error) }
   }
-  if (payload.accepted.length === 0) {
+  if (result.accepted.length === 0) {
     return { ok: false, errorKey: keys.match.control.factRejectedByRules }
   }
 
-  const acceptedSeqMax = payload.accepted.reduce<number | null>((max, entry) => {
+  const acceptedSeqMax = result.accepted.reduce<number | null>((max, entry) => {
     if (max == null) return entry.seq
     return Math.max(max, entry.seq)
   }, null)

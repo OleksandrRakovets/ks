@@ -1,11 +1,6 @@
-import {
-  ErrorResponseSchema,
-  HydratedMatchParticipantsSchema,
-  MatchSnapshotSchema,
-  StreamFactSchema,
-  StreamReadySchema,
-} from '@ks/core'
-import { GameControlProjectionSchema, isRegisteredGameKey, registry } from '@ks/gameplay/definitions'
+import type { ProtocolRow } from '@ks/application'
+import { StreamFactSchema, StreamReadySchema, type MatchSnapshot } from '@ks/core'
+import { isRegisteredGameKey, registry, type GameControlProjection } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
 import type { TFunction } from 'i18next'
 import { useEffect, useRef } from 'react'
@@ -13,43 +8,22 @@ import { useTranslation } from 'react-i18next'
 import { Link, useLoaderData, useRevalidator } from 'react-router'
 import * as v from 'valibot'
 
-import type { ProtocolRow } from '../../../domain/protocol/reader'
 import type { HydratedMatchParticipants } from '../../features/match-control/renderers'
 import type { AppLoadContext } from '../../server/context'
-import { requireEnv } from '../../server/context'
+import { requireApplication } from '../../server/context'
 import { localeFromCookie } from '../../server/locale'
-import { fetchMatchSnapshot } from '../../server/match-room'
-import { readProtocolHistory } from '../../server/protocol-history'
 import { ScoreBox } from './score-box'
 
 type LoaderData = {
-  snapshot: Awaited<ReturnType<typeof parseSnapshotBody>>['snapshot']
+  snapshot: MatchSnapshot
   participants: HydratedMatchParticipants
-  controlProjection?: Awaited<ReturnType<typeof parseSnapshotBody>>['controlProjection']
+  controlProjection?: GameControlProjection
   protocolRows: ProtocolRow[]
   gameTitle: string
 }
 
-const SnapshotResponseSchema = v.union([
-  v.object({
-    ok: v.literal(true),
-    snapshot: MatchSnapshotSchema,
-    participants: HydratedMatchParticipantsSchema,
-    controlProjection: v.optional(GameControlProjectionSchema),
-  }),
-  ErrorResponseSchema,
-])
-
 const StreamReadyEventSchema = v.pipe(v.string(), v.parseJson(), StreamReadySchema)
 const StreamFactEventSchema = v.pipe(v.string(), v.parseJson(), StreamFactSchema)
-
-async function parseSnapshotBody(res: Response) {
-  const body = v.parse(SnapshotResponseSchema, await res.json())
-  if (!body.ok) {
-    throw new Response(body.error, { status: res.status === 200 ? 500 : res.status })
-  }
-  return body
-}
 
 export async function loader({
   params,
@@ -60,33 +34,21 @@ export async function loader({
   request: Request
   context: AppLoadContext
 }): Promise<LoaderData> {
-  const env = requireEnv(context)
+  const application = requireApplication(context)
   const matchId = params.matchId
   if (!matchId) throw new Response('Missing matchId', { status: 400 })
 
   const locale = localeFromCookie(request.headers.get('cookie'))
-  const res = await fetchMatchSnapshot(env, matchId, locale)
-  const body = await parseSnapshotBody(res)
-  const { gameKey } = body.snapshot
+  const result = await application.readMatchProtocol(matchId, 'UTC', locale)
+  if (!result.ok) throw new Response(result.error, { status: result.status })
+  const { gameKey } = result.snapshot
   const gameTitle = isRegisteredGameKey(gameKey) ? registry[gameKey].meta.title[locale] : gameKey
 
-  const protocolRows = await readProtocolHistory(
-    env,
-    matchId,
-    body.snapshot.status,
-    {
-      A: body.participants.A.displayName,
-      B: body.participants.B.displayName,
-    },
-    'UTC',
-    locale,
-  )
-
   return {
-    snapshot: body.snapshot,
-    participants: body.participants,
-    controlProjection: body.controlProjection,
-    protocolRows,
+    snapshot: result.snapshot,
+    participants: result.participants,
+    controlProjection: result.controlProjection,
+    protocolRows: result.protocolRows,
     gameTitle,
   }
 }

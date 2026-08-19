@@ -1,3 +1,4 @@
+import { prepareProtocolRowsForArchive } from '@ks/application/match-room'
 import {
   applyMatchFact,
   assignmentsBySeat,
@@ -32,11 +33,10 @@ import { applyGameCommand, createInitialGameState, deriveGameProjection, parseGa
 import { DurableObject } from 'cloudflare:workers'
 import * as v from 'valibot'
 
-import { prepareProtocolRowsForArchive } from '../../domain/protocol/reader'
-import { insertProtocolArchive } from '../../domain/protocol/repo'
 import type { Env } from '../env'
 import { factExists, getLatestSeq, insertStoredFact, listFactsAfter } from '../repos/facts'
 import { getMatch, markMatchEnded, matchExists, setMatchLatestSeq } from '../repos/matches'
+import { insertProtocolArchive } from '../repos/protocol-archives'
 import { deleteMatchSnapshot, putLatestMatchSnapshot } from '../repos/snapshots'
 
 const ControlSecretSchema = v.pipe(v.string(), v.minLength(16))

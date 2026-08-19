@@ -13,7 +13,7 @@ import {
 } from '@ks/core'
 import * as v from 'valibot'
 
-export const PROTOCOL_ARCHIVE_VERSION = 1
+export const PROTOCOL_ARCHIVE_VERSION = 1 as const
 
 const ArchiveBodySchema = UnknownObjectSchema
 
@@ -44,11 +44,11 @@ export type ProtocolRow = {
   key: string
   message: {
     key: string
-    actor?: string
+    actor?: string | undefined
     params?: Record<string, string | number>
     pottedBalls?: ProtocolBall[]
   }
-  score?: BySeatNumber
+  score?: BySeatNumber | undefined
   receivedAt: number
   timeLabel: string
 }

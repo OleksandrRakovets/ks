@@ -8,6 +8,7 @@
     ],
     "catalog": {
       "@babel/core": "^7.29.7",
+      "@cloudflare/workers-types": "^4.20260702.1",
       "@rolldown/plugin-babel": "^0.2.3",
       "@types/babel__core": "^7.20.5",
       "@types/react": "^19.2.18",

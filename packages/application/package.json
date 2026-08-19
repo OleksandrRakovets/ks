@@ -1,0 +1,23 @@
+{
+  "name": "@ks/application",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./match-room": "./src/match-room.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@ks/competition": "workspace:*",
+    "@ks/core": "workspace:*",
+    "@ks/gameplay": "workspace:*",
+    "@ks/i18n": "workspace:*",
+    "valibot": "catalog:"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "catalog:",
+    "bun-types": "latest"
+  }
+}
