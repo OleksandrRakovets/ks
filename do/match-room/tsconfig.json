@@ -5,5 +5,5 @@
     "noEmit": true,
     "types": ["bun-types", "node"]
   },
-  "include": ["src/**/*", "worker-configuration.d.ts"]
+  "include": ["src/**/*", "drizzle/**/*.ts", "worker-configuration.d.ts"]
 }

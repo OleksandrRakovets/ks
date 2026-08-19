@@ -1,4 +1,4 @@
-import { formatPlayerRef, newGuestPlayerId, type PlayerRef } from '@ks/core'
+import { formatPlayerRef, newGuestPlayerId, nowUnixEpochMilliseconds, type PlayerRef } from '@ks/core'
 import { and, eq } from 'drizzle-orm'
 
 import { guestPlayers } from './schema'
@@ -36,7 +36,7 @@ export async function getOrCreateGuestPlayerRef(db: ApplicationDatabase, display
     lastNameUk: lastName,
     firstNameEn: firstName,
     lastNameEn: lastName,
-    createdAt: Date.now(),
+    createdAt: nowUnixEpochMilliseconds(),
   })
 
   return formatPlayerRef('gp', guestPlayerId)

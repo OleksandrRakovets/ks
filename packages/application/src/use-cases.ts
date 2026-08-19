@@ -1,5 +1,5 @@
 import { normalizeMatchId, type CreateMatchRequest } from '@ks/competition'
-import type { ControlCommand, PlayerRef, StoredFact } from '@ks/core'
+import type { CommandId, ControlCommand, PlayerRef, StoredFact, UnixEpochMilliseconds } from '@ks/core'
 import { isRegisteredGameKey, registry } from '@ks/gameplay/definitions'
 import type { SupportedLocale } from '@ks/i18n'
 import * as v from 'valibot'
@@ -15,26 +15,47 @@ import type {
   ReadMatchResult,
 } from './contracts'
 import type { MatchRoomClient, MatchRoomCreateRequest } from './match-room-client'
-import { deriveProtocolRows, PROTOCOL_ARCHIVE_VERSION, ProtocolArchiveRowsSchema, renderProtocolRows } from './protocol'
+import {
+  deriveProtocolRows,
+  prepareProtocolRowsForArchive,
+  PROTOCOL_ARCHIVE_VERSION,
+  ProtocolArchiveRowsSchema,
+  renderProtocolRows,
+} from './protocol'
 
 type MatchListRecord = {
   matchId: string
   gameKey: string
   status: string
-  createdAt: number
+  createdAt: UnixEpochMilliseconds
   participantRefs: { A: string; B: string }
 }
 
 type ApplicationDependencies = {
   newMatchId(): string
   newControlSecret(): string
+  now(): UnixEpochMilliseconds
   getOrCreateGuestPlayerRef(displayName: string): Promise<PlayerRef>
   hydrateParticipant(playerRef: string, locale: SupportedLocale): Promise<HydratedParticipant>
   listMatchRecords(): Promise<MatchListRecord[]>
   getMatchParticipantRefs(matchId: string): Promise<{ A: string; B: string } | null>
-  getMatchControlSecret(matchId: string): Promise<string | null>
-  listStoredFacts(matchId: string): Promise<StoredFact[]>
+  listActiveFacts(matchId: string): Promise<StoredFact[]>
   getProtocolArchive(matchId: string): Promise<{ protocolVersion: number; rowsJson: string } | null>
+  beginMatchCreation(input: {
+    matchId: string
+    gameKey: string
+    seatAPlayerRef: string
+    seatBPlayerRef: string
+    createdAt: UnixEpochMilliseconds
+  }): Promise<void>
+  activateMatch(matchId: string): Promise<void>
+  recordCompletedMatch(input: {
+    matchId: string
+    sourceLatestSeq: number
+    protocolVersion: number
+    rowsJson: string
+    endedAt: UnixEpochMilliseconds
+  }): Promise<void>
   matchRoom: MatchRoomClient
 }
 
@@ -44,6 +65,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
   async function createMatch(input: CreateMatchInput): Promise<CreateMatchResult> {
     const matchId = dependencies.newMatchId()
     const controlSecret = dependencies.newControlSecret()
+    const createdAt = dependencies.now()
     const { playerNames, ...requestInput } = input
     const [seatAPlayerRef, seatBPlayerRef] = await Promise.all([
       dependencies.getOrCreateGuestPlayerRef(playerNames.A),
@@ -53,8 +75,12 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
       { seat: 'A', playerRef: seatAPlayerRef },
       { seat: 'B', playerRef: seatBPlayerRef },
     ]
-    const request: MatchRoomCreateRequest = { ...requestInput, participants, matchId, controlSecret }
-    return await dependencies.matchRoom.create(request)
+    const request: MatchRoomCreateRequest = { ...requestInput, participants, matchId, controlSecret, createdAt }
+    await dependencies.beginMatchCreation({ matchId, gameKey: request.gameKey, seatAPlayerRef, seatBPlayerRef, createdAt })
+    const result = await dependencies.matchRoom.create(request)
+    if (!result.ok) return result
+    await dependencies.activateMatch(matchId)
+    return { ok: true, matchId }
   }
 
   async function listMatches(locale: SupportedLocale): Promise<MatchListEntry[]> {
@@ -98,11 +124,18 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     return result
   }
 
-  async function commandMatch(matchId: string, commands: ControlCommand[]): Promise<CommandMatchResult> {
+  async function commandMatch(matchId: string, commandId: CommandId, command: ControlCommand): Promise<CommandMatchResult> {
     const normalizedMatchId = normalizeMatchId(matchId)
-    const controlSecret = await dependencies.getMatchControlSecret(normalizedMatchId)
-    if (!controlSecret) return { ok: false, error: 'unknown-match', status: 400 }
-    return await dependencies.matchRoom.command(normalizedMatchId, controlSecret, commands)
+    const result = await dependencies.matchRoom.command(normalizedMatchId, commandId, command)
+    if (result.ok && result.completion) {
+      await dependencies.recordCompletedMatch({
+        matchId: normalizedMatchId,
+        ...result.completion,
+        protocolVersion: PROTOCOL_ARCHIVE_VERSION,
+        rowsJson: JSON.stringify(prepareProtocolRowsForArchive(await dependencies.matchRoom.facts(normalizedMatchId))),
+      })
+    }
+    return result.ok ? { ok: true, accepted: result.accepted } : result
   }
 
   async function readMatchProtocol(
@@ -116,7 +149,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     let protocolRows
     if (match.snapshot.status === 'active') {
       protocolRows = deriveProtocolRows(
-        await dependencies.listStoredFacts(match.snapshot.matchId),
+        await dependencies.listActiveFacts(match.snapshot.matchId),
         seatNames,
         timeZone,
         locale,

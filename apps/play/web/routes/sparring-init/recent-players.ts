@@ -1,3 +1,4 @@
+import { UnixEpochMillisecondsSchema, nowUnixEpochMilliseconds, type UnixEpochMilliseconds } from '@ks/core'
 import { useEffect, useMemo, useState } from 'react'
 import * as v from 'valibot'
 
@@ -8,7 +9,7 @@ const MAX_RECENT_PLAYERS = 5
 
 type RecentPlayer = {
   name: string
-  lastUsedAt: number
+  lastUsedAt: UnixEpochMilliseconds
 }
 
 type RecentPlayersStore = {
@@ -18,7 +19,7 @@ type RecentPlayersStore = {
 
 const RecentPlayersStoreSchema = v.object({
   version: v.literal(1),
-  players: v.array(v.object({ name: v.string(), lastUsedAt: v.number() })),
+  players: v.array(v.object({ name: v.string(), lastUsedAt: UnixEpochMillisecondsSchema })),
 })
 
 function normalizeRecentKey(name: string): string {
@@ -45,7 +46,7 @@ function writeRecentPlayers(players: RecentPlayer[]) {
 }
 
 export function rememberRecentPlayers(names: string[]) {
-  const now = Date.now()
+  const now = nowUnixEpochMilliseconds()
   const existing = readRecentPlayers()
   const byName = new Map(existing.map((player) => [normalizeRecentKey(player.name), player]))
 

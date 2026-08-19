@@ -9,8 +9,8 @@
     "db:seed:local": "wrangler d1 execute ks --local --file ../../d1/seeds/local-players.sql",
     "build": "react-router build",
     "preview": "react-router build && vite preview",
-    "cf-typegen": "CI=1 wrangler types",
-    "typecheck": "CI=1 wrangler types && react-router typegen && tsc -b"
+    "cf-typegen": "CI=1 wrangler types --config wrangler.jsonc --config ../../do/match-room/wrangler.jsonc",
+    "typecheck": "CI=1 wrangler types --config wrangler.jsonc --config ../../do/match-room/wrangler.jsonc && react-router typegen && tsc -b"
   },
   "dependencies": {
     "@ks/application": "workspace:*",
@@ -18,6 +18,7 @@
     "@ks/core": "workspace:*",
     "@ks/gameplay": "workspace:*",
     "@ks/i18n": "workspace:*",
+    "@ks/match-room": "workspace:*",
     "class-variance-authority": "^0.7.1",
     "classnames": "^2.5.1",
     "clsx": "^2.1.1",

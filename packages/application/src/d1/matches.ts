@@ -1,9 +1,7 @@
 import { normalizeMatchId } from '@ks/competition'
-import { StoredFactSchema, type StoredFact } from '@ks/core'
-import { asc, eq, sql } from 'drizzle-orm'
-import * as v from 'valibot'
+import { eq, inArray, sql } from 'drizzle-orm'
 
-import { facts, matches } from './schema'
+import { matches, StoredMatchStatus } from './schema'
 import type { ApplicationDatabase } from './types'
 
 export async function listMatchRows(db: ApplicationDatabase) {
@@ -17,7 +15,8 @@ export async function listMatchRows(db: ApplicationDatabase) {
       seatBPlayerRef: matches.seatBPlayerRef,
     })
     .from(matches)
-    .orderBy(sql`CASE WHEN ${matches.status} = 'finished' THEN 1 ELSE 0 END`, sql`${matches.createdAt} DESC`)
+    .where(inArray(matches.status, [StoredMatchStatus.active, StoredMatchStatus.finished]))
+    .orderBy(sql`CASE WHEN ${matches.status} = ${StoredMatchStatus.finished} THEN 1 ELSE 0 END`, sql`${matches.createdAt} DESC`)
 }
 
 export async function getMatchParticipantRefs(
@@ -30,35 +29,4 @@ export async function getMatchParticipantRefs(
     .where(eq(matches.matchId, normalizeMatchId(matchId)))
     .get()
   return row ?? null
-}
-
-export async function getMatchControlSecret(db: ApplicationDatabase, matchId: string): Promise<string | null> {
-  const row = await db
-    .select({ controlSecret: matches.controlSecret })
-    .from(matches)
-    .where(eq(matches.matchId, normalizeMatchId(matchId)))
-    .get()
-  return row?.controlSecret ?? null
-}
-
-export async function listStoredFacts(db: ApplicationDatabase, matchId: string): Promise<StoredFact[]> {
-  const normalizedMatchId = normalizeMatchId(matchId)
-  const rows = await db.select().from(facts).where(eq(facts.matchId, normalizedMatchId)).orderBy(asc(facts.seq))
-
-  return rows.flatMap((row) => {
-    const payload = v.safeParse(v.pipe(v.string(), v.parseJson()), row.payloadJson)
-    if (!payload.success) return []
-    const fact = v.safeParse(StoredFactSchema, {
-      seq: row.seq,
-      factId: row.factId,
-      matchId: row.matchId,
-      clientId: row.clientId,
-      clientSeq: row.clientSeq,
-      at: row.at,
-      receivedAt: row.receivedAt,
-      type: row.type,
-      payload: payload.output,
-    })
-    return fact.success ? [fact.output] : []
-  })
 }

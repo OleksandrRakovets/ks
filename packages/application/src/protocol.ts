@@ -4,12 +4,14 @@ import {
   ProtocolEntrySourceSchema,
   ProtocolEntryTypeSchema,
   SeatSchema,
+  UnixEpochMillisecondsSchema,
   UnknownObjectSchema,
   opponentOf,
   type BySeatNumber,
   type ProtocolEntry,
   type Seat,
   type StoredFact,
+  type UnixEpochMilliseconds,
 } from '@ks/core'
 import * as v from 'valibot'
 
@@ -19,7 +21,7 @@ const ArchiveBodySchema = UnknownObjectSchema
 
 export const ProtocolArchiveRowSchema = v.object({
   rowNo: PositiveIntegerSchema,
-  receivedAt: PositiveIntegerSchema,
+  receivedAt: UnixEpochMillisecondsSchema,
   frameIndex: v.optional(PositiveIntegerSchema),
   source: ProtocolEntrySourceSchema,
   entryType: ProtocolEntryTypeSchema,
@@ -49,7 +51,7 @@ export type ProtocolRow = {
     pottedBalls?: ProtocolBall[]
   }
   score?: BySeatNumber | undefined
-  receivedAt: number
+  receivedAt: UnixEpochMilliseconds
   timeLabel: string
 }
 

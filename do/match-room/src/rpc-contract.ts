@@ -1,23 +1,18 @@
 import {
   ControlCommandSchema,
+  CommandIdSchema,
   GameConfigurationSchema,
-  MatchConfigSchema,
   MatchIdSchema,
   MatchSeatAssignmentSchema,
   MatchTargetsSchema,
   NonEmptyStringSchema,
   NonNegativeIntegerSchema,
   SeatSchema,
+  UnixEpochMillisecondsSchema,
 } from '@ks/core'
 import * as v from 'valibot'
 
 const ControlSecretSchema = v.pipe(v.string(), v.minLength(16))
-
-export const InitBodySchema = v.object({
-  matchId: MatchIdSchema,
-  controlSecret: ControlSecretSchema,
-  config: MatchConfigSchema,
-})
 
 export const CreateBodySchema = v.object({
   matchId: MatchIdSchema,
@@ -27,12 +22,13 @@ export const CreateBodySchema = v.object({
   firstBreakerSeat: SeatSchema,
   gameConfiguration: v.optional(GameConfigurationSchema),
   participants: v.tuple([MatchSeatAssignmentSchema, MatchSeatAssignmentSchema]),
+  createdAt: UnixEpochMillisecondsSchema,
 })
 
 export const FactsBodySchema = v.object({
   matchId: MatchIdSchema,
-  controlSecret: ControlSecretSchema,
-  commands: v.pipe(v.array(ControlCommandSchema), v.minLength(1)),
+  commandId: CommandIdSchema,
+  command: ControlCommandSchema,
 })
 
 export const SnapshotBodySchema = v.object({
@@ -44,7 +40,6 @@ export const StreamBodySchema = v.object({
   since: v.optional(NonNegativeIntegerSchema),
 })
 
-export type InitBody = v.InferInput<typeof InitBodySchema>
 export type CreateBody = v.InferInput<typeof CreateBodySchema>
 export type FactsBody = v.InferInput<typeof FactsBodySchema>
 export type SnapshotBody = v.InferInput<typeof SnapshotBodySchema>

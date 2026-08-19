@@ -79,7 +79,6 @@ export const keys = {
         previousRacks: 'match.control.longFreePyramid.previousRacks',
       },
       unknownMatch: 'match.control.unknownMatch',
-      unauthorized: 'match.control.unauthorized',
       matchLocked: 'match.control.matchLocked',
     },
     scoreboard: {

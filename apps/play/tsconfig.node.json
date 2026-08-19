@@ -5,7 +5,7 @@
     "target": "ES2023",
     "lib": ["ES2023"],
     "module": "ESNext",
-    "types": ["node", "@cloudflare/workers-types", "bun-types"],
+    "types": ["node", "bun-types", "./worker-configuration"],
     "skipLibCheck": true,
 
     /* Bundler mode */
@@ -28,7 +28,8 @@
     "web/server/context.ts",
     "workers/app.ts",
     "workers/env.ts",
-    "workers/virtual.d.ts"
+    "workers/virtual.d.ts",
+    "../../do/match-room/src/**/*"
   ],
   "exclude": ["domain/**/*.test.ts"]
 }

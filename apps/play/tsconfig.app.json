@@ -6,7 +6,7 @@
     "useDefineForClassFields": true,
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
-    "types": ["vite/client", "bun-types"],
+    "types": ["vite/client", "bun-types", "./worker-configuration"],
     "skipLibCheck": true,
 
     /* Bundler mode */
@@ -27,6 +27,6 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["web", "domain", ".react-router/types/**/*"],
+  "include": ["web", "domain", "workers", ".react-router/types/**/*", "../../do/match-room/src/**/*"],
   "exclude": ["domain/**/*.test.ts"]
 }

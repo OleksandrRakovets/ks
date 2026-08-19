@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
+import { newCommandId } from '@ks/core'
 import * as v from 'valibot'
 
 import { CreateBodySchema, FactsBodySchema, SnapshotBodySchema, StreamBodySchema } from './rpc-contract'
@@ -13,6 +14,7 @@ describe('MatchRoom RPC request contract', () => {
       v.safeParse(CreateBodySchema, {
         matchId,
         controlSecret,
+        createdAt: 1_700_000_000_000,
         gameKey: 'free-pyramid',
         targets: { frameTargetPointsBySeat: { A: 8, B: 8 }, matchTargetFrames: 3 },
         firstBreakerSeat: 'A',
@@ -24,13 +26,13 @@ describe('MatchRoom RPC request contract', () => {
     ).toBe(true)
   })
 
-  test('accepts adapter snapshot, command, and stream shapes and rejects invalid IDs', () => {
+  test('accepts commands without a control secret and rejects invalid IDs', () => {
     expect(v.safeParse(SnapshotBodySchema, { matchId }).success).toBe(true)
     expect(
       v.safeParse(FactsBodySchema, {
         matchId,
-        controlSecret,
-        commands: [{ source: 'match', commandType: 'frame.start', command: {} }],
+        commandId: newCommandId(),
+        command: { source: 'match', commandType: 'frame.start', command: {} },
       }).success,
     ).toBe(true)
     expect(v.safeParse(StreamBodySchema, { matchId, since: 2 }).success).toBe(true)
