@@ -2,6 +2,7 @@ import { Outlet } from 'react-router'
 import { useLocation } from 'react-router'
 
 import '../i18n'
+
 import '../base.css'
 import { AppHeader } from '../components/AppHeader'
 

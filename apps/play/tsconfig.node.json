@@ -5,7 +5,7 @@
     "target": "ES2023",
     "lib": ["ES2023"],
     "module": "ESNext",
-    "types": ["node", "@cloudflare/workers-types"],
+    "types": ["node", "@cloudflare/workers-types", "bun-types"],
     "skipLibCheck": true,
 
     /* Bundler mode */
