@@ -22,7 +22,7 @@ describe('application orchestration', () => {
     const room = {
       async create(request: MatchRoomCreateRequest) {
         roomRequest = request
-        return { ok: true as const, matchId, controlSecret }
+        return { ok: true as const, matchId }
       },
       snapshot: unused,
       facts: unused,
@@ -50,7 +50,7 @@ describe('application orchestration', () => {
       playerNames: { A: 'Alice Smith', B: 'Bob Jones' },
     })
 
-    expect(result).toEqual({ ok: true, matchId, controlSecret })
+    expect(result).toEqual({ ok: true, matchId })
     expect(playerNames).toEqual(['Alice Smith', 'Bob Jones'])
     expect(roomRequest).toEqual({
       matchId,
@@ -65,14 +65,14 @@ describe('application orchestration', () => {
     })
   })
 
-  test('loads the control secret and submits commands to the selected room', async () => {
+  test('submits commands to the selected room without a control secret', async () => {
     const command: ControlCommand = { source: 'match', commandType: 'frame.start', command: {} }
     const calls: unknown[][] = []
     const room = {
       create: unused,
       snapshot: unused,
-      async facts(args: { matchId: string; controlSecret: string; commandId: string; commands: ControlCommand[] }) {
-        calls.push([args.matchId, args.controlSecret, args.commandId, args.commands])
+      async facts(args: { matchId: string; commandId: string; commands: ControlCommand[] }) {
+        calls.push([args.matchId, args.commandId, args.commands])
         return { ok: true as const, accepted: [{ seq: 3, factId: '01ARZ3NDEKTSV4RRFFQ69G5FAC' }] }
       },
       stream: unused,
@@ -90,10 +90,10 @@ describe('application orchestration', () => {
     })
 
     const commandId = newCommandId()
-    const result = await application.commandMatch(`m_${matchId}`, controlSecret, commandId, [command])
+    const result = await application.commandMatch(`m_${matchId}`, commandId, [command])
 
     expect(result).toEqual({ ok: true, accepted: [{ seq: 3, factId: '01ARZ3NDEKTSV4RRFFQ69G5FAC' }] })
-    expect(calls).toEqual([[matchId, controlSecret, commandId, [command]]])
+    expect(calls).toEqual([[matchId, commandId, [command]]])
   })
 
   test('rejects a malformed command response at the MatchRoom adapter boundary', async () => {
@@ -117,38 +117,10 @@ describe('application orchestration', () => {
       matchRoom: createMatchRoomClient({ getByName: () => room }),
     })
 
-    expect(await application.commandMatch(matchId, controlSecret, newCommandId(), [])).toEqual({
+    expect(await application.commandMatch(matchId, newCommandId(), [])).toEqual({
       ok: false,
       error: 'Failed to parse command response',
       status: 502,
-    })
-  })
-
-  test('passes authorization through the framework-neutral command boundary', async () => {
-    const application = createApplicationWithDependencies({
-      newMatchId: unused,
-      newControlSecret: unused,
-      getOrCreateGuestPlayerRef: unused,
-      hydrateParticipant: unused,
-      listMatchRecords: unused,
-      getMatchParticipantRefs: unused,
-      listActiveFacts: unused,
-      getProtocolArchive: unused,
-      matchRoom: createMatchRoomClient({
-        getByName: () => ({
-          create: unused,
-          snapshot: unused,
-          stream: unused,
-          facts: async () => ({ ok: false, error: 'unauthorized', status: 401 }),
-          listFacts: unused,
-        }),
-      }),
-    })
-
-    expect(await application.commandMatch(matchId, controlSecret, newCommandId(), [])).toEqual({
-      ok: false,
-      error: 'unauthorized',
-      status: 401,
     })
   })
 })

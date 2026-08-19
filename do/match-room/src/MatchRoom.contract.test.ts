@@ -25,12 +25,11 @@ describe('MatchRoom RPC request contract', () => {
     ).toBe(true)
   })
 
-  test('accepts adapter snapshot, command, and stream shapes and rejects invalid IDs', () => {
+  test('accepts commands without a control secret and rejects invalid IDs', () => {
     expect(v.safeParse(SnapshotBodySchema, { matchId }).success).toBe(true)
     expect(
       v.safeParse(FactsBodySchema, {
         matchId,
-        controlSecret,
         commandId: newCommandId(),
         commands: [{ source: 'match', commandType: 'frame.start', command: {} }],
       }).success,

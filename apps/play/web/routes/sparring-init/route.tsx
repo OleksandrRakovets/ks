@@ -12,7 +12,6 @@ import { Button } from '@/components/ui'
 import type { AppLoadContext } from '../../server/context'
 import { requireApplication } from '../../server/context'
 import { localeFromCookie } from '../../server/locale'
-import { matchControlCookie } from '../../server/match-control-cookie'
 import { FirstBreakerField, FrameTargetFields, MatchTargetFramesField, PlayerNameFields, RackRolloverField } from './fields'
 import { createProfileForGame, type MatchCreateProfile } from './profile'
 import { recentPlayerSuggestions, rememberRecentPlayers, useRecentPlayers } from './recent-players'
@@ -116,9 +115,7 @@ export async function action({
     throw new Response('Could not create match', { status: result.status })
   }
 
-  return redirect(`/sparring/matches/${result.matchId}/`, {
-    headers: { 'Set-Cookie': matchControlCookie(result.matchId, result.controlSecret) },
-  })
+  return redirect(`/sparring/matches/${result.matchId}/`)
 }
 
 export const handle = {

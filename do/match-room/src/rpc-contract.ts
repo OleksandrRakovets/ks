@@ -25,7 +25,6 @@ export const CreateBodySchema = v.object({
 
 export const FactsBodySchema = v.object({
   matchId: MatchIdSchema,
-  controlSecret: ControlSecretSchema,
   commandId: CommandIdSchema,
   commands: v.pipe(v.array(ControlCommandSchema), v.minLength(1)),
 })

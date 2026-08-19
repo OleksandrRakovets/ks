@@ -21,7 +21,6 @@ import { resolveControlRenderer, type HydratedMatchParticipants } from '../../fe
 import type { AppLoadContext } from '../../server/context'
 import { requireApplication } from '../../server/context'
 import { localeFromCookie } from '../../server/locale'
-import { matchControlSecretFromCookie } from '../../server/match-control-cookie'
 import { ScoreBox } from './score-box'
 
 type LoaderData = {
@@ -36,7 +35,6 @@ type ActionErrorKey =
   | typeof keys.match.control.invalidFactPayload
   | typeof keys.match.control.factRejectedByRules
   | typeof keys.match.control.unknownMatch
-  | typeof keys.match.control.unauthorized
   | typeof keys.match.control.matchLocked
 
 type ActionData = { ok: true; acceptedSeqMax: number | null } | { ok: false; errorKey: ActionErrorKey }
@@ -47,7 +45,6 @@ const StreamFactEventSchema = v.pipe(v.string(), v.parseJson(), StreamFactSchema
 
 function postFactsErrorKey(error: string): ActionErrorKey {
   if (error === 'unknown-match') return keys.match.control.unknownMatch
-  if (error === 'unauthorized') return keys.match.control.unauthorized
   if (error === 'match-locked') return keys.match.control.matchLocked
   return keys.match.control.invalidFactPayload
 }
@@ -146,11 +143,9 @@ export async function action({
     return { ok: false, errorKey: keys.match.control.invalidFactPayload }
   }
 
-  const controlSecret = matchControlSecretFromCookie(request.headers.get('cookie'), matchId)
-  if (!controlSecret) return { ok: false, errorKey: keys.match.control.unauthorized }
   const commandId = v.safeParse(CommandIdSchema, form.get('commandId'))
   if (!commandId.success) return { ok: false, errorKey: keys.match.control.invalidFactPayload }
-  const result = await application.commandMatch(matchId, controlSecret, commandId.output, [parsedCommand.output])
+  const result = await application.commandMatch(matchId, commandId.output, [parsedCommand.output])
   if (!result.ok) {
     return { ok: false, errorKey: postFactsErrorKey(result.error) }
   }

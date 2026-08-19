@@ -61,9 +61,7 @@ export class MatchRoom extends DurableObject<Env> {
     })
   }
 
-  async create(
-    args: CreateBody,
-  ): Promise<{ ok: true; matchId: string; controlSecret: string } | { ok: false; error: string; status: number }> {
+  async create(args: CreateBody): Promise<{ ok: true; matchId: string } | { ok: false; error: string; status: number }> {
     await this.ready
     const parsed = v.safeParse(CreateBodySchema, args)
     if (!parsed.success) return { ok: false, error: 'Invalid create body', status: 400 }
@@ -105,7 +103,7 @@ export class MatchRoom extends DurableObject<Env> {
         createdAt: match.createdAt,
       })
 
-      return { ok: true, matchId: parsed.output.matchId, controlSecret: parsed.output.controlSecret }
+      return { ok: true, matchId: parsed.output.matchId }
     })
   }
 
@@ -144,7 +142,7 @@ export class MatchRoom extends DurableObject<Env> {
     args: FactsBody,
   ): Promise<
     | { ok: true; accepted: Accepted[] }
-    | { ok: false; error: 'invalid-facts-body' | 'unknown-match' | 'unauthorized' | 'match-locked'; status: number }
+    | { ok: false; error: 'invalid-facts-body' | 'unknown-match' | 'match-locked'; status: number }
   > {
     await this.ready
     const parsed = v.safeParse(FactsBodySchema, args)
@@ -152,7 +150,6 @@ export class MatchRoom extends DurableObject<Env> {
     return await this.ctx.blockConcurrencyWhile(async () => {
       const match = this.store.match()
       if (!match || match.matchId !== parsed.output.matchId) return { ok: false, error: 'unknown-match', status: 400 }
-      if (match.controlSecret !== parsed.output.controlSecret) return { ok: false, error: 'unauthorized', status: 401 }
       const requestJson = JSON.stringify(parsed.output.commands)
       const previous = this.store.receipt(parsed.output.commandId)
       if (previous) {

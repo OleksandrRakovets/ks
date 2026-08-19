@@ -97,14 +97,9 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     return result
   }
 
-  async function commandMatch(
-    matchId: string,
-    controlSecret: string,
-    commandId: CommandId,
-    commands: ControlCommand[],
-  ): Promise<CommandMatchResult> {
+  async function commandMatch(matchId: string, commandId: CommandId, commands: ControlCommand[]): Promise<CommandMatchResult> {
     const normalizedMatchId = normalizeMatchId(matchId)
-    return await dependencies.matchRoom.command(normalizedMatchId, controlSecret, commandId, commands)
+    return await dependencies.matchRoom.command(normalizedMatchId, commandId, commands)
   }
 
   async function readMatchProtocol(
