@@ -11,6 +11,14 @@ export function matchControlCookie(matchId: string, secret: string): string {
 export function matchControlSecretFromCookie(cookie: string | null, matchId: string): string | null {
   if (!cookie) return null
   const key = `${matchControlCookieName(matchId)}=`
-  const part = cookie.split(';').map((item) => item.trim()).find((item) => item.startsWith(key))
-  return part ? decodeURIComponent(part.slice(key.length)) : null
+  const part = cookie
+    .split(';')
+    .map((item) => item.trim())
+    .find((item) => item.startsWith(key))
+  if (!part) return null
+  try {
+    return decodeURIComponent(part.slice(key.length))
+  } catch {
+    return null
+  }
 }

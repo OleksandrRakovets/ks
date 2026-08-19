@@ -93,9 +93,7 @@ describe('application orchestration', () => {
     const result = await application.commandMatch(`m_${matchId}`, controlSecret, commandId, [command])
 
     expect(result).toEqual({ ok: true, accepted: [{ seq: 3, factId: '01ARZ3NDEKTSV4RRFFQ69G5FAC' }] })
-    expect(calls).toEqual([
-      [matchId, controlSecret, commandId, [command]],
-    ])
+    expect(calls).toEqual([[matchId, controlSecret, commandId, [command]]])
   })
 
   test('rejects a malformed command response at the MatchRoom adapter boundary', async () => {
@@ -137,10 +135,20 @@ describe('application orchestration', () => {
       listActiveFacts: unused,
       getProtocolArchive: unused,
       matchRoom: createMatchRoomClient({
-        getByName: () => ({ create: unused, snapshot: unused, stream: unused, facts: async () => ({ ok: false, error: 'unauthorized', status: 401 }), factsForProtocol: unused }),
+        getByName: () => ({
+          create: unused,
+          snapshot: unused,
+          stream: unused,
+          facts: async () => ({ ok: false, error: 'unauthorized', status: 401 }),
+          factsForProtocol: unused,
+        }),
       }),
     })
 
-    expect(await application.commandMatch(matchId, controlSecret, newCommandId(), [])).toEqual({ ok: false, error: 'unauthorized', status: 401 })
+    expect(await application.commandMatch(matchId, controlSecret, newCommandId(), [])).toEqual({
+      ok: false,
+      error: 'unauthorized',
+      status: 401,
+    })
   })
 })

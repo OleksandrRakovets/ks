@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
-import * as v from 'valibot'
 import { newCommandId } from '@ks/core'
+import * as v from 'valibot'
 
 import { CreateBodySchema, FactsBodySchema, SnapshotBodySchema, StreamBodySchema } from './rpc-contract'
 

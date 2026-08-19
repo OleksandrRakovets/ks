@@ -1,4 +1,4 @@
-import { integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 export const activeMatches = sqliteTable('active_matches', {
   matchId: text('match_id').primaryKey(),
@@ -7,20 +7,16 @@ export const activeMatches = sqliteTable('active_matches', {
   latestSeq: integer('latest_seq').notNull(),
 })
 
-export const acceptedFacts = sqliteTable(
-  'accepted_facts',
-  {
-    seq: integer('seq').primaryKey(),
-    factId: text('fact_id').notNull().unique(),
-    type: text('type').notNull(),
-    payloadJson: text('payload_json').notNull(),
-    clientId: text('client_id').notNull(),
-    clientSeq: integer('client_seq').notNull(),
-    at: integer('at').notNull(),
-    receivedAt: integer('received_at').notNull(),
-  },
-  (table) => [primaryKey({ columns: [table.seq] })],
-)
+export const acceptedFacts = sqliteTable('accepted_facts', {
+  seq: integer('seq').primaryKey(),
+  factId: text('fact_id').notNull().unique(),
+  type: text('type').notNull(),
+  payloadJson: text('payload_json').notNull(),
+  clientId: text('client_id').notNull(),
+  clientSeq: integer('client_seq').notNull(),
+  at: integer('at').notNull(),
+  receivedAt: integer('received_at').notNull(),
+})
 
 export const commandReceipts = sqliteTable('command_receipts', {
   commandId: text('command_id').primaryKey(),

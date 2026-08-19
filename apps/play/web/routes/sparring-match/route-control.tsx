@@ -1,11 +1,13 @@
 import {
   ControlCommandSchema,
+  CommandIdSchema,
   StreamFactSchema,
   StreamReadySchema,
   UnknownObjectSchema,
   emptyControlCommandSections,
   type ControlCommandSections,
   type ControlCommandPreset,
+  newCommandId,
   type MatchSnapshot,
 } from '@ks/core'
 import { isRegisteredGameKey, registry, type GameControlProjection } from '@ks/gameplay/definitions'
@@ -19,9 +21,8 @@ import { resolveControlRenderer, type HydratedMatchParticipants } from '../../fe
 import type { AppLoadContext } from '../../server/context'
 import { requireApplication } from '../../server/context'
 import { localeFromCookie } from '../../server/locale'
-import { ScoreBox } from './score-box'
 import { matchControlSecretFromCookie } from '../../server/match-control-cookie'
-import { newCommandId } from '@ks/core'
+import { ScoreBox } from './score-box'
 
 type LoaderData = {
   snapshot: MatchSnapshot
@@ -147,7 +148,9 @@ export async function action({
 
   const controlSecret = matchControlSecretFromCookie(request.headers.get('cookie'), matchId)
   if (!controlSecret) return { ok: false, errorKey: keys.match.control.unauthorized }
-  const result = await application.commandMatch(matchId, controlSecret, newCommandId(), [parsedCommand.output])
+  const commandId = v.safeParse(CommandIdSchema, form.get('commandId'))
+  if (!commandId.success) return { ok: false, errorKey: keys.match.control.invalidFactPayload }
+  const result = await application.commandMatch(matchId, controlSecret, commandId.output, [parsedCommand.output])
   if (!result.ok) {
     return { ok: false, errorKey: postFactsErrorKey(result.error) }
   }
@@ -251,6 +254,7 @@ export default function SparringMatchRoute() {
         source: command.source,
         commandType: command.commandType,
         commandJson: JSON.stringify(command.command),
+        commandId: newCommandId(),
       },
       { method: 'post' },
     )

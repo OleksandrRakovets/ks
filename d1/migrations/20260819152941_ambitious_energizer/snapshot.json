@@ -2,9 +2,7 @@
   "version": "7",
   "dialect": "sqlite",
   "id": "70fc1089-b111-48a9-a9cf-4249d82aa41c",
-  "prevIds": [
-    "ec5b7b31-4906-41fb-aa85-4a9ea64cd583"
-  ],
+  "prevIds": ["ec5b7b31-4906-41fb-aa85-4a9ea64cd583"],
   "ddl": [
     {
       "name": "guest_players",
@@ -263,36 +261,28 @@
       "table": "verified_players"
     },
     {
-      "columns": [
-        "guest_player_id"
-      ],
+      "columns": ["guest_player_id"],
       "nameExplicit": false,
       "name": "guest_players_pk",
       "table": "guest_players",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "match_id"
-      ],
+      "columns": ["match_id"],
       "nameExplicit": false,
       "name": "match_protocol_archives_pk",
       "table": "match_protocol_archives",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "match_id"
-      ],
+      "columns": ["match_id"],
       "nameExplicit": false,
       "name": "matches_pk",
       "table": "matches",
       "entityType": "pks"
     },
     {
-      "columns": [
-        "verified_player_id"
-      ],
+      "columns": ["verified_player_id"],
       "nameExplicit": false,
       "name": "verified_players_pk",
       "table": "verified_players",

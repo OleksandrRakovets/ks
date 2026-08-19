@@ -116,7 +116,9 @@ export async function action({
     throw new Response('Could not create match', { status: result.status })
   }
 
-  return redirect(`/sparring/matches/${result.matchId}/`, { headers: { 'Set-Cookie': matchControlCookie(result.matchId, result.controlSecret) } })
+  return redirect(`/sparring/matches/${result.matchId}/`, {
+    headers: { 'Set-Cookie': matchControlCookie(result.matchId, result.controlSecret) },
+  })
 }
 
 export const handle = {

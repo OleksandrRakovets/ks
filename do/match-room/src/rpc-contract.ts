@@ -2,7 +2,6 @@ import {
   ControlCommandSchema,
   CommandIdSchema,
   GameConfigurationSchema,
-  MatchConfigSchema,
   MatchIdSchema,
   MatchSeatAssignmentSchema,
   MatchTargetsSchema,

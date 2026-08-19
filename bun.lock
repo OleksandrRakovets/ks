@@ -87,6 +87,7 @@
       "devDependencies": {
         "@types/node": "catalog:",
         "bun-types": "catalog:",
+        "drizzle-kit": "catalog:",
         "typescript": "catalog:",
         "wrangler": "catalog:",
       },

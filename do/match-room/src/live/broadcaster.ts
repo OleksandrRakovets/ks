@@ -13,18 +13,27 @@ export class Broadcaster {
       start: (controller) => {
         controller.enqueue(encoder.encode(`event: ready\ndata: ${JSON.stringify({ latestSeq: ready })}\n\n`))
         for (const fact of backlog) controller.enqueue(encoder.encode(`event: ev\ndata: ${JSON.stringify(fact)}\n\n`))
-        client = { controller, pingTimer: setInterval(() => controller.enqueue(encoder.encode(`: ping ${Date.now()}\n\n`)), 25000) }
+        client = {
+          controller,
+          pingTimer: setInterval(() => controller.enqueue(encoder.encode(`: ping ${Date.now()}\n\n`)), 25000),
+        }
         this.clients.add(client)
       },
       cancel: () => this.remove(client),
     })
-    return new Response(stream, { headers: { 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-cache', connection: 'keep-alive' } })
+    return new Response(stream, {
+      headers: { 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-cache', connection: 'keep-alive' },
+    })
   }
 
   broadcast(fact: StoredFact): void {
     const bytes = encoder.encode(`event: ev\ndata: ${JSON.stringify(fact)}\n\n`)
     for (const client of this.clients) {
-      try { client.controller.enqueue(bytes) } catch { this.remove(client) }
+      try {
+        client.controller.enqueue(bytes)
+      } catch {
+        this.remove(client)
+      }
     }
   }
 

@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm'
-import { check, index, integer, primaryKey, sqliteTable, text, unique } from 'drizzle-orm/sqlite-core'
+import { check, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 export const matches = sqliteTable(
   'matches',
