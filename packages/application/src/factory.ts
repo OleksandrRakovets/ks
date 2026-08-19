@@ -5,6 +5,7 @@ import { getOrCreateGuestPlayerRef } from './d1/guest-players'
 import { getMatchControlSecret, getMatchParticipantRefs, listMatchRows, listStoredFacts } from './d1/matches'
 import { hydrateParticipant } from './d1/players'
 import { getProtocolArchive } from './d1/protocol-archives'
+import { createApplicationDatabaseClient } from './d1/types'
 import { createMatchRoomClient } from './match-room-client'
 import { createApplicationWithDependencies } from './use-cases'
 
@@ -22,7 +23,7 @@ function newControlSecret(): string {
 }
 
 export function createApplication(bindings: ApplicationBindings) {
-  const db = bindings.DB
+  const db = createApplicationDatabaseClient(bindings.DB)
   return createApplicationWithDependencies({
     newMatchId,
     newControlSecret,
@@ -30,11 +31,11 @@ export function createApplication(bindings: ApplicationBindings) {
     hydrateParticipant: async (playerRef, locale) => await hydrateParticipant(db, playerRef, locale),
     listMatchRecords: async () =>
       (await listMatchRows(db)).map((row) => ({
-        matchId: row.match_id,
-        gameKey: row.game_key,
+        matchId: row.matchId,
+        gameKey: row.gameKey,
         status: row.status,
-        createdAt: row.created_at,
-        participantRefs: { A: row.seat_a_player_ref, B: row.seat_b_player_ref },
+        createdAt: row.createdAt,
+        participantRefs: { A: row.seatAPlayerRef, B: row.seatBPlayerRef },
       })),
     getMatchParticipantRefs: async (matchId) => await getMatchParticipantRefs(db, matchId),
     getMatchControlSecret: async (matchId) => await getMatchControlSecret(db, matchId),

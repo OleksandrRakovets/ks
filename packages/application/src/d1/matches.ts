@@ -1,30 +1,23 @@
 import { normalizeMatchId } from '@ks/competition'
 import { StoredFactSchema, type StoredFact } from '@ks/core'
+import { asc, eq, sql } from 'drizzle-orm'
 import * as v from 'valibot'
 
+import { facts, matches } from './schema'
 import type { ApplicationDatabase } from './types'
 
-export type MatchListRow = {
-  match_id: string
-  game_key: string
-  status: string
-  created_at: number
-  seat_a_player_ref: string
-  seat_b_player_ref: string
-}
-
-export async function listMatchRows(db: ApplicationDatabase): Promise<MatchListRow[]> {
-  const result = await db
-    .prepare(
-      [
-        'SELECT match_id, game_key, status, created_at, seat_a_player_ref, seat_b_player_ref',
-        'FROM matches',
-        "ORDER BY CASE WHEN status = 'finished' THEN 1 ELSE 0 END ASC, created_at DESC",
-      ].join(' '),
-    )
-    .bind()
-    .all<MatchListRow>()
-  return result.results ?? []
+export async function listMatchRows(db: ApplicationDatabase) {
+  return await db
+    .select({
+      matchId: matches.matchId,
+      gameKey: matches.gameKey,
+      status: matches.status,
+      createdAt: matches.createdAt,
+      seatAPlayerRef: matches.seatAPlayerRef,
+      seatBPlayerRef: matches.seatBPlayerRef,
+    })
+    .from(matches)
+    .orderBy(sql`CASE WHEN ${matches.status} = 'finished' THEN 1 ELSE 0 END`, sql`${matches.createdAt} DESC`)
 }
 
 export async function getMatchParticipantRefs(
@@ -32,49 +25,37 @@ export async function getMatchParticipantRefs(
   matchId: string,
 ): Promise<{ A: string; B: string } | null> {
   const row = await db
-    .prepare('SELECT seat_a_player_ref, seat_b_player_ref FROM matches WHERE match_id = ?')
-    .bind(normalizeMatchId(matchId))
-    .first<{ seat_a_player_ref: string; seat_b_player_ref: string }>()
-  return row ? { A: row.seat_a_player_ref, B: row.seat_b_player_ref } : null
+    .select({ A: matches.seatAPlayerRef, B: matches.seatBPlayerRef })
+    .from(matches)
+    .where(eq(matches.matchId, normalizeMatchId(matchId)))
+    .get()
+  return row ?? null
 }
 
 export async function getMatchControlSecret(db: ApplicationDatabase, matchId: string): Promise<string | null> {
   const row = await db
-    .prepare('SELECT control_secret FROM matches WHERE match_id = ?')
-    .bind(normalizeMatchId(matchId))
-    .first<{ control_secret: string }>()
-  return row?.control_secret ?? null
+    .select({ controlSecret: matches.controlSecret })
+    .from(matches)
+    .where(eq(matches.matchId, normalizeMatchId(matchId)))
+    .get()
+  return row?.controlSecret ?? null
 }
 
 export async function listStoredFacts(db: ApplicationDatabase, matchId: string): Promise<StoredFact[]> {
   const normalizedMatchId = normalizeMatchId(matchId)
-  const result = await db
-    .prepare(
-      'SELECT seq, fact_id, type, payload_json, client_id, client_seq, at, received_at FROM facts WHERE match_id = ? ORDER BY seq ASC',
-    )
-    .bind(normalizedMatchId)
-    .all<{
-      seq: number
-      fact_id: string
-      type: string
-      payload_json: string
-      client_id: string
-      client_seq: number
-      at: number
-      received_at: number
-    }>()
+  const rows = await db.select().from(facts).where(eq(facts.matchId, normalizedMatchId)).orderBy(asc(facts.seq))
 
-  return (result.results ?? []).flatMap((row) => {
-    const payload = v.safeParse(v.pipe(v.string(), v.parseJson()), row.payload_json)
+  return rows.flatMap((row) => {
+    const payload = v.safeParse(v.pipe(v.string(), v.parseJson()), row.payloadJson)
     if (!payload.success) return []
     const fact = v.safeParse(StoredFactSchema, {
       seq: row.seq,
-      factId: row.fact_id,
-      matchId: normalizedMatchId,
-      clientId: row.client_id,
-      clientSeq: row.client_seq,
+      factId: row.factId,
+      matchId: row.matchId,
+      clientId: row.clientId,
+      clientSeq: row.clientSeq,
       at: row.at,
-      receivedAt: row.received_at,
+      receivedAt: row.receivedAt,
       type: row.type,
       payload: payload.output,
     })
