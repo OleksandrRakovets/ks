@@ -145,7 +145,7 @@ export async function action({
 
   const commandId = v.safeParse(CommandIdSchema, form.get('commandId'))
   if (!commandId.success) return { ok: false, errorKey: keys.match.control.invalidFactPayload }
-  const result = await application.commandMatch(matchId, commandId.output, [parsedCommand.output])
+  const result = await application.commandMatch(matchId, commandId.output, parsedCommand.output)
   if (!result.ok) {
     return { ok: false, errorKey: postFactsErrorKey(result.error) }
   }

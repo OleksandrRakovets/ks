@@ -14,6 +14,7 @@ describe('MatchRoom RPC request contract', () => {
       v.safeParse(CreateBodySchema, {
         matchId,
         controlSecret,
+        createdAt: 1_700_000_000_000,
         gameKey: 'free-pyramid',
         targets: { frameTargetPointsBySeat: { A: 8, B: 8 }, matchTargetFrames: 3 },
         firstBreakerSeat: 'A',
@@ -31,7 +32,7 @@ describe('MatchRoom RPC request contract', () => {
       v.safeParse(FactsBodySchema, {
         matchId,
         commandId: newCommandId(),
-        commands: [{ source: 'match', commandType: 'frame.start', command: {} }],
+        command: { source: 'match', commandType: 'frame.start', command: {} },
       }).success,
     ).toBe(true)
     expect(v.safeParse(StreamBodySchema, { matchId, since: 2 }).success).toBe(true)

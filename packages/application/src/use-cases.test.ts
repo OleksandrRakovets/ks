@@ -3,7 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import { newCommandId, PlayerRefSchema, type ControlCommand } from '@ks/core'
 import * as v from 'valibot'
 
-import { createMatchRoomClient, type MatchRoomCreateRequest } from './match-room-client'
+import type { MatchRoomCreateRequest } from './match-room-client'
 import { createApplicationWithDependencies } from './use-cases'
 
 const matchId = '01ARZ3NDEKTSV4RRFFQ69G5FAV'
@@ -17,20 +17,25 @@ function unused(): never {
 
 describe('application orchestration', () => {
   test('creates both guest players before creating the room with generated credentials', async () => {
+    const createdAt = 1_700_000_000_000
+    const lifecycle: unknown[] = []
     const playerNames: string[] = []
     let roomRequest: MatchRoomCreateRequest | undefined
     const room = {
       async create(request: MatchRoomCreateRequest) {
+        lifecycle.push(['room', request.createdAt])
         roomRequest = request
         return { ok: true as const, matchId }
       },
       snapshot: unused,
+      command: unused,
       facts: unused,
       stream: unused,
     }
     const application = createApplicationWithDependencies({
       newMatchId: () => matchId,
       newControlSecret: () => controlSecret,
+      now: () => createdAt,
       getOrCreateGuestPlayerRef: async (displayName) => {
         playerNames.push(displayName)
         return displayName === 'Alice Smith' ? playerRefA : playerRefB
@@ -40,7 +45,14 @@ describe('application orchestration', () => {
       getMatchParticipantRefs: unused,
       listActiveFacts: unused,
       getProtocolArchive: unused,
-      matchRoom: createMatchRoomClient({ getByName: () => room }),
+      beginMatchCreation: async (input) => {
+        lifecycle.push(['begin', input.createdAt])
+      },
+      activateMatch: async (id) => {
+        lifecycle.push(['activate', id])
+      },
+      recordCompletedMatch: unused,
+      matchRoom: room,
     })
 
     const result = await application.createMatch({
@@ -55,6 +67,7 @@ describe('application orchestration', () => {
     expect(roomRequest).toEqual({
       matchId,
       controlSecret,
+      createdAt,
       gameKey: 'free-pyramid',
       targets: { frameTargetPointsBySeat: { A: 8, B: 9 }, matchTargetFrames: 3 },
       firstBreakerSeat: 'B',
@@ -63,6 +76,11 @@ describe('application orchestration', () => {
         { seat: 'B', playerRef: playerRefB },
       ],
     })
+    expect(lifecycle).toEqual([
+      ['begin', createdAt],
+      ['room', createdAt],
+      ['activate', matchId],
+    ])
   })
 
   test('submits commands to the selected room without a control secret', async () => {
@@ -71,56 +89,86 @@ describe('application orchestration', () => {
     const room = {
       create: unused,
       snapshot: unused,
-      async facts(args: { matchId: string; commandId: string; commands: ControlCommand[] }) {
-        calls.push([args.matchId, args.commandId, args.commands])
+      async command(matchId: string, commandId: string, command: ControlCommand) {
+        calls.push([matchId, commandId, command])
         return { ok: true as const, accepted: [{ seq: 3, factId: '01ARZ3NDEKTSV4RRFFQ69G5FAC' }] }
       },
+      facts: unused,
       stream: unused,
     }
     const application = createApplicationWithDependencies({
       newMatchId: unused,
       newControlSecret: unused,
+      now: unused,
       getOrCreateGuestPlayerRef: unused,
       hydrateParticipant: unused,
       listMatchRecords: unused,
       getMatchParticipantRefs: unused,
       listActiveFacts: unused,
       getProtocolArchive: unused,
-      matchRoom: createMatchRoomClient({ getByName: () => room }),
+      beginMatchCreation: unused,
+      activateMatch: unused,
+      recordCompletedMatch: unused,
+      matchRoom: room,
     })
 
     const commandId = newCommandId()
-    const result = await application.commandMatch(`m_${matchId}`, commandId, [command])
+    const result = await application.commandMatch(`m_${matchId}`, commandId, command)
 
     expect(result).toEqual({ ok: true, accepted: [{ seq: 3, factId: '01ARZ3NDEKTSV4RRFFQ69G5FAC' }] })
-    expect(calls).toEqual([[matchId, commandId, [command]]])
+    expect(calls).toEqual([[matchId, commandId, command]])
   })
 
-  test('rejects a malformed command response at the MatchRoom adapter boundary', async () => {
+  test('archives terminal commands from the private room descriptor without exposing it', async () => {
+    const archived: unknown[] = []
     const room = {
       create: unused,
       snapshot: unused,
+      async command() {
+        return {
+          ok: true as const,
+          accepted: [{ seq: 9, factId: '01ARZ3NDEKTSV4RRFFQ69G5FAC' }],
+          completion: { sourceLatestSeq: 9, endedAt: 1_700_000_000_999 },
+        }
+      },
       async facts() {
-        return { ok: true, accepted: 'not-an-array' }
+        return []
       },
       stream: unused,
     }
     const application = createApplicationWithDependencies({
       newMatchId: unused,
       newControlSecret: unused,
+      now: unused,
       getOrCreateGuestPlayerRef: unused,
       hydrateParticipant: unused,
       listMatchRecords: unused,
       getMatchParticipantRefs: unused,
       listActiveFacts: unused,
       getProtocolArchive: unused,
-      matchRoom: createMatchRoomClient({ getByName: () => room }),
+      beginMatchCreation: unused,
+      activateMatch: unused,
+      recordCompletedMatch: async (input) => {
+        archived.push(input)
+      },
+      matchRoom: room,
     })
 
-    expect(await application.commandMatch(matchId, newCommandId(), [])).toEqual({
-      ok: false,
-      error: 'Failed to parse command response',
-      status: 502,
+    const result = await application.commandMatch(matchId, newCommandId(), {
+      source: 'match',
+      commandType: 'match.end',
+      command: {},
     })
+
+    expect(result).toEqual({ ok: true, accepted: [{ seq: 9, factId: '01ARZ3NDEKTSV4RRFFQ69G5FAC' }] })
+    expect(archived).toEqual([
+      {
+        matchId,
+        sourceLatestSeq: 9,
+        endedAt: 1_700_000_000_999,
+        protocolVersion: 1,
+        rowsJson: '[]',
+      },
+    ])
   })
 })

@@ -1,6 +1,4 @@
-import { recordCompletedMatchInCatalog, registerActiveMatchInCatalog } from '@ks/application/match-room'
 import {
-  assignmentsBySeat,
   buildMatchConfig,
   CreateMatchRequestSchema,
   deriveSparringControlSections,
@@ -19,9 +17,12 @@ import {
   SeatSchema,
   type ClientFact,
   type ControlCommand,
+  type ControlCommandSections,
   type MatchConfig,
+  type MatchSnapshot,
   type StoredFact,
 } from '@ks/core'
+import { GameControlProjectionSchema, type GameControlProjection } from '@ks/gameplay/definitions'
 import { applyGameCommand, createInitialGameState, deriveGameProjection, parseGameKey } from '@ks/gameplay/server'
 import { DurableObject } from 'cloudflare:workers'
 import { migrate } from 'drizzle-orm/durable-sqlite/migrator'
@@ -43,6 +44,7 @@ import {
 import { ActiveMatchStore, type Accepted } from './storage/store'
 
 type RoomState = { matchState: MatchState; currentFrameState: unknown | null }
+type CompletionDescriptor = { sourceLatestSeq: number; endedAt: number }
 const ConcedeFrameCommandSchema = v.object({ seat: SeatSchema })
 const CommenceFrameCommandSchema = v.object({ seat: SeatSchema })
 const GameScoreProjectionSchema = v.object({ score: BySeatNumberSchema })
@@ -76,41 +78,33 @@ export class MatchRoom extends DurableObject<Env> {
         if (
           match.matchId !== parsed.output.matchId ||
           match.controlSecret !== parsed.output.controlSecret ||
-          match.configJson !== configJson
+          match.configJson !== configJson ||
+          match.createdAt !== parsed.output.createdAt
         ) {
           return { ok: false, error: 'Match already exists', status: 409 }
         }
       } else {
-        const createdAt = Date.now()
         this.commitAccepted(this.initialFacts(parsed.output.matchId, config), null, {
           matchId: parsed.output.matchId,
           controlSecret: parsed.output.controlSecret,
           configJson,
-          createdAt,
+          createdAt: parsed.output.createdAt,
         })
         match = this.store.match()
       }
 
       if (!match) throw new Error('Failed to initialize active match')
-      const seats = assignmentsBySeat(request.output.participants)
-      // Catalog registration is intentionally idempotent and outside the local SQLite transaction.
-      // If D1 fails, an identical create retry reuses local state and retries only this operation.
-      await registerActiveMatchInCatalog(this.env.DB, {
-        matchId: match.matchId,
-        gameKey: config.gameKey,
-        seatAPlayerRef: seats.A,
-        seatBPlayerRef: seats.B,
-        createdAt: match.createdAt,
-      })
-
       return { ok: true, matchId: parsed.output.matchId }
     })
   }
 
-  async snapshot(
-    args: SnapshotBody,
-  ): Promise<
-    | { ok: true; snapshot: unknown; controlProjection: unknown | undefined; controlSections: unknown }
+  async snapshot(args: SnapshotBody): Promise<
+    | {
+        ok: true
+        snapshot: MatchSnapshot
+        controlProjection: GameControlProjection | undefined
+        controlSections: ControlCommandSections
+      }
     | { ok: false; error: string; status: number }
   > {
     await this.ready
@@ -119,14 +113,17 @@ export class MatchRoom extends DurableObject<Env> {
     if (!match || match.matchId !== args.matchId) return { ok: false, error: 'Unknown match', status: 400 }
     const state = this.loadState()
     if (!state.matchState.config) return { ok: false, error: 'Match is not initialized', status: 409 }
-    const controlProjection =
+    const controlProjection: GameControlProjection | undefined =
       state.currentFrameState === null
         ? undefined
-        : deriveGameProjection({
-            gameKey: parseGameKey(state.matchState.config.gameKey),
-            state: state.currentFrameState,
-            projection: 'control',
-          })
+        : v.parse(
+            GameControlProjectionSchema,
+            deriveGameProjection({
+              gameKey: parseGameKey(state.matchState.config.gameKey),
+              state: state.currentFrameState,
+              projection: 'control',
+            }),
+          )
     return {
       ok: true,
       snapshot: snapshotFromMatchState(state.matchState, match.latestSeq),
@@ -141,7 +138,7 @@ export class MatchRoom extends DurableObject<Env> {
   async facts(
     args: FactsBody,
   ): Promise<
-    | { ok: true; accepted: Accepted[] }
+    | { ok: true; accepted: Accepted[]; completion?: CompletionDescriptor }
     | { ok: false; error: 'invalid-facts-body' | 'unknown-match' | 'match-locked'; status: number }
   > {
     await this.ready
@@ -150,34 +147,29 @@ export class MatchRoom extends DurableObject<Env> {
     return await this.ctx.blockConcurrencyWhile(async () => {
       const match = this.store.match()
       if (!match || match.matchId !== parsed.output.matchId) return { ok: false, error: 'unknown-match', status: 400 }
-      const requestJson = JSON.stringify(parsed.output.commands)
+      const requestJson = JSON.stringify(parsed.output.command)
       const previous = this.store.receipt(parsed.output.commandId)
       if (previous) {
         if (previous.requestJson !== requestJson) {
           return { ok: false, error: 'invalid-facts-body', status: 409 }
         }
-        await this.recordTerminalFacts(this.store.factsForAccepted(previous.accepted))
-        return { ok: true, accepted: previous.accepted }
-      }
-
-      const state = this.loadState()
-      const facts: ClientFact[] = []
-      let next = state
-      for (const command of parsed.output.commands) {
-        try {
-          const derived = this.factsForCommand(next, match.matchId, command)
-          let commandState = next
-          for (const fact of derived) commandState = this.apply(commandState, fact)
-          facts.push(...derived)
-          next = commandState
-        } catch {
-          /* rejected gameplay intent produces no facts */
+        return {
+          ok: true,
+          accepted: previous.accepted,
+          ...this.completionFrom(this.store.factsForAccepted(previous.accepted)),
         }
       }
 
+      const state = this.loadState()
+      let facts: ClientFact[] = []
+      try {
+        facts = this.factsForCommand(state, match.matchId, parsed.output.command)
+      } catch {
+        /* rejected gameplay intent produces no facts */
+      }
+
       const committed = this.commitAccepted(facts, { commandId: parsed.output.commandId, requestJson })
-      await this.recordTerminalFacts(committed.storedFacts)
-      return { ok: true, accepted: committed.accepted }
+      return { ok: true, accepted: committed.accepted, ...this.completionFrom(committed.storedFacts) }
     })
   }
 
@@ -247,16 +239,9 @@ export class MatchRoom extends DurableObject<Env> {
     return committed
   }
 
-  private async recordTerminalFacts(storedFacts: StoredFact[]): Promise<void> {
+  private completionFrom(storedFacts: StoredFact[]): { completion?: CompletionDescriptor } {
     const terminalFact = storedFacts.find((fact) => fact.type === 'match.ended')
-    if (!terminalFact) return
-
-    await recordCompletedMatchInCatalog(this.env.DB, {
-      matchId: terminalFact.matchId,
-      sourceLatestSeq: terminalFact.seq,
-      facts: this.store.factsAfter(0),
-      endedAt: terminalFact.receivedAt,
-    })
+    return terminalFact ? { completion: { sourceLatestSeq: terminalFact.seq, endedAt: terminalFact.receivedAt } } : {}
   }
 
   private apply(room: RoomState, fact: ClientFact): RoomState {

@@ -3,8 +3,7 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
-    "./match-room": "./src/match-room.ts"
+    ".": "./src/index.ts"
   },
   "scripts": {
     "typecheck": "tsc -b"
@@ -14,6 +13,7 @@
     "@ks/core": "workspace:*",
     "@ks/gameplay": "workspace:*",
     "@ks/i18n": "workspace:*",
+    "@ks/match-room": "workspace:*",
     "drizzle-orm": "catalog:",
     "valibot": "catalog:"
   },

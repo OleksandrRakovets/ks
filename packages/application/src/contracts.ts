@@ -53,7 +53,7 @@ export type Application = {
   createMatch(input: CreateMatchInput): Promise<CreateMatchResult>
   listMatches(locale: SupportedLocale): Promise<MatchListEntry[]>
   readMatch(matchId: string, locale: SupportedLocale): Promise<ReadMatchResult>
-  commandMatch(matchId: string, commandId: CommandId, commands: ControlCommand[]): Promise<CommandMatchResult>
+  commandMatch(matchId: string, commandId: CommandId, command: ControlCommand): Promise<CommandMatchResult>
   readMatchProtocol(matchId: string, timeZone: string, locale: SupportedLocale): Promise<ReadMatchProtocolResult>
   streamMatchFacts(matchId: string, since?: number): Promise<Response>
 }

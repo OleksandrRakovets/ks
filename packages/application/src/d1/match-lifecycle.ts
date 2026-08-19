@@ -11,7 +11,7 @@ export type ActiveMatchCatalogInput = {
   createdAt: number
 }
 
-export async function registerActiveMatch(db: ApplicationDatabase, input: ActiveMatchCatalogInput): Promise<void> {
+export async function beginMatchCreation(db: ApplicationDatabase, input: ActiveMatchCatalogInput): Promise<void> {
   await db
     .insert(matches)
     .values({
@@ -19,7 +19,7 @@ export async function registerActiveMatch(db: ApplicationDatabase, input: Active
       gameKey: input.gameKey,
       seatAPlayerRef: input.seatAPlayerRef,
       seatBPlayerRef: input.seatBPlayerRef,
-      status: 'active',
+      status: 'creating',
       createdAt: input.createdAt,
     })
     .onConflictDoNothing({ target: matches.matchId })
@@ -41,11 +41,15 @@ export async function registerActiveMatch(db: ApplicationDatabase, input: Active
     stored.gameKey !== input.gameKey ||
     stored.seatAPlayerRef !== input.seatAPlayerRef ||
     stored.seatBPlayerRef !== input.seatBPlayerRef ||
-    stored.status !== 'active' ||
+    !['creating', 'active'].includes(stored.status) ||
     stored.createdAt !== input.createdAt
   ) {
-    throw new Error('Match catalog entry conflicts with active room')
+    throw new Error('Match catalog entry conflicts with room creation')
   }
+}
+
+export async function activateMatch(db: ApplicationDatabase, matchId: string): Promise<void> {
+  await db.update(matches).set({ status: 'active' }).where(eq(matches.matchId, matchId))
 }
 
 export async function recordCompletedMatch(

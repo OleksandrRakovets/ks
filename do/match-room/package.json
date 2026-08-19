@@ -3,6 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "exports": {
+    ".": "./src/worker.ts"
+  },
   "scripts": {
     "build": "wrangler deploy --dry-run --outdir dist",
     "cf-typegen": "CI=1 wrangler types",
@@ -11,7 +14,6 @@
     "typecheck": "CI=1 wrangler types && tsc -b"
   },
   "dependencies": {
-    "@ks/application": "workspace:*",
     "@ks/competition": "workspace:*",
     "@ks/core": "workspace:*",
     "@ks/gameplay": "workspace:*",

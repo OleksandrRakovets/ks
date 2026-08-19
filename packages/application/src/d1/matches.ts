@@ -1,5 +1,5 @@
 import { normalizeMatchId } from '@ks/competition'
-import { eq, sql } from 'drizzle-orm'
+import { eq, ne, sql } from 'drizzle-orm'
 
 import { matches } from './schema'
 import type { ApplicationDatabase } from './types'
@@ -15,6 +15,7 @@ export async function listMatchRows(db: ApplicationDatabase) {
       seatBPlayerRef: matches.seatBPlayerRef,
     })
     .from(matches)
+    .where(ne(matches.status, 'creating'))
     .orderBy(sql`CASE WHEN ${matches.status} = 'finished' THEN 1 ELSE 0 END`, sql`${matches.createdAt} DESC`)
 }
 
