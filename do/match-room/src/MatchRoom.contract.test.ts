@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
 import * as v from 'valibot'
+import { newCommandId } from '@ks/core'
 
 import { CreateBodySchema, FactsBodySchema, SnapshotBodySchema, StreamBodySchema } from './rpc-contract'
 
@@ -30,6 +31,7 @@ describe('MatchRoom RPC request contract', () => {
       v.safeParse(FactsBodySchema, {
         matchId,
         controlSecret,
+        commandId: newCommandId(),
         commands: [{ source: 'match', commandType: 'frame.start', command: {} }],
       }).success,
     ).toBe(true)

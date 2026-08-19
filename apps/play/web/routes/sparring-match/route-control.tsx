@@ -20,6 +20,8 @@ import type { AppLoadContext } from '../../server/context'
 import { requireApplication } from '../../server/context'
 import { localeFromCookie } from '../../server/locale'
 import { ScoreBox } from './score-box'
+import { matchControlSecretFromCookie } from '../../server/match-control-cookie'
+import { newCommandId } from '@ks/core'
 
 type LoaderData = {
   snapshot: MatchSnapshot
@@ -143,7 +145,9 @@ export async function action({
     return { ok: false, errorKey: keys.match.control.invalidFactPayload }
   }
 
-  const result = await application.commandMatch(matchId, [parsedCommand.output])
+  const controlSecret = matchControlSecretFromCookie(request.headers.get('cookie'), matchId)
+  if (!controlSecret) return { ok: false, errorKey: keys.match.control.unauthorized }
+  const result = await application.commandMatch(matchId, controlSecret, newCommandId(), [parsedCommand.output])
   if (!result.ok) {
     return { ok: false, errorKey: postFactsErrorKey(result.error) }
   }

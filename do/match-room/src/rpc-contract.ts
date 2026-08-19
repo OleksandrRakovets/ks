@@ -1,5 +1,6 @@
 import {
   ControlCommandSchema,
+  CommandIdSchema,
   GameConfigurationSchema,
   MatchConfigSchema,
   MatchIdSchema,
@@ -12,12 +13,6 @@ import {
 import * as v from 'valibot'
 
 const ControlSecretSchema = v.pipe(v.string(), v.minLength(16))
-
-export const InitBodySchema = v.object({
-  matchId: MatchIdSchema,
-  controlSecret: ControlSecretSchema,
-  config: MatchConfigSchema,
-})
 
 export const CreateBodySchema = v.object({
   matchId: MatchIdSchema,
@@ -32,6 +27,7 @@ export const CreateBodySchema = v.object({
 export const FactsBodySchema = v.object({
   matchId: MatchIdSchema,
   controlSecret: ControlSecretSchema,
+  commandId: CommandIdSchema,
   commands: v.pipe(v.array(ControlCommandSchema), v.minLength(1)),
 })
 
@@ -44,7 +40,6 @@ export const StreamBodySchema = v.object({
   since: v.optional(NonNegativeIntegerSchema),
 })
 
-export type InitBody = v.InferInput<typeof InitBodySchema>
 export type CreateBody = v.InferInput<typeof CreateBodySchema>
 export type FactsBody = v.InferInput<typeof FactsBodySchema>
 export type SnapshotBody = v.InferInput<typeof SnapshotBodySchema>

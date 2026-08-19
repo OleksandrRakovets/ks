@@ -2,7 +2,7 @@ import type { D1Database } from '@cloudflare/workers-types'
 import { newMatchId } from '@ks/core'
 
 import { getOrCreateGuestPlayerRef } from './d1/guest-players'
-import { getMatchControlSecret, getMatchParticipantRefs, listMatchRows, listStoredFacts } from './d1/matches'
+import { getMatchParticipantRefs, listMatchRows } from './d1/matches'
 import { hydrateParticipant } from './d1/players'
 import { getProtocolArchive } from './d1/protocol-archives'
 import { createApplicationDatabaseClient } from './d1/types'
@@ -38,8 +38,7 @@ export function createApplication(bindings: ApplicationBindings) {
         participantRefs: { A: row.seatAPlayerRef, B: row.seatBPlayerRef },
       })),
     getMatchParticipantRefs: async (matchId) => await getMatchParticipantRefs(db, matchId),
-    getMatchControlSecret: async (matchId) => await getMatchControlSecret(db, matchId),
-    listStoredFacts: async (matchId) => await listStoredFacts(db, matchId),
+    listActiveFacts: async (matchId) => await createMatchRoomClient(bindings.MATCH_ROOM).facts(matchId),
     getProtocolArchive: async (matchId) => await getProtocolArchive(db, matchId),
     matchRoom: createMatchRoomClient(bindings.MATCH_ROOM),
   })

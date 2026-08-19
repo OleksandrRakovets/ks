@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { PlayerRefSchema, type ControlCommand } from '@ks/core'
+import { newCommandId, PlayerRefSchema, type ControlCommand } from '@ks/core'
 import * as v from 'valibot'
 
 import { createMatchRoomClient, type MatchRoomCreateRequest } from './match-room-client'
@@ -38,8 +38,7 @@ describe('application orchestration', () => {
       hydrateParticipant: unused,
       listMatchRecords: unused,
       getMatchParticipantRefs: unused,
-      getMatchControlSecret: unused,
-      listStoredFacts: unused,
+      listActiveFacts: unused,
       getProtocolArchive: unused,
       matchRoom: createMatchRoomClient({ getByName: () => room }),
     })
@@ -72,8 +71,8 @@ describe('application orchestration', () => {
     const room = {
       create: unused,
       snapshot: unused,
-      async facts(args: { matchId: string; controlSecret: string; commands: ControlCommand[] }) {
-        calls.push([args.matchId, args.controlSecret, args.commands])
+      async facts(args: { matchId: string; controlSecret: string; commandId: string; commands: ControlCommand[] }) {
+        calls.push([args.matchId, args.controlSecret, args.commandId, args.commands])
         return { ok: true as const, accepted: [{ seq: 3, factId: '01ARZ3NDEKTSV4RRFFQ69G5FAC' }] }
       },
       stream: unused,
@@ -85,21 +84,17 @@ describe('application orchestration', () => {
       hydrateParticipant: unused,
       listMatchRecords: unused,
       getMatchParticipantRefs: unused,
-      getMatchControlSecret: async (selectedMatchId) => {
-        calls.push(['secret', selectedMatchId])
-        return controlSecret
-      },
-      listStoredFacts: unused,
+      listActiveFacts: unused,
       getProtocolArchive: unused,
       matchRoom: createMatchRoomClient({ getByName: () => room }),
     })
 
-    const result = await application.commandMatch(`m_${matchId}`, [command])
+    const commandId = newCommandId()
+    const result = await application.commandMatch(`m_${matchId}`, controlSecret, commandId, [command])
 
     expect(result).toEqual({ ok: true, accepted: [{ seq: 3, factId: '01ARZ3NDEKTSV4RRFFQ69G5FAC' }] })
     expect(calls).toEqual([
-      ['secret', matchId],
-      [matchId, controlSecret, [command]],
+      [matchId, controlSecret, commandId, [command]],
     ])
   })
 
@@ -119,20 +114,19 @@ describe('application orchestration', () => {
       hydrateParticipant: unused,
       listMatchRecords: unused,
       getMatchParticipantRefs: unused,
-      getMatchControlSecret: async () => controlSecret,
-      listStoredFacts: unused,
+      listActiveFacts: unused,
       getProtocolArchive: unused,
       matchRoom: createMatchRoomClient({ getByName: () => room }),
     })
 
-    expect(await application.commandMatch(matchId, [])).toEqual({
+    expect(await application.commandMatch(matchId, controlSecret, newCommandId(), [])).toEqual({
       ok: false,
       error: 'Failed to parse command response',
       status: 502,
     })
   })
 
-  test('does not call MatchRoom when command authorization data is absent', async () => {
+  test('passes authorization through the framework-neutral command boundary', async () => {
     const application = createApplicationWithDependencies({
       newMatchId: unused,
       newControlSecret: unused,
@@ -140,12 +134,13 @@ describe('application orchestration', () => {
       hydrateParticipant: unused,
       listMatchRecords: unused,
       getMatchParticipantRefs: unused,
-      getMatchControlSecret: async () => null,
-      listStoredFacts: unused,
+      listActiveFacts: unused,
       getProtocolArchive: unused,
-      matchRoom: createMatchRoomClient({ getByName: unused }),
+      matchRoom: createMatchRoomClient({
+        getByName: () => ({ create: unused, snapshot: unused, stream: unused, facts: async () => ({ ok: false, error: 'unauthorized', status: 401 }), factsForProtocol: unused }),
+      }),
     })
 
-    expect(await application.commandMatch(matchId, [])).toEqual({ ok: false, error: 'unknown-match', status: 400 })
+    expect(await application.commandMatch(matchId, controlSecret, newCommandId(), [])).toEqual({ ok: false, error: 'unauthorized', status: 401 })
   })
 })

@@ -15,6 +15,7 @@
     "@ks/competition": "workspace:*",
     "@ks/core": "workspace:*",
     "@ks/gameplay": "workspace:*",
+    "drizzle-orm": "catalog:",
     "valibot": "catalog:"
   },
   "devDependencies": {

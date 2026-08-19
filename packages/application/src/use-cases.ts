@@ -1,5 +1,5 @@
 import { normalizeMatchId, type CreateMatchRequest } from '@ks/competition'
-import type { ControlCommand, PlayerRef, StoredFact } from '@ks/core'
+import type { CommandId, ControlCommand, PlayerRef, StoredFact } from '@ks/core'
 import { isRegisteredGameKey, registry } from '@ks/gameplay/definitions'
 import type { SupportedLocale } from '@ks/i18n'
 import * as v from 'valibot'
@@ -32,8 +32,7 @@ type ApplicationDependencies = {
   hydrateParticipant(playerRef: string, locale: SupportedLocale): Promise<HydratedParticipant>
   listMatchRecords(): Promise<MatchListRecord[]>
   getMatchParticipantRefs(matchId: string): Promise<{ A: string; B: string } | null>
-  getMatchControlSecret(matchId: string): Promise<string | null>
-  listStoredFacts(matchId: string): Promise<StoredFact[]>
+  listActiveFacts(matchId: string): Promise<StoredFact[]>
   getProtocolArchive(matchId: string): Promise<{ protocolVersion: number; rowsJson: string } | null>
   matchRoom: MatchRoomClient
 }
@@ -98,11 +97,9 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     return result
   }
 
-  async function commandMatch(matchId: string, commands: ControlCommand[]): Promise<CommandMatchResult> {
+  async function commandMatch(matchId: string, controlSecret: string, commandId: CommandId, commands: ControlCommand[]): Promise<CommandMatchResult> {
     const normalizedMatchId = normalizeMatchId(matchId)
-    const controlSecret = await dependencies.getMatchControlSecret(normalizedMatchId)
-    if (!controlSecret) return { ok: false, error: 'unknown-match', status: 400 }
-    return await dependencies.matchRoom.command(normalizedMatchId, controlSecret, commands)
+    return await dependencies.matchRoom.command(normalizedMatchId, controlSecret, commandId, commands)
   }
 
   async function readMatchProtocol(
@@ -116,7 +113,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     let protocolRows
     if (match.snapshot.status === 'active') {
       protocolRows = deriveProtocolRows(
-        await dependencies.listStoredFacts(match.snapshot.matchId),
+        await dependencies.listActiveFacts(match.snapshot.matchId),
         seatNames,
         timeZone,
         locale,
