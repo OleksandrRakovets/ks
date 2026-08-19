@@ -36,7 +36,6 @@
         "@ks/core": "workspace:*",
         "@ks/gameplay": "workspace:*",
         "@ks/i18n": "workspace:*",
-        "@ks/themes": "workspace:*",
         "@ks/ui": "workspace:*",
         "classnames": "^2.5.1",
         "i18next": "^26.3.4",
@@ -94,9 +93,6 @@
     },
     "packages/i18n": {
       "name": "@ks/i18n",
-    },
-    "packages/themes": {
-      "name": "@ks/themes",
     },
     "packages/ui": {
       "name": "@ks/ui",
@@ -361,8 +357,6 @@
     "@ks/i18n": ["@ks/i18n@workspace:packages/i18n"],
 
     "@ks/play": ["@ks/play@workspace:apps/play"],
-
-    "@ks/themes": ["@ks/themes@workspace:packages/themes"],
 
     "@ks/ui": ["@ks/ui@workspace:packages/ui"],
 

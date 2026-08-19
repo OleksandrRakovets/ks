@@ -16,5 +16,4 @@ export default [
     route('top-secret/preview/', 'preview/index.tsx'),
     route('top-secret/preview/ui/', 'preview/ui.tsx'),
   ]),
-  // layout('routes/layout-scoreboard.tsx', [route('m/:matchId/', 'routes/public-scoreboard.tsx')]),
 ] satisfies RouteConfig
