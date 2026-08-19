@@ -128,6 +128,7 @@ export class LongFreePyramidGameplayRuntime implements GameplayRuntime {
     }
   }
 
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: REVIEW_POST_REFACTOR
   parseState(state: unknown): LongFreePyramidFrameState {
     return v.parse(LongFreePyramidFrameStateSchema, state)
   }

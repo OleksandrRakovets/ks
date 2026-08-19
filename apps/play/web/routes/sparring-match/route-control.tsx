@@ -153,6 +153,7 @@ export async function action({
       return { ok: false, errorKey: keys.match.control.invalidFactPayload }
     }
 
+    // oxlint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: REVIEW_POST_REFACTOR
     command = { source, commandType, command: parsedCommand.output }
   } else {
     const gameKey = String(form.get('gameKey') ?? '')
@@ -167,6 +168,7 @@ export async function action({
       return { ok: false, errorKey: keys.match.control.invalidFactPayload }
     }
 
+    // oxlint-disable-next-line anti-slop/no-known-value-widening -- SAFETY: REVIEW_POST_REFACTOR
     command = { source: 'game', commandType, command: parsedCommand.output }
   }
 

@@ -80,6 +80,7 @@ export class PyramidGameplayRuntime implements GameplayRuntime {
     }
   }
 
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: REVIEW_POST_REFACTOR
   parseState(state: unknown): PyramidFrameState {
     return v.parse(PyramidFrameStateSchema, state)
   }

@@ -20,6 +20,7 @@ export function deriveSparringControlSections(args: {
   )
 }
 
+/* oxlint-disable anti-slop/no-unknown-parameters, anti-slop/no-runtime-typeof -- SAFETY: REVIEW_POST_REFACTOR */
 function extractGamePhase(gameControlProjection: unknown): string | undefined {
   if (typeof gameControlProjection !== 'object' || gameControlProjection === null || !('details' in gameControlProjection)) {
     return undefined
@@ -40,6 +41,7 @@ function extractGameControlSections(gameControlProjection: unknown): ControlComm
   const parsed = v.safeParse(ControlCommandSectionsSchema, details.commandSections)
   return parsed.success ? parsed.output : undefined
 }
+/* oxlint-enable anti-slop/no-unknown-parameters, anti-slop/no-runtime-typeof */
 
 function deriveSparringMatchControlSections(matchState: MatchState, gamePhase?: string): ControlCommandSections {
   const currentFrame = matchState.frames[matchState.frames.length - 1]

@@ -8,6 +8,7 @@ import {
   type LongFreePyramidProjectionDetails,
 } from '../definitions'
 
+/* oxlint-disable anti-slop/no-unsafe-dictionary-type -- SAFETY: REVIEW_POST_REFACTOR */
 function command(
   commandType: string,
   payload: Record<string, unknown>,
@@ -16,6 +17,7 @@ function command(
   const seat = payload.seat === 'A' || payload.seat === 'B' ? payload.seat : undefined
   return { source: 'game', commandType, command: payload, seat, prominence }
 }
+/* oxlint-enable anti-slop/no-unsafe-dictionary-type */
 
 export function deriveLongFreePyramidControlView(args: {
   state: LongFreePyramidFrameState

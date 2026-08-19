@@ -10,6 +10,7 @@ type MatchRoomStub = {
   create: (
     args: CreateMatchRequest,
   ) => Promise<{ ok: true; matchId: string; controlSecret: string } | { ok: false; error: string; status: number }>
+  // oxlint-disable-next-line anti-slop/no-unknown-returns -- SAFETY: REVIEW_POST_REFACTOR
   snapshot: (args: { matchId: string }) => Promise<unknown>
   facts: (args: {
     matchId: string

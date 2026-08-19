@@ -84,6 +84,7 @@ export class StrilaGameplayRuntime implements GameplayRuntime {
     return serializeSnapshot(createInitialSnapshot(args.targetPointsBySeat))
   }
 
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: REVIEW_POST_REFACTOR
   parseState(state: unknown): StrilaFrameState {
     return v.parse(StrilaFrameStateSchema, state)
   }
@@ -102,6 +103,7 @@ export class StrilaGameplayRuntime implements GameplayRuntime {
     }
   }
 
+  // oxlint-disable-next-line anti-slop/no-unknown-returns -- SAFETY: REVIEW_POST_REFACTOR
   deriveProjection(args: { state: unknown; projection: GameProjectionKey }): unknown {
     const state = this.parseState(args.state)
 

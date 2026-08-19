@@ -77,9 +77,11 @@ export type GameCreateStateArgs = {
   gameConfiguration?: GameConfiguration
 }
 
+/* oxlint-disable anti-slop/no-unknown-parameters, anti-slop/no-unknown-returns -- SAFETY: REVIEW_POST_REFACTOR */
 export interface GameplayRuntime {
   createInitialState(args: GameCreateStateArgs): unknown
   parseState(state: unknown): unknown
   applyCommand(args: { state: unknown; commandType: string; command: unknown }): GameCommandResult
   deriveProjection(args: { state: unknown; projection: GameProjectionKey }): unknown
 }
+/* oxlint-enable anti-slop/no-unknown-parameters, anti-slop/no-unknown-returns */

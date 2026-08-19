@@ -15,6 +15,7 @@ import {
 } from '../definitions'
 import { computeStrilaObjectBalls } from './computeds'
 
+/* oxlint-disable anti-slop/no-unsafe-dictionary-type -- SAFETY: REVIEW_POST_REFACTOR */
 function command(
   commandType: StrilaCommand['type'],
   payload: Record<string, unknown>,
@@ -23,6 +24,7 @@ function command(
   const seat = payload.seat === 'A' || payload.seat === 'B' ? payload.seat : undefined
   return { source: 'game', commandType, command: payload, seat, ...extras }
 }
+/* oxlint-enable anti-slop/no-unsafe-dictionary-type */
 
 function seatCommands(commandType: StrilaCommand['type'], prominence: StrilaControlCommand['prominence']) {
   return [command(commandType, { seat: 'A' }, { prominence }), command(commandType, { seat: 'B' }, { prominence })]

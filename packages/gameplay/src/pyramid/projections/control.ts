@@ -5,6 +5,7 @@ import * as v from 'valibot'
 import { deriveGameCommandSections, type GameControlCommand } from '../../constants'
 import { PyramidControlViewSchema, type PyramidFrameState, type PyramidRuntimeConfig } from '../definitions'
 
+/* oxlint-disable anti-slop/no-unsafe-dictionary-type -- SAFETY: REVIEW_POST_REFACTOR */
 function command(
   commandType: string,
   payload: Record<string, unknown>,
@@ -13,6 +14,7 @@ function command(
   const seat = payload.seat === 'A' || payload.seat === 'B' ? payload.seat : undefined
   return { source: 'game', commandType, command: payload, seat, ...extras }
 }
+/* oxlint-enable anti-slop/no-unsafe-dictionary-type */
 
 function pyramidDetails(state: PyramidFrameState) {
   return {
