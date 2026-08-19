@@ -6,16 +6,7 @@ import * as v from 'valibot'
 import { facts, matches } from './schema'
 import type { ApplicationDatabase } from './types'
 
-export type MatchListRow = {
-  matchId: string
-  gameKey: string
-  status: string
-  createdAt: number
-  seatAPlayerRef: string
-  seatBPlayerRef: string
-}
-
-export async function listMatchRows(db: ApplicationDatabase): Promise<MatchListRow[]> {
+export async function listMatchRows(db: ApplicationDatabase) {
   return await db
     .select({
       matchId: matches.matchId,
@@ -52,20 +43,7 @@ export async function getMatchControlSecret(db: ApplicationDatabase, matchId: st
 
 export async function listStoredFacts(db: ApplicationDatabase, matchId: string): Promise<StoredFact[]> {
   const normalizedMatchId = normalizeMatchId(matchId)
-  const rows = await db
-    .select({
-      seq: facts.seq,
-      factId: facts.factId,
-      type: facts.type,
-      payloadJson: facts.payloadJson,
-      clientId: facts.clientId,
-      clientSeq: facts.clientSeq,
-      at: facts.at,
-      receivedAt: facts.receivedAt,
-    })
-    .from(facts)
-    .where(eq(facts.matchId, normalizedMatchId))
-    .orderBy(asc(facts.seq))
+  const rows = await db.select().from(facts).where(eq(facts.matchId, normalizedMatchId)).orderBy(asc(facts.seq))
 
   return rows.flatMap((row) => {
     const payload = v.safeParse(v.pipe(v.string(), v.parseJson()), row.payloadJson)
@@ -73,7 +51,7 @@ export async function listStoredFacts(db: ApplicationDatabase, matchId: string):
     const fact = v.safeParse(StoredFactSchema, {
       seq: row.seq,
       factId: row.factId,
-      matchId: normalizedMatchId,
+      matchId: row.matchId,
       clientId: row.clientId,
       clientSeq: row.clientSeq,
       at: row.at,

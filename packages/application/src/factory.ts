@@ -5,7 +5,7 @@ import { getOrCreateGuestPlayerRef } from './d1/guest-players'
 import { getMatchControlSecret, getMatchParticipantRefs, listMatchRows, listStoredFacts } from './d1/matches'
 import { hydrateParticipant } from './d1/players'
 import { getProtocolArchive } from './d1/protocol-archives'
-import { createApplicationDatabase } from './d1/types'
+import { createApplicationDatabaseClient } from './d1/types'
 import { createMatchRoomClient } from './match-room-client'
 import { createApplicationWithDependencies } from './use-cases'
 
@@ -23,7 +23,7 @@ function newControlSecret(): string {
 }
 
 export function createApplication(bindings: ApplicationBindings) {
-  const db = createApplicationDatabase(bindings.DB)
+  const db = createApplicationDatabaseClient(bindings.DB)
   return createApplicationWithDependencies({
     newMatchId,
     newControlSecret,
