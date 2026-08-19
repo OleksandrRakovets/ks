@@ -13,7 +13,7 @@ GET /api/live/matches/:matchId?v=1&since=:latestProcessedSeq
 Upgrade: websocket
 ```
 
-The gateway validates the upgrade, protocol version, normalized `MatchId`, non-negative cursor, origin/access policy, and active D1 catalog status before calling `stub.fetch(request)`. All other public requests are rejected. A finished match must not instantiate an empty DO; a finalizing match drives the idempotent cleanup path instead of opening a socket.
+The gateway validates the upgrade, protocol version, normalized `MatchId`, non-negative cursor, origin/access policy, and active D1 catalog status before calling `stub.fetch(request)`. All other public requests are rejected. Finished and finalizing matches do not open a socket or instantiate a finished object's DO; application reads or commands drive any required finalizing cleanup.
 
 There are no application-level client-to-server messages. Browser code sends score commands through Play; protocol ping/pong is left to Cloudflare. Unexpected client messages are closed as policy violations.
 
@@ -61,7 +61,7 @@ export const MATCH_LIVE_ENDED_CLOSE_REASON = 'match-ended'
 
 On connection, send facts with `seq > since` in ascending order, followed by `caught-up`. Thereafter send committed facts in sequence order. `match.ended` remains an ordinary domain fact; do not duplicate it as another message type. Because archival precedes its broadcast, receipt means the completed D1 representation is available.
 
-After broadcasting `match.ended`, close every socket with the exported terminal code/reason, delete DO storage, and complete the D1 catalog transition from finalizing to finished. A client stops reconnecting after either processing that fact or observing the terminal close code.
+After the application has archived the finalized facts in D1, it asks MatchRoom to dispose. MatchRoom broadcasts `match.ended`, closes every socket with the exported terminal code/reason, and deletes its storage. The application then completes the D1 catalog transition from finalizing to finished. A client stops reconnecting after either processing that fact or observing the terminal close code.
 
 Protocol version 1 is stable for old open pages. Changes must remain additive or introduce a separately negotiated version; never silently change an existing message's meaning.
 
@@ -128,7 +128,7 @@ interface MatchLiveBroadcaster {
 
 `accept` uses `ctx.acceptWebSocket()` and `serializeAttachment`; `broadcast` and `closeAll` use `ctx.getWebSockets()`. There is no in-memory client set, `setInterval`, or application ping. Attachment data contains only the protocol version and match identity needed after reconstruction.
 
-MatchRoom owns replay queries and ordering: it accepts the socket, reads local facts after the cursor, sends replay plus `caught-up`, and broadcasts only after the accepted-fact transaction commits. Reconstructing the DO during hibernation must not lose subscribers or require an alarm.
+MatchRoom owns replay queries and ordering: it accepts the socket, reads local facts after the cursor, sends replay plus `caught-up`, and broadcasts ordinary facts only after the accepted-fact transaction commits. The terminal fact is held until the application archives it and requests disposal. Reconstructing the DO during hibernation must not lose subscribers or require an alarm.
 
 ## Required Verification
 

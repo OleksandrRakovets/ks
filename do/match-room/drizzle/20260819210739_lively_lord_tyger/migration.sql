@@ -1,0 +1,1 @@
+ALTER TABLE `active_matches` ADD `status` text NOT NULL;

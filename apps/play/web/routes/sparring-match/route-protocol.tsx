@@ -154,17 +154,30 @@ export default function SparringMatchProtocolRoute() {
       const parsed = v.safeParse(StreamFactEventSchema, event.data)
       if (!parsed.success) return
 
+      if (parsed.output.type === 'match.ended') {
+        latestSeqRef.current = Math.max(latestSeqRef.current, parsed.output.seq)
+        stream.close()
+        revalidateFnRef.current()
+        return
+      }
+
       if (parsed.output.seq > latestSeqRef.current) {
         latestSeqRef.current = parsed.output.seq
         revalidateFnRef.current()
       }
     }
 
+    const onError = () => {
+      revalidateFnRef.current()
+    }
+
     stream.addEventListener('ready', onReady)
     stream.addEventListener('ev', onEvent)
+    stream.addEventListener('error', onError)
     return () => {
       stream.removeEventListener('ready', onReady)
       stream.removeEventListener('ev', onEvent)
+      stream.removeEventListener('error', onError)
       stream.close()
     }
   }, [snapshot.matchId, snapshot.status])

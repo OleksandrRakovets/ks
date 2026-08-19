@@ -99,7 +99,6 @@
         "@ks/core": "workspace:*",
         "@ks/gameplay": "workspace:*",
         "@ks/i18n": "workspace:*",
-        "@ks/match-room": "workspace:*",
         "drizzle-orm": "catalog:",
         "valibot": "catalog:",
       },

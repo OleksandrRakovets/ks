@@ -5,6 +5,7 @@ import { check, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 export const StoredMatchStatus = {
   creating: 'creating',
   active: 'active',
+  finalizing: 'finalizing',
   finished: 'finished',
 } as const
 export type StoredMatchStatus = (typeof StoredMatchStatus)[keyof typeof StoredMatchStatus]
@@ -32,6 +33,7 @@ export const matchProtocolArchives = sqliteTable('match_protocol_archives', {
   sourceLatestSeq: integer('source_latest_seq').notNull(),
   protocolVersion: integer('protocol_version').notNull(),
   rowsJson: text('rows_json').notNull(),
+  snapshotJson: text('snapshot_json').notNull(),
   createdAt: integer('created_at').$type<UnixEpochMilliseconds>().notNull(),
 })
 

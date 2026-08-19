@@ -1,7 +1,7 @@
 import type { UnixEpochMilliseconds } from '@ks/core'
 import { eq } from 'drizzle-orm'
 
-import { matchProtocolArchives, matches, StoredMatchStatus } from './schema'
+import { matches, StoredMatchStatus } from './schema'
 import type { ApplicationDatabase } from './types'
 
 export type ActiveMatchCatalogInput = {
@@ -51,42 +51,4 @@ export async function beginMatchCreation(db: ApplicationDatabase, input: ActiveM
 
 export async function activateMatch(db: ApplicationDatabase, matchId: string): Promise<void> {
   await db.update(matches).set({ status: StoredMatchStatus.active }).where(eq(matches.matchId, matchId))
-}
-
-export async function recordCompletedMatch(
-  db: ApplicationDatabase,
-  input: {
-    matchId: string
-    sourceLatestSeq: number
-    protocolVersion: number
-    rowsJson: string
-    endedAt: UnixEpochMilliseconds
-  },
-): Promise<void> {
-  await db.batch([
-    db
-      .insert(matchProtocolArchives)
-      .values({
-        matchId: input.matchId,
-        sourceLatestSeq: input.sourceLatestSeq,
-        protocolVersion: input.protocolVersion,
-        rowsJson: input.rowsJson,
-        createdAt: input.endedAt,
-      })
-      .onConflictDoUpdate({
-        target: matchProtocolArchives.matchId,
-        set: {
-          sourceLatestSeq: input.sourceLatestSeq,
-          protocolVersion: input.protocolVersion,
-          rowsJson: input.rowsJson,
-          createdAt: input.endedAt,
-        },
-      })
-      .returning(),
-    db
-      .update(matches)
-      .set({ status: StoredMatchStatus.finished, endedAt: input.endedAt })
-      .where(eq(matches.matchId, input.matchId))
-      .returning(),
-  ])
 }

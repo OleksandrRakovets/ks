@@ -17,15 +17,15 @@ Accepted target architecture. R2 and historical frontend-asset retention remain 
 
 ## Ownership
 
-| Owner             | Responsibilities                                                                                                                   | Must not own                                                                                   |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `apps/play`       | React UI, RR loaders/actions, cookies/authentication, request parsing, redirects and HTTP responses                                | SQL, raw DO protocols, match policy, sequencing                                                |
-| `@ks/application` | Use cases, application DTOs, private D1/Drizzle adapters, active-vs-finished read routing, MatchRoom client adapter                | React/RR types, `Response` construction, gameplay rules, DO lifecycle ordering                 |
-| `do/match-room`   | Per-match command serialization, active fact journal/projections, command authorization, live clients, terminal lifecycle ordering | Play imports, visual presentation, global catalog queries beyond narrow application operations |
-| D1                | Player directory, global match catalog, completed-match archive                                                                    | Authoritative active fact journal or hot projections                                           |
-| MatchRoom SQLite  | Active configuration, control credential, accepted facts, sequence/deduplication state, recoverable projections                    | Global lookup and completed history                                                            |
+| Owner             | Responsibilities                                                                                                                                          | Must not own                                                                                     |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `apps/play`       | React UI, RR loaders/actions, cookies/authentication, request parsing, redirects and HTTP responses                                                       | SQL, raw DO protocols, match policy, sequencing                                                  |
+| `@ks/application` | Use cases, application DTOs, private D1/Drizzle adapters, active-vs-finished read routing, MatchRoom client adapter, cross-store completion orchestration | React/RR types, `Response` construction, gameplay rules, DO-local transport or storage internals |
+| `do/match-room`   | Per-match command serialization, active fact journal/projections, command authorization, live clients, local terminal disposal                            | Play/application imports, visual presentation, D1 queries or global catalog policy               |
+| D1                | Player directory, global match catalog, completed-match archive                                                                                           | Authoritative active fact journal or hot projections                                             |
+| MatchRoom SQLite  | Active configuration, control credential, accepted facts, sequence/deduplication state, recoverable projections                                           | Global lookup and completed history                                                              |
 
-`@ks/application` exports deep operations, not generic repositories. Its `match-catalog`, `player-directory`, and completed-archive query modules stay private. MatchRoom may import a narrow operation such as `@ks/application/archive-completed-match`; it never imports from Play or imports D1 tables directly.
+`@ks/application` exposes deep use cases, not generic repositories. Its `match-catalog`, `player-directory`, and completed-archive query modules stay private. MatchRoom returns framework-neutral finalized facts through its RPC contract and never imports application, Play, or D1 modules. The application tells MatchRoom to dispose a finalizing object but does not know how its live clients or SQLite storage are implemented.
 
 ## Target Shape
 
@@ -52,7 +52,7 @@ d1/
 
 `do/*` participates in the Bun workspace as a deployable workspace, not as shared package logic. `packages/ui` is merged into `apps/play/web/components`.
 
-Both Workers bind the same D1 database because both need capabilities implemented by `@ks/application`. Play binds the external MatchRoom namespace by `script_name`.
+Play binds D1 and the external MatchRoom namespace by `script_name`. MatchRoom itself does not bind D1. A later public live gateway may need catalog access at the Worker edge, but that concern remains outside the Durable Object class.
 
 The project had not been deployed before this extraction, so its first deployment intentionally starts with a clean SQLite-backed MatchRoom namespace. Play owns no Durable Object migration or class export. No old local Durable Object storage is carried forward, and no remote deletion or transfer migration is needed because no legacy remote namespace exists.
 
@@ -68,18 +68,22 @@ An active match is authoritative in MatchRoom SQLite. D1 holds enough catalog da
 
 Accepted facts pass through one internal commit seam that persists sequence/deduplication state, updates projections, and then broadcasts. Initialization and command-derived facts must not retain unrelated append paths with different lifecycle side effects.
 
-`match.ended` is terminal:
+`match.ended` is terminal. The application coordinates the cross-store workflow while MatchRoom owns its local transaction and disposal:
 
 ```text
 DO SQLite transaction: append terminal fact + mark finalizing
-  -> @ks/application archive operation: idempotent D1 archive + catalog finalizing marker
-  -> broadcast terminal fact
-  -> close live clients and clear transport resources
-  -> ctx.storage.deleteAll()
-  -> mark the D1 catalog finished
+  -> return finalized facts to @ks/application
+  -> application: idempotent D1 archive + catalog finalizing marker
+  -> application asks MatchRoom to dispose
+       -> broadcast terminal fact
+       -> close live clients and clear transport resources
+       -> ctx.storage.deleteAll()
+  -> application marks the D1 catalog finished
 ```
 
-If D1 archival fails, the object stays `finalizing`, rejects gameplay commands, and retries synchronously on a later relevant request. If execution stops after archival but before deletion is acknowledged, D1's finalizing marker makes a later read retry idempotent DO cleanup before marking the catalog finished. Without alarms, cleanup after a runtime failure necessarily depends on such a request; the normal path deletes immediately. Finished reads use D1 only. There is no correction window in this design.
+The final facts are sufficient to derive both persisted projections: versioned protocol rows and the finished match snapshot. The snapshot is materialized in D1 for finished score-page reads; it is not another active source of truth.
+
+If D1 archival fails, the object stays `finalizing`, rejects gameplay commands, and returns its finalized facts for a synchronous retry on a later relevant request. If execution stops after archival but before deletion is acknowledged, D1's finalizing marker makes a later read retry idempotent DO disposal before marking the catalog finished. Without alarms, cleanup after a runtime failure necessarily depends on such a request; the normal path deletes immediately. Finished reads use D1 only. There is no correction window in this design.
 
 ## Live Transport
 

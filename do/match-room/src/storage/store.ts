@@ -110,7 +110,7 @@ export class ActiveMatchStore {
       if (args.initialization) {
         transaction
           .insert(schema.activeMatches)
-          .values({ ...args.initialization, latestSeq: 0 })
+          .values({ ...args.initialization, latestSeq: 0, status: 'active' })
           .run()
       }
 
@@ -132,7 +132,10 @@ export class ActiveMatchStore {
 
       transaction
         .update(schema.activeMatches)
-        .set({ latestSeq: nextSequence })
+        .set({
+          latestSeq: nextSequence,
+          status: storedFacts.some((fact) => fact.type === 'match.ended') ? 'finalizing' : (existingMatch?.status ?? 'active'),
+        })
         .where(eq(schema.activeMatches.matchId, matchId))
         .run()
 

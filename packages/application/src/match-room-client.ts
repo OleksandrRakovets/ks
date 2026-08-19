@@ -1,6 +1,13 @@
 import type { CreateMatchRequest } from '@ks/competition'
-import type { CommandId, ControlCommand, UnixEpochMilliseconds } from '@ks/core'
-import type { MatchRoom } from '@ks/match-room'
+import type {
+  CommandId,
+  ControlCommand,
+  ControlCommandSections,
+  MatchSnapshot,
+  StoredFact,
+  UnixEpochMilliseconds,
+} from '@ks/core'
+import type { GameControlProjection } from '@ks/gameplay/definitions'
 
 import type { CommandMatchResult, CreateMatchResult, ReadMatchResult } from './contracts'
 
@@ -9,13 +16,36 @@ export type MatchRoomCreateRequest = CreateMatchRequest & {
   controlSecret: string
   createdAt: UnixEpochMilliseconds
 }
-export type MatchRoomCommandResult = CommandMatchResult & {
-  completion?: { sourceLatestSeq: number; endedAt: UnixEpochMilliseconds } | undefined
+export type MatchRoomFinalizationData = {
+  sourceLatestSeq: number
+  endedAt: UnixEpochMilliseconds
+  facts: StoredFact[]
+}
+type MatchRoomFailure = { ok: false; error: string; status: number }
+type MatchRoomCommandResult =
+  | (Extract<CommandMatchResult, { ok: true }> & { finalizing?: true })
+  | Extract<CommandMatchResult, { ok: false }>
+type MatchRoomStub = {
+  create(request: MatchRoomCreateRequest): Promise<CreateMatchResult>
+  snapshot(args: { matchId: string }): Promise<
+    | {
+        ok: true
+        snapshot: MatchSnapshot
+        controlProjection?: GameControlProjection
+        controlSections?: ControlCommandSections
+      }
+    | Extract<ReadMatchResult, { ok: false }>
+  >
+  facts(args: { matchId: string; commandId: CommandId; command: ControlCommand }): Promise<MatchRoomCommandResult>
+  stream(args: { matchId: string; since?: number }): Promise<Response>
+  listFacts(args: { matchId: string }): Promise<{ ok: true; facts: StoredFact[] } | MatchRoomFailure>
+  finalization(args: { matchId: string }): Promise<{ ok: true; data: MatchRoomFinalizationData } | MatchRoomFailure>
+  disposeFinalized(args: { matchId: string }): Promise<{ ok: true } | MatchRoomFailure>
 }
 
 export type MatchRoomClient = ReturnType<typeof createMatchRoomClient>
 
-export function createMatchRoomClient(namespace: DurableObjectNamespace<MatchRoom>) {
+export function createMatchRoomClient(namespace: { getByName(name: string): MatchRoomStub }) {
   return {
     create: async (request: MatchRoomCreateRequest): Promise<CreateMatchResult> =>
       await namespace.getByName(request.matchId).create(request),
@@ -29,7 +59,8 @@ export function createMatchRoomClient(namespace: DurableObjectNamespace<MatchRoo
       since === undefined
         ? await namespace.getByName(matchId).stream({ matchId })
         : await namespace.getByName(matchId).stream({ matchId, since }),
-    facts: async (matchId: string): Promise<Awaited<ReturnType<MatchRoom['listFacts']>>> =>
-      await namespace.getByName(matchId).listFacts({ matchId }),
+    facts: async (matchId: string) => await namespace.getByName(matchId).listFacts({ matchId }),
+    finalization: async (matchId: string) => await namespace.getByName(matchId).finalization({ matchId }),
+    disposeFinalized: async (matchId: string) => await namespace.getByName(matchId).disposeFinalized({ matchId }),
   }
 }

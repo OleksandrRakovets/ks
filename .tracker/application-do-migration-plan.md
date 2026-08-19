@@ -53,10 +53,11 @@ Every slice must run focused tests plus `bun run check`. Report both factual ver
 
 ## 6. Implement terminal archival and immediate deletion
 
-- Add the narrow, idempotent `@ks/application/archive-completed-match` operation using private D1 schema/query modules.
+- Add a private, idempotent completed-match archive operation inside `@ks/application` using its D1 schema/query modules.
 - On accepted `match.ended`, transactionally append it and mark `finalizing`; reject subsequent gameplay commands.
-- Idempotently write the archive and a D1 catalog finalizing marker before broadcasting the terminal fact. Then close all SSE clients, clear every timer, call `ctx.storage.deleteAll()`, and only then mark the D1 catalog finished.
-- On archive failure, retain local finalizing state and allow synchronous retry; do not broadcast completion or delete storage. If execution stops later, application reads that encounter D1 finalizing must retry idempotent DO cleanup before marking it finished; no alarm is introduced.
+- Return finalized facts to the application, which derives the finished snapshot and protocol rows and idempotently writes the archive plus D1 catalog finalizing marker.
+- After archival, the application asks MatchRoom to dispose locally: broadcast the terminal fact, close all SSE clients, clear every timer, and call `ctx.storage.deleteAll()`. Only then does the application mark the D1 catalog finished. MatchRoom must not import application or bind D1.
+- On archive failure, retain local finalizing state and allow synchronous retry; do not broadcast completion or delete storage. If execution stops later, application reads must reconcile either local finalizing state or a D1 finalizing marker, retry idempotent DO cleanup, and mark the catalog finished; no alarm is introduced.
 - Route finished snapshots/protocol reads to D1 so they never recreate the deleted DO. Finalizing reads may return the completed archive while driving cleanup. Unknown/finished live requests must not leave an empty migrated object behind.
 
 **Proof:** tests inject failure before archive, before deletion, and before the final catalog transition; each retry converges to one archive, empty DO storage, and a finished catalog. Also verify no post-terminal commands/writes and that all streams close. Demonstrates V4.

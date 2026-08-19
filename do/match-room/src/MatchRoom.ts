@@ -46,7 +46,6 @@ import {
 import { ActiveMatchStore, type Accepted } from './storage/store'
 
 type RoomState = { matchState: MatchState; currentFrameState: unknown | null }
-type CompletionDescriptor = { sourceLatestSeq: number; endedAt: UnixEpochMilliseconds }
 const ConcedeFrameCommandSchema = v.object({ seat: SeatSchema })
 const CommenceFrameCommandSchema = v.object({ seat: SeatSchema })
 const GameScoreProjectionSchema = v.object({ score: BySeatNumberSchema })
@@ -56,6 +55,7 @@ export class MatchRoom extends DurableObject<Env> {
   private readonly live = new Broadcaster()
   private readonly ready: Promise<void>
   private cache: { latestSeq: number; state: RoomState } | null = null
+  private deleted = false
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
@@ -111,8 +111,12 @@ export class MatchRoom extends DurableObject<Env> {
   > {
     await this.ready
     if (!v.safeParse(SnapshotBodySchema, args).success) return { ok: false, error: 'Invalid snapshot body', status: 400 }
+    if (this.deleted) return { ok: false, error: 'Unknown match', status: 400 }
     const match = this.store.match()
     if (!match || match.matchId !== args.matchId) return { ok: false, error: 'Unknown match', status: 400 }
+    if (match.status === 'finalizing') {
+      return { ok: false, error: 'Match is finalizing', status: 409 }
+    }
     const state = this.loadState()
     if (!state.matchState.config) return { ok: false, error: 'Match is not initialized', status: 409 }
     const controlProjection: GameControlProjection | undefined =
@@ -140,17 +144,22 @@ export class MatchRoom extends DurableObject<Env> {
   async facts(
     args: FactsBody,
   ): Promise<
-    | { ok: true; accepted: Accepted[]; completion?: CompletionDescriptor }
+    | { ok: true; accepted: Accepted[]; finalizing?: true }
     | { ok: false; error: 'invalid-facts-body' | 'unknown-match' | 'match-locked'; status: number }
   > {
     await this.ready
     const parsed = v.safeParse(FactsBodySchema, args)
     if (!parsed.success) return { ok: false, error: 'invalid-facts-body', status: 400 }
     return await this.ctx.blockConcurrencyWhile(async () => {
+      if (this.deleted) return { ok: false, error: 'match-locked', status: 409 }
       const match = this.store.match()
       if (!match || match.matchId !== parsed.output.matchId) return { ok: false, error: 'unknown-match', status: 400 }
       const requestJson = JSON.stringify(parsed.output.command)
       const previous = this.store.receipt(parsed.output.commandId)
+      if (match.status === 'finalizing') {
+        if (previous?.requestJson === requestJson) return { ok: true, accepted: previous.accepted, finalizing: true }
+        return { ok: false, error: 'match-locked', status: 409 }
+      }
       if (previous) {
         if (previous.requestJson !== requestJson) {
           return { ok: false, error: 'invalid-facts-body', status: 409 }
@@ -158,7 +167,6 @@ export class MatchRoom extends DurableObject<Env> {
         return {
           ok: true,
           accepted: previous.accepted,
-          ...this.completionFrom(this.store.factsForAccepted(previous.accepted)),
         }
       }
 
@@ -171,7 +179,9 @@ export class MatchRoom extends DurableObject<Env> {
       }
 
       const committed = this.commitAccepted(facts, { commandId: parsed.output.commandId, requestJson })
-      return { ok: true, accepted: committed.accepted, ...this.completionFrom(committed.storedFacts) }
+      return committed.storedFacts.some((fact) => fact.type === 'match.ended')
+        ? { ok: true, accepted: committed.accepted, finalizing: true }
+        : { ok: true, accepted: committed.accepted }
     })
   }
 
@@ -179,18 +189,74 @@ export class MatchRoom extends DurableObject<Env> {
     await this.ready
     const parsed = v.safeParse(StreamBodySchema, args)
     if (!parsed.success) return Response.json({ ok: false, error: 'Invalid stream body' }, { status: 400 })
+    if (this.deleted) return Response.json({ ok: false, error: 'Unknown match' }, { status: 400 })
     const match = this.store.match()
     if (!match || match.matchId !== parsed.output.matchId)
       return Response.json({ ok: false, error: 'Unknown match' }, { status: 400 })
+    if (match.status === 'finalizing') {
+      return Response.json({ ok: false, error: 'Match is finalizing' }, { status: 409 })
+    }
     return this.live.stream(match.latestSeq, this.store.factsAfter(parsed.output.since ?? 0))
   }
 
-  async listFacts(args: SnapshotBody): Promise<StoredFact[]> {
+  async listFacts(
+    args: SnapshotBody,
+  ): Promise<{ ok: true; facts: StoredFact[] } | { ok: false; error: string; status: number }> {
     await this.ready
     const parsed = v.safeParse(SnapshotBodySchema, args)
-    if (!parsed.success) return []
+    if (!parsed.success) return { ok: false, error: 'Invalid facts body', status: 400 }
+    if (this.deleted) return { ok: false, error: 'Unknown match', status: 400 }
     const match = this.store.match()
-    return !match || match.matchId !== parsed.output.matchId ? [] : this.store.factsAfter(0)
+    if (!match || match.matchId !== parsed.output.matchId) return { ok: false, error: 'Unknown match', status: 400 }
+    if (match.status === 'finalizing') {
+      return { ok: false, error: 'Match is finalizing', status: 409 }
+    }
+    return { ok: true, facts: this.store.factsAfter(0) }
+  }
+
+  async finalization(
+    args: SnapshotBody,
+  ): Promise<
+    | { ok: true; data: { sourceLatestSeq: number; endedAt: UnixEpochMilliseconds; facts: StoredFact[] } }
+    | { ok: false; error: string; status: number }
+  > {
+    await this.ready
+    const parsed = v.safeParse(SnapshotBodySchema, args)
+    if (!parsed.success) return { ok: false, error: 'Invalid finalize body', status: 400 }
+    if (this.deleted) return { ok: false, error: 'Unknown match', status: 400 }
+    const match = this.store.match()
+    if (!match || match.matchId !== parsed.output.matchId) return { ok: false, error: 'Unknown match', status: 400 }
+    if (match.status !== 'finalizing') return { ok: false, error: 'Match is active', status: 409 }
+    const facts = this.store.factsAfter(0)
+    const terminalFact = facts.find((fact) => fact.type === 'match.ended')
+    if (!terminalFact) throw new Error('Missing terminal fact')
+    return {
+      ok: true,
+      data: { sourceLatestSeq: match.latestSeq, endedAt: terminalFact.receivedAt, facts },
+    }
+  }
+
+  async disposeFinalized(args: SnapshotBody): Promise<{ ok: true } | { ok: false; error: string; status: number }> {
+    await this.ready
+    const parsed = v.safeParse(SnapshotBodySchema, args)
+    if (!parsed.success) return { ok: false, error: 'Invalid dispose body', status: 400 }
+    return await this.ctx.blockConcurrencyWhile(async () => {
+      if (this.deleted) return { ok: true }
+      const match = this.store.match()
+      if (match && match.matchId !== parsed.output.matchId) return { ok: false, error: 'Unknown match', status: 400 }
+      if (match?.status === 'active') return { ok: false, error: 'Match is active', status: 409 }
+
+      if (match) {
+        const terminalFact = this.store.factsAfter(0).find((fact) => fact.type === 'match.ended')
+        if (!terminalFact) throw new Error('Missing terminal fact')
+        this.live.broadcast(terminalFact)
+      }
+      this.live.closeAll()
+      await this.ctx.storage.deleteAll()
+      this.deleted = true
+      this.cache = null
+      return { ok: true }
+    })
   }
 
   private initialFacts(matchId: string, config: MatchConfig): ClientFact[] {
@@ -236,14 +302,11 @@ export class MatchRoom extends DurableObject<Env> {
       ? this.store.commitAccepted({ facts, receipt, initialization })
       : this.store.commitAccepted({ facts, receipt })
     const state = this.loadState()
-    for (const fact of committed.storedFacts) this.live.broadcast(fact)
+    for (const fact of committed.storedFacts) {
+      if (fact.type !== 'match.ended') this.live.broadcast(fact)
+    }
     this.cache = { latestSeq: this.store.match()?.latestSeq ?? 0, state }
     return committed
-  }
-
-  private completionFrom(storedFacts: StoredFact[]): { completion?: CompletionDescriptor } {
-    const terminalFact = storedFacts.find((fact) => fact.type === 'match.ended')
-    return terminalFact ? { completion: { sourceLatestSeq: terminalFact.seq, endedAt: terminalFact.receivedAt } } : {}
   }
 
   private apply(room: RoomState, fact: ClientFact): RoomState {

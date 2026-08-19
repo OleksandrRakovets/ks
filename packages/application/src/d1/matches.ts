@@ -15,18 +15,23 @@ export async function listMatchRows(db: ApplicationDatabase) {
       seatBPlayerRef: matches.seatBPlayerRef,
     })
     .from(matches)
-    .where(inArray(matches.status, [StoredMatchStatus.active, StoredMatchStatus.finished]))
+    .where(inArray(matches.status, [StoredMatchStatus.active, StoredMatchStatus.finalizing, StoredMatchStatus.finished]))
     .orderBy(sql`CASE WHEN ${matches.status} = ${StoredMatchStatus.finished} THEN 1 ELSE 0 END`, sql`${matches.createdAt} DESC`)
 }
 
-export async function getMatchParticipantRefs(
-  db: ApplicationDatabase,
-  matchId: string,
-): Promise<{ A: string; B: string } | null> {
-  const row = await db
-    .select({ A: matches.seatAPlayerRef, B: matches.seatBPlayerRef })
-    .from(matches)
-    .where(eq(matches.matchId, normalizeMatchId(matchId)))
-    .get()
-  return row ?? null
+export async function getMatchRow(db: ApplicationDatabase, matchId: string) {
+  return (
+    (await db
+      .select({
+        matchId: matches.matchId,
+        gameKey: matches.gameKey,
+        status: matches.status,
+        createdAt: matches.createdAt,
+        seatAPlayerRef: matches.seatAPlayerRef,
+        seatBPlayerRef: matches.seatBPlayerRef,
+      })
+      .from(matches)
+      .where(eq(matches.matchId, normalizeMatchId(matchId)))
+      .get()) ?? null
+  )
 }

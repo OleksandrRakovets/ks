@@ -1,0 +1,1 @@
+ALTER TABLE `match_protocol_archives` ADD `snapshot_json` text NOT NULL;

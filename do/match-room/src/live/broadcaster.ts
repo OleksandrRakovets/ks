@@ -43,6 +43,18 @@ export class Broadcaster {
     }
   }
 
+  closeAll(): void {
+    for (const client of this.clients) {
+      clearInterval(client.pingTimer)
+      try {
+        client.controller.close()
+      } catch {
+        // The peer may already have disconnected.
+      }
+    }
+    this.clients.clear()
+  }
+
   private remove(client: Client | null): void {
     if (!client) return
     clearInterval(client.pingTimer)
