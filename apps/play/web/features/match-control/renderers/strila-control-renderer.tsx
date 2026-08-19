@@ -6,6 +6,7 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import * as v from 'valibot'
 
+import { controlCommandEffect, controlCommandLabel } from './control-copy'
 import type { MatchControlRendererProps } from './types'
 
 const BALL_COLORS: Record<StrilaBall, { bg: string; border: string }> = {
@@ -19,17 +20,6 @@ const BALL_COLORS: Record<StrilaBall, { bg: string; border: string }> = {
   7: { bg: '#2a2a2a', border: '#555555' },
 }
 
-const BALL_LABELS: Record<StrilaBall, string> = {
-  0: 'Cueball',
-  1: 'Red',
-  2: 'Yellow',
-  3: 'Green',
-  4: 'Brown',
-  5: 'Blue',
-  6: 'Pink',
-  7: 'Black',
-}
-
 type SeatCommands = MatchControlRendererProps['commandSections']['primary']
 
 function prominenceVariant(prominence: ControlCommandPreset['prominence']): 'default' | 'secondary' | 'outline' {
@@ -39,20 +29,22 @@ function prominenceVariant(prominence: ControlCommandPreset['prominence']): 'def
 }
 
 function CommandRows({
-  title,
   commands,
   selectedBalls,
   onSubmit,
 }: {
-  title: string
   commands: SeatCommands
   selectedBalls: StrilaBall[]
   onSubmit: (command: ControlCommandPreset) => void
 }) {
+  const { t } = useTranslation()
+
   function renderButton(cmd: ControlCommandPreset, key: string) {
     const isPot = cmd.commandType === 'pot.record'
     const command = isPot ? { ...cmd.command, pottedBalls: selectedBalls } : cmd.command
     const preset = { ...cmd, command }
+    const label = controlCommandLabel(t, cmd)
+    const effect = controlCommandEffect(t, cmd)
     return (
       <div key={key} className="grid gap-1">
         <Button
@@ -62,15 +54,15 @@ function CommandRows({
           disabled={isPot && selectedBalls.length === 0}
           onClick={() => onSubmit(preset)}
         >
-          {cmd.label ?? cmd.commandType}
+          {label}
         </Button>
-        {cmd.effectSummary && <p className="text-center text-base text-text-lo">{cmd.effectSummary}</p>}
+        {effect && <p className="text-center text-base text-text-lo">{effect}</p>}
       </div>
     )
   }
 
   return (
-    <section aria-label={`${title} commands`} className="border-b border-divider px-4 py-2">
+    <section className="border-b border-divider px-4 py-2">
       <div className="grid grid-cols-2 gap-6">
         <div className="grid gap-3.5">{commands.A.map((cmd, index) => renderButton(cmd, `A-${cmd.commandType}-${index}`))}</div>
         <div className="grid gap-3.5">{commands.B.map((cmd, index) => renderButton(cmd, `B-${cmd.commandType}-${index}`))}</div>
@@ -80,8 +72,10 @@ function CommandRows({
 }
 
 function NeutralCommandRows(props: { commands: ControlCommandPreset[]; onSubmit: (command: ControlCommandPreset) => void }) {
+  const { t } = useTranslation()
+
   return (
-    <section aria-label="Neutral commands" className="border-b border-divider px-4 py-2">
+    <section className="border-b border-divider px-4 py-2">
       <div className="mx-auto grid w-2/3 gap-3.5">
         {props.commands.map((command, index) => (
           <Button
@@ -91,7 +85,7 @@ function NeutralCommandRows(props: { commands: ControlCommandPreset[]; onSubmit:
             size="control"
             onClick={() => props.onSubmit(command)}
           >
-            {command.label ?? command.commandType}
+            {controlCommandLabel(t, command)}
           </Button>
         ))}
       </div>
@@ -115,7 +109,7 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
 
   if (!parsed.success) {
     return (
-      <div aria-label="Strila container" className="grid">
+      <div aria-label={t(keys.match.control.strila.container)} className="grid">
         {hasNeutral ? <NeutralCommandRows commands={commandSections.neutral} onSubmit={submitCommand} /> : null}
       </div>
     )
@@ -127,17 +121,20 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
   const hasTertiary = commandSections.tertiary.A.length > 0 || commandSections.tertiary.B.length > 0
 
   return (
-    <div aria-label="Strila container" className="grid">
+    <div aria-label={t(keys.match.control.strila.container)} className="grid">
       <p className="sr-only">{t(keys.match.control.choosePottedBall)}</p>
       <div
-        aria-label="Ball grid"
+        aria-label={t(keys.match.control.strila.ballGrid)}
         className="mx-auto grid gap-1.5 border-b border-divider px-4 py-2"
         style={{ gridTemplateColumns: 'repeat(8, minmax(0, 1fr))', justifyContent: 'center', width: 'min(100%, 528px)' }}
       >
         {StrilaMeta.allBalls.map((ball) => {
           const colors = BALL_COLORS[ball]
           const status = details.ballStatuses[ball]
-          const ballLabel = `${BALL_LABELS[ball]} (${status})`
+          const ballLabel = t(keys.match.control.strila.ballLabel, {
+            ball: t(`match.control.strila.balls.${ball}`),
+            status: t(`match.control.strila.ballStatus.${status}`),
+          })
           const isPotted = status === 'potted'
           const isSelected = details.isPotCommandAvailable && selectedBalls.includes(ball) && !isPotted
           return (
@@ -173,30 +170,18 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
 
       {hasNeutral && <NeutralCommandRows commands={commandSections.neutral} onSubmit={submitCommand} />}
 
-      {hasPrimary && (
-        <CommandRows
-          title="Primary"
-          commands={commandSections.primary}
-          selectedBalls={selectedBalls}
-          onSubmit={submitCommand}
-        />
-      )}
+      {hasPrimary && <CommandRows commands={commandSections.primary} selectedBalls={selectedBalls} onSubmit={submitCommand} />}
 
       {hasSecondary && (
-        <CommandRows
-          title="Secondary"
-          commands={commandSections.secondary}
-          selectedBalls={selectedBalls}
-          onSubmit={submitCommand}
-        />
+        <CommandRows commands={commandSections.secondary} selectedBalls={selectedBalls} onSubmit={submitCommand} />
       )}
 
       {details.messages.map((message) => (
         <p
-          key={`${message.type}:${message.text}`}
+          key={`${message.type}:${message.code}`}
           className={`px-4 pt-2 text-base leading-tight font-semibold ${message.type === 'warning' ? 'text-destructive' : 'text-muted-foreground'}`}
         >
-          {message.text}
+          {t(`match.control.messages.${message.code}`)}
         </p>
       ))}
 
@@ -210,12 +195,7 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
             {showTertiary ? t(keys.match.control.showLess) : t(keys.match.control.showMore)}
           </button>
           {showTertiary && (
-            <CommandRows
-              title="Tertiary"
-              commands={commandSections.tertiary}
-              selectedBalls={selectedBalls}
-              onSubmit={submitCommand}
-            />
+            <CommandRows commands={commandSections.tertiary} selectedBalls={selectedBalls} onSubmit={submitCommand} />
           )}
         </div>
       )}

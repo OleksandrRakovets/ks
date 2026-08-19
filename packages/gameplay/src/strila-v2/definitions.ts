@@ -108,7 +108,7 @@ export const StrilaBallStatusesSchema = v.object({
 
 const ControlMessageSchema = v.object({
   type: v.picklist(['hint', 'warning']),
-  text: NonEmptyStringSchema,
+  code: v.picklist(['cue-ball-and-colored-is-foul', 'black-pot-wins']),
 })
 
 export type StrilaControlCommand = v.InferOutput<typeof GameControlCommandSchema>

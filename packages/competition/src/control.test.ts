@@ -40,7 +40,6 @@ describe('deriveSparringControlSections', () => {
         source: 'match',
         commandType: 'frame.start',
         command: {},
-        label: 'Start next frame',
         prominence: 'secondary',
       },
     ])
@@ -70,7 +69,6 @@ describe('deriveSparringControlSections', () => {
         source: 'match',
         commandType: 'match.end',
         command: {},
-        label: 'End match',
         prominence: 'secondary',
       },
     ])
@@ -95,7 +93,6 @@ describe('deriveSparringControlSections', () => {
         commandType: 'frame.concede',
         command: { seat: 'A' },
         seat: 'A',
-        label: 'Concede frame',
         prominence: 'tertiary',
       },
     ])
@@ -105,7 +102,6 @@ describe('deriveSparringControlSections', () => {
         commandType: 'frame.concede',
         command: { seat: 'B' },
         seat: 'B',
-        label: 'Concede frame',
         prominence: 'tertiary',
       },
     ])
@@ -133,7 +129,6 @@ describe('deriveSparringControlSections', () => {
         commandType: 'frame.commence',
         command: { seat: 'A' },
         seat: 'A',
-        label: 'Break-off',
         prominence: 'primary',
       },
     ])
@@ -148,7 +143,6 @@ describe('deriveSparringControlSections', () => {
       commandType: 'pot.record',
       command: { seat: 'A', points: 1 },
       seat: 'A',
-      label: '+1',
       prominence: 'primary',
     })
 

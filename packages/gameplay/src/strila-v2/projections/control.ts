@@ -18,18 +18,14 @@ import { computeStrilaObjectBalls } from './computeds'
 function command(
   commandType: StrilaCommand['type'],
   payload: Record<string, unknown>,
-  label: string,
-  extras: Omit<StrilaControlCommand, 'source' | 'commandType' | 'command' | 'seat' | 'label'>,
+  extras: Omit<StrilaControlCommand, 'source' | 'commandType' | 'command' | 'seat'>,
 ): StrilaControlCommand {
   const seat = payload.seat === 'A' || payload.seat === 'B' ? payload.seat : undefined
-  return { source: 'game', commandType, command: payload, seat, label, ...extras }
+  return { source: 'game', commandType, command: payload, seat, ...extras }
 }
 
-function seatCommands(commandType: StrilaCommand['type'], label: string, prominence: StrilaControlCommand['prominence']) {
-  return [
-    command(commandType, { seat: 'A' }, label, { prominence }),
-    command(commandType, { seat: 'B' }, label, { prominence }),
-  ]
+function seatCommands(commandType: StrilaCommand['type'], prominence: StrilaControlCommand['prominence']) {
+  return [command(commandType, { seat: 'A' }, { prominence }), command(commandType, { seat: 'B' }, { prominence })]
 }
 
 function deriveBallStatuses(state: StrilaFrameState): StrilaControlDetails['ballStatuses'] {
@@ -66,11 +62,11 @@ function deriveBallStatuses(state: StrilaFrameState): StrilaControlDetails['ball
   return ballStatuses
 }
 
-function messages(entries: Array<{ type: 'hint' | 'warning'; text: string }>) {
+function messages(entries: Array<{ type: 'hint' | 'warning'; code: 'cue-ball-and-colored-is-foul' | 'black-pot-wins' }>) {
   const seen = new Set<string>()
   return entries.filter((entry) => {
-    if (seen.has(entry.text)) return false
-    seen.add(entry.text)
+    if (seen.has(entry.code)) return false
+    seen.add(entry.code)
     return true
   })
 }
@@ -82,7 +78,7 @@ function view(
     situationTitle: string
     situationSummary: string
     seat?: Seat
-    messages?: Array<{ type: 'hint' | 'warning'; text: string }>
+    messages?: Array<{ type: 'hint' | 'warning'; code: 'cue-ball-and-colored-is-foul' | 'black-pot-wins' }>
   },
 ): StrilaControlView {
   return v.parse(StrilaControlViewSchema, {
@@ -112,10 +108,7 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
       })
     case 'open-play':
       return view(state, {
-        commands: [
-          ...seatCommands('pot.record', 'Record pot', 'primary'),
-          ...seatCommands('foul.commit', 'Foul committed', 'secondary'),
-        ],
+        commands: [...seatCommands('pot.record', 'primary'), ...seatCommands('foul.commit', 'secondary')],
         situationTitle: 'Open play',
         situationSummary: 'Log pots or a foul.',
       })
@@ -124,18 +117,30 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
       const chooser = opponentOf(state.foulOffender)
       return view(state, {
         commands: [
-          command('penalty.select', { seat: chooser, choice: 'play-from-position' }, 'Play from position', {
-            prominence: 'secondary',
-            effectSummary: '+1 point',
-          }),
-          command('penalty.select', { seat: chooser, choice: 'pass-position' }, 'Pass position', {
-            prominence: 'secondary',
-            effectSummary: '+1 point',
-          }),
-          command('penalty.select', { seat: chooser, choice: 'ball-in-hand' }, 'Ball in hand', {
-            prominence: 'secondary',
-            effectSummary: 'No points awarded',
-          }),
+          command(
+            'penalty.select',
+            { seat: chooser, choice: 'play-from-position' },
+            {
+              prominence: 'secondary',
+              effect: 'plus-one-point',
+            },
+          ),
+          command(
+            'penalty.select',
+            { seat: chooser, choice: 'pass-position' },
+            {
+              prominence: 'secondary',
+              effect: 'plus-one-point',
+            },
+          ),
+          command(
+            'penalty.select',
+            { seat: chooser, choice: 'ball-in-hand' },
+            {
+              prominence: 'secondary',
+              effect: 'no-points-awarded',
+            },
+          ),
         ],
         seat: chooser,
         situationTitle: 'Select penalty',
@@ -145,31 +150,28 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
     case 'foul-committed.ball-in-hand':
       return view(state, {
         commands: [
-          ...seatCommands('pot.record', 'Record pot', 'primary'),
-          ...seatCommands('miss.record', 'Record miss', 'primary'),
-          ...seatCommands('foul.commit', 'Foul committed', 'secondary'),
+          ...seatCommands('pot.record', 'primary'),
+          ...seatCommands('miss.record', 'primary'),
+          ...seatCommands('foul.commit', 'secondary'),
         ],
         situationTitle: 'Ball in hand after foul',
         situationSummary: 'Record a legal pot, a miss, or another foul.',
-        messages: [{ type: 'warning', text: 'Cue ball and colored balls together count as a foul.' }],
+        messages: [{ type: 'warning', code: 'cue-ball-and-colored-is-foul' }],
       })
     case 'respotted-black.opening':
       return view(state, {
         commands: [
-          ...seatCommands('pot.record', 'Record pot', 'primary'),
-          ...seatCommands('miss.record', 'Record miss', 'primary'),
-          ...seatCommands('foul.commit', 'Foul committed', 'secondary'),
+          ...seatCommands('pot.record', 'primary'),
+          ...seatCommands('miss.record', 'primary'),
+          ...seatCommands('foul.commit', 'secondary'),
         ],
         situationTitle: 'Respotted black opening',
         situationSummary: 'Only the black wins. Other potted outcomes lose the frame.',
-        messages: [{ type: 'hint', text: 'A black pot wins. Any other potted result is treated as a foul.' }],
+        messages: [{ type: 'hint', code: 'black-pot-wins' }],
       })
     case 'respotted-black.play':
       return view(state, {
-        commands: [
-          ...seatCommands('pot.record', 'Record pot', 'primary'),
-          ...seatCommands('foul.commit', 'Foul committed', 'secondary'),
-        ],
+        commands: [...seatCommands('pot.record', 'primary'), ...seatCommands('foul.commit', 'secondary')],
         situationTitle: 'Respotted black play',
         situationSummary: 'Record the outcome of the shot on the respotted black.',
       })
@@ -177,8 +179,8 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
       invariant(state.winner !== null, 'Winner is required before awarding a determined frame')
       return view(state, {
         commands: [
-          ...seatCommands('pot.record', 'Record pot', 'primary'),
-          command('frame.award', { seat: state.winner }, 'Award frame', { prominence: 'primary' }),
+          ...seatCommands('pot.record', 'primary'),
+          command('frame.award', { seat: state.winner }, { prominence: 'primary' }),
         ],
         seat: state.winner,
         situationTitle: 'Winner determined',

@@ -269,8 +269,8 @@ describe('combined pyramid old: game api', () => {
         commandSections: {
           primary: { A: Array<{ commandType: string }>; B: Array<{ commandType: string }> }
           secondary: {
-            A: Array<{ commandType: string; effectSummary?: string }>
-            B: Array<{ commandType: string; effectSummary?: string }>
+            A: Array<{ commandType: string; effect?: string }>
+            B: Array<{ commandType: string; effect?: string }>
           }
         }
       }
@@ -286,8 +286,8 @@ describe('combined pyramid old: game api', () => {
       'pot.record',
       'foul.commit',
     ])
-    expect(
-      projection.details.commandSections.secondary.A.find((entry) => entry.commandType === 'foul.commit')?.effectSummary,
-    ).toBe('Offender -1 point (negative allowed)')
+    expect(projection.details.commandSections.secondary.A.find((entry) => entry.commandType === 'foul.commit')?.effect).toBe(
+      'offender-minus-one',
+    )
   })
 })

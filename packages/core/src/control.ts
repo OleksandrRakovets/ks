@@ -15,14 +15,17 @@ export const ControlCommandSchema = ControlCommandBaseSchema
 export type ControlCommand = v.InferOutput<typeof ControlCommandSchema>
 
 const ControlCommandProminenceSchema = v.picklist(['primary', 'secondary', 'tertiary'])
+const ControlCommandEffectSchema = v.picklist([
+  'opponent-plus-one',
+  'offender-minus-one',
+  'plus-one-point',
+  'no-points-awarded',
+])
 
 export const ControlCommandPresetSchema = v.object({
   ...ControlCommandBaseSchema.entries,
   seat: v.optional(SeatSchema),
-  label: v.optional(NonEmptyStringSchema),
-  effectSummary: v.optional(NonEmptyStringSchema),
-  warning: v.optional(NonEmptyStringSchema),
-  helpText: v.optional(NonEmptyStringSchema),
+  effect: v.optional(ControlCommandEffectSchema),
   prominence: ControlCommandProminenceSchema,
 })
 export type ControlCommandPreset = v.InferOutput<typeof ControlCommandPresetSchema>

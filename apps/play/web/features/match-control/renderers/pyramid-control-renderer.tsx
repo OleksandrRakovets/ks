@@ -6,11 +6,11 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import * as v from 'valibot'
 
+import { controlCommandEffect, controlCommandLabel } from './control-copy'
 import type { MatchControlRendererProps } from './types'
 
 type SeatCommands = MatchControlRendererProps['commandSections']['primary']
 type CommandSection = {
-  title: string
   commands: SeatCommands
 }
 
@@ -21,11 +21,12 @@ function buttonVariant(prominence: ControlCommandPreset['prominence']): 'default
 }
 
 function CommandRows(props: {
-  title: string
   commands: SeatCommands
   showEffectSummaries?: boolean
   onSubmit: (command: ControlCommandPreset) => void
 }) {
+  const { t } = useTranslation()
+
   function renderButton(command: ControlCommandPreset, key: string) {
     return (
       <div key={key} className="grid gap-1">
@@ -35,17 +36,17 @@ function CommandRows(props: {
           size="control"
           onClick={() => props.onSubmit(command)}
         >
-          {command.label ?? command.commandType}
+          {controlCommandLabel(t, command)}
         </Button>
-        {props.showEffectSummaries && command.effectSummary ? (
-          <p className="text-center text-base text-text-lo">{command.effectSummary}</p>
+        {props.showEffectSummaries && controlCommandEffect(t, command) ? (
+          <p className="text-center text-base text-text-lo">{controlCommandEffect(t, command)}</p>
         ) : null}
       </div>
     )
   }
 
   return (
-    <section aria-label={`${props.title} commands`} className="border-b border-divider px-4 py-3">
+    <section className="border-b border-divider px-4 py-3">
       <div className="grid grid-cols-2 gap-6">
         <div className="grid gap-3.5">{props.commands.A.map((command, index) => renderButton(command, `A-${index}`))}</div>
         <div className="grid gap-3.5">{props.commands.B.map((command, index) => renderButton(command, `B-${index}`))}</div>
@@ -63,18 +64,14 @@ function CombinedCommandRows(props: { sections: CommandSection[]; onSubmit: (com
     { A: [], B: [] },
   )
 
-  return (
-    <CommandRows
-      title={props.sections.map((section) => section.title).join(' / ')}
-      commands={commands}
-      onSubmit={props.onSubmit}
-    />
-  )
+  return <CommandRows commands={commands} onSubmit={props.onSubmit} />
 }
 
 function NeutralCommandRows(props: { commands: ControlCommandPreset[]; onSubmit: (command: ControlCommandPreset) => void }) {
+  const { t } = useTranslation()
+
   return (
-    <section aria-label="Neutral commands" className="border-b border-divider px-4 py-3">
+    <section className="border-b border-divider px-4 py-3">
       <div className="mx-auto grid w-2/3 gap-3.5">
         {props.commands.map((command, index) => (
           <Button
@@ -84,7 +81,7 @@ function NeutralCommandRows(props: { commands: ControlCommandPreset[]; onSubmit:
             size="control"
             onClick={() => props.onSubmit(command)}
           >
-            {command.label ?? command.commandType}
+            {controlCommandLabel(t, command)}
           </Button>
         ))}
       </div>
@@ -111,8 +108,8 @@ export function PyramidControlRenderer(props: MatchControlRendererProps) {
   const hasSecondary = commandSections.secondary.A.length > 0 || commandSections.secondary.B.length > 0
   const hasTertiary = commandSections.tertiary.A.length > 0 || commandSections.tertiary.B.length > 0
   const visibleSections: CommandSection[] = [
-    ...(hasPrimary ? [{ title: 'Primary', commands: commandSections.primary }] : []),
-    ...(hasSecondary ? [{ title: 'Secondary', commands: commandSections.secondary }] : []),
+    ...(hasPrimary ? [{ commands: commandSections.primary }] : []),
+    ...(hasSecondary ? [{ commands: commandSections.secondary }] : []),
   ]
 
   return (
@@ -130,9 +127,7 @@ export function PyramidControlRenderer(props: MatchControlRendererProps) {
           >
             {showTertiary ? t(keys.match.control.showLess) : t(keys.match.control.showMore)}
           </button>
-          {showTertiary && (
-            <CommandRows title="Tertiary" commands={commandSections.tertiary} onSubmit={props.onSubmitCommand} />
-          )}
+          {showTertiary && <CommandRows commands={commandSections.tertiary} onSubmit={props.onSubmitCommand} />}
         </div>
       )}
     </div>

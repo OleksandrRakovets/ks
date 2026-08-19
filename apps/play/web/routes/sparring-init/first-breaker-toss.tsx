@@ -1,10 +1,8 @@
-import type { Seat } from '@ks/core'
+import { opponentOf, type Seat } from '@ks/core'
+import { keys } from '@ks/i18n'
 import { Button } from '@ks/ui'
 import { useEffect, useRef, useState } from 'react'
-
-function opponentOfSeat(seat: Seat): Seat {
-  return seat === 'A' ? 'B' : 'A'
-}
+import { useTranslation } from 'react-i18next'
 
 function playerInitial(name: string): string {
   return name.trim().slice(0, 1).toLocaleUpperCase()
@@ -15,6 +13,7 @@ export function FirstBreakerField(props: {
   firstBreakerSeat: Seat | null
   onFirstBreakerSeatChange: (seat: Seat | null) => void
 }) {
+  const { t } = useTranslation()
   const [tossWinner, setTossWinner] = useState<Seat | null>(null)
   const [isRolling, setIsRolling] = useState(false)
   const [displaySeat, setDisplaySeat] = useState<Seat | null>(null)
@@ -65,13 +64,18 @@ export function FirstBreakerField(props: {
   }
 
   const winnerName = tossWinner ? props.playerNames[tossWinner] : null
-  const opponentName = tossWinner ? props.playerNames[opponentOfSeat(tossWinner)] : null
+  const opponentName = tossWinner ? props.playerNames[opponentOf(tossWinner)] : null
   const breakerName = props.firstBreakerSeat ? props.playerNames[props.firstBreakerSeat] : null
   const displayInitial = displaySeat ? playerInitial(props.playerNames[displaySeat]) : ''
+  const coinLabel = isRolling
+    ? t(keys.match.sparring.firstBreaker.coinRolling)
+    : displaySeat
+      ? t(keys.match.sparring.firstBreaker.coinShows, { name: props.playerNames[displaySeat] })
+      : t(keys.match.sparring.firstBreaker.coinReady)
 
   return (
     <fieldset className="grid gap-3 rounded-lg border border-border p-3">
-      <legend className="px-1 text-sm font-medium">First break-off</legend>
+      <legend className="px-1 text-sm font-medium">{t(keys.match.sparring.firstBreaker.title)}</legend>
       {props.firstBreakerSeat ? <input type="hidden" name="firstBreakerSeat" value={props.firstBreakerSeat} /> : null}
 
       <div className="grid gap-4 sm:grid-cols-[auto_1fr] sm:items-center">
@@ -80,9 +84,7 @@ export function FirstBreakerField(props: {
             isRolling ? 'animate-[spin_0.55s_linear_infinite]' : ''
           }`}
           aria-live="polite"
-          aria-label={
-            isRolling ? 'Coin is rolling' : displaySeat ? `Coin shows ${props.playerNames[displaySeat]}` : 'Coin is ready'
-          }
+          aria-label={coinLabel}
         >
           {displayInitial}
         </div>
@@ -91,38 +93,38 @@ export function FirstBreakerField(props: {
           <div className="grid gap-1">
             <p className="text-sm font-medium">
               {isRolling
-                ? 'Coin is in the air...'
+                ? t(keys.match.sparring.firstBreaker.coinInAir)
                 : winnerName
-                  ? `${winnerName} wins the toss.`
-                  : 'Toss a coin to decide who makes the break-off call.'}
+                  ? t(keys.match.sparring.firstBreaker.tossWinner, { name: winnerName })
+                  : t(keys.match.sparring.firstBreaker.tossInstructions)}
             </p>
             <p className="text-sm text-muted-foreground">
               {breakerName
-                ? `${breakerName} will break first.`
+                ? t(keys.match.sparring.firstBreaker.breakerSelected, { name: breakerName })
                 : winnerName
-                  ? `${winnerName}, choose who breaks first.`
-                  : 'The winner chooses whether to break or let the opponent break.'}
+                  ? t(keys.match.sparring.firstBreaker.chooseBreaker, { name: winnerName })
+                  : t(keys.match.sparring.firstBreaker.winnerChooses)}
             </p>
           </div>
 
           <div className="flex flex-wrap gap-2">
             {!tossWinner ? (
               <Button type="button" variant="outline" onClick={rollCoin} disabled={isRolling}>
-                Toss coin
+                {t(keys.match.sparring.firstBreaker.tossCoin)}
               </Button>
             ) : null}
             {tossWinner ? (
               <>
                 <Button type="button" onClick={() => chooseBreaker(tossWinner)} disabled={isRolling}>
-                  {winnerName} breaks
+                  {t(keys.match.sparring.firstBreaker.playerBreaks, { name: winnerName })}
                 </Button>
                 <Button
                   type="button"
                   variant="secondary"
-                  onClick={() => chooseBreaker(opponentOfSeat(tossWinner))}
+                  onClick={() => chooseBreaker(opponentOf(tossWinner))}
                   disabled={isRolling}
                 >
-                  {opponentName} breaks
+                  {t(keys.match.sparring.firstBreaker.playerBreaks, { name: opponentName })}
                 </Button>
               </>
             ) : null}

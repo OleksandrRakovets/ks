@@ -42,94 +42,122 @@ type StoredGameCommandFact = Extract<StoredFact, { type: 'game.command' }>
 
 export type ProtocolRow = {
   key: string
-  label: string
+  message: {
+    key: string
+    actor?: string
+    params?: Record<string, string | number>
+    pottedBalls?: ProtocolBall[]
+  }
   score?: BySeatNumber
   receivedAt: number
   timeLabel: string
 }
 
 type ProtocolArchiveRowDraft = Omit<ProtocolArchiveRow, 'rowNo'>
+const ProtocolBallSchema = v.picklist([0, 1, 2, 3, 4, 5, 6, 7])
+type ProtocolBall = v.InferOutput<typeof ProtocolBallSchema>
+const PottedBallsSchema = v.pipe(v.array(ProtocolBallSchema), v.minLength(1))
 
-function ballLabel(ball: number): string {
-  if (ball === 0) return 'cue'
-  if (ball === 1) return 'red'
-  if (ball === 2) return 'yellow'
-  if (ball === 3) return 'green'
-  if (ball === 4) return 'brown'
-  if (ball === 5) return 'blue'
-  if (ball === 6) return 'pink'
-  if (ball === 7) return 'black'
-  return String(ball)
-}
-
-function entryLabel(entry: Pick<ProtocolArchiveRow, 'body' | 'entryType' | 'seat'>, seatNames: SeatNames): string {
+function entryMessage(
+  entry: Pick<ProtocolArchiveRow, 'body' | 'entryType' | 'seat'>,
+  seatNames: SeatNames,
+): ProtocolRow['message'] {
   const seatLabel = (seat: Seat) => seatNames[seat]
-  const actor = entry.seat ? `${seatLabel(entry.seat)}: ` : ''
+  const actor = entry.seat && seatLabel(entry.seat)
   const commandType = typeof entry.body.commandType === 'string' ? entry.body.commandType : null
 
   switch (commandType) {
     case 'frame.commence':
-      return `${actor}frame commenced`
+      return { key: 'match.protocol.commands.frame.commence', actor }
     case 'pot.record': {
-      const pottedBalls = entry.body.pottedBalls
-      if (Array.isArray(pottedBalls)) {
-        const summary = pottedBalls
-          .filter((ball): ball is number => typeof ball === 'number')
-          .map(ballLabel)
-          .join(', ')
-        return `${actor}pot (${summary.length > 0 ? summary : 'none'})`
+      const pottedBalls = v.safeParse(PottedBallsSchema, entry.body.pottedBalls)
+      if (pottedBalls.success) {
+        return { key: 'match.protocol.commands.pot.record.balls', actor, pottedBalls: pottedBalls.output }
       }
 
       const points = entry.body.points
       if (typeof points === 'number') {
-        const signed = points >= 0 ? `+${points}` : String(points)
-        return `${actor}pot ${signed}`
+        return {
+          key: 'match.protocol.commands.pot.record.points',
+          actor,
+          params: { points: points >= 0 ? `+${points}` : String(points) },
+        }
       }
-      return `${actor}pot`
+      return { key: 'match.protocol.commands.pot.record.default', actor }
     }
     case 'miss.record':
-      return `${actor}miss`
+      return { key: 'match.protocol.commands.miss.record', actor }
     case 'foul.commit':
-      if (entry.body.penalty === 'opponent-plus-one') return `${actor}foul (opponent +1)`
-      if (entry.body.penalty === 'offender-minus-one') return `${actor}foul (offender -1)`
-      return `${actor}foul`
+      if (entry.body.penalty === 'opponent-plus-one') {
+        return { key: 'match.protocol.commands.foul.commit.opponent-plus-one', actor }
+      }
+      if (entry.body.penalty === 'offender-minus-one') {
+        return { key: 'match.protocol.commands.foul.commit.offender-minus-one', actor }
+      }
+      return { key: 'match.protocol.commands.foul.commit.default', actor }
     case 'penalty.select':
-      if (entry.body.choice === 'play-from-position') return `${actor}play from position`
-      if (entry.body.choice === 'pass-position') return `${actor}pass position`
-      if (entry.body.choice === 'ball-in-hand') return `${actor}ball in hand`
-      return `${actor}penalty selected`
+      switch (entry.body.choice) {
+        case 'play-from-position':
+          return { key: 'match.protocol.commands.penalty.select.play-from-position', actor }
+        case 'pass-position':
+          return { key: 'match.protocol.commands.penalty.select.pass-position', actor }
+        case 'ball-in-hand':
+          return { key: 'match.protocol.commands.penalty.select.ball-in-hand', actor }
+        default:
+          return { key: 'match.protocol.commands.penalty.select.default', actor }
+      }
     case 'frame.award':
-      return `${actor}frame awarded`
+      return { key: 'match.protocol.commands.frame.award', actor }
   }
 
   const systemType = typeof entry.body.systemType === 'string' ? entry.body.systemType : null
   switch (systemType) {
     case 'frame-started':
-      if (entry.seat) return `Frame ${entry.body.frameIndex} started, ${seatLabel(entry.seat)} breaks`
-      return `Frame ${entry.body.frameIndex} started`
-    case 'frame-completed':
-      return `${actor}frame completed`
-    case 'frame-conceded':
-      return `${actor}frame conceded`
-    case 'match-ended':
-      return `${actor}match ended`
-    case 'automatic-foul':
-      if (entry.body.reason === 'third-consecutive-cue-ball-pot') return 'System: automatic foul (third cue-ball pot)'
-      if (entry.body.reason === 'illegal-ball-in-hand-pot') return 'System: automatic foul (illegal ball-in-hand pot)'
-      if (entry.body.reason === 'respotted-black-opening-illegal-pot') {
-        return 'System: automatic foul (illegal respotted-black opening pot)'
+      if (entry.seat) {
+        return {
+          key: 'match.protocol.system.frame-started.breaker',
+          actor: seatLabel(entry.seat),
+          params: { frameIndex: String(entry.body.frameIndex) },
+        }
       }
-      return 'System: automatic foul'
+      return { key: 'match.protocol.system.frame-started.default', params: { frameIndex: String(entry.body.frameIndex) } }
+    case 'frame-completed':
+      return { key: 'match.protocol.system.frame-completed', actor }
+    case 'frame-conceded':
+      return { key: 'match.protocol.system.frame-conceded', actor }
+    case 'match-ended':
+      return { key: 'match.protocol.system.match-ended', actor }
+    case 'automatic-foul':
+      switch (entry.body.reason) {
+        case 'third-consecutive-cue-ball-pot':
+          return { key: 'match.protocol.system.automatic-foul.third-consecutive-cue-ball-pot' }
+        case 'illegal-ball-in-hand-pot':
+          return { key: 'match.protocol.system.automatic-foul.illegal-ball-in-hand-pot' }
+        case 'respotted-black-opening-illegal-pot':
+          return { key: 'match.protocol.system.automatic-foul.respotted-black-opening-illegal-pot' }
+        default:
+          return { key: 'match.protocol.system.automatic-foul.default' }
+      }
     case 'winner-determined':
-      if (entry.body.reason === 'target-reached') return 'System: winner determined (target reached)'
-      if (entry.body.reason === 'foul-forfeit') return 'System: winner determined (foul forfeit)'
-      if (entry.body.reason === 'black-ball') return 'System: winner determined (black ball)'
-      return 'System: winner determined'
+      switch (entry.body.reason) {
+        case 'target-reached':
+          return { key: 'match.protocol.system.winner-determined.target-reached' }
+        case 'automatic-foul':
+          return { key: 'match.protocol.system.winner-determined.automatic-foul' }
+        case 'respotted-black-won':
+          return { key: 'match.protocol.system.winner-determined.respotted-black-won' }
+        case 'foul-forfeit':
+          return { key: 'match.protocol.system.winner-determined.foul-forfeit' }
+        case 'black-ball':
+          return { key: 'match.protocol.system.winner-determined.black-ball' }
+        default:
+          return { key: 'match.protocol.system.winner-determined.default' }
+      }
     case 'respotted-black-declared':
-      return 'System: respotted black'
+      return { key: 'match.protocol.system.respotted-black-declared' }
   }
 
-  return commandType ?? systemType ?? entry.entryType
+  return { key: 'match.protocol.unknown', params: { value: commandType ?? systemType ?? entry.entryType } }
 }
 
 function rowFromProtocolEntry(fact: StoredGameCommandFact, entry: ProtocolEntry): ProtocolArchiveRowDraft {
@@ -200,13 +228,18 @@ export function prepareProtocolRowsForArchive(facts: StoredFact[]): ProtocolArch
   return drafts.map((row, index) => ({ ...row, rowNo: index + 1 }))
 }
 
-export function renderProtocolRows(rows: ProtocolArchiveRow[], seatNames: SeatNames, timeZone: string): ProtocolRow[] {
+export function renderProtocolRows(
+  rows: ProtocolArchiveRow[],
+  seatNames: SeatNames,
+  timeZone: string,
+  locale = 'en',
+): ProtocolRow[] {
   return rows.map((row) => ({
     key: `protocol-${row.rowNo}`,
-    label: entryLabel(row, seatNames),
+    message: entryMessage(row, seatNames),
     ...(row.scoreAfter ? { score: row.scoreAfter } : {}),
     receivedAt: row.receivedAt,
-    timeLabel: new Date(row.receivedAt).toLocaleTimeString([], {
+    timeLabel: new Date(row.receivedAt).toLocaleTimeString(locale, {
       hour: '2-digit',
       minute: '2-digit',
       hour12: false,
@@ -215,6 +248,6 @@ export function renderProtocolRows(rows: ProtocolArchiveRow[], seatNames: SeatNa
   }))
 }
 
-export function deriveProtocolRows(facts: StoredFact[], seatNames: SeatNames, timeZone: string): ProtocolRow[] {
-  return renderProtocolRows(prepareProtocolRowsForArchive(facts), seatNames, timeZone)
+export function deriveProtocolRows(facts: StoredFact[], seatNames: SeatNames, timeZone: string, locale = 'en'): ProtocolRow[] {
+  return renderProtocolRows(prepareProtocolRowsForArchive(facts), seatNames, timeZone, locale)
 }

@@ -8,3 +8,4 @@ Current active note:
 
 - [Current architecture](./current-architecture.md)
 - [Long Free Pyramid rack tracking](./long-free-pyramid-rack-tracking.md)
+- [Player-facing projection localization](./player-facing-projection-localization.md)

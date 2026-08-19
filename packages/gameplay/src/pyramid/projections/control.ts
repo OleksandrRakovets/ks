@@ -8,11 +8,10 @@ import { PyramidControlViewSchema, type PyramidFrameState, type PyramidRuntimeCo
 function command(
   commandType: string,
   payload: Record<string, unknown>,
-  label: string,
-  extras: Omit<GameControlCommand, 'source' | 'commandType' | 'command' | 'seat' | 'label'>,
+  extras: Omit<GameControlCommand, 'source' | 'commandType' | 'command' | 'seat'>,
 ): GameControlCommand {
   const seat = payload.seat === 'A' || payload.seat === 'B' ? payload.seat : undefined
-  return { source: 'game', commandType, command: payload, seat, label, ...extras }
+  return { source: 'game', commandType, command: payload, seat, ...extras }
 }
 
 function pyramidDetails(state: PyramidFrameState) {
@@ -43,15 +42,18 @@ export function derivePyramidControlView(state: PyramidFrameState, config: Pyram
     const commands = [
       ...seats.flatMap((seat) =>
         config.shotPointOptions.map((points, index) =>
-          command('pot.record', { seat, points }, `+${points}`, { prominence: index === 0 ? 'primary' : 'secondary' }),
+          command('pot.record', { seat, points }, { prominence: index === 0 ? 'primary' : 'secondary' }),
         ),
       ),
       ...seats.map((seat) =>
-        command('foul.commit', { seat }, 'Фол', {
-          prominence: 'secondary',
-          effectSummary:
-            config.foulPenalty === 'opponent-plus-one' ? 'Opponent +1 point' : 'Offender -1 point (negative allowed)',
-        }),
+        command(
+          'foul.commit',
+          { seat },
+          {
+            prominence: 'secondary',
+            effect: config.foulPenalty,
+          },
+        ),
       ),
     ]
 
@@ -72,8 +74,8 @@ export function derivePyramidControlView(state: PyramidFrameState, config: Pyram
   if (state.phase === 'winner-determined') {
     invariant(state.winnerSeat, 'Winner is required before awarding a determined pyramid frame')
     const commands = [
-      command('frame.award', { seat: state.winnerSeat }, 'Award frame', { prominence: 'primary' }),
-      command('pot.record', { seat: state.winnerSeat, points: 1 }, '+1', { prominence: 'secondary' }),
+      command('frame.award', { seat: state.winnerSeat }, { prominence: 'primary' }),
+      command('pot.record', { seat: state.winnerSeat, points: 1 }, { prominence: 'secondary' }),
     ]
 
     return v.parse(PyramidControlViewSchema, {

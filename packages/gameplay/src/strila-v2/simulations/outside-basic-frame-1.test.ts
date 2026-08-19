@@ -60,10 +60,10 @@ test('simulation: game api: basic frame 1', () => {
 
   step = applyGameCommand({ gameKey: 'strila-v2', state, commandType: 'foul.commit', command: { seat: 'A' } })
   control = controlDetails(step.state)
-  expect(control.commandSections.secondary.B.map((entry) => entry.label)).toEqual([
-    'Play from position',
-    'Pass position',
-    'Ball in hand',
+  expect(control.commandSections.secondary.B.map((entry) => entry.command.choice)).toEqual([
+    'play-from-position',
+    'pass-position',
+    'ball-in-hand',
   ])
   state = parseState(step.state)
 

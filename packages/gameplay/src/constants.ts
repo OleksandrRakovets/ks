@@ -29,10 +29,7 @@ export type GameProjectionKey = v.InferOutput<typeof GameProjectionKeySchema>
 
 export const GameCommandPresetSchema = v.object({ ...ControlCommandPresetSchema.entries, source: v.literal('game') })
 
-export const GameControlCommandSchema = v.object({
-  ...GameCommandPresetSchema.entries,
-  label: NonEmptyStringSchema,
-})
+export const GameControlCommandSchema = GameCommandPresetSchema
 export type GameControlCommand = v.InferOutput<typeof GameControlCommandSchema>
 
 export function deriveGameCommandSections(commands: readonly GameControlCommand[]) {

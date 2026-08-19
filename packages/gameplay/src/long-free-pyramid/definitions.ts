@@ -1,4 +1,4 @@
-import { BySeatNumberSchema, ControlCommandSectionsSchema, IntegerSchema, NonEmptyStringSchema, SeatSchema } from '@ks/core'
+import { BySeatNumberSchema, ControlCommandSectionsSchema, IntegerSchema, SeatSchema } from '@ks/core'
 import * as v from 'valibot'
 
 import { GameControlProjectionSchema } from '../constants'
@@ -9,13 +9,18 @@ export const LongFreePyramidRackSchema = v.object({
 })
 export type LongFreePyramidRack = v.InferOutput<typeof LongFreePyramidRackSchema>
 
+const LongFreePyramidMessageSchema = v.object({
+  code: v.literal('rack-started'),
+  rackNumber: v.pipe(IntegerSchema, v.minValue(1)),
+})
+
 export const LongFreePyramidFrameStateSchema = v.object({
   racks: v.pipe(v.array(LongFreePyramidRackSchema), v.minLength(1)),
   targetPointsBySeat: BySeatNumberSchema,
   rackRollover: v.picklist([14, 15]),
   phase: v.picklist(['not-started', 'open-play', 'winner-determined', 'awaiting-award', 'frame-over']),
   winnerSeat: v.optional(SeatSchema),
-  messages: v.array(NonEmptyStringSchema),
+  messages: v.array(LongFreePyramidMessageSchema),
 })
 export type LongFreePyramidFrameState = v.InferOutput<typeof LongFreePyramidFrameStateSchema>
 
@@ -26,7 +31,7 @@ export const LongFreePyramidProjectionDetailsSchema = v.object({
   currentRack: LongFreePyramidRackSchema,
   ballsRemoved: v.pipe(IntegerSchema, v.minValue(0)),
   ballsOnTable: v.pipe(IntegerSchema, v.minValue(0)),
-  messages: v.array(NonEmptyStringSchema),
+  messages: v.array(LongFreePyramidMessageSchema),
 })
 export type LongFreePyramidProjectionDetails = v.InferOutput<typeof LongFreePyramidProjectionDetailsSchema>
 

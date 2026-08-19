@@ -7,6 +7,7 @@ import {
 } from '@ks/core'
 import { GameControlProjectionSchema, isRegisteredGameKey, registry } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
+import type { TFunction } from 'i18next'
 import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useLoaderData, useRevalidator } from 'react-router'
@@ -78,6 +79,7 @@ export async function loader({
       B: body.participants.B.displayName,
     },
     'UTC',
+    locale,
   )
 
   return {
@@ -89,17 +91,52 @@ export async function loader({
   }
 }
 
+function protocolBallLabel(t: TFunction, ball: number): string {
+  switch (ball) {
+    case 0:
+      return t('match.protocol.balls.0')
+    case 1:
+      return t('match.protocol.balls.1')
+    case 2:
+      return t('match.protocol.balls.2')
+    case 3:
+      return t('match.protocol.balls.3')
+    case 4:
+      return t('match.protocol.balls.4')
+    case 5:
+      return t('match.protocol.balls.5')
+    case 6:
+      return t('match.protocol.balls.6')
+    case 7:
+      return t('match.protocol.balls.7')
+    default:
+      return t('match.protocol.balls.none')
+  }
+}
+
+function protocolLabel(t: TFunction, row: ProtocolRow): string {
+  const balls = row.message.pottedBalls
+    ? row.message.pottedBalls.map((ball) => protocolBallLabel(t, ball)).join(', ')
+    : t('match.protocol.balls.none')
+  return t(row.message.key, { ...row.message.params, balls })
+}
+
 function ProtocolPanel(props: { rows: ProtocolRow[]; emptyLabel: string }) {
-  if (props.rows.length === 0) {
+  const { t } = useTranslation()
+  const rows = props.rows.map((row) => ({ ...row, label: protocolLabel(t, row) }))
+  if (rows.length === 0) {
     return <p className="text-sm text-muted-foreground">{props.emptyLabel}</p>
   }
 
   return (
     <div className="grid gap-2">
-      {props.rows.map((row) => (
+      {rows.map((row) => (
         <div key={row.key} className="flex items-baseline justify-between gap-3 border-b border-border/60 pb-2 text-sm">
           <span className="flex min-w-0 flex-col">
-            <span>{row.label}</span>
+            <span className="flex min-w-0 items-baseline gap-2">
+              {row.message.actor ? <span className="shrink-0 font-medium">{row.message.actor}</span> : null}
+              <span>{row.label}</span>
+            </span>
             {row.score ? <span className="text-xs text-muted-foreground">{`${row.score.A}:${row.score.B}`}</span> : null}
           </span>
           <span className="text-xs text-muted-foreground tabular-nums">

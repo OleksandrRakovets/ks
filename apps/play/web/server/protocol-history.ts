@@ -1,4 +1,5 @@
 import { normalizeMatchId } from '@ks/competition'
+import type { SupportedLocale } from '@ks/i18n'
 import * as v from 'valibot'
 
 import {
@@ -22,11 +23,12 @@ export async function readProtocolHistory(
   status: 'active' | 'finished',
   seatNames: SeatNames,
   timeZone: string,
+  locale: SupportedLocale,
 ): Promise<ProtocolRow[]> {
   const matchId = normalizeMatchId(rawMatchId)
 
   if (status === 'active') {
-    const rows = deriveProtocolRows(await listStoredFacts(env, matchId), seatNames, timeZone)
+    const rows = deriveProtocolRows(await listStoredFacts(env, matchId), seatNames, timeZone, locale)
     return rows.reverse()
   }
 
@@ -40,5 +42,5 @@ export async function readProtocolHistory(
   const parsedRows = v.safeParse(ProtocolArchiveRowsJsonSchema, archive.rowsJson)
   if (!parsedRows.success) throw new Response('Failed to parse protocol archive from DB', { status: 500 })
 
-  return renderProtocolRows(parsedRows.output, seatNames, timeZone)
+  return renderProtocolRows(parsedRows.output, seatNames, timeZone, locale)
 }

@@ -279,19 +279,22 @@ export class MatchRoom extends DurableObject<Env> {
   /** Accepts control commands, persists resulting facts, and broadcasts them. */
   async facts(
     args: unknown,
-  ): Promise<{ ok: true; accepted: { seq: number; factId: string }[] } | { ok: false; error: string; status: number }> {
+  ): Promise<
+    | { ok: true; accepted: { seq: number; factId: string }[] }
+    | { ok: false; error: 'invalid-facts-body' | 'unknown-match' | 'unauthorized' | 'match-locked'; status: number }
+  > {
     const parsed = v.safeParse(FactsBodySchema, args)
-    if (!parsed.success) return { ok: false, error: 'Invalid facts body', status: 400 }
+    if (!parsed.success) return { ok: false, error: 'invalid-facts-body', status: 400 }
 
     const { matchId, controlSecret, commands } = parsed.output
     await this.rememberMatchId(matchId)
     const row = await getMatch(this.env, matchId)
-    if (!row) return { ok: false, error: 'Unknown match', status: 400 }
-    if (row.control_secret !== controlSecret) return { ok: false, error: 'Unauthorized', status: 401 }
+    if (!row) return { ok: false, error: 'unknown-match', status: 400 }
+    if (row.control_secret !== controlSecret) return { ok: false, error: 'unauthorized', status: 401 }
 
     if (row.lock_at && Date.now() >= row.lock_at) {
       await this.pruneSnapshotIfExpired(matchId, row.status, row.lock_at)
-      return { ok: false, error: 'Match is locked', status: 423 }
+      return { ok: false, error: 'match-locked', status: 423 }
     }
 
     const accepted = await this.acceptCommands(matchId, commands)

@@ -6,6 +6,7 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import * as v from 'valibot'
 
+import { controlCommandLabel } from './control-copy'
 import type { MatchControlRendererProps } from './types'
 
 type SeatCommands = MatchControlRendererProps['commandSections']['primary']
@@ -17,13 +18,15 @@ function buttonVariant(prominence: ControlCommandPreset['prominence']): 'default
 }
 
 function CommandRows(props: { commands: SeatCommands; onSubmit: (command: ControlCommandPreset) => void }) {
+  const { t } = useTranslation()
+
   const commands = {
     A: [...props.commands.A],
     B: [...props.commands.B],
   }
 
   return (
-    <section aria-label="Long free pyramid commands" className="border-b border-divider px-4 py-3">
+    <section className="border-b border-divider px-4 py-3">
       <div className="grid grid-cols-2 gap-6">
         {(['A', 'B'] as const).map((seat) => (
           <div key={seat} className="grid gap-3.5">
@@ -35,7 +38,7 @@ function CommandRows(props: { commands: SeatCommands; onSubmit: (command: Contro
                 size="control"
                 onClick={() => props.onSubmit(command)}
               >
-                {command.label ?? command.commandType}
+                {controlCommandLabel(t, command)}
               </Button>
             ))}
           </div>
@@ -46,8 +49,10 @@ function CommandRows(props: { commands: SeatCommands; onSubmit: (command: Contro
 }
 
 function NeutralCommandRows(props: { commands: ControlCommandPreset[]; onSubmit: (command: ControlCommandPreset) => void }) {
+  const { t } = useTranslation()
+
   return (
-    <section aria-label="Neutral commands" className="border-b border-divider px-4 py-3">
+    <section className="border-b border-divider px-4 py-3">
       <div className="mx-auto grid w-2/3 gap-3.5">
         {props.commands.map((command, index) => (
           <Button
@@ -57,7 +62,7 @@ function NeutralCommandRows(props: { commands: ControlCommandPreset[]; onSubmit:
             size="control"
             onClick={() => props.onSubmit(command)}
           >
-            {command.label ?? command.commandType}
+            {controlCommandLabel(t, command)}
           </Button>
         ))}
       </div>
@@ -94,21 +99,30 @@ export function LongFreePyramidControlRenderer(props: MatchControlRendererProps)
 
   return (
     <div className="grid">
-      <section aria-label="Long free pyramid rack status" className="border-b border-divider px-4 py-3">
+      <section aria-label={t(keys.match.control.longFreePyramid.rackStatus)} className="border-b border-divider px-4 py-3">
         <div className="grid gap-1 text-base">
           <div className="flex items-center justify-between gap-3">
-            <span className="font-medium">Rack {details.currentRack.rackNumber}</span>
-            <span className="text-muted-foreground tabular-nums">{details.ballsOnTable} balls on table</span>
+            <span className="font-medium">
+              {t(keys.match.control.longFreePyramid.rack, { rackNumber: details.currentRack.rackNumber })}
+            </span>
+            <span className="text-muted-foreground tabular-nums">
+              {t(keys.match.control.longFreePyramid.ballsOnTable, { count: details.ballsOnTable })}
+            </span>
           </div>
           <div className="text-sm text-muted-foreground tabular-nums">
-            Rack score {details.currentRack.scoreBySeat.A}:{details.currentRack.scoreBySeat.B}
+            {t(keys.match.control.longFreePyramid.rackScore, {
+              scoreA: details.currentRack.scoreBySeat.A,
+              scoreB: details.currentRack.scoreBySeat.B,
+            })}
           </div>
           {previousRackScores ? (
-            <div className="text-sm text-muted-foreground tabular-nums">Previous racks: {previousRackScores}</div>
+            <div className="text-sm text-muted-foreground tabular-nums">
+              {t(keys.match.control.longFreePyramid.previousRacks, { scores: previousRackScores })}
+            </div>
           ) : null}
           {details.messages.map((message) => (
-            <p key={message} className="text-sm text-primary">
-              {message}
+            <p key={`${message.code}:${message.rackNumber}`} className="text-sm text-primary">
+              {t(`match.control.messages.${message.code}`, { rackNumber: message.rackNumber })}
             </p>
           ))}
         </div>

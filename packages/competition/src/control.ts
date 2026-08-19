@@ -56,7 +56,6 @@ function deriveSparringMatchControlSections(matchState: MatchState, gamePhase?: 
       commandType: 'frame.commence',
       command: { seat: currentFrame.breakerSeat },
       seat: currentFrame.breakerSeat,
-      label: 'Break-off',
       prominence: 'primary',
     })
   }
@@ -71,7 +70,6 @@ function deriveSparringMatchControlSections(matchState: MatchState, gamePhase?: 
       source: 'match',
       commandType: 'frame.start',
       command: {},
-      label: 'Start next frame',
       prominence: 'secondary',
     })
   }
@@ -81,7 +79,6 @@ function deriveSparringMatchControlSections(matchState: MatchState, gamePhase?: 
       source: 'match',
       commandType: 'match.end',
       command: {},
-      label: 'End match',
       prominence: 'secondary',
     })
   }
@@ -95,7 +92,6 @@ function concedeFrameCommand(seat: Seat): ControlCommandPreset {
     commandType: 'frame.concede',
     command: { seat },
     seat,
-    label: 'Concede frame',
     prominence: 'tertiary',
   }
 }

@@ -11,11 +11,10 @@ import {
 function command(
   commandType: string,
   payload: Record<string, unknown>,
-  label: string,
   prominence: GameControlCommand['prominence'],
 ): GameControlCommand {
   const seat = payload.seat === 'A' || payload.seat === 'B' ? payload.seat : undefined
-  return { source: 'game', commandType, command: payload, seat, label, prominence }
+  return { source: 'game', commandType, command: payload, seat, prominence }
 }
 
 export function deriveLongFreePyramidControlView(args: {
@@ -33,21 +32,19 @@ export function deriveLongFreePyramidControlView(args: {
             ...seats.flatMap((seat) =>
               [1, 2, 3, 4]
                 .filter((points) => points <= args.ballsOnTable)
-                .map((points, index) =>
-                  command('pot.record', { seat, points }, `+${points}`, index === 0 ? 'primary' : 'secondary'),
-                ),
+                .map((points, index) => command('pot.record', { seat, points }, index === 0 ? 'primary' : 'secondary')),
             ),
-            ...seats.map((seat) => command('foul.commit', { seat }, 'Фол', 'secondary')),
+            ...seats.map((seat) => command('foul.commit', { seat }, 'secondary')),
           ]
         : args.state.phase === 'winner-determined' && args.state.winnerSeat
           ? [
-              command('frame.award', { seat: args.state.winnerSeat }, 'Award frame', 'primary'),
+              command('frame.award', { seat: args.state.winnerSeat }, 'primary'),
               ...(args.ballsOnTable >= 1
-                ? [command('pot.record', { seat: args.state.winnerSeat, points: 1 }, '+1', 'secondary')]
+                ? [command('pot.record', { seat: args.state.winnerSeat, points: 1 }, 'secondary')]
                 : []),
             ]
           : args.state.phase === 'awaiting-award' && args.state.winnerSeat
-            ? [command('frame.award', { seat: args.state.winnerSeat }, 'Award frame', 'primary')]
+            ? [command('frame.award', { seat: args.state.winnerSeat }, 'primary')]
             : []
 
   const isPotCommandAvailable = args.state.phase === 'open-play' || args.state.phase === 'winner-determined'

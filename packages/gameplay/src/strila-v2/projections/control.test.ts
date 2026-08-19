@@ -71,10 +71,10 @@ describe('projection: control', () => {
       'penalty.select',
     ])
     expect(view.details.messages).toEqual([])
-    expect(view.details.commandSections.secondary.B.map((entry) => entry.label)).toEqual([
-      'Play from position',
-      'Pass position',
-      'Ball in hand',
+    expect(view.details.commandSections.secondary.B.map((entry) => entry.command.choice)).toEqual([
+      'play-from-position',
+      'pass-position',
+      'ball-in-hand',
     ])
   })
 
@@ -138,15 +138,12 @@ describe('projection: control', () => {
       6: 'potted',
       7: 'object',
     })
-    expect(view.details.messages).toEqual([
-      { type: 'hint', text: 'A black pot wins. Any other potted result is treated as a foul.' },
-    ])
+    expect(view.details.messages).toEqual([{ type: 'hint', code: 'black-pot-wins' }])
     expect(view.details.commandSections.primary.A[0]).toEqual({
       source: 'game',
       commandType: 'pot.record',
       command: { seat: 'A' },
       seat: 'A',
-      label: 'Record pot',
       prominence: 'primary',
     })
     expect([
@@ -154,5 +151,15 @@ describe('projection: control', () => {
       ...view.details.commandSections.secondary.A.map((entry) => entry.commandType),
       ...view.details.commandSections.tertiary.A.map((entry) => entry.commandType),
     ]).toEqual(['pot.record', 'miss.record', 'foul.commit'])
+  })
+
+  test('ball in hand warns that cue and colored balls together are a foul', () => {
+    const view = deriveStrilaControlView({
+      ...baseState,
+      foulOffender: 'A',
+      phase: 'foul-committed.ball-in-hand',
+    })
+
+    expect(view.details.messages).toEqual([{ type: 'warning', code: 'cue-ball-and-colored-is-foul' }])
   })
 })

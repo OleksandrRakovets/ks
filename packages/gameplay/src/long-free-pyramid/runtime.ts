@@ -71,7 +71,7 @@ function appendRack(state: LongFreePyramidFrameState): LongFreePyramidFrameState
   return {
     ...state,
     racks: [...state.racks, { rackNumber: nextRackNumber, scoreBySeat: zeroScore() }],
-    messages: [`Starting rack ${nextRackNumber}`],
+    messages: [{ code: 'rack-started', rackNumber: nextRackNumber }],
   }
 }
 

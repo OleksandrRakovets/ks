@@ -60,7 +60,7 @@ describe('long free pyramid: game api', () => {
       targetPointsBySeat: { A: 30, B: 30 },
       rackRollover: 14,
       phase: 'open-play',
-      messages: ['Starting rack 2'],
+      messages: [{ code: 'rack-started', rackNumber: 2 }],
     })
 
     const projection = deriveGameProjection({ gameKey: 'free-pyramid-long', state, projection: 'control' }) as {
@@ -68,14 +68,14 @@ describe('long free pyramid: game api', () => {
       details: {
         ballsOnTable: number
         ballsRemoved: number
-        messages: string[]
+        messages: Array<{ code: string; rackNumber: number }>
         commandSections: { secondary: { A: Array<{ command: { points: number } }> } }
       }
     }
     expect(projection.score).toEqual({ A: 13, B: 2 })
     expect(projection.details.ballsOnTable).toBe(16)
     expect(projection.details.ballsRemoved).toBe(0)
-    expect(projection.details.messages).toEqual(['Starting rack 2'])
+    expect(projection.details.messages).toEqual([{ code: 'rack-started', rackNumber: 2 }])
     expect(projection.details.commandSections.secondary.A.map((entry) => entry.command.points)).toContain(4)
   })
 

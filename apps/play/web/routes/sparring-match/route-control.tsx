@@ -39,13 +39,14 @@ type LoaderData = {
   gameTitle: string
 }
 
-type ActionData =
-  | { ok: true; acceptedSeqMax: number | null }
-  | {
-      ok: false
-      error?: string
-      errorKey?: typeof keys.match.control.invalidFactPayload | typeof keys.match.control.factRejectedByRules
-    }
+type ActionErrorKey =
+  | typeof keys.match.control.invalidFactPayload
+  | typeof keys.match.control.factRejectedByRules
+  | typeof keys.match.control.unknownMatch
+  | typeof keys.match.control.unauthorized
+  | typeof keys.match.control.matchLocked
+
+type ActionData = { ok: true; acceptedSeqMax: number | null } | { ok: false; errorKey: ActionErrorKey }
 
 const SnapshotResponseWithControlSchema = v.union([
   v.object({
@@ -61,6 +62,13 @@ const SnapshotResponseWithControlSchema = v.union([
 const CommandJsonSchema = v.pipe(v.string(), v.parseJson(), UnknownObjectSchema)
 const StreamReadyEventSchema = v.pipe(v.string(), v.parseJson(), StreamReadySchema)
 const StreamFactEventSchema = v.pipe(v.string(), v.parseJson(), StreamFactSchema)
+
+function postFactsErrorKey(error: string): ActionErrorKey {
+  if (error === 'unknown-match') return keys.match.control.unknownMatch
+  if (error === 'unauthorized') return keys.match.control.unauthorized
+  if (error === 'match-locked') return keys.match.control.matchLocked
+  return keys.match.control.invalidFactPayload
+}
 
 function emptyControlProjection(gameKey: string): GameControlProjection {
   return {
@@ -129,7 +137,7 @@ export async function action({
 
   const controlSecret = await getMatchControlSecret(env, matchId)
   if (!controlSecret) {
-    return { ok: false, error: 'Unknown match' }
+    return { ok: false, errorKey: keys.match.control.unknownMatch }
   }
 
   const form = await request.formData()
@@ -170,7 +178,7 @@ export async function action({
   const res = await postMatchFacts(env, matchId, controlSecret, [parsedCommand.output])
   const payload = v.parse(PostFactsResponseSchema, await res.json())
   if (!payload.ok) {
-    return { ok: false, error: payload.error }
+    return { ok: false, errorKey: postFactsErrorKey(payload.error) }
   }
   if (payload.accepted.length === 0) {
     return { ok: false, errorKey: keys.match.control.factRejectedByRules }
@@ -289,7 +297,7 @@ export default function SparringMatchRoute() {
         targetFrames={snapshot.targets.matchTargetFrames}
       />
 
-      <section aria-label="Per-game control container" className="flex flex-col">
+      <section aria-label={t(keys.match.control.perGameContainer)} className="flex flex-col">
         <Renderer
           projection={controlProjection}
           commandSections={safeControlSections}
@@ -299,11 +307,7 @@ export default function SparringMatchRoute() {
           onSubmitCommand={submitPreset}
         />
 
-        {fetcher.data?.ok === false ? (
-          <p className="px-4 py-2 text-base text-destructive">
-            {fetcher.data.errorKey ? t(fetcher.data.errorKey) : fetcher.data.error}
-          </p>
-        ) : null}
+        {fetcher.data?.ok === false ? <p className="px-4 py-2 text-base text-destructive">{t(fetcher.data.errorKey)}</p> : null}
       </section>
 
       <nav className="sticky bottom-0 z-10 mt-auto flex h-14 border-t border-border bg-background">

@@ -17,7 +17,7 @@ export function PlayerNameFields(props: {
   const { t } = useTranslation()
 
   return (
-    <section className="grid gap-4" aria-label="Players">
+    <section className="grid gap-4" aria-label={t(keys.match.sparring.players)}>
       <div className="grid gap-2">
         <Label htmlFor="seatAName">{t(keys.match.sparring.playerA)}</Label>
         <Input
@@ -67,7 +67,7 @@ export function MatchTargetFramesField(props: { profile: MatchCreateProfile }) {
     return (
       <div className="grid gap-2 rounded-lg border border-border p-3">
         <input type="hidden" name="matchTargetFrames" value={props.profile.matchTargetFrames.fixedValue} />
-        <p className="text-sm text-muted-foreground">{props.profile.matchTargetFrames.helpText}</p>
+        <p className="text-sm text-muted-foreground">{t(keys.match.sparring.longFreePyramidFrameHelp)}</p>
       </div>
     )
   }
@@ -88,14 +88,16 @@ export function MatchTargetFramesField(props: { profile: MatchCreateProfile }) {
 }
 
 export function FrameTargetFields(props: { playerNames: { A: string; B: string }; defaults: BySeatNumber }) {
+  const { t } = useTranslation()
+
   return (
-    <section className="grid gap-3 sm:grid-cols-2" aria-label="Frame target points">
+    <section className="grid gap-3 sm:grid-cols-2" aria-label={t(keys.match.sparring.frameTargetPoints)}>
       <div className="grid gap-2">
-        <Label htmlFor="targetA">{props.playerNames.A} target points</Label>
+        <Label htmlFor="targetA">{t(keys.match.sparring.playerTargetPoints, { name: props.playerNames.A })}</Label>
         <NumberInput id="targetA" name="targetA" inputMode="numeric" min={1} defaultValue={props.defaults.A} />
       </div>
       <div className="grid gap-2">
-        <Label htmlFor="targetB">{props.playerNames.B} target points</Label>
+        <Label htmlFor="targetB">{t(keys.match.sparring.playerTargetPoints, { name: props.playerNames.B })}</Label>
         <NumberInput id="targetB" name="targetB" inputMode="numeric" min={1} defaultValue={props.defaults.B} />
       </div>
     </section>
@@ -103,26 +105,29 @@ export function FrameTargetFields(props: { playerNames: { A: string; B: string }
 }
 
 export function RackRolloverField(props: { profile: MatchCreateProfile }) {
+  const { t } = useTranslation()
   if (!props.profile.rackRollover) return null
 
   return (
     <fieldset className="grid gap-3 rounded-lg border border-border p-3">
-      <legend className="px-1 text-sm font-medium">Rack rollover</legend>
+      <legend className="px-1 text-sm font-medium">{t(keys.match.sparring.rackRollover)}</legend>
       <div className="grid gap-3 sm:grid-cols-2">
-        {props.profile.rackRollover.options.map((option) => (
-          <label key={option.value} className="grid cursor-pointer gap-1 rounded-md border border-border p-3">
+        {props.profile.rackRollover.options.map((value) => (
+          <label key={value} className="grid cursor-pointer gap-1 rounded-md border border-border p-3">
             <span className="flex items-center gap-2">
               <input
                 type="radio"
                 name="rackRollover"
-                value={option.value}
-                aria-label={option.label}
-                defaultChecked={option.value === props.profile.rackRollover?.defaultValue}
+                value={value}
+                aria-label={t(keys.match.sparring.rackRolloverBalls, { count: value })}
+                defaultChecked={value === props.profile.rackRollover?.defaultValue}
                 required
               />
-              <span className="font-medium">{option.label}</span>
+              <span className="font-medium">{t(keys.match.sparring.rackRolloverBalls, { count: value })}</span>
             </span>
-            <span className="text-sm text-muted-foreground">{option.helpText}</span>
+            <span className="text-sm text-muted-foreground">
+              {value === 14 ? t(keys.match.sparring.rackRolloverPreferred) : t(keys.match.sparring.rackRolloverNewer)}
+            </span>
           </label>
         ))}
       </div>

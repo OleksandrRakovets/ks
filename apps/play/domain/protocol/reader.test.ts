@@ -3,7 +3,13 @@ import { describe, expect, test } from 'bun:test'
 import { ClientIdSchema, FactIdSchema, MatchIdSchema, type ClientFact, type StoredFact } from '@ks/core'
 import * as v from 'valibot'
 
-import { deriveProtocolRows, prepareProtocolRowsForArchive, ProtocolArchiveSchema } from './reader'
+import {
+  deriveProtocolRows,
+  prepareProtocolRowsForArchive,
+  ProtocolArchiveRowsSchema,
+  ProtocolArchiveSchema,
+  renderProtocolRows,
+} from './reader'
 
 const matchId = v.parse(MatchIdSchema, '01ARZ3NDEKTSV4RRFFQ69G5FAV')
 const clientId = v.parse(ClientIdSchema, 'server0000')
@@ -94,10 +100,42 @@ describe('protocol reader', () => {
       'UTC',
     )
 
-    expect(rows.map((row) => row.label)).toEqual(['Bob: frame awarded'])
+    expect(rows.map((row) => row.message)).toEqual([{ key: 'match.protocol.commands.frame.award', actor: 'Bob' }])
   })
 
   test('rejects unsupported archive versions', () => {
     expect(v.safeParse(ProtocolArchiveSchema, { protocolVersion: 2, rows: [] }).success).toBe(false)
+  })
+
+  test('uses default messages for unsupported archived protocol values', () => {
+    const rows = v.parse(ProtocolArchiveRowsSchema, [
+      {
+        rowNo: 1,
+        receivedAt: 1,
+        source: 'player',
+        entryType: 'player-command',
+        body: { commandType: 'penalty.select', choice: 'invalid' },
+      },
+      {
+        rowNo: 2,
+        receivedAt: 2,
+        source: 'system',
+        entryType: 'system-note',
+        body: { systemType: 'automatic-foul', reason: 'invalid' },
+      },
+      {
+        rowNo: 3,
+        receivedAt: 3,
+        source: 'system',
+        entryType: 'system-note',
+        body: { systemType: 'winner-determined', reason: 'invalid' },
+      },
+    ])
+
+    expect(renderProtocolRows(rows, { A: 'Alice', B: 'Bob' }, 'UTC').map((row) => row.message.key)).toEqual([
+      'match.protocol.commands.penalty.select.default',
+      'match.protocol.system.automatic-foul.default',
+      'match.protocol.system.winner-determined.default',
+    ])
   })
 })
