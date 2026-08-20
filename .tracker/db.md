@@ -4,14 +4,16 @@ Run commands below from the repository root unless stated otherwise.
 
 ## Two independent SQLite lifecycles
 
-| Store                                | Owns                                                   | Drizzle schema                          | Generated migrations     | Applied by                           |
-| ------------------------------------ | ------------------------------------------------------ | --------------------------------------- | ------------------------ | ------------------------------------ |
-| Cloudflare D1 `ks`                   | Global match catalog, protocol archives, players       | `packages/application/src/d1/schema.ts` | `d1/migrations/`         | Wrangler D1 migrations               |
-| One SQLite database per MatchRoom DO | Active match config, facts, sequence, command receipts | `do/match-room/src/storage/schema.ts`   | `do/match-room/drizzle/` | MatchRoom's runtime Drizzle migrator |
+| Store                                | Owns                                                               | Drizzle schema                          | Generated migrations     | Applied by                           |
+| ------------------------------------ | ------------------------------------------------------------------ | --------------------------------------- | ------------------------ | ------------------------------------ |
+| Cloudflare D1 `ks`                   | Global match catalog, completed snapshot/protocol archive, players | `packages/application/src/d1/schema.ts` | `d1/migrations/`         | Wrangler D1 migrations               |
+| One SQLite database per MatchRoom DO | Active match config, facts, sequence, command receipts             | `do/match-room/src/storage/schema.ts`   | `do/match-room/drizzle/` | MatchRoom's runtime Drizzle migrator |
 
-Active facts are no longer stored in D1. Do not expect a D1 `facts` table: inspect an active match through MatchRoom/application APIs. Finished protocol rows are archived in D1's `match_protocol_archives` table.
+Active facts are not stored in D1. Do not expect a D1 `facts` table: inspect an active match through MatchRoom/application APIs. Finished protocol rows and the derived finished snapshot are archived in D1's `match_protocol_archives` table.
 
-Drizzle owns the TypeScript schemas and generates SQL. Cloudflare still owns database creation, D1 migration bookkeeping, bindings, and per-object storage.
+Drizzle ORM and Kit are pinned to `1.0.0-rc.4`. Drizzle owns the TypeScript schemas and generates SQL. Cloudflare still owns database creation, D1 migration bookkeeping, bindings, and per-object storage.
+
+Because the project has never been deployed, each schema currently has one generated initial migration. From this baseline forward, add migrations normally; do not rewrite an applied remote history.
 
 ## Browse local D1 with Drizzle Studio
 
@@ -98,6 +100,13 @@ Replace `--local` with `--remote` only when intentionally inspecting or changing
 
 Use `drizzle-kit generate` plus Wrangler apply. Do not use `drizzle-kit push` or `drizzle-kit migrate` for D1 in this repository; they bypass the reviewed Cloudflare migration workflow.
 
+To validate both generated histories without applying them:
+
+```sh
+bunx drizzle-kit check --config d1/drizzle.config.ts
+bunx drizzle-kit check --config do/match-room/drizzle.config.ts
+```
+
 ## Change the MatchRoom SQLite schema
 
 1. Edit `do/match-room/src/storage/schema.ts`.
@@ -115,7 +124,7 @@ The Wrangler `migrations` entry in `do/match-room/wrangler.jsonc` creates or ren
 
 ## Reset local D1
 
-Local data is disposable during the current pre-deployment migration work:
+Local data is disposable while the project remains undeployed:
 
 ```sh
 rm -rf apps/play/.wrangler/state/v3/d1
