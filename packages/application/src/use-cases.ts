@@ -5,6 +5,7 @@ import {
   type ControlCommandSections,
   ControlCommandSectionsSchema,
   emptyControlCommandSections,
+  type HydratedMatchParticipant,
   type MatchId,
   MatchSnapshotSchema,
   type PlayerRef,
@@ -21,14 +22,20 @@ import type {
   CreateMatchInput,
   CreateMatchResult,
   HydratedMatchParticipants,
-  HydratedParticipant,
   MatchListEntry,
   ReadMatchControlResult,
   ReadMatchFailure,
   ReadMatchProtocolResult,
 } from './contracts'
+import { CreateMatchInputSchema } from './contracts'
 import type { MatchRoomClient, MatchRoomCreateRequest, MatchRoomFinalizationData } from './match-room-client'
-import { deriveProtocolRows, PROTOCOL_ARCHIVE_VERSION, ProtocolArchiveRowsSchema, renderProtocolRows } from './protocol'
+import {
+  deriveProtocolRows,
+  ProtocolArchiveCorruptionError,
+  type ProtocolArchiveRecord,
+  renderProtocolRows,
+  UnsupportedProtocolArchiveVersionError,
+} from './protocol'
 
 type MatchListRecord = {
   matchId: MatchId
@@ -43,7 +50,7 @@ type MatchRecord = {
   gameKey: string
   status: string
   createdAt: UnixEpochMilliseconds
-  participantRefs: { A: string; B: string }
+  participantRefs: { A: PlayerRef; B: PlayerRef }
 }
 
 type ApplicationDependencies = {
@@ -51,27 +58,22 @@ type ApplicationDependencies = {
   newControlSecret(): string
   now(): UnixEpochMilliseconds
   getOrCreateGuestPlayerRef(displayName: string): Promise<PlayerRef>
-  hydrateParticipant(playerRef: string, locale: SupportedLocale): Promise<HydratedParticipant>
+  hydrateParticipant(playerRef: PlayerRef, locale: SupportedLocale): Promise<HydratedMatchParticipant>
   listMatchRecords(): Promise<MatchListRecord[]>
-  getMatchRecord(matchId: string): Promise<MatchRecord | null>
-  getProtocolArchive(
-    matchId: string,
-  ): Promise<{ sourceLatestSeq: number; protocolVersion: number; rowsJson: string; snapshotJson: string } | null>
+  getMatchRecord(matchId: MatchId): Promise<MatchRecord | null>
+  getProtocolArchive(matchId: MatchId): Promise<ProtocolArchiveRecord | null>
   beginMatchCreation(input: {
-    matchId: string
-    gameKey: string
-    seatAPlayerRef: string
-    seatBPlayerRef: string
+    matchId: MatchId
+    gameKey: RegisteredGameKey
+    seatAPlayerRef: PlayerRef
+    seatBPlayerRef: PlayerRef
     createdAt: UnixEpochMilliseconds
   }): Promise<void>
-  activateMatch(matchId: string): Promise<void>
-  archiveCompletedMatch(input: MatchRoomFinalizationData & { matchId: string }): Promise<void>
-  finishCompletedMatch(matchId: string): Promise<void>
+  activateMatch(matchId: MatchId): Promise<void>
+  archiveCompletedMatch(input: MatchRoomFinalizationData & { matchId: MatchId }): Promise<void>
+  finishCompletedMatch(matchId: MatchId): Promise<void>
   matchRoom: MatchRoomClient
 }
-
-const ProtocolArchiveRowsJsonSchema = v.pipe(v.string(), v.parseJson(), ProtocolArchiveRowsSchema)
-const MatchSnapshotJsonSchema = v.pipe(v.string(), v.parseJson(), MatchSnapshotSchema)
 
 type ReadKeyedMatchSuccess<K extends RegisteredGameKey> = {
   ok: true
@@ -111,12 +113,24 @@ function validateRoomControlProjection<K extends RegisteredGameKey>(
   }
 }
 
+function archiveReadFailure(error: Error): ReadMatchFailure | null {
+  if (error instanceof UnsupportedProtocolArchiveVersionError) {
+    return { ok: false, error: 'Unsupported protocol archive version', status: 500 }
+  }
+  if (error instanceof ProtocolArchiveCorruptionError) {
+    return { ok: false, error: 'Protocol archive corruption', status: 500 }
+  }
+  return null
+}
+
 export function createApplicationWithDependencies(dependencies: ApplicationDependencies): Application {
   async function createMatch(input: CreateMatchInput): Promise<CreateMatchResult> {
+    const parsed = v.safeParse(CreateMatchInputSchema, input)
+    if (!parsed.success) return { ok: false, error: 'Invalid match creation input', status: 400 }
     const matchId = dependencies.newMatchId()
     const controlSecret = dependencies.newControlSecret()
     const createdAt = dependencies.now()
-    const { playerNames, ...requestInput } = input
+    const { playerNames, ...requestInput } = parsed.output
     const [seatAPlayerRef, seatBPlayerRef] = await Promise.all([
       dependencies.getOrCreateGuestPlayerRef(playerNames.A),
       dependencies.getOrCreateGuestPlayerRef(playerNames.B),
@@ -137,7 +151,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     const records = await dependencies.listMatchRecords()
     await Promise.all(
       records.map(async (record) => {
-        if (record.status === 'finalizing') await disposeAndFinishRoom(record.matchId)
+        if (record.status === 'finalizing') await disposeAndFinishRoom(normalizeMatchId(record.matchId))
       }),
     )
     return await Promise.all(
@@ -260,14 +274,16 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
       }
       protocolRows = deriveProtocolRows(facts.facts, seatNames, timeZone, locale).reverse()
     } else {
-      const archive = await dependencies.getProtocolArchive(match.snapshot.matchId)
-      if (!archive) return { ok: false, error: 'Missing protocol archive', status: 500 }
-      if (archive.protocolVersion !== PROTOCOL_ARCHIVE_VERSION) {
-        return { ok: false, error: 'Unsupported protocol archive version', status: 500 }
+      let archive: ProtocolArchiveRecord | null
+      try {
+        archive = await dependencies.getProtocolArchive(match.snapshot.matchId)
+      } catch (error) {
+        const failure = error instanceof Error ? archiveReadFailure(error) : null
+        if (failure) return failure
+        throw error
       }
-      const rows = v.safeParse(ProtocolArchiveRowsJsonSchema, archive.rowsJson)
-      if (!rows.success) return { ok: false, error: 'Failed to parse protocol archive from DB', status: 500 }
-      protocolRows = renderProtocolRows(rows.output, seatNames, timeZone, locale)
+      if (!archive) return { ok: false, error: 'Missing protocol archive', status: 500 }
+      protocolRows = renderProtocolRows(archive.rows, seatNames, timeZone, locale)
     }
     const result: Extract<ReadMatchProtocolResult<K>, { ok: true }> = {
       ok: true,
@@ -279,14 +295,14 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     return result
   }
 
-  async function archiveAndFinishRoom(matchId: string): Promise<void> {
+  async function archiveAndFinishRoom(matchId: MatchId): Promise<void> {
     const result = await dependencies.matchRoom.finalization(matchId)
     if (!result.ok) throw new Error(result.error)
     await dependencies.archiveCompletedMatch({ matchId, ...result.data })
     await disposeAndFinishRoom(matchId)
   }
 
-  async function disposeAndFinishRoom(matchId: string): Promise<void> {
+  async function disposeAndFinishRoom(matchId: MatchId): Promise<void> {
     const result = await dependencies.matchRoom.disposeFinalized(matchId)
     if (!result.ok) throw new Error(result.error)
     await dependencies.finishCompletedMatch(matchId)
@@ -304,17 +320,23 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     locale: SupportedLocale,
     expectedGameKey: K,
   ): Promise<ReadKeyedMatchResult<K>> {
-    const archive = await dependencies.getProtocolArchive(record.matchId)
+    let archive: ProtocolArchiveRecord | null
+    try {
+      archive = await dependencies.getProtocolArchive(normalizeMatchId(record.matchId))
+    } catch (error) {
+      const failure = error instanceof Error ? archiveReadFailure(error) : null
+      if (failure) return failure
+      throw error
+    }
     if (!archive) return { ok: false, error: 'Missing completed match archive', status: 500 }
-    const snapshot = v.safeParse(MatchSnapshotJsonSchema, archive.snapshotJson)
-    if (!snapshot.success) return { ok: false, error: 'Failed to parse completed match snapshot', status: 500 }
-    if (snapshot.output.gameKey !== expectedGameKey) return { ok: false, error: 'Unknown match', status: 404 }
-    if (!isTerminalArchivedSnapshot(snapshot.output)) {
+    const snapshot = archive.snapshot
+    if (snapshot.gameKey !== expectedGameKey) return { ok: false, error: 'Unknown match', status: 404 }
+    if (!isTerminalArchivedSnapshot(snapshot)) {
       return { ok: false, error: 'Failed to parse completed match snapshot', status: 500 }
     }
     return {
       ok: true,
-      snapshot: { ...snapshot.output, gameKey: expectedGameKey },
+      snapshot: { ...snapshot, gameKey: expectedGameKey },
       participants: await hydrateParticipants(record, locale),
     }
   }

@@ -3,6 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import type { MatchSnapshotFor } from '@ks/competition'
 import {
   type ControlCommand,
+  FactIdSchema,
   MatchIdSchema,
   MatchSnapshotSchema,
   newCommandId,
@@ -14,12 +15,14 @@ import { createInitialGameState, deriveGameControl } from '@ks/gameplay/server'
 import * as v from 'valibot'
 
 import type { MatchRoomCreateRequest, MatchRoomSnapshotResult } from './match-room-client'
+import { ProtocolArchiveCorruptionError, type ProtocolArchiveRecord, UnsupportedProtocolArchiveVersionError } from './protocol'
 import { createApplicationWithDependencies } from './use-cases'
 
 const matchId = v.parse(MatchIdSchema, '01ARZ3NDEKTSV4RRFFQ69G5FAV')
 const controlSecret = 'control-secret-1234567890'
 const playerRefA = v.parse(PlayerRefSchema, 'gp_01ARZ3NDEKTSV4RRFFQ69G5FAA')
 const playerRefB = v.parse(PlayerRefSchema, 'gp_01ARZ3NDEKTSV4RRFFQ69G5FAB')
+const factId = v.parse(FactIdSchema, '01ARZ3NDEKTSV4RRFFQ69G5FAC')
 
 function snapshotFor<K extends RegisteredGameKey>(gameKey: K, status: 'active' | 'finished' = 'active'): MatchSnapshotFor<K> {
   return {
@@ -154,6 +157,7 @@ function applicationForArchivedGame(
   catalogGameKey: RegisteredGameKey,
   snapshotGameKey = catalogGameKey,
   archivedSnapshot: MatchSnapshotFor<RegisteredGameKey> = snapshotFor(snapshotGameKey, 'finished'),
+  archiveRead?: () => Promise<ProtocolArchiveRecord | null>,
 ) {
   return createApplicationWithDependencies({
     newMatchId: unused,
@@ -169,12 +173,14 @@ function applicationForArchivedGame(
       createdAt: v.parse(UnixEpochMillisecondsSchema, 1_700_000_000_000),
       participantRefs: { A: playerRefA, B: playerRefB },
     }),
-    getProtocolArchive: async () => ({
-      sourceLatestSeq: 2,
-      protocolVersion: 1,
-      rowsJson: '[]',
-      snapshotJson: JSON.stringify(archivedSnapshot),
-    }),
+    getProtocolArchive:
+      archiveRead ??
+      (async () => ({
+        sourceLatestSeq: archivedSnapshot.latestSeq,
+        protocolVersion: 1,
+        rows: [],
+        snapshot: archivedSnapshot,
+      })),
     beginMatchCreation: unused,
     activateMatch: unused,
     archiveCompletedMatch: unused,
@@ -193,6 +199,32 @@ function applicationForArchivedGame(
 
 function unused(): never {
   throw new Error('Unexpected dependency call')
+}
+
+function applicationForInvalidCreation() {
+  return createApplicationWithDependencies({
+    newMatchId: unused,
+    newControlSecret: unused,
+    now: unused,
+    getOrCreateGuestPlayerRef: unused,
+    hydrateParticipant: unused,
+    listMatchRecords: unused,
+    getMatchRecord: unused,
+    getProtocolArchive: unused,
+    beginMatchCreation: unused,
+    activateMatch: unused,
+    archiveCompletedMatch: unused,
+    finishCompletedMatch: unused,
+    matchRoom: {
+      create: unused,
+      snapshot: unused,
+      command: unused,
+      facts: unused,
+      stream: unused,
+      finalization: unused,
+      disposeFinalized: unused,
+    },
+  })
 }
 
 describe('application orchestration', () => {
@@ -362,6 +394,61 @@ describe('application orchestration', () => {
       status: 500,
     })
   })
+
+  test.each([
+    ['archive corruption', () => new ProtocolArchiveCorruptionError(matchId), 'Protocol archive corruption'],
+    [
+      'unsupported archive version',
+      () => new UnsupportedProtocolArchiveVersionError(matchId, 2),
+      'Unsupported protocol archive version',
+    ],
+  ])('converts %s into declared failures for completed snapshots and protocol rows', async (_label, error, expectedError) => {
+    const controlApplication = applicationForArchivedGame(
+      'free-pyramid',
+      'free-pyramid',
+      snapshotFor('free-pyramid', 'finished'),
+      async () => {
+        throw error()
+      },
+    )
+    expect(await controlApplication.readMatchControl(matchId, 'en', 'free-pyramid')).toEqual({
+      ok: false,
+      error: expectedError,
+      status: 500,
+    })
+
+    const terminalSnapshot: MatchSnapshotFor<'free-pyramid'> = {
+      ...v.parse(MatchSnapshotSchema, {
+        matchId,
+        gameKey: 'free-pyramid',
+        targets: { frameTargetPointsBySeat: { A: 8, B: 8 }, matchTargetFrames: 1 },
+        status: 'finished',
+        currentFrameIndex: 1,
+        framesWonBySeat: { A: 1, B: 0 },
+        frames: [{ frameIndex: 1, pointsBySeat: { A: 8, B: 3 }, breakerSeat: 'A', winnerSeat: 'A' }],
+        latestSeq: 9,
+      }),
+      gameKey: 'free-pyramid',
+    }
+    const archive: ProtocolArchiveRecord = {
+      sourceLatestSeq: 9,
+      protocolVersion: 1,
+      rows: [],
+      snapshot: terminalSnapshot,
+    }
+    let reads = 0
+    const protocolApplication = applicationForArchivedGame('free-pyramid', 'free-pyramid', terminalSnapshot, async () => {
+      reads += 1
+      if (reads === 1) return archive
+      throw error()
+    })
+    expect(await protocolApplication.readMatchProtocol(matchId, 'UTC', 'en', 'free-pyramid')).toEqual({
+      ok: false,
+      error: expectedError,
+      status: 500,
+    })
+  })
+
   test('creates both guest players before creating the room with generated credentials', async () => {
     const createdAt = v.parse(UnixEpochMillisecondsSchema, 1_700_000_000_000)
     const lifecycle: unknown[] = []
@@ -407,7 +494,7 @@ describe('application orchestration', () => {
       gameKey: 'free-pyramid',
       targets: { frameTargetPointsBySeat: { A: 8, B: 9 }, matchTargetFrames: 3 },
       firstBreakerSeat: 'B',
-      playerNames: { A: 'Alice Smith', B: 'Bob Jones' },
+      playerNames: { A: '  Alice   Smith ', B: ' Bob Jones ' },
     })
 
     expect(result).toEqual({ ok: true, matchId })
@@ -431,6 +518,39 @@ describe('application orchestration', () => {
     ])
   })
 
+  test('rejects a zero target before player or catalog writes', async () => {
+    expect(
+      await applicationForInvalidCreation().createMatch({
+        gameKey: 'free-pyramid',
+        targets: { frameTargetPointsBySeat: { A: 0, B: 8 }, matchTargetFrames: 3 },
+        firstBreakerSeat: 'A',
+        playerNames: { A: 'Alice', B: 'Bob' },
+      }),
+    ).toEqual({ ok: false, error: 'Invalid match creation input', status: 400 })
+  })
+
+  test('rejects duplicate normalized names before player or catalog writes', async () => {
+    expect(
+      await applicationForInvalidCreation().createMatch({
+        gameKey: 'free-pyramid',
+        targets: { frameTargetPointsBySeat: { A: 8, B: 8 }, matchTargetFrames: 3 },
+        firstBreakerSeat: 'A',
+        playerNames: { A: ' Alice ', B: 'Alice' },
+      }),
+    ).toEqual({ ok: false, error: 'Invalid match creation input', status: 400 })
+  })
+
+  test('rejects names that cannot produce canonical hydrated short names before side effects', async () => {
+    expect(
+      await applicationForInvalidCreation().createMatch({
+        gameKey: 'free-pyramid',
+        targets: { frameTargetPointsBySeat: { A: 8, B: 8 }, matchTargetFrames: 3 },
+        firstBreakerSeat: 'A',
+        playerNames: { A: `A ${'x'.repeat(126)}`, B: 'Bob' },
+      }),
+    ).toEqual({ ok: false, error: 'Invalid match creation input', status: 400 })
+  })
+
   test('submits commands to the selected room without a control secret', async () => {
     const command: ControlCommand = { source: 'match', commandType: 'frame.start', command: {} }
     const calls: unknown[][] = []
@@ -439,7 +559,7 @@ describe('application orchestration', () => {
       snapshot: unused,
       async command(matchId: string, commandId: string, command: ControlCommand) {
         calls.push([matchId, commandId, command])
-        return { ok: true as const, accepted: [{ seq: 3, factId: '01ARZ3NDEKTSV4RRFFQ69G5FAC' }] }
+        return { ok: true as const, accepted: [{ seq: 3, factId }] }
       },
       facts: unused,
       stream: unused,
@@ -477,7 +597,7 @@ describe('application orchestration', () => {
     expect(calls).toEqual([])
     const result = await application.commandMatch(`m_${matchId}`, commandId, command, 'free-pyramid')
 
-    expect(result).toEqual({ ok: true, accepted: [{ seq: 3, factId: '01ARZ3NDEKTSV4RRFFQ69G5FAC' }] })
+    expect(result).toEqual({ ok: true, accepted: [{ seq: 3, factId }] })
     expect(calls).toEqual([[matchId, commandId, command]])
   })
 
@@ -522,8 +642,8 @@ describe('application orchestration', () => {
       getProtocolArchive: async () => ({
         sourceLatestSeq: 9,
         protocolVersion: 1,
-        rowsJson: '[]',
-        snapshotJson: JSON.stringify(snapshot),
+        rows: [],
+        snapshot,
       }),
       beginMatchCreation: unused,
       activateMatch: unused,
@@ -656,7 +776,7 @@ describe('application orchestration', () => {
             commandCalls += 1
             return {
               ok: true as const,
-              accepted: [{ seq: 9, factId: '01ARZ3NDEKTSV4RRFFQ69G5FAC' }],
+              accepted: [{ seq: 9, factId }],
               finalizing: true as const,
             }
           },

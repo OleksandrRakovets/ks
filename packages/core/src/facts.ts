@@ -101,12 +101,18 @@ export const ClientFactSchema = v.variant('type', [
 
 export type ClientFact = v.InferOutput<typeof ClientFactSchema>
 
-export const StoredFactSchema = v.intersect([
-  ClientFactSchema,
-  v.object({
-    seq: PositiveIntegerSchema,
-    receivedAt: UnixEpochMillisecondsSchema,
-  }),
-])
+export const StoredFactSchema = v.pipe(
+  v.intersect([
+    ClientFactSchema,
+    v.object({
+      seq: PositiveIntegerSchema,
+      receivedAt: UnixEpochMillisecondsSchema,
+    }),
+  ]),
+  v.check(
+    (fact) => fact.type !== 'match.created' || fact.matchId === fact.payload.matchId,
+    'Stored match.created envelope and payload match IDs must agree',
+  ),
+)
 
 export type StoredFact = v.InferOutput<typeof StoredFactSchema>

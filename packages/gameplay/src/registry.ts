@@ -1,3 +1,5 @@
+import * as v from 'valibot'
+
 import type { GameCommandResult, GameCreateStateArgs, GameMeta } from './constants'
 import type {
   LongFreePyramidControlView,
@@ -76,7 +78,10 @@ export const registry = {
   },
 } as const satisfies Record<string, RegistryEntry>
 
-export type RegisteredGameKey = keyof typeof registry
+// SAFETY: registry is a non-empty object, and Object.keys returns exactly its runtime string keys.
+const registeredGameKeys = Object.keys(registry) as [keyof typeof registry, ...(keyof typeof registry)[]]
+export const RegisteredGameKeySchema = v.picklist(registeredGameKeys)
+export type RegisteredGameKey = v.InferOutput<typeof RegisteredGameKeySchema>
 
 export type GameContracts = {
   'strila-v2': {
@@ -126,7 +131,7 @@ export interface GameplayDefinition<K extends RegisteredGameKey> {
 }
 
 export function isRegisteredGameKey(value: string): value is RegisteredGameKey {
-  return value in registry
+  return v.is(RegisteredGameKeySchema, value)
 }
 
 export function listGameKeys(): RegisteredGameKey[] {

@@ -1,6 +1,7 @@
 import type { D1Database } from '@cloudflare/workers-types'
-import { type MatchId, newMatchId, nowUnixEpochMilliseconds } from '@ks/core'
+import { type MatchId, newMatchId, nowUnixEpochMilliseconds, PlayerRefSchema } from '@ks/core'
 import type { RegisteredGameKey } from '@ks/gameplay/definitions'
+import * as v from 'valibot'
 
 import { archiveCompletedMatch, finishCompletedMatch } from './d1/completed-matches'
 import { getOrCreateGuestPlayerRef } from './d1/guest-players'
@@ -32,7 +33,10 @@ function matchListRecordFromRow(row: Awaited<ReturnType<typeof listMatchRows>>[n
     gameKey: row.gameKey as RegisteredGameKey,
     status: row.status,
     createdAt: row.createdAt,
-    participantRefs: { A: row.seatAPlayerRef, B: row.seatBPlayerRef },
+    participantRefs: {
+      A: v.parse(PlayerRefSchema, row.seatAPlayerRef),
+      B: v.parse(PlayerRefSchema, row.seatBPlayerRef),
+    },
   }
 }
 
@@ -53,7 +57,10 @@ export function createApplication(bindings: ApplicationBindings) {
             gameKey: row.gameKey,
             status: row.status,
             createdAt: row.createdAt,
-            participantRefs: { A: row.seatAPlayerRef, B: row.seatBPlayerRef },
+            participantRefs: {
+              A: v.parse(PlayerRefSchema, row.seatAPlayerRef),
+              B: v.parse(PlayerRefSchema, row.seatBPlayerRef),
+            },
           }
         : null
     },

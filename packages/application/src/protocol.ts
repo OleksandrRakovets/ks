@@ -1,6 +1,8 @@
 import {
   type BySeatNumber,
   BySeatNumberSchema,
+  type MatchId,
+  type MatchSnapshot,
   opponentOf,
   PositiveIntegerSchema,
   type ProtocolEntry,
@@ -17,6 +19,20 @@ import * as v from 'valibot'
 
 export const PROTOCOL_ARCHIVE_VERSION = 1 as const
 
+export class UnsupportedProtocolArchiveVersionError extends Error {
+  constructor(matchId: MatchId, version: number) {
+    super(`Unsupported protocol archive version ${String(version)} for match ${matchId}`)
+    this.name = 'UnsupportedProtocolArchiveVersionError'
+  }
+}
+
+export class ProtocolArchiveCorruptionError extends Error {
+  constructor(matchId: MatchId) {
+    super(`Protocol archive storage corruption for match ${matchId}`)
+    this.name = 'ProtocolArchiveCorruptionError'
+  }
+}
+
 const ArchiveBodySchema = UnknownObjectSchema
 
 export const ProtocolArchiveRowSchema = v.object({
@@ -32,6 +48,13 @@ export const ProtocolArchiveRowSchema = v.object({
 export type ProtocolArchiveRow = v.InferOutput<typeof ProtocolArchiveRowSchema>
 
 export const ProtocolArchiveRowsSchema = v.array(ProtocolArchiveRowSchema)
+
+export type ProtocolArchiveRecord = {
+  sourceLatestSeq: number
+  protocolVersion: typeof PROTOCOL_ARCHIVE_VERSION
+  rows: ProtocolArchiveRow[]
+  snapshot: MatchSnapshot
+}
 
 export const ProtocolArchiveSchema = v.object({
   protocolVersion: v.literal(PROTOCOL_ARCHIVE_VERSION),

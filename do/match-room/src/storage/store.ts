@@ -1,6 +1,9 @@
 import {
+  type AcceptedFact,
   AcceptedFactSchema,
   type ClientFact,
+  type CommandId,
+  type MatchId,
   nowUnixEpochMilliseconds,
   type StoredFact,
   StoredFactSchema,
@@ -10,26 +13,26 @@ import { asc, eq, gt } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/durable-sqlite'
 import * as v from 'valibot'
 
+import { decodeStoredFactRow, encodeStoredFactRow } from './accepted-fact-row'
 import * as schema from './schema'
 
-export type Accepted = { seq: number; factId: string }
 export type ActiveMatchRecord = typeof schema.activeMatches.$inferSelect
-export type Receipt = { requestJson: string; accepted: Accepted[] }
+export type Receipt = { requestJson: string; accepted: AcceptedFact[] }
 
 type Initialization = {
-  matchId: string
+  matchId: MatchId
   controlSecret: string
   configJson: string
   createdAt: UnixEpochMilliseconds
 }
 
 type CommitReceipt = {
-  commandId: string
+  commandId: CommandId
   requestJson: string
 }
 
 type CommitResult = {
-  accepted: Accepted[]
+  accepted: AcceptedFact[]
   storedFacts: StoredFact[]
 }
 
@@ -45,39 +48,28 @@ export class ActiveMatchStore {
   }
 
   factsAfter(since: number): StoredFact[] {
-    const match = this.match()
-    if (!match) return []
-    return this.db
+    const rows = this.db
       .select()
       .from(schema.acceptedFacts)
       .where(gt(schema.acceptedFacts.seq, since))
       .orderBy(asc(schema.acceptedFacts.seq))
       .all()
-      .flatMap((row) => {
-        const payload = v.safeParse(v.pipe(v.string(), v.parseJson()), row.payloadJson)
-        if (!payload.success) return []
-        const fact = v.safeParse(StoredFactSchema, {
-          seq: row.seq,
-          factId: row.factId,
-          matchId: match.matchId,
-          clientId: row.clientId,
-          clientSeq: row.clientSeq,
-          at: row.at,
-          receivedAt: row.receivedAt,
-          type: row.type,
-          payload: payload.output,
-        })
-        return fact.success ? [fact.output] : []
-      })
+    return rows.map((row) => {
+      try {
+        return decodeStoredFactRow(row)
+      } catch {
+        throw new Error(`MatchRoom accepted_facts storage corruption at sequence ${String(row.seq)}`)
+      }
+    })
   }
 
-  factsForAccepted(accepted: Accepted[]): StoredFact[] {
+  factsForAccepted(accepted: AcceptedFact[]): StoredFact[] {
     if (accepted.length === 0) return []
     const firstSequence = accepted.reduce((lowest, { seq }) => Math.min(lowest, seq), Number.POSITIVE_INFINITY)
     return this.factsAfter(firstSequence - 1).slice(0, accepted.length)
   }
 
-  receipt(commandId: string): Receipt | null {
+  receipt(commandId: CommandId): Receipt | null {
     const row = this.db
       .select()
       .from(schema.commandReceipts)
@@ -85,8 +77,12 @@ export class ActiveMatchStore {
       .limit(1)
       .all()[0]
     if (!row) return null
-    const accepted = v.safeParse(v.pipe(v.string(), v.parseJson(), v.array(AcceptedFactSchema)), row.acceptedJson)
-    return accepted.success ? { requestJson: row.requestJson, accepted: accepted.output } : null
+    try {
+      const accepted = v.parse(v.pipe(v.string(), v.parseJson(), v.array(AcceptedFactSchema)), row.acceptedJson)
+      return { requestJson: row.requestJson, accepted }
+    } catch {
+      throw new Error(`MatchRoom command_receipts storage corruption for command ${commandId}`)
+    }
   }
 
   commitAccepted(args: { facts: ClientFact[]; receipt: CommitReceipt | null; initialization?: Initialization }): CommitResult {
@@ -115,19 +111,7 @@ export class ActiveMatchStore {
       }
 
       for (const fact of storedFacts) {
-        transaction
-          .insert(schema.acceptedFacts)
-          .values({
-            seq: fact.seq,
-            factId: fact.factId,
-            type: fact.type,
-            payloadJson: JSON.stringify(fact.payload),
-            clientId: fact.clientId,
-            clientSeq: fact.clientSeq,
-            at: fact.at,
-            receivedAt: fact.receivedAt,
-          })
-          .run()
+        transaction.insert(schema.acceptedFacts).values(encodeStoredFactRow(fact)).run()
       }
 
       transaction

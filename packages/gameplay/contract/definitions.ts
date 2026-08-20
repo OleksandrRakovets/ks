@@ -15,6 +15,7 @@ export {
   getGameMeta,
   isRegisteredGameKey,
   listGameKeys,
+  RegisteredGameKeySchema,
   registry,
   type ControlProjectionFor,
   type GameContracts,

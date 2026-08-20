@@ -1,14 +1,15 @@
-import type { UnixEpochMilliseconds } from '@ks/core'
+import type { MatchId, PlayerRef, UnixEpochMilliseconds } from '@ks/core'
+import type { RegisteredGameKey } from '@ks/gameplay/definitions'
 import { eq } from 'drizzle-orm'
 
 import { matches, StoredMatchStatus } from './schema'
 import type { ApplicationDatabase } from './types'
 
 export type ActiveMatchCatalogInput = {
-  matchId: string
-  gameKey: string
-  seatAPlayerRef: string
-  seatBPlayerRef: string
+  matchId: MatchId
+  gameKey: RegisteredGameKey
+  seatAPlayerRef: PlayerRef
+  seatBPlayerRef: PlayerRef
   createdAt: UnixEpochMilliseconds
 }
 
@@ -49,6 +50,6 @@ export async function beginMatchCreation(db: ApplicationDatabase, input: ActiveM
   }
 }
 
-export async function activateMatch(db: ApplicationDatabase, matchId: string): Promise<void> {
+export async function activateMatch(db: ApplicationDatabase, matchId: MatchId): Promise<void> {
   await db.update(matches).set({ status: StoredMatchStatus.active }).where(eq(matches.matchId, matchId))
 }

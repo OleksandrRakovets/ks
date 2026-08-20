@@ -1,24 +1,38 @@
-import type { CreateMatchRequest, MatchSnapshotFor } from '@ks/competition'
-import type { CommandId, ControlCommand, ControlCommandSections, MatchId, UnixEpochMilliseconds } from '@ks/core'
+import { MatchCreationDefinitionSchema, type MatchSnapshotFor } from '@ks/competition'
+import type {
+  AcceptedFact,
+  CommandId,
+  ControlCommand,
+  ControlCommandSections,
+  HydratedMatchParticipants,
+  MatchId,
+  UnixEpochMilliseconds,
+} from '@ks/core'
 import type { ControlProjectionFor, RegisteredGameKey } from '@ks/gameplay/definitions'
 import type { SupportedLocale } from '@ks/i18n'
+import * as v from 'valibot'
 
 import type { ProtocolRow } from './protocol'
 
-export type HydratedParticipant = {
-  playerRef: string
-  displayName: string
-  shortDisplayName: string
-}
+export type { HydratedMatchParticipant, HydratedMatchParticipants } from '@ks/core'
 
-export type HydratedMatchParticipants = {
-  A: HydratedParticipant
-  B: HydratedParticipant
-}
+export const DisplayNameSchema = v.pipe(
+  v.string(),
+  v.trim(),
+  v.transform((value) => value.replace(/\s+/g, ' ')),
+  v.minLength(1),
+  // "I Lastname" becomes "I. Lastname" when hydrated, so creation reserves one character for the short form.
+  v.maxLength(127),
+)
 
-export type CreateMatchInput = Omit<CreateMatchRequest, 'participants'> & {
-  playerNames: { A: string; B: string }
-}
+export const CreateMatchInputSchema = v.pipe(
+  v.intersect([
+    MatchCreationDefinitionSchema,
+    v.object({ playerNames: v.object({ A: DisplayNameSchema, B: DisplayNameSchema }) }),
+  ]),
+  v.check((value) => value.playerNames.A !== value.playerNames.B, 'Players must have different display names'),
+)
+export type CreateMatchInput = v.InferInput<typeof CreateMatchInputSchema>
 
 export type CreateMatchResult = { ok: true; matchId: MatchId } | { ok: false; error: string; status: number }
 
@@ -51,9 +65,7 @@ export type ReadMatchControlResult<K extends RegisteredGameKey> =
     }
   | ReadMatchFailure
 
-export type CommandMatchResult =
-  | { ok: true; accepted: { seq: number; factId: string }[] }
-  | { ok: false; error: string; status: number }
+export type CommandMatchResult = { ok: true; accepted: AcceptedFact[] } | { ok: false; error: string; status: number }
 
 export type ReadMatchProtocolResult<K extends RegisteredGameKey> =
   | {

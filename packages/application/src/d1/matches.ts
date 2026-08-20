@@ -1,4 +1,4 @@
-import { normalizeMatchId } from '@ks/competition'
+import type { MatchId } from '@ks/core'
 import { eq, inArray, sql } from 'drizzle-orm'
 
 import { matches, StoredMatchStatus } from './schema'
@@ -19,7 +19,7 @@ export async function listMatchRows(db: ApplicationDatabase) {
     .orderBy(sql`CASE WHEN ${matches.status} = ${StoredMatchStatus.finished} THEN 1 ELSE 0 END`, sql`${matches.createdAt} DESC`)
 }
 
-export async function getMatchRow(db: ApplicationDatabase, matchId: string) {
+export async function getMatchRow(db: ApplicationDatabase, matchId: MatchId) {
   return (
     (await db
       .select({
@@ -31,7 +31,7 @@ export async function getMatchRow(db: ApplicationDatabase, matchId: string) {
         seatBPlayerRef: matches.seatBPlayerRef,
       })
       .from(matches)
-      .where(eq(matches.matchId, normalizeMatchId(matchId)))
+      .where(eq(matches.matchId, matchId))
       .get()) ?? null
   )
 }
