@@ -20,11 +20,11 @@ export type CreateMatchInput = Omit<CreateMatchRequest, 'participants'> & {
   playerNames: { A: string; B: string }
 }
 
-export type CreateMatchResult = { ok: true; matchId: string } | { ok: false; error: string; status: number }
+export type CreateMatchResult = { ok: true; matchId: MatchId } | { ok: false; error: string; status: number }
 
 export type MatchListEntry = {
-  matchId: string
-  gameKey: string
+  matchId: MatchId
+  gameKey: RegisteredGameKey
   gameTitle: string
   status: 'active' | 'finished'
   createdAt: UnixEpochMilliseconds
@@ -59,6 +59,7 @@ export type ReadMatchProtocolResult<K extends RegisteredGameKey> =
   | {
       ok: true
       snapshot: MatchSnapshotFor<K>
+      controlProjection?: ControlProjectionFor<K>
       participants: HydratedMatchParticipants
       protocolRows: ProtocolRow[]
     }
@@ -72,7 +73,12 @@ export type Application = {
     locale: SupportedLocale,
     expectedGameKey: K,
   ): Promise<ReadMatchControlResult<K>>
-  commandMatch(matchId: string, commandId: CommandId, command: ControlCommand): Promise<CommandMatchResult>
+  commandMatch<K extends RegisteredGameKey>(
+    matchId: string,
+    commandId: CommandId,
+    command: ControlCommand,
+    expectedGameKey: K,
+  ): Promise<CommandMatchResult>
   readMatchProtocol<K extends RegisteredGameKey>(
     matchId: MatchId,
     timeZone: string,

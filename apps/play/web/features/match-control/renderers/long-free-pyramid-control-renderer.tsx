@@ -1,16 +1,33 @@
 import type { ControlCommandPreset } from '@ks/core'
-import { LongFreePyramidControlViewSchema } from '@ks/gameplay/definitions'
+import type { LongFreePyramidControlView } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
-import { useMemo, useState } from 'react'
+import type { TFunction } from 'i18next'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import * as v from 'valibot'
 
 import { Button } from '@/components/ui'
 
 import { controlCommandLabel } from './control-copy'
 import type { MatchControlRendererProps } from './types'
 
-type SeatCommands = MatchControlRendererProps['commandSections']['primary']
+type SeatCommands = MatchControlRendererProps<LongFreePyramidControlView>['commandSections']['primary']
+type LabelledLongFreePyramidCommand =
+  | { kind: 'points'; command: ControlCommandPreset; points: number }
+  | { kind: 'command'; command: ControlCommandPreset }
+
+export function labelLongFreePyramidCommands(commands: ControlCommandPreset[]): LabelledLongFreePyramidCommand[] {
+  let points = 0
+  return commands.map((command) => {
+    if (command.commandType !== 'pot.record') return { kind: 'command', command }
+    points += 1
+    return { kind: 'points', command, points }
+  })
+}
+
+function longFreePyramidCommandLabel(t: TFunction, labelled: LabelledLongFreePyramidCommand): string {
+  if (labelled.kind === 'points') return t('match.control.commands.game.pot.points', { points: labelled.points })
+  return controlCommandLabel(t, labelled.command)
+}
 
 function buttonVariant(prominence: ControlCommandPreset['prominence']): 'default' | 'secondary' | 'outline' {
   if (prominence === 'primary') return 'default'
@@ -31,15 +48,15 @@ function CommandRows(props: { commands: SeatCommands; onSubmit: (command: Contro
       <div className="grid grid-cols-2 gap-6">
         {(['A', 'B'] as const).map((seat) => (
           <div key={seat} className="grid gap-3.5">
-            {commands[seat].map((command, index) => (
+            {labelLongFreePyramidCommands(commands[seat]).map((labelled, index) => (
               <Button
-                key={`${seat}-${command.commandType}-${index}`}
+                key={`${seat}-${labelled.command.commandType}-${index}`}
                 type="button"
-                variant={buttonVariant(command.prominence)}
+                variant={buttonVariant(labelled.command.prominence)}
                 size="control"
-                onClick={() => props.onSubmit(command)}
+                onClick={() => props.onSubmit(labelled.command)}
               >
-                {controlCommandLabel(t, command)}
+                {longFreePyramidCommandLabel(t, labelled)}
               </Button>
             ))}
           </div>
@@ -71,10 +88,9 @@ function NeutralCommandRows(props: { commands: ControlCommandPreset[]; onSubmit:
   )
 }
 
-export function LongFreePyramidControlRenderer(props: MatchControlRendererProps) {
+export function LongFreePyramidControlRenderer(props: MatchControlRendererProps<LongFreePyramidControlView>) {
   const [showTertiary, setShowTertiary] = useState(false)
   const { t } = useTranslation()
-  const parsed = useMemo(() => v.safeParse(LongFreePyramidControlViewSchema, props.projection), [props.projection])
   const commandSections = props.commandSections
   const hasNeutral = commandSections.neutral.length > 0
   const hasTertiary = commandSections.tertiary.A.length > 0 || commandSections.tertiary.B.length > 0
@@ -84,15 +100,7 @@ export function LongFreePyramidControlRenderer(props: MatchControlRendererProps)
   }
   const hasScoringCommands = scoringCommands.A.length > 0 || scoringCommands.B.length > 0
 
-  if (!parsed.success) {
-    return (
-      <div className="grid gap-4">
-        {hasNeutral ? <NeutralCommandRows commands={commandSections.neutral} onSubmit={props.onSubmitCommand} /> : null}
-      </div>
-    )
-  }
-
-  const details = parsed.output.details
+  const details = props.projection.details
   const previousRackScores = details.rackHistory
     .slice(0, -1)
     .map((rack) => `${rack.scoreBySeat.A}:${rack.scoreBySeat.B}`)

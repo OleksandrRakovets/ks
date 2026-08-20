@@ -6,6 +6,7 @@ import {
   ControlCommandSectionsSchema,
   emptyControlCommandSections,
   type MatchId,
+  MatchIdSchema,
   MatchSnapshotSchema,
   type PlayerRef,
   type UnixEpochMilliseconds,
@@ -41,7 +42,7 @@ type MatchListRecord = {
 type MatchRecord = MatchListRecord
 
 type ApplicationDependencies = {
-  newMatchId(): string
+  newMatchId(): MatchId
   newControlSecret(): string
   now(): UnixEpochMilliseconds
   getOrCreateGuestPlayerRef(displayName: string): Promise<PlayerRef>
@@ -134,11 +135,16 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
         if (record.status === 'finalizing') await disposeAndFinishRoom(record.matchId)
       }),
     )
+    const validRecords = records.flatMap((record) => {
+      const matchId = v.safeParse(MatchIdSchema, record.matchId)
+      if (!matchId.success || !isRegisteredGameKey(record.gameKey)) return []
+      return [{ ...record, matchId: matchId.output, gameKey: record.gameKey }]
+    })
     return await Promise.all(
-      records.map(async (record) => ({
+      validRecords.map(async (record) => ({
         matchId: record.matchId,
         gameKey: record.gameKey,
-        gameTitle: isRegisteredGameKey(record.gameKey) ? registry[record.gameKey].meta.title[locale] : record.gameKey,
+        gameTitle: registry[record.gameKey].meta.title[locale],
         status: record.status === 'active' ? ('active' as const) : ('finished' as const),
         createdAt: record.createdAt,
         participants: {
@@ -213,10 +219,15 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
       : { ...match, state: 'between-frames', controlSections }
   }
 
-  async function commandMatch(matchId: string, commandId: CommandId, command: ControlCommand): Promise<CommandMatchResult> {
+  async function commandMatch<K extends RegisteredGameKey>(
+    matchId: string,
+    commandId: CommandId,
+    command: ControlCommand,
+    expectedGameKey: K,
+  ): Promise<CommandMatchResult> {
     const normalizedMatchId = normalizeMatchId(matchId)
     const record = await dependencies.getMatchRecord(normalizedMatchId)
-    if (!record) return { ok: false, error: 'Unknown match', status: 404 }
+    if (!record || record.gameKey !== expectedGameKey) return { ok: false, error: 'Unknown match', status: 404 }
     if (record.status === 'finalizing') await disposeAndFinishRoom(normalizedMatchId)
     if (record.status === 'finalizing' || record.status === 'finished') {
       return { ok: false, error: 'Match is finished', status: 409 }
@@ -258,7 +269,14 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
       if (!rows.success) return { ok: false, error: 'Failed to parse protocol archive from DB', status: 500 }
       protocolRows = renderProtocolRows(rows.output, seatNames, timeZone, locale)
     }
-    return { ok: true, snapshot: match.snapshot, participants: match.participants, protocolRows }
+    const result: Extract<ReadMatchProtocolResult<K>, { ok: true }> = {
+      ok: true,
+      snapshot: match.snapshot,
+      participants: match.participants,
+      protocolRows,
+    }
+    if (match.controlProjection) result.controlProjection = match.controlProjection
+    return result
   }
 
   async function archiveAndFinishRoom(matchId: string): Promise<void> {

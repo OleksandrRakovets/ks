@@ -1,18 +1,32 @@
-import type { ControlCommandPreset } from '@ks/core'
-import { PyramidControlViewSchema } from '@ks/gameplay/definitions'
+import type { ControlCommandPreset, ControlCommandSections } from '@ks/core'
+import type {
+  CombinedPyramidControlView,
+  CombinedPyramidOldControlView,
+  FreePyramidControlView,
+} from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
-import { useMemo, useState } from 'react'
+import type { TFunction } from 'i18next'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import * as v from 'valibot'
 
 import { Button } from '@/components/ui'
 
 import { controlCommandEffect, controlCommandLabel } from './control-copy'
 import type { MatchControlRendererProps } from './types'
 
-type SeatCommands = MatchControlRendererProps['commandSections']['primary']
+type SeatCommands = ControlCommandSections['primary']
 type CommandSection = {
   commands: SeatCommands
+}
+
+function pyramidCommandLabel(
+  t: TFunction,
+  command: ControlCommandPreset,
+  index: number,
+  pointOptions: readonly number[],
+): string {
+  if (command.commandType !== 'pot.record') return controlCommandLabel(t, command)
+  return t('match.control.commands.game.pot.points', { points: pointOptions[index] ?? 1 })
 }
 
 function buttonVariant(prominence: ControlCommandPreset['prominence']): 'default' | 'secondary' | 'outline' {
@@ -23,12 +37,13 @@ function buttonVariant(prominence: ControlCommandPreset['prominence']): 'default
 
 function CommandRows(props: {
   commands: SeatCommands
+  pointOptions: readonly number[]
   showEffectSummaries?: boolean
   onSubmit: (command: ControlCommandPreset) => void
 }) {
   const { t } = useTranslation()
 
-  function renderButton(command: ControlCommandPreset, key: string) {
+  function renderButton(command: ControlCommandPreset, key: string, index: number) {
     return (
       <div key={key} className="grid gap-1">
         <Button
@@ -37,7 +52,7 @@ function CommandRows(props: {
           size="control"
           onClick={() => props.onSubmit(command)}
         >
-          {controlCommandLabel(t, command)}
+          {pyramidCommandLabel(t, command, index, props.pointOptions)}
         </Button>
         {props.showEffectSummaries && controlCommandEffect(t, command) ? (
           <p className="text-center text-base text-text-lo">{controlCommandEffect(t, command)}</p>
@@ -46,17 +61,30 @@ function CommandRows(props: {
     )
   }
 
+  function renderSeatCommands(commands: ControlCommandPreset[], seat: 'A' | 'B') {
+    let potIndex = 0
+    return commands.map((command, index) => {
+      const commandPotIndex = potIndex
+      if (command.commandType === 'pot.record') potIndex += 1
+      return renderButton(command, `${seat}-${index}`, commandPotIndex)
+    })
+  }
+
   return (
     <section className="border-b border-divider px-4 py-3">
       <div className="grid grid-cols-2 gap-6">
-        <div className="grid gap-3.5">{props.commands.A.map((command, index) => renderButton(command, `A-${index}`))}</div>
-        <div className="grid gap-3.5">{props.commands.B.map((command, index) => renderButton(command, `B-${index}`))}</div>
+        <div className="grid gap-3.5">{renderSeatCommands(props.commands.A, 'A')}</div>
+        <div className="grid gap-3.5">{renderSeatCommands(props.commands.B, 'B')}</div>
       </div>
     </section>
   )
 }
 
-function CombinedCommandRows(props: { sections: CommandSection[]; onSubmit: (command: ControlCommandPreset) => void }) {
+function CombinedCommandRows(props: {
+  sections: CommandSection[]
+  pointOptions: readonly number[]
+  onSubmit: (command: ControlCommandPreset) => void
+}) {
   const commands = props.sections.reduce<SeatCommands>(
     (merged, section) => ({
       A: [...merged.A, ...section.commands.A],
@@ -65,7 +93,7 @@ function CombinedCommandRows(props: { sections: CommandSection[]; onSubmit: (com
     { A: [], B: [] },
   )
 
-  return <CommandRows commands={commands} onSubmit={props.onSubmit} />
+  return <CommandRows commands={commands} pointOptions={props.pointOptions} onSubmit={props.onSubmit} />
 }
 
 function NeutralCommandRows(props: { commands: ControlCommandPreset[]; onSubmit: (command: ControlCommandPreset) => void }) {
@@ -90,20 +118,15 @@ function NeutralCommandRows(props: { commands: ControlCommandPreset[]; onSubmit:
   )
 }
 
-export function PyramidControlRenderer(props: MatchControlRendererProps) {
+function PyramidControlRenderer(props: {
+  commandSections: ControlCommandSections
+  pointOptions: readonly number[]
+  onSubmitCommand: (command: ControlCommandPreset) => void
+}) {
   const [showTertiary, setShowTertiary] = useState(false)
   const { t } = useTranslation()
-  const parsed = useMemo(() => v.safeParse(PyramidControlViewSchema, props.projection), [props.projection])
   const commandSections = props.commandSections
   const hasNeutral = commandSections.neutral.length > 0
-
-  if (!parsed.success) {
-    return (
-      <div className="grid gap-4">
-        {hasNeutral ? <NeutralCommandRows commands={commandSections.neutral} onSubmit={props.onSubmitCommand} /> : null}
-      </div>
-    )
-  }
 
   const hasPrimary = commandSections.primary.A.length > 0 || commandSections.primary.B.length > 0
   const hasSecondary = commandSections.secondary.A.length > 0 || commandSections.secondary.B.length > 0
@@ -117,7 +140,9 @@ export function PyramidControlRenderer(props: MatchControlRendererProps) {
     <div className="grid">
       {hasNeutral && <NeutralCommandRows commands={commandSections.neutral} onSubmit={props.onSubmitCommand} />}
 
-      {visibleSections.length > 0 && <CombinedCommandRows sections={visibleSections} onSubmit={props.onSubmitCommand} />}
+      {visibleSections.length > 0 && (
+        <CombinedCommandRows sections={visibleSections} pointOptions={props.pointOptions} onSubmit={props.onSubmitCommand} />
+      )}
 
       {hasTertiary && (
         <div className="grid">
@@ -128,9 +153,45 @@ export function PyramidControlRenderer(props: MatchControlRendererProps) {
           >
             {showTertiary ? t(keys.match.control.showLess) : t(keys.match.control.showMore)}
           </button>
-          {showTertiary && <CommandRows commands={commandSections.tertiary} onSubmit={props.onSubmitCommand} />}
+          {showTertiary && (
+            <CommandRows
+              commands={commandSections.tertiary}
+              pointOptions={props.pointOptions}
+              onSubmit={props.onSubmitCommand}
+            />
+          )}
         </div>
       )}
     </div>
+  )
+}
+
+export function FreePyramidControlRenderer(props: MatchControlRendererProps<FreePyramidControlView>) {
+  return (
+    <PyramidControlRenderer
+      commandSections={props.commandSections}
+      pointOptions={[1, 2, 4]}
+      onSubmitCommand={props.onSubmitCommand}
+    />
+  )
+}
+
+export function CombinedPyramidControlRenderer(props: MatchControlRendererProps<CombinedPyramidControlView>) {
+  return (
+    <PyramidControlRenderer
+      commandSections={props.commandSections}
+      pointOptions={[1, 2]}
+      onSubmitCommand={props.onSubmitCommand}
+    />
+  )
+}
+
+export function CombinedPyramidOldControlRenderer(props: MatchControlRendererProps<CombinedPyramidOldControlView>) {
+  return (
+    <PyramidControlRenderer
+      commandSections={props.commandSections}
+      pointOptions={[1, 2]}
+      onSubmitCommand={props.onSubmitCommand}
+    />
   )
 }
