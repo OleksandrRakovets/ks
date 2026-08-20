@@ -2,8 +2,9 @@ import { type FrameOutcome, IntegerSchema, opponentOf, type ProtocolEntry, Proto
 import invariant from 'tiny-invariant'
 import * as v from 'valibot'
 
-import { type GameCreateStateArgs, type GameplayRuntime, type GameProjectionKey } from '../constants'
-import { type PyramidFrameState, PyramidFrameStateSchema, type PyramidRuntimeConfig } from './definitions'
+import { type GameCreateStateArgs } from '../constants'
+import type { ControlProjectionFor, GameplayDefinition, ScoreboardProjectionFor, SummaryProjectionFor } from '../registry'
+import { type PyramidFrameState, type PyramidGameKey, type PyramidRuntimeConfig } from './definitions'
 import { derivePyramidControlView } from './projections/control'
 import { derivePyramidScoreboardView } from './projections/scoreboard'
 import { derivePyramidSummaryView } from './projections/summary'
@@ -65,11 +66,13 @@ function protocolEntry(args: {
   })
 }
 
-export class PyramidGameplayRuntime implements GameplayRuntime {
-  private readonly config: PyramidRuntimeConfig
+export class PyramidGameplayRuntime<K extends PyramidGameKey> implements GameplayDefinition<K> {
+  readonly key: K
+  private readonly config: PyramidRuntimeConfig<K>
 
-  constructor(config: PyramidRuntimeConfig) {
+  constructor(config: PyramidRuntimeConfig<K>) {
     this.config = config
+    this.key = config.gameKey
   }
 
   createInitialState(args: GameCreateStateArgs): PyramidFrameState {
@@ -80,13 +83,8 @@ export class PyramidGameplayRuntime implements GameplayRuntime {
     }
   }
 
-  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: REVIEW_POST_REFACTOR
-  parseState(state: unknown): PyramidFrameState {
-    return v.parse(PyramidFrameStateSchema, state)
-  }
-
-  applyCommand(input: { state: unknown; commandType: string; command: unknown }) {
-    const state = this.parseState(input.state)
+  applyCommand(input: { state: PyramidFrameState; commandType: string; command: unknown }) {
+    const state = input.state
     invariant(state.phase !== 'frame-over', 'Cannot apply pyramid command after frame-over')
 
     if (input.commandType === 'frame.commence') {
@@ -239,16 +237,21 @@ export class PyramidGameplayRuntime implements GameplayRuntime {
     }
   }
 
-  deriveProjection(args: { state: unknown; projection: GameProjectionKey }) {
-    const state = this.parseState(args.state)
+  deriveControl(state: PyramidFrameState): ControlProjectionFor<K> {
+    const projection = derivePyramidControlView(state, this.config)
+    // SAFETY: The constructor verified the complete schema-inferred shape; only registry generic correlation remains.
+    return projection as ControlProjectionFor<K>
+  }
 
-    switch (args.projection) {
-      case 'control':
-        return derivePyramidControlView(state, this.config)
-      case 'scoreboard':
-        return derivePyramidScoreboardView(state, this.config)
-      case 'summary':
-        return derivePyramidSummaryView(state, this.config)
-    }
+  deriveScoreboard(state: PyramidFrameState): ScoreboardProjectionFor<K> {
+    const projection = derivePyramidScoreboardView(state, this.config)
+    // SAFETY: The constructor verified the complete schema-inferred shape; only registry generic correlation remains.
+    return projection as ScoreboardProjectionFor<K>
+  }
+
+  deriveSummary(state: PyramidFrameState): SummaryProjectionFor<K> {
+    const projection = derivePyramidSummaryView(state, this.config)
+    // SAFETY: The constructor verified the complete schema-inferred shape; only registry generic correlation remains.
+    return projection as SummaryProjectionFor<K>
   }
 }

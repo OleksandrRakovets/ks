@@ -1,20 +1,27 @@
 import { emptyControlCommandSections } from '@ks/core'
 import invariant from 'tiny-invariant'
-import * as v from 'valibot'
 
 import { deriveGameCommandSections, type GameControlCommand } from '../../constants'
-import { PyramidControlViewSchema, type PyramidFrameState, type PyramidRuntimeConfig } from '../definitions'
+import type {
+  AnyPyramidControlView,
+  PyramidControlViewFor,
+  PyramidFrameState,
+  PyramidGameKey,
+  PyramidRuntimeConfig,
+} from '../definitions'
 
-/* oxlint-disable anti-slop/no-unsafe-dictionary-type -- SAFETY: REVIEW_POST_REFACTOR */
+type PyramidControlCommandInput =
+  | { type: 'pot.record'; seat: 'A' | 'B'; points: number }
+  | { type: 'foul.commit'; seat: 'A' | 'B' }
+  | { type: 'frame.award'; seat: 'A' | 'B' }
+
 function command(
-  commandType: string,
-  payload: Record<string, unknown>,
+  input: PyramidControlCommandInput,
   extras: Omit<GameControlCommand, 'source' | 'commandType' | 'command' | 'seat'>,
 ): GameControlCommand {
-  const seat = payload.seat === 'A' || payload.seat === 'B' ? payload.seat : undefined
-  return { source: 'game', commandType, command: payload, seat, ...extras }
+  const { type: commandType, ...command } = input
+  return { source: 'game', commandType, command, seat: input.seat, ...extras }
 }
-/* oxlint-enable anti-slop/no-unsafe-dictionary-type */
 
 function pyramidDetails(state: PyramidFrameState) {
   return {
@@ -23,9 +30,12 @@ function pyramidDetails(state: PyramidFrameState) {
   }
 }
 
-export function derivePyramidControlView(state: PyramidFrameState, config: PyramidRuntimeConfig) {
+export function derivePyramidControlView<K extends PyramidGameKey>(
+  state: PyramidFrameState,
+  config: PyramidRuntimeConfig<K>,
+): PyramidControlViewFor<K> {
   if (state.phase === 'not-started') {
-    return v.parse(PyramidControlViewSchema, {
+    const projection = {
       gameKey: config.gameKey,
       projection: 'control',
       score: state.pointsBySeat,
@@ -36,7 +46,8 @@ export function derivePyramidControlView(state: PyramidFrameState, config: Pyram
         isPotCommandAvailable: false,
         commandSections: emptyControlCommandSections(),
       },
-    })
+    } satisfies AnyPyramidControlView & { gameKey: K }
+    return projection
   }
 
   if (state.phase === 'open-play') {
@@ -44,13 +55,12 @@ export function derivePyramidControlView(state: PyramidFrameState, config: Pyram
     const commands = [
       ...seats.flatMap((seat) =>
         config.shotPointOptions.map((points, index) =>
-          command('pot.record', { seat, points }, { prominence: index === 0 ? 'primary' : 'secondary' }),
+          command({ type: 'pot.record', seat, points }, { prominence: index === 0 ? 'primary' : 'secondary' }),
         ),
       ),
       ...seats.map((seat) =>
         command(
-          'foul.commit',
-          { seat },
+          { type: 'foul.commit', seat },
           {
             prominence: 'secondary',
             effect: config.foulPenalty,
@@ -59,7 +69,7 @@ export function derivePyramidControlView(state: PyramidFrameState, config: Pyram
       ),
     ]
 
-    return v.parse(PyramidControlViewSchema, {
+    const projection = {
       gameKey: config.gameKey,
       projection: 'control',
       score: state.pointsBySeat,
@@ -70,17 +80,18 @@ export function derivePyramidControlView(state: PyramidFrameState, config: Pyram
         isPotCommandAvailable: true,
         commandSections: deriveGameCommandSections(commands),
       },
-    })
+    } satisfies AnyPyramidControlView & { gameKey: K }
+    return projection
   }
 
   if (state.phase === 'winner-determined') {
     invariant(state.winnerSeat, 'Winner is required before awarding a determined pyramid frame')
     const commands = [
-      command('frame.award', { seat: state.winnerSeat }, { prominence: 'primary' }),
-      command('pot.record', { seat: state.winnerSeat, points: 1 }, { prominence: 'secondary' }),
+      command({ type: 'frame.award', seat: state.winnerSeat }, { prominence: 'primary' }),
+      command({ type: 'pot.record', seat: state.winnerSeat, points: 1 }, { prominence: 'secondary' }),
     ]
 
-    return v.parse(PyramidControlViewSchema, {
+    const projection = {
       gameKey: config.gameKey,
       projection: 'control',
       score: state.pointsBySeat,
@@ -91,10 +102,11 @@ export function derivePyramidControlView(state: PyramidFrameState, config: Pyram
         isPotCommandAvailable: true,
         commandSections: deriveGameCommandSections(commands),
       },
-    })
+    } satisfies AnyPyramidControlView & { gameKey: K }
+    return projection
   }
 
-  return v.parse(PyramidControlViewSchema, {
+  const projection = {
     gameKey: config.gameKey,
     projection: 'control',
     score: state.pointsBySeat,
@@ -105,5 +117,6 @@ export function derivePyramidControlView(state: PyramidFrameState, config: Pyram
       isPotCommandAvailable: false,
       commandSections: emptyControlCommandSections(),
     },
-  })
+  } satisfies AnyPyramidControlView & { gameKey: K }
+  return projection
 }

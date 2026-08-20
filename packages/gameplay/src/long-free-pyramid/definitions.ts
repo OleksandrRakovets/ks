@@ -1,7 +1,7 @@
 import { BySeatNumberSchema, ControlCommandSectionsSchema, IntegerSchema, SeatSchema } from '@ks/core'
 import * as v from 'valibot'
 
-import { GameControlProjectionSchema } from '../constants'
+import { GameControlProjectionSchema, GameScoreboardProjectionSchema, GameSummaryProjectionSchema } from '../constants'
 
 export const LongFreePyramidRackSchema = v.object({
   rackNumber: v.pipe(IntegerSchema, v.minValue(1)),
@@ -48,3 +48,17 @@ export const LongFreePyramidControlViewSchema = v.object({
   details: LongFreePyramidControlDetailsSchema,
 })
 export type LongFreePyramidControlView = v.InferOutput<typeof LongFreePyramidControlViewSchema>
+
+export const LongFreePyramidScoreboardViewSchema = v.object({
+  ...GameScoreboardProjectionSchema.entries,
+  gameKey: v.literal('free-pyramid-long'),
+  details: LongFreePyramidProjectionDetailsSchema,
+})
+export type LongFreePyramidScoreboardView = v.InferOutput<typeof LongFreePyramidScoreboardViewSchema>
+
+export const LongFreePyramidSummaryViewSchema = v.object({
+  ...GameSummaryProjectionSchema.entries,
+  gameKey: v.literal('free-pyramid-long'),
+  details: LongFreePyramidProjectionDetailsSchema,
+})
+export type LongFreePyramidSummaryView = v.InferOutput<typeof LongFreePyramidSummaryViewSchema>

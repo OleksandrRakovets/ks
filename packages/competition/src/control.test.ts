@@ -120,7 +120,7 @@ describe('deriveSparringControlSections', () => {
           },
         ],
       }),
-      gameControlProjection: { details: { phase: 'not-started', commandSections: emptyControlCommandSections() } },
+      gameControl: { phase: 'not-started', commandSections: emptyControlCommandSections() },
     })
 
     expect(sections.primary.A).toEqual([
@@ -148,7 +148,7 @@ describe('deriveSparringControlSections', () => {
 
     const merged = deriveSparringControlSections({
       matchState: matchState(),
-      gameControlProjection: { details: { commandSections: gameSections } },
+      gameControl: { phase: 'frame-over', commandSections: gameSections },
     })
 
     expect(merged.neutral.map((command) => command.commandType)).toEqual(['frame.start'])

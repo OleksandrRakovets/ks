@@ -1,22 +1,11 @@
+import { applyMatchFact, buildMatchConfig, CreateMatchRequestSchema, emptyMatchState, type MatchState } from '@ks/competition'
 import {
-  applyMatchFact,
-  buildMatchConfig,
-  CreateMatchRequestSchema,
-  deriveSparringControlSections,
-  emptyMatchState,
-  type MatchState,
-  snapshotFromMatchState,
-} from '@ks/competition'
-import {
-  BySeatNumberSchema,
   type ClientFact,
   ClientFactSchema,
   ClientIdSchema,
   type ControlCommand,
-  type ControlCommandSections,
   type MatchConfig,
   MatchIdSchema,
-  type MatchSnapshot,
   newFactId,
   nowUnixEpochMilliseconds,
   opponentOf,
@@ -24,13 +13,20 @@ import {
   type StoredFact,
   type UnixEpochMilliseconds,
 } from '@ks/core'
-import { type GameControlProjection, GameControlProjectionSchema } from '@ks/gameplay/definitions'
-import { applyGameCommand, createInitialGameState, deriveGameProjection, parseGameKey } from '@ks/gameplay/server'
+import { parseGameKey } from '@ks/gameplay/server'
 import { DurableObject } from 'cloudflare:workers'
 import { migrate } from 'drizzle-orm/durable-sqlite/migrator'
 import * as v from 'valibot'
 
 import migrationsBundle from '../drizzle/migrations.js'
+import {
+  type AnyActiveGameState,
+  applyActiveGameCommand,
+  assembleRoomSnapshot,
+  createActiveGameState,
+  deriveActiveGameSummary,
+  type RoomSnapshotSuccess,
+} from './active-game'
 import type { Env } from './env'
 import { Broadcaster } from './live/broadcaster'
 import {
@@ -45,10 +41,10 @@ import {
 } from './rpc-contract'
 import { type Accepted, ActiveMatchStore } from './storage/store'
 
-type RoomState = { matchState: MatchState; currentFrameState: unknown | null }
+type RoomState = { matchState: MatchState; currentFrame: AnyActiveGameState | null }
+type SnapshotResult = RoomSnapshotSuccess | { ok: false; error: string; status: number }
 const ConcedeFrameCommandSchema = v.object({ seat: SeatSchema })
 const CommenceFrameCommandSchema = v.object({ seat: SeatSchema })
-const GameScoreProjectionSchema = v.object({ score: BySeatNumberSchema })
 
 export class MatchRoom extends DurableObject<Env> {
   private readonly store: ActiveMatchStore
@@ -100,15 +96,7 @@ export class MatchRoom extends DurableObject<Env> {
     })
   }
 
-  async snapshot(args: SnapshotBody): Promise<
-    | {
-        ok: true
-        snapshot: MatchSnapshot
-        controlProjection: GameControlProjection | undefined
-        controlSections: ControlCommandSections
-      }
-    | { ok: false; error: string; status: number }
-  > {
+  async snapshot(args: SnapshotBody): Promise<SnapshotResult> {
     await this.ready
     if (!v.safeParse(SnapshotBodySchema, args).success) return { ok: false, error: 'Invalid snapshot body', status: 400 }
     if (this.deleted) return { ok: false, error: 'Unknown match', status: 400 }
@@ -119,26 +107,7 @@ export class MatchRoom extends DurableObject<Env> {
     }
     const state = this.loadState()
     if (!state.matchState.config) return { ok: false, error: 'Match is not initialized', status: 409 }
-    const controlProjection: GameControlProjection | undefined =
-      state.currentFrameState === null
-        ? undefined
-        : v.parse(
-            GameControlProjectionSchema,
-            deriveGameProjection({
-              gameKey: parseGameKey(state.matchState.config.gameKey),
-              state: state.currentFrameState,
-              projection: 'control',
-            }),
-          )
-    return {
-      ok: true,
-      snapshot: snapshotFromMatchState(state.matchState, match.latestSeq),
-      controlProjection,
-      controlSections: deriveSparringControlSections({
-        matchState: state.matchState,
-        gameControlProjection: controlProjection,
-      }),
-    }
+    return assembleRoomSnapshot(state.matchState, state.currentFrame, match.latestSeq)
   }
 
   async facts(
@@ -285,9 +254,9 @@ export class MatchRoom extends DurableObject<Env> {
 
   private loadState(): RoomState {
     const match = this.store.match()
-    if (!match) return { matchState: emptyMatchState(), currentFrameState: null }
+    if (!match) return { matchState: emptyMatchState(), currentFrame: null }
     if (this.cache?.latestSeq === match.latestSeq) return this.cache.state
-    let state: RoomState = { matchState: emptyMatchState(), currentFrameState: null }
+    let state: RoomState = { matchState: emptyMatchState(), currentFrame: null }
     for (const fact of this.store.factsAfter(0)) state = this.apply(state, fact)
     this.cache = { latestSeq: match.latestSeq, state }
     return state
@@ -313,26 +282,21 @@ export class MatchRoom extends DurableObject<Env> {
     const matchState = applyMatchFact(structuredClone(room.matchState), fact)
     if (fact.type === 'frame.started') {
       const args = { targetPointsBySeat: fact.payload.targetPointsBySeat, breakerSeat: fact.payload.breakerSeat }
-      const currentFrameState =
-        fact.payload.gameConfiguration === undefined
-          ? createInitialGameState(parseGameKey(fact.payload.gameKey), args)
-          : createInitialGameState(parseGameKey(fact.payload.gameKey), {
-              ...args,
-              gameConfiguration: fact.payload.gameConfiguration,
-            })
-      return { matchState, currentFrameState }
+      const gameKey = parseGameKey(fact.payload.gameKey)
+      const gameArgs =
+        fact.payload.gameConfiguration === undefined ? args : { ...args, gameConfiguration: fact.payload.gameConfiguration }
+      return { matchState, currentFrame: createActiveGameState(gameKey, gameArgs) }
     }
-    if (fact.type === 'game.command')
+    if (fact.type === 'game.command') {
+      if (!room.currentFrame || room.currentFrame.gameKey !== parseGameKey(fact.payload.gameKey)) {
+        throw new Error('Game command does not match active frame')
+      }
       return {
         matchState,
-        currentFrameState: applyGameCommand({
-          gameKey: parseGameKey(fact.payload.gameKey),
-          state: room.currentFrameState,
-          commandType: fact.payload.commandType,
-          command: fact.payload.command,
-        }).state,
+        currentFrame: applyActiveGameCommand(room.currentFrame, fact.payload.commandType, fact.payload.command).active,
       }
-    return { matchState, currentFrameState: fact.type === 'frame.completed' ? null : room.currentFrameState }
+    }
+    return { matchState, currentFrame: fact.type === 'frame.completed' ? null : room.currentFrame }
   }
 
   private factsForCommand(room: RoomState, matchId: string, command: ControlCommand): ClientFact[] {
@@ -366,18 +330,13 @@ export class MatchRoom extends DurableObject<Env> {
       if (!winnerSeat) throw new Error('Cannot end match before target')
       return [{ ...base, factId: newFactId(), type: 'match.ended', payload: { winnerSeat } }]
     }
-    if (room.currentFrameState === null) throw new Error('No active frame')
+    if (room.currentFrame === null) throw new Error('No active frame')
     const frame = room.matchState.frames.at(-1)
     if (!frame || frame.winnerSeat) throw new Error('No active frame')
     if (command.source === 'match' && command.commandType === 'frame.commence') {
       const commence = v.parse(CommenceFrameCommandSchema, command.command)
       if (commence.seat !== frame.breakerSeat) throw new Error('Frame break-off seat does not match match order')
-      const result = applyGameCommand({
-        gameKey: parseGameKey(config.gameKey),
-        state: room.currentFrameState,
-        commandType: 'frame.commence',
-        command: commence,
-      })
+      const result = applyActiveGameCommand(room.currentFrame, 'frame.commence', commence)
       return [
         {
           ...base,
@@ -394,12 +353,7 @@ export class MatchRoom extends DurableObject<Env> {
       ]
     }
     if (command.source === 'game') {
-      const result = applyGameCommand({
-        gameKey: parseGameKey(config.gameKey),
-        state: room.currentFrameState,
-        commandType: command.commandType,
-        command: command.command,
-      })
+      const result = applyActiveGameCommand(room.currentFrame, command.commandType, command.command)
       const game: ClientFact = {
         ...base,
         factId: newFactId(),
@@ -426,10 +380,7 @@ export class MatchRoom extends DurableObject<Env> {
     }
     if (command.source === 'match' && command.commandType === 'frame.concede') {
       const concede = v.parse(ConcedeFrameCommandSchema, command.command)
-      const projection = v.parse(
-        GameScoreProjectionSchema,
-        deriveGameProjection({ gameKey: parseGameKey(config.gameKey), state: room.currentFrameState, projection: 'summary' }),
-      )
+      const projection = deriveActiveGameSummary(room.currentFrame)
       return [
         {
           ...base,

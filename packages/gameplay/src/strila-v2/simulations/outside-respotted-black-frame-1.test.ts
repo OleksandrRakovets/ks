@@ -1,23 +1,14 @@
 import { expect, test } from 'bun:test'
 
-import * as v from 'valibot'
+import { applyGameCommand, deriveGameControl, deriveGameScoreboard } from '../../gameplay'
+import { type StrilaFrameState, StrilaMeta } from '../definitions'
 
-import { applyGameCommand, deriveGameProjection } from '../../gameplay'
-import {
-  StrilaControlViewSchema,
-  type StrilaFrameState,
-  StrilaFrameStateSchema,
-  StrilaMeta,
-  StrilaScoreboardViewSchema,
-} from '../definitions'
-
-function controlDetails<State>(state: State) {
-  return v.parse(StrilaControlViewSchema, deriveGameProjection({ gameKey: 'strila-v2', state, projection: 'control' })).details
+function controlDetails(state: StrilaFrameState) {
+  return deriveGameControl('strila-v2', state).details
 }
 
-function scoreboardDetails<State>(state: State) {
-  return v.parse(StrilaScoreboardViewSchema, deriveGameProjection({ gameKey: 'strila-v2', state, projection: 'scoreboard' }))
-    .details
+function scoreboardDetails(state: StrilaFrameState) {
+  return deriveGameScoreboard('strila-v2', state).details
 }
 
 test('simulation: game api: respotted black frame 1', () => {
@@ -61,7 +52,7 @@ test('simulation: game api: respotted black frame 1', () => {
       body: { systemType: 'winner-determined', reason: 'respotted-black-won' },
     },
   ])
-  const next = v.parse(StrilaFrameStateSchema, step.state)
+  const next = step.state
   expect(controlDetails(next).commandSections.primary.A.map((entry) => entry.commandType)).toEqual([
     'pot.record',
     'frame.award',

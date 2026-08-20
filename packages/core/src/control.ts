@@ -13,6 +13,7 @@ const ControlCommandBaseSchema = v.object({
 
 export const ControlCommandSchema = ControlCommandBaseSchema
 export type ControlCommand = v.InferOutput<typeof ControlCommandSchema>
+export type ControlCommandPayload = ControlCommand['command']
 
 const ControlCommandProminenceSchema = v.picklist(['primary', 'secondary', 'tertiary'])
 const ControlCommandEffectSchema = v.picklist([

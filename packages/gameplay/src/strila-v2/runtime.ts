@@ -1,7 +1,8 @@
 import { type FrameOutcome } from '@ks/core'
 import * as v from 'valibot'
 
-import type { GameCommandResult, GameCreateStateArgs, GameplayRuntime, GameProjectionKey } from '../constants'
+import type { GameCommandResult, GameCreateStateArgs } from '../constants'
+import type { GameplayDefinition } from '../registry'
 import {
   type StrilaCommand,
   StrilaCommandSchema,
@@ -25,7 +26,7 @@ import { projectStrilaProtocolEntries } from './protocol'
 export { StrilaFrameStateSchema, type StrilaFrameState }
 
 type StrilaCommandEnvelope = {
-  state: unknown
+  state: StrilaFrameState
   commandType: string
   command: unknown
 }
@@ -79,18 +80,15 @@ function strilaOutcome(state: StrilaFrameState): FrameOutcome | undefined {
   }
 }
 
-export class StrilaGameplayRuntime implements GameplayRuntime {
+export class StrilaGameplayRuntime implements GameplayDefinition<'strila-v2'> {
+  readonly key = 'strila-v2'
+
   createInitialState(args: GameCreateStateArgs): StrilaFrameState {
     return serializeSnapshot(createInitialSnapshot(args.targetPointsBySeat))
   }
 
-  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: REVIEW_POST_REFACTOR
-  parseState(state: unknown): StrilaFrameState {
-    return v.parse(StrilaFrameStateSchema, state)
-  }
-
-  applyCommand(input: StrilaCommandEnvelope): GameCommandResult {
-    const previous = this.parseState(input.state)
+  applyCommand(input: StrilaCommandEnvelope): GameCommandResult<StrilaFrameState> {
+    const previous = input.state
     const command = parseStrilaCommand(input)
     const next = sendEvent(restoreSnapshot(previous), command)
     const state = serializeSnapshot(next)
@@ -103,17 +101,15 @@ export class StrilaGameplayRuntime implements GameplayRuntime {
     }
   }
 
-  // oxlint-disable-next-line anti-slop/no-unknown-returns -- SAFETY: REVIEW_POST_REFACTOR
-  deriveProjection(args: { state: unknown; projection: GameProjectionKey }): unknown {
-    const state = this.parseState(args.state)
+  deriveControl(state: StrilaFrameState) {
+    return deriveStrilaControlView(state)
+  }
 
-    switch (args.projection) {
-      case 'control':
-        return deriveStrilaControlView(state)
-      case 'scoreboard':
-        return deriveStrilaScoreboardView(state)
-      case 'summary':
-        return deriveStrilaSummaryView(state)
-    }
+  deriveScoreboard(state: StrilaFrameState) {
+    return deriveStrilaScoreboardView(state)
+  }
+
+  deriveSummary(state: StrilaFrameState) {
+    return deriveStrilaSummaryView(state)
   }
 }

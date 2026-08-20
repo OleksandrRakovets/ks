@@ -157,6 +157,7 @@ export const StrilaSummaryViewSchema = v.object({
     phase: StrilaPhaseSchema,
   }),
 })
+export type StrilaSummaryView = v.InferOutput<typeof StrilaSummaryViewSchema>
 
 const AutomaticFoulReasonSchema = v.picklist([
   'third-consecutive-cue-ball-pot',

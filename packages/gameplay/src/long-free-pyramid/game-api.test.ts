@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 
 import * as v from 'valibot'
 
-import { applyGameCommand, createInitialGameState, deriveGameProjection } from '../gameplay'
+import { applyGameCommand, createInitialGameState, deriveGameControl } from '../gameplay'
 import { LongFreePyramidControlViewSchema, LongFreePyramidFrameStateSchema } from './definitions'
 
 describe('long free pyramid: game api', () => {
@@ -64,10 +64,7 @@ describe('long free pyramid: game api', () => {
       messages: [{ code: 'rack-started', rackNumber: 2 }],
     })
 
-    const projection = v.parse(
-      LongFreePyramidControlViewSchema,
-      deriveGameProjection({ gameKey: 'free-pyramid-long', state, projection: 'control' }),
-    )
+    const projection = v.parse(LongFreePyramidControlViewSchema, deriveGameControl('free-pyramid-long', state))
     expect(projection.score).toEqual({ A: 13, B: 2 })
     expect(projection.details.ballsOnTable).toBe(16)
     expect(projection.details.ballsRemoved).toBe(0)
@@ -97,10 +94,7 @@ describe('long free pyramid: game api', () => {
     expect(parsedState.phase).toBe('winner-determined')
     expect(parsedState.winnerSeat).toBe('A')
 
-    const winnerControl = v.parse(
-      LongFreePyramidControlViewSchema,
-      deriveGameProjection({ gameKey: 'free-pyramid-long', state, projection: 'control' }),
-    )
+    const winnerControl = v.parse(LongFreePyramidControlViewSchema, deriveGameControl('free-pyramid-long', state))
     expect(winnerControl.details.commandSections.primary.A.map((entry) => entry.commandType)).toEqual(['frame.award'])
     expect(winnerControl.details.commandSections.primary.B).toEqual([])
     expect(

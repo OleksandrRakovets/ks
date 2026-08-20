@@ -10,13 +10,9 @@ import {
 import invariant from 'tiny-invariant'
 import * as v from 'valibot'
 
-import type { GameCreateStateArgs, GameplayRuntime, GameProjectionKey } from '../constants'
-import {
-  type LongFreePyramidFrameState,
-  LongFreePyramidFrameStateSchema,
-  type LongFreePyramidProjectionDetails,
-  type LongFreePyramidRack,
-} from './definitions'
+import type { GameCreateStateArgs } from '../constants'
+import type { GameplayDefinition } from '../registry'
+import { type LongFreePyramidFrameState, type LongFreePyramidProjectionDetails, type LongFreePyramidRack } from './definitions'
 import { deriveLongFreePyramidControlView } from './projections/control'
 import { deriveLongFreePyramidScoreboardView } from './projections/scoreboard'
 import { deriveLongFreePyramidSummaryView } from './projections/summary'
@@ -115,7 +111,9 @@ function outcome(state: LongFreePyramidFrameState): FrameOutcome | undefined {
   return { winnerSeat: state.winnerSeat, score: score(state), winReason: 'target-reached' }
 }
 
-export class LongFreePyramidGameplayRuntime implements GameplayRuntime {
+export class LongFreePyramidGameplayRuntime implements GameplayDefinition<'free-pyramid-long'> {
+  readonly key = 'free-pyramid-long'
+
   createInitialState(args: GameCreateStateArgs): LongFreePyramidFrameState {
     const rackRollover = args.gameConfiguration?.rackRollover
     invariant(rackRollover === 14 || rackRollover === 15, 'Long free pyramid requires rackRollover 14 or 15')
@@ -128,13 +126,8 @@ export class LongFreePyramidGameplayRuntime implements GameplayRuntime {
     }
   }
 
-  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- SAFETY: REVIEW_POST_REFACTOR
-  parseState(state: unknown): LongFreePyramidFrameState {
-    return v.parse(LongFreePyramidFrameStateSchema, state)
-  }
-
-  applyCommand(input: { state: unknown; commandType: string; command: unknown }) {
-    const state = this.parseState(input.state)
+  applyCommand(input: { state: LongFreePyramidFrameState; commandType: string; command: unknown }) {
+    const state = input.state
     invariant(state.phase !== 'frame-over', 'Cannot apply long free pyramid command after frame-over')
 
     if (input.commandType === 'frame.commence') {
@@ -220,23 +213,22 @@ export class LongFreePyramidGameplayRuntime implements GameplayRuntime {
     }
   }
 
-  deriveProjection(args: { state: unknown; projection: GameProjectionKey }) {
-    const state = this.parseState(args.state)
+  deriveControl(state: LongFreePyramidFrameState) {
     const stateScore = score(state)
     const projectionDetails = details(state)
+    return deriveLongFreePyramidControlView({
+      state,
+      score: stateScore,
+      details: projectionDetails,
+      ballsOnTable: ballsOnTable(state),
+    })
+  }
 
-    switch (args.projection) {
-      case 'control':
-        return deriveLongFreePyramidControlView({
-          state,
-          score: stateScore,
-          details: projectionDetails,
-          ballsOnTable: ballsOnTable(state),
-        })
-      case 'scoreboard':
-        return deriveLongFreePyramidScoreboardView({ score: stateScore, details: projectionDetails })
-      case 'summary':
-        return deriveLongFreePyramidSummaryView({ score: stateScore, details: projectionDetails })
-    }
+  deriveScoreboard(state: LongFreePyramidFrameState) {
+    return deriveLongFreePyramidScoreboardView({ score: score(state), details: details(state) })
+  }
+
+  deriveSummary(state: LongFreePyramidFrameState) {
+    return deriveLongFreePyramidSummaryView({ score: score(state), details: details(state) })
   }
 }

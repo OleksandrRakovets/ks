@@ -1,18 +1,10 @@
 import { describe, expect, test } from 'bun:test'
 
-import * as v from 'valibot'
-
-import {
-  type StrilaCommand,
-  StrilaControlViewSchema,
-  StrilaMeta,
-  StrilaScoreboardViewSchema,
-  StrilaSummaryViewSchema,
-} from './definitions'
+import { type StrilaCommand, StrilaMeta } from './definitions'
 import { type StrilaFrameState, StrilaGameplayRuntime } from './runtime'
 
 function apply(runtime: StrilaGameplayRuntime, state: StrilaFrameState, command: StrilaCommand): StrilaFrameState {
-  return runtime.parseState(runtime.applyCommand({ state, commandType: command.type, command }).state)
+  return runtime.applyCommand({ state, commandType: command.type, command }).state
 }
 
 describe('StrilaGameplayRuntime projections', () => {
@@ -22,7 +14,7 @@ describe('StrilaGameplayRuntime projections', () => {
     state = apply(runtime, state, { type: 'frame.commence', seat: 'A' })
     state = apply(runtime, state, { type: 'foul.commit', seat: 'A' })
 
-    const projection = v.parse(StrilaControlViewSchema, runtime.deriveProjection({ state, projection: 'control' }))
+    const projection = runtime.deriveControl(state)
 
     expect(projection.details.phase).toBe('foul-committed.penalty-selection')
     expect(projection.details.seat).toBe('B')
@@ -39,7 +31,7 @@ describe('StrilaGameplayRuntime projections', () => {
     state = apply(runtime, state, { type: 'frame.commence', seat: 'A' })
     state = apply(runtime, state, { type: 'pot.record', seat: 'A', pottedBalls: [1] })
 
-    const projection = v.parse(StrilaScoreboardViewSchema, runtime.deriveProjection({ state, projection: 'scoreboard' }))
+    const projection = runtime.deriveScoreboard(state)
 
     expect(projection.details.phase).toBe('open-play')
     expect(projection.details.ballsRemaining).toEqual([2, 3, 4, 5, 6, 7])
@@ -50,7 +42,7 @@ describe('StrilaGameplayRuntime projections', () => {
     const runtime = new StrilaGameplayRuntime()
     const state = runtime.createInitialState({ targetPointsBySeat: StrilaMeta.defaultTargetPoints, breakerSeat: 'A' })
 
-    const projection = v.parse(StrilaSummaryViewSchema, runtime.deriveProjection({ state, projection: 'summary' }))
+    const projection = runtime.deriveSummary(state)
 
     expect(projection.details.phase).toBe('not-started')
   })

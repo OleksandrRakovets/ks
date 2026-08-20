@@ -1,6 +1,6 @@
-import type { CreateMatchRequest } from '@ks/competition'
-import type { CommandId, ControlCommand, MatchSnapshot, UnixEpochMilliseconds } from '@ks/core'
-import type { GameControlProjection } from '@ks/gameplay/definitions'
+import type { CreateMatchRequest, MatchSnapshotFor } from '@ks/competition'
+import type { CommandId, ControlCommand, ControlCommandSections, MatchId, UnixEpochMilliseconds } from '@ks/core'
+import type { ControlProjectionFor, RegisteredGameKey } from '@ks/gameplay/definitions'
 import type { SupportedLocale } from '@ks/i18n'
 
 import type { ProtocolRow } from './protocol'
@@ -11,7 +11,7 @@ export type HydratedParticipant = {
   shortDisplayName: string
 }
 
-export type HydratedParticipants = {
+export type HydratedMatchParticipants = {
   A: HydratedParticipant
   B: HydratedParticipant
 }
@@ -28,32 +28,56 @@ export type MatchListEntry = {
   gameTitle: string
   status: 'active' | 'finished'
   createdAt: UnixEpochMilliseconds
-  participants: HydratedParticipants
+  participants: HydratedMatchParticipants
 }
 
-export type ReadMatchResult =
+export type ReadMatchFailure = { ok: false; error: string; status: number }
+
+export type ReadMatchControlResult<K extends RegisteredGameKey> =
   | {
       ok: true
-      snapshot: MatchSnapshot
-      participants: HydratedParticipants
-      controlProjection?: GameControlProjection
-      controlSections?: import('@ks/core').ControlCommandSections
+      state: 'frame-active'
+      snapshot: MatchSnapshotFor<K>
+      controlProjection: ControlProjectionFor<K>
+      controlSections: ControlCommandSections
+      participants: HydratedMatchParticipants
     }
-  | { ok: false; error: string; status: number }
+  | {
+      ok: true
+      state: 'between-frames'
+      snapshot: MatchSnapshotFor<K>
+      controlSections: ControlCommandSections
+      participants: HydratedMatchParticipants
+    }
+  | ReadMatchFailure
 
 export type CommandMatchResult =
   | { ok: true; accepted: { seq: number; factId: string }[] }
   | { ok: false; error: string; status: number }
 
-export type ReadMatchProtocolResult =
-  | (Extract<ReadMatchResult, { ok: true }> & { protocolRows: ProtocolRow[] })
-  | Extract<ReadMatchResult, { ok: false }>
+export type ReadMatchProtocolResult<K extends RegisteredGameKey> =
+  | {
+      ok: true
+      snapshot: MatchSnapshotFor<K>
+      participants: HydratedMatchParticipants
+      protocolRows: ProtocolRow[]
+    }
+  | ReadMatchFailure
 
 export type Application = {
   createMatch(input: CreateMatchInput): Promise<CreateMatchResult>
   listMatches(locale: SupportedLocale): Promise<MatchListEntry[]>
-  readMatch(matchId: string, locale: SupportedLocale): Promise<ReadMatchResult>
+  readMatchControl<K extends RegisteredGameKey>(
+    matchId: MatchId,
+    locale: SupportedLocale,
+    expectedGameKey: K,
+  ): Promise<ReadMatchControlResult<K>>
   commandMatch(matchId: string, commandId: CommandId, command: ControlCommand): Promise<CommandMatchResult>
-  readMatchProtocol(matchId: string, timeZone: string, locale: SupportedLocale): Promise<ReadMatchProtocolResult>
+  readMatchProtocol<K extends RegisteredGameKey>(
+    matchId: MatchId,
+    timeZone: string,
+    locale: SupportedLocale,
+    expectedGameKey: K,
+  ): Promise<ReadMatchProtocolResult<K>>
   streamMatchFacts(matchId: string, since?: number): Promise<Response>
 }
