@@ -1,13 +1,13 @@
 import {
-  BySeatNumberSchema,
-  MatchConfigSchema,
-  opponentOf,
-  SeatSchema,
   type BySeatNumber,
+  BySeatNumberSchema,
   type ClientFact,
   type GameConfiguration,
+  MatchConfigSchema,
   type MatchSnapshot,
+  opponentOf,
   type Seat,
+  SeatSchema,
 } from '@ks/core'
 import { NonNegativeIntegerSchema, PositiveIntegerSchema } from '@ks/core'
 import * as v from 'valibot'

@@ -1,4 +1,4 @@
-import { SeatSchema, type Seat } from '@ks/core'
+import { type Seat, SeatSchema } from '@ks/core'
 import * as v from 'valibot'
 
 import { StrilaCommandSchema } from './definitions'

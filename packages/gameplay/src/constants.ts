@@ -1,11 +1,11 @@
 import {
+  type BySeatNumber,
   BySeatNumberSchema,
   ControlCommandPresetSchema,
-  NonEmptyStringSchema,
   emptyControlCommandSections,
-  type BySeatNumber,
   type FrameOutcome,
   type GameConfiguration,
+  NonEmptyStringSchema,
   type ProtocolEntry,
   type Seat,
 } from '@ks/core'

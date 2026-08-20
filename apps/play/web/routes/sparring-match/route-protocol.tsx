@@ -1,6 +1,6 @@
 import type { ProtocolRow } from '@ks/application'
-import { StreamFactSchema, StreamReadySchema, type MatchSnapshot } from '@ks/core'
-import { isRegisteredGameKey, registry, type GameControlProjection } from '@ks/gameplay/definitions'
+import { type MatchSnapshot, StreamFactSchema, StreamReadySchema } from '@ks/core'
+import { type GameControlProjection, isRegisteredGameKey, registry } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
 import type { TFunction } from 'i18next'
 import { useEffect, useRef } from 'react'

@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 
 import * as v from 'valibot'
 
-import { UnixEpochMillisecondsSchema, nowUnixEpochMilliseconds } from './time'
+import { nowUnixEpochMilliseconds, UnixEpochMillisecondsSchema } from './time'
 
 describe('Unix epoch milliseconds', () => {
   test('brands non-negative integer timestamps', () => {

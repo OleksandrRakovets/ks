@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { MatchSnapshotSchema, UnixEpochMillisecondsSchema, newCommandId, PlayerRefSchema, type ControlCommand } from '@ks/core'
+import { type ControlCommand, MatchSnapshotSchema, newCommandId, PlayerRefSchema, UnixEpochMillisecondsSchema } from '@ks/core'
 import * as v from 'valibot'
 
 import type { MatchRoomCreateRequest } from './match-room-client'

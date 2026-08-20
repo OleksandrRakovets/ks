@@ -1,9 +1,9 @@
-import { IntegerSchema, ProtocolEntrySchema, SeatSchema, opponentOf, type FrameOutcome, type ProtocolEntry } from '@ks/core'
+import { type FrameOutcome, IntegerSchema, opponentOf, type ProtocolEntry, ProtocolEntrySchema, SeatSchema } from '@ks/core'
 import invariant from 'tiny-invariant'
 import * as v from 'valibot'
 
-import { type GameplayRuntime, type GameCreateStateArgs, type GameProjectionKey } from '../constants'
-import { PyramidFrameStateSchema, type PyramidFrameState, type PyramidRuntimeConfig } from './definitions'
+import { type GameCreateStateArgs, type GameplayRuntime, type GameProjectionKey } from '../constants'
+import { type PyramidFrameState, PyramidFrameStateSchema, type PyramidRuntimeConfig } from './definitions'
 import { derivePyramidControlView } from './projections/control'
 import { derivePyramidScoreboardView } from './projections/scoreboard'
 import { derivePyramidSummaryView } from './projections/summary'

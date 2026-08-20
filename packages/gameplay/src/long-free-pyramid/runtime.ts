@@ -1,19 +1,19 @@
 import {
-  IntegerSchema,
-  ProtocolEntrySchema,
-  SeatSchema,
-  opponentOf,
   type FrameOutcome,
+  IntegerSchema,
+  opponentOf,
   type ProtocolEntry,
+  ProtocolEntrySchema,
   type Seat,
+  SeatSchema,
 } from '@ks/core'
 import invariant from 'tiny-invariant'
 import * as v from 'valibot'
 
-import type { GameCreateStateArgs, GameProjectionKey, GameplayRuntime } from '../constants'
+import type { GameCreateStateArgs, GameplayRuntime, GameProjectionKey } from '../constants'
 import {
-  LongFreePyramidFrameStateSchema,
   type LongFreePyramidFrameState,
+  LongFreePyramidFrameStateSchema,
   type LongFreePyramidProjectionDetails,
   type LongFreePyramidRack,
 } from './definitions'

@@ -1,17 +1,17 @@
 import {
+  type BySeatNumber,
   BySeatNumberSchema,
+  opponentOf,
   PositiveIntegerSchema,
+  type ProtocolEntry,
   ProtocolEntrySourceSchema,
   ProtocolEntryTypeSchema,
-  SeatSchema,
-  UnixEpochMillisecondsSchema,
-  UnknownObjectSchema,
-  opponentOf,
-  type BySeatNumber,
-  type ProtocolEntry,
   type Seat,
+  SeatSchema,
   type StoredFact,
   type UnixEpochMilliseconds,
+  UnixEpochMillisecondsSchema,
+  UnknownObjectSchema,
 } from '@ks/core'
 import * as v from 'valibot'
 

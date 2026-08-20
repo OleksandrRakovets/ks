@@ -1,12 +1,12 @@
 import {
+  GameConfigurationSchema,
+  type MatchConfig,
   MatchConfigSchema,
   MatchIdSchema,
   MatchSeatAssignmentSchema,
   PositiveIntegerSchema,
-  GameConfigurationSchema,
   SeatSchema,
   stripOptionalPrefix,
-  type MatchConfig,
 } from '@ks/core'
 import { isRegisteredGameKey } from '@ks/gameplay/definitions'
 import * as v from 'valibot'

@@ -1,6 +1,6 @@
 import * as v from 'valibot'
 
-import { StrilaScoreboardViewSchema, type StrilaFrameState, type StrilaScoreboardView } from '../definitions'
+import { type StrilaFrameState, type StrilaScoreboardView, StrilaScoreboardViewSchema } from '../definitions'
 import { computeStrilaObjectBalls, computeStrilaPointsAvailable } from './computeds'
 
 export function deriveStrilaScoreboardView(state: StrilaFrameState): StrilaScoreboardView {

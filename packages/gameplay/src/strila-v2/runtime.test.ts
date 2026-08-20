@@ -3,13 +3,13 @@ import { describe, expect, test } from 'bun:test'
 import * as v from 'valibot'
 
 import {
+  type StrilaCommand,
   StrilaControlViewSchema,
   StrilaMeta,
   StrilaScoreboardViewSchema,
   StrilaSummaryViewSchema,
-  type StrilaCommand,
 } from './definitions'
-import { StrilaGameplayRuntime, type StrilaFrameState } from './runtime'
+import { type StrilaFrameState, StrilaGameplayRuntime } from './runtime'
 
 function apply(runtime: StrilaGameplayRuntime, state: StrilaFrameState, command: StrilaCommand): StrilaFrameState {
   return runtime.parseState(runtime.applyCommand({ state, commandType: command.type, command }).state)

@@ -1,17 +1,17 @@
-import { opponentOf, type BySeatNumber, type Seat } from '@ks/core'
+import { type BySeatNumber, opponentOf, type Seat } from '@ks/core'
 import invariant from 'tiny-invariant'
 import * as v from 'valibot'
-import { assign, initialTransition, setup, transition, type SnapshotFrom } from 'xstate'
+import { assign, initialTransition, setup, type SnapshotFrom, transition } from 'xstate'
 
 import {
-  StrilaPhaseSchema,
-  StrilaMeta,
-  type StrilaCommand,
-  type StrilaColoredBall,
-  type StrilaContext,
-  type StrilaPhase,
-  type StrilaWinnerDeterminationReason,
   type StrilaBall,
+  type StrilaColoredBall,
+  type StrilaCommand,
+  type StrilaContext,
+  StrilaMeta,
+  type StrilaPhase,
+  StrilaPhaseSchema,
+  type StrilaWinnerDeterminationReason,
 } from './definitions'
 
 const RESPOTTED_BLACK: StrilaColoredBall[] = [7]

@@ -1,8 +1,8 @@
 import {
-  ControlCommandSectionsSchema,
-  emptyControlCommandSections,
   type ControlCommandPreset,
   type ControlCommandSections,
+  ControlCommandSectionsSchema,
+  emptyControlCommandSections,
   type Seat,
 } from '@ks/core'
 import * as v from 'valibot'

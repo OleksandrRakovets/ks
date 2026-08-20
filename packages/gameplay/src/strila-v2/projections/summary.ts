@@ -1,6 +1,6 @@
 import * as v from 'valibot'
 
-import { StrilaSummaryViewSchema, type StrilaFrameState } from '../definitions'
+import { type StrilaFrameState, StrilaSummaryViewSchema } from '../definitions'
 
 export function deriveStrilaSummaryView(state: StrilaFrameState) {
   return v.parse(StrilaSummaryViewSchema, {

@@ -1,4 +1,4 @@
-import type { StrilaFrameState, StrilaCommand } from '../definitions'
+import type { StrilaCommand, StrilaFrameState } from '../definitions'
 import { projectStrilaProtocolEntries } from '../protocol'
 import { StrilaGameplayRuntime } from '../runtime'
 

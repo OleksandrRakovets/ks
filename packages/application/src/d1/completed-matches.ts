@@ -3,7 +3,7 @@ import type { StoredFact, UnixEpochMilliseconds } from '@ks/core'
 import { and, eq, inArray } from 'drizzle-orm'
 
 import { prepareProtocolRowsForArchive, PROTOCOL_ARCHIVE_VERSION } from '../protocol'
-import { matchProtocolArchives, matches, StoredMatchStatus } from './schema'
+import { matches, matchProtocolArchives, StoredMatchStatus } from './schema'
 import type { ApplicationDatabase } from './types'
 
 export type CompletedMatchArchiveInput = {

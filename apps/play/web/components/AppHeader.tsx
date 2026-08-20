@@ -1,6 +1,6 @@
-import { keys, type I18nKey } from '@ks/i18n'
+import { type I18nKey, keys } from '@ks/i18n'
 import { useTranslation } from 'react-i18next'
-import { useMatches, Link, type UIMatch } from 'react-router'
+import { Link, type UIMatch, useMatches } from 'react-router'
 
 import { BurgerMenu } from './BurgerMenu'
 

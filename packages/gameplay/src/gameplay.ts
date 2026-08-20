@@ -2,7 +2,7 @@ import { GameKeySchema } from '@ks/core'
 import invariant from 'tiny-invariant'
 import * as v from 'valibot'
 
-import { GameProjectionKeySchema, type GameCommandResult, type GameCreateStateArgs, type GameProjectionKey } from './constants'
+import { type GameCommandResult, type GameCreateStateArgs, type GameProjectionKey, GameProjectionKeySchema } from './constants'
 import { isRegisteredGameKey, type RegisteredGameKey } from './registry'
 import { getGameplayRuntime } from './runtime-factory'
 

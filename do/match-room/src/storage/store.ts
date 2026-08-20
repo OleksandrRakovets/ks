@@ -1,9 +1,9 @@
 import {
   AcceptedFactSchema,
-  StoredFactSchema,
-  nowUnixEpochMilliseconds,
   type ClientFact,
+  nowUnixEpochMilliseconds,
   type StoredFact,
+  StoredFactSchema,
   type UnixEpochMilliseconds,
 } from '@ks/core'
 import { asc, eq, gt } from 'drizzle-orm'

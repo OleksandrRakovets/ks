@@ -1,7 +1,7 @@
 import { keys } from '@ks/i18n'
 import type { SupportedLocale } from '@ks/i18n'
 import { useTranslation } from 'react-i18next'
-import { useFetcher, Link } from 'react-router'
+import { Link, useFetcher } from 'react-router'
 
 import { useRootLocale, useRootTheme } from '../root'
 import type { AppTheme } from '../server/theme'

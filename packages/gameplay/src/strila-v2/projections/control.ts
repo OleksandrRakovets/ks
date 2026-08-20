@@ -4,14 +4,14 @@ import * as v from 'valibot'
 
 import { deriveGameCommandSections } from '../../constants'
 import {
-  StrilaMeta,
   StrilaBallStatusesSchema,
-  StrilaControlViewSchema,
   type StrilaCommand,
   type StrilaControlCommand,
   type StrilaControlDetails,
   type StrilaControlView,
+  StrilaControlViewSchema,
   type StrilaFrameState,
+  StrilaMeta,
 } from '../definitions'
 import { computeStrilaObjectBalls } from './computeds'
 

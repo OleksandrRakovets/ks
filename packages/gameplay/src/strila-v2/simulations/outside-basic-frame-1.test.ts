@@ -5,10 +5,10 @@ import * as v from 'valibot'
 import { applyGameCommand, createInitialGameState, deriveGameProjection } from '../../gameplay'
 import {
   StrilaControlViewSchema,
+  type StrilaFrameState,
   StrilaFrameStateSchema,
   StrilaMeta,
   StrilaScoreboardViewSchema,
-  type StrilaFrameState,
 } from '../definitions'
 
 function parseState<State>(state: State): StrilaFrameState {

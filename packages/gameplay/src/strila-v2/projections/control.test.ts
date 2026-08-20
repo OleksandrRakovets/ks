@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { StrilaMeta, type StrilaFrameState } from '../definitions'
+import { type StrilaFrameState, StrilaMeta } from '../definitions'
 import { deriveStrilaControlView } from './control'
 
 const baseState = {

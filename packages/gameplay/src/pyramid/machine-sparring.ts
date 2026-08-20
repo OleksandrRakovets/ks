@@ -1,7 +1,7 @@
-import { opponentOf, type BySeatNumber, type Seat } from '@ks/core'
+import { type BySeatNumber, opponentOf, type Seat } from '@ks/core'
 import invariant from 'tiny-invariant'
 import * as v from 'valibot'
-import { assign, initialTransition, setup, transition, type SnapshotFrom } from 'xstate'
+import { assign, initialTransition, setup, type SnapshotFrom, transition } from 'xstate'
 
 type PyramidWinReason = 'target-reached'
 

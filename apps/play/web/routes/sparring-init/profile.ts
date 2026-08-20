@@ -1,5 +1,5 @@
 import type { BySeatNumber } from '@ks/core'
-import { registry, type RegisteredGameKey } from '@ks/gameplay/definitions'
+import { type RegisteredGameKey, registry } from '@ks/gameplay/definitions'
 
 export type RackRolloverOption = 14 | 15
 

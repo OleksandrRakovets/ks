@@ -1,23 +1,23 @@
 import {
-  ControlCommandSchema,
   CommandIdSchema,
+  type ControlCommandPreset,
+  ControlCommandSchema,
+  type ControlCommandSections,
+  emptyControlCommandSections,
+  type MatchSnapshot,
+  newCommandId,
   StreamFactSchema,
   StreamReadySchema,
   UnknownObjectSchema,
-  emptyControlCommandSections,
-  type ControlCommandSections,
-  type ControlCommandPreset,
-  newCommandId,
-  type MatchSnapshot,
 } from '@ks/core'
-import { isRegisteredGameKey, registry, type GameControlProjection } from '@ks/gameplay/definitions'
+import { type GameControlProjection, isRegisteredGameKey, registry } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
 import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, redirect, useFetcher, useLoaderData, useRevalidator } from 'react-router'
 import * as v from 'valibot'
 
-import { resolveControlRenderer, type HydratedMatchParticipants } from '../../features/match-control/renderers'
+import { type HydratedMatchParticipants, resolveControlRenderer } from '../../features/match-control/renderers'
 import type { AppLoadContext } from '../../server/context'
 import { requireApplication } from '../../server/context'
 import { localeFromCookie } from '../../server/locale'

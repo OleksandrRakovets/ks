@@ -1,6 +1,6 @@
 import {
-  ControlCommandSchema,
   CommandIdSchema,
+  ControlCommandSchema,
   GameConfigurationSchema,
   MatchIdSchema,
   MatchSeatAssignmentSchema,

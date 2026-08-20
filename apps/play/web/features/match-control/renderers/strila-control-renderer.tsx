@@ -1,5 +1,5 @@
 import type { ControlCommandPreset } from '@ks/core'
-import { StrilaMeta, StrilaControlViewSchema, type StrilaBall } from '@ks/gameplay/definitions'
+import { type StrilaBall, StrilaControlViewSchema, StrilaMeta } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'

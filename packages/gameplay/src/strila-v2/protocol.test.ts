@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { StrilaMeta, type StrilaCommand, type StrilaFrameState } from './definitions'
+import { type StrilaCommand, type StrilaFrameState, StrilaMeta } from './definitions'
 import { projectStrilaProtocolEntries } from './protocol'
 import { StrilaGameplayRuntime } from './runtime'
 

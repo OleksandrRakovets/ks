@@ -1,4 +1,4 @@
-import { StrilaMeta, type StrilaCommand, type StrilaFrameState } from './definitions'
+import { type StrilaCommand, type StrilaFrameState, StrilaMeta } from './definitions'
 import { StrilaGameplayRuntime } from './runtime'
 import { type StrilaControllerEntry } from './undo-controller'
 

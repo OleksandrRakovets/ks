@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 
 import type { BySeatNumber, FrameOutcome, Seat } from '@ks/core'
 
-import { createMatchActor, getMatchPhase, matchSparringMachine, type MatchSparringActor } from './match-sparring-machine'
+import { createMatchActor, getMatchPhase, type MatchSparringActor, matchSparringMachine } from './match-sparring-machine'
 
 const DEFAULT_TARGETS: BySeatNumber = { A: 9, B: 9 }
 

@@ -1,7 +1,7 @@
 import invariant from 'tiny-invariant'
 import * as v from 'valibot'
 
-import { StrilaProtocolEntrySchema, type StrilaCommand, type StrilaFrameState, type StrilaProtocolEntry } from './definitions'
+import { type StrilaCommand, type StrilaFrameState, type StrilaProtocolEntry, StrilaProtocolEntrySchema } from './definitions'
 
 function isMixedBallInHandPot(previous: StrilaFrameState, command: StrilaCommand): boolean {
   return (

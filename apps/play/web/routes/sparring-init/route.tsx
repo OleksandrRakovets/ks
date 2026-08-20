@@ -1,5 +1,5 @@
 import type { CreateMatchInput } from '@ks/application'
-import { SeatSchema, type Seat } from '@ks/core'
+import { type Seat, SeatSchema } from '@ks/core'
 import { isRegisteredGameKey, registry } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
 import { useMemo, useState } from 'react'

@@ -2,7 +2,7 @@ import type { SupportedLocale } from '@ks/i18n'
 import { data } from 'react-router'
 
 import { localeCookieValue, normalizeLocale } from '../server/locale'
-import { themeCookieValue, type AppTheme } from '../server/theme'
+import { type AppTheme, themeCookieValue } from '../server/theme'
 
 type PreferenceKind = 'locale' | 'theme'
 

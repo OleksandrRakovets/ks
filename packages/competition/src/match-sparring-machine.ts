@@ -1,6 +1,6 @@
 import { type BySeatNumber, type FrameOutcome, type Seat } from '@ks/core'
 import * as v from 'valibot'
-import { assign, createActor, setup, type Actor, type SnapshotFrom } from 'xstate'
+import { type Actor, assign, createActor, setup, type SnapshotFrom } from 'xstate'
 
 type CompletedFrame = {
   frameIndex: number

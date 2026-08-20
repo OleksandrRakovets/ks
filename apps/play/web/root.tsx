@@ -18,7 +18,7 @@ import type { Route } from './+types/root'
 import { i18n } from './i18n'
 import { iconBasePath, iconThemeColor, iconVariantFromContext } from './server/icon-assets'
 import { hasValidLocaleCookie, localeCookieValue, localeFromCookie } from './server/locale'
-import { themeFromCookie, type AppTheme } from './server/theme'
+import { type AppTheme, themeFromCookie } from './server/theme'
 
 export type RootLoaderData = {
   iconVariant: ReturnType<typeof iconVariantFromContext>

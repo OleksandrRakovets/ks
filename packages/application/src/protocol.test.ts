@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { ClientIdSchema, FactIdSchema, MatchIdSchema, StoredFactSchema, type ClientFact, type StoredFact } from '@ks/core'
+import { type ClientFact, ClientIdSchema, FactIdSchema, MatchIdSchema, type StoredFact, StoredFactSchema } from '@ks/core'
 import * as v from 'valibot'
 
 import {
