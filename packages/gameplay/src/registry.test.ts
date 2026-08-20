@@ -57,10 +57,11 @@ type IncompatibleSummaryDefinition = Omit<StrilaDefinition, 'deriveSummary'> & {
   deriveSummary(state: StrilaFrameState): FreePyramidSummaryView
 }
 
-const incompatibleStateIsRejected: IncompatibleStateDefinition extends StrilaDefinition ? true : false = false
-const incompatibleControlIsRejected: IncompatibleControlDefinition extends StrilaDefinition ? true : false = false
-const incompatibleScoreboardIsRejected: IncompatibleScoreboardDefinition extends StrilaDefinition ? true : false = false
-const incompatibleSummaryIsRejected: IncompatibleSummaryDefinition extends StrilaDefinition ? true : false = false
+type AssertFalse<T extends false> = T
+type _IncompatibleStateIsRejected = AssertFalse<IncompatibleStateDefinition extends StrilaDefinition ? true : false>
+type _IncompatibleControlIsRejected = AssertFalse<IncompatibleControlDefinition extends StrilaDefinition ? true : false>
+type _IncompatibleScoreboardIsRejected = AssertFalse<IncompatibleScoreboardDefinition extends StrilaDefinition ? true : false>
+type _IncompatibleSummaryIsRejected = AssertFalse<IncompatibleSummaryDefinition extends StrilaDefinition ? true : false>
 
 const projectionSchemas = {
   'strila-v2': {
@@ -92,12 +93,12 @@ const projectionSchemas = {
 
 function projectionsFor<K extends RegisteredGameKey>(gameKey: K) {
   const runtime = getGameplayRuntime(gameKey)
-  const args: GameCreateStateArgs = {
+  const initialArgs: GameCreateStateArgs = {
     targetPointsBySeat: runtime.key === 'free-pyramid-long' ? { A: 30, B: 30 } : { A: 9, B: 9 },
     breakerSeat: 'A',
   }
-  if (runtime.key === 'free-pyramid-long') args.gameConfiguration = { rackRollover: 14 }
-  const state = runtime.createInitialState(args)
+  if (runtime.key === 'free-pyramid-long') initialArgs.gameConfiguration = { rackRollover: 14 }
+  const state = runtime.createInitialState(initialArgs)
   const control: ControlProjectionFor<K> = runtime.deriveControl(state)
   const scoreboard: ScoreboardProjectionFor<K> = runtime.deriveScoreboard(state)
   const summary: SummaryProjectionFor<K> = runtime.deriveSummary(state)
@@ -116,12 +117,6 @@ describe('game registry', () => {
   })
 
   test('each runtime preserves its exact key across every projection', () => {
-    expect([
-      incompatibleStateIsRejected,
-      incompatibleControlIsRejected,
-      incompatibleScoreboardIsRejected,
-      incompatibleSummaryIsRejected,
-    ]).toEqual([false, false, false, false])
     for (const gameKey of listGameKeys()) {
       const projections = projectionsFor(gameKey)
       expect(projections.control.gameKey).toBe(gameKey)

@@ -2,7 +2,6 @@ export {
   applyGameCommand,
   createInitialGameState,
   deriveGameControl,
-  deriveGameScoreboard,
   deriveGameSummary,
   parseGameControl,
   parseGameKey,
