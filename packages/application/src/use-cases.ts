@@ -42,7 +42,7 @@ type MatchListRecord = {
   gameKey: RegisteredGameKey
   status: string
   createdAt: UnixEpochMilliseconds
-  participantRefs: { A: string; B: string }
+  participantRefs: { A: PlayerRef; B: PlayerRef }
 }
 
 type MatchRecord = {
