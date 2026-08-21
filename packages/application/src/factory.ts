@@ -1,5 +1,6 @@
 import type { D1Database } from '@cloudflare/workers-types'
-import { newMatchId, nowUnixEpochMilliseconds } from '@ks/core'
+import { type MatchId, newMatchId, nowUnixEpochMilliseconds } from '@ks/core'
+import type { RegisteredGameKey } from '@ks/gameplay/definitions'
 
 import { archiveCompletedMatch, finishCompletedMatch } from './d1/completed-matches'
 import { getOrCreateGuestPlayerRef } from './d1/guest-players'
@@ -24,6 +25,17 @@ function newControlSecret(): string {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
 }
 
+function matchListRecordFromRow(row: Awaited<ReturnType<typeof listMatchRows>>[number]) {
+  // SAFETY: Application-owned D1 rows store valid match IDs and registered game keys on write.
+  return {
+    matchId: row.matchId as MatchId,
+    gameKey: row.gameKey as RegisteredGameKey,
+    status: row.status,
+    createdAt: row.createdAt,
+    participantRefs: { A: row.seatAPlayerRef, B: row.seatBPlayerRef },
+  }
+}
+
 export function createApplication(bindings: ApplicationBindings) {
   const db = createApplicationDatabaseClient(bindings.DB)
   return createApplicationWithDependencies({
@@ -32,14 +44,7 @@ export function createApplication(bindings: ApplicationBindings) {
     now: nowUnixEpochMilliseconds,
     getOrCreateGuestPlayerRef: async (displayName) => await getOrCreateGuestPlayerRef(db, displayName),
     hydrateParticipant: async (playerRef, locale) => await hydrateParticipant(db, playerRef, locale),
-    listMatchRecords: async () =>
-      (await listMatchRows(db)).map((row) => ({
-        matchId: row.matchId,
-        gameKey: row.gameKey,
-        status: row.status,
-        createdAt: row.createdAt,
-        participantRefs: { A: row.seatAPlayerRef, B: row.seatBPlayerRef },
-      })),
+    listMatchRecords: async () => (await listMatchRows(db)).map(matchListRecordFromRow),
     getMatchRecord: async (matchId) => {
       const row = await getMatchRow(db, matchId)
       return row

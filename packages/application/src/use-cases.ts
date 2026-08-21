@@ -6,12 +6,11 @@ import {
   ControlCommandSectionsSchema,
   emptyControlCommandSections,
   type MatchId,
-  MatchIdSchema,
   MatchSnapshotSchema,
   type PlayerRef,
   type UnixEpochMilliseconds,
 } from '@ks/core'
-import { type ControlProjectionFor, isRegisteredGameKey, type RegisteredGameKey, registry } from '@ks/gameplay/definitions'
+import { type ControlProjectionFor, type RegisteredGameKey, registry } from '@ks/gameplay/definitions'
 import { parseGameControl } from '@ks/gameplay/server'
 import type { SupportedLocale } from '@ks/i18n'
 import * as v from 'valibot'
@@ -32,14 +31,20 @@ import type { MatchRoomClient, MatchRoomCreateRequest, MatchRoomFinalizationData
 import { deriveProtocolRows, PROTOCOL_ARCHIVE_VERSION, ProtocolArchiveRowsSchema, renderProtocolRows } from './protocol'
 
 type MatchListRecord = {
+  matchId: MatchId
+  gameKey: RegisteredGameKey
+  status: string
+  createdAt: UnixEpochMilliseconds
+  participantRefs: { A: string; B: string }
+}
+
+type MatchRecord = {
   matchId: string
   gameKey: string
   status: string
   createdAt: UnixEpochMilliseconds
   participantRefs: { A: string; B: string }
 }
-
-type MatchRecord = MatchListRecord
 
 type ApplicationDependencies = {
   newMatchId(): MatchId
@@ -135,13 +140,8 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
         if (record.status === 'finalizing') await disposeAndFinishRoom(record.matchId)
       }),
     )
-    const validRecords = records.flatMap((record) => {
-      const matchId = v.safeParse(MatchIdSchema, record.matchId)
-      if (!matchId.success || !isRegisteredGameKey(record.gameKey)) return []
-      return [{ ...record, matchId: matchId.output, gameKey: record.gameKey }]
-    })
     return await Promise.all(
-      validRecords.map(async (record) => ({
+      records.map(async (record) => ({
         matchId: record.matchId,
         gameKey: record.gameKey,
         gameTitle: registry[record.gameKey].meta.title[locale],
