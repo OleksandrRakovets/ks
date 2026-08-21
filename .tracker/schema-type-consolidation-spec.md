@@ -69,7 +69,7 @@ Add `match_id TEXT NOT NULL` to `accepted_facts` in `do/match-room/src/storage/s
 
 Every inserted row must come from an already-valid `StoredFact`. Persist `fact.matchId`; do not recover it later from `ActiveMatchStore.match()`. The MatchRoom object still owns exactly one match, but each fact row becomes a self-describing persisted representation of the complete fact envelope.
 
-Generate and review a normal MatchRoom SQLite migration and add it to `do/match-room/drizzle/migrations.js`. Do not rewrite the existing initial migration.
+Because MatchRoom has never been deployed, regenerate and review the current schema into the single initial SQLite migration and bundle it in `do/match-room/drizzle/migrations.js`. Unreleased schema changes belong in that baseline; do not add compatibility migrations.
 
 ### Whole-row codec
 
@@ -97,11 +97,11 @@ In the same slice, export `AcceptedFact = v.InferOutput<typeof AcceptedFactSchem
 
 ### Verification
 
-- A committed fact round-trips through SQLite as the same `StoredFact`, including `matchId` and each discriminated payload variant.
-- Invalid JSON, an invalid discriminator/payload pair, or an invalid scalar fails the read instead of dropping a row.
+- A committed fact round-trips through the private row codec as the same `StoredFact`, including `matchId`.
+- Invalid JSON, an invalid discriminator/payload pair, or an invalid scalar fails decode instead of dropping a row.
 - SQLite rejects a fact whose `match_id` has no corresponding active match.
 - Existing receipt idempotency and sequence ordering remain unchanged.
-- The generated migration is bundled and applied by MatchRoom's runtime migrator.
+- The initial migration is bundled and applied by MatchRoom's runtime migrator.
 
 ## Slice 2: Semantic D1 Protocol Archives
 

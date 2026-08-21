@@ -3,8 +3,6 @@ import * as v from 'valibot'
 
 import type { RackRolloverOption } from './profile'
 
-export { DisplayNameSchema }
-
 export function normalizeDisplayName(value: string): string {
   return v.parse(DisplayNameSchema, value)
 }
