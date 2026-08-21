@@ -4,6 +4,8 @@
 
 This note records the intended domain architecture and the implementation slices to reach it. Read the relevant slice again before implementing it. The current production behavior does not yet match this target.
 
+`.tracker/sparring-match-machine-spec.md` is the detailed implementation source of truth and supersedes illustrative interfaces and ordering in this goal note. In particular, the detailed spec first establishes authoritative resident Strila, configured regular-pyramid, and long-free-pyramid machine sessions; then integrates the sparring machine. It also removes artificial empty and `match-point-reached` machine states, retains the gameplay session through game-level `winner-determined`, automatically records terminal match completion after the winning frame is awarded, and replaces the stale `ClientFact` terminology.
+
 The highest-priority correction is to make the XState match machine the sole behavioral authority for match lifecycle. Command parsing, explicit rejection, MatchRoom integration tests, and public API cleanup follow from that correction.
 
 Play remains intentionally outside this work. Its routes and UI are due for a separate redesign and deduplication. Browser end-to-end tests should be added after that surface stabilizes and should run in a separate confidence command rather than the fast `bun run check` gate.
