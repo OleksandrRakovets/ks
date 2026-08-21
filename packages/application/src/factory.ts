@@ -1,7 +1,5 @@
 import type { D1Database } from '@cloudflare/workers-types'
-import { type MatchId, newMatchId, nowUnixEpochMilliseconds, PlayerRefSchema } from '@ks/core'
-import type { RegisteredGameKey } from '@ks/gameplay/definitions'
-import * as v from 'valibot'
+import { newMatchId, nowUnixEpochMilliseconds } from '@ks/core'
 
 import { archiveCompletedMatch, finishCompletedMatch } from './d1/completed-matches'
 import { getOrCreateGuestPlayerRef } from './d1/guest-players'
@@ -26,16 +24,17 @@ function newControlSecret(): string {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
 }
 
-function matchListRecordFromRow(row: Awaited<ReturnType<typeof listMatchRows>>[number]) {
-  // SAFETY: Application-owned D1 rows store valid match IDs and registered game keys on write.
+type MatchRow = NonNullable<Awaited<ReturnType<typeof getMatchRow>>>
+
+function matchRecordFromRow(row: MatchRow) {
   return {
-    matchId: row.matchId as MatchId,
-    gameKey: row.gameKey as RegisteredGameKey,
+    matchId: row.matchId,
+    gameKey: row.gameKey,
     status: row.status,
     createdAt: row.createdAt,
     participantRefs: {
-      A: v.parse(PlayerRefSchema, row.seatAPlayerRef),
-      B: v.parse(PlayerRefSchema, row.seatBPlayerRef),
+      A: row.seatAPlayerRef,
+      B: row.seatBPlayerRef,
     },
   }
 }
@@ -48,21 +47,10 @@ export function createApplication(bindings: ApplicationBindings) {
     now: nowUnixEpochMilliseconds,
     getOrCreateGuestPlayerRef: async (displayName) => await getOrCreateGuestPlayerRef(db, displayName),
     hydrateParticipant: async (playerRef, locale) => await hydrateParticipant(db, playerRef, locale),
-    listMatchRecords: async () => (await listMatchRows(db)).map(matchListRecordFromRow),
+    listMatchRecords: async () => (await listMatchRows(db)).map(matchRecordFromRow),
     getMatchRecord: async (matchId) => {
       const row = await getMatchRow(db, matchId)
-      return row
-        ? {
-            matchId: row.matchId,
-            gameKey: row.gameKey,
-            status: row.status,
-            createdAt: row.createdAt,
-            participantRefs: {
-              A: v.parse(PlayerRefSchema, row.seatAPlayerRef),
-              B: v.parse(PlayerRefSchema, row.seatBPlayerRef),
-            },
-          }
-        : null
+      return row ? matchRecordFromRow(row) : null
     },
     getProtocolArchive: async (matchId) => await getProtocolArchive(db, matchId),
     beginMatchCreation: async (input) => await beginMatchCreation(db, input),

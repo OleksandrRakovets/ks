@@ -72,12 +72,9 @@ export async function loadMatchControl<K extends RegisteredGameKey>(
   args: RouteArgs,
   expectedGameKey: K,
 ): Promise<ControlRouteData<K>> {
+  const matchId = matchIdFromParams(args.params)
   const locale = localeFromCookie(args.request.headers.get('cookie'))
-  const result = await requireApplication(args.context).readMatchControl(
-    matchIdFromParams(args.params),
-    locale,
-    expectedGameKey,
-  )
+  const result = await requireApplication(args.context).readMatchControl(matchId, locale, expectedGameKey)
   if (!result.ok) throw new Response(result.error, { status: result.status })
   return { ...result, gameTitle: registry[expectedGameKey].meta.title[locale] }
 }
@@ -86,13 +83,9 @@ export async function loadMatchProtocol<K extends RegisteredGameKey>(
   args: RouteArgs,
   expectedGameKey: K,
 ): Promise<ProtocolRouteData<K>> {
+  const matchId = matchIdFromParams(args.params)
   const locale = localeFromCookie(args.request.headers.get('cookie'))
-  const result = await requireApplication(args.context).readMatchProtocol(
-    matchIdFromParams(args.params),
-    'UTC',
-    locale,
-    expectedGameKey,
-  )
+  const result = await requireApplication(args.context).readMatchProtocol(matchId, 'UTC', locale, expectedGameKey)
   if (!result.ok) throw new Response(result.error, { status: result.status })
   return { ...result, gameTitle: registry[expectedGameKey].meta.title[locale] }
 }

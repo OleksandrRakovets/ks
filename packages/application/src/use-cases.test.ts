@@ -595,7 +595,7 @@ describe('application orchestration', () => {
       status: 404,
     })
     expect(calls).toEqual([])
-    const result = await application.commandMatch(`m_${matchId}`, commandId, command, 'free-pyramid')
+    const result = await application.commandMatch(matchId, commandId, command, 'free-pyramid')
 
     expect(result).toEqual({ ok: true, accepted: [{ seq: 3, factId }] })
     expect(calls).toEqual([[matchId, commandId, command]])

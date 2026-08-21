@@ -1,4 +1,10 @@
-import { type HydratedMatchParticipant, HydratedMatchParticipantSchema, type PlayerRef } from '@ks/core'
+import {
+  type GuestPlayerId,
+  type HydratedMatchParticipant,
+  HydratedMatchParticipantSchema,
+  type PlayerRef,
+  type VerifiedPlayerId,
+} from '@ks/core'
 import type { SupportedLocale } from '@ks/i18n'
 import { eq } from 'drizzle-orm'
 import * as v from 'valibot'
@@ -15,6 +21,8 @@ type LocalizedPlayerRow = {
 
 async function loadPlayerRow(db: ApplicationDatabase, playerRef: PlayerRef): Promise<LocalizedPlayerRow | null> {
   if (playerRef.startsWith('gp_')) {
+    // SAFETY: PlayerRefSchema guarantees gp_<GuestPlayerId>; the suffix is the stored guest player ID.
+    const guestPlayerId = playerRef.slice(3) as GuestPlayerId
     return (
       (await db
         .select({
@@ -24,12 +32,14 @@ async function loadPlayerRow(db: ApplicationDatabase, playerRef: PlayerRef): Pro
           lastNameEn: guestPlayers.lastNameEn,
         })
         .from(guestPlayers)
-        .where(eq(guestPlayers.guestPlayerId, playerRef.slice(3)))
+        .where(eq(guestPlayers.guestPlayerId, guestPlayerId))
         .get()) ?? null
     )
   }
 
   if (playerRef.startsWith('vp_')) {
+    // SAFETY: PlayerRefSchema guarantees vp_<VerifiedPlayerId>; the suffix is the stored verified player ID.
+    const verifiedPlayerId = playerRef.slice(3) as VerifiedPlayerId
     return (
       (await db
         .select({
@@ -39,7 +49,7 @@ async function loadPlayerRow(db: ApplicationDatabase, playerRef: PlayerRef): Pro
           lastNameEn: verifiedPlayers.lastNameEn,
         })
         .from(verifiedPlayers)
-        .where(eq(verifiedPlayers.verifiedPlayerId, playerRef.slice(3)))
+        .where(eq(verifiedPlayers.verifiedPlayerId, verifiedPlayerId))
         .get()) ?? null
     )
   }

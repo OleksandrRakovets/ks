@@ -86,7 +86,7 @@ export type Application = {
     expectedGameKey: K,
   ): Promise<ReadMatchControlResult<K>>
   commandMatch<K extends RegisteredGameKey>(
-    matchId: string,
+    matchId: MatchId,
     commandId: CommandId,
     command: ControlCommand,
     expectedGameKey: K,
@@ -97,5 +97,5 @@ export type Application = {
     locale: SupportedLocale,
     expectedGameKey: K,
   ): Promise<ReadMatchProtocolResult<K>>
-  streamMatchFacts(matchId: string, since?: number): Promise<Response>
+  streamMatchFacts(matchId: MatchId, since?: number): Promise<Response>
 }
