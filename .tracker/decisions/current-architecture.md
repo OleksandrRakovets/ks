@@ -109,6 +109,10 @@ Application and MatchRoom independently consume that domain direction; Play sits
 ## Game Integration Rules
 
 - Game keys come from the central registry.
+- Gameplay's finite `GameContracts` map is the public source of each registered key's state, control, scoreboard, and summary projection types. Concrete projections retain their literal game key.
+- Dynamic MatchRoom code keeps the game key correlated with its state and isolates unavoidable exhaustive narrowing inside MatchRoom; application and static routes receive keyed results.
+- Play registers one explicit control route and one explicit protocol route per game. Each route supplies its literal expected key and imports its concrete renderer directly; there is no dynamic game route, renderer registry, or generic all-game page renderer.
+- A valid route paired with another game's match ID is reported as not found. Between frames, control results omit the game projection instead of fabricating an empty one.
 - Shared app code should consume game projections, not game internals.
 - Keep one consistent game command path based on `game.command` with game-specific payloads.
 - Competition owns generic match lifecycle; MatchRoom owns serialized persistence sequence.
@@ -120,6 +124,8 @@ Application and MatchRoom independently consume that domain direction; Play sits
 - Active accepted facts are the match source of truth and exist only in MatchRoom SQLite. `seq` is an explicit monotonic integer assigned by the serialized DO commit; ULID fact IDs identify facts but do not replace cursor/order semantics.
 - Active snapshots and control projections are derived from local facts and may be cached in memory. They are not mirrored to D1.
 - D1 keeps stable cross-game catalog/player fields relational. Protocol rows and the finished snapshot are materialized as validated JSON in the completed archive.
+- Application-owned relational D1 columns use Drizzle `$type<...>()` to preserve canonical IDs, player references, game keys, statuses, and timestamps through trusted internal reads. Serialized JSON and independently persisted machine state are still decoded and validated at their storage seams.
+- MatchRoom fact rows and D1 protocol archive rows decode as complete semantic records in their private persistence adapters. Malformed persisted data fails the operation rather than producing a partial replay or leaking JSON column details into use cases.
 - Final facts are sufficient to derive both finished representations. Persisting the snapshot avoids replay and a deleted-DO call on finished score-page reads; it is not another active source of truth.
 - Keep game-specific or policy-specific variability in JSON. Normalize more only for a real lookup, reporting, or integrity need.
 - See `../db.md` for migration, reset, query, and Drizzle Studio commands.
@@ -144,11 +150,11 @@ Creation generates a control secret and stores it with the active match, but doe
 ### Active read and protocol
 
 ```text
-RR loader -> application.readMatch
+literal game route -> application.readMatchControl(expectedGameKey)
   -> read catalog + participants from D1
   -> read active snapshot/control projections from MatchRoom
 
-RR protocol loader -> application.readMatchProtocol
+literal protocol route -> application.readMatchProtocol(expectedGameKey)
   -> active: read facts from MatchRoom and derive localized protocol rows
   -> finished: read the versioned protocol archive from D1 only
 ```
@@ -226,6 +232,9 @@ The private broadcaster correctly removes cancelled streams and clears 25-second
 - Standardize schema imports on `valibot`.
 - Shared schemas originate in `packages/core`.
 - Client-side validation is helpful, but server-side validation is mandatory.
+- Parse where representation or trust changes: HTTP/form input, browser storage, RPC messages, database rows, decoded JSON, and restored machine state. Do not widen canonical internal values to `string`, `number`, or `unknown` and parse them again later.
+- Prefer whole-record schemas that decode JSON fields with `v.parseJson()` and then validate the semantic object recursively. Persistence column shapes remain private to their adapters.
+- Export inferred canonical types only with an immediate consumer; do not preserve parallel structural copies.
 - Drizzle owns TypeScript database schemas and generated SQL. D1 and per-object SQLite never share a migration history.
 
 ## Guardrails

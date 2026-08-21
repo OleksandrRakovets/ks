@@ -63,12 +63,14 @@ The current live transport is SSE. A direct MatchRoom gateway and hibernatable W
 ## Architecture guardrails
 
 - Keep route modules thin; route loaders/actions own HTTP, forms, cookies, redirects, and presentation adaptation, while use-case orchestration belongs in `@ks/application`.
+- Validate untrusted route input before resolving or invoking the `Application`; pass canonical typed values inward without widening and reparsing them.
 - Give routes the `Application` interface. Do not give them raw D1 or MatchRoom bindings or put SQL/DO stub calls in routes.
 - Keep D1 schemas and query adapters private to `@ks/application`; expose use cases rather than generic repositories.
 - MatchRoom must not import Play, application, or D1 code. `@ks/application` talks to it through a private structural RPC client contract.
 - Active-match facts are authoritative in per-object MatchRoom SQLite. D1 owns global players/catalog data and the completed snapshot/protocol archive; do not restore active fact mirroring to D1.
 - `match.ended` is terminal. Archive through the application, then ask MatchRoom to broadcast/close/delete its local storage, then mark the D1 catalog finished.
 - Reuse shared schemas/types across client/server; server validation is mandatory.
+- Parse at representation or trust boundaries, including HTTP, RPC, persisted rows/JSON, browser storage, and restored machine state; do not reparse already-typed internal values.
 - Seats are core concepts: use `Seat`, `SeatSchema`, `BySeatNumberSchema`, and `opponentOf` from `@ks/core`; do not recreate seat unions or local opponent helpers.
 - Avoid same-process internal HTTP hops unless there is a clear reason.
 - Use gameplay registry as the source of game keys: `packages/gameplay/src/registry.ts`.
