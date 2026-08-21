@@ -24,9 +24,7 @@ export type GameMeta = {
   defaultFrameTargetPointsBySeat: BySeatNumber
 }
 
-export const GameCommandPresetSchema = v.object({ ...ControlCommandPresetSchema.entries, source: v.literal('game') })
-
-export const GameControlCommandSchema = GameCommandPresetSchema
+export const GameControlCommandSchema = v.object({ ...ControlCommandPresetSchema.entries, source: v.literal('game') })
 export type GameControlCommand = v.InferOutput<typeof GameControlCommandSchema>
 
 export function deriveGameCommandSections(commands: readonly GameControlCommand[]) {

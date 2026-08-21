@@ -1,11 +1,11 @@
-import { applyMatchFact, buildMatchConfig, CreateMatchRequestSchema, emptyMatchState, type MatchState } from '@ks/competition'
+import { applyMatchFact, buildMatchConfig, emptyMatchState, type MatchState } from '@ks/competition'
 import {
+  type AcceptedFact,
   type ClientFact,
-  ClientFactSchema,
   ClientIdSchema,
+  type CommandId,
   type ControlCommand,
   type MatchConfig,
-  MatchIdSchema,
   newFactId,
   nowUnixEpochMilliseconds,
   opponentOf,
@@ -39,12 +39,13 @@ import {
   type StreamBody,
   StreamBodySchema,
 } from './rpc-contract'
-import { type Accepted, ActiveMatchStore } from './storage/store'
+import { ActiveMatchStore } from './storage/store'
 
 type RoomState = { matchState: MatchState; currentFrame: AnyActiveGameState | null }
 type SnapshotResult = RoomSnapshotSuccess | { ok: false; error: string; status: number }
 const ConcedeFrameCommandSchema = v.object({ seat: SeatSchema })
 const CommenceFrameCommandSchema = v.object({ seat: SeatSchema })
+const ServerClientId = v.parse(ClientIdSchema, 'server0000')
 
 export class MatchRoom extends DurableObject<Env> {
   private readonly store: ActiveMatchStore
@@ -61,15 +62,14 @@ export class MatchRoom extends DurableObject<Env> {
     })
   }
 
-  async create(args: CreateBody): Promise<{ ok: true; matchId: string } | { ok: false; error: string; status: number }> {
+  async create(
+    args: CreateBody,
+  ): Promise<{ ok: true; matchId: MatchConfig['matchId'] } | { ok: false; error: string; status: number }> {
     await this.ready
     const parsed = v.safeParse(CreateBodySchema, args)
     if (!parsed.success) return { ok: false, error: 'Invalid create body', status: 400 }
     return await this.ctx.blockConcurrencyWhile(async () => {
-      const request = v.safeParse(CreateMatchRequestSchema, parsed.output)
-      if (!request.success) return { ok: false, error: 'Invalid create body', status: 400 }
-
-      const config = buildMatchConfig(parsed.output.matchId, request.output)
+      const config = buildMatchConfig(parsed.output.matchId, parsed.output)
       const configJson = JSON.stringify(config)
       let match = this.store.match()
       if (match) {
@@ -82,7 +82,7 @@ export class MatchRoom extends DurableObject<Env> {
           return { ok: false, error: 'Match already exists', status: 409 }
         }
       } else {
-        this.commitAccepted(this.initialFacts(parsed.output.matchId, config), null, {
+        this.commitAccepted(this.initialFacts(config), null, {
           matchId: parsed.output.matchId,
           controlSecret: parsed.output.controlSecret,
           configJson,
@@ -113,7 +113,7 @@ export class MatchRoom extends DurableObject<Env> {
   async facts(
     args: FactsBody,
   ): Promise<
-    | { ok: true; accepted: Accepted[]; finalizing?: true }
+    | { ok: true; accepted: AcceptedFact[]; finalizing?: true }
     | { ok: false; error: 'invalid-facts-body' | 'unknown-match' | 'match-locked'; status: number }
   > {
     await this.ready
@@ -142,7 +142,7 @@ export class MatchRoom extends DurableObject<Env> {
       const state = this.loadState()
       let facts: ClientFact[] = []
       try {
-        facts = this.factsForCommand(state, match.matchId, parsed.output.command)
+        facts = this.factsForCommand(state, parsed.output.command)
       } catch {
         /* rejected gameplay intent produces no facts */
       }
@@ -228,28 +228,27 @@ export class MatchRoom extends DurableObject<Env> {
     })
   }
 
-  private initialFacts(matchId: string, config: MatchConfig): ClientFact[] {
+  private initialFacts(config: MatchConfig): ClientFact[] {
     const base = {
-      matchId: v.parse(MatchIdSchema, matchId),
-      clientId: v.parse(ClientIdSchema, 'server0000'),
+      matchId: config.matchId,
+      clientId: ServerClientId,
       clientSeq: 0,
       at: nowUnixEpochMilliseconds(),
     }
-    return [
-      v.parse(ClientFactSchema, { ...base, factId: newFactId(), type: 'match.created', payload: config }),
-      v.parse(ClientFactSchema, {
-        ...base,
-        factId: newFactId(),
-        type: 'frame.started',
-        payload: {
-          frameIndex: 1,
-          gameKey: config.gameKey,
-          targetPointsBySeat: config.targets.frameTargetPointsBySeat,
-          breakerSeat: config.firstBreakerSeat,
-          gameConfiguration: config.gameConfiguration,
-        },
-      }),
-    ]
+    const created: ClientFact = { ...base, factId: newFactId(), type: 'match.created', payload: config }
+    const started: ClientFact = {
+      ...base,
+      factId: newFactId(),
+      type: 'frame.started',
+      payload: {
+        frameIndex: 1,
+        gameKey: config.gameKey,
+        targetPointsBySeat: config.targets.frameTargetPointsBySeat,
+        breakerSeat: config.firstBreakerSeat,
+        gameConfiguration: config.gameConfiguration,
+      },
+    }
+    return [created, started]
   }
 
   private loadState(): RoomState {
@@ -264,9 +263,14 @@ export class MatchRoom extends DurableObject<Env> {
 
   private commitAccepted(
     facts: ClientFact[],
-    receipt: { commandId: string; requestJson: string } | null,
-    initialization?: { matchId: string; controlSecret: string; configJson: string; createdAt: UnixEpochMilliseconds },
-  ): { accepted: Accepted[]; storedFacts: StoredFact[] } {
+    receipt: { commandId: CommandId; requestJson: string } | null,
+    initialization?: {
+      matchId: MatchConfig['matchId']
+      controlSecret: string
+      configJson: string
+      createdAt: UnixEpochMilliseconds
+    },
+  ): { accepted: AcceptedFact[]; storedFacts: StoredFact[] } {
     const committed = initialization
       ? this.store.commitAccepted({ facts, receipt, initialization })
       : this.store.commitAccepted({ facts, receipt })
@@ -299,12 +303,12 @@ export class MatchRoom extends DurableObject<Env> {
     return { matchState, currentFrame: fact.type === 'frame.completed' ? null : room.currentFrame }
   }
 
-  private factsForCommand(room: RoomState, matchId: string, command: ControlCommand): ClientFact[] {
+  private factsForCommand(room: RoomState, command: ControlCommand): ClientFact[] {
     const config = room.matchState.config
     if (!config) throw new Error('Missing match config')
     const base = {
-      matchId: v.parse(MatchIdSchema, matchId),
-      clientId: v.parse(ClientIdSchema, 'server0000'),
+      matchId: config.matchId,
+      clientId: ServerClientId,
       clientSeq: 0,
       at: nowUnixEpochMilliseconds(),
     }

@@ -1,29 +1,15 @@
 import {
-  type BySeatNumber,
   BySeatNumberSchema,
   type ClientFact,
+  FrameStateSchema,
   type GameConfiguration,
   MatchConfigSchema,
   type MatchSnapshot,
   opponentOf,
   type Seat,
-  SeatSchema,
 } from '@ks/core'
-import { NonNegativeIntegerSchema, PositiveIntegerSchema } from '@ks/core'
+import { NonNegativeIntegerSchema } from '@ks/core'
 import * as v from 'valibot'
-
-export type MatchState = {
-  config?: v.InferOutput<typeof MatchConfigSchema>
-  status: 'empty' | 'active' | 'finished'
-  frames: {
-    frameIndex: number
-    pointsBySeat: BySeatNumber
-    breakerSeat: Seat
-    winnerSeat?: Seat
-  }[]
-  framesWonBySeat: BySeatNumber
-  currentFrameIndex: number
-}
 
 function assert(condition: boolean, message: string): asserts condition {
   if (!condition) {
@@ -31,20 +17,14 @@ function assert(condition: boolean, message: string): asserts condition {
   }
 }
 
-const MatchStateFrameSchema = v.object({
-  frameIndex: PositiveIntegerSchema,
-  pointsBySeat: BySeatNumberSchema,
-  breakerSeat: SeatSchema,
-  winnerSeat: v.optional(SeatSchema),
-})
-
 export const MatchStateSchema = v.object({
   config: v.optional(MatchConfigSchema),
   status: v.picklist(['empty', 'active', 'finished']),
-  frames: v.array(MatchStateFrameSchema),
+  frames: v.array(FrameStateSchema),
   framesWonBySeat: BySeatNumberSchema,
   currentFrameIndex: NonNegativeIntegerSchema,
 })
+export type MatchState = v.InferOutput<typeof MatchStateSchema>
 
 export function emptyMatchState(): MatchState {
   return {
@@ -78,7 +58,13 @@ function expectedBreakerSeat(config: NonNullable<MatchState['config']>, frameInd
 }
 
 export function applyMatchFact(prev: MatchState, fact: ClientFact): MatchState {
-  const state = prev.status === 'empty' ? emptyMatchState() : prev
+  if (fact.type === 'match.created') {
+    assert(prev.status === 'empty', 'Cannot create an initialized match')
+  } else {
+    const config = requireConfig(prev)
+    assert(fact.matchId === config.matchId, 'Fact match ID does not match match config')
+  }
+  const state = prev
 
   switch (fact.type) {
     case 'match.created': {

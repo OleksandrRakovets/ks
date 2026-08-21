@@ -1,5 +1,3 @@
-import { GameKeySchema } from '@ks/core'
-import invariant from 'tiny-invariant'
 import * as v from 'valibot'
 
 import { type GameCommandResult, type GameControlProjectionInput, type GameCreateStateArgs } from './constants'
@@ -12,8 +10,8 @@ import {
 import {
   type ControlProjectionFor,
   type GameStateFor,
-  isRegisteredGameKey,
   type RegisteredGameKey,
+  RegisteredGameKeySchema,
   type ScoreboardProjectionFor,
   type SummaryProjectionFor,
 } from './registry'
@@ -21,9 +19,7 @@ import { getGameplayRuntime } from './runtime-factory'
 import { StrilaControlViewSchema } from './strila-v2/definitions'
 
 export function parseGameKey(value: string): RegisteredGameKey {
-  const gameKey = v.parse(GameKeySchema, value)
-  invariant(isRegisteredGameKey(gameKey), `Unsupported game key: ${gameKey}`)
-  return gameKey
+  return v.parse(RegisteredGameKeySchema, value)
 }
 
 export function createInitialGameState<K extends RegisteredGameKey>(gameKey: K, args: GameCreateStateArgs): GameStateFor<K> {

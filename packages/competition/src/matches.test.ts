@@ -56,8 +56,17 @@ describe('match creation helpers', () => {
 
   test('maps participants by seat', () => {
     expect(assignmentsBySeat(request.participants)).toEqual({
-      A: 'gp_01HX0000000000000000000000',
-      B: 'gp_01HX0000000000000000000001',
+      A: request.participants[0].playerRef,
+      B: request.participants[1].playerRef,
     })
+  })
+
+  test('rejects non-positive targets through the core target schema', () => {
+    expect(
+      v.safeParse(CreateMatchRequestSchema, {
+        ...request,
+        targets: { ...request.targets, frameTargetPointsBySeat: { A: 0, B: 8 } },
+      }).success,
+    ).toBe(false)
   })
 })

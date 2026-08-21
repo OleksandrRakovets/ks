@@ -1,4 +1,4 @@
-import type { CreateMatchInput } from '@ks/application'
+import { type CreateMatchInput, DisplayNameSchema } from '@ks/application'
 import { type Seat, SeatSchema } from '@ks/core'
 import { isRegisteredGameKey, registry } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
@@ -16,7 +16,7 @@ import { localeFromCookie } from '../../server/locale'
 import { FirstBreakerField, FrameTargetFields, MatchTargetFramesField, PlayerNameFields, RackRolloverField } from './fields'
 import { createProfileForGame, type MatchCreateProfile } from './profile'
 import { recentPlayerSuggestions, rememberRecentPlayers, useRecentPlayers } from './recent-players'
-import { DisplayNameSchema, parsePositiveInt, parseRackRollover, safeNormalizeDisplayName } from './validation'
+import { parsePositiveInt, parseRackRollover, safeNormalizeDisplayName } from './validation'
 
 type LoaderData = {
   gameKey: string

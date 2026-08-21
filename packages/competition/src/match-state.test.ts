@@ -3,7 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import { type ClientFact, ClientFactSchema, type MatchConfig, newClientId, newFactId, newMatchId } from '@ks/core'
 import * as v from 'valibot'
 
-import { applyMatchFact, deriveSparringControlSections, emptyMatchState } from './index'
+import { applyMatchFact, deriveMatchState, deriveSparringControlSections, emptyMatchState, MatchStateSchema } from './index'
 
 function baseFact<TType extends ClientFact['type']>(
   matchId: string,
@@ -57,6 +57,47 @@ function frameCompleted(config: MatchConfig, frameIndex: number, winnerSeat: 'A'
 }
 
 describe('match-state room facts', () => {
+  test('produces schema-valid states at each transition and after replay', () => {
+    const config = makeConfig(1)
+    const facts = [
+      baseFact(config.matchId, 'match.created', config),
+      frameStarted(config, 1),
+      frameCompleted(config, 1, 'A'),
+      baseFact(config.matchId, 'match.ended', { winnerSeat: 'A' }),
+    ]
+    let state = emptyMatchState()
+    expect(v.safeParse(MatchStateSchema, state).success).toBe(true)
+    for (const fact of facts) {
+      state = applyMatchFact(state, fact)
+      expect(v.safeParse(MatchStateSchema, state).success).toBe(true)
+    }
+    expect(v.safeParse(MatchStateSchema, deriveMatchState(facts)).success).toBe(true)
+  })
+
+  test('rejects duplicate match creation instead of resetting aggregate state', () => {
+    const config = makeConfig()
+    let state = applyMatchFact(emptyMatchState(), baseFact(config.matchId, 'match.created', config))
+    state = applyMatchFact(state, frameStarted(config, 1))
+    const stateBeforeDuplicate = structuredClone(state)
+
+    expect(() => applyMatchFact(state, baseFact(config.matchId, 'match.created', config))).toThrow(
+      'Cannot create an initialized match',
+    )
+    expect(state).toEqual(stateBeforeDuplicate)
+  })
+
+  test('rejects a later fact from another match before mutating state', () => {
+    const config = makeConfig()
+    const otherConfig = makeConfig()
+    const state = applyMatchFact(emptyMatchState(), baseFact(config.matchId, 'match.created', config))
+
+    expect(() => applyMatchFact(state, frameStarted({ ...config, matchId: otherConfig.matchId }, 1))).toThrow(
+      'Fact match ID does not match match config',
+    )
+    expect(state.frames).toEqual([])
+    expect(state.currentFrameIndex).toBe(0)
+  })
+
   test('starts frame from resolved frame.started fact', () => {
     const config = makeConfig()
     let state = emptyMatchState()

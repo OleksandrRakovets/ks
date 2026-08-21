@@ -17,7 +17,7 @@ export const BySeatNumberSchema = v.object({ A: IntegerSchema, B: IntegerSchema 
 export type BySeatNumber = v.InferOutput<typeof BySeatNumberSchema>
 
 export const MatchTargetsSchema = v.object({
-  frameTargetPointsBySeat: BySeatNumberSchema,
+  frameTargetPointsBySeat: v.object({ A: PositiveIntegerSchema, B: PositiveIntegerSchema }),
   matchTargetFrames: PositiveIntegerSchema,
 })
 
@@ -36,11 +36,13 @@ export const HydratedMatchParticipantSchema = v.object({
   displayName: SizedStringSchema(1, 128),
   shortDisplayName: SizedStringSchema(1, 128),
 })
+export type HydratedMatchParticipant = v.InferOutput<typeof HydratedMatchParticipantSchema>
 
 export const HydratedMatchParticipantsSchema = v.object({
   A: HydratedMatchParticipantSchema,
   B: HydratedMatchParticipantSchema,
 })
+export type HydratedMatchParticipants = v.InferOutput<typeof HydratedMatchParticipantsSchema>
 
 export const MatchConfigSchema = v.object({
   matchId: MatchIdSchema,

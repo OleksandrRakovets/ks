@@ -2,32 +2,25 @@ import {
   GameConfigurationSchema,
   type GameKey,
   type MatchConfig,
-  MatchConfigSchema,
+  type MatchId,
   MatchIdSchema,
   MatchSeatAssignmentSchema,
-  PositiveIntegerSchema,
+  MatchTargetsSchema,
+  type PlayerRef,
   SeatSchema,
   stripOptionalPrefix,
 } from '@ks/core'
 import type { MatchSnapshot } from '@ks/core'
-import { isRegisteredGameKey } from '@ks/gameplay/definitions'
+import { RegisteredGameKeySchema } from '@ks/gameplay/definitions'
 import * as v from 'valibot'
 
-export const CreateMatchRequestSchema = v.pipe(
+export const MatchCreationDefinitionSchema = v.pipe(
   v.object({
-    gameKey: v.pipe(v.string(), v.minLength(1)),
-    targets: v.object({
-      frameTargetPointsBySeat: v.object({
-        A: PositiveIntegerSchema,
-        B: PositiveIntegerSchema,
-      }),
-      matchTargetFrames: PositiveIntegerSchema,
-    }),
+    gameKey: RegisteredGameKeySchema,
+    targets: MatchTargetsSchema,
     firstBreakerSeat: SeatSchema,
     gameConfiguration: v.optional(GameConfigurationSchema),
-    participants: v.tuple([MatchSeatAssignmentSchema, MatchSeatAssignmentSchema]),
   }),
-  v.check((value) => isRegisteredGameKey(value.gameKey), 'Unsupported game key'),
   v.check(
     (value) =>
       value.gameKey !== 'free-pyramid-long' ||
@@ -35,6 +28,13 @@ export const CreateMatchRequestSchema = v.pipe(
       value.gameConfiguration?.rackRollover === 15,
     'Long free pyramid requires rack rollover configuration',
   ),
+)
+
+export const CreateMatchRequestSchema = v.pipe(
+  v.intersect([
+    MatchCreationDefinitionSchema,
+    v.object({ participants: v.tuple([MatchSeatAssignmentSchema, MatchSeatAssignmentSchema]) }),
+  ]),
   v.check(
     (value) => new Set(value.participants.map((participant) => participant.seat)).size === 2,
     'Participants must include one A and one B seat',
@@ -45,7 +45,7 @@ export type CreateMatchRequest = v.InferOutput<typeof CreateMatchRequestSchema>
 
 export type MatchSnapshotFor<K extends GameKey> = Omit<MatchSnapshot, 'gameKey'> & { gameKey: K }
 
-type MatchAssignmentsBySeat = { A: string; B: string }
+type MatchAssignmentsBySeat = { A: PlayerRef; B: PlayerRef }
 
 export function assignmentsBySeat(participants: CreateMatchRequest['participants']): MatchAssignmentsBySeat {
   const seatA = participants.find((participant) => participant.seat === 'A')
@@ -59,16 +59,16 @@ export function assignmentsBySeat(participants: CreateMatchRequest['participants
   }
 }
 
-export function buildMatchConfig(matchId: string, input: CreateMatchRequest): MatchConfig {
-  return v.parse(MatchConfigSchema, {
+export function buildMatchConfig(matchId: MatchId, input: CreateMatchRequest): MatchConfig {
+  return {
     matchId,
     gameKey: input.gameKey,
     targets: input.targets,
     firstBreakerSeat: input.firstBreakerSeat,
     gameConfiguration: input.gameConfiguration,
-  })
+  }
 }
 
-export function normalizeMatchId(raw: string): string {
+export function normalizeMatchId(raw: string): MatchId {
   return v.parse(MatchIdSchema, stripOptionalPrefix(raw))
 }

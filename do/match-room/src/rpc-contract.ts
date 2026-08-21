@@ -1,29 +1,23 @@
+import { CreateMatchRequestSchema } from '@ks/competition'
 import {
   CommandIdSchema,
   ControlCommandSchema,
-  GameConfigurationSchema,
   MatchIdSchema,
-  MatchSeatAssignmentSchema,
-  MatchTargetsSchema,
-  NonEmptyStringSchema,
   NonNegativeIntegerSchema,
-  SeatSchema,
   UnixEpochMillisecondsSchema,
 } from '@ks/core'
 import * as v from 'valibot'
 
 const ControlSecretSchema = v.pipe(v.string(), v.minLength(16))
 
-export const CreateBodySchema = v.object({
-  matchId: MatchIdSchema,
-  controlSecret: ControlSecretSchema,
-  gameKey: NonEmptyStringSchema,
-  targets: MatchTargetsSchema,
-  firstBreakerSeat: SeatSchema,
-  gameConfiguration: v.optional(GameConfigurationSchema),
-  participants: v.tuple([MatchSeatAssignmentSchema, MatchSeatAssignmentSchema]),
-  createdAt: UnixEpochMillisecondsSchema,
-})
+export const CreateBodySchema = v.intersect([
+  CreateMatchRequestSchema,
+  v.object({
+    matchId: MatchIdSchema,
+    controlSecret: ControlSecretSchema,
+    createdAt: UnixEpochMillisecondsSchema,
+  }),
+])
 
 export const FactsBodySchema = v.object({
   matchId: MatchIdSchema,

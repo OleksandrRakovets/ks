@@ -24,6 +24,7 @@ export const AcceptedFactSchema = v.object({
   seq: PositiveIntegerSchema,
   factId: FactIdSchema,
 })
+export type AcceptedFact = v.InferOutput<typeof AcceptedFactSchema>
 
 export const PostFactsResponseSchema = v.union([
   v.object({

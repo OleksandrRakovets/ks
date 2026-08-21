@@ -7,5 +7,4 @@
     "bindings": [{ "name": "MATCH_ROOM", "class_name": "MatchRoom" }],
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["MatchRoom"] }],
-  "rules": [{ "type": "Text", "globs": ["drizzle/**/*.sql"], "fallthrough": true }],
 }

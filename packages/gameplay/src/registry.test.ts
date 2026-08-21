@@ -130,6 +130,7 @@ describe('game registry', () => {
 
   test('parses a supported game key', () => {
     expect(parseGameKey('free-pyramid')).toBe('free-pyramid')
+    expect(() => parseGameKey('historical-game')).toThrow()
   })
 
   test('returns free pyramid metadata', () => {

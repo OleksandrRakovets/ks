@@ -42,6 +42,16 @@
       "autoincrement": false,
       "default": null,
       "generated": null,
+      "name": "match_id",
+      "entityType": "columns",
+      "table": "accepted_facts"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
       "name": "type",
       "entityType": "columns",
       "table": "accepted_facts"
@@ -185,6 +195,17 @@
       "name": "accepted_json",
       "entityType": "columns",
       "table": "command_receipts"
+    },
+    {
+      "columns": ["match_id"],
+      "tableTo": "active_matches",
+      "columnsTo": ["match_id"],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_accepted_facts_match_id_active_matches_match_id_fk",
+      "entityType": "fks",
+      "table": "accepted_facts"
     },
     {
       "columns": ["seq"],

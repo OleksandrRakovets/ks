@@ -1,13 +1,7 @@
+import { DisplayNameSchema } from '@ks/application'
 import * as v from 'valibot'
 
 import type { RackRolloverOption } from './profile'
-
-export const DisplayNameSchema = v.pipe(
-  v.string(),
-  v.trim(),
-  v.transform((value) => value.replace(/\s+/g, ' ')),
-  v.minLength(1),
-)
 
 export function normalizeDisplayName(value: string): string {
   return v.parse(DisplayNameSchema, value)
