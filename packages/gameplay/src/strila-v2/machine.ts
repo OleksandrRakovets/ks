@@ -86,7 +86,7 @@ function outputWinnerDeterminationReason(context: StrilaContext): StrilaWinnerDe
   return context.winnerDeterminationReason
 }
 
-export const strilaSparringMachine = setup({
+export const StrilaSparringFrameMachine = setup({
   types: {
     // SAFETY: XState's setup API uses empty values solely to capture these compile-time contracts.
     context: {} as StrilaContext,
@@ -411,14 +411,14 @@ export const strilaSparringMachine = setup({
   }),
 })
 
-export type StrilaSparringSnapshot = SnapshotFrom<typeof strilaSparringMachine>
+export type StrilaSparringFrameSnapshot = SnapshotFrom<typeof StrilaSparringFrameMachine>
 
-export function createInitialSnapshot(targetPointsBySeat: BySeatNumber): StrilaSparringSnapshot {
-  const [snapshot] = initialTransition(strilaSparringMachine, { targetPointsBySeat })
+export function createInitialSnapshot(targetPointsBySeat: BySeatNumber): StrilaSparringFrameSnapshot {
+  const [snapshot] = initialTransition(StrilaSparringFrameMachine, { targetPointsBySeat })
   return snapshot
 }
 
-export function getPhase(snapshot: StrilaSparringSnapshot): StrilaPhase {
+export function getPhase(snapshot: StrilaSparringFrameSnapshot): StrilaPhase {
   const value = v.parse(StrilaSnapshotValueSchema, snapshot.value)
   const phase = v.safeParse(StrilaPhaseSchema, value)
   if (phase.success) return phase.output
@@ -432,7 +432,7 @@ export function getPhase(snapshot: StrilaSparringSnapshot): StrilaPhase {
   throw new Error(`Unknown Strila phase: ${JSON.stringify(value)}`)
 }
 
-export function sendEvent(snapshot: StrilaSparringSnapshot, event: StrilaCommand): StrilaSparringSnapshot {
+export function sendEvent(snapshot: StrilaSparringFrameSnapshot, event: StrilaCommand): StrilaSparringFrameSnapshot {
   if (!snapshot.can(event)) {
     throw new Error(`Invalid Strila event ${event.type} in phase ${getPhase(snapshot)}`)
   }
@@ -444,6 +444,6 @@ export function sendEvent(snapshot: StrilaSparringSnapshot, event: StrilaCommand
       }
     }
   }
-  const [nextSnapshot] = transition(strilaSparringMachine, snapshot, event)
+  const [nextSnapshot] = transition(StrilaSparringFrameMachine, snapshot, event)
   return nextSnapshot
 }

@@ -6,9 +6,9 @@ import { createActor } from 'xstate'
 import type { StrilaBall, StrilaCommand } from '../../../packages/gameplay/src/strila-v2/definitions'
 import {
   getPhase,
-  strilaSparringMachine,
-  type StrilaSparringSnapshot,
-} from '../../../packages/gameplay/src/strila-v2/machine-sparring'
+  StrilaSparringFrameMachine,
+  type StrilaSparringFrameSnapshot,
+} from '../../../packages/gameplay/src/strila-v2/machine'
 
 const BALLS: StrilaBall[] = [0, 1, 2, 3, 4, 5, 6, 7]
 const BALL_LABELS = { 0: 'Q', 1: '1', 2: '2', 3: '3', 4: '4', 5: '5', 6: '6', 7: '7' } satisfies Record<StrilaBall, string>
@@ -49,7 +49,7 @@ let frameActor = buildFrameActor()
 let selectedBalls = new Set<StrilaBall>()
 
 function buildFrameActor() {
-  return createActor(strilaSparringMachine, {
+  return createActor(StrilaSparringFrameMachine, {
     input: { targetPointsBySeat: { A: targetA, B: targetB } },
     inspect: inspectorInspect,
   })
@@ -91,7 +91,7 @@ function rebuildCurrentActor() {
 const controls = document.getElementById('controls')!
 const status = document.getElementById('status')!
 
-function renderFrame(snap: StrilaSparringSnapshot) {
+function renderFrame(snap: StrilaSparringFrameSnapshot) {
   const phase = getPhase(snap)
   const ctx = snap.context
 
@@ -102,7 +102,7 @@ function renderFrame(snap: StrilaSparringSnapshot) {
   renderFrameControls(snap)
 }
 
-function renderFrameControls(snap: StrilaSparringSnapshot) {
+function renderFrameControls(snap: StrilaSparringFrameSnapshot) {
   const phase = getPhase(snap)
   const ctx = snap.context
   const isFinal = phase === 'frame-over'

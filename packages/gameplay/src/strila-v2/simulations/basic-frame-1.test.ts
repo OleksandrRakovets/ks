@@ -1,14 +1,12 @@
 import { expect, test } from 'bun:test'
 
+import { createInitialGameState } from '../../gameplay'
 import { StrilaMeta } from '../definitions'
 import { deriveStrilaScoreboardView } from '../projections/scoreboard'
-import { StrilaGameplayRuntime } from '../runtime'
 import { applyCommand } from './applyCommand'
 
-const runtime = new StrilaGameplayRuntime()
-
 test('simulation: runtime: basic frame 1', () => {
-  let next = runtime.createInitialState({ targetPointsBySeat: StrilaMeta.defaultTargetPoints, breakerSeat: 'A' })
+  let next = createInitialGameState('strila-v2', { targetPointsBySeat: StrilaMeta.defaultTargetPoints, breakerSeat: 'A' })
 
   ;({ next } = applyCommand(next, {
     type: 'frame.commence',

@@ -1,6 +1,6 @@
 import * as v from 'valibot'
 
-import type { GameCommandResult, GameCreateStateArgs, GameMeta } from './constants'
+import type { GameMeta } from './constants'
 import type {
   LongFreePyramidControlView,
   LongFreePyramidFrameState,
@@ -120,15 +120,6 @@ export type GameStateFor<K extends RegisteredGameKey> = GameContracts[K]['state'
 export type ControlProjectionFor<K extends RegisteredGameKey> = GameContracts[K]['control']
 export type ScoreboardProjectionFor<K extends RegisteredGameKey> = GameContracts[K]['scoreboard']
 export type SummaryProjectionFor<K extends RegisteredGameKey> = GameContracts[K]['summary']
-
-export interface GameplayDefinition<K extends RegisteredGameKey> {
-  readonly key: K
-  createInitialState(args: GameCreateStateArgs): GameStateFor<K>
-  applyCommand(args: { state: GameStateFor<K>; commandType: string; command: unknown }): GameCommandResult<GameStateFor<K>>
-  deriveControl(state: GameStateFor<K>): ControlProjectionFor<K>
-  deriveScoreboard(state: GameStateFor<K>): ScoreboardProjectionFor<K>
-  deriveSummary(state: GameStateFor<K>): SummaryProjectionFor<K>
-}
 
 export function isRegisteredGameKey(value: string): value is RegisteredGameKey {
   return v.is(RegisteredGameKeySchema, value)

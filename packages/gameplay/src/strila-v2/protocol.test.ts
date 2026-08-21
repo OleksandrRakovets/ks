@@ -1,13 +1,12 @@
 import { describe, expect, test } from 'bun:test'
 
+import { applyGameCommand, createInitialGameState } from '../gameplay'
 import { type StrilaCommand, type StrilaFrameState, StrilaMeta } from './definitions'
 import { projectStrilaProtocolEntries } from './protocol'
-import { StrilaGameplayRuntime } from './runtime'
-
-const runtime = new StrilaGameplayRuntime()
 
 function apply(state: StrilaFrameState, command: StrilaCommand): StrilaFrameState {
-  return runtime.applyCommand({ state, commandType: command.type, command }).state
+  const { type: commandType, ...payload } = command
+  return applyGameCommand({ gameKey: 'strila-v2', state, commandType, command: payload }).state
 }
 
 describe('protocol projection', () => {
@@ -104,7 +103,7 @@ describe('protocol projection', () => {
   })
 
   test('target reached winner determination', () => {
-    let previous = runtime.createInitialState({ targetPointsBySeat: StrilaMeta.defaultTargetPoints, breakerSeat: 'A' })
+    let previous = createInitialGameState('strila-v2', { targetPointsBySeat: StrilaMeta.defaultTargetPoints, breakerSeat: 'A' })
     previous = apply(previous, { type: 'frame.commence', seat: 'A' })
     previous = apply(previous, { type: 'pot.record', seat: 'A', pottedBalls: [1, 2, 3, 4] })
     const command: StrilaCommand = { type: 'pot.record', seat: 'A', pottedBalls: [5] }

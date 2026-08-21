@@ -3,14 +3,14 @@ import { describe, expect, test } from 'bun:test'
 import type { BySeatNumber } from '@ks/core'
 
 import { StrilaMeta } from './definitions'
-import { createInitialSnapshot, getPhase, sendEvent, type StrilaSparringSnapshot } from './machine-sparring'
+import { createInitialSnapshot, getPhase, sendEvent, type StrilaSparringFrameSnapshot } from './machine'
 
-function start(targetPointsBySeat?: BySeatNumber): StrilaSparringSnapshot {
+function start(targetPointsBySeat?: BySeatNumber): StrilaSparringFrameSnapshot {
   return createInitialSnapshot(targetPointsBySeat ?? StrilaMeta.defaultTargetPoints)
 }
 
 // A:6, B:8, only ball 7 left → A pots 7 → 8:8, table empty → respotted-black.opening
-function reachRespottedBlack(): StrilaSparringSnapshot {
+function reachRespottedBlack(): StrilaSparringFrameSnapshot {
   let snap = start()
   snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
   snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [1] })

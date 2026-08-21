@@ -3,7 +3,7 @@ import invariant from 'tiny-invariant'
 import * as v from 'valibot'
 
 import { type GameCreateStateArgs } from '../constants'
-import type { ControlProjectionFor, GameplayDefinition, ScoreboardProjectionFor, SummaryProjectionFor } from '../registry'
+import type { ControlProjectionFor, ScoreboardProjectionFor, SummaryProjectionFor } from '../registry'
 import { type PyramidFrameState, type PyramidGameKey, type PyramidRuntimeConfig } from './definitions'
 import { derivePyramidControlView } from './projections/control'
 import { derivePyramidScoreboardView } from './projections/scoreboard'
@@ -66,7 +66,7 @@ function protocolEntry(args: {
   })
 }
 
-export class PyramidGameplayRuntime<K extends PyramidGameKey> implements GameplayDefinition<K> {
+export class PyramidGameplayRuntime<K extends PyramidGameKey> {
   readonly key: K
   private readonly config: PyramidRuntimeConfig<K>
 

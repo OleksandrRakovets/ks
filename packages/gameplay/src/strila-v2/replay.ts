@@ -1,8 +1,6 @@
+import { applyGameCommand, createInitialGameState } from '../gameplay'
 import { type StrilaCommand, type StrilaFrameState, StrilaMeta } from './definitions'
-import { StrilaGameplayRuntime } from './runtime'
 import { type StrilaControllerEntry } from './undo-controller'
-
-const runtime = new StrilaGameplayRuntime()
 
 type AppliedCommand = {
   command: StrilaCommand
@@ -28,12 +26,13 @@ function getEffectiveCommands(recordedCommands: StrilaControllerEntry[]): Strila
 }
 
 function replayEffectiveCommands(commands: StrilaCommand[]) {
-  let state = runtime.createInitialState({ targetPointsBySeat: StrilaMeta.defaultTargetPoints, breakerSeat: 'A' })
-  state = runtime.applyCommand({ state, commandType: 'frame.commence', command: { seat: 'A' } }).state
+  let state = createInitialGameState('strila-v2', { targetPointsBySeat: StrilaMeta.defaultTargetPoints, breakerSeat: 'A' })
+  state = applyGameCommand({ gameKey: 'strila-v2', state, commandType: 'frame.commence', command: { seat: 'A' } }).state
   const applied: AppliedCommand[] = []
 
   for (const command of commands) {
-    state = runtime.applyCommand({ state, commandType: command.type, command }).state
+    const { type: commandType, ...payload } = command
+    state = applyGameCommand({ gameKey: 'strila-v2', state, commandType, command: payload }).state
     applied.push({ command, stateAfter: state })
   }
 

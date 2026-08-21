@@ -19,7 +19,6 @@ export {
   type ControlProjectionFor,
   type GameContracts,
   type GameStateFor,
-  type GameplayDefinition,
   type RegisteredGameKey,
   type ScoreboardProjectionFor,
   type SummaryProjectionFor,

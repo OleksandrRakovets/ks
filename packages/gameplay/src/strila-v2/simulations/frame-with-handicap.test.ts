@@ -1,12 +1,10 @@
 import { expect, test } from 'bun:test'
 
-import { StrilaGameplayRuntime } from '../runtime'
+import { createInitialGameState } from '../../gameplay'
 import { applyCommand } from './applyCommand'
 
-const runtime = new StrilaGameplayRuntime()
-
 test('simulation: runtime: handicap basic frame for A to 6', () => {
-  let next = runtime.createInitialState({ targetPointsBySeat: { A: 6, B: 9 }, breakerSeat: 'A' })
+  let next = createInitialGameState('strila-v2', { targetPointsBySeat: { A: 6, B: 9 }, breakerSeat: 'A' })
 
   ;({ next } = applyCommand(next, {
     type: 'frame.commence',

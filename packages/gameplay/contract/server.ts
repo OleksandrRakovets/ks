@@ -3,8 +3,17 @@ export {
   createInitialGameState,
   deriveGameControl,
   deriveGameSummary,
+  deriveGameScoreboard,
   parseGameControl,
   parseGameKey,
 } from '../src/gameplay'
-export { getGameplayRuntime } from '../src/runtime-factory'
-export { StrilaGameplayRuntime, StrilaFrameStateSchema, type StrilaFrameState } from '../src/strila-v2/runtime'
+export {
+  GameCommandRejectionSchema,
+  type GameCommandDecision,
+  type GameCommandRejection,
+  type GameplaySession,
+  type PreparedGameCommandResult,
+  type PreparedGameTransition,
+} from '../src/gameplay-session'
+export { createGameplaySession } from '../src/session-factory'
+export { StrilaFrameStateSchema, type StrilaFrameState } from '../src/strila-v2/definitions'

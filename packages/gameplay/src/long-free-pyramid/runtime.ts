@@ -11,7 +11,6 @@ import invariant from 'tiny-invariant'
 import * as v from 'valibot'
 
 import type { GameCreateStateArgs } from '../constants'
-import type { GameplayDefinition } from '../registry'
 import { type LongFreePyramidFrameState, type LongFreePyramidProjectionDetails, type LongFreePyramidRack } from './definitions'
 import { deriveLongFreePyramidControlView } from './projections/control'
 import { deriveLongFreePyramidScoreboardView } from './projections/scoreboard'
@@ -111,7 +110,7 @@ function outcome(state: LongFreePyramidFrameState): FrameOutcome | undefined {
   return { winnerSeat: state.winnerSeat, score: score(state), winReason: 'target-reached' }
 }
 
-export class LongFreePyramidGameplayRuntime implements GameplayDefinition<'free-pyramid-long'> {
+export class LongFreePyramidGameplayRuntime {
   readonly key = 'free-pyramid-long'
 
   createInitialState(args: GameCreateStateArgs): LongFreePyramidFrameState {

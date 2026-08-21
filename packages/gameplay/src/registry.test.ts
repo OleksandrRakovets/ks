@@ -9,12 +9,6 @@ import {
   LongFreePyramidScoreboardViewSchema,
   LongFreePyramidSummaryViewSchema,
 } from './long-free-pyramid/definitions'
-import type {
-  FreePyramidControlView,
-  FreePyramidScoreboardView,
-  FreePyramidSummaryView,
-  PyramidFrameState,
-} from './pyramid/definitions'
 import {
   CombinedPyramidControlViewSchema,
   CombinedPyramidOldControlViewSchema,
@@ -28,40 +22,14 @@ import {
 } from './pyramid/definitions'
 import {
   type ControlProjectionFor,
-  type GameplayDefinition,
   getGameMeta,
   listGameKeys,
   type RegisteredGameKey,
   type ScoreboardProjectionFor,
   type SummaryProjectionFor,
 } from './registry'
-import { getGameplayRuntime } from './runtime-factory'
-import {
-  StrilaControlViewSchema,
-  type StrilaFrameState,
-  StrilaScoreboardViewSchema,
-  StrilaSummaryViewSchema,
-} from './strila-v2/definitions'
-
-type StrilaDefinition = GameplayDefinition<'strila-v2'>
-type IncompatibleStateDefinition = Omit<StrilaDefinition, 'createInitialState'> & {
-  createInitialState(args: GameCreateStateArgs): PyramidFrameState
-}
-type IncompatibleControlDefinition = Omit<StrilaDefinition, 'deriveControl'> & {
-  deriveControl(state: StrilaFrameState): FreePyramidControlView
-}
-type IncompatibleScoreboardDefinition = Omit<StrilaDefinition, 'deriveScoreboard'> & {
-  deriveScoreboard(state: StrilaFrameState): FreePyramidScoreboardView
-}
-type IncompatibleSummaryDefinition = Omit<StrilaDefinition, 'deriveSummary'> & {
-  deriveSummary(state: StrilaFrameState): FreePyramidSummaryView
-}
-
-type AssertFalse<T extends false> = T
-type _IncompatibleStateIsRejected = AssertFalse<IncompatibleStateDefinition extends StrilaDefinition ? true : false>
-type _IncompatibleControlIsRejected = AssertFalse<IncompatibleControlDefinition extends StrilaDefinition ? true : false>
-type _IncompatibleScoreboardIsRejected = AssertFalse<IncompatibleScoreboardDefinition extends StrilaDefinition ? true : false>
-type _IncompatibleSummaryIsRejected = AssertFalse<IncompatibleSummaryDefinition extends StrilaDefinition ? true : false>
+import { createGameplaySession } from './session-factory'
+import { StrilaControlViewSchema, StrilaScoreboardViewSchema, StrilaSummaryViewSchema } from './strila-v2/definitions'
 
 const projectionSchemas = {
   'strila-v2': {
@@ -92,17 +60,20 @@ const projectionSchemas = {
 }
 
 function projectionsFor<K extends RegisteredGameKey>(gameKey: K) {
-  const runtime = getGameplayRuntime(gameKey)
   const initialArgs: GameCreateStateArgs = {
-    targetPointsBySeat: runtime.key === 'free-pyramid-long' ? { A: 30, B: 30 } : { A: 9, B: 9 },
+    targetPointsBySeat: gameKey === 'free-pyramid-long' ? { A: 30, B: 30 } : { A: 9, B: 9 },
     breakerSeat: 'A',
   }
-  if (runtime.key === 'free-pyramid-long') initialArgs.gameConfiguration = { rackRollover: 14 }
-  const state = runtime.createInitialState(initialArgs)
-  const control: ControlProjectionFor<K> = runtime.deriveControl(state)
-  const scoreboard: ScoreboardProjectionFor<K> = runtime.deriveScoreboard(state)
-  const summary: SummaryProjectionFor<K> = runtime.deriveSummary(state)
-  return { control, scoreboard, summary }
+  if (gameKey === 'free-pyramid-long') initialArgs.gameConfiguration = { rackRollover: 14 }
+  const session = createGameplaySession(gameKey, initialArgs)
+  try {
+    const control: ControlProjectionFor<K> = session.deriveControl()
+    const scoreboard: ScoreboardProjectionFor<K> = session.deriveScoreboard()
+    const summary: SummaryProjectionFor<K> = session.deriveSummary()
+    return { control, scoreboard, summary }
+  } finally {
+    session.dispose()
+  }
 }
 
 describe('game registry', () => {
@@ -116,7 +87,7 @@ describe('game registry', () => {
     ])
   })
 
-  test('each runtime preserves its exact key across every projection', () => {
+  test('each session preserves its exact key across every projection', () => {
     for (const gameKey of listGameKeys()) {
       const projections = projectionsFor(gameKey)
       expect(projections.control.gameKey).toBe(gameKey)
