@@ -60,7 +60,6 @@ export const ProtocolArchiveSchema = v.object({
   protocolVersion: v.literal(PROTOCOL_ARCHIVE_VERSION),
   rows: ProtocolArchiveRowsSchema,
 })
-export type ProtocolArchive = v.InferOutput<typeof ProtocolArchiveSchema>
 
 type SeatNames = { A: string; B: string }
 type StoredGameCommandFact = Extract<StoredFact, { type: 'game.command' }>

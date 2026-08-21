@@ -19,7 +19,7 @@ type MatchRoomCreateResult = { ok: true; matchId: MatchId } | MatchRoomFailure
 type MatchRoomCommandResult =
   | (Extract<CommandMatchResult, { ok: true }> & { finalizing?: true })
   | Extract<CommandMatchResult, { ok: false }>
-export type MatchRoomSnapshotSuccess = {
+type MatchRoomSnapshotSuccess = {
   [K in RegisteredGameKey]: {
     ok: true
     snapshot: MatchSnapshotFor<K>

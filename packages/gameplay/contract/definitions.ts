@@ -1,5 +1,4 @@
 export {
-  GameCommandPresetSchema,
   GameControlCommandSchema,
   GameScoreboardProjectionSchema,
   GameSummaryProjectionSchema,
