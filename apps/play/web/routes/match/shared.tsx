@@ -1,0 +1,434 @@
+import type { ProtocolRow, ReadMatchControlResult, ReadMatchProtocolResult } from '@ks/application'
+import {
+  type BySeatNumber,
+  CommandIdSchema,
+  type ControlCommandPreset,
+  ControlCommandSchema,
+  type MatchId,
+  MatchIdSchema,
+  type MatchSnapshot,
+  newCommandId,
+  StreamFactSchema,
+  StreamReadySchema,
+} from '@ks/core'
+import { type RegisteredGameKey, registry } from '@ks/gameplay/definitions'
+import { keys } from '@ks/i18n'
+import type { TFunction } from 'i18next'
+import { useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
+import { useRevalidator } from 'react-router'
+import * as v from 'valibot'
+
+import { Button } from '@/components/ui'
+
+import type { AppLoadContext } from '../../server/context'
+import { requireApplication } from '../../server/context'
+import { localeFromCookie } from '../../server/locale'
+
+type RouteArgs = {
+  params: { matchId?: string }
+  request: Request
+  context: AppLoadContext
+}
+
+type ControlSuccess<K extends RegisteredGameKey> = Extract<ReadMatchControlResult<K>, { ok: true }>
+type ProtocolSuccess<K extends RegisteredGameKey> = Extract<ReadMatchProtocolResult<K>, { ok: true }>
+
+export type ControlRouteData<K extends RegisteredGameKey> = ControlSuccess<K> & { gameTitle: string }
+export type ProtocolRouteData<K extends RegisteredGameKey> = ProtocolSuccess<K> & { gameTitle: string }
+
+export function protocolFrameScore<K extends RegisteredGameKey>(
+  snapshot: ProtocolRouteData<K>['snapshot'],
+  controlProjection: ProtocolRouteData<K>['controlProjection'],
+): BySeatNumber {
+  const snapshotFrame = snapshot.frames[snapshot.currentFrameIndex - 1]
+  return controlProjection?.score ?? snapshotFrame?.pointsBySeat ?? { A: 0, B: 0 }
+}
+
+export type ControlActionData =
+  | { ok: true; acceptedSeqMax: number | null }
+  | {
+      ok: false
+      errorKey:
+        | typeof keys.match.control.invalidFactPayload
+        | typeof keys.match.control.factRejectedByRules
+        | typeof keys.match.control.unknownMatch
+        | typeof keys.match.control.matchLocked
+    }
+
+type ControlActionErrorKey = Extract<ControlActionData, { ok: false }>['errorKey']
+
+const SubmittedControlCommandSchema = v.pipe(v.string(), v.parseJson(), ControlCommandSchema)
+const StreamReadyEventSchema = v.pipe(v.string(), v.parseJson(), StreamReadySchema)
+const StreamFactEventSchema = v.pipe(v.string(), v.parseJson(), StreamFactSchema)
+
+function matchIdFromParams(params: RouteArgs['params']): MatchId {
+  const matchId = v.safeParse(MatchIdSchema, params.matchId)
+  if (!matchId.success) throw new Response('Invalid matchId', { status: 400 })
+  return matchId.output
+}
+
+export async function loadMatchControl<K extends RegisteredGameKey>(
+  args: RouteArgs,
+  expectedGameKey: K,
+): Promise<ControlRouteData<K>> {
+  const locale = localeFromCookie(args.request.headers.get('cookie'))
+  const result = await requireApplication(args.context).readMatchControl(
+    matchIdFromParams(args.params),
+    locale,
+    expectedGameKey,
+  )
+  if (!result.ok) throw new Response(result.error, { status: result.status })
+  return { ...result, gameTitle: registry[expectedGameKey].meta.title[locale] }
+}
+
+export async function loadMatchProtocol<K extends RegisteredGameKey>(
+  args: RouteArgs,
+  expectedGameKey: K,
+): Promise<ProtocolRouteData<K>> {
+  const locale = localeFromCookie(args.request.headers.get('cookie'))
+  const result = await requireApplication(args.context).readMatchProtocol(
+    matchIdFromParams(args.params),
+    'UTC',
+    locale,
+    expectedGameKey,
+  )
+  if (!result.ok) throw new Response(result.error, { status: result.status })
+  return { ...result, gameTitle: registry[expectedGameKey].meta.title[locale] }
+}
+
+function commandErrorKey(error: string): ControlActionErrorKey {
+  if (error === 'unknown-match' || error === 'Unknown match') return keys.match.control.unknownMatch
+  if (error === 'match-locked') return keys.match.control.matchLocked
+  return keys.match.control.invalidFactPayload
+}
+
+export async function commandMatchAction<K extends RegisteredGameKey>(
+  args: RouteArgs,
+  expectedGameKey: K,
+): Promise<ControlActionData> {
+  const matchId = matchIdFromParams(args.params)
+  const form = await args.request.formData()
+  const command = v.safeParse(SubmittedControlCommandSchema, form.get('command'))
+  const commandId = v.safeParse(CommandIdSchema, form.get('commandId'))
+  if (!command.success || !commandId.success) {
+    return { ok: false, errorKey: keys.match.control.invalidFactPayload }
+  }
+
+  const result = await requireApplication(args.context).commandMatch(matchId, commandId.output, command.output, expectedGameKey)
+  if (!result.ok) {
+    if (result.status === 404) throw new Response(result.error, { status: 404 })
+    if (result.status === 409) return { ok: false, errorKey: keys.match.control.matchLocked }
+    if (result.status >= 500) throw new Response(result.error, { status: result.status })
+    return { ok: false, errorKey: commandErrorKey(result.error) }
+  }
+  if (result.accepted.length === 0) return { ok: false, errorKey: keys.match.control.factRejectedByRules }
+
+  return {
+    ok: true,
+    acceptedSeqMax: result.accepted.reduce<number | null>(
+      (max, entry) => (max == null ? entry.seq : Math.max(max, entry.seq)),
+      null,
+    ),
+  }
+}
+
+export function controlCommandForm(command: ControlCommandPreset) {
+  return {
+    command: JSON.stringify({ source: command.source, commandType: command.commandType, command: command.command }),
+    commandId: newCommandId(),
+  }
+}
+
+export type ControlLiveState = {
+  latestSeq: number
+  suppressUntilSeq: number
+  localSubmitInFlight: boolean
+}
+
+export type ControlLiveEvent =
+  | { type: 'snapshot'; latestSeq: number }
+  | { type: 'submit-started' }
+  | { type: 'submit-finished' }
+  | { type: 'accepted'; seq: number }
+  | { type: 'ready'; seq: number }
+  | { type: 'fact'; seq: number }
+  | { type: 'match-ended'; seq: number }
+  | { type: 'error' }
+
+export type ControlLiveTransition = {
+  state: ControlLiveState
+  revalidate: boolean
+  close: boolean
+}
+
+export function transitionControlLive(state: ControlLiveState, event: ControlLiveEvent): ControlLiveTransition {
+  if (event.type === 'snapshot') {
+    return { state: { ...state, latestSeq: event.latestSeq }, revalidate: false, close: false }
+  }
+  if (event.type === 'submit-started') {
+    return { state: { ...state, localSubmitInFlight: true }, revalidate: false, close: false }
+  }
+  if (event.type === 'submit-finished') {
+    return { state: { ...state, localSubmitInFlight: false }, revalidate: false, close: false }
+  }
+  if (event.type === 'accepted') {
+    return {
+      state: { ...state, suppressUntilSeq: Math.max(state.suppressUntilSeq, event.seq) },
+      revalidate: false,
+      close: false,
+    }
+  }
+  if (event.type === 'match-ended') {
+    return {
+      state: { ...state, latestSeq: Math.max(state.latestSeq, event.seq) },
+      revalidate: true,
+      close: true,
+    }
+  }
+  if (event.type === 'error') return { state, revalidate: true, close: false }
+  if (event.seq <= state.latestSeq) return { state, revalidate: false, close: false }
+  return {
+    state: { ...state, latestSeq: event.seq },
+    revalidate: !state.localSubmitInFlight && event.seq > state.suppressUntilSeq,
+    close: false,
+  }
+}
+
+export type ControlLiveSource = {
+  addEventListener(type: 'ready' | 'ev' | 'error', listener: (event: Event) => void): void
+  removeEventListener(type: 'ready' | 'ev' | 'error', listener: (event: Event) => void): void
+  close(): void
+}
+
+export function subscribeControlLive(args: {
+  matchId: MatchId
+  since: number
+  createSource: (url: string) => ControlLiveSource
+  applyEvent: (event: ControlLiveEvent, source: ControlLiveSource) => void
+}): () => void {
+  const source = args.createSource(`/api/m/${args.matchId}/stream/?since=${args.since}`)
+  const onReady = (event: Event) => {
+    if (!(event instanceof MessageEvent)) return
+    const parsed = v.safeParse(StreamReadyEventSchema, event.data)
+    if (parsed.success) args.applyEvent({ type: 'ready', seq: parsed.output.latestSeq }, source)
+  }
+  const onEvent = (event: Event) => {
+    if (!(event instanceof MessageEvent)) return
+    const parsed = v.safeParse(StreamFactEventSchema, event.data)
+    if (!parsed.success) return
+    args.applyEvent(
+      parsed.output.type === 'match.ended'
+        ? { type: 'match-ended', seq: parsed.output.seq }
+        : { type: 'fact', seq: parsed.output.seq },
+      source,
+    )
+  }
+  const onError = () => args.applyEvent({ type: 'error' }, source)
+  source.addEventListener('ready', onReady)
+  source.addEventListener('ev', onEvent)
+  source.addEventListener('error', onError)
+  return () => {
+    source.removeEventListener('ready', onReady)
+    source.removeEventListener('ev', onEvent)
+    source.removeEventListener('error', onError)
+    source.close()
+  }
+}
+
+export function useControlLiveRevalidation(
+  snapshot: MatchSnapshot,
+  fetcher: { state: string; data?: ControlActionData },
+): () => void {
+  const revalidator = useRevalidator()
+  const liveStateRef = useRef<ControlLiveState>({
+    latestSeq: snapshot.latestSeq,
+    suppressUntilSeq: snapshot.latestSeq,
+    localSubmitInFlight: false,
+  })
+  const revalidateRef = useRef(revalidator.revalidate)
+
+  function applyLiveEvent(event: ControlLiveEvent, stream?: ControlLiveSource) {
+    const transition = transitionControlLive(liveStateRef.current, event)
+    liveStateRef.current = transition.state
+    if (transition.close) stream?.close()
+    if (transition.revalidate) revalidateRef.current()
+  }
+
+  useEffect(() => {
+    revalidateRef.current = revalidator.revalidate
+  }, [revalidator.revalidate])
+  useEffect(() => {
+    applyLiveEvent({ type: 'snapshot', latestSeq: snapshot.latestSeq })
+  }, [snapshot.latestSeq])
+  useEffect(() => {
+    if (fetcher.data?.ok && fetcher.data.acceptedSeqMax != null) {
+      applyLiveEvent({ type: 'accepted', seq: fetcher.data.acceptedSeqMax })
+    }
+  }, [fetcher.data])
+  useEffect(() => {
+    applyLiveEvent({ type: fetcher.state === 'idle' ? 'submit-finished' : 'submit-started' })
+  }, [fetcher.state])
+
+  useEffect(() => {
+    if (snapshot.status !== 'active') return
+    return subscribeControlLive({
+      matchId: snapshot.matchId,
+      since: liveStateRef.current.latestSeq,
+      createSource: (url) => new EventSource(url),
+      applyEvent: applyLiveEvent,
+    })
+  }, [snapshot.matchId, snapshot.status])
+
+  return () => {
+    applyLiveEvent({ type: 'submit-started' })
+  }
+}
+
+export function useProtocolLiveRevalidation(snapshot: MatchSnapshot): void {
+  const revalidator = useRevalidator()
+  const latestSeqRef = useRef(snapshot.latestSeq)
+  const revalidateRef = useRef(revalidator.revalidate)
+
+  useEffect(() => {
+    revalidateRef.current = revalidator.revalidate
+  }, [revalidator.revalidate])
+  useEffect(() => {
+    latestSeqRef.current = snapshot.latestSeq
+  }, [snapshot.latestSeq])
+  useEffect(() => {
+    if (snapshot.status !== 'active') return
+    const stream = new EventSource(`/api/m/${snapshot.matchId}/stream/?since=${latestSeqRef.current}`)
+    const onReady = (event: Event) => {
+      if (!(event instanceof MessageEvent)) return
+      const parsed = v.safeParse(StreamReadyEventSchema, event.data)
+      if (parsed.success && parsed.output.latestSeq > latestSeqRef.current) {
+        latestSeqRef.current = parsed.output.latestSeq
+        revalidateRef.current()
+      }
+    }
+    const onEvent = (event: Event) => {
+      if (!(event instanceof MessageEvent)) return
+      const parsed = v.safeParse(StreamFactEventSchema, event.data)
+      if (!parsed.success || parsed.output.seq <= latestSeqRef.current) return
+      latestSeqRef.current = parsed.output.seq
+      if (parsed.output.type === 'match.ended') stream.close()
+      revalidateRef.current()
+    }
+    const onError = () => revalidateRef.current()
+    stream.addEventListener('ready', onReady)
+    stream.addEventListener('ev', onEvent)
+    stream.addEventListener('error', onError)
+    return () => {
+      stream.removeEventListener('ready', onReady)
+      stream.removeEventListener('ev', onEvent)
+      stream.removeEventListener('error', onError)
+      stream.close()
+    }
+  }, [snapshot.matchId, snapshot.status])
+}
+
+function matchCommandLabel(t: TFunction, command: ControlCommandPreset): string {
+  switch (command.commandType) {
+    case 'frame.commence':
+      return t('match.control.commands.match.frame.commence')
+    case 'frame.start':
+      return t('match.control.commands.match.frame.start')
+    case 'frame.concede':
+      return t('match.control.commands.match.frame.concede')
+    case 'match.end':
+      return t('match.control.commands.match.match.end')
+    default:
+      return t('match.control.commands.unknown')
+  }
+}
+
+export function BetweenFrameControls(props: {
+  sections: ControlSuccess<RegisteredGameKey>['controlSections']
+  submitting: boolean
+  onSubmit: (command: ControlCommandPreset) => void
+}) {
+  const { t } = useTranslation()
+  const commands = [
+    ...props.sections.neutral,
+    ...props.sections.primary.A,
+    ...props.sections.primary.B,
+    ...props.sections.secondary.A,
+    ...props.sections.secondary.B,
+    ...props.sections.tertiary.A,
+    ...props.sections.tertiary.B,
+  ].filter((command) => command.source === 'match')
+  return (
+    <section aria-label={t(keys.match.control.perGameContainer)} className="border-b border-divider px-4 py-3">
+      <div className="mx-auto grid w-2/3 gap-3.5">
+        {commands.map((command, index) => (
+          <Button
+            key={`${command.commandType}-${index}`}
+            type="button"
+            size="control"
+            variant={
+              command.prominence === 'primary' ? 'default' : command.prominence === 'secondary' ? 'secondary' : 'outline'
+            }
+            disabled={props.submitting}
+            onClick={() => props.onSubmit(command)}
+          >
+            {matchCommandLabel(t, command)}
+          </Button>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function protocolBallLabel(t: TFunction, ball: number): string {
+  switch (ball) {
+    case 0:
+      return t('match.protocol.balls.0')
+    case 1:
+      return t('match.protocol.balls.1')
+    case 2:
+      return t('match.protocol.balls.2')
+    case 3:
+      return t('match.protocol.balls.3')
+    case 4:
+      return t('match.protocol.balls.4')
+    case 5:
+      return t('match.protocol.balls.5')
+    case 6:
+      return t('match.protocol.balls.6')
+    case 7:
+      return t('match.protocol.balls.7')
+    default:
+      return t('match.protocol.balls.none')
+  }
+}
+
+function protocolLabel(t: TFunction, row: ProtocolRow): string {
+  const balls = row.message.pottedBalls
+    ? row.message.pottedBalls.map((ball) => protocolBallLabel(t, ball)).join(', ')
+    : t('match.protocol.balls.none')
+  return t(row.message.key, { ...row.message.params, balls })
+}
+
+export function ProtocolPanel(props: { rows: ProtocolRow[]; emptyLabel: string }) {
+  const { t } = useTranslation()
+  if (props.rows.length === 0) return <p className="text-sm text-muted-foreground">{props.emptyLabel}</p>
+  return (
+    <div className="grid gap-2">
+      {props.rows.map((row) => (
+        <div key={row.key} className="flex items-baseline justify-between gap-3 border-b border-border/60 pb-2 text-sm">
+          <span className="flex min-w-0 flex-col">
+            <span className="flex min-w-0 items-baseline gap-2">
+              {row.message.actor ? <span className="shrink-0 font-medium">{row.message.actor}</span> : null}
+              <span>{protocolLabel(t, row)}</span>
+            </span>
+            {row.score ? <span className="text-xs text-muted-foreground">{`${row.score.A}:${row.score.B}`}</span> : null}
+          </span>
+          <span className="text-xs text-muted-foreground tabular-nums">
+            <time dateTime={new Date(row.receivedAt).toISOString()}>{row.timeLabel}</time>
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}

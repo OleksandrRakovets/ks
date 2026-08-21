@@ -209,6 +209,7 @@ describe('application orchestration', () => {
       expect(protocol.ok).toBe(true)
       if (!protocol.ok) throw new Error('Expected protocol')
       expect(protocol.snapshot.gameKey).toBe(gameKey)
+      expect(protocol.controlProjection?.gameKey).toBe(gameKey)
     }
   })
 
@@ -328,6 +329,13 @@ describe('application orchestration', () => {
       'free-pyramid',
     )
     expect(result.ok && result.state).toBe('between-frames')
+    const protocol = await applicationForActiveGame('free-pyramid', 'free-pyramid', preFirstFrame).readMatchProtocol(
+      matchId,
+      'UTC',
+      'en',
+      'free-pyramid',
+    )
+    expect(protocol.ok && protocol.controlProjection).toBeUndefined()
   })
 
   test('hides archived protocol when the archived snapshot key does not match the expected game', async () => {
@@ -461,7 +469,13 @@ describe('application orchestration', () => {
     })
 
     const commandId = newCommandId()
-    const result = await application.commandMatch(`m_${matchId}`, commandId, command)
+    expect(await application.commandMatch(matchId, commandId, command, 'combined-pyramid')).toEqual({
+      ok: false,
+      error: 'Unknown match',
+      status: 404,
+    })
+    expect(calls).toEqual([])
+    const result = await application.commandMatch(`m_${matchId}`, commandId, command, 'free-pyramid')
 
     expect(result).toEqual({ ok: true, accepted: [{ seq: 3, factId: '01ARZ3NDEKTSV4RRFFQ69G5FAC' }] })
     expect(calls).toEqual([[matchId, commandId, command]])
@@ -537,12 +551,18 @@ describe('application orchestration', () => {
     })
     const protocol = await application.readMatchProtocol(matchId, 'UTC', 'en', 'free-pyramid')
     expect(protocol.ok && protocol.snapshot.gameKey).toBe('free-pyramid')
+    expect(protocol.ok && protocol.controlProjection).toBeUndefined()
     expect(
-      await application.commandMatch(matchId, newCommandId(), {
-        source: 'match',
-        commandType: 'frame.start',
-        command: {},
-      }),
+      await application.commandMatch(
+        matchId,
+        newCommandId(),
+        {
+          source: 'match',
+          commandType: 'frame.start',
+          command: {},
+        },
+        'free-pyramid',
+      ),
     ).toEqual({ ok: false, error: 'Match is finished', status: 409 })
     expect((await application.streamMatchFacts(matchId)).status).toBe(410)
   })
@@ -656,8 +676,10 @@ describe('application orchestration', () => {
       const commandId = newCommandId()
       const command: ControlCommand = { source: 'match', commandType: 'match.end', command: {} }
 
-      await expect(application.commandMatch(matchId, commandId, command)).rejects.toThrow(`Injected ${failurePoint} failure`)
-      await application.commandMatch(matchId, commandId, command)
+      await expect(application.commandMatch(matchId, commandId, command, 'free-pyramid')).rejects.toThrow(
+        `Injected ${failurePoint} failure`,
+      )
+      await application.commandMatch(matchId, commandId, command, 'free-pyramid')
 
       expect(archiveWrites).toBe(1)
       expect(roomStorageExists).toBe(false)

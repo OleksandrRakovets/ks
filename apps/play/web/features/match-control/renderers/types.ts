@@ -1,13 +1,8 @@
+import type { HydratedMatchParticipants } from '@ks/application'
 import type { ControlCommandPreset, ControlCommandSections, MatchSnapshot } from '@ks/core'
-import type { GameControlProjection } from '@ks/gameplay/definitions'
 
-export type HydratedMatchParticipants = {
-  A: { playerRef: string; displayName: string; shortDisplayName: string }
-  B: { playerRef: string; displayName: string; shortDisplayName: string }
-}
-
-export type MatchControlRendererProps = {
-  projection: GameControlProjection
+export type MatchControlRendererProps<Projection> = {
+  projection: Projection
   commandSections: ControlCommandSections
   snapshot: MatchSnapshot
   participants: HydratedMatchParticipants

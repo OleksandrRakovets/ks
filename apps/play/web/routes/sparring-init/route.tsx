@@ -9,6 +9,7 @@ import * as v from 'valibot'
 
 import { Button } from '@/components/ui'
 
+import { matchControlUrl } from '../../features/match-urls'
 import type { AppLoadContext } from '../../server/context'
 import { requireApplication } from '../../server/context'
 import { localeFromCookie } from '../../server/locale'
@@ -115,7 +116,7 @@ export async function action({
     throw new Response('Could not create match', { status: result.status })
   }
 
-  return redirect(`/sparring/matches/${result.matchId}/`)
+  return redirect(matchControlUrl(gameKey, result.matchId))
 }
 
 export const handle = {

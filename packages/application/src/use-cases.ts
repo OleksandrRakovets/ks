@@ -10,7 +10,7 @@ import {
   type PlayerRef,
   type UnixEpochMilliseconds,
 } from '@ks/core'
-import { type ControlProjectionFor, isRegisteredGameKey, type RegisteredGameKey, registry } from '@ks/gameplay/definitions'
+import { type ControlProjectionFor, type RegisteredGameKey, registry } from '@ks/gameplay/definitions'
 import { parseGameControl } from '@ks/gameplay/server'
 import type { SupportedLocale } from '@ks/i18n'
 import * as v from 'valibot'
@@ -31,6 +31,14 @@ import type { MatchRoomClient, MatchRoomCreateRequest, MatchRoomFinalizationData
 import { deriveProtocolRows, PROTOCOL_ARCHIVE_VERSION, ProtocolArchiveRowsSchema, renderProtocolRows } from './protocol'
 
 type MatchListRecord = {
+  matchId: MatchId
+  gameKey: RegisteredGameKey
+  status: string
+  createdAt: UnixEpochMilliseconds
+  participantRefs: { A: string; B: string }
+}
+
+type MatchRecord = {
   matchId: string
   gameKey: string
   status: string
@@ -38,10 +46,8 @@ type MatchListRecord = {
   participantRefs: { A: string; B: string }
 }
 
-type MatchRecord = MatchListRecord
-
 type ApplicationDependencies = {
-  newMatchId(): string
+  newMatchId(): MatchId
   newControlSecret(): string
   now(): UnixEpochMilliseconds
   getOrCreateGuestPlayerRef(displayName: string): Promise<PlayerRef>
@@ -138,7 +144,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
       records.map(async (record) => ({
         matchId: record.matchId,
         gameKey: record.gameKey,
-        gameTitle: isRegisteredGameKey(record.gameKey) ? registry[record.gameKey].meta.title[locale] : record.gameKey,
+        gameTitle: registry[record.gameKey].meta.title[locale],
         status: record.status === 'active' ? ('active' as const) : ('finished' as const),
         createdAt: record.createdAt,
         participants: {
@@ -213,10 +219,15 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
       : { ...match, state: 'between-frames', controlSections }
   }
 
-  async function commandMatch(matchId: string, commandId: CommandId, command: ControlCommand): Promise<CommandMatchResult> {
+  async function commandMatch<K extends RegisteredGameKey>(
+    matchId: string,
+    commandId: CommandId,
+    command: ControlCommand,
+    expectedGameKey: K,
+  ): Promise<CommandMatchResult> {
     const normalizedMatchId = normalizeMatchId(matchId)
     const record = await dependencies.getMatchRecord(normalizedMatchId)
-    if (!record) return { ok: false, error: 'Unknown match', status: 404 }
+    if (!record || record.gameKey !== expectedGameKey) return { ok: false, error: 'Unknown match', status: 404 }
     if (record.status === 'finalizing') await disposeAndFinishRoom(normalizedMatchId)
     if (record.status === 'finalizing' || record.status === 'finished') {
       return { ok: false, error: 'Match is finished', status: 409 }
@@ -258,7 +269,14 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
       if (!rows.success) return { ok: false, error: 'Failed to parse protocol archive from DB', status: 500 }
       protocolRows = renderProtocolRows(rows.output, seatNames, timeZone, locale)
     }
-    return { ok: true, snapshot: match.snapshot, participants: match.participants, protocolRows }
+    const result: Extract<ReadMatchProtocolResult<K>, { ok: true }> = {
+      ok: true,
+      snapshot: match.snapshot,
+      participants: match.participants,
+      protocolRows,
+    }
+    if (match.controlProjection) result.controlProjection = match.controlProjection
+    return result
   }
 
   async function archiveAndFinishRoom(matchId: string): Promise<void> {

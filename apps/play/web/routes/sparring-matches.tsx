@@ -5,6 +5,7 @@ import { Link, useLoaderData } from 'react-router'
 
 import { Badge, Button } from '@/components/ui'
 
+import { matchUrlForStatus } from '../features/match-urls'
 import type { AppLoadContext } from '../server/context'
 import { requireApplication } from '../server/context'
 import { localeFromCookie } from '../server/locale'
@@ -50,11 +51,7 @@ export default function SparringMatchesRoute() {
             {matches.map((match) => (
               <Link
                 key={match.matchId}
-                to={
-                  match.status === 'active'
-                    ? `/sparring/matches/${match.matchId}/`
-                    : `/sparring/matches/${match.matchId}/protocol/`
-                }
+                to={matchUrlForStatus(match.gameKey, match.matchId, match.status)}
                 className="flex items-center justify-between gap-4 px-4 py-3 transition-colors hover:bg-muted/40"
               >
                 <div className="min-w-0 flex-1">

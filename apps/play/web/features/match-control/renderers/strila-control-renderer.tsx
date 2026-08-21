@@ -1,9 +1,9 @@
 import type { ControlCommandPreset } from '@ks/core'
-import { type StrilaBall, StrilaControlViewSchema, StrilaMeta } from '@ks/gameplay/definitions'
+import { type StrilaBall, type StrilaControlView, StrilaMeta } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
-import { useMemo, useState } from 'react'
+import type { TFunction } from 'i18next'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import * as v from 'valibot'
 
 import { Button } from '@/components/ui'
 
@@ -21,7 +21,14 @@ const BALL_COLORS = {
   7: { bg: '#2a2a2a', border: '#555555' },
 } satisfies Record<StrilaBall, { bg: string; border: string }>
 
-type SeatCommands = MatchControlRendererProps['commandSections']['primary']
+type SeatCommands = MatchControlRendererProps<StrilaControlView>['commandSections']['primary']
+
+function strilaCommandLabel(t: TFunction, command: ControlCommandPreset, index: number): string {
+  if (command.commandType !== 'penalty.select') return controlCommandLabel(t, command)
+  if (index === 0) return t('match.control.commands.game.penalty.select.play-from-position')
+  if (index === 1) return t('match.control.commands.game.penalty.select.pass-position')
+  return t('match.control.commands.game.penalty.select.ball-in-hand')
+}
 
 function prominenceVariant(prominence: ControlCommandPreset['prominence']): 'default' | 'secondary' | 'outline' {
   if (prominence === 'primary') return 'default'
@@ -40,11 +47,11 @@ function CommandRows({
 }) {
   const { t } = useTranslation()
 
-  function renderButton(cmd: ControlCommandPreset, key: string) {
+  function renderButton(cmd: ControlCommandPreset, key: string, index: number) {
     const isPot = cmd.commandType === 'pot.record'
     const command = isPot ? { ...cmd.command, pottedBalls: selectedBalls } : cmd.command
     const preset = { ...cmd, command }
-    const label = controlCommandLabel(t, cmd)
+    const label = strilaCommandLabel(t, cmd, index)
     const effect = controlCommandEffect(t, cmd)
     return (
       <div key={key} className="grid gap-1">
@@ -65,8 +72,12 @@ function CommandRows({
   return (
     <section className="border-b border-divider px-4 py-2">
       <div className="grid grid-cols-2 gap-6">
-        <div className="grid gap-3.5">{commands.A.map((cmd, index) => renderButton(cmd, `A-${cmd.commandType}-${index}`))}</div>
-        <div className="grid gap-3.5">{commands.B.map((cmd, index) => renderButton(cmd, `B-${cmd.commandType}-${index}`))}</div>
+        <div className="grid gap-3.5">
+          {commands.A.map((cmd, index) => renderButton(cmd, `A-${cmd.commandType}-${index}`, index))}
+        </div>
+        <div className="grid gap-3.5">
+          {commands.B.map((cmd, index) => renderButton(cmd, `B-${cmd.commandType}-${index}`, index))}
+        </div>
       </div>
     </section>
   )
@@ -94,12 +105,11 @@ function NeutralCommandRows(props: { commands: ControlCommandPreset[]; onSubmit:
   )
 }
 
-export function StrilaControlRenderer(props: MatchControlRendererProps) {
+export function StrilaControlRenderer(props: MatchControlRendererProps<StrilaControlView>) {
   const [selectedBalls, setSelectedBalls] = useState<StrilaBall[]>([])
   const [showTertiary, setShowTertiary] = useState(false)
   const { t } = useTranslation()
 
-  const parsed = useMemo(() => v.safeParse(StrilaControlViewSchema, props.projection), [props.projection])
   const commandSections = props.commandSections
   const hasNeutral = commandSections.neutral.length > 0
 
@@ -108,15 +118,7 @@ export function StrilaControlRenderer(props: MatchControlRendererProps) {
     props.onSubmitCommand(command)
   }
 
-  if (!parsed.success) {
-    return (
-      <div aria-label={t(keys.match.control.strila.container)} className="grid">
-        {hasNeutral ? <NeutralCommandRows commands={commandSections.neutral} onSubmit={submitCommand} /> : null}
-      </div>
-    )
-  }
-
-  const details = parsed.output.details
+  const details = props.projection.details
   const hasPrimary = commandSections.primary.A.length > 0 || commandSections.primary.B.length > 0
   const hasSecondary = commandSections.secondary.A.length > 0 || commandSections.secondary.B.length > 0
   const hasTertiary = commandSections.tertiary.A.length > 0 || commandSections.tertiary.B.length > 0

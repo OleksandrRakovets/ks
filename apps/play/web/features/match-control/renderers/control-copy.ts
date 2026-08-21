@@ -2,8 +2,6 @@ import type { ControlCommandPreset } from '@ks/core'
 import type { TFunction } from 'i18next'
 
 export function controlCommandLabel(t: TFunction, command: ControlCommandPreset): string {
-  // SAFETY: REVIEW_POST_REFACTOR
-  const payload = command.command as { points?: number; choice?: string }
   if (command.source === 'match') {
     switch (command.commandType) {
       case 'frame.commence':
@@ -21,10 +19,7 @@ export function controlCommandLabel(t: TFunction, command: ControlCommandPreset)
 
   switch (command.commandType) {
     case 'pot.record':
-      // oxlint-disable-next-line anti-slop/no-runtime-typeof -- SAFETY: REVIEW_POST_REFACTOR
-      return typeof payload.points === 'number'
-        ? t('match.control.commands.game.pot.points', { points: payload.points })
-        : t('match.control.commands.game.pot.record')
+      return t('match.control.commands.game.pot.record')
     case 'miss.record':
       return t('match.control.commands.game.miss.record')
     case 'foul.commit':
@@ -32,16 +27,7 @@ export function controlCommandLabel(t: TFunction, command: ControlCommandPreset)
     case 'frame.award':
       return t('match.control.commands.game.frame.award')
     case 'penalty.select':
-      switch (payload.choice) {
-        case 'play-from-position':
-          return t('match.control.commands.game.penalty.select.play-from-position')
-        case 'pass-position':
-          return t('match.control.commands.game.penalty.select.pass-position')
-        case 'ball-in-hand':
-          return t('match.control.commands.game.penalty.select.ball-in-hand')
-        default:
-          return t('match.control.commands.game.penalty.select.default')
-      }
+      return t('match.control.commands.game.penalty.select.default')
     default:
       return t('match.control.commands.unknown')
   }
