@@ -1,9 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import * as v from 'valibot'
-
-import { applyGameCommand, createInitialGameState, deriveGameProjection } from '../gameplay'
-import { PyramidControlViewSchema } from './definitions'
+import { applyGameCommand, createInitialGameState, deriveGameControl, deriveGameScoreboard } from '../gameplay'
 
 describe('free pyramid: game api', () => {
   test('creates and updates game state', () => {
@@ -87,10 +84,10 @@ describe('free pyramid: game api', () => {
 
   test('derives scoreboard projection', () => {
     expect(
-      deriveGameProjection({
-        gameKey: 'free-pyramid',
-        state: { pointsBySeat: { A: 4, B: 2 }, targetPointsBySeat: { A: 8, B: 8 }, phase: 'open-play' },
-        projection: 'scoreboard',
+      deriveGameScoreboard('free-pyramid', {
+        pointsBySeat: { A: 4, B: 2 },
+        targetPointsBySeat: { A: 8, B: 8 },
+        phase: 'open-play',
       }),
     ).toEqual({
       gameKey: 'free-pyramid',
@@ -101,14 +98,11 @@ describe('free pyramid: game api', () => {
   })
 
   test('control has no manual break-off choices', () => {
-    const projection = v.parse(
-      PyramidControlViewSchema,
-      deriveGameProjection({
-        gameKey: 'free-pyramid',
-        state: { pointsBySeat: { A: 0, B: 0 }, targetPointsBySeat: { A: 8, B: 8 }, phase: 'not-started' },
-        projection: 'control',
-      }),
-    )
+    const projection = deriveGameControl('free-pyramid', {
+      pointsBySeat: { A: 0, B: 0 },
+      targetPointsBySeat: { A: 8, B: 8 },
+      phase: 'not-started',
+    })
 
     expect(projection.gameKey).toBe('free-pyramid')
     expect(projection.projection).toBe('control')
@@ -136,19 +130,12 @@ describe('free pyramid: game api', () => {
   })
 
   test('winner-determined control exposes award before winner +1 only', () => {
-    const projection = v.parse(
-      PyramidControlViewSchema,
-      deriveGameProjection({
-        gameKey: 'free-pyramid',
-        state: {
-          pointsBySeat: { A: 10, B: 2 },
-          targetPointsBySeat: { A: 8, B: 8 },
-          phase: 'winner-determined',
-          winnerSeat: 'A',
-        },
-        projection: 'control',
-      }),
-    )
+    const projection = deriveGameControl('free-pyramid', {
+      pointsBySeat: { A: 10, B: 2 },
+      targetPointsBySeat: { A: 8, B: 8 },
+      phase: 'winner-determined',
+      winnerSeat: 'A',
+    })
 
     expect(projection.details.isPotCommandAvailable).toBe(true)
     expect(projection.details.commandSections.primary.A.map((entry) => entry.commandType)).toEqual(['frame.award'])
@@ -247,14 +234,11 @@ describe('combined pyramid old: game api', () => {
   })
 
   test('control projects +1, +2 and foul deduction', () => {
-    const projection = v.parse(
-      PyramidControlViewSchema,
-      deriveGameProjection({
-        gameKey: 'combined-pyramid-old',
-        state: { pointsBySeat: { A: 2, B: 1 }, targetPointsBySeat: { A: 8, B: 8 }, phase: 'open-play' },
-        projection: 'control',
-      }),
-    )
+    const projection = deriveGameControl('combined-pyramid-old', {
+      pointsBySeat: { A: 2, B: 1 },
+      targetPointsBySeat: { A: 8, B: 8 },
+      phase: 'open-play',
+    })
 
     expect(projection.details.commandSections.primary.A.map((entry) => entry.commandType)).toEqual(['pot.record'])
     expect(projection.details.commandSections.primary.B.map((entry) => entry.commandType)).toEqual(['pot.record'])

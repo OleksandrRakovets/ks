@@ -7,7 +7,7 @@ import { StrilaGameplayRuntime } from './runtime'
 const runtime = new StrilaGameplayRuntime()
 
 function apply(state: StrilaFrameState, command: StrilaCommand): StrilaFrameState {
-  return runtime.parseState(runtime.applyCommand({ state, commandType: command.type, command }).state)
+  return runtime.applyCommand({ state, commandType: command.type, command }).state
 }
 
 describe('protocol projection', () => {

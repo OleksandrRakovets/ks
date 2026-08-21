@@ -1,21 +1,359 @@
 import { describe, expect, test } from 'bun:test'
 
-import { type ControlCommand, MatchSnapshotSchema, newCommandId, PlayerRefSchema, UnixEpochMillisecondsSchema } from '@ks/core'
+import type { MatchSnapshotFor } from '@ks/competition'
+import {
+  type ControlCommand,
+  MatchIdSchema,
+  MatchSnapshotSchema,
+  newCommandId,
+  PlayerRefSchema,
+  UnixEpochMillisecondsSchema,
+} from '@ks/core'
+import { type ControlProjectionFor, listGameKeys, type RegisteredGameKey } from '@ks/gameplay/definitions'
+import { createInitialGameState, deriveGameControl } from '@ks/gameplay/server'
 import * as v from 'valibot'
 
-import type { MatchRoomCreateRequest } from './match-room-client'
+import type { MatchRoomCreateRequest, MatchRoomSnapshotResult } from './match-room-client'
 import { createApplicationWithDependencies } from './use-cases'
 
-const matchId = '01ARZ3NDEKTSV4RRFFQ69G5FAV'
+const matchId = v.parse(MatchIdSchema, '01ARZ3NDEKTSV4RRFFQ69G5FAV')
 const controlSecret = 'control-secret-1234567890'
 const playerRefA = v.parse(PlayerRefSchema, 'gp_01ARZ3NDEKTSV4RRFFQ69G5FAA')
 const playerRefB = v.parse(PlayerRefSchema, 'gp_01ARZ3NDEKTSV4RRFFQ69G5FAB')
+
+function snapshotFor<K extends RegisteredGameKey>(gameKey: K, status: 'active' | 'finished' = 'active'): MatchSnapshotFor<K> {
+  return {
+    matchId,
+    gameKey,
+    targets: { frameTargetPointsBySeat: { A: 9, B: 9 }, matchTargetFrames: 3 },
+    status,
+    currentFrameIndex: 1,
+    framesWonBySeat: { A: 0, B: 0 },
+    frames: [{ frameIndex: 1, pointsBySeat: { A: 0, B: 0 }, breakerSeat: 'A' }],
+    latestSeq: 2,
+  }
+}
+
+const controlProjections = {
+  'strila-v2': deriveGameControl(
+    'strila-v2',
+    createInitialGameState('strila-v2', { targetPointsBySeat: { A: 9, B: 9 }, breakerSeat: 'A' }),
+  ),
+  'free-pyramid': deriveGameControl(
+    'free-pyramid',
+    createInitialGameState('free-pyramid', { targetPointsBySeat: { A: 8, B: 8 }, breakerSeat: 'A' }),
+  ),
+  'free-pyramid-long': deriveGameControl(
+    'free-pyramid-long',
+    createInitialGameState('free-pyramid-long', {
+      targetPointsBySeat: { A: 30, B: 30 },
+      breakerSeat: 'A',
+      gameConfiguration: { rackRollover: 14 },
+    }),
+  ),
+  'combined-pyramid': deriveGameControl(
+    'combined-pyramid',
+    createInitialGameState('combined-pyramid', { targetPointsBySeat: { A: 8, B: 8 }, breakerSeat: 'A' }),
+  ),
+  'combined-pyramid-old': deriveGameControl(
+    'combined-pyramid-old',
+    createInitialGameState('combined-pyramid-old', { targetPointsBySeat: { A: 8, B: 8 }, breakerSeat: 'A' }),
+  ),
+} satisfies { [K in RegisteredGameKey]: ControlProjectionFor<K> }
+
+function activeRoomSnapshot(gameKey: RegisteredGameKey) {
+  const controlSections = controlProjections[gameKey].details.commandSections
+  switch (gameKey) {
+    case 'strila-v2':
+      return {
+        ok: true as const,
+        snapshot: snapshotFor(gameKey),
+        controlProjection: controlProjections[gameKey],
+        controlSections,
+      }
+    case 'free-pyramid':
+      return {
+        ok: true as const,
+        snapshot: snapshotFor(gameKey),
+        controlProjection: controlProjections[gameKey],
+        controlSections,
+      }
+    case 'free-pyramid-long':
+      return {
+        ok: true as const,
+        snapshot: snapshotFor(gameKey),
+        controlProjection: controlProjections[gameKey],
+        controlSections,
+      }
+    case 'combined-pyramid':
+      return {
+        ok: true as const,
+        snapshot: snapshotFor(gameKey),
+        controlProjection: controlProjections[gameKey],
+        controlSections,
+      }
+    case 'combined-pyramid-old':
+      return {
+        ok: true as const,
+        snapshot: snapshotFor(gameKey),
+        controlProjection: controlProjections[gameKey],
+        controlSections,
+      }
+  }
+}
+
+type UnsafeRoomSnapshotMock = {
+  ok: true
+  snapshot: object
+  controlProjection: object | undefined
+  controlSections: object
+}
+
+function unsafeRoomSnapshot(value: UnsafeRoomSnapshotMock): MatchRoomSnapshotResult {
+  // SAFETY: Tests use this single boundary to model malformed external RPC data that violates the advertised contract.
+  return value as MatchRoomSnapshotResult
+}
+
+function applicationForActiveGame(
+  catalogGameKey: RegisteredGameKey,
+  roomGameKey = catalogGameKey,
+  roomSnapshot: MatchRoomSnapshotResult = activeRoomSnapshot(roomGameKey),
+) {
+  return createApplicationWithDependencies({
+    newMatchId: unused,
+    newControlSecret: unused,
+    now: unused,
+    getOrCreateGuestPlayerRef: unused,
+    hydrateParticipant: async (playerRef) => ({ playerRef, displayName: playerRef, shortDisplayName: playerRef }),
+    listMatchRecords: unused,
+    getMatchRecord: async () => ({
+      matchId,
+      gameKey: catalogGameKey,
+      status: 'active',
+      createdAt: v.parse(UnixEpochMillisecondsSchema, 1_700_000_000_000),
+      participantRefs: { A: playerRefA, B: playerRefB },
+    }),
+    getProtocolArchive: unused,
+    beginMatchCreation: unused,
+    activateMatch: unused,
+    archiveCompletedMatch: unused,
+    finishCompletedMatch: unused,
+    matchRoom: {
+      create: unused,
+      snapshot: async () => roomSnapshot,
+      command: unused,
+      facts: async () => ({ ok: true as const, facts: [] }),
+      stream: unused,
+      finalization: unused,
+      disposeFinalized: unused,
+    },
+  })
+}
+
+function applicationForArchivedGame(
+  catalogGameKey: RegisteredGameKey,
+  snapshotGameKey = catalogGameKey,
+  archivedSnapshot: MatchSnapshotFor<RegisteredGameKey> = snapshotFor(snapshotGameKey, 'finished'),
+) {
+  return createApplicationWithDependencies({
+    newMatchId: unused,
+    newControlSecret: unused,
+    now: unused,
+    getOrCreateGuestPlayerRef: unused,
+    hydrateParticipant: async (playerRef) => ({ playerRef, displayName: playerRef, shortDisplayName: playerRef }),
+    listMatchRecords: unused,
+    getMatchRecord: async () => ({
+      matchId,
+      gameKey: catalogGameKey,
+      status: 'finished',
+      createdAt: v.parse(UnixEpochMillisecondsSchema, 1_700_000_000_000),
+      participantRefs: { A: playerRefA, B: playerRefB },
+    }),
+    getProtocolArchive: async () => ({
+      sourceLatestSeq: 2,
+      protocolVersion: 1,
+      rowsJson: '[]',
+      snapshotJson: JSON.stringify(archivedSnapshot),
+    }),
+    beginMatchCreation: unused,
+    activateMatch: unused,
+    archiveCompletedMatch: unused,
+    finishCompletedMatch: unused,
+    matchRoom: {
+      create: unused,
+      snapshot: unused,
+      command: unused,
+      facts: unused,
+      stream: unused,
+      finalization: unused,
+      disposeFinalized: unused,
+    },
+  })
+}
 
 function unused(): never {
   throw new Error('Unexpected dependency call')
 }
 
 describe('application orchestration', () => {
+  test('returns a game-keyed active control and protocol result for every registered game', async () => {
+    for (const gameKey of listGameKeys()) {
+      const application = applicationForActiveGame(gameKey)
+      const control = await application.readMatchControl(matchId, 'en', gameKey)
+      expect(control.ok).toBe(true)
+      if (!control.ok || control.state !== 'frame-active') throw new Error('Expected active frame')
+      expect(control.snapshot.gameKey).toBe(gameKey)
+      expect(control.controlProjection.gameKey).toBe(gameKey)
+
+      const protocol = await application.readMatchProtocol(matchId, 'UTC', 'en', gameKey)
+      expect(protocol.ok).toBe(true)
+      if (!protocol.ok) throw new Error('Expected protocol')
+      expect(protocol.snapshot.gameKey).toBe(gameKey)
+    }
+  })
+
+  test('hides a match when the expected game key does not match the catalog', async () => {
+    const application = applicationForActiveGame('free-pyramid')
+    expect(await application.readMatchControl(matchId, 'en', 'combined-pyramid')).toEqual({
+      ok: false,
+      error: 'Unknown match',
+      status: 404,
+    })
+  })
+
+  test('hides a match when the room snapshot key does not match the expected game key', async () => {
+    const application = applicationForActiveGame('free-pyramid', 'combined-pyramid')
+    expect(await application.readMatchControl(matchId, 'en', 'free-pyramid')).toEqual({
+      ok: false,
+      error: 'Unknown match',
+      status: 404,
+    })
+    expect(await application.readMatchProtocol(matchId, 'UTC', 'en', 'free-pyramid')).toEqual({
+      ok: false,
+      error: 'Unknown match',
+      status: 404,
+    })
+  })
+
+  test('rejects mismatched and malformed control projections from the room boundary', async () => {
+    const valid = activeRoomSnapshot('free-pyramid')
+    const mismatched = unsafeRoomSnapshot({ ...valid, controlProjection: controlProjections['combined-pyramid'] })
+    expect(
+      await applicationForActiveGame('free-pyramid', 'free-pyramid', mismatched).readMatchControl(
+        matchId,
+        'en',
+        'free-pyramid',
+      ),
+    ).toEqual({
+      ok: false,
+      error: 'Invalid room control projection',
+      status: 502,
+    })
+    const malformed = {
+      gameKey: 'free-pyramid',
+      projection: 'control',
+      score: { A: 0, B: 0 },
+      details: {},
+    }
+    expect(
+      await applicationForActiveGame(
+        'free-pyramid',
+        'free-pyramid',
+        unsafeRoomSnapshot({ ...valid, controlProjection: malformed }),
+      ).readMatchControl(matchId, 'en', 'free-pyramid'),
+    ).toEqual({
+      ok: false,
+      error: 'Invalid room control projection',
+      status: 502,
+    })
+  })
+
+  test('rejects a malformed room snapshot before key or projection narrowing', async () => {
+    const valid = activeRoomSnapshot('free-pyramid')
+    const malformed = unsafeRoomSnapshot({
+      ...valid,
+      snapshot: { ...valid.snapshot, latestSeq: 'not-a-sequence' },
+    })
+    expect(
+      await applicationForActiveGame('free-pyramid', 'free-pyramid', malformed).readMatchControl(matchId, 'en', 'free-pyramid'),
+    ).toEqual({
+      ok: false,
+      error: 'Invalid room snapshot',
+      status: 502,
+    })
+  })
+
+  test('rejects missing projection for an unfinished active frame', async () => {
+    const valid = activeRoomSnapshot('free-pyramid')
+    const contradictory: MatchRoomSnapshotResult = { ...valid, controlProjection: undefined }
+    expect(
+      await applicationForActiveGame('free-pyramid', 'free-pyramid', contradictory).readMatchControl(
+        matchId,
+        'en',
+        'free-pyramid',
+      ),
+    ).toEqual({ ok: false, error: 'Inconsistent room control lifecycle', status: 502 })
+  })
+
+  test('rejects a projection between frames', async () => {
+    const valid = activeRoomSnapshot('free-pyramid')
+    const latestFrame = valid.snapshot.frames[0]
+    if (!latestFrame) throw new Error('Expected frame fixture')
+    const contradictory = unsafeRoomSnapshot({
+      ...valid,
+      snapshot: {
+        ...valid.snapshot,
+        frames: [{ ...latestFrame, winnerSeat: 'A' }],
+      },
+    })
+    expect(
+      await applicationForActiveGame('free-pyramid', 'free-pyramid', contradictory).readMatchControl(
+        matchId,
+        'en',
+        'free-pyramid',
+      ),
+    ).toEqual({ ok: false, error: 'Inconsistent room control lifecycle', status: 502 })
+  })
+
+  test('accepts the legitimate active pre-first-frame state without a projection', async () => {
+    const valid = activeRoomSnapshot('free-pyramid')
+    const preFirstFrame = unsafeRoomSnapshot({
+      ...valid,
+      snapshot: { ...valid.snapshot, currentFrameIndex: 0, frames: [] },
+      controlProjection: undefined,
+    })
+    const result = await applicationForActiveGame('free-pyramid', 'free-pyramid', preFirstFrame).readMatchControl(
+      matchId,
+      'en',
+      'free-pyramid',
+    )
+    expect(result.ok && result.state).toBe('between-frames')
+  })
+
+  test('hides archived protocol when the archived snapshot key does not match the expected game', async () => {
+    const application = applicationForArchivedGame('free-pyramid', 'combined-pyramid')
+    expect(await application.readMatchProtocol(matchId, 'UTC', 'en', 'free-pyramid')).toEqual({
+      ok: false,
+      error: 'Unknown match',
+      status: 404,
+    })
+  })
+
+  test('rejects active and otherwise non-terminal archived snapshots', async () => {
+    const active = applicationForArchivedGame('free-pyramid', 'free-pyramid', snapshotFor('free-pyramid', 'active'))
+    expect(await active.readMatchProtocol(matchId, 'UTC', 'en', 'free-pyramid')).toEqual({
+      ok: false,
+      error: 'Failed to parse completed match snapshot',
+      status: 500,
+    })
+
+    const unfinished = applicationForArchivedGame('free-pyramid', 'free-pyramid')
+    expect(await unfinished.readMatchControl(matchId, 'en', 'free-pyramid')).toEqual({
+      ok: false,
+      error: 'Failed to parse completed match snapshot',
+      status: 500,
+    })
+  })
   test('creates both guest players before creating the room with generated credentials', async () => {
     const createdAt = v.parse(UnixEpochMillisecondsSchema, 1_700_000_000_000)
     const lifecycle: unknown[] = []
@@ -180,16 +518,25 @@ describe('application orchestration', () => {
       matchRoom: room,
     })
 
-    const result = await application.readMatch(matchId, 'en')
+    const result = await application.readMatchControl(matchId, 'en', 'free-pyramid')
 
     expect(result).toEqual({
       ok: true,
-      snapshot,
+      state: 'between-frames',
+      snapshot: { ...snapshot, gameKey: 'free-pyramid' },
+      controlSections: {
+        neutral: [],
+        primary: { A: [], B: [] },
+        secondary: { A: [], B: [] },
+        tertiary: { A: [], B: [] },
+      },
       participants: {
         A: { playerRef: playerRefA, displayName: 'Alice Smith', shortDisplayName: 'Alice' },
         B: { playerRef: playerRefB, displayName: 'Bob Jones', shortDisplayName: 'Bob' },
       },
     })
+    const protocol = await application.readMatchProtocol(matchId, 'UTC', 'en', 'free-pyramid')
+    expect(protocol.ok && protocol.snapshot.gameKey).toBe('free-pyramid')
     expect(
       await application.commandMatch(matchId, newCommandId(), {
         source: 'match',

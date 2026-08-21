@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { createInitialGameState, deriveGameProjection } from '../gameplay'
+import { createInitialGameState, deriveGameScoreboard } from '../gameplay'
 
 describe('Strila game api', () => {
   test('creates initial Strila game state', () => {
@@ -20,19 +20,15 @@ describe('Strila game api', () => {
 
   test('derives Strila scoreboard projection', () => {
     expect(
-      deriveGameProjection({
-        gameKey: 'strila-v2',
-        state: {
-          score: { A: 2, B: 0 },
-          targetPoints: { A: 9, B: 9 },
-          coloredBallsOnTable: [2, 4, 7],
-          cueBallSerialPots: null,
-          foulOffender: null,
-          winner: null,
-          winnerDeterminationReason: null,
-          phase: 'open-play',
-        },
-        projection: 'scoreboard',
+      deriveGameScoreboard('strila-v2', {
+        score: { A: 2, B: 0 },
+        targetPoints: { A: 9, B: 9 },
+        coloredBallsOnTable: [2, 4, 7],
+        cueBallSerialPots: null,
+        foulOffender: null,
+        winner: null,
+        winnerDeterminationReason: null,
+        phase: 'open-play',
       }),
     ).toEqual({
       gameKey: 'strila-v2',

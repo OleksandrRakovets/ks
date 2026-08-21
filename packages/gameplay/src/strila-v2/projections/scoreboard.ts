@@ -1,10 +1,8 @@
-import * as v from 'valibot'
-
-import { type StrilaFrameState, type StrilaScoreboardView, StrilaScoreboardViewSchema } from '../definitions'
+import { type StrilaFrameState, type StrilaScoreboardView } from '../definitions'
 import { computeStrilaObjectBalls, computeStrilaPointsAvailable } from './computeds'
 
 export function deriveStrilaScoreboardView(state: StrilaFrameState): StrilaScoreboardView {
-  return v.parse(StrilaScoreboardViewSchema, {
+  return {
     gameKey: 'strila-v2',
     projection: 'scoreboard',
     score: state.score,
@@ -15,5 +13,5 @@ export function deriveStrilaScoreboardView(state: StrilaFrameState): StrilaScore
       phase: state.phase,
       winner: state.winner ?? undefined,
     },
-  })
+  }
 }

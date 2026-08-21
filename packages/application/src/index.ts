@@ -4,10 +4,11 @@ export type {
   CreateMatchInput,
   CreateMatchResult,
   HydratedParticipant,
-  HydratedParticipants,
+  HydratedMatchParticipants,
   MatchListEntry,
+  ReadMatchControlResult,
+  ReadMatchFailure,
   ReadMatchProtocolResult,
-  ReadMatchResult,
 } from './contracts'
 export { createApplication, type ApplicationBindings } from './factory'
 export type { ProtocolRow } from './protocol'

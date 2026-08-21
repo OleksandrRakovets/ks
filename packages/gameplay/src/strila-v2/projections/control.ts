@@ -5,29 +5,29 @@ import * as v from 'valibot'
 import { deriveGameCommandSections } from '../../constants'
 import {
   StrilaBallStatusesSchema,
-  type StrilaCommand,
   type StrilaControlCommand,
   type StrilaControlDetails,
   type StrilaControlView,
-  StrilaControlViewSchema,
   type StrilaFrameState,
   StrilaMeta,
 } from '../definitions'
 import { computeStrilaObjectBalls } from './computeds'
 
-/* oxlint-disable anti-slop/no-unsafe-dictionary-type -- SAFETY: REVIEW_POST_REFACTOR */
+type StrilaControlCommandInput =
+  | { type: 'pot.record' | 'miss.record' | 'foul.commit' | 'frame.award'; seat: Seat }
+  | { type: 'penalty.select'; seat: Seat; choice: 'play-from-position' | 'pass-position' | 'ball-in-hand' }
+type StrilaSeatControlCommandType = 'pot.record' | 'miss.record' | 'foul.commit' | 'frame.award'
+
 function command(
-  commandType: StrilaCommand['type'],
-  payload: Record<string, unknown>,
+  command: StrilaControlCommandInput,
   extras: Omit<StrilaControlCommand, 'source' | 'commandType' | 'command' | 'seat'>,
 ): StrilaControlCommand {
-  const seat = payload.seat === 'A' || payload.seat === 'B' ? payload.seat : undefined
-  return { source: 'game', commandType, command: payload, seat, ...extras }
+  const { type: commandType, ...payload } = command
+  return { source: 'game', commandType, command: payload, seat: command.seat, ...extras }
 }
-/* oxlint-enable anti-slop/no-unsafe-dictionary-type */
 
-function seatCommands(commandType: StrilaCommand['type'], prominence: StrilaControlCommand['prominence']) {
-  return [command(commandType, { seat: 'A' }, { prominence }), command(commandType, { seat: 'B' }, { prominence })]
+function seatCommands(commandType: StrilaSeatControlCommandType, prominence: StrilaControlCommand['prominence']) {
+  return [command({ type: commandType, seat: 'A' }, { prominence }), command({ type: commandType, seat: 'B' }, { prominence })]
 }
 
 function deriveBallStatuses(state: StrilaFrameState): StrilaControlDetails['ballStatuses'] {
@@ -83,7 +83,7 @@ function view(
     messages?: Array<{ type: 'hint' | 'warning'; code: 'cue-ball-and-colored-is-foul' | 'black-pot-wins' }>
   },
 ): StrilaControlView {
-  return v.parse(StrilaControlViewSchema, {
+  return {
     gameKey: 'strila-v2',
     projection: 'control',
     score: state.score,
@@ -97,7 +97,7 @@ function view(
       commandSections: deriveGameCommandSections(args.commands),
       messages: messages(args.messages ?? []),
     },
-  })
+  }
 }
 
 export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlView {
@@ -120,24 +120,21 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
       return view(state, {
         commands: [
           command(
-            'penalty.select',
-            { seat: chooser, choice: 'play-from-position' },
+            { type: 'penalty.select', seat: chooser, choice: 'play-from-position' },
             {
               prominence: 'secondary',
               effect: 'plus-one-point',
             },
           ),
           command(
-            'penalty.select',
-            { seat: chooser, choice: 'pass-position' },
+            { type: 'penalty.select', seat: chooser, choice: 'pass-position' },
             {
               prominence: 'secondary',
               effect: 'plus-one-point',
             },
           ),
           command(
-            'penalty.select',
-            { seat: chooser, choice: 'ball-in-hand' },
+            { type: 'penalty.select', seat: chooser, choice: 'ball-in-hand' },
             {
               prominence: 'secondary',
               effect: 'no-points-awarded',
@@ -182,7 +179,7 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
       return view(state, {
         commands: [
           ...seatCommands('pot.record', 'primary'),
-          command('frame.award', { seat: state.winner }, { prominence: 'primary' }),
+          command({ type: 'frame.award', seat: state.winner }, { prominence: 'primary' }),
         ],
         seat: state.winner,
         situationTitle: 'Winner determined',

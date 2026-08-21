@@ -1,7 +1,10 @@
-import * as v from 'valibot'
-
-import { GameScoreboardProjectionSchema } from '../../constants'
-import type { PyramidFrameState, PyramidRuntimeConfig } from '../definitions'
+import type {
+  AnyPyramidScoreboardView,
+  PyramidFrameState,
+  PyramidGameKey,
+  PyramidRuntimeConfig,
+  PyramidScoreboardViewFor,
+} from '../definitions'
 
 function pyramidDetails(state: PyramidFrameState) {
   return {
@@ -10,11 +13,15 @@ function pyramidDetails(state: PyramidFrameState) {
   }
 }
 
-export function derivePyramidScoreboardView(state: PyramidFrameState, config: PyramidRuntimeConfig) {
-  return v.parse(GameScoreboardProjectionSchema, {
+export function derivePyramidScoreboardView<K extends PyramidGameKey>(
+  state: PyramidFrameState,
+  config: PyramidRuntimeConfig<K>,
+): PyramidScoreboardViewFor<K> {
+  const projection = {
     gameKey: config.gameKey,
     projection: 'scoreboard',
     score: state.pointsBySeat,
     details: pyramidDetails(state),
-  })
+  } satisfies AnyPyramidScoreboardView & { gameKey: K }
+  return projection
 }

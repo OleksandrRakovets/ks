@@ -1,15 +1,8 @@
-import type { CreateMatchRequest } from '@ks/competition'
-import type {
-  CommandId,
-  ControlCommand,
-  ControlCommandSections,
-  MatchSnapshot,
-  StoredFact,
-  UnixEpochMilliseconds,
-} from '@ks/core'
-import type { GameControlProjection } from '@ks/gameplay/definitions'
+import type { CreateMatchRequest, MatchSnapshotFor } from '@ks/competition'
+import type { CommandId, ControlCommand, ControlCommandSections, StoredFact, UnixEpochMilliseconds } from '@ks/core'
+import type { ControlProjectionFor, RegisteredGameKey } from '@ks/gameplay/definitions'
 
-import type { CommandMatchResult, CreateMatchResult, ReadMatchResult } from './contracts'
+import type { CommandMatchResult, CreateMatchResult, ReadMatchFailure } from './contracts'
 
 export type MatchRoomCreateRequest = CreateMatchRequest & {
   matchId: string
@@ -25,17 +18,18 @@ type MatchRoomFailure = { ok: false; error: string; status: number }
 type MatchRoomCommandResult =
   | (Extract<CommandMatchResult, { ok: true }> & { finalizing?: true })
   | Extract<CommandMatchResult, { ok: false }>
+export type MatchRoomSnapshotSuccess = {
+  [K in RegisteredGameKey]: {
+    ok: true
+    snapshot: MatchSnapshotFor<K>
+    controlProjection: ControlProjectionFor<K> | undefined
+    controlSections: ControlCommandSections
+  }
+}[RegisteredGameKey]
+export type MatchRoomSnapshotResult = MatchRoomSnapshotSuccess | ReadMatchFailure
 type MatchRoomStub = {
   create(request: MatchRoomCreateRequest): Promise<CreateMatchResult>
-  snapshot(args: { matchId: string }): Promise<
-    | {
-        ok: true
-        snapshot: MatchSnapshot
-        controlProjection?: GameControlProjection
-        controlSections?: ControlCommandSections
-      }
-    | Extract<ReadMatchResult, { ok: false }>
-  >
+  snapshot(args: { matchId: string }): Promise<MatchRoomSnapshotResult>
   facts(args: { matchId: string; commandId: CommandId; command: ControlCommand }): Promise<MatchRoomCommandResult>
   stream(args: { matchId: string; since?: number }): Promise<Response>
   listFacts(args: { matchId: string }): Promise<{ ok: true; facts: StoredFact[] } | MatchRoomFailure>
@@ -49,9 +43,7 @@ export function createMatchRoomClient(namespace: { getByName(name: string): Matc
   return {
     create: async (request: MatchRoomCreateRequest): Promise<CreateMatchResult> =>
       await namespace.getByName(request.matchId).create(request),
-    snapshot: async (
-      matchId: string,
-    ): Promise<Omit<Extract<ReadMatchResult, { ok: true }>, 'participants'> | Extract<ReadMatchResult, { ok: false }>> =>
+    snapshot: async (matchId: string): Promise<MatchRoomSnapshotResult> =>
       await namespace.getByName(matchId).snapshot({ matchId }),
     command: async (matchId: string, commandId: CommandId, command: ControlCommand): Promise<MatchRoomCommandResult> =>
       await namespace.getByName(matchId).facts({ matchId, commandId, command }),

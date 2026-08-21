@@ -1,30 +1,28 @@
 import { type BySeatNumber, type Seat } from '@ks/core'
-import * as v from 'valibot'
 
 import { deriveGameCommandSections, type GameControlCommand } from '../../constants'
 import {
-  LongFreePyramidControlViewSchema,
+  type LongFreePyramidControlView,
   type LongFreePyramidFrameState,
   type LongFreePyramidProjectionDetails,
 } from '../definitions'
 
-/* oxlint-disable anti-slop/no-unsafe-dictionary-type -- SAFETY: REVIEW_POST_REFACTOR */
-function command(
-  commandType: string,
-  payload: Record<string, unknown>,
-  prominence: GameControlCommand['prominence'],
-): GameControlCommand {
-  const seat = payload.seat === 'A' || payload.seat === 'B' ? payload.seat : undefined
-  return { source: 'game', commandType, command: payload, seat, prominence }
+type LongFreePyramidControlCommandInput =
+  | { type: 'pot.record'; seat: Seat; points: 1 | 2 | 3 | 4 }
+  | { type: 'foul.commit'; seat: Seat }
+  | { type: 'frame.award'; seat: Seat }
+
+function command(input: LongFreePyramidControlCommandInput, prominence: GameControlCommand['prominence']): GameControlCommand {
+  const { type: commandType, ...command } = input
+  return { source: 'game', commandType, command, seat: input.seat, prominence }
 }
-/* oxlint-enable anti-slop/no-unsafe-dictionary-type */
 
 export function deriveLongFreePyramidControlView(args: {
   state: LongFreePyramidFrameState
   score: BySeatNumber
   details: LongFreePyramidProjectionDetails
   ballsOnTable: number
-}) {
+}): LongFreePyramidControlView {
   const seats: Seat[] = ['A', 'B']
   const commands =
     args.state.phase === 'not-started'
@@ -32,26 +30,26 @@ export function deriveLongFreePyramidControlView(args: {
       : args.state.phase === 'open-play'
         ? [
             ...seats.flatMap((seat) =>
-              [1, 2, 3, 4]
+              ([1, 2, 3, 4] as const)
                 .filter((points) => points <= args.ballsOnTable)
-                .map((points, index) => command('pot.record', { seat, points }, index === 0 ? 'primary' : 'secondary')),
+                .map((points, index) => command({ type: 'pot.record', seat, points }, index === 0 ? 'primary' : 'secondary')),
             ),
-            ...seats.map((seat) => command('foul.commit', { seat }, 'secondary')),
+            ...seats.map((seat) => command({ type: 'foul.commit', seat }, 'secondary')),
           ]
         : args.state.phase === 'winner-determined' && args.state.winnerSeat
           ? [
-              command('frame.award', { seat: args.state.winnerSeat }, 'primary'),
+              command({ type: 'frame.award', seat: args.state.winnerSeat }, 'primary'),
               ...(args.ballsOnTable >= 1
-                ? [command('pot.record', { seat: args.state.winnerSeat, points: 1 }, 'secondary')]
+                ? [command({ type: 'pot.record', seat: args.state.winnerSeat, points: 1 }, 'secondary')]
                 : []),
             ]
           : args.state.phase === 'awaiting-award' && args.state.winnerSeat
-            ? [command('frame.award', { seat: args.state.winnerSeat }, 'primary')]
+            ? [command({ type: 'frame.award', seat: args.state.winnerSeat }, 'primary')]
             : []
 
   const isPotCommandAvailable = args.state.phase === 'open-play' || args.state.phase === 'winner-determined'
 
-  return v.parse(LongFreePyramidControlViewSchema, {
+  return {
     gameKey: 'free-pyramid-long',
     projection: 'control',
     score: args.score,
@@ -60,5 +58,5 @@ export function deriveLongFreePyramidControlView(args: {
       isPotCommandAvailable: isPotCommandAvailable && args.ballsOnTable > 0,
       commandSections: deriveGameCommandSections(commands),
     },
-  })
+  }
 }

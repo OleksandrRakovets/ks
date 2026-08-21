@@ -1,36 +1,24 @@
 import { expect, test } from 'bun:test'
 
-import * as v from 'valibot'
+import { applyGameCommand, createInitialGameState, deriveGameControl, deriveGameScoreboard } from '../../gameplay'
+import { type StrilaFrameState, StrilaMeta } from '../definitions'
 
-import { applyGameCommand, createInitialGameState, deriveGameProjection } from '../../gameplay'
-import {
-  StrilaControlViewSchema,
-  type StrilaFrameState,
-  StrilaFrameStateSchema,
-  StrilaMeta,
-  StrilaScoreboardViewSchema,
-} from '../definitions'
-
-function parseState<State>(state: State): StrilaFrameState {
-  return v.parse(StrilaFrameStateSchema, state)
-}
-
-function controlDetails<State>(state: State) {
-  return v.parse(StrilaControlViewSchema, deriveGameProjection({ gameKey: 'strila-v2', state, projection: 'control' })).details
-}
-
-function scoreboardDetails<State>(state: State) {
-  return v.parse(StrilaScoreboardViewSchema, deriveGameProjection({ gameKey: 'strila-v2', state, projection: 'scoreboard' }))
-    .details
+function controlDetails(state: StrilaFrameState) {
+  return deriveGameControl('strila-v2', state).details
 }
 
 test('simulation: game api: basic frame 1', () => {
-  let state = parseState(
-    createInitialGameState('strila-v2', { targetPointsBySeat: StrilaMeta.defaultTargetPoints, breakerSeat: 'A' }),
-  )
-  let step = applyGameCommand({ gameKey: 'strila-v2', state, commandType: 'frame.commence', command: { seat: 'A' } })
-  state = parseState(step.state)
-  let control = controlDetails(state)
+  const initialState = createInitialGameState('strila-v2', {
+    targetPointsBySeat: StrilaMeta.defaultTargetPoints,
+    breakerSeat: 'A',
+  })
+  let step = applyGameCommand({
+    gameKey: 'strila-v2',
+    state: initialState,
+    commandType: 'frame.commence',
+    command: { seat: 'A' },
+  })
+  let control = controlDetails(step.state)
   expect([
     ...control.commandSections.primary.A.map((entry) => `${entry.commandType}:${entry.command.seat}`),
     ...control.commandSections.primary.B.map((entry) => `${entry.commandType}:${entry.command.seat}`),
@@ -42,7 +30,7 @@ test('simulation: game api: basic frame 1', () => {
 
   step = applyGameCommand({
     gameKey: 'strila-v2',
-    state,
+    state: step.state,
     commandType: 'pot.record',
     command: { seat: 'A', pottedBalls: [1] },
   })
@@ -55,21 +43,18 @@ test('simulation: game api: basic frame 1', () => {
       body: { commandType: 'pot.record', pottedBalls: [1] },
     },
   ])
-  expect(scoreboardDetails(step.state).objectBalls).toEqual([2, 3])
-  state = parseState(step.state)
+  expect(deriveGameScoreboard('strila-v2', step.state).details.objectBalls).toEqual([2, 3])
 
-  step = applyGameCommand({ gameKey: 'strila-v2', state, commandType: 'foul.commit', command: { seat: 'A' } })
+  step = applyGameCommand({ gameKey: 'strila-v2', state: step.state, commandType: 'foul.commit', command: { seat: 'A' } })
   control = controlDetails(step.state)
   expect(control.commandSections.secondary.B.map((entry) => entry.command.choice)).toEqual([
     'play-from-position',
     'pass-position',
     'ball-in-hand',
   ])
-  state = parseState(step.state)
-
   step = applyGameCommand({
     gameKey: 'strila-v2',
-    state,
+    state: step.state,
     commandType: 'penalty.select',
     command: { seat: 'B', choice: 'ball-in-hand' },
   })

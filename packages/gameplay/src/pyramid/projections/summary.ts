@@ -1,7 +1,10 @@
-import * as v from 'valibot'
-
-import { GameSummaryProjectionSchema } from '../../constants'
-import type { PyramidFrameState, PyramidRuntimeConfig } from '../definitions'
+import type {
+  AnyPyramidSummaryView,
+  PyramidFrameState,
+  PyramidGameKey,
+  PyramidRuntimeConfig,
+  PyramidSummaryViewFor,
+} from '../definitions'
 
 function pyramidDetails(state: PyramidFrameState) {
   return {
@@ -10,11 +13,15 @@ function pyramidDetails(state: PyramidFrameState) {
   }
 }
 
-export function derivePyramidSummaryView(state: PyramidFrameState, config: PyramidRuntimeConfig) {
-  return v.parse(GameSummaryProjectionSchema, {
+export function derivePyramidSummaryView<K extends PyramidGameKey>(
+  state: PyramidFrameState,
+  config: PyramidRuntimeConfig<K>,
+): PyramidSummaryViewFor<K> {
+  const projection = {
     gameKey: config.gameKey,
     projection: 'summary',
     score: state.pointsBySeat,
     details: pyramidDetails(state),
-  })
+  } satisfies AnyPyramidSummaryView & { gameKey: K }
+  return projection
 }

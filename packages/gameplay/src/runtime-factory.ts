@@ -1,9 +1,8 @@
 import invariant from 'tiny-invariant'
 
-import type { GameplayRuntime } from './constants'
 import { LongFreePyramidGameplayRuntime } from './long-free-pyramid/runtime'
 import { PyramidGameplayRuntime } from './pyramid/runtime'
-import type { RegisteredGameKey } from './registry'
+import type { GameplayDefinition, RegisteredGameKey } from './registry'
 import { StrilaGameplayRuntime } from './strila-v2/runtime'
 
 const runtimeFactories = {
@@ -30,10 +29,11 @@ const runtimeFactories = {
       foulPenalty: 'offender-minus-one',
       shotPointOptions: [1, 2],
     }),
-} satisfies Record<RegisteredGameKey, () => GameplayRuntime>
+} satisfies { [K in RegisteredGameKey]: () => GameplayDefinition<K> }
 
-export function getGameplayRuntime(gameKey: RegisteredGameKey): GameplayRuntime {
+export function getGameplayRuntime<K extends RegisteredGameKey>(gameKey: K): GameplayDefinition<K> {
   const factory = runtimeFactories[gameKey]
   invariant(factory, `Unsupported game key: ${gameKey}`)
-  return factory()
+  // SAFETY: The exhaustive factory map relates each indexed key to GameplayDefinition<K>.
+  return factory() as GameplayDefinition<K>
 }
