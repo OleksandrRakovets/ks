@@ -6,8 +6,7 @@ import { type StrilaCommand, StrilaMeta } from './definitions'
 import { createStrilaGameplaySession } from './session'
 
 function apply(session: ReturnType<typeof createGameplaySession<'strila-v2'>>, command: StrilaCommand) {
-  const { type: commandType, ...payload } = command
-  const decision = session.decide(commandType, payload)
+  const decision = session.decide(command)
   if (decision._tag !== 'accepted') throw new Error(`Expected accepted command ${command.type}`)
   return session.applyCommitted(decision.transition)
 }
@@ -78,7 +77,7 @@ describe('StrilaGameplaySession outcomes', () => {
       apply(session, { type: 'pot.record', seat: 'A', pottedBalls: [7] })
       expect(session.state.winnerDeterminationReason).toBe('respotted-black-won')
 
-      const award = session.decide('frame.award', { seat: 'A' })
+      const award = session.decide({ type: 'frame.award', seat: 'A' })
       if (award._tag !== 'accepted') throw new Error('expected award acceptance')
       expect(award.result.outcome).toEqual({ winnerSeat: 'A', score: { A: 10, B: 8 }, winReason: 'target-reached' })
     } finally {
@@ -93,7 +92,7 @@ describe('StrilaGameplaySession protocol and lifecycle', () => {
     try {
       apply(session, { type: 'frame.commence', seat: 'A' })
       apply(session, { type: 'pot.record', seat: 'A', pottedBalls: [1, 2, 3, 4] })
-      const decision = session.decide('pot.record', { seat: 'A', pottedBalls: [5] })
+      const decision = session.decide({ type: 'pot.record', seat: 'A', pottedBalls: [5] })
       if (decision._tag !== 'accepted') throw new Error('expected accepted winning pot')
       expect(decision.result.protocolEntries).toEqual([
         {
@@ -120,7 +119,7 @@ describe('StrilaGameplaySession protocol and lifecycle', () => {
     try {
       apply(session, { type: 'frame.commence', seat: 'A' })
       apply(session, { type: 'pot.record', seat: 'A', pottedBalls: [1, 2, 3, 4, 5] })
-      const decision = session.decide('frame.award', { seat: 'A' })
+      const decision = session.decide({ type: 'frame.award', seat: 'A' })
       if (decision._tag !== 'accepted') throw new Error('expected award acceptance')
       expect(decision.result.outcome).toEqual({ winnerSeat: 'A', score: { A: 10, B: 0 }, winReason: 'target-reached' })
       apply(session, { type: 'frame.award', seat: 'A' })
@@ -136,10 +135,10 @@ describe('StrilaGameplaySession protocol and lifecycle', () => {
       apply(session, { type: 'frame.commence', seat: 'A' })
       apply(session, { type: 'pot.record', seat: 'A', pottedBalls: [1, 2, 3, 4, 5] })
 
-      expect(session.decide('pot.record', { seat: 'B', pottedBalls: [6] })._tag).toBe('rejected')
-      expect(session.decide('frame.award', { seat: 'B' })._tag).toBe('rejected')
-      expect(session.decide('pot.record', { seat: 'A', pottedBalls: [6] })._tag).toBe('accepted')
-      expect(session.decide('frame.award', { seat: 'A' })._tag).toBe('accepted')
+      expect(session.decide({ type: 'pot.record', seat: 'B', pottedBalls: [6] })._tag).toBe('rejected')
+      expect(session.decide({ type: 'frame.award', seat: 'B' })._tag).toBe('rejected')
+      expect(session.decide({ type: 'pot.record', seat: 'A', pottedBalls: [6] })._tag).toBe('accepted')
+      expect(session.decide({ type: 'frame.award', seat: 'A' })._tag).toBe('accepted')
     } finally {
       session.dispose()
     }
@@ -152,7 +151,7 @@ describe('StrilaGameplaySession protocol and lifecycle', () => {
       apply(session, { type: 'pot.record', seat: 'A', pottedBalls: [1, 2, 3, 4, 5] })
       apply(session, { type: 'frame.award', seat: 'A' })
       const before = structuredClone(session.state)
-      expect(session.decide('pot.record', { seat: 'A', pottedBalls: [6] })._tag).toBe('rejected')
+      expect(session.decide({ type: 'pot.record', seat: 'A', pottedBalls: [6] })._tag).toBe('rejected')
       expect(session.state).toEqual(before)
     } finally {
       session.dispose()
@@ -179,7 +178,7 @@ describe('StrilaGameplaySession snapshot binding', () => {
   test('apply rejects when resident actor snapshot diverged before commit', () => {
     const session = createGameplaySession('strila-v2', { targetPointsBySeat: StrilaMeta.defaultTargetPoints, breakerSeat: 'A' })
     try {
-      const decision = session.decide('frame.commence', { seat: 'A' })
+      const decision = session.decide({ type: 'frame.commence', seat: 'A' })
       if (decision._tag !== 'accepted') throw new Error('expected accepted decision')
 
       apply(session, { type: 'frame.commence', seat: 'A' })
@@ -194,7 +193,7 @@ describe('StrilaGameplaySession snapshot binding', () => {
   test('apply verifies candidate snapshot and serialized result after send', () => {
     const session = createGameplaySession('strila-v2', { targetPointsBySeat: StrilaMeta.defaultTargetPoints, breakerSeat: 'A' })
     try {
-      const decision = session.decide('frame.commence', { seat: 'A' })
+      const decision = session.decide({ type: 'frame.commence', seat: 'A' })
       if (decision._tag !== 'accepted') throw new Error('expected accepted decision')
       const result = session.applyCommitted(decision.transition)
       expect(session.state).toEqual(result.state)

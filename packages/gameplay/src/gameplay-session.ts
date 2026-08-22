@@ -1,9 +1,10 @@
-import { type ControlCommandPayload, type FrameOutcome, type ProtocolEntry } from '@ks/core'
+import { type FrameOutcome, type ProtocolEntry } from '@ks/core'
 import * as v from 'valibot'
 
 import type { GameCreateStateArgs } from './constants'
 import type {
   ControlProjectionFor,
+  GameCommandFor,
   GameStateFor,
   RegisteredGameKey,
   ScoreboardProjectionFor,
@@ -44,7 +45,7 @@ export interface GameplaySession<K extends RegisteredGameKey> {
   readonly gameKey: K
   readonly state: GameStateFor<K>
 
-  decide(commandType: string, command: ControlCommandPayload): GameCommandDecision<K>
+  decide(command: GameCommandFor<K>): GameCommandDecision<K>
 
   applyCommitted(transition: PreparedGameTransition<K>): PreparedGameCommandResult<K>
 

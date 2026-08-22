@@ -24,16 +24,15 @@ import { createPyramidGameplaySession } from './session'
 const pyramidContractArgs = {
   createArgs: { targetPointsBySeat: { A: 8, B: 8 }, breakerSeat: 'A' as const },
   stateSchema: PyramidFrameStateSchema,
-  validCommand: { commandType: 'frame.commence', command: { seat: 'A' as const } },
-  malformedCommand: { commandType: 'pot.record', command: {} },
-  unavailableCommand: { commandType: 'pot.record', command: { seat: 'A' as const, points: 99 } },
+  validCommand: { type: 'frame.commence', seat: 'A' } as const,
+  unavailableCommand: { type: 'pot.record', seat: 'A', points: 99 } as const,
   replayCommands: [
-    { commandType: 'frame.commence', command: { seat: 'A' as const } },
-    { commandType: 'pot.record', command: { seat: 'A' as const, points: 1 } },
-    { commandType: 'foul.commit', command: { seat: 'B' as const } },
+    { type: 'frame.commence', seat: 'A' } as const,
+    { type: 'pot.record', seat: 'A', points: 1 } as const,
+    { type: 'foul.commit', seat: 'B' } as const,
   ],
-  sameRevisionSetupCommands: [{ commandType: 'frame.commence', command: { seat: 'A' as const } }],
-  sameRevisionCommand: { commandType: 'pot.record', command: { seat: 'A' as const, points: 1 } },
+  sameRevisionSetupCommands: [{ type: 'frame.commence', seat: 'A' } as const],
+  sameRevisionCommand: { type: 'pot.record', seat: 'A', points: 1 } as const,
 }
 
 defineGameplaySessionContractSuite({
@@ -67,8 +66,7 @@ defineGameplaySessionContractSuite({
 })
 
 function applyPyramid(session: ReturnType<typeof createPyramidGameplaySession>, command: PyramidCommand) {
-  const { type: commandType, ...payload } = command
-  const decision = session.decide(commandType, payload)
+  const decision = session.decide(command)
   if (decision._tag !== 'accepted') throw new Error(`Expected accepted command ${command.type}`)
   return session.applyCommitted(decision.transition)
 }
@@ -83,7 +81,7 @@ describe('PyramidGameplaySession: rules selection', () => {
       const session = createPyramidGameplaySession(gameKey, { targetPointsBySeat: { A: 8, B: 8 }, breakerSeat: 'A' })
       try {
         applyPyramid(session, { type: 'frame.commence', seat: 'A' })
-        const plusFour = session.decide('pot.record', { seat: 'A', points: 4 })
+        const plusFour = session.decide({ type: 'pot.record', seat: 'A', points: 4 })
         const allowed = rulesAllowShotPoints(gameKey, 4)
         expect(plusFour._tag).toBe(allowed ? 'accepted' : 'rejected')
       } finally {
@@ -117,7 +115,7 @@ describe('PyramidGameplaySession: scoring scenarios', () => {
       applyPyramid(free, { type: 'frame.commence', seat: 'A' })
       applyPyramid(combined, { type: 'frame.commence', seat: 'A' })
       expect(applyPyramid(free, { type: 'pot.record', seat: 'A', points: 4 }).state.pointsBySeat.A).toBe(4)
-      expect(combined.decide('pot.record', { seat: 'A', points: 4 })._tag).toBe('rejected')
+      expect(combined.decide({ type: 'pot.record', seat: 'A', points: 4 })._tag).toBe('rejected')
     } finally {
       free.dispose()
       combined.dispose()
@@ -127,8 +125,8 @@ describe('PyramidGameplaySession: scoring scenarios', () => {
   test('non-negative variants reject invalid shot presets instead of clamping', () => {
     const session = createGameplaySession('free-pyramid', { targetPointsBySeat: { A: 8, B: 8 }, breakerSeat: 'A' })
     try {
-      applyWarmCommand(session, 'frame.commence', { seat: 'A' })
-      expect(session.decide('pot.record', { seat: 'A', points: -5 })._tag).toBe('rejected')
+      applyWarmCommand(session, { type: 'frame.commence', seat: 'A' })
+      expect(session.decide({ type: 'pot.record', seat: 'A', points: -5 })._tag).toBe('rejected')
       expect(session.state.pointsBySeat).toEqual({ A: 0, B: 0 })
     } finally {
       session.dispose()
@@ -138,8 +136,8 @@ describe('PyramidGameplaySession: scoring scenarios', () => {
   test('combined-pyramid-old allows negative score via offender-minus-one foul', () => {
     const session = createGameplaySession('combined-pyramid-old', { targetPointsBySeat: { A: 8, B: 8 }, breakerSeat: 'A' })
     try {
-      applyWarmCommand(session, 'frame.commence', { seat: 'A' })
-      applyWarmCommand(session, 'foul.commit', { seat: 'A' })
+      applyWarmCommand(session, { type: 'frame.commence', seat: 'A' })
+      applyWarmCommand(session, { type: 'foul.commit', seat: 'A' })
       expect(session.state.pointsBySeat).toEqual({ A: -1, B: 0 })
     } finally {
       session.dispose()
@@ -149,8 +147,8 @@ describe('PyramidGameplaySession: scoring scenarios', () => {
   test('opponent-plus-one foul awards a point to the opponent', () => {
     const session = createGameplaySession('free-pyramid', { targetPointsBySeat: { A: 8, B: 8 }, breakerSeat: 'A' })
     try {
-      applyWarmCommand(session, 'frame.commence', { seat: 'A' })
-      applyWarmCommand(session, 'foul.commit', { seat: 'A' })
+      applyWarmCommand(session, { type: 'frame.commence', seat: 'A' })
+      applyWarmCommand(session, { type: 'foul.commit', seat: 'A' })
       expect(session.state.pointsBySeat).toEqual({ A: 0, B: 1 })
     } finally {
       session.dispose()
@@ -160,8 +158,8 @@ describe('PyramidGameplaySession: scoring scenarios', () => {
   test('foul that gives opponent the target fixes that opponent as winner', () => {
     const session = createGameplaySession('free-pyramid', { targetPointsBySeat: { A: 8, B: 1 }, breakerSeat: 'A' })
     try {
-      applyWarmCommand(session, 'frame.commence', { seat: 'A' })
-      applyWarmCommand(session, 'foul.commit', { seat: 'A' })
+      applyWarmCommand(session, { type: 'frame.commence', seat: 'A' })
+      applyWarmCommand(session, { type: 'foul.commit', seat: 'A' })
       expect(session.state.phase).toBe('winner-determined')
       expect(session.state.winner).toBe('B')
     } finally {
@@ -172,9 +170,9 @@ describe('PyramidGameplaySession: scoring scenarios', () => {
   test('winner may continue scoring after target is reached', () => {
     const session = createGameplaySession('free-pyramid', { targetPointsBySeat: { A: 2, B: 8 }, breakerSeat: 'A' })
     try {
-      applyWarmCommand(session, 'frame.commence', { seat: 'A' })
-      applyWarmCommand(session, 'pot.record', { seat: 'A', points: 2 })
-      applyWarmCommand(session, 'pot.record', { seat: 'A', points: 1 })
+      applyWarmCommand(session, { type: 'frame.commence', seat: 'A' })
+      applyWarmCommand(session, { type: 'pot.record', seat: 'A', points: 2 })
+      applyWarmCommand(session, { type: 'pot.record', seat: 'A', points: 1 })
       expect(session.state.pointsBySeat).toEqual({ A: 3, B: 0 })
       expect(session.state.phase).toBe('winner-determined')
     } finally {
@@ -188,11 +186,11 @@ describe('PyramidGameplaySession: scoring scenarios', () => {
       breakerSeat: 'A',
     })
     try {
-      applyWarmCommand(session, 'frame.commence', { seat: 'A' })
-      applyWarmCommand(session, 'pot.record', { seat: 'A', points: 2 })
-      expect(session.decide('pot.record', { seat: 'B', points: 1 })._tag).toBe('rejected')
-      expect(session.decide('foul.commit', { seat: 'B' })._tag).toBe('rejected')
-      expect(session.decide('foul.commit', { seat: 'A' })._tag).toBe('accepted')
+      applyWarmCommand(session, { type: 'frame.commence', seat: 'A' })
+      applyWarmCommand(session, { type: 'pot.record', seat: 'A', points: 2 })
+      expect(session.decide({ type: 'pot.record', seat: 'B', points: 1 })._tag).toBe('rejected')
+      expect(session.decide({ type: 'foul.commit', seat: 'B' })._tag).toBe('rejected')
+      expect(session.decide({ type: 'foul.commit', seat: 'A' })._tag).toBe('accepted')
     } finally {
       session.dispose()
     }
@@ -201,9 +199,9 @@ describe('PyramidGameplaySession: scoring scenarios', () => {
   test('wrong-seat frame.award is rejected', () => {
     const session = createGameplaySession('free-pyramid', { targetPointsBySeat: { A: 2, B: 8 }, breakerSeat: 'A' })
     try {
-      applyWarmCommand(session, 'frame.commence', { seat: 'A' })
-      applyWarmCommand(session, 'pot.record', { seat: 'A', points: 2 })
-      expect(session.decide('frame.award', { seat: 'B' })._tag).toBe('rejected')
+      applyWarmCommand(session, { type: 'frame.commence', seat: 'A' })
+      applyWarmCommand(session, { type: 'pot.record', seat: 'A', points: 2 })
+      expect(session.decide({ type: 'frame.award', seat: 'B' })._tag).toBe('rejected')
     } finally {
       session.dispose()
     }
@@ -212,9 +210,9 @@ describe('PyramidGameplaySession: scoring scenarios', () => {
   test('frame.award emits schema-valid outcome and projections', () => {
     const session = createGameplaySession('free-pyramid', { targetPointsBySeat: { A: 2, B: 8 }, breakerSeat: 'A' })
     try {
-      applyWarmCommand(session, 'frame.commence', { seat: 'A' })
-      applyWarmCommand(session, 'pot.record', { seat: 'A', points: 2 })
-      const result = applyWarmCommand(session, 'frame.award', { seat: 'A' })
+      applyWarmCommand(session, { type: 'frame.commence', seat: 'A' })
+      applyWarmCommand(session, { type: 'pot.record', seat: 'A', points: 2 })
+      const result = applyWarmCommand(session, { type: 'frame.award', seat: 'A' })
 
       expect(result.outcome).toEqual({
         winnerSeat: 'A',
@@ -235,8 +233,8 @@ describe('PyramidGameplaySession: phase guards', () => {
   test('rejects frame.commence after open play has started', () => {
     const session = createGameplaySession('free-pyramid', { targetPointsBySeat: { A: 8, B: 8 }, breakerSeat: 'A' })
     try {
-      applyWarmCommand(session, 'frame.commence', { seat: 'A' })
-      expect(session.decide('frame.commence', { seat: 'B' })._tag).toBe('rejected')
+      applyWarmCommand(session, { type: 'frame.commence', seat: 'A' })
+      expect(session.decide({ type: 'frame.commence', seat: 'B' })._tag).toBe('rejected')
     } finally {
       session.dispose()
     }
@@ -245,13 +243,13 @@ describe('PyramidGameplaySession: phase guards', () => {
   test('rejects commands after frame-over', () => {
     const session = createGameplaySession('free-pyramid', { targetPointsBySeat: { A: 2, B: 8 }, breakerSeat: 'A' })
     try {
-      applyWarmCommand(session, 'frame.commence', { seat: 'A' })
-      applyWarmCommand(session, 'pot.record', { seat: 'A', points: 2 })
-      applyWarmCommand(session, 'frame.award', { seat: 'A' })
+      applyWarmCommand(session, { type: 'frame.commence', seat: 'A' })
+      applyWarmCommand(session, { type: 'pot.record', seat: 'A', points: 2 })
+      applyWarmCommand(session, { type: 'frame.award', seat: 'A' })
       expect(session.state.phase).toBe('frame-over')
-      expect(session.decide('pot.record', { seat: 'A', points: 1 })._tag).toBe('rejected')
-      expect(session.decide('foul.commit', { seat: 'A' })._tag).toBe('rejected')
-      expect(session.decide('frame.commence', { seat: 'A' })._tag).toBe('rejected')
+      expect(session.decide({ type: 'pot.record', seat: 'A', points: 1 })._tag).toBe('rejected')
+      expect(session.decide({ type: 'foul.commit', seat: 'A' })._tag).toBe('rejected')
+      expect(session.decide({ type: 'frame.commence', seat: 'A' })._tag).toBe('rejected')
     } finally {
       session.dispose()
     }
@@ -262,9 +260,9 @@ describe('PyramidGameplaySession: transition tokens', () => {
   test('stale token throws after revision advances', () => {
     const session = createGameplaySession('free-pyramid', { targetPointsBySeat: { A: 8, B: 8 }, breakerSeat: 'A' })
     try {
-      applyWarmCommand(session, 'frame.commence', { seat: 'A' })
-      const first = session.decide('pot.record', { seat: 'A', points: 1 })
-      const second = session.decide('pot.record', { seat: 'A', points: 1 })
+      applyWarmCommand(session, { type: 'frame.commence', seat: 'A' })
+      const first = session.decide({ type: 'pot.record', seat: 'A', points: 1 })
+      const second = session.decide({ type: 'pot.record', seat: 'A', points: 1 })
       if (first._tag !== 'accepted' || second._tag !== 'accepted') throw new Error('expected accepted decisions')
       session.applyCommitted(first.transition)
       expect(() => session.applyCommitted(second.transition)).toThrow(InvalidPreparedTransitionError)
@@ -277,7 +275,7 @@ describe('PyramidGameplaySession: transition tokens', () => {
     const owner = createGameplaySession('free-pyramid', { targetPointsBySeat: { A: 8, B: 8 }, breakerSeat: 'A' })
     const foreign = createGameplaySession('free-pyramid', { targetPointsBySeat: { A: 8, B: 8 }, breakerSeat: 'A' })
     try {
-      const decision = owner.decide('frame.commence', { seat: 'A' })
+      const decision = owner.decide({ type: 'frame.commence', seat: 'A' })
       if (decision._tag !== 'accepted') throw new Error('expected accepted decision')
       expect(() => foreign.applyCommitted(decision.transition)).toThrow(InvalidPreparedTransitionError)
     } finally {

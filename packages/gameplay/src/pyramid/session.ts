@@ -1,4 +1,4 @@
-import { type ControlCommandPayload, type FrameOutcome } from '@ks/core'
+import { type FrameOutcome } from '@ks/core'
 import * as v from 'valibot'
 import { type Actor, createActor, transition } from 'xstate'
 
@@ -32,7 +32,7 @@ import { createInitialSnapshot, getPhase, PyramidSparringFrameMachine, type Pyra
 import { derivePyramidControlView } from './projections/control'
 import { derivePyramidScoreboardView } from './projections/scoreboard'
 import { derivePyramidSummaryView } from './projections/summary'
-import { projectPyramidProtocolEntries, PyramidCommandPayloadSchemas } from './protocol'
+import { projectPyramidProtocolEntries } from './protocol'
 import { type PyramidGameKey, type PyramidRules, PyramidRuleSpecificsByGameKey } from './rules'
 
 function serializeSnapshot(snapshot: PyramidSparringFrameSnapshot): PyramidFrameState {
@@ -65,23 +65,6 @@ function pyramidOutcome(state: PyramidFrameState): FrameOutcome | undefined {
     score: state.pointsBySeat,
     winReason: 'target-reached',
   }
-}
-
-function isPyramidCommandPayloadType(commandType: string): commandType is keyof typeof PyramidCommandPayloadSchemas {
-  return commandType in PyramidCommandPayloadSchemas
-}
-
-function parsePyramidCommand(commandType: string, command: ControlCommandPayload): PyramidCommand | null {
-  if (!isPyramidCommandPayloadType(commandType)) {
-    const parsed = v.safeParse(PyramidCommandSchema, { type: commandType })
-    return parsed.success ? parsed.output : null
-  }
-
-  const payload = v.safeParse(v.looseObject({}), command)
-  if (!payload.success) return null
-
-  const parsed = v.safeParse(PyramidCommandSchema, { ...payload.output, type: commandType })
-  return parsed.success ? parsed.output : null
 }
 
 function createActorFromSnapshot(snapshot: PyramidSparringFrameSnapshot): Actor<typeof PyramidSparringFrameMachine> {
@@ -127,25 +110,22 @@ class PyramidGameplaySession<K extends PyramidGameKey> implements GameplaySessio
     return serializeSnapshot(this.actor.getSnapshot())
   }
 
-  decide(commandType: string, command: ControlCommandPayload): GameCommandDecision<K> {
+  decide(command: PyramidCommand): GameCommandDecision<K> {
     this.assertActive()
-
-    const parsed = parsePyramidCommand(commandType, command)
-    if (!parsed) return rejectedDecision()
 
     const previousSnapshot = this.actor.getSnapshot()
     const previousState = serializeSnapshot(previousSnapshot)
 
-    if (!previousSnapshot.can(parsed)) {
+    if (!previousSnapshot.can(command)) {
       return rejectedDecision()
     }
 
-    const [candidateSnapshot] = transition(PyramidSparringFrameMachine, previousSnapshot, parsed)
+    const [candidateSnapshot] = transition(PyramidSparringFrameMachine, previousSnapshot, command)
     const candidateState = serializeSnapshot(candidateSnapshot)
     const candidateResult = buildPreparedResult<K>(
       // SAFETY: PyramidGameplaySession is only constructed for pyramid game keys whose state is PyramidFrameState.
       candidateState as GameplaySession<K>['state'],
-      projectPyramidProtocolEntries({ previous: previousState, command: parsed, next: candidateState, rules: this.rules }),
+      projectPyramidProtocolEntries({ previous: previousState, command, next: candidateState, rules: this.rules }),
       pyramidOutcome(candidateState),
     )
 
@@ -155,7 +135,7 @@ class PyramidGameplaySession<K extends PyramidGameKey> implements GameplaySessio
       revision: this.revision,
       // SAFETY: PyramidGameplaySession is only constructed for pyramid game keys whose state is PyramidFrameState.
       previousState: previousState as GameplaySession<K>['state'],
-      parsedEvent: parsed,
+      parsedEvent: command,
       candidateResult,
       machineEvidence: {
         previousSnapshot: previousSnapshot,

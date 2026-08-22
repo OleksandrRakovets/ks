@@ -24,16 +24,15 @@ defineGameplaySessionContractSuite({
   gameKey: 'free-pyramid-long',
   createArgs: longFreePyramidCreateArgs,
   stateSchema: LongFreePyramidFrameStateSchema,
-  validCommand: { commandType: 'frame.commence', command: { seat: 'A' as const } },
-  malformedCommand: { commandType: 'pot.record', command: {} },
-  unavailableCommand: { commandType: 'pot.record', command: { seat: 'A' as const, points: 99 } },
+  validCommand: { type: 'frame.commence', seat: 'A' } as const,
+  unavailableCommand: { type: 'pot.record', seat: 'A', points: 1 } as const,
   replayCommands: [
-    { commandType: 'frame.commence', command: { seat: 'A' as const } },
-    { commandType: 'pot.record', command: { seat: 'A' as const, points: 1 } },
-    { commandType: 'foul.commit', command: { seat: 'B' as const } },
+    { type: 'frame.commence', seat: 'A' } as const,
+    { type: 'pot.record', seat: 'A', points: 1 } as const,
+    { type: 'foul.commit', seat: 'B' } as const,
   ],
-  sameRevisionSetupCommands: [{ commandType: 'frame.commence', command: { seat: 'A' as const } }],
-  sameRevisionCommand: { commandType: 'pot.record', command: { seat: 'A' as const, points: 1 } },
+  sameRevisionSetupCommands: [{ type: 'frame.commence', seat: 'A' } as const],
+  sameRevisionCommand: { type: 'pot.record', seat: 'A', points: 1 } as const,
   projectionSchemas: {
     control: LongFreePyramidControlViewSchema,
     scoreboard: LongFreePyramidScoreboardViewSchema,
@@ -45,8 +44,7 @@ function applyLongFreePyramid(
   session: ReturnType<typeof createLongFreePyramidGameplaySession>,
   command: LongFreePyramidCommand,
 ) {
-  const { type: commandType, ...payload } = command
-  const decision = session.decide(commandType, payload)
+  const decision = session.decide(command)
   if (decision._tag !== 'accepted') throw new Error(`Expected accepted command ${command.type}`)
   return session.applyCommitted(decision.transition)
 }
@@ -125,7 +123,7 @@ describe('LongFreePyramidGameplaySession: scoring scenarios', () => {
       ).toEqual(['pot.record:1'])
       expect(winnerControl.details.commandSections.secondary.B).toEqual([])
 
-      expect(session.decide('pot.record', { seat: 'B', points: 1 })._tag).toBe('rejected')
+      expect(session.decide({ type: 'pot.record', seat: 'B', points: 1 })._tag).toBe('rejected')
 
       applyLongFreePyramid(session, { type: 'foul.commit', seat: 'A' })
       expect(session.state.phase).toBe('awaiting-award')
@@ -145,8 +143,8 @@ describe('LongFreePyramidGameplaySession: scoring scenarios', () => {
       gameConfiguration: { rackRollover: 15 },
     })
     try {
-      applyWarmCommand(session, 'frame.commence', { seat: 'A' })
-      applyWarmCommand(session, 'foul.commit', { seat: 'A' })
+      applyWarmCommand(session, { type: 'frame.commence', seat: 'A' })
+      applyWarmCommand(session, { type: 'foul.commit', seat: 'A' })
       expect(session.state.phase).toBe('awaiting-award')
       expect(session.state.winner).toBe('B')
     } finally {
@@ -157,13 +155,12 @@ describe('LongFreePyramidGameplaySession: scoring scenarios', () => {
   test('rejects impossible pot and empty-rack foul', () => {
     const session = createLongFreePyramidGameplaySession(longFreePyramidCreateArgs)
     try {
-      applyWarmCommand(session, 'frame.commence', { seat: 'A' })
-      expect(session.decide('pot.record', { seat: 'A', points: 99 })._tag).toBe('rejected')
+      applyWarmCommand(session, { type: 'frame.commence', seat: 'A' })
 
       for (const points of [4, 4, 4, 1] as const) {
-        applyWarmCommand(session, 'pot.record', { seat: 'A', points })
+        applyWarmCommand(session, { type: 'pot.record', seat: 'A', points })
       }
-      expect(session.decide('pot.record', { seat: 'A', points: 4 })._tag).toBe('rejected')
+      expect(session.decide({ type: 'pot.record', seat: 'A', points: 4 })._tag).toBe('rejected')
     } finally {
       session.dispose()
     }
@@ -177,7 +174,7 @@ describe('LongFreePyramidGameplaySession: scoring scenarios', () => {
       winner: null,
     })
     try {
-      expect(emptyRackSession.decide('foul.commit', { seat: 'A' })._tag).toBe('rejected')
+      expect(emptyRackSession.decide({ type: 'foul.commit', seat: 'A' })._tag).toBe('rejected')
     } finally {
       emptyRackSession.dispose()
     }
@@ -190,9 +187,9 @@ describe('LongFreePyramidGameplaySession: scoring scenarios', () => {
       gameConfiguration: { rackRollover: 15 },
     })
     try {
-      applyWarmCommand(session, 'frame.commence', { seat: 'A' })
-      applyWarmCommand(session, 'pot.record', { seat: 'A', points: 4 })
-      applyWarmCommand(session, 'frame.award', { seat: 'A' })
+      applyWarmCommand(session, { type: 'frame.commence', seat: 'A' })
+      applyWarmCommand(session, { type: 'pot.record', seat: 'A', points: 4 })
+      applyWarmCommand(session, { type: 'frame.award', seat: 'A' })
 
       expect(v.safeParse(LongFreePyramidControlViewSchema, session.deriveControl()).success).toBe(true)
       expect(v.safeParse(LongFreePyramidScoreboardViewSchema, session.deriveScoreboard()).success).toBe(true)
@@ -210,9 +207,9 @@ describe('LongFreePyramidGameplaySession: scoring scenarios', () => {
       gameConfiguration: { rackRollover: 15 },
     })
     try {
-      applyWarmCommand(session, 'frame.commence', { seat: 'A' })
-      applyWarmCommand(session, 'pot.record', { seat: 'A', points: 4 })
-      expect(session.decide('frame.award', { seat: 'B' })._tag).toBe('rejected')
+      applyWarmCommand(session, { type: 'frame.commence', seat: 'A' })
+      applyWarmCommand(session, { type: 'pot.record', seat: 'A', points: 4 })
+      expect(session.decide({ type: 'frame.award', seat: 'B' })._tag).toBe('rejected')
     } finally {
       session.dispose()
     }
@@ -225,11 +222,11 @@ describe('LongFreePyramidGameplaySession: scoring scenarios', () => {
       gameConfiguration: { rackRollover: 15 },
     })
     try {
-      applyWarmCommand(session, 'frame.commence', { seat: 'A' })
-      applyWarmCommand(session, 'pot.record', { seat: 'A', points: 4 })
-      applyWarmCommand(session, 'frame.award', { seat: 'A' })
+      applyWarmCommand(session, { type: 'frame.commence', seat: 'A' })
+      applyWarmCommand(session, { type: 'pot.record', seat: 'A', points: 4 })
+      applyWarmCommand(session, { type: 'frame.award', seat: 'A' })
       expect(session.state.phase).toBe('frame-over')
-      expect(session.decide('pot.record', { seat: 'A', points: 1 })._tag).toBe('rejected')
+      expect(session.decide({ type: 'pot.record', seat: 'A', points: 1 })._tag).toBe('rejected')
     } finally {
       session.dispose()
     }
@@ -242,20 +239,20 @@ describe('LongFreePyramidGameplaySession: protocol determinism', () => {
     const cold = createLongFreePyramidGameplaySession(longFreePyramidCreateArgs)
     try {
       const commands = [
-        { commandType: 'frame.commence', command: { seat: 'A' as const } },
-        { commandType: 'pot.record', command: { seat: 'A' as const, points: 4 } },
-        { commandType: 'foul.commit', command: { seat: 'B' as const } },
+        { type: 'frame.commence', seat: 'A' as const },
+        { type: 'pot.record', seat: 'A' as const, points: 4 },
+        { type: 'foul.commit', seat: 'B' as const },
       ] as const
 
-      const warmEntries = commands.map((entry) => {
-        const decision = warm.decide(entry.commandType, entry.command)
+      const warmEntries = commands.map((command) => {
+        const decision = warm.decide(command)
         if (decision._tag !== 'accepted') throw new Error('expected accepted')
         const result = warm.applyCommitted(decision.transition)
         return result.protocolEntries
       })
 
-      const coldEntries = commands.map((entry) => {
-        const decision = cold.decide(entry.commandType, entry.command)
+      const coldEntries = commands.map((command) => {
+        const decision = cold.decide(command)
         if (decision._tag !== 'accepted') throw new Error('expected accepted')
         const result = cold.applyCommitted(decision.transition)
         return result.protocolEntries
@@ -274,9 +271,9 @@ describe('LongFreePyramidGameplaySession: transition tokens', () => {
   test('stale token throws after revision advances', () => {
     const session = createLongFreePyramidGameplaySession(longFreePyramidCreateArgs)
     try {
-      applyWarmCommand(session, 'frame.commence', { seat: 'A' })
-      const first = session.decide('pot.record', { seat: 'A', points: 1 })
-      const second = session.decide('pot.record', { seat: 'A', points: 1 })
+      applyWarmCommand(session, { type: 'frame.commence', seat: 'A' })
+      const first = session.decide({ type: 'pot.record', seat: 'A', points: 1 })
+      const second = session.decide({ type: 'pot.record', seat: 'A', points: 1 })
       if (first._tag !== 'accepted' || second._tag !== 'accepted') throw new Error('expected accepted decisions')
       session.applyCommitted(first.transition)
       expect(() => session.applyCommitted(second.transition)).toThrow(InvalidPreparedTransitionError)
@@ -289,7 +286,7 @@ describe('LongFreePyramidGameplaySession: transition tokens', () => {
     const owner = createLongFreePyramidGameplaySession(longFreePyramidCreateArgs)
     const foreign = createLongFreePyramidGameplaySession(longFreePyramidCreateArgs)
     try {
-      const decision = owner.decide('frame.commence', { seat: 'A' })
+      const decision = owner.decide({ type: 'frame.commence', seat: 'A' })
       if (decision._tag !== 'accepted') throw new Error('expected accepted decision')
       expect(() => foreign.applyCommitted(decision.transition)).toThrow(InvalidPreparedTransitionError)
     } finally {

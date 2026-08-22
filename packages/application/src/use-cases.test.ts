@@ -601,6 +601,123 @@ describe('application orchestration', () => {
     expect(calls).toEqual([[matchId, commandId, command]])
   })
 
+  test('passes through malformed invalid-command-body without synthesizing an outcome', async () => {
+    const command: ControlCommand = { source: 'game', commandType: 'pot.record', command: {} }
+    const application = createApplicationWithDependencies({
+      newMatchId: unused,
+      newControlSecret: unused,
+      now: unused,
+      getOrCreateGuestPlayerRef: unused,
+      hydrateParticipant: unused,
+      listMatchRecords: unused,
+      getMatchRecord: async () => ({
+        matchId,
+        gameKey: 'free-pyramid',
+        status: 'active',
+        createdAt: v.parse(UnixEpochMillisecondsSchema, 1_700_000_000_000),
+        participantRefs: { A: playerRefA, B: playerRefB },
+      }),
+      getProtocolArchive: unused,
+      beginMatchCreation: unused,
+      activateMatch: unused,
+      archiveCompletedMatch: unused,
+      finishCompletedMatch: unused,
+      matchRoom: {
+        create: unused,
+        snapshot: unused,
+        submitCommand: async () => ({ ok: false, error: 'invalid-command-body', status: 400 }),
+        listFacts: unused,
+        stream: unused,
+        finalization: unused,
+        disposeFinalized: unused,
+      },
+    })
+
+    expect(await application.submitMatchCommand(matchId, newCommandId(), command, 'free-pyramid')).toEqual({
+      ok: false,
+      error: 'invalid-command-body',
+      status: 400,
+    })
+  })
+
+  test('passes through valid unavailable rejected receipt as declared outcome', async () => {
+    const command: ControlCommand = { source: 'match', commandType: 'frame.start', command: {} }
+    const rejectedOutcome = { _tag: 'rejected' as const, reason: { code: 'frame-already-active' as const } }
+    const application = createApplicationWithDependencies({
+      newMatchId: unused,
+      newControlSecret: unused,
+      now: unused,
+      getOrCreateGuestPlayerRef: unused,
+      hydrateParticipant: unused,
+      listMatchRecords: unused,
+      getMatchRecord: async () => ({
+        matchId,
+        gameKey: 'free-pyramid',
+        status: 'active',
+        createdAt: v.parse(UnixEpochMillisecondsSchema, 1_700_000_000_000),
+        participantRefs: { A: playerRefA, B: playerRefB },
+      }),
+      getProtocolArchive: unused,
+      beginMatchCreation: unused,
+      activateMatch: unused,
+      archiveCompletedMatch: unused,
+      finishCompletedMatch: unused,
+      matchRoom: {
+        create: unused,
+        snapshot: unused,
+        submitCommand: async () => ({ ok: true, outcome: rejectedOutcome }),
+        listFacts: unused,
+        stream: unused,
+        finalization: unused,
+        disposeFinalized: unused,
+      },
+    })
+
+    expect(await application.submitMatchCommand(matchId, newCommandId(), command, 'free-pyramid')).toEqual({
+      ok: true,
+      outcome: rejectedOutcome,
+    })
+  })
+
+  test('lets a thrown MatchRoom defect reject rather than synthesizing an outcome', async () => {
+    const command: ControlCommand = { source: 'match', commandType: 'frame.start', command: {} }
+    const application = createApplicationWithDependencies({
+      newMatchId: unused,
+      newControlSecret: unused,
+      now: unused,
+      getOrCreateGuestPlayerRef: unused,
+      hydrateParticipant: unused,
+      listMatchRecords: unused,
+      getMatchRecord: async () => ({
+        matchId,
+        gameKey: 'free-pyramid',
+        status: 'active',
+        createdAt: v.parse(UnixEpochMillisecondsSchema, 1_700_000_000_000),
+        participantRefs: { A: playerRefA, B: playerRefB },
+      }),
+      getProtocolArchive: unused,
+      beginMatchCreation: unused,
+      activateMatch: unused,
+      archiveCompletedMatch: unused,
+      finishCompletedMatch: unused,
+      matchRoom: {
+        create: unused,
+        snapshot: unused,
+        submitCommand: async () => {
+          throw new Error('post-commit apply failure')
+        },
+        listFacts: unused,
+        stream: unused,
+        finalization: unused,
+        disposeFinalized: unused,
+      },
+    })
+
+    await expect(application.submitMatchCommand(matchId, newCommandId(), command, 'free-pyramid')).rejects.toThrow(
+      'post-commit apply failure',
+    )
+  })
+
   test('reads a finished match entirely from its D1 archive', async () => {
     const snapshot = v.parse(MatchSnapshotSchema, {
       matchId,

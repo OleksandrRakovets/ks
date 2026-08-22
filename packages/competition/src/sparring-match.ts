@@ -1,7 +1,6 @@
 import {
   type BySeatNumber,
   type ControlCommand,
-  type ControlCommandPayload,
   type ControlCommandPreset,
   type ControlCommandSections,
   emptyControlCommandSections,
@@ -21,11 +20,13 @@ import {
   type RegisteredGameKey,
   RegisteredGameKeySchema,
 } from '@ks/gameplay/definitions'
-import type { GameCreateStateArgs } from '@ks/gameplay/definitions'
+import type { GameCommandFor, GameCreateStateArgs } from '@ks/gameplay/definitions'
 import {
+  canonicalGameCommandPayload,
   type GameCommandRejection,
   GameCommandRejectionSchema,
   type GameplaySession,
+  parseGameCommand,
   type PreparedGameTransition,
 } from '@ks/gameplay/server'
 import { createGameplaySession } from '@ks/gameplay/server'
@@ -56,15 +57,19 @@ export type PreparedSparringMatchTransition = {
   readonly [PreparedSparringMatchTransitionBrand]: true
 }
 
+export type SparringGameCommand = {
+  [K in RegisteredGameKey]: {
+    readonly type: 'game.command'
+    readonly gameKey: K
+    readonly command: GameCommandFor<K>
+  }
+}[RegisteredGameKey]
+
 export type SparringMatchCommand =
   | { readonly type: 'frame.start' }
   | { readonly type: 'frame.commence'; readonly seat: Seat }
   | { readonly type: 'frame.concede'; readonly seat: Seat }
-  | {
-      readonly type: 'game.command'
-      readonly commandType: string
-      readonly command: ControlCommandPayload
-    }
+  | SparringGameCommand
 
 export type ParseSparringMatchCommandResult =
   | { readonly _tag: 'parsed'; readonly command: SparringMatchCommand }
@@ -155,6 +160,7 @@ export type SparringMatchRoomProjection = {
 }[RegisteredGameKey]
 
 export interface SparringMatchSession {
+  readonly gameKey: RegisteredGameKey
   readonly state: SparringMatchState
 
   decide(command: SparringMatchCommand): SparringMatchDecision
@@ -178,7 +184,7 @@ type PreparedSparringMatchTransitionRecord = {
   drafts: readonly [MatchFactDraft, ...MatchFactDraft[]]
   lifecycleEvents: readonly SparringMatchLifecycleEvent[]
   machineEvidence: PreparedLifecycleEvidence
-  gameplayTransition: PreparedGameTransition<RegisteredGameKey> | null
+  gameplayTransition: KeyedPreparedGameTransition | null
   createGameplayOnApply: GameplayCreateArgs | null
   disposeGameplayAfterApply: boolean
   consumed: boolean
@@ -186,13 +192,13 @@ type PreparedSparringMatchTransitionRecord = {
 
 type ReplayState = {
   snapshot: SparringMatchSnapshot
-  gameplay: GameplaySession<RegisteredGameKey> | null
+  gameplay: AnyCorrelatedGameplay | null
   pendingCompletion: FrameOutcome | null
 }
 
 type SessionRuntime = {
   actor: SparringMatchActor
-  gameplay: GameplaySession<RegisteredGameKey> | null
+  gameplay: AnyCorrelatedGameplay | null
 }
 
 const preparedSparringTransitionRecords = new WeakMap<object, PreparedSparringMatchTransitionRecord>()
@@ -236,9 +242,112 @@ function parseRegisteredGameKeyForReplay(gameKey: string): RegisteredGameKey {
   return parsed.output
 }
 
-function disposeReplayGameplay(replay: ReplayState): void {
-  replay.gameplay?.dispose()
-  replay.gameplay = null
+type CorrelatedGameplay<K extends RegisteredGameKey> = {
+  readonly key: K
+  readonly session: GameplaySession<K>
+}
+
+type AnyCorrelatedGameplay = {
+  [K in RegisteredGameKey]: CorrelatedGameplay<K>
+}[RegisteredGameKey]
+
+type KeyedPreparedGameTransition = {
+  [K in RegisteredGameKey]: {
+    readonly gameKey: K
+    readonly transition: PreparedGameTransition<K>
+  }
+}[RegisteredGameKey]
+
+function wrapGameplaySession<K extends RegisteredGameKey>(key: K, session: GameplaySession<K>): CorrelatedGameplay<K> {
+  return { key, session }
+}
+
+function createCorrelatedGameplay(gameKey: RegisteredGameKey, args: GameplayCreateArgs): AnyCorrelatedGameplay {
+  switch (gameKey) {
+    case 'strila-v2':
+      return wrapGameplaySession('strila-v2', createGameplaySession('strila-v2', args))
+    case 'free-pyramid':
+      return wrapGameplaySession('free-pyramid', createGameplaySession('free-pyramid', args))
+    case 'free-pyramid-long':
+      return wrapGameplaySession('free-pyramid-long', createGameplaySession('free-pyramid-long', args))
+    case 'combined-pyramid':
+      return wrapGameplaySession('combined-pyramid', createGameplaySession('combined-pyramid', args))
+    case 'combined-pyramid-old':
+      return wrapGameplaySession('combined-pyramid-old', createGameplaySession('combined-pyramid-old', args))
+  }
+}
+
+function requireCorrelatedGameplay<K extends RegisteredGameKey>(
+  key: K,
+  gameplay: AnyCorrelatedGameplay | null,
+): CorrelatedGameplay<K> {
+  if (!gameplay) throw new Error('Missing gameplay session')
+  if (gameplay.key !== key) {
+    throw new Error(`Gameplay session key mismatch: expected ${key}, received ${gameplay.key}`)
+  }
+  // SAFETY: gameplay.key was checked against key.
+  return gameplay as CorrelatedGameplay<K>
+}
+
+function requireCorrelatedGameCommand<K extends RegisteredGameKey>(
+  key: K,
+  envelope: SparringGameCommand,
+): Extract<SparringGameCommand, { gameKey: K }> {
+  if (envelope.gameKey !== key) {
+    throw new Error(`Game command key mismatch: expected ${key}, received ${envelope.gameKey}`)
+  }
+  // SAFETY: envelope.gameKey was checked against key.
+  return envelope as Extract<SparringGameCommand, { gameKey: K }>
+}
+
+function keyedPreparedTransition<K extends RegisteredGameKey>(
+  key: K,
+  transition: PreparedGameTransition<K>,
+): KeyedPreparedGameTransition {
+  // SAFETY: key and transition are correlated at every call site; the pair is one branch of KeyedPreparedGameTransition.
+  return { gameKey: key, transition } as KeyedPreparedGameTransition
+}
+
+function applyPreparedTransitionForKey<K extends RegisteredGameKey>(
+  key: K,
+  gameplay: AnyCorrelatedGameplay,
+  keyed: KeyedPreparedGameTransition,
+): void {
+  if (gameplay.key !== key || keyed.gameKey !== key) {
+    throw new Error(`Prepared gameplay transition key mismatch: expected ${String(key)}`)
+  }
+  // SAFETY: gameplay.key equals key, so session matches the keyed gameplay variant.
+  const session = gameplay.session as GameplaySession<K>
+  // SAFETY: keyed.gameKey equals key, so transition matches the keyed gameplay variant.
+  const transition = keyed.transition as PreparedGameTransition<K>
+  session.applyCommitted(transition)
+}
+
+function applyKeyedPreparedTransition(gameplay: AnyCorrelatedGameplay, keyed: KeyedPreparedGameTransition): void {
+  if (gameplay.key !== keyed.gameKey) {
+    throw new Error(`Prepared gameplay transition key mismatch: expected ${gameplay.key}, received ${keyed.gameKey}`)
+  }
+  switch (gameplay.key) {
+    case 'strila-v2':
+      applyPreparedTransitionForKey('strila-v2', gameplay, keyed)
+      return
+    case 'free-pyramid':
+      applyPreparedTransitionForKey('free-pyramid', gameplay, keyed)
+      return
+    case 'free-pyramid-long':
+      applyPreparedTransitionForKey('free-pyramid-long', gameplay, keyed)
+      return
+    case 'combined-pyramid':
+      applyPreparedTransitionForKey('combined-pyramid', gameplay, keyed)
+      return
+    case 'combined-pyramid-old':
+      applyPreparedTransitionForKey('combined-pyramid-old', gameplay, keyed)
+      return
+  }
+}
+
+function disposeCorrelatedGameplay(gameplay: AnyCorrelatedGameplay | null): void {
+  gameplay?.session.dispose()
 }
 
 function winsAfterOutcome(framesWonBySeat: BySeatNumber, outcome: FrameOutcome): BySeatNumber {
@@ -263,6 +372,11 @@ function gameplayArgsFromFrameStarted(
   return args
 }
 
+function disposeReplayGameplay(replay: ReplayState): void {
+  disposeCorrelatedGameplay(replay.gameplay)
+  replay.gameplay = null
+}
+
 function gameplayArgsFromConfig(config: MatchConfig, breakerSeat: Seat): GameCreateStateArgs {
   const args: GameCreateStateArgs = {
     targetPointsBySeat: config.targets.frameTargetPointsBySeat,
@@ -272,23 +386,18 @@ function gameplayArgsFromConfig(config: MatchConfig, breakerSeat: Seat): GameCre
   return args
 }
 
-function activeGameFromSession(session: GameplaySession<RegisteredGameKey>): AnyActiveGameState {
-  switch (session.gameKey) {
+function activeGameFromSession(gameplay: AnyCorrelatedGameplay): AnyActiveGameState {
+  switch (gameplay.key) {
     case 'strila-v2':
-      // SAFETY: branch matches session.gameKey, so the session is the strila-v2 gameplay session.
-      return { gameKey: 'strila-v2', state: (session as GameplaySession<'strila-v2'>).state }
+      return { gameKey: 'strila-v2', state: gameplay.session.state }
     case 'free-pyramid':
-      // SAFETY: branch matches session.gameKey, so the session is the free-pyramid gameplay session.
-      return { gameKey: 'free-pyramid', state: (session as GameplaySession<'free-pyramid'>).state }
+      return { gameKey: 'free-pyramid', state: gameplay.session.state }
     case 'free-pyramid-long':
-      // SAFETY: branch matches session.gameKey, so the session is the free-pyramid-long gameplay session.
-      return { gameKey: 'free-pyramid-long', state: (session as GameplaySession<'free-pyramid-long'>).state }
+      return { gameKey: 'free-pyramid-long', state: gameplay.session.state }
     case 'combined-pyramid':
-      // SAFETY: branch matches session.gameKey, so the session is the combined-pyramid gameplay session.
-      return { gameKey: 'combined-pyramid', state: (session as GameplaySession<'combined-pyramid'>).state }
+      return { gameKey: 'combined-pyramid', state: gameplay.session.state }
     case 'combined-pyramid-old':
-      // SAFETY: branch matches session.gameKey, so the session is the combined-pyramid-old gameplay session.
-      return { gameKey: 'combined-pyramid-old', state: (session as GameplaySession<'combined-pyramid-old'>).state }
+      return { gameKey: 'combined-pyramid-old', state: gameplay.session.state }
   }
 }
 
@@ -481,7 +590,7 @@ function buildFramesFromLifecycle(replay: ReplayState): FrameState[] {
   }))
 
   if (lifecycle.phase === 'frame-in-progress' && replay.gameplay) {
-    const score = replay.gameplay.deriveSummary().score
+    const score = replay.gameplay.session.deriveSummary().score
     frames.push({
       frameIndex: lifecycle.activeFrame.frameIndex,
       pointsBySeat: score,
@@ -750,21 +859,30 @@ function applyReplayFact(replay: ReplayState, fact: StoredMatchFact, previousFac
           breakerSeat: fact.payload.breakerSeat,
         })
         const gameKey = parseRegisteredGameKey(fact.payload.gameKey)
-        replay.gameplay = createGameplaySession(gameKey, gameplayArgsFromFrameStarted(fact.payload))
+        replay.gameplay = createCorrelatedGameplay(gameKey, gameplayArgsFromFrameStarted(fact.payload))
         replay.pendingCompletion = null
         return
       }
       case 'game.command': {
         if (!replay.gameplay) throw new SparringMatchReplayError('Game command without active frame')
         validateGameCommandFact(fact, replay.snapshot)
-        const decision = replay.gameplay.decide(fact.payload.commandType, fact.payload.command)
+        const persistedGameKey = parseRegisteredGameKeyForReplay(fact.payload.gameKey)
+        const gameplay = requireCorrelatedGameplay(persistedGameKey, replay.gameplay)
+        const parsed = parseGameCommand(persistedGameKey, {
+          commandType: fact.payload.commandType,
+          command: fact.payload.command,
+        })
+        if (parsed._tag === 'game-command-parse-failure') {
+          throw new SparringMatchReplayError('Malformed persisted game command')
+        }
+        const decision = gameplay.session.decide(parsed.command)
         if (decision._tag === 'rejected') {
           throw new SparringMatchReplayError(`Replay rejected game command ${fact.payload.commandType}`)
         }
         if (JSON.stringify(decision.result.protocolEntries) !== JSON.stringify(fact.payload.protocolEntries)) {
           throw new SparringMatchReplayError('Stored game protocol entries do not match replayed command')
         }
-        replay.gameplay.applyCommitted(decision.transition)
+        gameplay.session.applyCommitted(decision.transition)
         replay.pendingCompletion = decision.result.outcome ?? null
         return
       }
@@ -777,7 +895,7 @@ function applyReplayFact(replay: ReplayState, fact: StoredMatchFact, previousFac
           replay.pendingCompletion = null
         } else {
           if (!replay.gameplay) throw new SparringMatchReplayError('Frame completed without active gameplay session')
-          const score = replay.gameplay.deriveSummary().score
+          const score = replay.gameplay.session.deriveSummary().score
           if (fact.payload.outcome.winReason !== 'conceded') {
             throw new SparringMatchReplayError('Unexpected frame completion without preceding game outcome')
           }
@@ -790,7 +908,7 @@ function applyReplayFact(replay: ReplayState, fact: StoredMatchFact, previousFac
           frameIndex: fact.payload.frameIndex,
           outcome: fact.payload.outcome,
         })
-        replay.gameplay?.dispose()
+        replay.gameplay?.session.dispose()
         replay.gameplay = null
         return
       }
@@ -877,13 +995,15 @@ function runtimeReplayState(runtime: SessionRuntime): ReplayState {
 }
 
 class ConcreteSparringMatchSession implements SparringMatchSession {
+  readonly gameKey: RegisteredGameKey
   private readonly ownerId = Symbol('sparring-match-session')
   private runtime: SessionRuntime
   private revision = 0
   private disposed = false
   private unusable = false
 
-  private constructor(runtime: SessionRuntime) {
+  private constructor(runtime: SessionRuntime, gameKey: RegisteredGameKey) {
+    this.gameKey = gameKey
     activeSparringSessionOwners.add(this.ownerId)
     this.runtime = runtime
   }
@@ -909,7 +1029,7 @@ class ConcreteSparringMatchSession implements SparringMatchSession {
       case 'frame.concede':
         return this.decideFrameConcede(lifecycle, command.seat)
       case 'game.command':
-        return this.decideGameCommand(lifecycle, command.commandType, command.command)
+        return this.decideGameCommand(lifecycle, command)
     }
   }
 
@@ -970,7 +1090,7 @@ class ConcreteSparringMatchSession implements SparringMatchSession {
         if (!this.runtime.gameplay) {
           throw new InvalidSparringPreparedTransitionError('Missing gameplay session for prepared game transition')
         }
-        this.runtime.gameplay.applyCommitted(record.gameplayTransition)
+        applyKeyedPreparedTransition(this.runtime.gameplay, record.gameplayTransition)
       }
 
       for (const event of record.lifecycleEvents) {
@@ -985,17 +1105,17 @@ class ConcreteSparringMatchSession implements SparringMatchSession {
       if (record.createGameplayOnApply) {
         const lifecycle = projectLifecycleState(this.runtime.actor.getSnapshot())
         const gameKey = parseRegisteredGameKey(lifecycle.config.gameKey)
-        this.runtime.gameplay = createGameplaySession(gameKey, record.createGameplayOnApply)
+        this.runtime.gameplay = createCorrelatedGameplay(gameKey, record.createGameplayOnApply)
       }
 
       if (record.disposeGameplayAfterApply) {
-        this.runtime.gameplay?.dispose()
+        disposeCorrelatedGameplay(this.runtime.gameplay)
         this.runtime.gameplay = null
       }
     } catch (error) {
       if (!this.unusable) {
         this.unusable = true
-        this.runtime.gameplay?.dispose()
+        disposeCorrelatedGameplay(this.runtime.gameplay)
         this.runtime.gameplay = null
         this.runtime.actor.stop()
         activeSparringSessionOwners.delete(this.ownerId)
@@ -1013,17 +1133,17 @@ class ConcreteSparringMatchSession implements SparringMatchSession {
     const gameKey = parseRegisteredGameKey(state.config.gameKey)
     const snapshotBase = snapshotBaseFromState(state, latestSeq)
     const matchControls = deriveMatchControlSections(state)
-    const gameControls = this.runtime.gameplay?.deriveControl()
+    const gameControls = this.runtime.gameplay?.session.deriveControl()
     const controlSections = mergeControlCommandSections(matchControls, gameControls?.details.commandSections)
 
-    return projectRoom(gameKey, snapshotBase, this.runtime.gameplay, controlSections)
+    return projectRoom(gameKey, snapshotBase, this.runtime.gameplay?.session ?? null, controlSections)
   }
 
   dispose(): void {
     if (this.disposed) return
     this.disposed = true
     this.unusable = true
-    this.runtime.gameplay?.dispose()
+    disposeCorrelatedGameplay(this.runtime.gameplay)
     this.runtime.gameplay = null
     this.runtime.actor.stop()
     activeSparringSessionOwners.delete(this.ownerId)
@@ -1074,7 +1194,10 @@ class ConcreteSparringMatchSession implements SparringMatchSession {
       return { _tag: 'rejected', reason: { code: 'wrong-breaker', expectedSeat: activeFrame.breakerSeat } }
     }
 
-    const decision = this.runtime.gameplay.decide('frame.commence', { seat })
+    const gameKey = parseRegisteredGameKey(lifecycle.config.gameKey)
+    const gameplay = requireCorrelatedGameplay(gameKey, this.runtime.gameplay)
+    const gameplayCommand = { type: 'frame.commence', seat } as const
+    const decision = gameplay.session.decide(gameplayCommand)
     if (decision._tag === 'rejected') {
       return { _tag: 'rejected', reason: { code: 'game-command-rejected', reason: decision.reason } }
     }
@@ -1084,8 +1207,8 @@ class ConcreteSparringMatchSession implements SparringMatchSession {
       payload: {
         frameIndex: activeFrame.frameIndex,
         gameKey: lifecycle.config.gameKey,
-        commandType: 'frame.commence',
-        command: { seat },
+        commandType: gameplayCommand.type,
+        command: canonicalGameCommandPayload(gameplayCommand),
         protocolEntries: [...decision.result.protocolEntries],
       },
     } satisfies MatchFactDraft
@@ -1098,7 +1221,7 @@ class ConcreteSparringMatchSession implements SparringMatchSession {
       drafts: [draft],
       lifecycleEvents,
       machineEvidence: createPreparedLifecycleEvidence(previousSnapshot, lifecycleEvents),
-      gameplayTransition: decision.transition,
+      gameplayTransition: keyedPreparedTransition(gameKey, decision.transition),
       createGameplayOnApply: null,
       disposeGameplayAfterApply: false,
     })
@@ -1112,7 +1235,9 @@ class ConcreteSparringMatchSession implements SparringMatchSession {
     }
 
     const { activeFrame, config, framesWonBySeat } = lifecycle
-    const score = this.runtime.gameplay.deriveSummary().score
+    const gameKey = parseRegisteredGameKey(lifecycle.config.gameKey)
+    const gameplay = requireCorrelatedGameplay(gameKey, this.runtime.gameplay)
+    const score = gameplay.session.deriveSummary().score
     const outcome: FrameOutcome = {
       winnerSeat: opponentOf(seat),
       score,
@@ -1149,14 +1274,16 @@ class ConcreteSparringMatchSession implements SparringMatchSession {
 
   private decideGameCommand(
     lifecycle: ReturnType<typeof projectLifecycleState>,
-    commandType: string,
-    command: ControlCommandPayload,
+    envelope: SparringGameCommand,
   ): SparringMatchDecision {
     if (lifecycle.phase !== 'frame-in-progress' || !this.runtime.gameplay) {
       return { _tag: 'rejected', reason: { code: 'no-active-frame' } }
     }
 
-    const decision = this.runtime.gameplay.decide(commandType, command)
+    const gameKey = parseRegisteredGameKey(lifecycle.config.gameKey)
+    const gameplay = requireCorrelatedGameplay(gameKey, this.runtime.gameplay)
+    const correlatedCommand = requireCorrelatedGameCommand(gameKey, envelope)
+    const decision = gameplay.session.decide(correlatedCommand.command)
     if (decision._tag === 'rejected') {
       return { _tag: 'rejected', reason: { code: 'game-command-rejected', reason: decision.reason } }
     }
@@ -1168,8 +1295,8 @@ class ConcreteSparringMatchSession implements SparringMatchSession {
         payload: {
           frameIndex: activeFrame.frameIndex,
           gameKey: config.gameKey,
-          commandType,
-          command,
+          commandType: correlatedCommand.command.type,
+          command: canonicalGameCommandPayload(correlatedCommand.command),
           protocolEntries: [...decision.result.protocolEntries],
         },
       },
@@ -1202,7 +1329,7 @@ class ConcreteSparringMatchSession implements SparringMatchSession {
       drafts: preparedDrafts,
       lifecycleEvents,
       machineEvidence: createPreparedLifecycleEvidence(previousSnapshot, lifecycleEvents),
-      gameplayTransition: decision.transition,
+      gameplayTransition: keyedPreparedTransition(gameKey, decision.transition),
       createGameplayOnApply: null,
       disposeGameplayAfterApply,
     })
@@ -1213,7 +1340,7 @@ class ConcreteSparringMatchSession implements SparringMatchSession {
   private invalidateAfterApplyFailure(message: string): never {
     if (!this.unusable) {
       this.unusable = true
-      this.runtime.gameplay?.dispose()
+      disposeCorrelatedGameplay(this.runtime.gameplay)
       this.runtime.gameplay = null
       this.runtime.actor.stop()
       activeSparringSessionOwners.delete(this.ownerId)
@@ -1227,27 +1354,46 @@ class ConcreteSparringMatchSession implements SparringMatchSession {
   }
 
   static fromConfig(config: MatchConfig): ConcreteSparringMatchSession {
-    return new ConcreteSparringMatchSession({
-      actor: createSparringMatchActor(config),
-      gameplay: null,
-    })
+    const gameKey = parseRegisteredGameKey(config.gameKey)
+    return new ConcreteSparringMatchSession(
+      {
+        actor: createSparringMatchActor(config),
+        gameplay: null,
+      },
+      gameKey,
+    )
   }
 
   static fromReplay(replay: ReplayState): ConcreteSparringMatchSession {
-    return new ConcreteSparringMatchSession({
-      actor: createSparringMatchActorFromSnapshot(replay.snapshot),
-      gameplay: replay.gameplay,
-    })
+    const gameKey = parseRegisteredGameKeyForReplay(projectLifecycleState(replay.snapshot).config.gameKey)
+    return new ConcreteSparringMatchSession(
+      {
+        actor: createSparringMatchActorFromSnapshot(replay.snapshot),
+        gameplay: replay.gameplay,
+      },
+      gameKey,
+    )
   }
 }
 
-export function parseSparringMatchCommand(command: ControlCommand): ParseSparringMatchCommandResult {
+export function parseSparringMatchCommand(
+  gameKey: RegisteredGameKey,
+  command: ControlCommand,
+): ParseSparringMatchCommandResult {
   if (command.source === 'match') {
     switch (command.commandType) {
-      case 'frame.start':
+      case 'frame.start': {
+        const parsed = v.safeParse(v.strictObject({}), command.command)
+        if (!parsed.success) {
+          return {
+            _tag: 'parse-failed',
+            reason: { code: 'unsupported-match-command', commandType: command.commandType },
+          }
+        }
         return { _tag: 'parsed', command: { type: 'frame.start' } }
+      }
       case 'frame.commence': {
-        const parsed = v.safeParse(v.object({ seat: SeatSchema }), command.command)
+        const parsed = v.safeParse(v.strictObject({ seat: SeatSchema }), command.command)
         if (!parsed.success) {
           return {
             _tag: 'parse-failed',
@@ -1257,7 +1403,7 @@ export function parseSparringMatchCommand(command: ControlCommand): ParseSparrin
         return { _tag: 'parsed', command: { type: 'frame.commence', seat: parsed.output.seat } }
       }
       case 'frame.concede': {
-        const parsed = v.safeParse(v.object({ seat: SeatSchema }), command.command)
+        const parsed = v.safeParse(v.strictObject({ seat: SeatSchema }), command.command)
         if (!parsed.success) {
           return {
             _tag: 'parse-failed',
@@ -1275,9 +1421,32 @@ export function parseSparringMatchCommand(command: ControlCommand): ParseSparrin
   }
 
   if (command.source === 'game') {
+    if (
+      command.commandType === 'frame.commence' ||
+      command.commandType === 'frame.start' ||
+      command.commandType === 'frame.concede'
+    ) {
+      return {
+        _tag: 'parse-failed',
+        reason: { code: 'unsupported-match-command', commandType: command.commandType },
+      }
+    }
+
+    const parsed = parseGameCommand(gameKey, { commandType: command.commandType, command: command.command })
+    if (parsed._tag === 'game-command-parse-failure') {
+      return {
+        _tag: 'parse-failed',
+        reason: { code: 'unsupported-match-command', commandType: command.commandType },
+      }
+    }
+
+    // SAFETY: parsed.command was produced by parseGameCommand for the same gameKey parameter.
     return {
       _tag: 'parsed',
-      command: { type: 'game.command', commandType: command.commandType, command: command.command },
+      command: { type: 'game.command', gameKey, command: parsed.command } as Extract<
+        SparringMatchCommand,
+        { type: 'game.command' }
+      >,
     }
   }
 
@@ -1307,6 +1476,5 @@ export function replaySparringMatch(facts: readonly [StoredMatchFact, ...StoredM
 }
 
 export function createSparringMatchSession(config: MatchConfig): SparringMatchSession {
-  parseRegisteredGameKey(config.gameKey)
   return ConcreteSparringMatchSession.fromConfig(config)
 }

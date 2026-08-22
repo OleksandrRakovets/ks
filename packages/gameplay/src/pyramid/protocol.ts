@@ -1,4 +1,4 @@
-import { IntegerSchema, ProtocolEntrySchema, SeatSchema } from '@ks/core'
+import { IntegerSchema, ProtocolEntrySchema } from '@ks/core'
 import * as v from 'valibot'
 
 import type { PyramidCommand } from './definitions'
@@ -86,10 +86,3 @@ export function projectPyramidProtocolEntries(args: {
       ]
   }
 }
-
-export const PyramidCommandPayloadSchemas = {
-  'frame.commence': v.object({ seat: SeatSchema }),
-  'pot.record': v.object({ seat: SeatSchema, points: IntegerSchema }),
-  'foul.commit': v.object({ seat: SeatSchema }),
-  'frame.award': v.object({ seat: SeatSchema }),
-} as const

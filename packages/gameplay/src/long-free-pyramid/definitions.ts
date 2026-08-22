@@ -1,15 +1,16 @@
 import { BySeatNumberSchema, ControlCommandSectionsSchema, IntegerSchema, SeatSchema } from '@ks/core'
 import * as v from 'valibot'
 
+import { FoulCommitCommandSchema, FrameAwardCommandSchema, FrameCommenceCommandSchema } from '../command-schemas'
 import { GameControlProjectionSchema, GameScoreboardProjectionSchema, GameSummaryProjectionSchema } from '../constants'
 
 const LongFreePyramidPotPointsSchema = v.picklist([1, 2, 3, 4])
 
 export const LongFreePyramidCommandSchema = v.variant('type', [
-  v.object({ type: v.literal('frame.commence'), seat: SeatSchema }),
-  v.object({ type: v.literal('pot.record'), seat: SeatSchema, points: LongFreePyramidPotPointsSchema }),
-  v.object({ type: v.literal('foul.commit'), seat: SeatSchema }),
-  v.object({ type: v.literal('frame.award'), seat: SeatSchema }),
+  FrameCommenceCommandSchema,
+  v.strictObject({ type: v.literal('pot.record'), seat: SeatSchema, points: LongFreePyramidPotPointsSchema }),
+  FoulCommitCommandSchema,
+  FrameAwardCommandSchema,
 ])
 export type LongFreePyramidCommand = v.InferOutput<typeof LongFreePyramidCommandSchema>
 

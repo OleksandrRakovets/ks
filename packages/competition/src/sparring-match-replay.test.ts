@@ -94,8 +94,8 @@ function buildValidTerminalJournal(config = makeConfig()): [StoredMatchFact, ...
     for (const command of [
       { type: 'frame.start' },
       { type: 'frame.commence', seat: 'A' as const },
-      { type: 'game.command', commandType: 'pot.record', command: { seat: 'A' as const, points: 2 } },
-      { type: 'game.command', commandType: 'frame.award', command: { seat: 'A' as const } },
+      { type: 'game.command', gameKey: 'free-pyramid', command: { type: 'pot.record', seat: 'A' as const, points: 2 } },
+      { type: 'game.command', gameKey: 'free-pyramid', command: { type: 'frame.award', seat: 'A' as const } },
     ] satisfies SparringMatchCommand[]) {
       journal.push(...acceptWarm(session, command, seq, newCommandId(), occurredAt))
       seq = journal.at(-1)!.seq + 1
@@ -213,7 +213,7 @@ describe('sparring match replay corruption', () => {
       journal.push(
         ...acceptWarm(
           session,
-          { type: 'game.command', commandType: 'pot.record', command: { seat: 'A', points: 2 } },
+          { type: 'game.command', gameKey: 'free-pyramid', command: { type: 'pot.record', seat: 'A', points: 2 } },
           seq,
           newCommandId(),
           occurredAt,
@@ -227,9 +227,9 @@ describe('sparring match replay corruption', () => {
       const restored = restoreSparringMatchSession(nonemptyStoredFacts(journal))
       try {
         expect(restored.state).toEqual(cold)
-        expect(restored.decide({ type: 'game.command', commandType: 'frame.award', command: { seat: 'A' } })._tag).toBe(
-          'accepted',
-        )
+        expect(
+          restored.decide({ type: 'game.command', gameKey: 'free-pyramid', command: { type: 'frame.award', seat: 'A' } })._tag,
+        ).toBe('accepted')
       } finally {
         restored.dispose()
       }
@@ -299,6 +299,37 @@ describe('sparring match replay corruption', () => {
       copy[terminalIndex] = { ...terminal, payload: { winnerSeat: 'B' } }
       return copy
     }, 'Terminal winner')
+  })
+
+  test('rejects malformed persisted game commands and payload type', () => {
+    expectReplayError((facts) => {
+      const copy = [...facts]
+      const game = copy.find((fact) => fact.type === 'game.command')
+      if (!game || game.type !== 'game.command') throw new Error('missing game command')
+      copy[copy.indexOf(game)] = { ...game, payload: { ...game.payload, command: {} } }
+      return copy
+    }, 'Malformed persisted game command')
+
+    expectReplayError((facts) => {
+      const copy = [...facts]
+      const game = copy.find((fact) => fact.type === 'game.command')
+      if (!game || game.type !== 'game.command') throw new Error('missing game command')
+      copy[copy.indexOf(game)] = {
+        ...game,
+        payload: { ...game.payload, command: { type: 'pot.record', seat: 'A', points: 2 } },
+      }
+      return copy
+    }, 'Malformed persisted game command')
+  })
+
+  test('rejects persisted game key mismatch', () => {
+    expectReplayError((facts) => {
+      const copy = [...facts]
+      const game = copy.find((fact) => fact.type === 'game.command')
+      if (!game || game.type !== 'game.command') throw new Error('missing game command')
+      copy[copy.indexOf(game)] = { ...game, payload: { ...game.payload, gameKey: 'strila-v2' } }
+      return copy
+    }, 'game key mismatch')
   })
 
   test('rejects protocol mismatch and post-terminal facts', () => {

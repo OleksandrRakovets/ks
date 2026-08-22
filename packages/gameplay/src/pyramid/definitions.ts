@@ -1,14 +1,15 @@
 import { BySeatNumberSchema, ControlCommandSectionsSchema, IntegerSchema, NonEmptyStringSchema, SeatSchema } from '@ks/core'
 import * as v from 'valibot'
 
+import { FoulCommitCommandSchema, FrameAwardCommandSchema, FrameCommenceCommandSchema } from '../command-schemas'
 import { GameControlProjectionSchema, GameScoreboardProjectionSchema, GameSummaryProjectionSchema } from '../constants'
 import { type PyramidGameKey, PyramidRulesSchema } from './rules'
 
 export const PyramidCommandSchema = v.variant('type', [
-  v.object({ type: v.literal('frame.commence'), seat: SeatSchema }),
-  v.object({ type: v.literal('pot.record'), seat: SeatSchema, points: IntegerSchema }),
-  v.object({ type: v.literal('foul.commit'), seat: SeatSchema }),
-  v.object({ type: v.literal('frame.award'), seat: SeatSchema }),
+  FrameCommenceCommandSchema,
+  v.strictObject({ type: v.literal('pot.record'), seat: SeatSchema, points: IntegerSchema }),
+  FoulCommitCommandSchema,
+  FrameAwardCommandSchema,
 ])
 export type PyramidCommand = v.InferOutput<typeof PyramidCommandSchema>
 

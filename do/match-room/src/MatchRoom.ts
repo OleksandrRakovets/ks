@@ -128,19 +128,19 @@ export class MatchRoom extends DurableObject<Env> {
 
   async submitCommand(args: SubmitCommandBody): Promise<SubmitCommandResult> {
     await this.ready
-    const parsed = v.safeParse(SubmitCommandBodySchema, args)
-    if (!parsed.success) return { ok: false, error: 'invalid-command-body', status: 400 }
+    const body = v.safeParse(SubmitCommandBodySchema, args)
+    if (!body.success) return { ok: false, error: 'invalid-command-body', status: 400 }
 
-    return await this.ctx.blockConcurrencyWhile(async () => this.submitCommandLocked(parsed.output))
+    return await this.ctx.blockConcurrencyWhile(async () => this.submitCommandLocked(body.output))
   }
 
-  private submitCommandLocked(parsed: v.InferOutput<typeof SubmitCommandBodySchema>): SubmitCommandResult {
+  private submitCommandLocked(body: v.InferOutput<typeof SubmitCommandBodySchema>): SubmitCommandResult {
     if (this.deleted) return { ok: false, error: 'match-locked', status: 409 }
     const match = this.store.match()
-    if (!match || match.matchId !== parsed.matchId) return { ok: false, error: 'unknown-match', status: 400 }
+    if (!match || match.matchId !== body.matchId) return { ok: false, error: 'unknown-match', status: 400 }
 
-    const requestJson = canonicalCommandJson(parsed.command)
-    const previous = this.store.receipt(parsed.commandId)
+    const requestJson = canonicalCommandJson(body.command)
+    const previous = this.store.receipt(body.commandId)
     if (previous) {
       if (previous.requestJson !== requestJson) {
         return { ok: false, error: 'command-id-conflict', status: 409 }
@@ -153,25 +153,25 @@ export class MatchRoom extends DurableObject<Env> {
     }
 
     const resident = this.loadResident()
-    const parsedCommand = parseSparringMatchCommand(parsed.command)
-    if (parsedCommand._tag === 'parse-failed') {
+    const commandResult = parseSparringMatchCommand(resident.session.gameKey, body.command)
+    if (commandResult._tag === 'parse-failed') {
       return { ok: false, error: 'invalid-command-body', status: 400 }
     }
 
-    const decision = resident.session.decide(parsedCommand.command)
+    const decision = resident.session.decide(commandResult.command)
     if (decision._tag === 'rejected') {
       const outcome = this.store.commitRejected({
-        receipt: { commandId: parsed.commandId, requestJson },
+        receipt: { commandId: body.commandId, requestJson },
         reason: decision.reason,
       })
       return this.submitSuccess(outcome, match.status)
     }
 
     const occurredAt = nowUnixEpochMilliseconds()
-    const facts = this.envelopeDrafts(decision.facts, match.matchId, parsed.commandId, occurredAt)
+    const facts = this.envelopeDrafts(decision.facts, match.matchId, body.commandId, occurredAt)
     const committed = this.store.commitAccepted({
       facts: this.nonemptyFacts(facts),
-      receipt: { commandId: parsed.commandId, requestJson },
+      receipt: { commandId: body.commandId, requestJson },
     })
 
     try {

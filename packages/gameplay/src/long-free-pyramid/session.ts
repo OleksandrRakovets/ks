@@ -1,4 +1,4 @@
-import { type ControlCommandPayload, type FrameOutcome } from '@ks/core'
+import { type FrameOutcome } from '@ks/core'
 import invariant from 'tiny-invariant'
 import * as v from 'valibot'
 import { type Actor, createActor, transition } from 'xstate'
@@ -39,7 +39,7 @@ import {
 import { deriveLongFreePyramidControlView } from './projections/control'
 import { deriveLongFreePyramidScoreboardView } from './projections/scoreboard'
 import { deriveLongFreePyramidSummaryView } from './projections/summary'
-import { LongFreePyramidCommandPayloadSchemas, projectLongFreePyramidProtocolEntries } from './protocol'
+import { projectLongFreePyramidProtocolEntries } from './protocol'
 
 function serializeSnapshot(snapshot: LongFreePyramidSparringFrameSnapshot): LongFreePyramidFrameState {
   return v.parse(LongFreePyramidFrameStateSchema, {
@@ -77,25 +77,6 @@ function longFreePyramidOutcome(state: LongFreePyramidFrameState): FrameOutcome 
     score: totalScore(state.racks),
     winReason: 'target-reached',
   }
-}
-
-function isLongFreePyramidCommandPayloadType(
-  commandType: string,
-): commandType is keyof typeof LongFreePyramidCommandPayloadSchemas {
-  return commandType in LongFreePyramidCommandPayloadSchemas
-}
-
-function parseLongFreePyramidCommand(commandType: string, command: ControlCommandPayload): LongFreePyramidCommand | null {
-  if (!isLongFreePyramidCommandPayloadType(commandType)) {
-    const parsed = v.safeParse(LongFreePyramidCommandSchema, { type: commandType })
-    return parsed.success ? parsed.output : null
-  }
-
-  const payload = v.safeParse(v.looseObject({}), command)
-  if (!payload.success) return null
-
-  const parsed = v.safeParse(LongFreePyramidCommandSchema, { ...payload.output, type: commandType })
-  return parsed.success ? parsed.output : null
 }
 
 function createActorFromSnapshot(
@@ -147,24 +128,21 @@ class LongFreePyramidGameplaySession implements GameplaySession<'free-pyramid-lo
     return serializeSnapshot(this.actor.getSnapshot())
   }
 
-  decide(commandType: string, command: ControlCommandPayload): GameCommandDecision<'free-pyramid-long'> {
+  decide(command: LongFreePyramidCommand): GameCommandDecision<'free-pyramid-long'> {
     this.assertActive()
-
-    const parsed = parseLongFreePyramidCommand(commandType, command)
-    if (!parsed) return rejectedDecision()
 
     const previousSnapshot = this.actor.getSnapshot()
     const previousState = serializeSnapshot(previousSnapshot)
 
-    if (!previousSnapshot.can(parsed)) {
+    if (!previousSnapshot.can(command)) {
       return rejectedDecision()
     }
 
-    const [candidateSnapshot] = transition(LongFreePyramidSparringFrameMachine, previousSnapshot, parsed)
+    const [candidateSnapshot] = transition(LongFreePyramidSparringFrameMachine, previousSnapshot, command)
     const candidateState = serializeSnapshot(candidateSnapshot)
     const candidateResult = buildPreparedResult<'free-pyramid-long'>(
       candidateState,
-      projectLongFreePyramidProtocolEntries({ previous: previousState, command: parsed, next: candidateState }),
+      projectLongFreePyramidProtocolEntries({ previous: previousState, command, next: candidateState }),
       longFreePyramidOutcome(candidateState),
     )
 
@@ -173,7 +151,7 @@ class LongFreePyramidGameplaySession implements GameplaySession<'free-pyramid-lo
       ownerId: this.ownerId,
       revision: this.revision,
       previousState,
-      parsedEvent: parsed,
+      parsedEvent: command,
       candidateResult,
       machineEvidence: {
         previousSnapshot: previousSnapshot,

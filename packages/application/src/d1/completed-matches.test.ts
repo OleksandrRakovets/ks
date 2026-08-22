@@ -99,8 +99,8 @@ function buildValidTerminalJournal(config = makeConfig()): [StoredMatchFact, ...
     for (const command of [
       { type: 'frame.start' },
       { type: 'frame.commence', seat: 'A' as const },
-      { type: 'game.command', commandType: 'pot.record', command: { seat: 'A' as const, points: 2 } },
-      { type: 'game.command', commandType: 'frame.award', command: { seat: 'A' as const } },
+      { type: 'game.command', gameKey: 'free-pyramid', command: { type: 'pot.record', seat: 'A' as const, points: 2 } },
+      { type: 'game.command', gameKey: 'free-pyramid', command: { type: 'frame.award', seat: 'A' as const } },
     ] satisfies SparringMatchCommand[]) {
       journal.push(...acceptWarm(session, command, seq, newCommandId(), occurredAt))
       seq = journal.at(-1)!.seq + 1

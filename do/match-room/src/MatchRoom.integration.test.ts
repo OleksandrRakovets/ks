@@ -260,6 +260,42 @@ describe('MatchRoom integration', () => {
     expect(conflict).toEqual({ ok: false, error: 'command-id-conflict', status: 409 })
   })
 
+  test('returns invalid-command-body without a receipt for malformed frame.start payload', async () => {
+    const matchId = newMatchId()
+    const stub = env.MATCH_ROOM.getByName(matchId)
+    await stub.create(createBody(matchId))
+
+    const commandId = newCommandId()
+    const malformed = { source: 'match', commandType: 'frame.start', command: { extra: true } } satisfies ControlCommand
+    const result = await stub.submitCommand({ matchId, commandId, command: malformed })
+    expect(result).toEqual({ ok: false, error: 'invalid-command-body', status: 400 })
+
+    await runInDurableObject(stub, async (_instance, state) => {
+      expect(receiptExists(state, commandId)).toBe(false)
+    })
+
+    const facts = assertOk<ListFactsOk>(await stub.listFacts({ matchId }))
+    expect(facts.facts).toHaveLength(1)
+    expect(facts.facts[0]?.type).toBe('match.created')
+  })
+
+  test('returns invalid-command-body without a receipt for malformed game payloads', async () => {
+    const matchId = newMatchId()
+    const stub = env.MATCH_ROOM.getByName(matchId)
+    await stub.create(createBody(matchId))
+    await stub.submitCommand({ matchId, commandId: newCommandId(), command: frameStartCommand() })
+    await stub.submitCommand({ matchId, commandId: newCommandId(), command: frameCommenceCommand('A') })
+
+    const commandId = newCommandId()
+    const malformed = { source: 'game', commandType: 'pot.record', command: {} } satisfies ControlCommand
+    const result = await stub.submitCommand({ matchId, commandId, command: malformed })
+    expect(result).toEqual({ ok: false, error: 'invalid-command-body', status: 400 })
+
+    await runInDurableObject(stub, async (_instance, state) => {
+      expect(receiptExists(state, commandId)).toBe(false)
+    })
+  })
+
   test('returns invalid-command-body without a receipt for unsupported commands', async () => {
     const matchId = newMatchId()
     const stub = env.MATCH_ROOM.getByName(matchId)

@@ -1,4 +1,4 @@
-import { type ControlCommandPayload, type FrameOutcome } from '@ks/core'
+import { type FrameOutcome } from '@ks/core'
 import * as v from 'valibot'
 import { type Actor, createActor, transition } from 'xstate'
 
@@ -75,16 +75,6 @@ function strilaOutcome(state: StrilaFrameState): FrameOutcome | undefined {
   }
 }
 
-function parseStrilaCommand(commandType: string, command: ControlCommandPayload): StrilaCommand | null {
-  const payload = v.safeParse(v.looseObject({}), command)
-  if (!payload.success) {
-    const parsed = v.safeParse(StrilaCommandSchema, { type: commandType })
-    return parsed.success ? parsed.output : null
-  }
-  const parsed = v.safeParse(StrilaCommandSchema, { ...payload.output, type: commandType })
-  return parsed.success ? parsed.output : null
-}
-
 function isUnavailableBallPot(snapshot: StrilaSparringFrameSnapshot, event: StrilaCommand): boolean {
   if (event.type !== 'pot.record') return false
   for (const ball of event.pottedBalls) {
@@ -131,24 +121,21 @@ class StrilaGameplaySession implements GameplaySession<'strila-v2'> {
     return serializeSnapshot(this.actor.getSnapshot())
   }
 
-  decide(commandType: string, command: ControlCommandPayload): GameCommandDecision<'strila-v2'> {
+  decide(command: StrilaCommand): GameCommandDecision<'strila-v2'> {
     this.assertActive()
-
-    const parsed = parseStrilaCommand(commandType, command)
-    if (!parsed) return rejectedDecision()
 
     const previousSnapshot = this.actor.getSnapshot()
     const previousState = serializeSnapshot(previousSnapshot)
 
-    if (isUnavailableBallPot(previousSnapshot, parsed) || !previousSnapshot.can(parsed)) {
+    if (isUnavailableBallPot(previousSnapshot, command) || !previousSnapshot.can(command)) {
       return rejectedDecision()
     }
 
-    const [candidateSnapshot] = transition(StrilaSparringFrameMachine, previousSnapshot, parsed)
+    const [candidateSnapshot] = transition(StrilaSparringFrameMachine, previousSnapshot, command)
     const candidateState = serializeSnapshot(candidateSnapshot)
     const candidateResult = buildPreparedResult<'strila-v2'>(
       candidateState,
-      projectStrilaProtocolEntries({ previous: previousState, command: parsed, next: candidateState }),
+      projectStrilaProtocolEntries({ previous: previousState, command, next: candidateState }),
       strilaOutcome(candidateState),
     )
 
@@ -157,7 +144,7 @@ class StrilaGameplaySession implements GameplaySession<'strila-v2'> {
       ownerId: this.ownerId,
       revision: this.revision,
       previousState,
-      parsedEvent: parsed,
+      parsedEvent: command,
       candidateResult,
       machineEvidence: {
         previousSnapshot: previousSnapshot,

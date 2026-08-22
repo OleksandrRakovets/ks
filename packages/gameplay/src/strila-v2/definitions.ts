@@ -8,6 +8,7 @@ import {
 } from '@ks/core'
 import * as v from 'valibot'
 
+import { FoulCommitCommandSchema, FrameAwardCommandSchema, FrameCommenceCommandSchema } from '../command-schemas'
 import {
   GameControlCommandSchema,
   GameControlProjectionSchema,
@@ -48,12 +49,12 @@ export const StrilaMeta = {
 const FoulResponseChoiceSchema = v.picklist(['play-from-position', 'pass-position', 'ball-in-hand'])
 
 export const StrilaCommandSchema = v.variant('type', [
-  v.object({ type: v.literal('frame.commence'), seat: SeatSchema }),
-  v.object({ type: v.literal('pot.record'), seat: SeatSchema, pottedBalls: PottedBallsSchema }),
-  v.object({ type: v.literal('miss.record'), seat: SeatSchema }),
-  v.object({ type: v.literal('foul.commit'), seat: SeatSchema }),
-  v.object({ type: v.literal('penalty.select'), seat: SeatSchema, choice: FoulResponseChoiceSchema }),
-  v.object({ type: v.literal('frame.award'), seat: SeatSchema }),
+  FrameCommenceCommandSchema,
+  v.strictObject({ type: v.literal('pot.record'), seat: SeatSchema, pottedBalls: PottedBallsSchema }),
+  v.strictObject({ type: v.literal('miss.record'), seat: SeatSchema }),
+  FoulCommitCommandSchema,
+  v.strictObject({ type: v.literal('penalty.select'), seat: SeatSchema, choice: FoulResponseChoiceSchema }),
+  FrameAwardCommandSchema,
 ])
 export type StrilaCommand = v.InferOutput<typeof StrilaCommandSchema>
 
