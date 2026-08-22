@@ -332,8 +332,37 @@ export function sendLifecycleEvent(snapshot: SparringMatchSnapshot, event: Sparr
   return nextSnapshot
 }
 
+export function previewLifecycleEvents(
+  snapshot: SparringMatchSnapshot,
+  events: readonly SparringMatchLifecycleEvent[],
+): SparringMatchSnapshot {
+  let current = snapshot
+  for (const event of events) {
+    current = sendLifecycleEvent(current, event)
+  }
+  return current
+}
+
+export function sparringSnapshotsEqual(left: SparringMatchSnapshot, right: SparringMatchSnapshot): boolean {
+  if (left === right) return true
+  return (
+    left.status === right.status &&
+    JSON.stringify(left.value) === JSON.stringify(right.value) &&
+    JSON.stringify(left.context) === JSON.stringify(right.context)
+  )
+}
+
 export function createSparringMatchActor(config: MatchConfig): SparringMatchActor {
   const actor = createActor(SparringMatchMachine, { input: config })
+  actor.start()
+  return actor
+}
+
+export function createSparringMatchActorFromSnapshot(snapshot: SparringMatchSnapshot): SparringMatchActor {
+  const actor = createActor(SparringMatchMachine, {
+    snapshot,
+    input: snapshot.context.config,
+  })
   actor.start()
   return actor
 }

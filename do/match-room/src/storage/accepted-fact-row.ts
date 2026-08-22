@@ -1,54 +1,52 @@
 import {
-  ClientIdSchema,
+  CommandIdSchema,
   FactIdSchema,
   MatchIdSchema,
-  NonNegativeIntegerSchema,
   PositiveIntegerSchema,
-  type StoredFact,
-  StoredFactSchema,
+  type StoredMatchFact,
+  StoredMatchFactSchema,
   UnixEpochMillisecondsSchema,
 } from '@ks/core'
 import * as v from 'valibot'
 
 import * as schema from './schema'
 
-const AcceptedFactColumnsSchema = v.object({
+const StoredMatchFactColumnsSchema = v.object({
   seq: PositiveIntegerSchema,
   factId: FactIdSchema,
   matchId: MatchIdSchema,
   type: v.string(),
   payloadJson: v.pipe(v.string(), v.parseJson()),
-  clientId: ClientIdSchema,
-  clientSeq: NonNegativeIntegerSchema,
-  at: UnixEpochMillisecondsSchema,
+  occurredAt: UnixEpochMillisecondsSchema,
+  causedByCommandId: v.nullable(CommandIdSchema),
   receivedAt: UnixEpochMillisecondsSchema,
 })
 
-const StoredFactRowSchema = v.pipe(
-  AcceptedFactColumnsSchema,
-  v.transform(({ payloadJson, ...row }): v.InferInput<typeof StoredFactSchema> => {
-    // SAFETY: TypeScript cannot correlate the dynamic discriminator with decoded JSON; StoredFactSchema validates it next.
-    return { ...row, payload: payloadJson } as v.InferInput<typeof StoredFactSchema>
-  }),
-  StoredFactSchema,
-)
+export type StoredMatchFactRow = v.InferInput<typeof StoredMatchFactColumnsSchema>
 
-export type StoredFactRow = v.InferInput<typeof AcceptedFactColumnsSchema>
-
-export function decodeStoredFactRow(row: StoredFactRow): StoredFact {
-  return v.parse(StoredFactRowSchema, row)
+export function decodeStoredMatchFactRow(row: StoredMatchFactRow): StoredMatchFact {
+  const columns = v.parse(StoredMatchFactColumnsSchema, row)
+  return v.parse(StoredMatchFactSchema, {
+    seq: columns.seq,
+    factId: columns.factId,
+    matchId: columns.matchId,
+    type: columns.type,
+    payload: columns.payloadJson,
+    occurredAt: columns.occurredAt,
+    causedByCommandId: columns.causedByCommandId,
+    receivedAt: columns.receivedAt,
+  })
 }
 
-export function encodeStoredFactRow(fact: StoredFact): typeof schema.acceptedFacts.$inferSelect {
+export function encodeStoredMatchFactRow(fact: StoredMatchFact): typeof schema.acceptedFacts.$inferSelect {
   return {
     seq: fact.seq,
     factId: fact.factId,
     matchId: fact.matchId,
     type: fact.type,
     payloadJson: JSON.stringify(fact.payload),
-    clientId: fact.clientId,
-    clientSeq: fact.clientSeq,
-    at: fact.at,
+    occurredAt: fact.occurredAt,
+    causedByCommandId: fact.causedByCommandId,
     receivedAt: fact.receivedAt,
   }
 }

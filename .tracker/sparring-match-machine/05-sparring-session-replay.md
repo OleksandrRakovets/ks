@@ -26,7 +26,7 @@ export type MatchFact = MatchFactDraft & {
   readonly factId: FactId
   readonly matchId: MatchId
   readonly occurredAt: UnixEpochMilliseconds
-  readonly causedByCommandId?: CommandId
+  readonly causedByCommandId: CommandId | null
 }
 
 export type StoredMatchFact = MatchFact & {
@@ -40,7 +40,7 @@ export type AcceptedFactRef = {
 }
 ```
 
-Core schemas enforce matching creation IDs, syntactic `GameKeySchema`, non-empty game protocol entries, positive stored sequence, absent causation on `match.created`, and command causation on all other variants. Competition parses creation and replay game keys with `RegisteredGameKeySchema`; core never imports gameplay.
+Core schemas enforce matching creation IDs, syntactic `GameKeySchema`, non-empty game protocol entries, positive stored sequence, null causation on `match.created`, and command causation on all other variants. Competition parses creation and replay game keys with `RegisteredGameKeySchema`; core never imports gameplay.
 
 `causedByCommandId` groups every fact produced by one accepted command. Replay does not use it for domain transitions.
 

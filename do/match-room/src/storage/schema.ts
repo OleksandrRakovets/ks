@@ -1,4 +1,4 @@
-import type { ClientId, FactId, MatchId, UnixEpochMilliseconds } from '@ks/core'
+import type { CommandId, FactId, MatchId, UnixEpochMilliseconds } from '@ks/core'
 import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 export const activeMatches = sqliteTable('active_matches', {
@@ -19,9 +19,8 @@ export const acceptedFacts = sqliteTable('accepted_facts', {
     .references(() => activeMatches.matchId),
   type: text('type').notNull(),
   payloadJson: text('payload_json').notNull(),
-  clientId: text('client_id').$type<ClientId>().notNull(),
-  clientSeq: integer('client_seq').notNull(),
-  at: integer('at').$type<UnixEpochMilliseconds>().notNull(),
+  occurredAt: integer('occurred_at').$type<UnixEpochMilliseconds>().notNull(),
+  causedByCommandId: text('caused_by_command_id').$type<CommandId | null>(),
   receivedAt: integer('received_at').$type<UnixEpochMilliseconds>().notNull(),
 })
 

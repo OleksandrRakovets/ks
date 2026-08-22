@@ -1,9 +1,9 @@
 import {
   BySeatNumberSchema,
-  type ClientFact,
   FrameStateSchema,
   type GameConfiguration,
   MatchConfigSchema,
+  type MatchFact,
   type MatchSnapshot,
   opponentOf,
   type Seat,
@@ -57,7 +57,7 @@ function expectedBreakerSeat(config: NonNullable<MatchState['config']>, frameInd
   return frameIndex % 2 === 1 ? config.firstBreakerSeat : opponentOf(config.firstBreakerSeat)
 }
 
-export function applyMatchFact(prev: MatchState, fact: ClientFact): MatchState {
+export function applyMatchFact(prev: MatchState, fact: MatchFact): MatchState {
   if (fact.type === 'match.created') {
     assert(prev.status === 'empty', 'Cannot create an initialized match')
   } else {
@@ -128,9 +128,6 @@ export function applyMatchFact(prev: MatchState, fact: ClientFact): MatchState {
       state.framesWonBySeat[fact.payload.outcome.winnerSeat] += 1
       return state
     }
-    case 'frame.reopened': {
-      throw new Error('TODO: frame.reopened is reserved for undo controller')
-    }
     case 'match.ended': {
       assert(state.status === 'active', 'Cannot end match when not active')
       const config = requireConfig(state)
@@ -158,7 +155,7 @@ export function snapshotFromMatchState(state: MatchState, latestSeq: number): Ma
   }
 }
 
-export function deriveMatchState(facts: ClientFact[], baseState: MatchState = emptyMatchState()): MatchState {
+export function deriveMatchState(facts: MatchFact[], baseState: MatchState = emptyMatchState()): MatchState {
   let state = baseState
   for (const fact of facts) {
     state = applyMatchFact(state, fact)
@@ -167,7 +164,7 @@ export function deriveMatchState(facts: ClientFact[], baseState: MatchState = em
 }
 
 export function deriveMatchSnapshot(
-  facts: ClientFact[],
+  facts: MatchFact[],
   latestSeq: number,
   baseState: MatchState = emptyMatchState(),
 ): MatchSnapshot {

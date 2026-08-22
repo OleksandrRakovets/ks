@@ -1,6 +1,13 @@
 import { describe, expect, test } from 'bun:test'
 
-import { type ClientFact, ClientIdSchema, FactIdSchema, MatchIdSchema, type StoredFact, StoredFactSchema } from '@ks/core'
+import {
+  CommandIdSchema,
+  FactIdSchema,
+  type MatchFact,
+  MatchIdSchema,
+  type StoredMatchFact,
+  StoredMatchFactSchema,
+} from '@ks/core'
 import * as v from 'valibot'
 
 import {
@@ -12,19 +19,24 @@ import {
 } from './protocol'
 
 const matchId = v.parse(MatchIdSchema, '01ARZ3NDEKTSV4RRFFQ69G5FAV')
-const clientId = v.parse(ClientIdSchema, 'server0000')
+const commandId = v.parse(CommandIdSchema, '01ARZ3NDEKTSV4RRFFQ69G5FAD')
 
-function stored(seq: number, fact: Omit<ClientFact, 'at' | 'clientId' | 'clientSeq' | 'factId' | 'matchId'>): StoredFact {
-  return v.parse(StoredFactSchema, {
+function stored(
+  seq: number,
+  fact: Omit<MatchFact, 'factId' | 'matchId' | 'occurredAt' | 'causedByCommandId'> & {
+    causedByCommandId?: string | null
+  },
+): StoredMatchFact {
+  const envelope = {
     matchId,
-    clientId,
-    clientSeq: 0,
-    at: 1000 + seq,
+    occurredAt: 1000 + seq,
     factId: v.parse(FactIdSchema, `01ARZ3NDEKTSV4RRFFQ69G5FA${seq}`),
     receivedAt: 2000 + seq,
     seq,
     ...fact,
-  })
+    causedByCommandId: fact.type === 'match.created' ? null : (fact.causedByCommandId ?? commandId),
+  }
+  return v.parse(StoredMatchFactSchema, envelope)
 }
 
 describe('protocol reader', () => {

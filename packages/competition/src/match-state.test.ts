@@ -1,24 +1,26 @@
 import { describe, expect, test } from 'bun:test'
 
-import { type ClientFact, ClientFactSchema, type MatchConfig, newClientId, newFactId, newMatchId } from '@ks/core'
+import { type MatchConfig, type MatchFact, MatchFactSchema, newCommandId, newFactId, newMatchId } from '@ks/core'
 import * as v from 'valibot'
 
 import { applyMatchFact, deriveMatchState, deriveSparringControlSections, emptyMatchState, MatchStateSchema } from './index'
 
-function baseFact<TType extends ClientFact['type']>(
+const commandId = newCommandId()
+
+function baseFact<TType extends MatchFact['type']>(
   matchId: string,
   type: TType,
-  payload: Extract<ClientFact, { type: TType }>['payload'],
-): ClientFact {
-  return v.parse(ClientFactSchema, {
+  payload: Extract<MatchFact, { type: TType }>['payload'],
+): MatchFact {
+  const envelope = {
     factId: newFactId(),
     matchId,
-    clientId: newClientId(),
-    clientSeq: 1,
-    at: Date.now(),
+    occurredAt: Date.now(),
     type,
     payload,
-  })
+    causedByCommandId: type === 'match.created' ? null : commandId,
+  }
+  return v.parse(MatchFactSchema, envelope)
 }
 
 function makeConfig(matchTargetFrames = 3): MatchConfig {
@@ -34,7 +36,7 @@ function makeConfig(matchTargetFrames = 3): MatchConfig {
   }
 }
 
-function frameStarted(config: MatchConfig, frameIndex: number): ClientFact {
+function frameStarted(config: MatchConfig, frameIndex: number): MatchFact {
   return baseFact(config.matchId, 'frame.started', {
     frameIndex,
     gameKey: config.gameKey,
@@ -44,7 +46,7 @@ function frameStarted(config: MatchConfig, frameIndex: number): ClientFact {
   })
 }
 
-function frameCompleted(config: MatchConfig, frameIndex: number, winnerSeat: 'A' | 'B', score = { A: 8, B: 4 }): ClientFact {
+function frameCompleted(config: MatchConfig, frameIndex: number, winnerSeat: 'A' | 'B', score = { A: 8, B: 4 }): MatchFact {
   return baseFact(config.matchId, 'frame.completed', {
     frameIndex,
     gameKey: config.gameKey,
@@ -247,19 +249,6 @@ describe('match-state room facts', () => {
 
     expect(() => applyMatchFact(state, baseFact(config.matchId, 'match.ended', { winnerSeat: 'A' }))).toThrow(
       'Cannot end match before target',
-    )
-  })
-
-  test('frame.reopened is reserved until undo controller owns semantics', () => {
-    const config = makeConfig()
-    let state = emptyMatchState()
-
-    state = applyMatchFact(state, baseFact(config.matchId, 'match.created', config))
-    state = applyMatchFact(state, frameStarted(config, 1))
-    state = applyMatchFact(state, frameCompleted(config, 1, 'A'))
-
-    expect(() => applyMatchFact(state, baseFact(config.matchId, 'frame.reopened', { frameIndex: 1 }))).toThrow(
-      'TODO: frame.reopened is reserved for undo controller',
     )
   })
 })

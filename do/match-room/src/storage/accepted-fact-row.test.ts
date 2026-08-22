@@ -1,22 +1,20 @@
 import { describe, expect, test } from 'bun:test'
 
-import { ClientIdSchema, MatchIdSchema, newFactId, StoredFactSchema, UnixEpochMillisecondsSchema } from '@ks/core'
+import { CommandIdSchema, MatchIdSchema, newFactId, StoredMatchFactSchema, UnixEpochMillisecondsSchema } from '@ks/core'
 import * as v from 'valibot'
 
-import { decodeStoredFactRow, encodeStoredFactRow, type StoredFactRow } from './accepted-fact-row'
+import { decodeStoredMatchFactRow, encodeStoredMatchFactRow, type StoredMatchFactRow } from './accepted-fact-row'
 
 const matchId = v.parse(MatchIdSchema, '01ARZ3NDEKTSV4RRFFQ69G5FAV')
-const clientId = v.parse(ClientIdSchema, 'server0000')
-const at = v.parse(UnixEpochMillisecondsSchema, 1_700_000_000_000)
+const occurredAt = v.parse(UnixEpochMillisecondsSchema, 1_700_000_000_000)
 
-const fact = v.parse(StoredFactSchema, {
+const fact = v.parse(StoredMatchFactSchema, {
   seq: 1,
   factId: newFactId(),
   matchId,
-  clientId,
-  clientSeq: 0,
-  at,
-  receivedAt: at,
+  occurredAt,
+  receivedAt: occurredAt,
+  causedByCommandId: null,
   type: 'match.created',
   payload: {
     matchId,
@@ -26,20 +24,41 @@ const fact = v.parse(StoredFactSchema, {
   },
 })
 
-describe('accepted fact row codec', () => {
-  test('round-trips a representative StoredFact through encode and decode', () => {
-    const row = encodeStoredFactRow(fact)
-    expect(decodeStoredFactRow(row)).toEqual(fact)
+describe('stored match fact row codec', () => {
+  test('round-trips a representative StoredMatchFact through encode and decode', () => {
+    const row = encodeStoredMatchFactRow(fact)
+    expect(decodeStoredMatchFactRow(row)).toEqual(fact)
+  })
+
+  test('round-trips command causation for submitted-command facts', () => {
+    const commandId = v.parse(CommandIdSchema, '01ARZ3NDEKTSV4RRFFQ69G5FAD')
+    const commandFact = v.parse(StoredMatchFactSchema, {
+      seq: 2,
+      factId: newFactId(),
+      matchId,
+      occurredAt,
+      receivedAt: occurredAt,
+      causedByCommandId: commandId,
+      type: 'frame.started',
+      payload: {
+        frameIndex: 1,
+        gameKey: 'strila-v2',
+        targetPointsBySeat: { A: 9, B: 9 },
+        breakerSeat: 'A',
+      },
+    })
+    const row = encodeStoredMatchFactRow(commandFact)
+    expect(decodeStoredMatchFactRow(row)).toEqual(commandFact)
   })
 
   test.each([
-    ['invalid JSON', (row: StoredFactRow) => ({ ...row, payloadJson: '{' })],
+    ['invalid JSON', (row: StoredMatchFactRow) => ({ ...row, payloadJson: '{' })],
     [
       'invalid discriminator and payload pair',
-      (row: StoredFactRow) => ({ ...row, type: 'match.ended', payloadJson: JSON.stringify({ frameIndex: 1 }) }),
+      (row: StoredMatchFactRow) => ({ ...row, type: 'match.ended', payloadJson: JSON.stringify({ frameIndex: 1 }) }),
     ],
-    ['invalid scalar', (row: StoredFactRow) => ({ ...row, seq: 0 })],
+    ['invalid scalar', (row: StoredMatchFactRow) => ({ ...row, seq: 0 })],
   ])('rejects %s', (_label, corrupt) => {
-    expect(() => decodeStoredFactRow(corrupt(encodeStoredFactRow(fact)))).toThrow()
+    expect(() => decodeStoredMatchFactRow(corrupt(encodeStoredMatchFactRow(fact)))).toThrow()
   })
 })

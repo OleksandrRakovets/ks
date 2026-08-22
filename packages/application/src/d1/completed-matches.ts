@@ -1,5 +1,5 @@
 import { deriveMatchSnapshot } from '@ks/competition'
-import type { MatchId, StoredFact, UnixEpochMilliseconds } from '@ks/core'
+import type { MatchId, StoredMatchFact, UnixEpochMilliseconds } from '@ks/core'
 import { and, eq, inArray } from 'drizzle-orm'
 
 import { prepareProtocolRowsForArchive, PROTOCOL_ARCHIVE_VERSION } from '../protocol'
@@ -10,7 +10,7 @@ export type CompletedMatchArchiveInput = {
   matchId: MatchId
   sourceLatestSeq: number
   endedAt: UnixEpochMilliseconds
-  facts: StoredFact[]
+  facts: StoredMatchFact[]
 }
 
 export async function archiveCompletedMatch(db: ApplicationDatabase, input: CompletedMatchArchiveInput): Promise<void> {

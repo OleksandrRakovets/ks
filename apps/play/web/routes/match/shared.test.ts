@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { newClientId, newFactId, newMatchId, nowUnixEpochMilliseconds } from '@ks/core'
+import { newCommandId, newFactId, newMatchId, nowUnixEpochMilliseconds } from '@ks/core'
 
 import {
   type ControlLiveEvent,
@@ -81,18 +81,29 @@ class FakeEventSource {
   }
 }
 
-function factJson(matchId: ReturnType<typeof newMatchId>, seq: number, type: 'frame.reopened' | 'match.ended'): string {
+function factJson(matchId: ReturnType<typeof newMatchId>, seq: number, type: 'frame.started' | 'match.ended'): string {
+  const occurredAt = nowUnixEpochMilliseconds()
   const base = {
     factId: newFactId(),
     matchId,
-    clientId: newClientId(),
-    clientSeq: seq,
-    at: nowUnixEpochMilliseconds(),
+    occurredAt,
     seq,
-    receivedAt: nowUnixEpochMilliseconds(),
+    receivedAt: occurredAt,
+    causedByCommandId: newCommandId(),
   }
   return JSON.stringify(
-    type === 'match.ended' ? { ...base, type, payload: { winnerSeat: 'A' } } : { ...base, type, payload: { frameIndex: 1 } },
+    type === 'match.ended'
+      ? { ...base, type, payload: { winnerSeat: 'A' } }
+      : {
+          ...base,
+          type,
+          payload: {
+            frameIndex: 1,
+            gameKey: 'strila-v2',
+            targetPointsBySeat: { A: 9, B: 9 },
+            breakerSeat: 'A',
+          },
+        },
   )
 }
 
@@ -125,16 +136,16 @@ test('control subscription wires, parses, applies, and cleans up the production 
   expect(state.latestSeq).toBe(5)
   expect(revalidations).toBe(1)
 
-  source.emit('ev', new MessageEvent('ev', { data: factJson(matchId, 4, 'frame.reopened') }))
+  source.emit('ev', new MessageEvent('ev', { data: factJson(matchId, 4, 'frame.started') }))
   expect(state.latestSeq).toBe(5)
   expect(revalidations).toBe(1)
 
-  source.emit('ev', new MessageEvent('ev', { data: factJson(matchId, 6, 'frame.reopened') }))
+  source.emit('ev', new MessageEvent('ev', { data: factJson(matchId, 6, 'frame.started') }))
   expect(state.latestSeq).toBe(6)
   expect(revalidations).toBe(2)
 
   state = transitionControlLive(state, { type: 'accepted', seq: 8 }).state
-  source.emit('ev', new MessageEvent('ev', { data: factJson(matchId, 8, 'frame.reopened') }))
+  source.emit('ev', new MessageEvent('ev', { data: factJson(matchId, 8, 'frame.started') }))
   expect(state.latestSeq).toBe(8)
   expect(revalidations).toBe(2)
 

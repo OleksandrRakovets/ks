@@ -1,23 +1,23 @@
 import {
-  type AcceptedFact,
-  AcceptedFactSchema,
-  type ClientFact,
+  type AcceptedFactRef,
+  AcceptedFactRefSchema,
   type CommandId,
+  type MatchFact,
   type MatchId,
   nowUnixEpochMilliseconds,
-  type StoredFact,
-  StoredFactSchema,
+  type StoredMatchFact,
+  StoredMatchFactSchema,
   type UnixEpochMilliseconds,
 } from '@ks/core'
 import { asc, eq, gt } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/durable-sqlite'
 import * as v from 'valibot'
 
-import { decodeStoredFactRow, encodeStoredFactRow } from './accepted-fact-row'
+import { decodeStoredMatchFactRow, encodeStoredMatchFactRow } from './accepted-fact-row'
 import * as schema from './schema'
 
 export type ActiveMatchRecord = typeof schema.activeMatches.$inferSelect
-export type Receipt = { requestJson: string; accepted: AcceptedFact[] }
+export type Receipt = { requestJson: string; accepted: AcceptedFactRef[] }
 
 type Initialization = {
   matchId: MatchId
@@ -32,8 +32,8 @@ type CommitReceipt = {
 }
 
 type CommitResult = {
-  accepted: AcceptedFact[]
-  storedFacts: StoredFact[]
+  accepted: AcceptedFactRef[]
+  storedFacts: StoredMatchFact[]
 }
 
 export class ActiveMatchStore {
@@ -47,7 +47,7 @@ export class ActiveMatchStore {
     return this.db.select().from(schema.activeMatches).limit(1).all()[0] ?? null
   }
 
-  factsAfter(since: number): StoredFact[] {
+  factsAfter(since: number): StoredMatchFact[] {
     const rows = this.db
       .select()
       .from(schema.acceptedFacts)
@@ -56,14 +56,14 @@ export class ActiveMatchStore {
       .all()
     return rows.map((row) => {
       try {
-        return decodeStoredFactRow(row)
+        return decodeStoredMatchFactRow(row)
       } catch {
         throw new Error(`MatchRoom accepted_facts storage corruption at sequence ${String(row.seq)}`)
       }
     })
   }
 
-  factsForAccepted(accepted: AcceptedFact[]): StoredFact[] {
+  factsForAccepted(accepted: AcceptedFactRef[]): StoredMatchFact[] {
     if (accepted.length === 0) return []
     const firstSequence = accepted.reduce((lowest, { seq }) => Math.min(lowest, seq), Number.POSITIVE_INFINITY)
     return this.factsAfter(firstSequence - 1).slice(0, accepted.length)
@@ -78,14 +78,14 @@ export class ActiveMatchStore {
       .all()[0]
     if (!row) return null
     try {
-      const accepted = v.parse(v.pipe(v.string(), v.parseJson(), v.array(AcceptedFactSchema)), row.acceptedJson)
+      const accepted = v.parse(v.pipe(v.string(), v.parseJson(), v.array(AcceptedFactRefSchema)), row.acceptedJson)
       return { requestJson: row.requestJson, accepted }
     } catch {
       throw new Error(`MatchRoom command_receipts storage corruption for command ${commandId}`)
     }
   }
 
-  commitAccepted(args: { facts: ClientFact[]; receipt: CommitReceipt | null; initialization?: Initialization }): CommitResult {
+  commitAccepted(args: { facts: MatchFact[]; receipt: CommitReceipt | null; initialization?: Initialization }): CommitResult {
     const existingMatch = this.match()
     if (!existingMatch && !args.initialization) throw new Error('Unknown match')
     if (existingMatch && args.initialization) throw new Error('Match already exists')
@@ -97,7 +97,7 @@ export class ActiveMatchStore {
     let nextSequence = existingMatch?.latestSeq ?? 0
     const storedFacts = args.facts.map((fact) => {
       nextSequence += 1
-      return v.parse(StoredFactSchema, { ...fact, seq: nextSequence, receivedAt })
+      return v.parse(StoredMatchFactSchema, { ...fact, seq: nextSequence, receivedAt })
     })
 
     const accepted = storedFacts.map(({ seq, factId }) => ({ seq, factId }))
@@ -111,7 +111,7 @@ export class ActiveMatchStore {
       }
 
       for (const fact of storedFacts) {
-        transaction.insert(schema.acceptedFacts).values(encodeStoredFactRow(fact)).run()
+        transaction.insert(schema.acceptedFacts).values(encodeStoredMatchFactRow(fact)).run()
       }
 
       transaction

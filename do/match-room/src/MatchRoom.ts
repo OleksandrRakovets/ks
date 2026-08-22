@@ -1,16 +1,16 @@
 import { applyMatchFact, buildMatchConfig, emptyMatchState, type MatchState } from '@ks/competition'
 import {
-  type AcceptedFact,
-  type ClientFact,
-  ClientIdSchema,
+  type AcceptedFactRef,
   type CommandId,
   type ControlCommand,
   type MatchConfig,
+  type MatchFact,
+  newCommandId,
   newFactId,
   nowUnixEpochMilliseconds,
   opponentOf,
   SeatSchema,
-  type StoredFact,
+  type StoredMatchFact,
   type UnixEpochMilliseconds,
 } from '@ks/core'
 import { parseGameKey } from '@ks/gameplay/server'
@@ -45,7 +45,6 @@ type RoomState = { matchState: MatchState; currentFrame: AnyActiveGameState | nu
 type SnapshotResult = RoomSnapshotSuccess | { ok: false; error: string; status: number }
 const ConcedeFrameCommandSchema = v.object({ seat: SeatSchema })
 const CommenceFrameCommandSchema = v.object({ seat: SeatSchema })
-const ServerClientId = v.parse(ClientIdSchema, 'server0000')
 
 export class MatchRoom extends DurableObject<Env> {
   private readonly store: ActiveMatchStore
@@ -113,7 +112,7 @@ export class MatchRoom extends DurableObject<Env> {
   async facts(
     args: FactsBody,
   ): Promise<
-    | { ok: true; accepted: AcceptedFact[]; finalizing?: true }
+    | { ok: true; accepted: AcceptedFactRef[]; finalizing?: true }
     | { ok: false; error: 'invalid-facts-body' | 'unknown-match' | 'match-locked'; status: number }
   > {
     await this.ready
@@ -140,9 +139,9 @@ export class MatchRoom extends DurableObject<Env> {
       }
 
       const state = this.loadState()
-      let facts: ClientFact[] = []
+      let facts: MatchFact[] = []
       try {
-        facts = this.factsForCommand(state, parsed.output.command)
+        facts = this.factsForCommand(state, parsed.output.command, parsed.output.commandId)
       } catch {
         /* rejected gameplay intent produces no facts */
       }
@@ -170,7 +169,7 @@ export class MatchRoom extends DurableObject<Env> {
 
   async listFacts(
     args: SnapshotBody,
-  ): Promise<{ ok: true; facts: StoredFact[] } | { ok: false; error: string; status: number }> {
+  ): Promise<{ ok: true; facts: StoredMatchFact[] } | { ok: false; error: string; status: number }> {
     await this.ready
     const parsed = v.safeParse(SnapshotBodySchema, args)
     if (!parsed.success) return { ok: false, error: 'Invalid facts body', status: 400 }
@@ -186,7 +185,7 @@ export class MatchRoom extends DurableObject<Env> {
   async finalization(
     args: SnapshotBody,
   ): Promise<
-    | { ok: true; data: { sourceLatestSeq: number; endedAt: UnixEpochMilliseconds; facts: StoredFact[] } }
+    | { ok: true; data: { sourceLatestSeq: number; endedAt: UnixEpochMilliseconds; facts: StoredMatchFact[] } }
     | { ok: false; error: string; status: number }
   > {
     await this.ready
@@ -228,17 +227,22 @@ export class MatchRoom extends DurableObject<Env> {
     })
   }
 
-  private initialFacts(config: MatchConfig): ClientFact[] {
-    const base = {
-      matchId: config.matchId,
-      clientId: ServerClientId,
-      clientSeq: 0,
-      at: nowUnixEpochMilliseconds(),
-    }
-    const created: ClientFact = { ...base, factId: newFactId(), type: 'match.created', payload: config }
-    const started: ClientFact = {
-      ...base,
+  private initialFacts(config: MatchConfig): MatchFact[] {
+    const occurredAt = nowUnixEpochMilliseconds()
+    const initCommandId = newCommandId()
+    const created: MatchFact = {
       factId: newFactId(),
+      matchId: config.matchId,
+      occurredAt,
+      causedByCommandId: null,
+      type: 'match.created',
+      payload: config,
+    }
+    const started: MatchFact = {
+      factId: newFactId(),
+      matchId: config.matchId,
+      occurredAt,
+      causedByCommandId: initCommandId,
       type: 'frame.started',
       payload: {
         frameIndex: 1,
@@ -262,7 +266,7 @@ export class MatchRoom extends DurableObject<Env> {
   }
 
   private commitAccepted(
-    facts: ClientFact[],
+    facts: MatchFact[],
     receipt: { commandId: CommandId; requestJson: string } | null,
     initialization?: {
       matchId: MatchConfig['matchId']
@@ -270,7 +274,7 @@ export class MatchRoom extends DurableObject<Env> {
       configJson: string
       createdAt: UnixEpochMilliseconds
     },
-  ): { accepted: AcceptedFact[]; storedFacts: StoredFact[] } {
+  ): { accepted: AcceptedFactRef[]; storedFacts: StoredMatchFact[] } {
     const committed = initialization
       ? this.store.commitAccepted({ facts, receipt, initialization })
       : this.store.commitAccepted({ facts, receipt })
@@ -282,7 +286,7 @@ export class MatchRoom extends DurableObject<Env> {
     return committed
   }
 
-  private apply(room: RoomState, fact: ClientFact): RoomState {
+  private apply(room: RoomState, fact: MatchFact): RoomState {
     const matchState = applyMatchFact(structuredClone(room.matchState), fact)
     if (fact.type === 'frame.started') {
       const args = { targetPointsBySeat: fact.payload.targetPointsBySeat, breakerSeat: fact.payload.breakerSeat }
@@ -303,14 +307,14 @@ export class MatchRoom extends DurableObject<Env> {
     return { matchState, currentFrame: fact.type === 'frame.completed' ? null : room.currentFrame }
   }
 
-  private factsForCommand(room: RoomState, command: ControlCommand): ClientFact[] {
+  private factsForCommand(room: RoomState, command: ControlCommand, commandId: CommandId): MatchFact[] {
     const config = room.matchState.config
     if (!config) throw new Error('Missing match config')
+    const occurredAt = nowUnixEpochMilliseconds()
     const base = {
       matchId: config.matchId,
-      clientId: ServerClientId,
-      clientSeq: 0,
-      at: nowUnixEpochMilliseconds(),
+      occurredAt,
+      causedByCommandId: commandId,
     }
     if (command.source === 'match' && command.commandType === 'frame.start') {
       const frameIndex = room.matchState.currentFrameIndex + 1
@@ -358,7 +362,7 @@ export class MatchRoom extends DurableObject<Env> {
     }
     if (command.source === 'game') {
       const result = applyActiveGameCommand(room.currentFrame, command.commandType, command.command)
-      const game: ClientFact = {
+      const game: MatchFact = {
         ...base,
         factId: newFactId(),
         type: 'game.command',

@@ -10,7 +10,7 @@ import {
   ProtocolEntryTypeSchema,
   type Seat,
   SeatSchema,
-  type StoredFact,
+  type StoredMatchFact,
   type UnixEpochMilliseconds,
   UnixEpochMillisecondsSchema,
   UnknownObjectSchema,
@@ -62,7 +62,7 @@ export const ProtocolArchiveSchema = v.object({
 })
 
 type SeatNames = { A: string; B: string }
-type StoredGameCommandFact = Extract<StoredFact, { type: 'game.command' }>
+type StoredGameCommandFact = Extract<StoredMatchFact, { type: 'game.command' }>
 
 export type ProtocolRow = {
   key: string
@@ -208,7 +208,7 @@ function rowFromProtocolEntry(fact: StoredGameCommandFact, entry: ProtocolEntry)
   }
 }
 
-function lifecycleRowsForFact(fact: StoredFact, previous: StoredFact | undefined): ProtocolArchiveRowDraft[] {
+function lifecycleRowsForFact(fact: StoredMatchFact, previous: StoredMatchFact | undefined): ProtocolArchiveRowDraft[] {
   if (fact.type === 'frame.started') {
     return [
       {
@@ -254,7 +254,7 @@ function lifecycleRowsForFact(fact: StoredFact, previous: StoredFact | undefined
   return []
 }
 
-export function prepareProtocolRowsForArchive(facts: StoredFact[]): ProtocolArchiveRow[] {
+export function prepareProtocolRowsForArchive(facts: StoredMatchFact[]): ProtocolArchiveRow[] {
   const ordered = [...facts].sort((a, b) => a.seq - b.seq)
   const drafts = ordered.flatMap((fact, factIndex): ProtocolArchiveRowDraft[] => {
     if (fact.type === 'game.command') return fact.payload.protocolEntries.map((entry) => rowFromProtocolEntry(fact, entry))
@@ -286,6 +286,11 @@ export function renderProtocolRows(
   })
 }
 
-export function deriveProtocolRows(facts: StoredFact[], seatNames: SeatNames, timeZone: string, locale = 'en'): ProtocolRow[] {
+export function deriveProtocolRows(
+  facts: StoredMatchFact[],
+  seatNames: SeatNames,
+  timeZone: string,
+  locale = 'en',
+): ProtocolRow[] {
   return renderProtocolRows(prepareProtocolRowsForArchive(facts), seatNames, timeZone, locale)
 }

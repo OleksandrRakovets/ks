@@ -1,5 +1,12 @@
 import type { CreateMatchRequest, MatchSnapshotFor } from '@ks/competition'
-import type { CommandId, ControlCommand, ControlCommandSections, MatchId, StoredFact, UnixEpochMilliseconds } from '@ks/core'
+import type {
+  CommandId,
+  ControlCommand,
+  ControlCommandSections,
+  MatchId,
+  StoredMatchFact,
+  UnixEpochMilliseconds,
+} from '@ks/core'
 import type { ControlProjectionFor, RegisteredGameKey } from '@ks/gameplay/definitions'
 
 import type { CommandMatchResult, ReadMatchFailure } from './contracts'
@@ -12,7 +19,7 @@ export type MatchRoomCreateRequest = CreateMatchRequest & {
 export type MatchRoomFinalizationData = {
   sourceLatestSeq: number
   endedAt: UnixEpochMilliseconds
-  facts: StoredFact[]
+  facts: StoredMatchFact[]
 }
 type MatchRoomFailure = { ok: false; error: string; status: number }
 type MatchRoomCreateResult = { ok: true; matchId: MatchId } | MatchRoomFailure
@@ -33,7 +40,7 @@ type MatchRoomStub = {
   snapshot(args: { matchId: MatchId }): Promise<MatchRoomSnapshotResult>
   facts(args: { matchId: MatchId; commandId: CommandId; command: ControlCommand }): Promise<MatchRoomCommandResult>
   stream(args: { matchId: MatchId; since?: number }): Promise<Response>
-  listFacts(args: { matchId: MatchId }): Promise<{ ok: true; facts: StoredFact[] } | MatchRoomFailure>
+  listFacts(args: { matchId: MatchId }): Promise<{ ok: true; facts: StoredMatchFact[] } | MatchRoomFailure>
   finalization(args: { matchId: MatchId }): Promise<{ ok: true; data: MatchRoomFinalizationData } | MatchRoomFailure>
   disposeFinalized(args: { matchId: MatchId }): Promise<{ ok: true } | MatchRoomFailure>
 }
