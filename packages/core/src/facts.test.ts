@@ -4,13 +4,16 @@ import * as v from 'valibot'
 
 import {
   FrameCompletedFactSchema,
+  FrameStartedFactSchema,
   GameCommandFactSchema,
   MatchCreatedFactSchema,
   MatchEndedFactSchema,
+  MatchFactDraftSchema,
   MatchFactSchema,
   StoredMatchFactSchema,
 } from './facts'
 import { CommandIdSchema, FactIdSchema, MatchIdSchema } from './ids'
+import { UnixEpochMillisecondsSchema } from './time'
 
 const matchId = v.parse(MatchIdSchema, '01ARZ3NDEKTSV4RRFFQ69G5FAV')
 const otherMatchId = v.parse(MatchIdSchema, '01ARZ3NDEKTSV4RRFFQ69G5FAA')
@@ -59,7 +62,7 @@ describe('stored match fact identity', () => {
       v.safeParse(MatchCreatedFactSchema, {
         factId,
         matchId,
-        occurredAt: 1,
+        occurredAt: v.parse(UnixEpochMillisecondsSchema, 1),
         type: 'match.created',
         payload: matchConfig,
       }).success,
@@ -71,7 +74,7 @@ describe('stored match fact identity', () => {
       v.safeParse(MatchCreatedFactSchema, {
         factId,
         matchId,
-        occurredAt: 1,
+        occurredAt: v.parse(UnixEpochMillisecondsSchema, 1),
         causedByCommandId: commandId,
         type: 'match.created',
         payload: matchConfig,
@@ -84,7 +87,7 @@ describe('stored match fact identity', () => {
       v.safeParse(GameCommandFactSchema, {
         factId,
         matchId,
-        occurredAt: 1,
+        occurredAt: v.parse(UnixEpochMillisecondsSchema, 1),
         causedByCommandId: null,
         type: 'game.command',
         payload: {
@@ -103,7 +106,7 @@ describe('stored match fact identity', () => {
       v.safeParse(GameCommandFactSchema, {
         factId,
         matchId,
-        occurredAt: 1,
+        occurredAt: v.parse(UnixEpochMillisecondsSchema, 1),
         type: 'game.command',
         payload: {
           frameIndex: 1,
@@ -121,7 +124,7 @@ describe('stored match fact identity', () => {
       v.safeParse(MatchFactSchema, {
         factId,
         matchId,
-        occurredAt: 1,
+        occurredAt: v.parse(UnixEpochMillisecondsSchema, 1),
         causedByCommandId: commandId,
         type: 'game.command',
         payload: {
@@ -140,7 +143,19 @@ describe('stored match fact identity', () => {
   })
 
   test('accepts all submitted-command variants with causation', () => {
-    const base = { factId, matchId, occurredAt: 1, causedByCommandId: commandId }
+    const base = { factId, matchId, occurredAt: v.parse(UnixEpochMillisecondsSchema, 1), causedByCommandId: commandId }
+    expect(
+      v.safeParse(FrameStartedFactSchema, {
+        ...base,
+        type: 'frame.started',
+        payload: {
+          frameIndex: 1,
+          gameKey: 'free-pyramid',
+          targetPointsBySeat: { A: 8, B: 8 },
+          breakerSeat: 'A',
+        },
+      }).success,
+    ).toBe(true)
     expect(
       v.safeParse(FrameCompletedFactSchema, {
         ...base,
@@ -159,5 +174,60 @@ describe('stored match fact identity', () => {
         payload: { winnerSeat: 'A' },
       }).success,
     ).toBe(true)
+  })
+
+  test('accepts every match fact draft variant', () => {
+    expect(v.safeParse(MatchFactDraftSchema, { type: 'match.created', payload: matchConfig }).success).toBe(true)
+    expect(
+      v.safeParse(MatchFactDraftSchema, {
+        type: 'frame.started',
+        payload: {
+          frameIndex: 1,
+          gameKey: 'free-pyramid',
+          targetPointsBySeat: { A: 8, B: 8 },
+          breakerSeat: 'A',
+        },
+      }).success,
+    ).toBe(true)
+    expect(
+      v.safeParse(MatchFactDraftSchema, {
+        type: 'game.command',
+        payload: {
+          frameIndex: 1,
+          gameKey: 'free-pyramid',
+          commandType: 'frame.commence',
+          command: { seat: 'A' },
+          protocolEntries: [{ source: 'player', entryType: 'player-command', body: { commandType: 'frame.commence' } }],
+        },
+      }).success,
+    ).toBe(true)
+  })
+
+  test('omits removed client-authored envelope fields from parsed facts', () => {
+    const fact = v.parse(FrameStartedFactSchema, {
+      factId,
+      matchId,
+      occurredAt: v.parse(UnixEpochMillisecondsSchema, 1),
+      causedByCommandId: commandId,
+      clientId: 'legacy-client',
+      clientSeq: 1,
+      at: 1,
+      type: 'frame.started',
+      payload: {
+        frameIndex: 1,
+        gameKey: 'free-pyramid',
+        targetPointsBySeat: { A: 8, B: 8 },
+        breakerSeat: 'A',
+      },
+    })
+    expect(fact).not.toHaveProperty('clientId')
+    expect(fact).not.toHaveProperty('clientSeq')
+    expect(fact).not.toHaveProperty('at')
+  })
+
+  test('rejects malformed envelope scalars on stored facts', () => {
+    expect(v.safeParse(StoredMatchFactSchema, { ...storedMatchCreated(matchId, matchId), factId: 'bad-id' }).success).toBe(
+      false,
+    )
   })
 })

@@ -1,6 +1,6 @@
-import { MatchCreationDefinitionSchema, type MatchSnapshotFor } from '@ks/competition'
+import { MatchCreationDefinitionSchema, type MatchSnapshotFor, type SparringMatchRejection } from '@ks/competition'
 import type {
-  AcceptedFact,
+  AcceptedFactRef,
   CommandId,
   ControlCommand,
   ControlCommandSections,
@@ -15,6 +15,10 @@ import * as v from 'valibot'
 import type { ProtocolRow } from './protocol'
 
 export type { HydratedMatchParticipant, HydratedMatchParticipants } from '@ks/core'
+
+export type CommandReceiptOutcome =
+  | { readonly _tag: 'accepted'; readonly accepted: readonly AcceptedFactRef[] }
+  | { readonly _tag: 'rejected'; readonly reason: SparringMatchRejection }
 
 export const DisplayNameSchema = v.pipe(
   v.string(),
@@ -65,7 +69,9 @@ export type ReadMatchControlResult<K extends RegisteredGameKey> =
     }
   | ReadMatchFailure
 
-export type CommandMatchResult = { ok: true; accepted: AcceptedFact[] } | { ok: false; error: string; status: number }
+export type CommandMatchResult =
+  | { ok: true; outcome: CommandReceiptOutcome; finalizing?: true }
+  | { ok: false; error: string; status: number }
 
 export type ReadMatchProtocolResult<K extends RegisteredGameKey> =
   | {

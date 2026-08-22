@@ -93,6 +93,7 @@ export async function loadMatchProtocol<K extends RegisteredGameKey>(
 function commandErrorKey(error: string): ControlActionErrorKey {
   if (error === 'unknown-match' || error === 'Unknown match') return keys.match.control.unknownMatch
   if (error === 'match-locked') return keys.match.control.matchLocked
+  if (error === 'invalid-command-body' || error === 'command-id-conflict') return keys.match.control.invalidFactPayload
   return keys.match.control.invalidFactPayload
 }
 
@@ -115,11 +116,11 @@ export async function commandMatchAction<K extends RegisteredGameKey>(
     if (result.status >= 500) throw new Response(result.error, { status: result.status })
     return { ok: false, errorKey: commandErrorKey(result.error) }
   }
-  if (result.accepted.length === 0) return { ok: false, errorKey: keys.match.control.factRejectedByRules }
+  if (result.outcome._tag === 'rejected') return { ok: false, errorKey: keys.match.control.factRejectedByRules }
 
   return {
     ok: true,
-    acceptedSeqMax: result.accepted.reduce<number | null>(
+    acceptedSeqMax: result.outcome.accepted.reduce<number | null>(
       (max, entry) => (max == null ? entry.seq : Math.max(max, entry.seq)),
       null,
     ),

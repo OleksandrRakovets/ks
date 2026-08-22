@@ -3,7 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import { CommandIdSchema, MatchIdSchema, newFactId, StoredMatchFactSchema, UnixEpochMillisecondsSchema } from '@ks/core'
 import * as v from 'valibot'
 
-import { decodeStoredMatchFactRow, encodeStoredMatchFactRow, type StoredMatchFactRow } from './accepted-fact-row'
+import { decodeStoredMatchFactRow, encodeStoredMatchFactRow, type StoredMatchFactRow } from './stored-match-fact-row'
 
 const matchId = v.parse(MatchIdSchema, '01ARZ3NDEKTSV4RRFFQ69G5FAV')
 const occurredAt = v.parse(UnixEpochMillisecondsSchema, 1_700_000_000_000)

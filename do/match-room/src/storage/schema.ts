@@ -27,5 +27,5 @@ export const acceptedFacts = sqliteTable('accepted_facts', {
 export const commandReceipts = sqliteTable('command_receipts', {
   commandId: text('command_id').primaryKey(),
   requestJson: text('request_json').notNull(),
-  acceptedJson: text('accepted_json').notNull(),
+  outcomeJson: text('outcome_json').notNull(),
 })

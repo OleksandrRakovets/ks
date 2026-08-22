@@ -1,6 +1,5 @@
+import type { SparringMatchRejection } from '@ks/competition'
 import {
-  type AcceptedFactRef,
-  AcceptedFactRefSchema,
   type CommandId,
   type MatchFact,
   type MatchId,
@@ -13,27 +12,42 @@ import { asc, eq, gt } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/durable-sqlite'
 import * as v from 'valibot'
 
-import { decodeStoredMatchFactRow, encodeStoredMatchFactRow } from './accepted-fact-row'
+import {
+  type CommandReceipt,
+  type CommandReceiptOutcome,
+  decodeCommandReceiptRow,
+  encodeCommandReceiptOutcome,
+} from './command-receipt'
 import * as schema from './schema'
+import { decodeStoredMatchFactRow, encodeStoredMatchFactRow } from './stored-match-fact-row'
 
 export type ActiveMatchRecord = typeof schema.activeMatches.$inferSelect
-export type Receipt = { requestJson: string; accepted: AcceptedFactRef[] }
 
-type Initialization = {
-  matchId: MatchId
-  controlSecret: string
-  configJson: string
-  createdAt: UnixEpochMilliseconds
+export type ActiveMatchInitialization = {
+  readonly matchId: MatchId
+  readonly controlSecret: string
+  readonly configJson: string
+  readonly createdAt: UnixEpochMilliseconds
 }
 
 type CommitReceipt = {
-  commandId: CommandId
-  requestJson: string
+  readonly commandId: CommandId
+  readonly requestJson: string
 }
 
-type CommitResult = {
-  accepted: AcceptedFactRef[]
-  storedFacts: StoredMatchFact[]
+function assertCreationFact(fact: MatchFact, initialization: ActiveMatchInitialization): void {
+  if (fact.type !== 'match.created') throw new Error('Creation commit requires match.created')
+  if (fact.causedByCommandId !== null) throw new Error('Creation fact must not carry command causation')
+  if (fact.matchId !== initialization.matchId) throw new Error('Creation fact match ID mismatch')
+  if (fact.payload.matchId !== initialization.matchId) throw new Error('Creation payload match ID mismatch')
+}
+
+function assertCommandFacts(facts: readonly [MatchFact, ...MatchFact[]], matchId: MatchId, commandId: CommandId): void {
+  for (const fact of facts) {
+    if (fact.type === 'match.created') throw new Error('Command commit cannot include match.created')
+    if (fact.matchId !== matchId) throw new Error('Fact match ID mismatch')
+    if (fact.causedByCommandId !== commandId) throw new Error('Fact causation mismatch')
+  }
 }
 
 export class ActiveMatchStore {
@@ -63,13 +77,7 @@ export class ActiveMatchStore {
     })
   }
 
-  factsForAccepted(accepted: AcceptedFactRef[]): StoredMatchFact[] {
-    if (accepted.length === 0) return []
-    const firstSequence = accepted.reduce((lowest, { seq }) => Math.min(lowest, seq), Number.POSITIVE_INFINITY)
-    return this.factsAfter(firstSequence - 1).slice(0, accepted.length)
-  }
-
-  receipt(commandId: CommandId): Receipt | null {
+  receipt(commandId: CommandId): CommandReceipt | null {
     const row = this.db
       .select()
       .from(schema.commandReceipts)
@@ -77,39 +85,51 @@ export class ActiveMatchStore {
       .limit(1)
       .all()[0]
     if (!row) return null
-    try {
-      const accepted = v.parse(v.pipe(v.string(), v.parseJson(), v.array(AcceptedFactRefSchema)), row.acceptedJson)
-      return { requestJson: row.requestJson, accepted }
-    } catch {
-      throw new Error(`MatchRoom command_receipts storage corruption for command ${commandId}`)
-    }
+    return decodeCommandReceiptRow(row, commandId)
   }
 
-  commitAccepted(args: { facts: MatchFact[]; receipt: CommitReceipt | null; initialization?: Initialization }): CommitResult {
-    const existingMatch = this.match()
-    if (!existingMatch && !args.initialization) throw new Error('Unknown match')
-    if (existingMatch && args.initialization) throw new Error('Match already exists')
-
-    const matchId = existingMatch?.matchId ?? args.initialization?.matchId
-    if (!matchId) throw new Error('Missing match ID')
+  commitCreation(args: { readonly initialization: ActiveMatchInitialization; readonly fact: MatchFact }): StoredMatchFact {
+    if (this.match()) throw new Error('Match already exists')
+    assertCreationFact(args.fact, args.initialization)
 
     const receivedAt = nowUnixEpochMilliseconds()
-    let nextSequence = existingMatch?.latestSeq ?? 0
-    const storedFacts = args.facts.map((fact) => {
+    const storedFact = v.parse(StoredMatchFactSchema, { ...args.fact, seq: 1, receivedAt })
+
+    return this.db.transaction((transaction) => {
+      transaction
+        .insert(schema.activeMatches)
+        .values({ ...args.initialization, latestSeq: 1, status: 'active' })
+        .run()
+      transaction.insert(schema.acceptedFacts).values(encodeStoredMatchFactRow(storedFact)).run()
+      return storedFact
+    })
+  }
+
+  commitAccepted(args: { readonly facts: readonly [MatchFact, ...MatchFact[]]; readonly receipt: CommitReceipt }): {
+    readonly outcome: Extract<CommandReceiptOutcome, { _tag: 'accepted' }>
+    readonly storedFacts: readonly [StoredMatchFact, ...StoredMatchFact[]]
+  } {
+    const existingMatch = this.match()
+    if (!existingMatch || existingMatch.status !== 'active') throw new Error('Match is not active')
+    assertCommandFacts(args.facts, existingMatch.matchId, args.receipt.commandId)
+
+    const receivedAt = nowUnixEpochMilliseconds()
+    let nextSequence = existingMatch.latestSeq
+    const [head, ...tail] = args.facts
+    nextSequence += 1
+    const storedHead = v.parse(StoredMatchFactSchema, { ...head, seq: nextSequence, receivedAt })
+    const storedTail = tail.map((fact) => {
       nextSequence += 1
       return v.parse(StoredMatchFactSchema, { ...fact, seq: nextSequence, receivedAt })
     })
+    const storedFacts: [StoredMatchFact, ...StoredMatchFact[]] = [storedHead, ...storedTail]
 
-    const accepted = storedFacts.map(({ seq, factId }) => ({ seq, factId }))
+    const outcome: Extract<CommandReceiptOutcome, { _tag: 'accepted' }> = {
+      _tag: 'accepted',
+      accepted: storedFacts.map(({ seq, factId }) => ({ seq, factId })),
+    }
 
     return this.db.transaction((transaction) => {
-      if (args.initialization) {
-        transaction
-          .insert(schema.activeMatches)
-          .values({ ...args.initialization, latestSeq: 0, status: 'active' })
-          .run()
-      }
-
       for (const fact of storedFacts) {
         transaction.insert(schema.acceptedFacts).values(encodeStoredMatchFactRow(fact)).run()
       }
@@ -118,23 +138,46 @@ export class ActiveMatchStore {
         .update(schema.activeMatches)
         .set({
           latestSeq: nextSequence,
-          status: storedFacts.some((fact) => fact.type === 'match.ended') ? 'finalizing' : (existingMatch?.status ?? 'active'),
+          status: storedFacts.some((fact) => fact.type === 'match.ended') ? 'finalizing' : existingMatch.status,
         })
-        .where(eq(schema.activeMatches.matchId, matchId))
+        .where(eq(schema.activeMatches.matchId, existingMatch.matchId))
         .run()
 
-      if (args.receipt) {
-        transaction
-          .insert(schema.commandReceipts)
-          .values({
-            commandId: args.receipt.commandId,
-            requestJson: args.receipt.requestJson,
-            acceptedJson: JSON.stringify(accepted),
-          })
-          .run()
-      }
+      transaction
+        .insert(schema.commandReceipts)
+        .values({
+          commandId: args.receipt.commandId,
+          requestJson: args.receipt.requestJson,
+          outcomeJson: encodeCommandReceiptOutcome(outcome),
+        })
+        .run()
 
-      return { accepted, storedFacts }
+      return { outcome, storedFacts }
+    })
+  }
+
+  commitRejected(args: {
+    readonly receipt: CommitReceipt
+    readonly reason: SparringMatchRejection
+  }): Extract<CommandReceiptOutcome, { _tag: 'rejected' }> {
+    const existingMatch = this.match()
+    if (!existingMatch) throw new Error('Unknown match')
+
+    const outcome: Extract<CommandReceiptOutcome, { _tag: 'rejected' }> = {
+      _tag: 'rejected',
+      reason: args.reason,
+    }
+
+    return this.db.transaction((transaction) => {
+      transaction
+        .insert(schema.commandReceipts)
+        .values({
+          commandId: args.receipt.commandId,
+          requestJson: args.receipt.requestJson,
+          outcomeJson: encodeCommandReceiptOutcome(outcome),
+        })
+        .run()
+      return outcome
     })
   }
 }

@@ -6,7 +6,13 @@ import { createInitialGameState } from '@ks/gameplay/server'
 import * as v from 'valibot'
 
 import { type ActiveGameState, assembleRoomSnapshot, deriveActiveGameSummary } from './active-game'
-import { CreateBodySchema, FactsBodySchema, SnapshotBodySchema, StreamBodySchema } from './rpc-contract'
+import {
+  canonicalCommandJson,
+  CreateBodySchema,
+  SnapshotBodySchema,
+  StreamBodySchema,
+  SubmitCommandBodySchema,
+} from './rpc-contract'
 
 const matchId = '01ARZ3NDEKTSV4RRFFQ69G5FAV'
 const controlSecret = 'control-secret-1234567890'
@@ -73,10 +79,22 @@ describe('MatchRoom RPC request contract', () => {
     ).toBe(true)
   })
 
+  test('canonicalizes parsed commands with stable key order and distinct payloads', () => {
+    expect(canonicalCommandJson({ source: 'match', commandType: 'frame.start', command: {} })).toBe(
+      JSON.stringify({ source: 'match', commandType: 'frame.start', command: {} }),
+    )
+    expect(canonicalCommandJson({ source: 'match', commandType: 'frame.start', command: {} })).toBe(
+      canonicalCommandJson({ command: {}, commandType: 'frame.start', source: 'match' }),
+    )
+    expect(canonicalCommandJson({ source: 'match', commandType: 'match.end', command: {} })).not.toBe(
+      canonicalCommandJson({ source: 'match', commandType: 'frame.start', command: {} }),
+    )
+  })
+
   test('accepts commands without a control secret and rejects invalid IDs', () => {
     expect(v.safeParse(SnapshotBodySchema, { matchId }).success).toBe(true)
     expect(
-      v.safeParse(FactsBodySchema, {
+      v.safeParse(SubmitCommandBodySchema, {
         matchId,
         commandId: newCommandId(),
         command: { source: 'match', commandType: 'frame.start', command: {} },

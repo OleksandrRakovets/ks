@@ -9,7 +9,7 @@ import type {
 } from '@ks/core'
 import type { ControlProjectionFor, RegisteredGameKey } from '@ks/gameplay/definitions'
 
-import type { CommandMatchResult, ReadMatchFailure } from './contracts'
+import type { CommandMatchResult, CommandReceiptOutcome, ReadMatchFailure } from './contracts'
 
 export type MatchRoomCreateRequest = CreateMatchRequest & {
   matchId: MatchId
@@ -24,7 +24,7 @@ export type MatchRoomFinalizationData = {
 type MatchRoomFailure = { ok: false; error: string; status: number }
 type MatchRoomCreateResult = { ok: true; matchId: MatchId } | MatchRoomFailure
 type MatchRoomCommandResult =
-  | (Extract<CommandMatchResult, { ok: true }> & { finalizing?: true })
+  | { ok: true; outcome: CommandReceiptOutcome; finalizing?: true }
   | Extract<CommandMatchResult, { ok: false }>
 type MatchRoomSnapshotSuccess = {
   [K in RegisteredGameKey]: {

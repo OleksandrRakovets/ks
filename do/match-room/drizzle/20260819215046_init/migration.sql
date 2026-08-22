@@ -21,5 +21,5 @@ CREATE TABLE `accepted_facts` (
 CREATE TABLE `command_receipts` (
 	`command_id` text PRIMARY KEY,
 	`request_json` text NOT NULL,
-	`accepted_json` text NOT NULL
+	`outcome_json` text NOT NULL
 );

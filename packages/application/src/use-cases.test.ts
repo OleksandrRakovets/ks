@@ -559,7 +559,7 @@ describe('application orchestration', () => {
       snapshot: unused,
       async command(matchId: string, commandId: string, command: ControlCommand) {
         calls.push([matchId, commandId, command])
-        return { ok: true as const, accepted: [{ seq: 3, factId }] }
+        return { ok: true as const, outcome: { _tag: 'accepted' as const, accepted: [{ seq: 3, factId }] } }
       },
       facts: unused,
       stream: unused,
@@ -597,7 +597,10 @@ describe('application orchestration', () => {
     expect(calls).toEqual([])
     const result = await application.commandMatch(matchId, commandId, command, 'free-pyramid')
 
-    expect(result).toEqual({ ok: true, accepted: [{ seq: 3, factId }] })
+    expect(result).toEqual({
+      ok: true,
+      outcome: { _tag: 'accepted', accepted: [{ seq: 3, factId }] },
+    })
     expect(calls).toEqual([[matchId, commandId, command]])
   })
 
@@ -776,7 +779,7 @@ describe('application orchestration', () => {
             commandCalls += 1
             return {
               ok: true as const,
-              accepted: [{ seq: 9, factId }],
+              outcome: { _tag: 'accepted' as const, accepted: [{ seq: 9, factId }] },
               finalizing: true as const,
             }
           },

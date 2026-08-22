@@ -242,7 +242,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     const result = await dependencies.matchRoom.command(matchId, commandId, command)
     if (result.ok && result.finalizing) await archiveAndFinishRoom(matchId)
     if (!result.ok && result.error === 'match-locked') await archiveAndFinishRoom(matchId)
-    return result.ok ? { ok: true, accepted: result.accepted } : result
+    return result
   }
 
   async function readMatchProtocol<K extends RegisteredGameKey>(

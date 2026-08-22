@@ -1,15 +1,10 @@
 import { applyMatchFact, buildMatchConfig, emptyMatchState, type MatchState } from '@ks/competition'
 import {
-  type AcceptedFactRef,
   type CommandId,
-  type ControlCommand,
   type MatchConfig,
   type MatchFact,
-  newCommandId,
   newFactId,
   nowUnixEpochMilliseconds,
-  opponentOf,
-  SeatSchema,
   type StoredMatchFact,
   type UnixEpochMilliseconds,
 } from '@ks/core'
@@ -24,27 +19,28 @@ import {
   applyActiveGameCommand,
   assembleRoomSnapshot,
   createActiveGameState,
-  deriveActiveGameSummary,
   type RoomSnapshotSuccess,
 } from './active-game'
 import type { Env } from './env'
+import { legacyCommandFacts } from './legacy-command-facts'
 import { Broadcaster } from './live/broadcaster'
 import {
+  canonicalCommandJson,
   type CreateBody,
   CreateBodySchema,
-  type FactsBody,
-  FactsBodySchema,
   type SnapshotBody,
   SnapshotBodySchema,
   type StreamBody,
   StreamBodySchema,
+  type SubmitCommandBody,
+  SubmitCommandBodySchema,
+  type SubmitCommandResult,
 } from './rpc-contract'
+import type { CommandReceiptOutcome } from './storage/command-receipt'
 import { ActiveMatchStore } from './storage/store'
 
 type RoomState = { matchState: MatchState; currentFrame: AnyActiveGameState | null }
 type SnapshotResult = RoomSnapshotSuccess | { ok: false; error: string; status: number }
-const ConcedeFrameCommandSchema = v.object({ seat: SeatSchema })
-const CommenceFrameCommandSchema = v.object({ seat: SeatSchema })
 
 export class MatchRoom extends DurableObject<Env> {
   private readonly store: ActiveMatchStore
@@ -81,7 +77,7 @@ export class MatchRoom extends DurableObject<Env> {
           return { ok: false, error: 'Match already exists', status: 409 }
         }
       } else {
-        this.commitAccepted(this.initialFacts(config), null, {
+        this.commitCreation(config, {
           matchId: parsed.output.matchId,
           controlSecret: parsed.output.controlSecret,
           configJson,
@@ -109,47 +105,39 @@ export class MatchRoom extends DurableObject<Env> {
     return assembleRoomSnapshot(state.matchState, state.currentFrame, match.latestSeq)
   }
 
-  async facts(
-    args: FactsBody,
-  ): Promise<
-    | { ok: true; accepted: AcceptedFactRef[]; finalizing?: true }
-    | { ok: false; error: 'invalid-facts-body' | 'unknown-match' | 'match-locked'; status: number }
-  > {
+  async facts(args: SubmitCommandBody): Promise<SubmitCommandResult> {
     await this.ready
-    const parsed = v.safeParse(FactsBodySchema, args)
-    if (!parsed.success) return { ok: false, error: 'invalid-facts-body', status: 400 }
+    const parsed = v.safeParse(SubmitCommandBodySchema, args)
+    if (!parsed.success) return { ok: false, error: 'invalid-command-body', status: 400 }
     return await this.ctx.blockConcurrencyWhile(async () => {
       if (this.deleted) return { ok: false, error: 'match-locked', status: 409 }
       const match = this.store.match()
       if (!match || match.matchId !== parsed.output.matchId) return { ok: false, error: 'unknown-match', status: 400 }
-      const requestJson = JSON.stringify(parsed.output.command)
+
+      const requestJson = canonicalCommandJson(parsed.output.command)
       const previous = this.store.receipt(parsed.output.commandId)
-      if (match.status === 'finalizing') {
-        if (previous?.requestJson === requestJson) return { ok: true, accepted: previous.accepted, finalizing: true }
-        return { ok: false, error: 'match-locked', status: 409 }
-      }
       if (previous) {
         if (previous.requestJson !== requestJson) {
-          return { ok: false, error: 'invalid-facts-body', status: 409 }
+          return { ok: false, error: 'command-id-conflict', status: 409 }
         }
-        return {
-          ok: true,
-          accepted: previous.accepted,
-        }
+        return this.submitSuccess(previous.outcome)
+      }
+
+      if (match.status === 'finalizing') {
+        return { ok: false, error: 'match-locked', status: 409 }
       }
 
       const state = this.loadState()
-      let facts: MatchFact[] = []
-      try {
-        facts = this.factsForCommand(state, parsed.output.command, parsed.output.commandId)
-      } catch {
-        /* rejected gameplay intent produces no facts */
+      const facts = legacyCommandFacts(state, parsed.output.command, parsed.output.commandId)
+      if (facts === null || facts.length === 0) {
+        return { ok: false, error: 'invalid-command-body', status: 400 }
       }
 
-      const committed = this.commitAccepted(facts, { commandId: parsed.output.commandId, requestJson })
-      return committed.storedFacts.some((fact) => fact.type === 'match.ended')
-        ? { ok: true, accepted: committed.accepted, finalizing: true }
-        : { ok: true, accepted: committed.accepted }
+      const committed = this.commitAccepted(this.nonemptyFacts(facts), {
+        commandId: parsed.output.commandId,
+        requestJson,
+      })
+      return this.submitSuccess(committed.outcome)
     })
   }
 
@@ -227,32 +215,26 @@ export class MatchRoom extends DurableObject<Env> {
     })
   }
 
-  private initialFacts(config: MatchConfig): MatchFact[] {
-    const occurredAt = nowUnixEpochMilliseconds()
-    const initCommandId = newCommandId()
-    const created: MatchFact = {
+  private nonemptyFacts(facts: MatchFact[]): [MatchFact, ...MatchFact[]] {
+    if (facts.length === 0) throw new Error('Expected non-empty facts')
+    return [facts[0]!, ...facts.slice(1)]
+  }
+
+  private submitSuccess(outcome: CommandReceiptOutcome): Extract<SubmitCommandResult, { ok: true }> {
+    if (outcome._tag === 'rejected') return { ok: true, outcome }
+    if (this.store.match()?.status === 'finalizing') return { ok: true, outcome, finalizing: true }
+    return { ok: true, outcome }
+  }
+
+  private creationFact(config: MatchConfig): MatchFact {
+    return {
       factId: newFactId(),
       matchId: config.matchId,
-      occurredAt,
+      occurredAt: nowUnixEpochMilliseconds(),
       causedByCommandId: null,
       type: 'match.created',
       payload: config,
     }
-    const started: MatchFact = {
-      factId: newFactId(),
-      matchId: config.matchId,
-      occurredAt,
-      causedByCommandId: initCommandId,
-      type: 'frame.started',
-      payload: {
-        frameIndex: 1,
-        gameKey: config.gameKey,
-        targetPointsBySeat: config.targets.frameTargetPointsBySeat,
-        breakerSeat: config.firstBreakerSeat,
-        gameConfiguration: config.gameConfiguration,
-      },
-    }
-    return [created, started]
   }
 
   private loadState(): RoomState {
@@ -265,19 +247,26 @@ export class MatchRoom extends DurableObject<Env> {
     return state
   }
 
-  private commitAccepted(
-    facts: MatchFact[],
-    receipt: { commandId: CommandId; requestJson: string } | null,
-    initialization?: {
+  private commitCreation(
+    config: MatchConfig,
+    initialization: {
       matchId: MatchConfig['matchId']
       controlSecret: string
       configJson: string
       createdAt: UnixEpochMilliseconds
     },
-  ): { accepted: AcceptedFactRef[]; storedFacts: StoredMatchFact[] } {
-    const committed = initialization
-      ? this.store.commitAccepted({ facts, receipt, initialization })
-      : this.store.commitAccepted({ facts, receipt })
+  ): StoredMatchFact {
+    const storedFact = this.store.commitCreation({ initialization, fact: this.creationFact(config) })
+    this.live.broadcast(storedFact)
+    this.cache = { latestSeq: 1, state: this.apply({ matchState: emptyMatchState(), currentFrame: null }, storedFact) }
+    return storedFact
+  }
+
+  private commitAccepted(
+    facts: [MatchFact, ...MatchFact[]],
+    receipt: { commandId: CommandId; requestJson: string },
+  ): { outcome: Extract<CommandReceiptOutcome, { _tag: 'accepted' }>; storedFacts: readonly StoredMatchFact[] } {
+    const committed = this.store.commitAccepted({ facts, receipt })
     const state = this.loadState()
     for (const fact of committed.storedFacts) {
       if (fact.type !== 'match.ended') this.live.broadcast(fact)
@@ -305,113 +294,5 @@ export class MatchRoom extends DurableObject<Env> {
       }
     }
     return { matchState, currentFrame: fact.type === 'frame.completed' ? null : room.currentFrame }
-  }
-
-  private factsForCommand(room: RoomState, command: ControlCommand, commandId: CommandId): MatchFact[] {
-    const config = room.matchState.config
-    if (!config) throw new Error('Missing match config')
-    const occurredAt = nowUnixEpochMilliseconds()
-    const base = {
-      matchId: config.matchId,
-      occurredAt,
-      causedByCommandId: commandId,
-    }
-    if (command.source === 'match' && command.commandType === 'frame.start') {
-      const frameIndex = room.matchState.currentFrameIndex + 1
-      return [
-        {
-          ...base,
-          factId: newFactId(),
-          type: 'frame.started',
-          payload: {
-            frameIndex,
-            gameKey: config.gameKey,
-            targetPointsBySeat: config.targets.frameTargetPointsBySeat,
-            breakerSeat: this.breakerSeat(config, frameIndex),
-            gameConfiguration: config.gameConfiguration,
-          },
-        },
-      ]
-    }
-    if (command.source === 'match' && command.commandType === 'match.end') {
-      const winnerSeat = this.matchWinner(config, room.matchState)
-      if (!winnerSeat) throw new Error('Cannot end match before target')
-      return [{ ...base, factId: newFactId(), type: 'match.ended', payload: { winnerSeat } }]
-    }
-    if (room.currentFrame === null) throw new Error('No active frame')
-    const frame = room.matchState.frames.at(-1)
-    if (!frame || frame.winnerSeat) throw new Error('No active frame')
-    if (command.source === 'match' && command.commandType === 'frame.commence') {
-      const commence = v.parse(CommenceFrameCommandSchema, command.command)
-      if (commence.seat !== frame.breakerSeat) throw new Error('Frame break-off seat does not match match order')
-      const result = applyActiveGameCommand(room.currentFrame, 'frame.commence', commence)
-      return [
-        {
-          ...base,
-          factId: newFactId(),
-          type: 'game.command',
-          payload: {
-            frameIndex: frame.frameIndex,
-            gameKey: config.gameKey,
-            commandType: 'frame.commence',
-            command: commence,
-            protocolEntries: result.protocolEntries,
-          },
-        },
-      ]
-    }
-    if (command.source === 'game') {
-      const result = applyActiveGameCommand(room.currentFrame, command.commandType, command.command)
-      const game: MatchFact = {
-        ...base,
-        factId: newFactId(),
-        type: 'game.command',
-        payload: {
-          frameIndex: frame.frameIndex,
-          gameKey: config.gameKey,
-          commandType: command.commandType,
-          command: command.command,
-          protocolEntries: result.protocolEntries,
-        },
-      }
-      return result.outcome
-        ? [
-            game,
-            {
-              ...base,
-              factId: newFactId(),
-              type: 'frame.completed',
-              payload: { frameIndex: frame.frameIndex, gameKey: config.gameKey, outcome: result.outcome },
-            },
-          ]
-        : [game]
-    }
-    if (command.source === 'match' && command.commandType === 'frame.concede') {
-      const concede = v.parse(ConcedeFrameCommandSchema, command.command)
-      const projection = deriveActiveGameSummary(room.currentFrame)
-      return [
-        {
-          ...base,
-          factId: newFactId(),
-          type: 'frame.completed',
-          payload: {
-            frameIndex: frame.frameIndex,
-            gameKey: config.gameKey,
-            outcome: { winnerSeat: opponentOf(concede.seat), score: projection.score, winReason: 'conceded' },
-          },
-        },
-      ]
-    }
-    throw new Error('Unsupported command')
-  }
-
-  private matchWinner(config: MatchConfig, matchState: MatchState): 'A' | 'B' | null {
-    if (matchState.framesWonBySeat.A >= config.targets.matchTargetFrames) return 'A'
-    if (matchState.framesWonBySeat.B >= config.targets.matchTargetFrames) return 'B'
-    return null
-  }
-
-  private breakerSeat(config: MatchConfig, frameIndex: number): 'A' | 'B' {
-    return frameIndex % 2 === 1 ? config.firstBreakerSeat : opponentOf(config.firstBreakerSeat)
   }
 }
