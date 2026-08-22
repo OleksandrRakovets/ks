@@ -2,7 +2,7 @@ import { BySeatNumberSchema, ControlCommandSectionsSchema, IntegerSchema, NonEmp
 import * as v from 'valibot'
 
 import { GameControlProjectionSchema, GameScoreboardProjectionSchema, GameSummaryProjectionSchema } from '../constants'
-import type { PyramidGameKey } from './rules'
+import { type PyramidGameKey, PyramidRulesSchema } from './rules'
 
 export const PyramidCommandSchema = v.variant('type', [
   v.object({ type: v.literal('frame.commence'), seat: SeatSchema }),
@@ -12,16 +12,27 @@ export const PyramidCommandSchema = v.variant('type', [
 ])
 export type PyramidCommand = v.InferOutput<typeof PyramidCommandSchema>
 
+export const PyramidPhaseSchema = v.picklist(['not-started', 'open-play', 'winner-determined', 'frame-over'])
+export type PyramidPhase = v.InferOutput<typeof PyramidPhaseSchema>
+
+export const PyramidContextSchema = v.object({
+  score: BySeatNumberSchema,
+  targetPoints: BySeatNumberSchema,
+  rules: PyramidRulesSchema,
+  winner: v.nullable(SeatSchema),
+})
+export type PyramidContext = v.InferOutput<typeof PyramidContextSchema>
+
 export const PyramidFrameStateSchema = v.object({
   pointsBySeat: BySeatNumberSchema,
   targetPointsBySeat: BySeatNumberSchema,
-  phase: v.picklist(['not-started', 'open-play', 'winner-determined', 'frame-over']),
-  winnerSeat: v.optional(SeatSchema),
+  phase: PyramidPhaseSchema,
+  winner: v.nullable(SeatSchema),
 })
 export type PyramidFrameState = v.InferOutput<typeof PyramidFrameStateSchema>
 
 const PyramidProjectionDetailsSchema = v.object({
-  phase: v.picklist(['not-started', 'open-play', 'winner-determined', 'frame-over']),
+  phase: PyramidPhaseSchema,
   winner: v.optional(SeatSchema),
 })
 

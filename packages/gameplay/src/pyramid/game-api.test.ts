@@ -10,6 +10,7 @@ describe('free pyramid: game api', () => {
       pointsBySeat: { A: 0, B: 0 },
       targetPointsBySeat: { A: 8, B: 8 },
       phase: 'not-started',
+      winner: null,
     })
 
     let protocolEntries
@@ -24,6 +25,7 @@ describe('free pyramid: game api', () => {
       pointsBySeat: { A: 0, B: 0 },
       targetPointsBySeat: { A: 8, B: 8 },
       phase: 'open-play',
+      winner: null,
     })
     expect(protocolEntries).toEqual([
       { source: 'player', entryType: 'player-command', seat: 'A', body: { commandType: 'frame.commence' } },
@@ -40,6 +42,7 @@ describe('free pyramid: game api', () => {
       pointsBySeat: { A: 2, B: 0 },
       targetPointsBySeat: { A: 8, B: 8 },
       phase: 'open-play',
+      winner: null,
     })
     expect(protocolEntries).toEqual([
       {
@@ -56,7 +59,7 @@ describe('free pyramid: game api', () => {
     expect(() =>
       applyGameCommand({
         gameKey: 'free-pyramid',
-        state: { pointsBySeat: { A: 1, B: 0 }, targetPointsBySeat: { A: 8, B: 8 }, phase: 'open-play' },
+        state: { pointsBySeat: { A: 1, B: 0 }, targetPointsBySeat: { A: 8, B: 8 }, phase: 'open-play', winner: null },
         commandType: 'pot.record',
         command: { seat: 'A', points: -5 },
       }),
@@ -66,7 +69,7 @@ describe('free pyramid: game api', () => {
   test('foul awards one point to opponent', () => {
     const { state } = applyGameCommand({
       gameKey: 'free-pyramid',
-      state: { pointsBySeat: { A: 3, B: 2 }, targetPointsBySeat: { A: 8, B: 8 }, phase: 'open-play' },
+      state: { pointsBySeat: { A: 3, B: 2 }, targetPointsBySeat: { A: 8, B: 8 }, phase: 'open-play', winner: null },
       commandType: 'foul.commit',
       command: { seat: 'A' },
     })
@@ -75,6 +78,7 @@ describe('free pyramid: game api', () => {
       pointsBySeat: { A: 3, B: 3 },
       targetPointsBySeat: { A: 8, B: 8 },
       phase: 'open-play',
+      winner: null,
     })
   })
 
@@ -84,6 +88,7 @@ describe('free pyramid: game api', () => {
         pointsBySeat: { A: 4, B: 2 },
         targetPointsBySeat: { A: 8, B: 8 },
         phase: 'open-play',
+        winner: null,
       }),
     ).toEqual({
       gameKey: 'free-pyramid',
@@ -98,6 +103,7 @@ describe('free pyramid: game api', () => {
       pointsBySeat: { A: 0, B: 0 },
       targetPointsBySeat: { A: 8, B: 8 },
       phase: 'not-started',
+      winner: null,
     })
 
     expect(projection.gameKey).toBe('free-pyramid')
@@ -112,7 +118,7 @@ describe('free pyramid: game api', () => {
   test('enters winner-determined after target', () => {
     const { state } = applyGameCommand({
       gameKey: 'free-pyramid',
-      state: { pointsBySeat: { A: 7, B: 2 }, targetPointsBySeat: { A: 8, B: 8 }, phase: 'open-play' },
+      state: { pointsBySeat: { A: 7, B: 2 }, targetPointsBySeat: { A: 8, B: 8 }, phase: 'open-play', winner: null },
       commandType: 'pot.record',
       command: { seat: 'A', points: 1 },
     })
@@ -121,7 +127,7 @@ describe('free pyramid: game api', () => {
       pointsBySeat: { A: 8, B: 2 },
       targetPointsBySeat: { A: 8, B: 8 },
       phase: 'winner-determined',
-      winnerSeat: 'A',
+      winner: 'A',
     })
   })
 
@@ -130,7 +136,7 @@ describe('free pyramid: game api', () => {
       pointsBySeat: { A: 10, B: 2 },
       targetPointsBySeat: { A: 8, B: 8 },
       phase: 'winner-determined',
-      winnerSeat: 'A',
+      winner: 'A',
     })
 
     expect(projection.details.isPotCommandAvailable).toBe(true)
@@ -148,7 +154,7 @@ describe('free pyramid: game api', () => {
           pointsBySeat: { A: 10, B: 2 },
           targetPointsBySeat: { A: 8, B: 8 },
           phase: 'winner-determined',
-          winnerSeat: 'A',
+          winner: 'A',
         },
         commandType: 'pot.record',
         command: { seat: 'B', points: 1 },
@@ -163,7 +169,7 @@ describe('free pyramid: game api', () => {
         pointsBySeat: { A: 10, B: 2 },
         targetPointsBySeat: { A: 8, B: 8 },
         phase: 'winner-determined',
-        winnerSeat: 'A',
+        winner: 'A',
       },
       commandType: 'frame.award',
       command: { seat: 'A' },
@@ -173,7 +179,7 @@ describe('free pyramid: game api', () => {
       pointsBySeat: { A: 10, B: 2 },
       targetPointsBySeat: { A: 8, B: 8 },
       phase: 'frame-over',
-      winnerSeat: 'A',
+      winner: 'A',
     })
     expect(protocolEntries).toEqual([
       { source: 'player', entryType: 'player-command', seat: 'A', body: { commandType: 'frame.award' } },
@@ -186,7 +192,7 @@ describe('combined pyramid: game api', () => {
     expect(() =>
       applyGameCommand({
         gameKey: 'combined-pyramid',
-        state: { pointsBySeat: { A: 1, B: 0 }, targetPointsBySeat: { A: 8, B: 8 }, phase: 'open-play' },
+        state: { pointsBySeat: { A: 1, B: 0 }, targetPointsBySeat: { A: 8, B: 8 }, phase: 'open-play', winner: null },
         commandType: 'pot.record',
         command: { seat: 'A', points: -5 },
       }),
@@ -198,7 +204,7 @@ describe('combined pyramid old: game api', () => {
   test('keeps negative score via offender foul', () => {
     const { state } = applyGameCommand({
       gameKey: 'combined-pyramid-old',
-      state: { pointsBySeat: { A: 0, B: 0 }, targetPointsBySeat: { A: 8, B: 8 }, phase: 'open-play' },
+      state: { pointsBySeat: { A: 0, B: 0 }, targetPointsBySeat: { A: 8, B: 8 }, phase: 'open-play', winner: null },
       commandType: 'foul.commit',
       command: { seat: 'A' },
     })
@@ -207,13 +213,14 @@ describe('combined pyramid old: game api', () => {
       pointsBySeat: { A: -1, B: 0 },
       targetPointsBySeat: { A: 8, B: 8 },
       phase: 'open-play',
+      winner: null,
     })
   })
 
   test('foul deducts offender and allows negative score', () => {
     const { state } = applyGameCommand({
       gameKey: 'combined-pyramid-old',
-      state: { pointsBySeat: { A: 0, B: 4 }, targetPointsBySeat: { A: 8, B: 8 }, phase: 'open-play' },
+      state: { pointsBySeat: { A: 0, B: 4 }, targetPointsBySeat: { A: 8, B: 8 }, phase: 'open-play', winner: null },
       commandType: 'foul.commit',
       command: { seat: 'A' },
     })
@@ -222,6 +229,7 @@ describe('combined pyramid old: game api', () => {
       pointsBySeat: { A: -1, B: 4 },
       targetPointsBySeat: { A: 8, B: 8 },
       phase: 'open-play',
+      winner: null,
     })
   })
 
@@ -230,6 +238,7 @@ describe('combined pyramid old: game api', () => {
       pointsBySeat: { A: 2, B: 1 },
       targetPointsBySeat: { A: 8, B: 8 },
       phase: 'open-play',
+      winner: null,
     })
 
     expect(projection.details.commandSections.primary.A.map((entry) => entry.commandType)).toEqual(['pot.record'])

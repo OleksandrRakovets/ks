@@ -241,7 +241,7 @@ describe('machine-sparring: handicap', () => {
 })
 
 describe('machine-sparring: continued break after winner', () => {
-  test('pot.record in winner-determined continues scoring', () => {
+  test('pot.record in winner-determined continues scoring for winner', () => {
     let snap = start()
     snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
     snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [1] })
@@ -256,6 +256,28 @@ describe('machine-sparring: continued break after winner', () => {
     snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [6] })
     expect(getPhase(snap)).toBe('winner-determined')
     expect(snap.context.score.A).toBe(12)
+  })
+
+  test('loser pot in winner-determined throws', () => {
+    let snap = start()
+    snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
+    snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [1, 2, 3, 4, 5] })
+
+    expect(() => sendEvent(snap, { type: 'pot.record', seat: 'B', pottedBalls: [6] })).toThrow(
+      'Invalid Strila event pot.record in phase winner-determined',
+    )
+    expect(snap.context.score).toEqual({ A: 10, B: 0 })
+  })
+
+  test('wrong-seat frame.award in winner-determined throws', () => {
+    let snap = start()
+    snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
+    snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [1, 2, 3, 4, 5] })
+
+    expect(() => sendEvent(snap, { type: 'frame.award', seat: 'B' })).toThrow(
+      'Invalid Strila event frame.award in phase winner-determined',
+    )
+    expect(getPhase(snap)).toBe('winner-determined')
   })
 })
 

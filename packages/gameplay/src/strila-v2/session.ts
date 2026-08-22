@@ -111,7 +111,7 @@ function snapshotsEqual(left: StrilaSparringFrameSnapshot, right: StrilaSparring
   )
 }
 
-export class StrilaGameplaySession implements GameplaySession<'strila-v2'> {
+class StrilaGameplaySession implements GameplaySession<'strila-v2'> {
   readonly gameKey = 'strila-v2' as const
 
   private readonly ownerId = Symbol('strila-gameplay-session')
@@ -258,6 +258,6 @@ export class StrilaGameplaySession implements GameplaySession<'strila-v2'> {
 export function createStrilaGameplaySession(
   args: GameCreateStateArgs,
   restoredState?: StrilaFrameState,
-): StrilaGameplaySession {
+): GameplaySession<'strila-v2'> {
   return new StrilaGameplaySession(args, restoredState)
 }

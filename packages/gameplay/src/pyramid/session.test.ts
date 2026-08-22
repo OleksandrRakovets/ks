@@ -103,7 +103,7 @@ describe('PyramidGameplaySession: scoring scenarios', () => {
       applyPyramid(session, { type: 'pot.record', seat: 'A', points: 2 })
 
       expect(session.state.phase).toBe('winner-determined')
-      expect(session.state.winnerSeat).toBe('A')
+      expect(session.state.winner).toBe('A')
       expect(session.state.pointsBySeat).toEqual({ A: 3, B: 4 })
     } finally {
       session.dispose()
@@ -163,7 +163,7 @@ describe('PyramidGameplaySession: scoring scenarios', () => {
       applyWarmCommand(session, 'frame.commence', { seat: 'A' })
       applyWarmCommand(session, 'foul.commit', { seat: 'A' })
       expect(session.state.phase).toBe('winner-determined')
-      expect(session.state.winnerSeat).toBe('B')
+      expect(session.state.winner).toBe('B')
     } finally {
       session.dispose()
     }

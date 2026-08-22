@@ -42,18 +42,14 @@ import { deriveLongFreePyramidSummaryView } from './projections/summary'
 import { LongFreePyramidCommandPayloadSchemas, projectLongFreePyramidProtocolEntries } from './protocol'
 
 function serializeSnapshot(snapshot: LongFreePyramidSparringFrameSnapshot): LongFreePyramidFrameState {
-  const phase = getPhase(snapshot)
-  const base = {
+  return v.parse(LongFreePyramidFrameStateSchema, {
     racks: snapshot.context.racks,
     targetPointsBySeat: snapshot.context.targetPoints,
     rackRollover: snapshot.context.rackRollover,
-    phase,
+    phase: getPhase(snapshot),
     messages: snapshot.context.messages,
-  }
-  if (snapshot.context.winner) {
-    return v.parse(LongFreePyramidFrameStateSchema, { ...base, winnerSeat: snapshot.context.winner })
-  }
-  return v.parse(LongFreePyramidFrameStateSchema, base)
+    winner: snapshot.context.winner,
+  })
 }
 
 function restoreSnapshot(state: LongFreePyramidFrameState): LongFreePyramidSparringFrameSnapshot {
@@ -68,16 +64,16 @@ function restoreSnapshot(state: LongFreePyramidFrameState): LongFreePyramidSparr
       racks: state.racks,
       targetPoints: state.targetPointsBySeat,
       rackRollover: state.rackRollover,
-      winner: state.winnerSeat ?? null,
+      winner: state.winner,
       messages: state.messages,
     },
   })
 }
 
 function longFreePyramidOutcome(state: LongFreePyramidFrameState): FrameOutcome | undefined {
-  if (state.phase !== 'frame-over' || !state.winnerSeat) return undefined
+  if (state.phase !== 'frame-over' || state.winner === null) return undefined
   return {
-    winnerSeat: state.winnerSeat,
+    winnerSeat: state.winner,
     score: totalScore(state.racks),
     winReason: 'target-reached',
   }

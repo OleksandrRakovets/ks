@@ -33,7 +33,7 @@ describe('PyramidSparringFrameMachine: basic', () => {
     expect(getPhase(snap)).toBe('open-play')
   })
 
-  test('reaching target enters winner-determined with target-reached reason', () => {
+  test('reaching target enters winner-determined with winner set', () => {
     let snap = start(FREE_RULES, { A: 3, B: 8 })
     snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
     snap = sendEvent(snap, { type: 'pot.record', seat: 'A', points: 1 })
@@ -42,7 +42,6 @@ describe('PyramidSparringFrameMachine: basic', () => {
     expect(snap.context.score).toEqual({ A: 3, B: 0 })
     expect(getPhase(snap)).toBe('winner-determined')
     expect(snap.context.winner).toBe('A')
-    expect(snap.context.winReason).toBe('target-reached')
   })
 
   test('frame.award by leader closes the frame', () => {
@@ -54,12 +53,14 @@ describe('PyramidSparringFrameMachine: basic', () => {
     expect(getPhase(snap)).toBe('frame-over')
   })
 
-  test('frame.award by non-leader is ignored', () => {
+  test('frame.award by non-leader throws', () => {
     let snap = start(FREE_RULES, { A: 2, B: 8 })
     snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
     snap = sendEvent(snap, { type: 'pot.record', seat: 'A', points: 2 })
-    snap = sendEvent(snap, { type: 'frame.award', seat: 'B' })
 
+    expect(() => sendEvent(snap, { type: 'frame.award', seat: 'B' })).toThrow(
+      'Invalid Pyramid event frame.award in phase winner-determined',
+    )
     expect(getPhase(snap)).toBe('winner-determined')
   })
 
@@ -73,25 +74,29 @@ describe('PyramidSparringFrameMachine: basic', () => {
     expect(snap.context.score).toEqual({ A: 3, B: 0 })
   })
 
-  test('loser pots in winner-determined are ignored', () => {
+  test('loser pots in winner-determined throw', () => {
     let snap = start(FREE_RULES, { A: 2, B: 8 })
     snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
     snap = sendEvent(snap, { type: 'pot.record', seat: 'A', points: 2 })
-    snap = sendEvent(snap, { type: 'pot.record', seat: 'B', points: 1 })
 
+    expect(() => sendEvent(snap, { type: 'pot.record', seat: 'B', points: 1 })).toThrow(
+      'Invalid Pyramid event pot.record in phase winner-determined',
+    )
     expect(getPhase(snap)).toBe('winner-determined')
     expect(snap.context.score).toEqual({ A: 2, B: 0 })
   })
 
-  test('post-terminal commands reject', () => {
+  test('post-terminal commands throw', () => {
     let snap = start(FREE_RULES, { A: 2, B: 8 })
     snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
     snap = sendEvent(snap, { type: 'pot.record', seat: 'A', points: 2 })
     snap = sendEvent(snap, { type: 'frame.award', seat: 'A' })
-    const after = sendEvent(snap, { type: 'pot.record', seat: 'A', points: 1 })
 
-    expect(getPhase(after)).toBe('frame-over')
-    expect(after.context.score).toEqual({ A: 2, B: 0 })
+    expect(() => sendEvent(snap, { type: 'pot.record', seat: 'A', points: 1 })).toThrow(
+      'Invalid Pyramid event pot.record in phase frame-over',
+    )
+    expect(getPhase(snap)).toBe('frame-over')
+    expect(snap.context.score).toEqual({ A: 2, B: 0 })
   })
 })
 
@@ -122,14 +127,15 @@ describe('PyramidSparringFrameMachine: foul handling', () => {
     expect(snap.context.score).toEqual({ A: 0, B: 1 })
     expect(getPhase(snap)).toBe('winner-determined')
     expect(snap.context.winner).toBe('B')
-    expect(snap.context.winReason).toBe('target-reached')
   })
 
-  test('invalid shot points are ignored', () => {
+  test('invalid shot points throw', () => {
     let snap = start()
     snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
-    snap = sendEvent(snap, { type: 'pot.record', seat: 'A', points: -5 })
 
+    expect(() => sendEvent(snap, { type: 'pot.record', seat: 'A', points: -5 })).toThrow(
+      'Invalid Pyramid event pot.record in phase open-play',
+    )
     expect(snap.context.score).toEqual({ A: 0, B: 0 })
     expect(getPhase(snap)).toBe('open-play')
   })
@@ -162,8 +168,10 @@ describe('PyramidSparringFrameMachine: rules selection', () => {
   test('combined-pyramid rejects +4 preset', () => {
     let snap = start(COMBINED_RULES)
     snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
-    snap = sendEvent(snap, { type: 'pot.record', seat: 'A', points: 4 })
 
+    expect(() => sendEvent(snap, { type: 'pot.record', seat: 'A', points: 4 })).toThrow(
+      'Invalid Pyramid event pot.record in phase open-play',
+    )
     expect(snap.context.score).toEqual({ A: 0, B: 0 })
   })
 

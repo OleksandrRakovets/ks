@@ -122,6 +122,14 @@ export const StrilaSparringFrameMachine = setup({
     isBallInHandChoice: ({ event }) => event.type === 'penalty.select' && event.choice === 'ball-in-hand',
     isPlayFromPositionChoice: ({ event }) => event.type === 'penalty.select' && event.choice === 'play-from-position',
     isPassPositionChoice: ({ event }) => event.type === 'penalty.select' && event.choice === 'pass-position',
+    isSeatWinner: ({ context, event }) => {
+      if (event.type !== 'pot.record') return false
+      return context.winner === event.seat
+    },
+    isAwardForWinner: ({ context, event }) => {
+      if (event.type !== 'frame.award') return false
+      return context.winner === event.seat
+    },
   },
   actions: {
     applyPot: assign(({ context, event }) => {
@@ -387,13 +395,13 @@ export const StrilaSparringFrameMachine = setup({
 
     'winner-determined': {
       on: {
-        'pot.record': [
-          {
-            target: 'winner-determined',
-            actions: 'applyWinnerDeterminedPot',
-          },
-        ],
+        'pot.record': {
+          guard: 'isSeatWinner',
+          target: 'winner-determined',
+          actions: 'applyWinnerDeterminedPot',
+        },
         'frame.award': {
+          guard: 'isAwardForWinner',
           target: 'frame-over',
         },
       },

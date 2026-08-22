@@ -1,16 +1,16 @@
 import type { AnyPyramidSummaryView, PyramidFrameState, PyramidSummaryViewFor } from '../definitions'
-import type { PyramidGameKey, PyramidRules } from '../rules'
+import type { PyramidGameKey, PyramidRulesFor } from '../rules'
 
 function pyramidDetails(state: PyramidFrameState) {
   return {
     phase: state.phase,
-    winner: state.winnerSeat,
+    winner: state.winner ?? undefined,
   }
 }
 
 export function derivePyramidSummaryView<K extends PyramidGameKey>(
   state: PyramidFrameState,
-  rules: PyramidRules<K>,
+  rules: PyramidRulesFor<K>,
 ): PyramidSummaryViewFor<K> {
   const projection = {
     gameKey: rules.gameKey,

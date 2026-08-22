@@ -93,6 +93,7 @@ describe('LongFreePyramidGameplaySession: scoring scenarios', () => {
         rackRollover: 14,
         phase: 'open-play',
         messages: [{ code: 'rack-started', rackNumber: 2 }],
+        winner: null,
       })
 
       const control = v.parse(LongFreePyramidControlViewSchema, session.deriveControl())
@@ -114,7 +115,7 @@ describe('LongFreePyramidGameplaySession: scoring scenarios', () => {
       applyLongFreePyramid(session, { type: 'frame.commence', seat: 'A' })
       applyLongFreePyramid(session, { type: 'pot.record', seat: 'A', points: 4 })
       expect(session.state.phase).toBe('winner-determined')
-      expect(session.state.winnerSeat).toBe('A')
+      expect(session.state.winner).toBe('A')
 
       const winnerControl = v.parse(LongFreePyramidControlViewSchema, session.deriveControl())
       expect(winnerControl.details.commandSections.primary.A.map((entry) => entry.commandType)).toEqual(['frame.award'])
@@ -128,7 +129,7 @@ describe('LongFreePyramidGameplaySession: scoring scenarios', () => {
 
       applyLongFreePyramid(session, { type: 'foul.commit', seat: 'A' })
       expect(session.state.phase).toBe('awaiting-award')
-      expect(session.state.winnerSeat).toBe('A')
+      expect(session.state.winner).toBe('A')
 
       const result = applyLongFreePyramid(session, { type: 'frame.award', seat: 'A' })
       expect(result.outcome).toEqual({ winnerSeat: 'A', score: { A: 4, B: 1 }, winReason: 'target-reached' })
@@ -147,7 +148,7 @@ describe('LongFreePyramidGameplaySession: scoring scenarios', () => {
       applyWarmCommand(session, 'frame.commence', { seat: 'A' })
       applyWarmCommand(session, 'foul.commit', { seat: 'A' })
       expect(session.state.phase).toBe('awaiting-award')
-      expect(session.state.winnerSeat).toBe('B')
+      expect(session.state.winner).toBe('B')
     } finally {
       session.dispose()
     }
@@ -173,6 +174,7 @@ describe('LongFreePyramidGameplaySession: scoring scenarios', () => {
       rackRollover: 14,
       phase: 'open-play',
       messages: [],
+      winner: null,
     })
     try {
       expect(emptyRackSession.decide('foul.commit', { seat: 'A' })._tag).toBe('rejected')

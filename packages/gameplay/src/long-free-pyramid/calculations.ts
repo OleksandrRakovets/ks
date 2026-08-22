@@ -68,7 +68,7 @@ export function projectionDetailsFromState(state: LongFreePyramidFrameState): Lo
   const rack = currentRack(state.racks)
   return {
     phase: state.phase,
-    winner: state.winnerSeat,
+    winner: state.winner ?? undefined,
     rackHistory: state.racks,
     currentRack: rack,
     ballsRemoved: removedByRack(rack),

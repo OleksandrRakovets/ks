@@ -36,15 +36,15 @@ export function deriveLongFreePyramidControlView(args: {
             ),
             ...seats.map((seat) => command({ type: 'foul.commit', seat }, 'secondary')),
           ]
-        : args.state.phase === 'winner-determined' && args.state.winnerSeat
+        : args.state.phase === 'winner-determined' && args.state.winner
           ? [
-              command({ type: 'frame.award', seat: args.state.winnerSeat }, 'primary'),
+              command({ type: 'frame.award', seat: args.state.winner }, 'primary'),
               ...(args.ballsOnTable >= 1
-                ? [command({ type: 'pot.record', seat: args.state.winnerSeat, points: 1 }, 'secondary')]
+                ? [command({ type: 'pot.record', seat: args.state.winner, points: 1 }, 'secondary')]
                 : []),
             ]
-          : args.state.phase === 'awaiting-award' && args.state.winnerSeat
-            ? [command({ type: 'frame.award', seat: args.state.winnerSeat }, 'primary')]
+          : args.state.phase === 'awaiting-award' && args.state.winner
+            ? [command({ type: 'frame.award', seat: args.state.winner }, 'primary')]
             : []
 
   const isPotCommandAvailable = args.state.phase === 'open-play' || args.state.phase === 'winner-determined'

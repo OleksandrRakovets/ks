@@ -21,14 +21,14 @@ import {
   unregisterSessionOwner,
 } from '../gameplay-session'
 import type { ControlProjectionFor, ScoreboardProjectionFor, SummaryProjectionFor } from '../registry'
-import { type PyramidCommand, PyramidCommandSchema, type PyramidFrameState, PyramidFrameStateSchema } from './definitions'
 import {
-  createInitialSnapshot,
-  getPhase,
+  type PyramidCommand,
+  PyramidCommandSchema,
+  type PyramidFrameState,
+  PyramidFrameStateSchema,
   type PyramidPhase,
-  PyramidSparringFrameMachine,
-  type PyramidSparringFrameSnapshot,
-} from './machine'
+} from './definitions'
+import { createInitialSnapshot, getPhase, PyramidSparringFrameMachine, type PyramidSparringFrameSnapshot } from './machine'
 import { derivePyramidControlView } from './projections/control'
 import { derivePyramidScoreboardView } from './projections/scoreboard'
 import { derivePyramidSummaryView } from './projections/summary'
@@ -36,16 +36,12 @@ import { projectPyramidProtocolEntries, PyramidCommandPayloadSchemas } from './p
 import { type PyramidGameKey, type PyramidRules, PyramidRuleSpecificsByGameKey } from './rules'
 
 function serializeSnapshot(snapshot: PyramidSparringFrameSnapshot): PyramidFrameState {
-  const phase = getPhase(snapshot)
-  const base = {
+  return v.parse(PyramidFrameStateSchema, {
     pointsBySeat: snapshot.context.score,
     targetPointsBySeat: snapshot.context.targetPoints,
-    phase,
-  }
-  if (snapshot.context.winner) {
-    return v.parse(PyramidFrameStateSchema, { ...base, winnerSeat: snapshot.context.winner })
-  }
-  return v.parse(PyramidFrameStateSchema, base)
+    phase: getPhase(snapshot),
+    winner: snapshot.context.winner,
+  })
 }
 
 function restoreSnapshot(state: PyramidFrameState, rules: PyramidRules): PyramidSparringFrameSnapshot {
@@ -57,16 +53,15 @@ function restoreSnapshot(state: PyramidFrameState, rules: PyramidRules): Pyramid
       score: state.pointsBySeat,
       targetPoints: state.targetPointsBySeat,
       rules,
-      winner: state.winnerSeat ?? null,
-      winReason: state.winnerSeat ? ('target-reached' as const) : null,
+      winner: state.winner,
     },
   })
 }
 
 function pyramidOutcome(state: PyramidFrameState): FrameOutcome | undefined {
-  if (state.phase !== 'frame-over' || !state.winnerSeat) return undefined
+  if (state.phase !== 'frame-over' || state.winner === null) return undefined
   return {
-    winnerSeat: state.winnerSeat,
+    winnerSeat: state.winner,
     score: state.pointsBySeat,
     winReason: 'target-reached',
   }

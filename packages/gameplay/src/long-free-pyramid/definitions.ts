@@ -19,10 +19,11 @@ export const LongFreePyramidRackSchema = v.object({
 })
 export type LongFreePyramidRack = v.InferOutput<typeof LongFreePyramidRackSchema>
 
-const LongFreePyramidMessageSchema = v.object({
+export const LongFreePyramidMessageSchema = v.object({
   code: v.literal('rack-started'),
   rackNumber: v.pipe(IntegerSchema, v.minValue(1)),
 })
+export type LongFreePyramidMessage = v.InferOutput<typeof LongFreePyramidMessageSchema>
 
 export const LongFreePyramidPhaseSchema = v.picklist([
   'not-started',
@@ -33,12 +34,21 @@ export const LongFreePyramidPhaseSchema = v.picklist([
 ])
 export type LongFreePyramidPhase = v.InferOutput<typeof LongFreePyramidPhaseSchema>
 
+export const LongFreePyramidContextSchema = v.object({
+  racks: v.pipe(v.array(LongFreePyramidRackSchema), v.minLength(1)),
+  targetPoints: BySeatNumberSchema,
+  rackRollover: v.picklist([14, 15]),
+  winner: v.nullable(SeatSchema),
+  messages: v.array(LongFreePyramidMessageSchema),
+})
+export type LongFreePyramidContext = v.InferOutput<typeof LongFreePyramidContextSchema>
+
 export const LongFreePyramidFrameStateSchema = v.object({
   racks: v.pipe(v.array(LongFreePyramidRackSchema), v.minLength(1)),
   targetPointsBySeat: BySeatNumberSchema,
   rackRollover: v.picklist([14, 15]),
   phase: LongFreePyramidPhaseSchema,
-  winnerSeat: v.optional(SeatSchema),
+  winner: v.nullable(SeatSchema),
   messages: v.array(LongFreePyramidMessageSchema),
 })
 export type LongFreePyramidFrameState = v.InferOutput<typeof LongFreePyramidFrameStateSchema>

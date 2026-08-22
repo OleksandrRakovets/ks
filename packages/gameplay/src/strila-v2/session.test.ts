@@ -130,6 +130,21 @@ describe('StrilaGameplaySession protocol and lifecycle', () => {
     }
   })
 
+  test('loser pot and wrong-seat award reject in winner-determined', () => {
+    const session = createGameplaySession('strila-v2', { targetPointsBySeat: StrilaMeta.defaultTargetPoints, breakerSeat: 'A' })
+    try {
+      apply(session, { type: 'frame.commence', seat: 'A' })
+      apply(session, { type: 'pot.record', seat: 'A', pottedBalls: [1, 2, 3, 4, 5] })
+
+      expect(session.decide('pot.record', { seat: 'B', pottedBalls: [6] })._tag).toBe('rejected')
+      expect(session.decide('frame.award', { seat: 'B' })._tag).toBe('rejected')
+      expect(session.decide('pot.record', { seat: 'A', pottedBalls: [6] })._tag).toBe('accepted')
+      expect(session.decide('frame.award', { seat: 'A' })._tag).toBe('accepted')
+    } finally {
+      session.dispose()
+    }
+  })
+
   test('post-frame-over commands reject', () => {
     const session = createGameplaySession('strila-v2', { targetPointsBySeat: StrilaMeta.defaultTargetPoints, breakerSeat: 'A' })
     try {

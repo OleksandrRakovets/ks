@@ -14,6 +14,7 @@ import {
 } from './calculations'
 import {
   type LongFreePyramidCommand,
+  type LongFreePyramidContext,
   type LongFreePyramidPhase,
   LongFreePyramidPhaseSchema,
   type LongFreePyramidRack,
@@ -22,14 +23,6 @@ import {
 export type LongFreePyramidMachineInput = {
   readonly targetPointsBySeat: BySeatNumber
   readonly rackRollover: 14 | 15
-}
-
-type LongFreePyramidContext = {
-  racks: LongFreePyramidRack[]
-  targetPoints: BySeatNumber
-  rackRollover: 14 | 15
-  winner: Seat | null
-  messages: Array<{ code: 'rack-started'; rackNumber: number }>
 }
 
 type PotEvent = Extract<LongFreePyramidCommand, { type: 'pot.record' }>
@@ -296,6 +289,9 @@ export function sendEvent(
   snapshot: LongFreePyramidSparringFrameSnapshot,
   event: LongFreePyramidCommand,
 ): LongFreePyramidSparringFrameSnapshot {
+  if (!snapshot.can(event)) {
+    throw new Error(`Invalid Long free pyramid event ${event.type} in phase ${getPhase(snapshot)}`)
+  }
   const [nextSnapshot] = transition(LongFreePyramidSparringFrameMachine, snapshot, event)
   return nextSnapshot
 }

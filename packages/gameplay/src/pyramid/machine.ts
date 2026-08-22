@@ -3,20 +3,8 @@ import invariant from 'tiny-invariant'
 import * as v from 'valibot'
 import { assign, initialTransition, setup, type SnapshotFrom, transition } from 'xstate'
 
-import type { PyramidCommand } from './definitions'
+import { type PyramidCommand, type PyramidContext, type PyramidPhase, PyramidPhaseSchema } from './definitions'
 import type { PyramidRules } from './rules'
-
-type PyramidWinReason = 'target-reached'
-
-export type PyramidPhase = 'not-started' | 'open-play' | 'winner-determined' | 'frame-over'
-
-type PyramidContext = {
-  score: BySeatNumber
-  targetPoints: BySeatNumber
-  rules: PyramidRules
-  winner: Seat | null
-  winReason: PyramidWinReason | null
-}
 
 type PyramidMachineInput = {
   targetPointsBySeat: BySeatNumber
@@ -26,8 +14,6 @@ type PyramidMachineInput = {
 type PotEvent = Extract<PyramidCommand, { type: 'pot.record' }>
 type FoulCommitEvent = Extract<PyramidCommand, { type: 'foul.commit' }>
 type FrameAwardEvent = Extract<PyramidCommand, { type: 'frame.award' }>
-
-const PyramidPhaseSchema = v.picklist(['not-started', 'open-play', 'winner-determined', 'frame-over'])
 
 function potEvent(event: PyramidCommand): PotEvent {
   invariant(event.type === 'pot.record', `Expected pot.record event, received ${event.type}`)
@@ -73,11 +59,6 @@ function targetReached(score: BySeatNumber, target: BySeatNumber): Seat | null {
 function outputWinner(context: PyramidContext): Seat {
   invariant(context.winner !== null, 'Winner is required for Pyramid machine output')
   return context.winner
-}
-
-function outputWinReason(context: PyramidContext): PyramidWinReason {
-  invariant(context.winReason !== null, 'Win reason is required for Pyramid machine output')
-  return context.winReason
 }
 
 export const PyramidSparringFrameMachine = setup({
@@ -136,7 +117,6 @@ export const PyramidSparringFrameMachine = setup({
       return {
         score,
         winner,
-        winReason: 'target-reached' as const,
       }
     }),
     applyFoul: assign(({ context, event }) => {
@@ -153,7 +133,6 @@ export const PyramidSparringFrameMachine = setup({
       return {
         score,
         winner,
-        winReason: 'target-reached' as const,
       }
     }),
   },
@@ -165,7 +144,6 @@ export const PyramidSparringFrameMachine = setup({
     targetPoints: input.targetPointsBySeat,
     rules: input.rules,
     winner: null,
-    winReason: null,
   }),
 
   states: {
@@ -232,7 +210,7 @@ export const PyramidSparringFrameMachine = setup({
 
   output: ({ context }) => ({
     winner: outputWinner(context),
-    winReason: outputWinReason(context),
+    winReason: 'target-reached' as const,
     score: context.score,
   }),
 })
@@ -249,6 +227,9 @@ export function getPhase(snapshot: PyramidSparringFrameSnapshot): PyramidPhase {
 }
 
 export function sendEvent(snapshot: PyramidSparringFrameSnapshot, event: PyramidCommand): PyramidSparringFrameSnapshot {
+  if (!snapshot.can(event)) {
+    throw new Error(`Invalid Pyramid event ${event.type} in phase ${getPhase(snapshot)}`)
+  }
   const [nextSnapshot] = transition(PyramidSparringFrameMachine, snapshot, event)
   return nextSnapshot
 }

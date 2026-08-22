@@ -3,7 +3,7 @@ import invariant from 'tiny-invariant'
 
 import { deriveGameCommandSections, type GameControlCommand } from '../../constants'
 import type { AnyPyramidControlView, PyramidControlViewFor, PyramidFrameState } from '../definitions'
-import type { PyramidGameKey, PyramidRules } from '../rules'
+import type { PyramidGameKey, PyramidRulesFor } from '../rules'
 
 type PyramidControlCommandInput =
   | { type: 'pot.record'; seat: 'A' | 'B'; points: number }
@@ -21,13 +21,13 @@ function command(
 function pyramidDetails(state: PyramidFrameState) {
   return {
     phase: state.phase,
-    winner: state.winnerSeat,
+    winner: state.winner ?? undefined,
   }
 }
 
 export function derivePyramidControlView<K extends PyramidGameKey>(
   state: PyramidFrameState,
-  rules: PyramidRules<K>,
+  rules: PyramidRulesFor<K>,
 ): PyramidControlViewFor<K> {
   if (state.phase === 'not-started') {
     const projection = {
@@ -80,10 +80,10 @@ export function derivePyramidControlView<K extends PyramidGameKey>(
   }
 
   if (state.phase === 'winner-determined') {
-    invariant(state.winnerSeat, 'Winner is required before awarding a determined pyramid frame')
+    invariant(state.winner !== null, 'Winner is required before awarding a determined pyramid frame')
     const commands = [
-      command({ type: 'frame.award', seat: state.winnerSeat }, { prominence: 'primary' }),
-      command({ type: 'pot.record', seat: state.winnerSeat, points: 1 }, { prominence: 'secondary' }),
+      command({ type: 'frame.award', seat: state.winner }, { prominence: 'primary' }),
+      command({ type: 'pot.record', seat: state.winner, points: 1 }, { prominence: 'secondary' }),
     ]
 
     const projection = {
