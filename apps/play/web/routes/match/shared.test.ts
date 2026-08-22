@@ -1,8 +1,13 @@
 import { describe, expect, test } from 'bun:test'
 
+import type { Application } from '@ks/application'
 import { newCommandId, newFactId, newMatchId, nowUnixEpochMilliseconds } from '@ks/core'
+import { keys } from '@ks/i18n'
+import { RouterContextProvider } from 'react-router'
 
+import { type AppLoadContext, cloudflareContext } from '../../server/context'
 import {
+  commandMatchAction,
   type ControlLiveEvent,
   type ControlLiveSource,
   type ControlLiveState,
@@ -11,6 +16,58 @@ import {
 } from './shared'
 
 const initial: ControlLiveState = { latestSeq: 4, suppressUntilSeq: 4, localSubmitInFlight: false }
+
+function makeActionContext(submitMatchCommand: Application['submitMatchCommand']): AppLoadContext {
+  const provider = new RouterContextProvider()
+  // SAFETY: the test supplies only submitMatchCommand, which is all commandMatchAction reads from Application.
+  const application = { submitMatchCommand } as Application
+  provider.set(cloudflareContext, { application })
+  return provider
+}
+
+describe('commandMatchAction adaptation', () => {
+  test('returns acceptedSeqMax for accepted outcomes', async () => {
+    const matchId = newMatchId()
+    const commandId = newCommandId()
+    const context = makeActionContext(async () => ({
+      ok: true,
+      outcome: {
+        _tag: 'accepted',
+        accepted: [
+          { seq: 3, factId: newFactId() },
+          { seq: 5, factId: newFactId() },
+        ],
+      },
+    }))
+    const form = new FormData()
+    form.set('command', JSON.stringify({ source: 'match', commandType: 'frame.start', command: {} }))
+    form.set('commandId', commandId)
+
+    const result = await commandMatchAction(
+      { params: { matchId }, request: new Request('http://localhost', { method: 'POST', body: form }), context },
+      'free-pyramid',
+    )
+    expect(result).toEqual({ ok: true, acceptedSeqMax: 5 })
+  })
+
+  test('returns factRejectedByRules for rejected outcomes', async () => {
+    const matchId = newMatchId()
+    const commandId = newCommandId()
+    const context = makeActionContext(async () => ({
+      ok: true,
+      outcome: { _tag: 'rejected', reason: { code: 'frame-already-active' } },
+    }))
+    const form = new FormData()
+    form.set('command', JSON.stringify({ source: 'match', commandType: 'frame.start', command: {} }))
+    form.set('commandId', commandId)
+
+    const result = await commandMatchAction(
+      { params: { matchId }, request: new Request('http://localhost', { method: 'POST', body: form }), context },
+      'free-pyramid',
+    )
+    expect(result).toEqual({ ok: false, errorKey: keys.match.control.factRejectedByRules })
+  })
+})
 
 describe('control live transitions', () => {
   test('ready and ordinary newer facts advance and revalidate', () => {

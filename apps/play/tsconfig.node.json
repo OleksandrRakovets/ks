@@ -31,5 +31,5 @@
     "workers/virtual.d.ts",
     "../../do/match-room/src/**/*"
   ],
-  "exclude": ["domain/**/*.test.ts"]
+  "exclude": ["domain/**/*.test.ts", "../../do/match-room/src/MatchRoom.integration.test.ts"]
 }

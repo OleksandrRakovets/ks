@@ -109,7 +109,12 @@ export async function commandMatchAction<K extends RegisteredGameKey>(
     return { ok: false, errorKey: keys.match.control.invalidFactPayload }
   }
 
-  const result = await requireApplication(args.context).commandMatch(matchId, commandId.output, command.output, expectedGameKey)
+  const result = await requireApplication(args.context).submitMatchCommand(
+    matchId,
+    commandId.output,
+    command.output,
+    expectedGameKey,
+  )
   if (!result.ok) {
     if (result.status === 404) throw new Response(result.error, { status: 404 })
     if (result.status === 409) return { ok: false, errorKey: keys.match.control.matchLocked }

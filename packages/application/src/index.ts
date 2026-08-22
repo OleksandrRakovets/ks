@@ -1,6 +1,6 @@
 export type {
   Application,
-  CommandMatchResult,
+  SubmitMatchCommandResult,
   CreateMatchInput,
   CreateMatchResult,
   HydratedMatchParticipant,

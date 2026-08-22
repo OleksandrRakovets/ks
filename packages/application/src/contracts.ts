@@ -69,8 +69,8 @@ export type ReadMatchControlResult<K extends RegisteredGameKey> =
     }
   | ReadMatchFailure
 
-export type CommandMatchResult =
-  | { ok: true; outcome: CommandReceiptOutcome; finalizing?: true }
+export type SubmitMatchCommandResult =
+  | { ok: true; outcome: CommandReceiptOutcome }
   | { ok: false; error: string; status: number }
 
 export type ReadMatchProtocolResult<K extends RegisteredGameKey> =
@@ -91,12 +91,12 @@ export type Application = {
     locale: SupportedLocale,
     expectedGameKey: K,
   ): Promise<ReadMatchControlResult<K>>
-  commandMatch<K extends RegisteredGameKey>(
+  submitMatchCommand<K extends RegisteredGameKey>(
     matchId: MatchId,
     commandId: CommandId,
     command: ControlCommand,
     expectedGameKey: K,
-  ): Promise<CommandMatchResult>
+  ): Promise<SubmitMatchCommandResult>
   readMatchProtocol<K extends RegisteredGameKey>(
     matchId: MatchId,
     timeZone: string,

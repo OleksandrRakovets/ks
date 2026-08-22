@@ -5,5 +5,6 @@
     "noEmit": true,
     "types": ["bun-types", "node"]
   },
-  "include": ["src/**/*", "drizzle/**/*.ts", "worker-configuration.d.ts"]
+  "include": ["src/**/*", "drizzle/**/*.ts", "worker-configuration.d.ts"],
+  "exclude": ["src/MatchRoom.integration.test.ts"]
 }

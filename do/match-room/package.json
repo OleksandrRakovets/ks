@@ -11,7 +11,9 @@
     "cf-typegen": "CI=1 wrangler types",
     "dev": "wrangler dev",
     "test": "bun test src",
-    "typecheck": "CI=1 wrangler types && tsc -b"
+    "test:integration": "vitest run --config vitest.config.ts",
+    "typecheck": "CI=1 wrangler types && tsc -b",
+    "typecheck:integration": "tsc -p tsconfig.integration.json"
   },
   "dependencies": {
     "@ks/competition": "workspace:*",
@@ -21,10 +23,13 @@
     "valibot": "catalog:"
   },
   "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "catalog:",
+    "@cloudflare/workers-types": "catalog:",
     "@types/node": "catalog:",
     "bun-types": "catalog:",
     "drizzle-kit": "catalog:",
     "typescript": "catalog:",
+    "vitest": "catalog:",
     "wrangler": "catalog:"
   }
 }

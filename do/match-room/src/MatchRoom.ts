@@ -1,28 +1,29 @@
-import { applyMatchFact, buildMatchConfig, emptyMatchState, type MatchState } from '@ks/competition'
+import {
+  buildMatchConfig,
+  draftSparringMatchCreation,
+  parseSparringMatchCommand,
+  restoreSparringMatchSession,
+  type SparringMatchRoomProjection,
+  type SparringMatchSession,
+} from '@ks/competition'
 import {
   type CommandId,
   type MatchConfig,
   type MatchFact,
+  type MatchFactDraft,
+  MatchFactSchema,
   newFactId,
   nowUnixEpochMilliseconds,
   type StoredMatchFact,
   type UnixEpochMilliseconds,
 } from '@ks/core'
-import { parseGameKey } from '@ks/gameplay/server'
 import { DurableObject } from 'cloudflare:workers'
 import { migrate } from 'drizzle-orm/durable-sqlite/migrator'
 import * as v from 'valibot'
 
 import migrationsBundle from '../drizzle/migrations.js'
-import {
-  type AnyActiveGameState,
-  applyActiveGameCommand,
-  assembleRoomSnapshot,
-  createActiveGameState,
-  type RoomSnapshotSuccess,
-} from './active-game'
+import { type RoomSnapshotSuccess, wrapRoomSnapshot } from './active-game'
 import type { Env } from './env'
-import { legacyCommandFacts } from './legacy-command-facts'
 import { Broadcaster } from './live/broadcaster'
 import {
   canonicalCommandJson,
@@ -37,16 +38,25 @@ import {
   type SubmitCommandResult,
 } from './rpc-contract'
 import type { CommandReceiptOutcome } from './storage/command-receipt'
-import { ActiveMatchStore } from './storage/store'
+import { type ActiveMatchRecord, ActiveMatchStore } from './storage/store'
 
-type RoomState = { matchState: MatchState; currentFrame: AnyActiveGameState | null }
+type ResidentRoom = {
+  readonly latestSeq: number
+  readonly session: SparringMatchSession
+}
+
 type SnapshotResult = RoomSnapshotSuccess | { ok: false; error: string; status: number }
+
+type ColdJournal = {
+  match: ActiveMatchRecord
+  facts: [StoredMatchFact, ...StoredMatchFact[]]
+}
 
 export class MatchRoom extends DurableObject<Env> {
   private readonly store: ActiveMatchStore
   private readonly live = new Broadcaster()
   private readonly ready: Promise<void>
-  private cache: { latestSeq: number; state: RoomState } | null = null
+  private resident: ResidentRoom | null = null
   private deleted = false
 
   constructor(ctx: DurableObjectState, env: Env) {
@@ -100,45 +110,72 @@ export class MatchRoom extends DurableObject<Env> {
     if (match.status === 'finalizing') {
       return { ok: false, error: 'Match is finalizing', status: 409 }
     }
-    const state = this.loadState()
-    if (!state.matchState.config) return { ok: false, error: 'Match is not initialized', status: 409 }
-    return assembleRoomSnapshot(state.matchState, state.currentFrame, match.latestSeq)
+    const resident = this.loadResident()
+    return wrapRoomSnapshot(resident.session.project(match.latestSeq))
   }
 
-  async facts(args: SubmitCommandBody): Promise<SubmitCommandResult> {
+  async submitCommand(args: SubmitCommandBody): Promise<SubmitCommandResult> {
     await this.ready
     const parsed = v.safeParse(SubmitCommandBodySchema, args)
     if (!parsed.success) return { ok: false, error: 'invalid-command-body', status: 400 }
-    return await this.ctx.blockConcurrencyWhile(async () => {
-      if (this.deleted) return { ok: false, error: 'match-locked', status: 409 }
-      const match = this.store.match()
-      if (!match || match.matchId !== parsed.output.matchId) return { ok: false, error: 'unknown-match', status: 400 }
 
-      const requestJson = canonicalCommandJson(parsed.output.command)
-      const previous = this.store.receipt(parsed.output.commandId)
-      if (previous) {
-        if (previous.requestJson !== requestJson) {
-          return { ok: false, error: 'command-id-conflict', status: 409 }
-        }
-        return this.submitSuccess(previous.outcome)
+    return await this.ctx.blockConcurrencyWhile(async () => this.submitCommandLocked(parsed.output))
+  }
+
+  private submitCommandLocked(parsed: v.InferOutput<typeof SubmitCommandBodySchema>): SubmitCommandResult {
+    if (this.deleted) return { ok: false, error: 'match-locked', status: 409 }
+    const match = this.store.match()
+    if (!match || match.matchId !== parsed.matchId) return { ok: false, error: 'unknown-match', status: 400 }
+
+    const requestJson = canonicalCommandJson(parsed.command)
+    const previous = this.store.receipt(parsed.commandId)
+    if (previous) {
+      if (previous.requestJson !== requestJson) {
+        return { ok: false, error: 'command-id-conflict', status: 409 }
       }
+      return this.submitSuccess(previous.outcome, match.status)
+    }
 
-      if (match.status === 'finalizing') {
-        return { ok: false, error: 'match-locked', status: 409 }
-      }
+    if (match.status === 'finalizing') {
+      return { ok: false, error: 'match-locked', status: 409 }
+    }
 
-      const state = this.loadState()
-      const facts = legacyCommandFacts(state, parsed.output.command, parsed.output.commandId)
-      if (facts === null || facts.length === 0) {
-        return { ok: false, error: 'invalid-command-body', status: 400 }
-      }
+    const resident = this.loadResident()
+    const parsedCommand = parseSparringMatchCommand(parsed.command)
+    if (parsedCommand._tag === 'parse-failed') {
+      return { ok: false, error: 'invalid-command-body', status: 400 }
+    }
 
-      const committed = this.commitAccepted(this.nonemptyFacts(facts), {
-        commandId: parsed.output.commandId,
-        requestJson,
+    const decision = resident.session.decide(parsedCommand.command)
+    if (decision._tag === 'rejected') {
+      const outcome = this.store.commitRejected({
+        receipt: { commandId: parsed.commandId, requestJson },
+        reason: decision.reason,
       })
-      return this.submitSuccess(committed.outcome)
+      return this.submitSuccess(outcome, match.status)
+    }
+
+    const occurredAt = nowUnixEpochMilliseconds()
+    const facts = this.envelopeDrafts(decision.facts, match.matchId, parsed.commandId, occurredAt)
+    const committed = this.store.commitAccepted({
+      facts: this.nonemptyFacts(facts),
+      receipt: { commandId: parsed.commandId, requestJson },
     })
+
+    try {
+      resident.session.applyCommitted(decision.transition, committed.storedFacts)
+    } catch (error) {
+      this.clearResident()
+      throw error
+    }
+
+    const lastStoredFact = committed.storedFacts[committed.storedFacts.length - 1]!
+    this.resident = { latestSeq: lastStoredFact.seq, session: resident.session }
+    for (const fact of committed.storedFacts) {
+      if (fact.type !== 'match.ended') this.live.broadcast(fact)
+    }
+    const matchStatus = committed.storedFacts.some((fact) => fact.type === 'match.ended') ? 'finalizing' : match.status
+    return this.submitSuccess(committed.outcome, matchStatus)
   }
 
   async stream(args: StreamBody): Promise<Response> {
@@ -170,10 +207,16 @@ export class MatchRoom extends DurableObject<Env> {
     return { ok: true, facts: this.store.factsAfter(0) }
   }
 
-  async finalization(
-    args: SnapshotBody,
-  ): Promise<
-    | { ok: true; data: { sourceLatestSeq: number; endedAt: UnixEpochMilliseconds; facts: StoredMatchFact[] } }
+  async finalization(args: SnapshotBody): Promise<
+    | {
+        ok: true
+        data: {
+          sourceLatestSeq: number
+          endedAt: UnixEpochMilliseconds
+          facts: StoredMatchFact[]
+          projection: SparringMatchRoomProjection
+        }
+      }
     | { ok: false; error: string; status: number }
   > {
     await this.ready
@@ -183,12 +226,24 @@ export class MatchRoom extends DurableObject<Env> {
     const match = this.store.match()
     if (!match || match.matchId !== parsed.output.matchId) return { ok: false, error: 'Unknown match', status: 400 }
     if (match.status !== 'finalizing') return { ok: false, error: 'Match is active', status: 409 }
-    const facts = this.store.factsAfter(0)
+
+    const { match: validatedMatch, facts } = this.readColdJournal(match)
     const terminalFact = facts.find((fact) => fact.type === 'match.ended')
     if (!terminalFact) throw new Error('Missing terminal fact')
+
+    const resident = this.ensureResident(validatedMatch.latestSeq, facts)
+    if (resident.session.state.phase !== 'match-over') {
+      throw new Error('Session is not terminal')
+    }
+
     return {
       ok: true,
-      data: { sourceLatestSeq: match.latestSeq, endedAt: terminalFact.receivedAt, facts },
+      data: {
+        sourceLatestSeq: validatedMatch.latestSeq,
+        endedAt: terminalFact.receivedAt,
+        facts: [...facts],
+        projection: resident.session.project(validatedMatch.latestSeq),
+      },
     }
   }
 
@@ -210,9 +265,40 @@ export class MatchRoom extends DurableObject<Env> {
       this.live.closeAll()
       await this.ctx.storage.deleteAll()
       this.deleted = true
-      this.cache = null
+      this.clearResident()
       return { ok: true }
     })
+  }
+
+  private envelopeDrafts(
+    drafts: readonly [MatchFactDraft, ...MatchFactDraft[]],
+    matchId: MatchConfig['matchId'],
+    commandId: CommandId,
+    occurredAt: UnixEpochMilliseconds,
+  ): [MatchFact, ...MatchFact[]] {
+    const facts = drafts.map((draft) =>
+      v.parse(MatchFactSchema, {
+        factId: newFactId(),
+        matchId,
+        occurredAt,
+        causedByCommandId: commandId,
+        type: draft.type,
+        payload: draft.payload,
+      }),
+    )
+    return this.nonemptyFacts(facts)
+  }
+
+  private creationFact(config: MatchConfig): MatchFact {
+    const draft = draftSparringMatchCreation(config)
+    return {
+      factId: newFactId(),
+      matchId: config.matchId,
+      occurredAt: nowUnixEpochMilliseconds(),
+      causedByCommandId: null,
+      type: draft.type,
+      payload: draft.payload,
+    }
   }
 
   private nonemptyFacts(facts: MatchFact[]): [MatchFact, ...MatchFact[]] {
@@ -220,31 +306,54 @@ export class MatchRoom extends DurableObject<Env> {
     return [facts[0]!, ...facts.slice(1)]
   }
 
-  private submitSuccess(outcome: CommandReceiptOutcome): Extract<SubmitCommandResult, { ok: true }> {
+  private submitSuccess(
+    outcome: CommandReceiptOutcome,
+    matchStatus: ActiveMatchRecord['status'],
+  ): Extract<SubmitCommandResult, { ok: true }> {
     if (outcome._tag === 'rejected') return { ok: true, outcome }
-    if (this.store.match()?.status === 'finalizing') return { ok: true, outcome, finalizing: true }
+    if (matchStatus === 'finalizing') return { ok: true, outcome, finalizing: true }
     return { ok: true, outcome }
   }
 
-  private creationFact(config: MatchConfig): MatchFact {
-    return {
-      factId: newFactId(),
-      matchId: config.matchId,
-      occurredAt: nowUnixEpochMilliseconds(),
-      causedByCommandId: null,
-      type: 'match.created',
-      payload: config,
+  private storedFacts(facts: StoredMatchFact[]): [StoredMatchFact, ...StoredMatchFact[]] {
+    if (facts.length === 0) throw new Error('Active match journal is empty')
+    return [facts[0]!, ...facts.slice(1)]
+  }
+
+  private readColdJournal(match: ActiveMatchRecord): ColdJournal {
+    const facts = this.storedFacts(this.store.factsAfter(0))
+    const lastFact = facts[facts.length - 1]!
+    if (lastFact.seq !== match.latestSeq) {
+      throw new Error('Active match journal tail sequence mismatch')
+    }
+    return { match, facts }
+  }
+
+  private ensureResident(latestSeq: number, facts: [StoredMatchFact, ...StoredMatchFact[]]): ResidentRoom {
+    if (this.resident?.latestSeq === latestSeq) return this.resident
+    this.clearResident()
+    try {
+      const session = restoreSparringMatchSession(facts)
+      this.resident = { latestSeq, session }
+      return this.resident
+    } catch (error) {
+      this.resident = null
+      throw error
     }
   }
 
-  private loadState(): RoomState {
+  private loadResident(): ResidentRoom {
     const match = this.store.match()
-    if (!match) return { matchState: emptyMatchState(), currentFrame: null }
-    if (this.cache?.latestSeq === match.latestSeq) return this.cache.state
-    let state: RoomState = { matchState: emptyMatchState(), currentFrame: null }
-    for (const fact of this.store.factsAfter(0)) state = this.apply(state, fact)
-    this.cache = { latestSeq: match.latestSeq, state }
-    return state
+    if (!match) throw new Error('Unknown match')
+    if (this.resident?.latestSeq === match.latestSeq) return this.resident
+    this.clearResident()
+    const { facts } = this.readColdJournal(match)
+    return this.ensureResident(match.latestSeq, facts)
+  }
+
+  private clearResident(): void {
+    this.resident?.session.dispose()
+    this.resident = null
   }
 
   private commitCreation(
@@ -257,42 +366,9 @@ export class MatchRoom extends DurableObject<Env> {
     },
   ): StoredMatchFact {
     const storedFact = this.store.commitCreation({ initialization, fact: this.creationFact(config) })
+    const session = restoreSparringMatchSession([storedFact])
+    this.resident = { latestSeq: 1, session }
     this.live.broadcast(storedFact)
-    this.cache = { latestSeq: 1, state: this.apply({ matchState: emptyMatchState(), currentFrame: null }, storedFact) }
     return storedFact
-  }
-
-  private commitAccepted(
-    facts: [MatchFact, ...MatchFact[]],
-    receipt: { commandId: CommandId; requestJson: string },
-  ): { outcome: Extract<CommandReceiptOutcome, { _tag: 'accepted' }>; storedFacts: readonly StoredMatchFact[] } {
-    const committed = this.store.commitAccepted({ facts, receipt })
-    const state = this.loadState()
-    for (const fact of committed.storedFacts) {
-      if (fact.type !== 'match.ended') this.live.broadcast(fact)
-    }
-    this.cache = { latestSeq: this.store.match()?.latestSeq ?? 0, state }
-    return committed
-  }
-
-  private apply(room: RoomState, fact: MatchFact): RoomState {
-    const matchState = applyMatchFact(structuredClone(room.matchState), fact)
-    if (fact.type === 'frame.started') {
-      const args = { targetPointsBySeat: fact.payload.targetPointsBySeat, breakerSeat: fact.payload.breakerSeat }
-      const gameKey = parseGameKey(fact.payload.gameKey)
-      const gameArgs =
-        fact.payload.gameConfiguration === undefined ? args : { ...args, gameConfiguration: fact.payload.gameConfiguration }
-      return { matchState, currentFrame: createActiveGameState(gameKey, gameArgs) }
-    }
-    if (fact.type === 'game.command') {
-      if (!room.currentFrame || room.currentFrame.gameKey !== parseGameKey(fact.payload.gameKey)) {
-        throw new Error('Game command does not match active frame')
-      }
-      return {
-        matchState,
-        currentFrame: applyActiveGameCommand(room.currentFrame, fact.payload.commandType, fact.payload.command).active,
-      }
-    }
-    return { matchState, currentFrame: fact.type === 'frame.completed' ? null : room.currentFrame }
   }
 }

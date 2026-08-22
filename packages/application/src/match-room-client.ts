@@ -1,4 +1,4 @@
-import type { CreateMatchRequest, MatchSnapshotFor } from '@ks/competition'
+import type { CreateMatchRequest, MatchSnapshotFor, SparringMatchRoomProjection } from '@ks/competition'
 import type {
   CommandId,
   ControlCommand,
@@ -9,7 +9,7 @@ import type {
 } from '@ks/core'
 import type { ControlProjectionFor, RegisteredGameKey } from '@ks/gameplay/definitions'
 
-import type { CommandMatchResult, CommandReceiptOutcome, ReadMatchFailure } from './contracts'
+import type { CommandReceiptOutcome, ReadMatchFailure } from './contracts'
 
 export type MatchRoomCreateRequest = CreateMatchRequest & {
   matchId: MatchId
@@ -20,12 +20,13 @@ export type MatchRoomFinalizationData = {
   sourceLatestSeq: number
   endedAt: UnixEpochMilliseconds
   facts: StoredMatchFact[]
+  projection: SparringMatchRoomProjection
 }
 type MatchRoomFailure = { ok: false; error: string; status: number }
 type MatchRoomCreateResult = { ok: true; matchId: MatchId } | MatchRoomFailure
 type MatchRoomCommandResult =
   | { ok: true; outcome: CommandReceiptOutcome; finalizing?: true }
-  | Extract<CommandMatchResult, { ok: false }>
+  | { ok: false; error: string; status: number }
 type MatchRoomSnapshotSuccess = {
   [K in RegisteredGameKey]: {
     ok: true
@@ -38,7 +39,7 @@ export type MatchRoomSnapshotResult = MatchRoomSnapshotSuccess | ReadMatchFailur
 type MatchRoomStub = {
   create(request: MatchRoomCreateRequest): Promise<MatchRoomCreateResult>
   snapshot(args: { matchId: MatchId }): Promise<MatchRoomSnapshotResult>
-  facts(args: { matchId: MatchId; commandId: CommandId; command: ControlCommand }): Promise<MatchRoomCommandResult>
+  submitCommand(args: { matchId: MatchId; commandId: CommandId; command: ControlCommand }): Promise<MatchRoomCommandResult>
   stream(args: { matchId: MatchId; since?: number }): Promise<Response>
   listFacts(args: { matchId: MatchId }): Promise<{ ok: true; facts: StoredMatchFact[] } | MatchRoomFailure>
   finalization(args: { matchId: MatchId }): Promise<{ ok: true; data: MatchRoomFinalizationData } | MatchRoomFailure>
@@ -53,13 +54,13 @@ export function createMatchRoomClient(namespace: { getByName(name: string): Matc
       await namespace.getByName(request.matchId).create(request),
     snapshot: async (matchId: MatchId): Promise<MatchRoomSnapshotResult> =>
       await namespace.getByName(matchId).snapshot({ matchId }),
-    command: async (matchId: MatchId, commandId: CommandId, command: ControlCommand): Promise<MatchRoomCommandResult> =>
-      await namespace.getByName(matchId).facts({ matchId, commandId, command }),
+    submitCommand: async (matchId: MatchId, commandId: CommandId, command: ControlCommand): Promise<MatchRoomCommandResult> =>
+      await namespace.getByName(matchId).submitCommand({ matchId, commandId, command }),
     stream: async (matchId: MatchId, since?: number) =>
       since === undefined
         ? await namespace.getByName(matchId).stream({ matchId })
         : await namespace.getByName(matchId).stream({ matchId, since }),
-    facts: async (matchId: MatchId) => await namespace.getByName(matchId).listFacts({ matchId }),
+    listFacts: async (matchId: MatchId) => await namespace.getByName(matchId).listFacts({ matchId }),
     finalization: async (matchId: MatchId) => await namespace.getByName(matchId).finalization({ matchId }),
     disposeFinalized: async (matchId: MatchId) => await namespace.getByName(matchId).disposeFinalized({ matchId }),
   }

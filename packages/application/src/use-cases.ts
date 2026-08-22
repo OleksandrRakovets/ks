@@ -18,7 +18,6 @@ import * as v from 'valibot'
 
 import type {
   Application,
-  CommandMatchResult,
   CreateMatchInput,
   CreateMatchResult,
   HydratedMatchParticipants,
@@ -26,6 +25,7 @@ import type {
   ReadMatchControlResult,
   ReadMatchFailure,
   ReadMatchProtocolResult,
+  SubmitMatchCommandResult,
 } from './contracts'
 import { CreateMatchInputSchema } from './contracts'
 import type { MatchRoomClient, MatchRoomCreateRequest, MatchRoomFinalizationData } from './match-room-client'
@@ -226,12 +226,12 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
       : { ...match, state: 'between-frames', controlSections }
   }
 
-  async function commandMatch<K extends RegisteredGameKey>(
+  async function submitMatchCommand<K extends RegisteredGameKey>(
     matchId: MatchId,
     commandId: CommandId,
     command: ControlCommand,
     expectedGameKey: K,
-  ): Promise<CommandMatchResult> {
+  ): Promise<SubmitMatchCommandResult> {
     const record = await dependencies.getMatchRecord(matchId)
     if (!record || record.gameKey !== expectedGameKey) return { ok: false, error: 'Unknown match', status: 404 }
     if (record.status === 'finalizing') await disposeAndFinishRoom(matchId)
@@ -239,9 +239,13 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
       return { ok: false, error: 'Match is finished', status: 409 }
     }
     if (record.status !== 'active') return { ok: false, error: 'Unknown match', status: 404 }
-    const result = await dependencies.matchRoom.command(matchId, commandId, command)
-    if (result.ok && result.finalizing) await archiveAndFinishRoom(matchId)
+    const result = await dependencies.matchRoom.submitCommand(matchId, commandId, command)
+    if (result.ok && result.outcome._tag === 'accepted' && result.finalizing) {
+      await archiveAndFinishRoom(matchId)
+      return { ok: true, outcome: result.outcome }
+    }
     if (!result.ok && result.error === 'match-locked') await archiveAndFinishRoom(matchId)
+    if (result.ok) return { ok: true, outcome: result.outcome }
     return result
   }
 
@@ -256,7 +260,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     const seatNames = { A: match.participants.A.displayName, B: match.participants.B.displayName }
     let protocolRows
     if (match.snapshot.status === 'active') {
-      const facts = await dependencies.matchRoom.facts(match.snapshot.matchId)
+      const facts = await dependencies.matchRoom.listFacts(match.snapshot.matchId)
       if (!facts.ok) {
         if (facts.error === 'Match is finalizing') {
           await archiveAndFinishRoom(match.snapshot.matchId)
@@ -337,7 +341,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     createMatch,
     listMatches,
     readMatchControl,
-    commandMatch,
+    submitMatchCommand,
     readMatchProtocol,
     streamMatchFacts: async (matchId, since) => {
       const record = await dependencies.getMatchRecord(matchId)

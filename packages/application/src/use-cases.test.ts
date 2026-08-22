@@ -144,8 +144,8 @@ function applicationForActiveGame(
     matchRoom: {
       create: unused,
       snapshot: async () => roomSnapshot,
-      command: unused,
-      facts: async () => ({ ok: true as const, facts: [] }),
+      submitCommand: unused,
+      listFacts: async () => ({ ok: true as const, facts: [] }),
       stream: unused,
       finalization: unused,
       disposeFinalized: unused,
@@ -188,8 +188,8 @@ function applicationForArchivedGame(
     matchRoom: {
       create: unused,
       snapshot: unused,
-      command: unused,
-      facts: unused,
+      submitCommand: unused,
+      listFacts: unused,
       stream: unused,
       finalization: unused,
       disposeFinalized: unused,
@@ -218,8 +218,8 @@ function applicationForInvalidCreation() {
     matchRoom: {
       create: unused,
       snapshot: unused,
-      command: unused,
-      facts: unused,
+      submitCommand: unused,
+      listFacts: unused,
       stream: unused,
       finalization: unused,
       disposeFinalized: unused,
@@ -461,8 +461,8 @@ describe('application orchestration', () => {
         return { ok: true as const, matchId }
       },
       snapshot: unused,
-      command: unused,
-      facts: unused,
+      submitCommand: unused,
+      listFacts: unused,
       stream: unused,
       finalization: unused,
       disposeFinalized: unused,
@@ -557,11 +557,11 @@ describe('application orchestration', () => {
     const room = {
       create: unused,
       snapshot: unused,
-      async command(matchId: string, commandId: string, command: ControlCommand) {
+      async submitCommand(matchId: string, commandId: string, command: ControlCommand) {
         calls.push([matchId, commandId, command])
         return { ok: true as const, outcome: { _tag: 'accepted' as const, accepted: [{ seq: 3, factId }] } }
       },
-      facts: unused,
+      listFacts: unused,
       stream: unused,
       finalization: unused,
       disposeFinalized: unused,
@@ -589,13 +589,13 @@ describe('application orchestration', () => {
     })
 
     const commandId = newCommandId()
-    expect(await application.commandMatch(matchId, commandId, command, 'combined-pyramid')).toEqual({
+    expect(await application.submitMatchCommand(matchId, commandId, command, 'combined-pyramid')).toEqual({
       ok: false,
       error: 'Unknown match',
       status: 404,
     })
     expect(calls).toEqual([])
-    const result = await application.commandMatch(matchId, commandId, command, 'free-pyramid')
+    const result = await application.submitMatchCommand(matchId, commandId, command, 'free-pyramid')
 
     expect(result).toEqual({
       ok: true,
@@ -618,8 +618,8 @@ describe('application orchestration', () => {
     const room = {
       create: unused,
       snapshot: unused,
-      command: unused,
-      facts: unused,
+      submitCommand: unused,
+      listFacts: unused,
       stream: unused,
       finalization: unused,
       disposeFinalized: unused,
@@ -676,7 +676,7 @@ describe('application orchestration', () => {
     expect(protocol.ok && protocol.snapshot.gameKey).toBe('free-pyramid')
     expect(protocol.ok && protocol.controlProjection).toBeUndefined()
     expect(
-      await application.commandMatch(
+      await application.submitMatchCommand(
         matchId,
         newCommandId(),
         {
@@ -716,8 +716,8 @@ describe('application orchestration', () => {
       matchRoom: {
         create: unused,
         snapshot: unused,
-        command: unused,
-        facts: unused,
+        submitCommand: unused,
+        listFacts: unused,
         stream: unused,
         finalization: unused,
         disposeFinalized: async (id) => {
@@ -775,7 +775,7 @@ describe('application orchestration', () => {
         matchRoom: {
           create: unused,
           snapshot: unused,
-          command: async () => {
+          submitCommand: async () => {
             commandCalls += 1
             return {
               ok: true as const,
@@ -783,11 +783,28 @@ describe('application orchestration', () => {
               finalizing: true as const,
             }
           },
-          facts: unused,
+          listFacts: unused,
           stream: unused,
           finalization: async () =>
             roomStorageExists
-              ? { ok: true as const, data: { sourceLatestSeq: 9, endedAt, facts: [] } }
+              ? {
+                  ok: true as const,
+                  data: {
+                    sourceLatestSeq: 9,
+                    endedAt,
+                    facts: [],
+                    projection: {
+                      snapshot: { ...snapshotFor('free-pyramid', 'finished'), latestSeq: 9 },
+                      controlProjection: undefined,
+                      controlSections: {
+                        neutral: [],
+                        primary: { A: [], B: [] },
+                        secondary: { A: [], B: [] },
+                        tertiary: { A: [], B: [] },
+                      },
+                    },
+                  },
+                }
               : { ok: false as const, error: 'Unknown match', status: 400 },
           disposeFinalized: async () => {
             failOnce('dispose')
@@ -799,10 +816,10 @@ describe('application orchestration', () => {
       const commandId = newCommandId()
       const command: ControlCommand = { source: 'match', commandType: 'match.end', command: {} }
 
-      await expect(application.commandMatch(matchId, commandId, command, 'free-pyramid')).rejects.toThrow(
+      await expect(application.submitMatchCommand(matchId, commandId, command, 'free-pyramid')).rejects.toThrow(
         `Injected ${failurePoint} failure`,
       )
-      await application.commandMatch(matchId, commandId, command, 'free-pyramid')
+      await application.submitMatchCommand(matchId, commandId, command, 'free-pyramid')
 
       expect(archiveWrites).toBe(1)
       expect(roomStorageExists).toBe(false)
