@@ -1,9 +1,16 @@
-import { BySeatNumberSchema, ControlCommandSectionsSchema, NonEmptyStringSchema, SeatSchema } from '@ks/core'
+import { BySeatNumberSchema, ControlCommandSectionsSchema, IntegerSchema, NonEmptyStringSchema, SeatSchema } from '@ks/core'
 import * as v from 'valibot'
 
 import { GameControlProjectionSchema, GameScoreboardProjectionSchema, GameSummaryProjectionSchema } from '../constants'
+import type { PyramidGameKey } from './rules'
 
-export type PyramidGameKey = 'free-pyramid' | 'combined-pyramid' | 'combined-pyramid-old'
+export const PyramidCommandSchema = v.variant('type', [
+  v.object({ type: v.literal('frame.commence'), seat: SeatSchema }),
+  v.object({ type: v.literal('pot.record'), seat: SeatSchema, points: IntegerSchema }),
+  v.object({ type: v.literal('foul.commit'), seat: SeatSchema }),
+  v.object({ type: v.literal('frame.award'), seat: SeatSchema }),
+])
+export type PyramidCommand = v.InferOutput<typeof PyramidCommandSchema>
 
 export const PyramidFrameStateSchema = v.object({
   pointsBySeat: BySeatNumberSchema,
@@ -12,13 +19,6 @@ export const PyramidFrameStateSchema = v.object({
   winnerSeat: v.optional(SeatSchema),
 })
 export type PyramidFrameState = v.InferOutput<typeof PyramidFrameStateSchema>
-
-export type PyramidRuntimeConfig<K extends PyramidGameKey = PyramidGameKey> = {
-  gameKey: K
-  allowNegative: boolean
-  foulPenalty: 'opponent-plus-one' | 'offender-minus-one'
-  shotPointOptions: number[]
-}
 
 const PyramidProjectionDetailsSchema = v.object({
   phase: v.picklist(['not-started', 'open-play', 'winner-determined', 'frame-over']),

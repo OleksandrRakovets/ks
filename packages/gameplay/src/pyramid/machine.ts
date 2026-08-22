@@ -3,16 +3,12 @@ import invariant from 'tiny-invariant'
 import * as v from 'valibot'
 import { assign, initialTransition, setup, type SnapshotFrom, transition } from 'xstate'
 
+import type { PyramidCommand } from './definitions'
+import type { PyramidRules } from './rules'
+
 type PyramidWinReason = 'target-reached'
 
 export type PyramidPhase = 'not-started' | 'open-play' | 'winner-determined' | 'frame-over'
-
-type PyramidFoulPenalty = 'opponent-plus-one' | 'offender-minus-one'
-
-export type PyramidRules = {
-  allowNegative: boolean
-  foulPenalty: PyramidFoulPenalty
-}
 
 type PyramidContext = {
   score: BySeatNumber
@@ -27,29 +23,23 @@ type PyramidMachineInput = {
   rules: PyramidRules
 }
 
+type PotEvent = Extract<PyramidCommand, { type: 'pot.record' }>
+type FoulCommitEvent = Extract<PyramidCommand, { type: 'foul.commit' }>
+type FrameAwardEvent = Extract<PyramidCommand, { type: 'frame.award' }>
+
 const PyramidPhaseSchema = v.picklist(['not-started', 'open-play', 'winner-determined', 'frame-over'])
 
-export type PyramidEvent =
-  | { type: 'frame.commence'; actor: Seat }
-  | { type: 'pot.record'; actor: Seat; points: number }
-  | { type: 'foul.commit'; actor: Seat }
-  | { type: 'frame.award'; actor: Seat }
-
-type PotEvent = Extract<PyramidEvent, { type: 'pot.record' }>
-type FoulCommitEvent = Extract<PyramidEvent, { type: 'foul.commit' }>
-type FrameAwardEvent = Extract<PyramidEvent, { type: 'frame.award' }>
-
-function potEvent(event: PyramidEvent): PotEvent {
+function potEvent(event: PyramidCommand): PotEvent {
   invariant(event.type === 'pot.record', `Expected pot.record event, received ${event.type}`)
   return event
 }
 
-function foulCommitEvent(event: PyramidEvent): FoulCommitEvent {
+function foulCommitEvent(event: PyramidCommand): FoulCommitEvent {
   invariant(event.type === 'foul.commit', `Expected foul.commit event, received ${event.type}`)
   return event
 }
 
-function frameAwardEvent(event: PyramidEvent): FrameAwardEvent {
+function frameAwardEvent(event: PyramidCommand): FrameAwardEvent {
   invariant(event.type === 'frame.award', `Expected frame.award event, received ${event.type}`)
   return event
 }
@@ -90,31 +80,43 @@ function outputWinReason(context: PyramidContext): PyramidWinReason {
   return context.winReason
 }
 
-export const pyramidSparringMachine = setup({
+export const PyramidSparringFrameMachine = setup({
   types: {
     // SAFETY: XState's setup API uses empty values solely to capture these compile-time contracts.
     context: {} as PyramidContext,
     // SAFETY: XState's setup API uses empty values solely to capture these compile-time contracts.
-    events: {} as PyramidEvent,
+    events: {} as PyramidCommand,
     // SAFETY: XState's setup API uses empty values solely to capture these compile-time contracts.
     input: {} as PyramidMachineInput,
   },
   guards: {
-    isTargetReachedAfterPot: ({ context, event }) => {
+    isAllowedShotPoints: ({ context, event }) => {
       const e = potEvent(event)
-      const next = applyShot(context.score, e.actor, e.points, context.rules.allowNegative)
+      return context.rules.shotPointOptions.includes(e.points)
+    },
+    isAllowedShotPointsAndTargetReachedAfterPot: ({ context, event }) => {
+      const e = potEvent(event)
+      if (!context.rules.shotPointOptions.includes(e.points)) return false
+      const next = applyShot(context.score, e.seat, e.points, context.rules.allowNegative)
       return targetReached(next, context.targetPoints) !== null
     },
     isTargetReachedAfterFoul: ({ context, event }) => {
       const e = foulCommitEvent(event)
-      const next = applyFoul(context.score, e.actor, context.rules)
+      const next = applyFoul(context.score, e.seat, context.rules)
       return targetReached(next, context.targetPoints) !== null
     },
     isAwardForLeader: ({ context, event }) => {
       const e = frameAwardEvent(event)
-      return context.winner === e.actor
+      return context.winner === e.seat
     },
-    isActorWinner: ({ context, event }) => context.winner === event.actor,
+    isSeatWinner: ({ context, event }) => {
+      if (event.type === 'frame.commence' || event.type === 'frame.award') return false
+      return context.winner === event.seat
+    },
+    isSeatWinnerWithAllowedShotPoints: ({ context, event }) => {
+      const e = potEvent(event)
+      return context.winner === e.seat && context.rules.shotPointOptions.includes(e.points)
+    },
   },
   actions: {
     commence: assign(() => ({
@@ -123,12 +125,12 @@ export const pyramidSparringMachine = setup({
     applyPot: assign(({ context, event }) => {
       const e = potEvent(event)
       return {
-        score: applyShot(context.score, e.actor, e.points, context.rules.allowNegative),
+        score: applyShot(context.score, e.seat, e.points, context.rules.allowNegative),
       }
     }),
     applyPotAndSetWinner: assign(({ context, event }) => {
       const e = potEvent(event)
-      const score = applyShot(context.score, e.actor, e.points, context.rules.allowNegative)
+      const score = applyShot(context.score, e.seat, e.points, context.rules.allowNegative)
       const winner = targetReached(score, context.targetPoints)
       invariant(winner !== null, 'Pot did not reach target')
       return {
@@ -140,12 +142,12 @@ export const pyramidSparringMachine = setup({
     applyFoul: assign(({ context, event }) => {
       const e = foulCommitEvent(event)
       return {
-        score: applyFoul(context.score, e.actor, context.rules),
+        score: applyFoul(context.score, e.seat, context.rules),
       }
     }),
     applyFoulAndSetWinner: assign(({ context, event }) => {
       const e = foulCommitEvent(event)
-      const score = applyFoul(context.score, e.actor, context.rules)
+      const score = applyFoul(context.score, e.seat, context.rules)
       const winner = targetReached(score, context.targetPoints)
       invariant(winner !== null, 'Foul did not reach target')
       return {
@@ -180,11 +182,12 @@ export const pyramidSparringMachine = setup({
       on: {
         'pot.record': [
           {
-            guard: 'isTargetReachedAfterPot',
+            guard: 'isAllowedShotPointsAndTargetReachedAfterPot',
             target: 'winner-determined',
             actions: 'applyPotAndSetWinner',
           },
           {
+            guard: 'isAllowedShotPoints',
             target: 'open-play',
             actions: 'applyPot',
           },
@@ -206,12 +209,12 @@ export const pyramidSparringMachine = setup({
     'winner-determined': {
       on: {
         'pot.record': {
-          guard: 'isActorWinner',
+          guard: 'isSeatWinnerWithAllowedShotPoints',
           target: 'winner-determined',
           actions: 'applyPot',
         },
         'foul.commit': {
-          guard: 'isActorWinner',
+          guard: 'isSeatWinner',
           target: 'winner-determined',
           actions: 'applyFoul',
         },
@@ -234,18 +237,18 @@ export const pyramidSparringMachine = setup({
   }),
 })
 
-export type PyramidSparringSnapshot = SnapshotFrom<typeof pyramidSparringMachine>
+export type PyramidSparringFrameSnapshot = SnapshotFrom<typeof PyramidSparringFrameMachine>
 
-export function createInitialSnapshot(rules: PyramidRules, targetPointsBySeat: BySeatNumber): PyramidSparringSnapshot {
-  const [snapshot] = initialTransition(pyramidSparringMachine, { targetPointsBySeat, rules })
+export function createInitialSnapshot(rules: PyramidRules, targetPointsBySeat: BySeatNumber): PyramidSparringFrameSnapshot {
+  const [snapshot] = initialTransition(PyramidSparringFrameMachine, { targetPointsBySeat, rules })
   return snapshot
 }
 
-export function getPhase(snapshot: PyramidSparringSnapshot): PyramidPhase {
+export function getPhase(snapshot: PyramidSparringFrameSnapshot): PyramidPhase {
   return v.parse(PyramidPhaseSchema, snapshot.value)
 }
 
-export function sendEvent(snapshot: PyramidSparringSnapshot, event: PyramidEvent): PyramidSparringSnapshot {
-  const [nextSnapshot] = transition(pyramidSparringMachine, snapshot, event)
+export function sendEvent(snapshot: PyramidSparringFrameSnapshot, event: PyramidCommand): PyramidSparringFrameSnapshot {
+  const [nextSnapshot] = transition(PyramidSparringFrameMachine, snapshot, event)
   return nextSnapshot
 }

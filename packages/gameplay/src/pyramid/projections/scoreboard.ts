@@ -1,10 +1,5 @@
-import type {
-  AnyPyramidScoreboardView,
-  PyramidFrameState,
-  PyramidGameKey,
-  PyramidRuntimeConfig,
-  PyramidScoreboardViewFor,
-} from '../definitions'
+import type { AnyPyramidScoreboardView, PyramidFrameState, PyramidScoreboardViewFor } from '../definitions'
+import type { PyramidGameKey, PyramidRules } from '../rules'
 
 function pyramidDetails(state: PyramidFrameState) {
   return {
@@ -15,10 +10,10 @@ function pyramidDetails(state: PyramidFrameState) {
 
 export function derivePyramidScoreboardView<K extends PyramidGameKey>(
   state: PyramidFrameState,
-  config: PyramidRuntimeConfig<K>,
+  rules: PyramidRules<K>,
 ): PyramidScoreboardViewFor<K> {
   const projection = {
-    gameKey: config.gameKey,
+    gameKey: rules.gameKey,
     projection: 'scoreboard',
     score: state.pointsBySeat,
     details: pyramidDetails(state),

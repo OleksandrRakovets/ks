@@ -27,7 +27,7 @@ export type PyramidRules<K extends PyramidGameKey = PyramidGameKey> = {
 }
 ```
 
-Define one exhaustive `PyramidRulesByGameKey` map:
+Define one exhaustive `PyramidRuleSpecificsByGameKey` map:
 
 | Key                    | Negative score | Foul        | Pot presets |
 | ---------------------- | -------------- | ----------- | ----------- |
@@ -160,7 +160,7 @@ bun run check
 ## Exit Gate
 
 - One configured machine implements all regular pyramid variants.
-- Variant selection is an exhaustive rules map.
+- Variant selection is an exhaustive `PyramidRuleSpecificsByGameKey` map.
 - All three factory branches return resident actor-backed sessions.
 - No imperative pyramid runtime or legacy adapter remains.
 - Session and scenario behavior matches the characterized production behavior.

@@ -33,11 +33,11 @@ describe('free pyramid: game api', () => {
       gameKey: 'free-pyramid',
       state,
       commandType: 'pot.record',
-      command: { seat: 'A', points: 3 },
+      command: { seat: 'A', points: 2 },
     }))
 
     expect(state).toEqual({
-      pointsBySeat: { A: 3, B: 0 },
+      pointsBySeat: { A: 2, B: 0 },
       targetPointsBySeat: { A: 8, B: 8 },
       phase: 'open-play',
     })
@@ -46,25 +46,21 @@ describe('free pyramid: game api', () => {
         source: 'player',
         entryType: 'player-command',
         seat: 'A',
-        scoreAfter: { A: 3, B: 0 },
-        body: { commandType: 'pot.record', points: 3 },
+        scoreAfter: { A: 2, B: 0 },
+        body: { commandType: 'pot.record', points: 2 },
       },
     ])
   })
 
-  test('clamps score at zero', () => {
-    const { state } = applyGameCommand({
-      gameKey: 'free-pyramid',
-      state: { pointsBySeat: { A: 1, B: 0 }, targetPointsBySeat: { A: 8, B: 8 }, phase: 'open-play' },
-      commandType: 'pot.record',
-      command: { seat: 'A', points: -5 },
-    })
-
-    expect(state).toEqual({
-      pointsBySeat: { A: 0, B: 0 },
-      targetPointsBySeat: { A: 8, B: 8 },
-      phase: 'open-play',
-    })
+  test('rejects invalid negative shot presets', () => {
+    expect(() =>
+      applyGameCommand({
+        gameKey: 'free-pyramid',
+        state: { pointsBySeat: { A: 1, B: 0 }, targetPointsBySeat: { A: 8, B: 8 }, phase: 'open-play' },
+        commandType: 'pot.record',
+        command: { seat: 'A', points: -5 },
+      }),
+    ).toThrow('Command not available')
   })
 
   test('foul awards one point to opponent', () => {
@@ -157,7 +153,7 @@ describe('free pyramid: game api', () => {
         commandType: 'pot.record',
         command: { seat: 'B', points: 1 },
       }),
-    ).toThrow('Only determined winner may continue scoring')
+    ).toThrow('Command not available')
   })
 
   test('frame.award closes gameplay state', () => {
@@ -186,33 +182,29 @@ describe('free pyramid: game api', () => {
 })
 
 describe('combined pyramid: game api', () => {
-  test('clamps score at zero', () => {
-    const { state } = applyGameCommand({
-      gameKey: 'combined-pyramid',
-      state: { pointsBySeat: { A: 1, B: 0 }, targetPointsBySeat: { A: 8, B: 8 }, phase: 'open-play' },
-      commandType: 'pot.record',
-      command: { seat: 'A', points: -5 },
-    })
-
-    expect(state).toEqual({
-      pointsBySeat: { A: 0, B: 0 },
-      targetPointsBySeat: { A: 8, B: 8 },
-      phase: 'open-play',
-    })
+  test('rejects invalid negative shot presets', () => {
+    expect(() =>
+      applyGameCommand({
+        gameKey: 'combined-pyramid',
+        state: { pointsBySeat: { A: 1, B: 0 }, targetPointsBySeat: { A: 8, B: 8 }, phase: 'open-play' },
+        commandType: 'pot.record',
+        command: { seat: 'A', points: -5 },
+      }),
+    ).toThrow('Command not available')
   })
 })
 
 describe('combined pyramid old: game api', () => {
-  test('keeps negative score', () => {
+  test('keeps negative score via offender foul', () => {
     const { state } = applyGameCommand({
       gameKey: 'combined-pyramid-old',
-      state: { pointsBySeat: { A: 1, B: 0 }, targetPointsBySeat: { A: 8, B: 8 }, phase: 'open-play' },
-      commandType: 'pot.record',
-      command: { seat: 'A', points: -5 },
+      state: { pointsBySeat: { A: 0, B: 0 }, targetPointsBySeat: { A: 8, B: 8 }, phase: 'open-play' },
+      commandType: 'foul.commit',
+      command: { seat: 'A' },
     })
 
     expect(state).toEqual({
-      pointsBySeat: { A: -4, B: 0 },
+      pointsBySeat: { A: -1, B: 0 },
       targetPointsBySeat: { A: 8, B: 8 },
       phase: 'open-play',
     })

@@ -2,13 +2,8 @@ import { emptyControlCommandSections } from '@ks/core'
 import invariant from 'tiny-invariant'
 
 import { deriveGameCommandSections, type GameControlCommand } from '../../constants'
-import type {
-  AnyPyramidControlView,
-  PyramidControlViewFor,
-  PyramidFrameState,
-  PyramidGameKey,
-  PyramidRuntimeConfig,
-} from '../definitions'
+import type { AnyPyramidControlView, PyramidControlViewFor, PyramidFrameState } from '../definitions'
+import type { PyramidGameKey, PyramidRules } from '../rules'
 
 type PyramidControlCommandInput =
   | { type: 'pot.record'; seat: 'A' | 'B'; points: number }
@@ -32,11 +27,11 @@ function pyramidDetails(state: PyramidFrameState) {
 
 export function derivePyramidControlView<K extends PyramidGameKey>(
   state: PyramidFrameState,
-  config: PyramidRuntimeConfig<K>,
+  rules: PyramidRules<K>,
 ): PyramidControlViewFor<K> {
   if (state.phase === 'not-started') {
     const projection = {
-      gameKey: config.gameKey,
+      gameKey: rules.gameKey,
       projection: 'control',
       score: state.pointsBySeat,
       details: {
@@ -54,7 +49,7 @@ export function derivePyramidControlView<K extends PyramidGameKey>(
     const seats: Array<'A' | 'B'> = ['A', 'B']
     const commands = [
       ...seats.flatMap((seat) =>
-        config.shotPointOptions.map((points, index) =>
+        rules.shotPointOptions.map((points, index) =>
           command({ type: 'pot.record', seat, points }, { prominence: index === 0 ? 'primary' : 'secondary' }),
         ),
       ),
@@ -63,14 +58,14 @@ export function derivePyramidControlView<K extends PyramidGameKey>(
           { type: 'foul.commit', seat },
           {
             prominence: 'secondary',
-            effect: config.foulPenalty,
+            effect: rules.foulPenalty,
           },
         ),
       ),
     ]
 
     const projection = {
-      gameKey: config.gameKey,
+      gameKey: rules.gameKey,
       projection: 'control',
       score: state.pointsBySeat,
       details: {
@@ -92,7 +87,7 @@ export function derivePyramidControlView<K extends PyramidGameKey>(
     ]
 
     const projection = {
-      gameKey: config.gameKey,
+      gameKey: rules.gameKey,
       projection: 'control',
       score: state.pointsBySeat,
       details: {
@@ -107,7 +102,7 @@ export function derivePyramidControlView<K extends PyramidGameKey>(
   }
 
   const projection = {
-    gameKey: config.gameKey,
+    gameKey: rules.gameKey,
     projection: 'control',
     score: state.pointsBySeat,
     details: {

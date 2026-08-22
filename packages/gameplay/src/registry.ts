@@ -10,10 +10,10 @@ import type {
 import type {
   PyramidControlViewFor,
   PyramidFrameState,
-  PyramidGameKey,
   PyramidScoreboardViewFor,
   PyramidSummaryViewFor,
 } from './pyramid/definitions'
+import type { PyramidGameKey } from './pyramid/rules'
 import type { StrilaControlView, StrilaFrameState, StrilaScoreboardView, StrilaSummaryView } from './strila-v2/definitions'
 
 type RegistryEntry = {
