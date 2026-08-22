@@ -8,16 +8,11 @@ import type {
   LongFreePyramidSummaryView,
 } from './long-free-pyramid/definitions'
 import type {
-  CombinedPyramidControlView,
-  CombinedPyramidOldControlView,
-  CombinedPyramidOldScoreboardView,
-  CombinedPyramidOldSummaryView,
-  CombinedPyramidScoreboardView,
-  CombinedPyramidSummaryView,
-  FreePyramidControlView,
-  FreePyramidScoreboardView,
-  FreePyramidSummaryView,
+  PyramidControlViewFor,
   PyramidFrameState,
+  PyramidGameKey,
+  PyramidScoreboardViewFor,
+  PyramidSummaryViewFor,
 } from './pyramid/definitions'
 import type { StrilaControlView, StrilaFrameState, StrilaScoreboardView, StrilaSummaryView } from './strila-v2/definitions'
 
@@ -90,29 +85,18 @@ export type GameContracts = {
     scoreboard: StrilaScoreboardView
     summary: StrilaSummaryView
   }
-  'free-pyramid': {
-    state: PyramidFrameState
-    control: FreePyramidControlView
-    scoreboard: FreePyramidScoreboardView
-    summary: FreePyramidSummaryView
-  }
   'free-pyramid-long': {
     state: LongFreePyramidFrameState
     control: LongFreePyramidControlView
     scoreboard: LongFreePyramidScoreboardView
     summary: LongFreePyramidSummaryView
   }
-  'combined-pyramid': {
+} & {
+  [K in PyramidGameKey]: {
     state: PyramidFrameState
-    control: CombinedPyramidControlView
-    scoreboard: CombinedPyramidScoreboardView
-    summary: CombinedPyramidSummaryView
-  }
-  'combined-pyramid-old': {
-    state: PyramidFrameState
-    control: CombinedPyramidOldControlView
-    scoreboard: CombinedPyramidOldScoreboardView
-    summary: CombinedPyramidOldSummaryView
+    control: PyramidControlViewFor<K>
+    scoreboard: PyramidScoreboardViewFor<K>
+    summary: PyramidSummaryViewFor<K>
   }
 }
 

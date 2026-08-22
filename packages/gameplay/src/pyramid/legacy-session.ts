@@ -43,8 +43,7 @@ class PyramidLegacyGameplaySession<K extends PyramidGameKey> implements Gameplay
 
   get state(): GameStateFor<K> {
     this.assertActive()
-    // SAFETY: PyramidFrameState is the canonical state carrier for every PyramidGameKey variant.
-    return this.stateValue as GameStateFor<K>
+    return this.stateValue
   }
 
   decide(commandType: string, command: ControlCommandPayload): GameCommandDecision<K> {
@@ -57,8 +56,7 @@ class PyramidLegacyGameplaySession<K extends PyramidGameKey> implements Gameplay
       command,
     })
     const candidateResult = buildPreparedResult<K>(
-      // SAFETY: Pyramid runtime state matches the configured PyramidGameKey variant for this session.
-      candidateResultRaw.state as GameStateFor<K>,
+      candidateResultRaw.state,
       candidateResultRaw.protocolEntries,
       candidateResultRaw.outcome,
     )
@@ -67,8 +65,7 @@ class PyramidLegacyGameplaySession<K extends PyramidGameKey> implements Gameplay
       gameKey: this.gameKey,
       ownerId: this.ownerId,
       revision: this.revision,
-      // SAFETY: previousState is the active PyramidFrameState for this configured PyramidGameKey.
-      previousState: previousState as GameStateFor<K>,
+      previousState,
       parsedEvent: { commandType, command } satisfies LegacyParsedCommand,
       candidateResult,
     })
@@ -93,8 +90,7 @@ class PyramidLegacyGameplaySession<K extends PyramidGameKey> implements Gameplay
 
     if (token.revision !== this.revision) throw new InvalidPreparedTransitionError('Prepared transition revision is stale')
 
-    // SAFETY: Token gameKey matches this pyramid session's configured PyramidGameKey.
-    this.stateValue = token.candidateResult.state as PyramidFrameState
+    this.stateValue = token.candidateResult.state
     token.consumed = true
     this.revision += 1
     return token.candidateResult
@@ -102,17 +98,23 @@ class PyramidLegacyGameplaySession<K extends PyramidGameKey> implements Gameplay
 
   deriveControl(): ControlProjectionFor<K> {
     this.assertActive()
-    return this.runtime.deriveControl(this.stateValue)
+    const projection = this.runtime.deriveControl(this.stateValue)
+    // SAFETY: GameContracts maps every PyramidGameKey to PyramidControlViewFor<K>.
+    return projection as ControlProjectionFor<K>
   }
 
   deriveSummary(): SummaryProjectionFor<K> {
     this.assertActive()
-    return this.runtime.deriveSummary(this.stateValue)
+    const projection = this.runtime.deriveSummary(this.stateValue)
+    // SAFETY: GameContracts maps every PyramidGameKey to PyramidSummaryViewFor<K>.
+    return projection as SummaryProjectionFor<K>
   }
 
   deriveScoreboard(): ScoreboardProjectionFor<K> {
     this.assertActive()
-    return this.runtime.deriveScoreboard(this.stateValue)
+    const projection = this.runtime.deriveScoreboard(this.stateValue)
+    // SAFETY: GameContracts maps every PyramidGameKey to PyramidScoreboardViewFor<K>.
+    return projection as ScoreboardProjectionFor<K>
   }
 
   dispose(): void {

@@ -16,37 +16,25 @@ import {
   type ScoreboardProjectionFor,
   type SummaryProjectionFor,
 } from './registry'
-import { createGameplaySession, restoreGameplaySession } from './session-factory'
+import { createGameplaySession, createGameplaySessionArgsFromState, restoreGameplaySession } from './session-factory'
 import { StrilaControlViewSchema } from './strila-v2/definitions'
 
 export function parseGameKey(value: string): RegisteredGameKey {
   return v.parse(RegisteredGameKeySchema, value)
 }
 
-function createArgsFromState<K extends RegisteredGameKey>(gameKey: K, state: GameStateFor<K>): GameCreateStateArgs {
-  switch (gameKey) {
-    case 'strila-v2': {
-      // SAFETY: The strila-v2 branch receives GameStateFor<'strila-v2'>.
-      const strilaState = state as GameStateFor<'strila-v2'>
-      return { targetPointsBySeat: strilaState.targetPoints, breakerSeat: 'A' }
-    }
-    case 'free-pyramid-long': {
-      // SAFETY: The free-pyramid-long branch receives GameStateFor<'free-pyramid-long'>.
-      const longState = state as GameStateFor<'free-pyramid-long'>
-      return {
-        targetPointsBySeat: longState.targetPointsBySeat,
-        breakerSeat: 'A',
-        gameConfiguration: { rackRollover: longState.rackRollover },
-      }
-    }
-    case 'free-pyramid':
-    case 'combined-pyramid':
-    case 'combined-pyramid-old': {
-      // SAFETY: These branches share PyramidFrameState as their canonical carrier.
-      const pyramidState = state as GameStateFor<'free-pyramid'>
-      return { targetPointsBySeat: pyramidState.targetPointsBySeat, breakerSeat: 'A' }
-    }
-  }
+type GameControlParser<K extends RegisteredGameKey> = (input: GameControlProjectionInput) => ControlProjectionFor<K>
+
+type GameControlParsers = {
+  [K in RegisteredGameKey]: GameControlParser<K>
+}
+
+const gameControlParsers: GameControlParsers = {
+  'strila-v2': (input) => v.parse(StrilaControlViewSchema, input),
+  'free-pyramid': (input) => v.parse(FreePyramidControlViewSchema, input),
+  'free-pyramid-long': (input) => v.parse(LongFreePyramidControlViewSchema, input),
+  'combined-pyramid': (input) => v.parse(CombinedPyramidControlViewSchema, input),
+  'combined-pyramid-old': (input) => v.parse(CombinedPyramidOldControlViewSchema, input),
 }
 
 export function createInitialGameState<K extends RegisteredGameKey>(gameKey: K, args: GameCreateStateArgs): GameStateFor<K> {
@@ -62,7 +50,7 @@ export function applyGameCommand<K extends RegisteredGameKey>(args: {
   commandType: string
   command: ControlCommandPayload
 }): GameCommandResult<GameStateFor<K>> {
-  const session = restoreGameplaySession(args.gameKey, args.state, createArgsFromState(args.gameKey, args.state))
+  const session = restoreGameplaySession(args.gameKey, args.state, createGameplaySessionArgsFromState(args.gameKey, args.state))
   try {
     const decision = session.decide(args.commandType, args.command)
     if (decision._tag === 'rejected') {
@@ -80,7 +68,7 @@ export function applyGameCommand<K extends RegisteredGameKey>(args: {
 }
 
 export function deriveGameControl<K extends RegisteredGameKey>(gameKey: K, state: GameStateFor<K>): ControlProjectionFor<K> {
-  const session = restoreGameplaySession(gameKey, state, createArgsFromState(gameKey, state))
+  const session = restoreGameplaySession(gameKey, state, createGameplaySessionArgsFromState(gameKey, state))
   try {
     return session.deriveControl()
   } finally {
@@ -92,34 +80,14 @@ export function parseGameControl<K extends RegisteredGameKey>(
   gameKey: K,
   input: GameControlProjectionInput,
 ): ControlProjectionFor<K> {
-  let projection: ControlProjectionFor<RegisteredGameKey>
-  switch (gameKey) {
-    case 'strila-v2':
-      projection = v.parse(StrilaControlViewSchema, input)
-      break
-    case 'free-pyramid':
-      projection = v.parse(FreePyramidControlViewSchema, input)
-      break
-    case 'free-pyramid-long':
-      projection = v.parse(LongFreePyramidControlViewSchema, input)
-      break
-    case 'combined-pyramid':
-      projection = v.parse(CombinedPyramidControlViewSchema, input)
-      break
-    case 'combined-pyramid-old':
-      projection = v.parse(CombinedPyramidOldControlViewSchema, input)
-      break
-  }
-  if (projection.gameKey !== gameKey) throw new Error('Control projection game key does not match expected game')
-  // SAFETY: The schema selected by gameKey parsed the projection and its literal gameKey was checked above.
-  return projection as ControlProjectionFor<K>
+  return gameControlParsers[gameKey](input)
 }
 
 export function deriveGameScoreboard<K extends RegisteredGameKey>(
   gameKey: K,
   state: GameStateFor<K>,
 ): ScoreboardProjectionFor<K> {
-  const session = restoreGameplaySession(gameKey, state, createArgsFromState(gameKey, state))
+  const session = restoreGameplaySession(gameKey, state, createGameplaySessionArgsFromState(gameKey, state))
   try {
     return session.deriveScoreboard()
   } finally {
@@ -128,7 +96,7 @@ export function deriveGameScoreboard<K extends RegisteredGameKey>(
 }
 
 export function deriveGameSummary<K extends RegisteredGameKey>(gameKey: K, state: GameStateFor<K>): SummaryProjectionFor<K> {
-  const session = restoreGameplaySession(gameKey, state, createArgsFromState(gameKey, state))
+  const session = restoreGameplaySession(gameKey, state, createGameplaySessionArgsFromState(gameKey, state))
   try {
     return session.deriveSummary()
   } finally {

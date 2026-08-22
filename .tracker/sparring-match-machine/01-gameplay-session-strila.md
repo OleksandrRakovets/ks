@@ -178,13 +178,6 @@ bun run check
 - Production exports expose no actor or snapshot type.
 - Temporary legacy adapters exist only for pyramid and long free pyramid.
 
-## Post-Slice 1 Typing Note (Validated, Non-Blocking)
+## Post-Slice 1 Typing Follow-Up (Resolved)
 
-TypeScript does not narrow generic `K` through the exhaustive `createGameplaySession` / `restoreGameplaySession` switch in `session-factory.ts`. Each branch returns a concrete session type, but the compiler still sees `GameplaySession<RegisteredGameKey>` at the switch boundary.
-
-`restoreGameplaySession` therefore relies on two manual correlation steps that are correct at runtime but not enforced by the type system:
-
-1. Per-branch `state as GameStateFor<'…'>` casts after the exhaustive `gameKey` switch.
-2. `asGameplaySession`, which reasserts `GameplaySession<K>` on the branch-produced session.
-
-This behavior is correct for Slice 1 and is not a blocker for acceptance. Revisit the type relationship after Slice 1, preferably via a registry/map (or equivalent keyed factory table) that lets TypeScript correlate `gameKey`, `GameStateFor<K>`, and `GameplaySession<K>` per branch without layered assertions.
+The generic switches were replaced by an explicitly typed keyed factory table. Its mapped type correlates each registered `gameKey` with `GameStateFor<K>` and `GameplaySession<K>`, so creation, restoration, and restoration-argument derivation no longer require branch-local state casts or a session-result assertion.

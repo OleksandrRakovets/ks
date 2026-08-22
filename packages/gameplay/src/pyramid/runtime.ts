@@ -3,8 +3,14 @@ import invariant from 'tiny-invariant'
 import * as v from 'valibot'
 
 import { type GameCreateStateArgs } from '../constants'
-import type { ControlProjectionFor, ScoreboardProjectionFor, SummaryProjectionFor } from '../registry'
-import { type PyramidFrameState, type PyramidGameKey, type PyramidRuntimeConfig } from './definitions'
+import {
+  type PyramidControlViewFor,
+  type PyramidFrameState,
+  type PyramidGameKey,
+  type PyramidRuntimeConfig,
+  type PyramidScoreboardViewFor,
+  type PyramidSummaryViewFor,
+} from './definitions'
 import { derivePyramidControlView } from './projections/control'
 import { derivePyramidScoreboardView } from './projections/scoreboard'
 import { derivePyramidSummaryView } from './projections/summary'
@@ -237,21 +243,15 @@ export class PyramidGameplayRuntime<K extends PyramidGameKey> {
     }
   }
 
-  deriveControl(state: PyramidFrameState): ControlProjectionFor<K> {
-    const projection = derivePyramidControlView(state, this.config)
-    // SAFETY: The constructor verified the complete schema-inferred shape; only registry generic correlation remains.
-    return projection as ControlProjectionFor<K>
+  deriveControl(state: PyramidFrameState): PyramidControlViewFor<K> {
+    return derivePyramidControlView(state, this.config)
   }
 
-  deriveScoreboard(state: PyramidFrameState): ScoreboardProjectionFor<K> {
-    const projection = derivePyramidScoreboardView(state, this.config)
-    // SAFETY: The constructor verified the complete schema-inferred shape; only registry generic correlation remains.
-    return projection as ScoreboardProjectionFor<K>
+  deriveScoreboard(state: PyramidFrameState): PyramidScoreboardViewFor<K> {
+    return derivePyramidScoreboardView(state, this.config)
   }
 
-  deriveSummary(state: PyramidFrameState): SummaryProjectionFor<K> {
-    const projection = derivePyramidSummaryView(state, this.config)
-    // SAFETY: The constructor verified the complete schema-inferred shape; only registry generic correlation remains.
-    return projection as SummaryProjectionFor<K>
+  deriveSummary(state: PyramidFrameState): PyramidSummaryViewFor<K> {
+    return derivePyramidSummaryView(state, this.config)
   }
 }
