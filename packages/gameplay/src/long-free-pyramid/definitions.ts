@@ -3,6 +3,16 @@ import * as v from 'valibot'
 
 import { GameControlProjectionSchema, GameScoreboardProjectionSchema, GameSummaryProjectionSchema } from '../constants'
 
+const LongFreePyramidPotPointsSchema = v.picklist([1, 2, 3, 4])
+
+export const LongFreePyramidCommandSchema = v.variant('type', [
+  v.object({ type: v.literal('frame.commence'), seat: SeatSchema }),
+  v.object({ type: v.literal('pot.record'), seat: SeatSchema, points: LongFreePyramidPotPointsSchema }),
+  v.object({ type: v.literal('foul.commit'), seat: SeatSchema }),
+  v.object({ type: v.literal('frame.award'), seat: SeatSchema }),
+])
+export type LongFreePyramidCommand = v.InferOutput<typeof LongFreePyramidCommandSchema>
+
 export const LongFreePyramidRackSchema = v.object({
   rackNumber: v.pipe(IntegerSchema, v.minValue(1)),
   scoreBySeat: BySeatNumberSchema,
@@ -14,18 +24,27 @@ const LongFreePyramidMessageSchema = v.object({
   rackNumber: v.pipe(IntegerSchema, v.minValue(1)),
 })
 
+export const LongFreePyramidPhaseSchema = v.picklist([
+  'not-started',
+  'open-play',
+  'winner-determined',
+  'awaiting-award',
+  'frame-over',
+])
+export type LongFreePyramidPhase = v.InferOutput<typeof LongFreePyramidPhaseSchema>
+
 export const LongFreePyramidFrameStateSchema = v.object({
   racks: v.pipe(v.array(LongFreePyramidRackSchema), v.minLength(1)),
   targetPointsBySeat: BySeatNumberSchema,
   rackRollover: v.picklist([14, 15]),
-  phase: v.picklist(['not-started', 'open-play', 'winner-determined', 'awaiting-award', 'frame-over']),
+  phase: LongFreePyramidPhaseSchema,
   winnerSeat: v.optional(SeatSchema),
   messages: v.array(LongFreePyramidMessageSchema),
 })
 export type LongFreePyramidFrameState = v.InferOutput<typeof LongFreePyramidFrameStateSchema>
 
 export const LongFreePyramidProjectionDetailsSchema = v.object({
-  phase: v.picklist(['not-started', 'open-play', 'winner-determined', 'awaiting-award', 'frame-over']),
+  phase: LongFreePyramidPhaseSchema,
   winner: v.optional(SeatSchema),
   rackHistory: v.pipe(v.array(LongFreePyramidRackSchema), v.minLength(1)),
   currentRack: LongFreePyramidRackSchema,

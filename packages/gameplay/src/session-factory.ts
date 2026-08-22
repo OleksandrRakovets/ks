@@ -1,6 +1,6 @@
 import type { GameCreateStateArgs } from './constants'
 import type { GameplaySession, GameplaySessionFactoryArgs } from './gameplay-session'
-import { createLongFreePyramidLegacyGameplaySession } from './long-free-pyramid/legacy-session'
+import { createLongFreePyramidGameplaySession } from './long-free-pyramid/session'
 import { createPyramidGameplaySession } from './pyramid/session'
 import type { GameStateFor, RegisteredGameKey } from './registry'
 import { createStrilaGameplaySession } from './strila-v2/session'
@@ -27,8 +27,8 @@ const gameplaySessionFactories: GameplaySessionFactories = {
     createArgsFromState: (state) => ({ targetPointsBySeat: state.targetPointsBySeat, breakerSeat: 'A' }),
   },
   'free-pyramid-long': {
-    create: createLongFreePyramidLegacyGameplaySession,
-    restore: (state, args) => createLongFreePyramidLegacyGameplaySession(args, state),
+    create: createLongFreePyramidGameplaySession,
+    restore: (state, args) => createLongFreePyramidGameplaySession(args, state),
     createArgsFromState: (state) => ({
       targetPointsBySeat: state.targetPointsBySeat,
       breakerSeat: 'A',

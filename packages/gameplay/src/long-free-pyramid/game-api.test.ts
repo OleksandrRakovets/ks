@@ -104,7 +104,7 @@ describe('long free pyramid: game api', () => {
 
     expect(() =>
       applyGameCommand({ gameKey: 'free-pyramid-long', state, commandType: 'pot.record', command: { seat: 'B', points: 1 } }),
-    ).toThrow('Only determined winner may continue scoring')
+    ).toThrow('Command not available')
 
     ;({ state } = applyGameCommand({ gameKey: 'free-pyramid-long', state, commandType: 'foul.commit', command: { seat: 'A' } }))
     parsedState = v.parse(LongFreePyramidFrameStateSchema, state)
