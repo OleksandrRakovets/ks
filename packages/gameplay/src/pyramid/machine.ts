@@ -11,6 +11,8 @@ type PyramidMachineInput = {
   rules: PyramidRules
 }
 
+export type PyramidSparringFrameMachineInput = PyramidMachineInput
+
 type PotEvent = Extract<PyramidCommand, { type: 'pot.record' }>
 type FoulCommitEvent = Extract<PyramidCommand, { type: 'foul.commit' }>
 type FrameAwardEvent = Extract<PyramidCommand, { type: 'frame.award' }>
@@ -220,6 +222,10 @@ export type PyramidSparringFrameSnapshot = SnapshotFrom<typeof PyramidSparringFr
 export function createInitialSnapshot(rules: PyramidRules, targetPointsBySeat: BySeatNumber): PyramidSparringFrameSnapshot {
   const [snapshot] = initialTransition(PyramidSparringFrameMachine, { targetPointsBySeat, rules })
   return snapshot
+}
+
+export function getPyramidSparringFramePhase(snapshot: PyramidSparringFrameSnapshot): PyramidPhase {
+  return getPhase(snapshot)
 }
 
 export function getPhase(snapshot: PyramidSparringFrameSnapshot): PyramidPhase {

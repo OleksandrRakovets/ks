@@ -120,3 +120,7 @@ export function listGameKeys(): RegisteredGameKey[] {
 export function getGameMeta(gameKey: RegisteredGameKey): GameMeta {
   return registry[gameKey].meta
 }
+
+export function parseGameKey(value: string): RegisteredGameKey {
+  return v.parse(RegisteredGameKeySchema, value)
+}

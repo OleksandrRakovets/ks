@@ -17,12 +17,13 @@ import {
   type StoredMatchFact,
   type UnixEpochMilliseconds,
 } from '@ks/core'
+import type { ControlCommandSections, MatchSnapshot } from '@ks/core'
+import type { ControlProjectionFor, RegisteredGameKey } from '@ks/gameplay/definitions'
 import { DurableObject } from 'cloudflare:workers'
 import { migrate } from 'drizzle-orm/durable-sqlite/migrator'
 import * as v from 'valibot'
 
 import migrationsBundle from '../drizzle/migrations.js'
-import { type RoomSnapshotSuccess, wrapRoomSnapshot } from './active-game'
 import type { Env } from './env'
 import { Broadcaster } from './live/broadcaster'
 import {
@@ -44,6 +45,17 @@ type ResidentRoom = {
   readonly latestSeq: number
   readonly session: SparringMatchSession
 }
+
+type RoomSnapshotSuccessFor<K extends RegisteredGameKey> = {
+  ok: true
+  snapshot: MatchSnapshot & { gameKey: K }
+  controlProjection: ControlProjectionFor<K> | undefined
+  controlSections: ControlCommandSections
+}
+
+type RoomSnapshotSuccess = {
+  [K in RegisteredGameKey]: RoomSnapshotSuccessFor<K>
+}[RegisteredGameKey]
 
 type SnapshotResult = RoomSnapshotSuccess | { ok: false; error: string; status: number }
 
@@ -111,7 +123,7 @@ export class MatchRoom extends DurableObject<Env> {
       return { ok: false, error: 'Match is finalizing', status: 409 }
     }
     const resident = this.loadResident()
-    return wrapRoomSnapshot(resident.session.project(match.latestSeq))
+    return { ok: true, ...resident.session.project(match.latestSeq) }
   }
 
   async submitCommand(args: SubmitCommandBody): Promise<SubmitCommandResult> {

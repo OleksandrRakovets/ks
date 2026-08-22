@@ -8,11 +8,12 @@ import {
   type StoredMatchFact,
   UnixEpochMillisecondsSchema,
 } from '@ks/core'
+import type { ControlCommandSections, MatchSnapshot } from '@ks/core'
+import type { ControlProjectionFor, RegisteredGameKey } from '@ks/gameplay/definitions'
 import { env, evictDurableObject, runInDurableObject } from 'cloudflare:test'
 import * as v from 'valibot'
 import { describe, expect, test } from 'vitest'
 
-import type { RoomSnapshotSuccess } from './active-game'
 import { MatchRoom } from './MatchRoom'
 import type { CreateBody, SubmitCommandBody, SubmitCommandResult } from './rpc-contract'
 
@@ -73,6 +74,17 @@ function frameAwardCommand(seat: 'A' | 'B'): ControlCommand {
 function unsupportedCommand(): ControlCommand {
   return { source: 'match', commandType: 'match.end', command: {} }
 }
+
+type RoomSnapshotSuccessFor<K extends RegisteredGameKey> = {
+  ok: true
+  snapshot: MatchSnapshot & { gameKey: K }
+  controlProjection: ControlProjectionFor<K> | undefined
+  controlSections: ControlCommandSections
+}
+
+type RoomSnapshotSuccess = {
+  [K in RegisteredGameKey]: RoomSnapshotSuccessFor<K>
+}[RegisteredGameKey]
 
 type ListFactsOk = { ok: true; facts: StoredMatchFact[] }
 type SnapshotOk = RoomSnapshotSuccess

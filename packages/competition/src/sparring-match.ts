@@ -32,6 +32,11 @@ import { createGameplaySession } from '@ks/gameplay/server'
 import * as v from 'valibot'
 
 import { type MatchSnapshotFor } from './matches'
+export type {
+  ActiveSparringFrame,
+  CompletedSparringFrame,
+  SparringMatchLifecycleState,
+} from './sparring-match-machine-internals'
 import {
   createInitialSnapshot,
   createSparringMatchActor,
@@ -43,7 +48,7 @@ import {
   type SparringMatchLifecycleEvent,
   type SparringMatchSnapshot,
   sparringSnapshotsEqual,
-} from './sparring-match-machine'
+} from './sparring-match-machine-internals'
 
 const PreparedSparringMatchTransitionBrand = Symbol('PreparedSparringMatchTransitionBrand')
 

@@ -11,7 +11,7 @@ import {
   UnixEpochMillisecondsSchema,
 } from '@ks/core'
 import { type ControlProjectionFor, listGameKeys, type RegisteredGameKey } from '@ks/gameplay/definitions'
-import { createInitialGameState, deriveGameControl } from '@ks/gameplay/server'
+import { createGameplaySession } from '@ks/gameplay/server'
 import * as v from 'valibot'
 
 import type { MatchRoomCreateRequest, MatchRoomSnapshotResult } from './match-room-client'
@@ -37,31 +37,28 @@ function snapshotFor<K extends RegisteredGameKey>(gameKey: K, status: 'active' |
   }
 }
 
+function controlProjectionFor<K extends RegisteredGameKey>(gameKey: K): ControlProjectionFor<K> {
+  const args =
+    gameKey === 'free-pyramid-long'
+      ? { targetPointsBySeat: { A: 30, B: 30 }, breakerSeat: 'A' as const, gameConfiguration: { rackRollover: 14 as const } }
+      : {
+          targetPointsBySeat: { A: gameKey === 'strila-v2' ? 9 : 8, B: gameKey === 'strila-v2' ? 9 : 8 },
+          breakerSeat: 'A' as const,
+        }
+  const session = createGameplaySession(gameKey, args)
+  try {
+    return session.deriveControl()
+  } finally {
+    session.dispose()
+  }
+}
+
 const controlProjections = {
-  'strila-v2': deriveGameControl(
-    'strila-v2',
-    createInitialGameState('strila-v2', { targetPointsBySeat: { A: 9, B: 9 }, breakerSeat: 'A' }),
-  ),
-  'free-pyramid': deriveGameControl(
-    'free-pyramid',
-    createInitialGameState('free-pyramid', { targetPointsBySeat: { A: 8, B: 8 }, breakerSeat: 'A' }),
-  ),
-  'free-pyramid-long': deriveGameControl(
-    'free-pyramid-long',
-    createInitialGameState('free-pyramid-long', {
-      targetPointsBySeat: { A: 30, B: 30 },
-      breakerSeat: 'A',
-      gameConfiguration: { rackRollover: 14 },
-    }),
-  ),
-  'combined-pyramid': deriveGameControl(
-    'combined-pyramid',
-    createInitialGameState('combined-pyramid', { targetPointsBySeat: { A: 8, B: 8 }, breakerSeat: 'A' }),
-  ),
-  'combined-pyramid-old': deriveGameControl(
-    'combined-pyramid-old',
-    createInitialGameState('combined-pyramid-old', { targetPointsBySeat: { A: 8, B: 8 }, breakerSeat: 'A' }),
-  ),
+  'strila-v2': controlProjectionFor('strila-v2'),
+  'free-pyramid': controlProjectionFor('free-pyramid'),
+  'free-pyramid-long': controlProjectionFor('free-pyramid-long'),
+  'combined-pyramid': controlProjectionFor('combined-pyramid'),
+  'combined-pyramid-old': controlProjectionFor('combined-pyramid-old'),
 } satisfies { [K in RegisteredGameKey]: ControlProjectionFor<K> }
 
 function activeRoomSnapshot(gameKey: RegisteredGameKey) {

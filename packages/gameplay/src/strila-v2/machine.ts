@@ -20,6 +20,8 @@ type StrilaMachineInput = {
   targetPointsBySeat?: BySeatNumber
 }
 
+export type StrilaSparringFrameMachineInput = StrilaMachineInput
+
 const FoulSnapshotValueSchema = v.object({ 'foul-committed': v.picklist(['penalty-selection', 'ball-in-hand']) })
 const RespottedBlackSnapshotValueSchema = v.object({ 'respotted-black': v.picklist(['opening', 'play']) })
 const StrilaSnapshotValueSchema = v.union([StrilaPhaseSchema, FoulSnapshotValueSchema, RespottedBlackSnapshotValueSchema])
@@ -424,6 +426,10 @@ export type StrilaSparringFrameSnapshot = SnapshotFrom<typeof StrilaSparringFram
 export function createInitialSnapshot(targetPointsBySeat: BySeatNumber): StrilaSparringFrameSnapshot {
   const [snapshot] = initialTransition(StrilaSparringFrameMachine, { targetPointsBySeat })
   return snapshot
+}
+
+export function getStrilaSparringFramePhase(snapshot: StrilaSparringFrameSnapshot): StrilaPhase {
+  return getPhase(snapshot)
 }
 
 export function getPhase(snapshot: StrilaSparringFrameSnapshot): StrilaPhase {

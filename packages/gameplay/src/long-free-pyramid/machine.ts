@@ -25,6 +25,8 @@ export type LongFreePyramidMachineInput = {
   readonly rackRollover: 14 | 15
 }
 
+export type LongFreePyramidSparringFrameMachineInput = LongFreePyramidMachineInput
+
 type PotEvent = Extract<LongFreePyramidCommand, { type: 'pot.record' }>
 type FoulCommitEvent = Extract<LongFreePyramidCommand, { type: 'foul.commit' }>
 type FrameAwardEvent = Extract<LongFreePyramidCommand, { type: 'frame.award' }>
@@ -279,6 +281,10 @@ export type LongFreePyramidSparringFrameSnapshot = SnapshotFrom<typeof LongFreeP
 export function createInitialSnapshot(input: LongFreePyramidMachineInput): LongFreePyramidSparringFrameSnapshot {
   const [snapshot] = initialTransition(LongFreePyramidSparringFrameMachine, input)
   return snapshot
+}
+
+export function getLongFreePyramidSparringFramePhase(snapshot: LongFreePyramidSparringFrameSnapshot): LongFreePyramidPhase {
+  return getPhase(snapshot)
 }
 
 export function getPhase(snapshot: LongFreePyramidSparringFrameSnapshot): LongFreePyramidPhase {

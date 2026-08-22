@@ -3,7 +3,6 @@ import { describe, expect, test } from 'bun:test'
 import * as v from 'valibot'
 
 import type { GameCreateStateArgs } from './constants'
-import { parseGameKey } from './gameplay'
 import {
   LongFreePyramidControlViewSchema,
   LongFreePyramidScoreboardViewSchema,
@@ -20,6 +19,7 @@ import {
   FreePyramidScoreboardViewSchema,
   FreePyramidSummaryViewSchema,
 } from './pyramid/definitions'
+import { parseGameKey } from './registry'
 import {
   type ControlProjectionFor,
   getGameMeta,

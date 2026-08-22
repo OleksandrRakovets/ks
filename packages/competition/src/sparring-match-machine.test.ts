@@ -13,7 +13,7 @@ import {
   SparringMatchMachine,
   type SparringMatchMachineContext,
   type SparringMatchSnapshot,
-} from './sparring-match-machine'
+} from './sparring-match-machine-internals'
 
 const createRequest = v.parse(CreateMatchRequestSchema, {
   gameKey: 'strila-v2',

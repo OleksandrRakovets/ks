@@ -122,7 +122,7 @@ Application/archive tests cover terminal success, non-terminal/empty/wrong-first
 
 MatchRoom tests import no old state and prove snapshots/finalization come from session projection.
 
-Add a boundary/search guard preventing production imports/usages of old subpaths, package source-relative gameplay imports, reducer names, and runtime factory APIs.
+Add a boundary/search guard preventing production imports/usages of old subpaths, package source-relative gameplay imports, reducer names, and runtime factory APIs. action rejected by used and deferred
 
 ## Verification
 

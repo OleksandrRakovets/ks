@@ -4,7 +4,6 @@ import { buildMatchConfig, CreateMatchRequestSchema, createSparringMatchSession 
 import { MatchIdSchema, newCommandId } from '@ks/core'
 import * as v from 'valibot'
 
-import { wrapRoomSnapshot } from './active-game'
 import {
   canonicalCommandJson,
   CreateBodySchema,
@@ -30,7 +29,7 @@ describe('MatchRoom RPC request contract', () => {
   test('wraps production session projection through the MatchRoom seam', () => {
     const config = buildMatchConfig(v.parse(MatchIdSchema, matchId), createRequest)
     const session = createSparringMatchSession(config)
-    const snapshot = wrapRoomSnapshot(session.project(1))
+    const snapshot = { ok: true as const, ...session.project(1) }
 
     expect(snapshot.controlProjection).toBeUndefined()
     expect(snapshot.controlSections.neutral[0]?.commandType).toBe('frame.start')

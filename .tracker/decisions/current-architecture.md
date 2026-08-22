@@ -82,13 +82,13 @@ d1/
   - no runtime or persistence concerns,
   - no dependency on other internal packages.
 - `packages/gameplay`
-  - pure per-game state and rules,
-  - game registry,
-  - game command interpretation,
-  - game-owned control and display projections,
+  - authoritative frame-machine definitions and resident gameplay sessions,
+  - game registry and typed projections,
+  - production server API exposes opaque sessions and factories; raw machines are tooling-only subpath exports,
   - depends on `core`, never on `competition`.
 - `packages/competition`
-  - storage-agnostic match policy and state derivation,
+  - sparring lifecycle policy, match command decisions, replay, restore, and room projection,
+  - one production room projection implementation backed by resident `SparringMatchSession`,
   - depends on `core` and `gameplay`.
 - `packages/application`
   - framework-neutral use-case orchestration and private global persistence/RPC adapters,
@@ -117,6 +117,15 @@ Application and MatchRoom independently consume that domain direction; Play sits
 - Keep one consistent game command path based on `game.command` with game-specific payloads.
 - Competition owns generic match lifecycle; MatchRoom owns serialized persistence sequence.
 - Game implementations own game semantics, control projection, and public display projection.
+
+## Authoritative Match Sessions
+
+- Accepted facts in MatchRoom SQLite are durable authority.
+- Resident `SparringMatchSession` and at most one resident gameplay session are disposable behavioral authority.
+- Command `decide` is non-mutating; exact committed facts advance prepared transitions through `applyCommitted`.
+- Cold replay through `restoreSparringMatchSession` equals warm projection for the same journal and code version.
+- Completed archive creation replays the terminal journal, verifies MatchRoom-supplied projection equality, and persists the replay snapshot plus stored historical protocol rows.
+- Raw XState snapshots remain in-memory tooling contracts only; they are not persisted.
 
 ## Persistence Rules
 
@@ -185,6 +194,7 @@ An ordinary score command performs no D1 write.
 DO SQLite transaction: append match.ended + mark finalizing
   -> return finalization facts to @ks/application
   -> derive and idempotently write D1 protocol + snapshot archive
+     after production replay/projection verification
      and mark catalog finalizing
   -> application calls MatchRoom.disposeFinalized
        -> broadcast match.ended

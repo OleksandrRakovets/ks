@@ -1,12 +1,4 @@
-export {
-  applyGameCommand,
-  createInitialGameState,
-  deriveGameControl,
-  deriveGameSummary,
-  deriveGameScoreboard,
-  parseGameControl,
-  parseGameKey,
-} from '../src/gameplay'
+export { parseGameControl } from './parse-control'
 export {
   GameCommandRejectionSchema,
   GameplaySessionDisposedError,
