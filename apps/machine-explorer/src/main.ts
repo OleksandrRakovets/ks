@@ -1,5 +1,11 @@
-import { getMatchPhase, type MatchSparringActor, matchSparringMachine } from '@ks/competition/match-sparring-machine'
-import { opponentOf } from '@ks/core'
+import { buildMatchConfig, type CreateMatchRequest } from '@ks/competition'
+import {
+  getPhase as getMatchPhase,
+  projectLifecycleState,
+  SparringMatchMachine,
+  type SparringMatchSnapshot,
+} from '@ks/competition/sparring-match-machine'
+import { formatPlayerRef, newMatchId, opponentOf } from '@ks/core'
 import { createBrowserInspector } from '@statelyai/inspect'
 import { createActor } from 'xstate'
 
@@ -57,14 +63,42 @@ function buildFrameActor() {
 
 // ── Match actor ──────────────────────────────────────────────────────────────
 
+const MATCH_CREATE_REQUEST: CreateMatchRequest = {
+  gameKey: 'strila-v2',
+  targets: {
+    frameTargetPointsBySeat: { A: 9, B: 9 },
+    matchTargetFrames: 3,
+  },
+  firstBreakerSeat: 'A',
+  participants: [
+    { seat: 'A', playerRef: formatPlayerRef('gp', '01HX0000000000000000000000') },
+    { seat: 'B', playerRef: formatPlayerRef('gp', '01HX0000000000000000000001') },
+  ],
+}
+
+function buildExplorerMatchConfig() {
+  return buildMatchConfig(newMatchId(), {
+    ...MATCH_CREATE_REQUEST,
+    targets: {
+      frameTargetPointsBySeat: { A: matchFrameTargetA, B: matchFrameTargetB },
+      matchTargetFrames,
+    },
+  })
+}
+
+function expectedMatchBreaker(frameIndex: number) {
+  const firstBreakerSeat = MATCH_CREATE_REQUEST.firstBreakerSeat
+  return frameIndex % 2 === 1 ? firstBreakerSeat : opponentOf(firstBreakerSeat)
+}
+
 let matchTargetFrames = 3
 let matchFrameTargetA = 9
 let matchFrameTargetB = 9
-let matchActor: MatchSparringActor = buildMatchActor()
+let matchActor = buildMatchActor()
 
 function buildMatchActor() {
-  const actor = createActor(matchSparringMachine, {
-    input: { frameTargetPointsBySeat: { A: matchFrameTargetA, B: matchFrameTargetB }, matchTargetFrames },
+  const actor = createActor(SparringMatchMachine, {
+    input: buildExplorerMatchConfig(),
     inspect: inspectorInspect,
   })
   actor.start()
@@ -238,17 +272,16 @@ function renderFrameControls(snap: StrilaSparringFrameSnapshot) {
 function renderMatch() {
   const snap = matchActor.getSnapshot()
   const phase = getMatchPhase(snap)
-  const ctx = snap.context
+  const lifecycle = projectLifecycleState(snap)
 
   status.innerHTML = `
     <div class="state-label">${phase}</div>
-    <div class="context-block">${JSON.stringify({ framesWonBySeat: ctx.framesWonBySeat, matchTargetFrames: ctx.matchTargetFrames, currentFrameIndex: ctx.currentFrameIndex, matchWinner: ctx.matchWinner, frameTargetPointsBySeat: ctx.frameTargetPointsBySeat, frames: ctx.frames }, null, 2)}</div>
+    <div class="context-block">${JSON.stringify(lifecycle, null, 2)}</div>
   `
-  renderMatchControls()
+  renderMatchControls(snap)
 }
 
-function renderMatchControls() {
-  const snap = matchActor.getSnapshot()
+function renderMatchControls(snap: SparringMatchSnapshot) {
   const phase = getMatchPhase(snap)
   const ctx = snap.context
 
@@ -284,52 +317,43 @@ function renderMatchControls() {
 
   if (phase === 'match-over') return
 
-  if (phase === 'match-point-reached') {
-    controls.append(btn('End match', () => matchActor.send({ type: 'match.end' }), 'primary'))
-    return
-  }
-
-  if (phase === 'idle') {
+  if (phase === 'between-frames') {
     controls.append(
       btn(
-        'Start match',
-        () => {
+        `Start frame ${ctx.nextFrameIndex}`,
+        () =>
           matchActor.send({
-            type: 'match.setup',
-            frameTargetPointsBySeat: { A: matchFrameTargetA, B: matchFrameTargetB },
-            matchTargetFrames,
-          })
-        },
+            type: 'frame.started',
+            frameIndex: ctx.nextFrameIndex,
+            breakerSeat: expectedMatchBreaker(ctx.nextFrameIndex),
+          }),
         'primary',
       ),
     )
     return
   }
 
-  if (phase === 'between-frames') {
-    controls.append(
-      btn(`Start frame ${ctx.currentFrameIndex}`, () => matchActor.send({ type: 'frame.start' }), 'primary'),
-      btn('End match', () => matchActor.send({ type: 'match.end' })),
-    )
-    return
-  }
-
   if (phase === 'frame-in-progress') {
+    const activeFrame = ctx.activeFrame
     controls.append(
       el(
         'div',
-        `Frame ${ctx.currentFrameIndex} is in progress. Complete it here with a synthetic outcome; play-by-play lives in frame mode.`,
+        `Frame ${activeFrame?.frameIndex ?? '?'} is in progress. Complete it here with a synthetic outcome; play-by-play lives in frame mode.`,
         'frame-info',
       ),
-      btn('Complete frame: A wins', () => completeMatchFrame('A'), 'primary'),
-      btn('Complete frame: B wins', () => completeMatchFrame('B'), 'primary'),
+      btn('Complete frame: A wins', () => completeMatchFrame(snap, 'A'), 'primary'),
+      btn('Complete frame: B wins', () => completeMatchFrame(snap, 'B'), 'primary'),
     )
   }
 }
 
-function completeMatchFrame(winnerSeat: 'A' | 'B') {
+function completeMatchFrame(snap: SparringMatchSnapshot, winnerSeat: 'A' | 'B') {
+  const activeFrame = snap.context.activeFrame
+  if (!activeFrame) return
+
   matchActor.send({
     type: 'frame.completed',
+    frameIndex: activeFrame.frameIndex,
     outcome: {
       winnerSeat,
       winReason: 'target-reached',

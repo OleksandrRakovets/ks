@@ -4,7 +4,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./match-sparring-machine": "./src/match-sparring-machine.ts"
+    "./sparring-match-machine": "./src/sparring-match-machine.ts"
   },
   "scripts": {
     "typecheck": "tsc -b"
