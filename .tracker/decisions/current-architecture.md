@@ -8,6 +8,8 @@ The speculative resident execution architecture in `speculative-resident-match-e
 
 The accepted gameplay follow-up is `snapshot-backed-gameplay-sessions.md`, with implementation plan `../gameplay-session-simplification-spec.md`. With speculative match execution landed, it can now replace gameplay actors, prepared transitions, custom state restoration, and unused summary/scoreboard surfaces.
 
+The accepted test-surface follow-up is `responsibility-shaped-test-surfaces.md`, with implementation plan `../test-surface-simplification-spec.md`. It replaces application D1 query fakes with a real match-lifecycle integration project, removes private MatchRoom test manipulation, and introduces explicit fast and full verification gates. Gameplay test restructuring remains owned by the gameplay follow-up rather than this decision.
+
 The remaining live-transport work is intentionally separate: `.tracker/match-live-websocket-spec.md` owns both moving the SSE gateway out of React Router and replacing SSE with hibernatable WebSockets. Historical migration slices and target-state documents have been removed.
 
 ## What the refactor established
