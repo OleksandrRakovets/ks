@@ -35,14 +35,16 @@ Receipt lookup remains before resident loading and execution. A retry of a commi
 
 ### Warm and cold behavior
 
-Warm execution and cold restoration use the same private transition kernel:
+Warm execution and cold restoration use the same private aggregate command kernel:
 
 ```text
-warm: command -> transition kernel -> resident state + fact content
-cold: stored fact content -> command/event -> transition kernel -> verification
+warm: command -> aggregate command kernel -> resident state + fact-content batch
+cold: stored fact-content batch -> canonical command -> aggregate command kernel -> full-batch verification
 ```
 
-Warm execution runs each transition once. Cold restoration regenerates protocol and outcomes from stored commands and fails loudly when accepted history is impossible or incompatible with the deployed code.
+Warm execution invokes one aggregate command operation and advances resident match and gameplay state once. Cold restoration reconstructs one canonical command from each accepted semantic batch, invokes the same aggregate command operation, and compares its complete ordered output with the stored batch. Gameplay's existing private `decide` / `applyCommitted` implementation may internally evaluate its XState event twice until gameplay is simplified separately.
+
+Cold restoration has no independent target calculation, completion policy, terminal policy, game-key dispatch, semantic replay batch grouper, or pending-completion state. It fails loudly when accepted history is impossible or incompatible with the deployed code.
 
 Before deploying an intentionally incompatible rule change, active development matches may be deleted. This decision adds no rules versioning, compatibility implementation, or migration path.
 
@@ -62,14 +64,14 @@ Before deploying an intentionally incompatible rule change, active development m
 
 ### Fact ownership
 
-Competition consumes and produces `MatchFactContent`, the semantic `type` and `payload` union.
+Competition consumes and produces non-empty batches of `MatchFactContent`, the semantic `type` and `payload` union. Batch boundaries are part of match semantics because one command may atomically produce `game.command`, `frame.completed`, and `match.ended`.
 
 MatchRoom owns:
 
 - fact and match identity envelopes,
 - command causation,
 - sequence allocation,
-- acceptance time,
+- acceptance time and mechanical reconstruction of transaction groups from validated contiguous command causation,
 - storage-row validation,
 - command receipts and transactions.
 
@@ -84,9 +86,9 @@ Competition owns:
 
 ### Time
 
-Facts have one server timestamp, `acceptedAt`.
+Facts have one server timestamp, `acceptedAt`, allocated by MatchRoom's private active-match store.
 
-- It is assigned once per accepted command transaction.
+- It is assigned once per accepted-fact transaction, including the singleton `match.created` transaction.
 - Every fact in that command's batch has the same value.
 - It replaces both `occurredAt` and `receivedAt`.
 - Protocol display and completed-match `endedAt` use `acceptedAt`.
@@ -95,7 +97,7 @@ There is no client occurrence clock or asynchronous ingestion delay that justifi
 
 ### Gameplay seam
 
-Competition continues to coordinate gameplay through the existing gameplay interface. During accepted execution, competition immediately consumes gameplay's private prepared transition before persistence. Match-level prepared transitions do not exist.
+Competition continues to coordinate gameplay through the existing gameplay interface. During accepted execution, competition calls gameplay decision once and immediately consumes gameplay's private prepared transition before persistence. Semantic facts derive from the verified applied gameplay result. Match-level prepared transitions do not exist.
 
 Gameplay actor and prepared-transition simplification is separate work. This decision does not move game scoring rules into competition.
 
@@ -116,10 +118,10 @@ new command
 Failure outcomes:
 
 - execution defect: clear resident, persist nothing, throw,
-- accepted enveloping or persistence failure: rollback, clear resident, throw,
+- accepted enveloping or persistence failure before commit: rollback, clear resident, throw,
 - rejected-receipt persistence failure: resident is unchanged and may remain cached,
 - crash before persistence: resident memory disappears and the journal is unchanged,
-- crash after persistence: journal and receipt make retry idempotent.
+- crash or publication failure after persistence: durable facts and receipt remain authoritative, resident state remains aligned, and retry returns the receipt without execution.
 
 ## Consequences
 
