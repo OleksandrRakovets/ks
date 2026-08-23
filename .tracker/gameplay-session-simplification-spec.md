@@ -2,7 +2,7 @@
 
 ## Status
 
-Implementation plan for `decisions/snapshot-backed-gameplay-sessions.md`. It begins only after speculative match execution from `speculative-match-execution-spec.md` is implemented.
+Ready implementation plan for `decisions/snapshot-backed-gameplay-sessions.md`. Its speculative match execution prerequisite from `speculative-match-execution-spec.md` is implemented.
 
 The implementation replaces the old gameplay interface directly. The project is unreleased, so there are no aliases, parallel sessions, restoration compatibility, dormant projection exports, or state fallbacks.
 
@@ -216,7 +216,7 @@ Tooling machine subpaths remain unchanged.
 
 Delete public state, summary, scoreboard, and protocol-specific correlations unless a current external consumer is found during implementation. Generic `ProtocolEntry` remains the accepted output contract.
 
-## Competition usage after candidate 1
+## Competition usage on speculative match execution
 
 Competition retains gameplay through a mapped discriminated union:
 
@@ -335,7 +335,7 @@ Exit gate:
 
 Replace the supported session interface, three concrete adapters, keyed factory, competition consumer, and replay consumer together. Delete actors, tokens, state/restoration, disposal, summary, scoreboard, and obsolete tests in this slice.
 
-Do not begin this slice against the current match-level commit-before-apply implementation. Speculative match execution is a hard prerequisite because mutable gameplay execution advances before MatchRoom persistence.
+Speculative match execution has landed and satisfies this slice's hard prerequisite. Preserve that ordering: mutable gameplay execution advances before MatchRoom persistence, and MatchRoom discards the resident after later defects or persistence failure.
 
 Exit gate:
 

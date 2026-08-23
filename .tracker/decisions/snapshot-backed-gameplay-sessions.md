@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted on 2026-08-23. This combines the gameplay-session deepening and deletion of direct materialized-state restoration. Implementation follows `speculative-resident-match-execution.md`; the replacement plan is `../gameplay-session-simplification-spec.md`.
+Accepted on 2026-08-23. This combines the gameplay-session deepening and deletion of direct materialized-state restoration. Its prerequisite, `speculative-resident-match-execution.md`, is implemented; the replacement plan is `../gameplay-session-simplification-spec.md`.
 
 ## Context
 

@@ -6,7 +6,7 @@ This is the implemented source architecture after the application/MatchRoom refa
 
 The speculative resident execution architecture in `speculative-resident-match-execution.md` is implemented. Its completed implementation plan is `../speculative-match-execution-spec.md`.
 
-The accepted gameplay follow-up is `snapshot-backed-gameplay-sessions.md`, with implementation plan `../gameplay-session-simplification-spec.md`. It replaces gameplay actors, prepared transitions, custom state restoration, and unused summary/scoreboard surfaces after speculative match execution lands.
+The accepted gameplay follow-up is `snapshot-backed-gameplay-sessions.md`, with implementation plan `../gameplay-session-simplification-spec.md`. With speculative match execution landed, it can now replace gameplay actors, prepared transitions, custom state restoration, and unused summary/scoreboard surfaces.
 
 The remaining live-transport work is intentionally separate: `.tracker/match-live-websocket-spec.md` owns both moving the SSE gateway out of React Router and replacing SSE with hibernatable WebSockets. Historical migration slices and target-state documents have been removed.
 
