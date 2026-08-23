@@ -139,13 +139,12 @@ class FakeEventSource {
 }
 
 function factJson(matchId: ReturnType<typeof newMatchId>, seq: number, type: 'frame.started' | 'match.ended'): string {
-  const occurredAt = nowUnixEpochMilliseconds()
+  const acceptedAt = nowUnixEpochMilliseconds()
   const base = {
     factId: newFactId(),
     matchId,
-    occurredAt,
     seq,
-    receivedAt: occurredAt,
+    acceptedAt,
     causedByCommandId: newCommandId(),
   }
   return JSON.stringify(

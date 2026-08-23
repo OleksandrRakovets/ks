@@ -1,4 +1,4 @@
-import { MatchCreationDefinitionSchema, type MatchSnapshotFor, type SparringMatchRejection } from '@ks/competition'
+import { MatchCreationDefinitionSchema, type MatchStateFor, type SparringMatchRejection } from '@ks/competition'
 import type {
   AcceptedFactRef,
   CommandId,
@@ -54,16 +54,18 @@ export type ReadMatchFailure = { ok: false; error: string; status: number }
 export type ReadMatchControlResult<K extends RegisteredGameKey> =
   | {
       ok: true
-      state: 'frame-active'
-      snapshot: MatchSnapshotFor<K>
+      controlState: 'frame-active'
+      state: MatchStateFor<K>
+      latestSeq: number
       controlProjection: ControlProjectionFor<K>
       controlSections: ControlCommandSections
       participants: HydratedMatchParticipants
     }
   | {
       ok: true
-      state: 'between-frames'
-      snapshot: MatchSnapshotFor<K>
+      controlState: 'between-frames'
+      state: MatchStateFor<K>
+      latestSeq: number
       controlSections: ControlCommandSections
       participants: HydratedMatchParticipants
     }
@@ -76,7 +78,8 @@ export type SubmitMatchCommandResult =
 export type ReadMatchProtocolResult<K extends RegisteredGameKey> =
   | {
       ok: true
-      snapshot: MatchSnapshotFor<K>
+      state: MatchStateFor<K>
+      latestSeq: number
       controlProjection?: ControlProjectionFor<K>
       participants: HydratedMatchParticipants
       protocolRows: ProtocolRow[]

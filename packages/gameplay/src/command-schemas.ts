@@ -5,19 +5,16 @@ export const FrameCommenceCommandSchema = v.strictObject({
   type: v.literal('frame.commence'),
   seat: SeatSchema,
 })
-export type FrameCommenceCommand = v.InferOutput<typeof FrameCommenceCommandSchema>
 
 export const FoulCommitCommandSchema = v.strictObject({
   type: v.literal('foul.commit'),
   seat: SeatSchema,
 })
-export type FoulCommitCommand = v.InferOutput<typeof FoulCommitCommandSchema>
 
 export const FrameAwardCommandSchema = v.strictObject({
   type: v.literal('frame.award'),
   seat: SeatSchema,
 })
-export type FrameAwardCommand = v.InferOutput<typeof FrameAwardCommandSchema>
 
 export const GameCommandTransportPayloadSchema = v.pipe(
   UnknownObjectSchema,

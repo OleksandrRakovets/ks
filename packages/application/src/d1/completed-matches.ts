@@ -1,6 +1,15 @@
-import { restoreSparringMatchSession, SparringMatchReplayError, type SparringMatchRoomProjection } from '@ks/competition'
-import type { MatchId, MatchSnapshot, StoredMatchFact, UnixEpochMilliseconds } from '@ks/core'
+import { restoreSparringMatch, SparringMatchHistoryError, type SparringMatchRoomProjection } from '@ks/competition'
+import {
+  type MatchFactContentBatch,
+  type MatchFactContentHistory,
+  MatchFactContentSchema,
+  type MatchId,
+  type MatchState,
+  type StoredMatchFact,
+  type UnixEpochMilliseconds,
+} from '@ks/core'
 import { and, eq, inArray } from 'drizzle-orm'
+import * as v from 'valibot'
 
 import { prepareProtocolRowsForArchive, PROTOCOL_ARCHIVE_VERSION } from '../protocol'
 import { matches, matchProtocolArchives, StoredMatchStatus } from './schema'
@@ -26,7 +35,7 @@ type ArchiveRecord = {
   sourceLatestSeq: number
   protocolVersion: number
   rowsJson: string
-  snapshotJson: string
+  stateJson: string
   createdAt: UnixEpochMilliseconds
 }
 
@@ -36,7 +45,37 @@ type StoredMatchRow = {
 }
 
 function projectionsEqual(left: SparringMatchRoomProjection, right: SparringMatchRoomProjection): boolean {
-  return JSON.stringify(left) === JSON.stringify(right)
+  // SAFETY: projections are typed semantic values; embedded control command dictionaries contain validated JSON values.
+  const leftProjection = left as StructuralValue
+  // SAFETY: projections are typed semantic values; embedded control command dictionaries contain validated JSON values.
+  const rightProjection = right as StructuralValue
+  return structuralEqual(leftProjection, rightProjection)
+}
+
+type StructuralValue = undefined | null | boolean | number | string | readonly StructuralValue[] | StructuralObject
+type StructuralObject = { readonly [key: string]: StructuralValue }
+
+function structuralEqual(left: StructuralValue, right: StructuralValue): boolean {
+  if (Object.is(left, right)) return true
+  if (left === null || right === null || Object(left) !== left || Object(right) !== right) return false
+  if (Array.isArray(left) || Array.isArray(right)) {
+    return (
+      Array.isArray(left) &&
+      Array.isArray(right) &&
+      left.length === right.length &&
+      left.every((value, index) => structuralEqual(value, right[index]))
+    )
+  }
+  // SAFETY: null, primitive, and array values were excluded above, leaving structural objects.
+  const leftRecord = left as StructuralObject
+  // SAFETY: null, primitive, and array values were excluded above, leaving structural objects.
+  const rightRecord = right as StructuralObject
+  const keys = Object.keys(leftRecord).filter((key) => leftRecord[key] !== undefined)
+  const rightKeys = Object.keys(rightRecord).filter((key) => rightRecord[key] !== undefined)
+  return (
+    keys.length === rightKeys.length &&
+    keys.every((key) => Object.hasOwn(rightRecord, key) && structuralEqual(leftRecord[key], rightRecord[key]))
+  )
 }
 
 function requireNonemptyFacts(facts: StoredMatchFact[]): [StoredMatchFact, ...StoredMatchFact[]] {
@@ -47,13 +86,59 @@ function requireNonemptyFacts(facts: StoredMatchFact[]): [StoredMatchFact, ...St
   return [first, ...rest]
 }
 
+function validateAndGroupJournal(
+  facts: [StoredMatchFact, ...StoredMatchFact[]],
+  matchId: MatchId,
+  latestSeq: number,
+): MatchFactContentHistory {
+  const batches: MatchFactContentBatch[] = []
+  const seen = new Set<string>()
+  let commandId: string | null = null
+  let acceptedAt: number | null = null
+  for (let index = 0; index < facts.length; index += 1) {
+    const fact = facts[index]!
+    const content = v.parse(MatchFactContentSchema, { type: fact.type, payload: fact.payload })
+    if (fact.seq !== index + 1 || fact.matchId !== matchId)
+      throw new CompletedMatchArchiveError('Completed match archive journal envelope is invalid')
+    if (index === 0) {
+      if (fact.type !== 'match.created' || fact.causedByCommandId !== null)
+        throw new CompletedMatchArchiveError('Completed match archive must begin with singleton match.created')
+      batches.push([content])
+      continue
+    }
+    if (fact.type === 'match.created' || fact.causedByCommandId === null)
+      throw new CompletedMatchArchiveError('Completed match archive command causation is invalid')
+    if (fact.causedByCommandId !== commandId) {
+      if (seen.has(fact.causedByCommandId))
+        throw new CompletedMatchArchiveError('Completed match archive command causation recurs')
+      seen.add(fact.causedByCommandId)
+      batches.push([content])
+      commandId = fact.causedByCommandId
+      acceptedAt = fact.acceptedAt
+    } else if (fact.acceptedAt !== acceptedAt)
+      throw new CompletedMatchArchiveError('Completed match archive batch timestamp differs')
+    else {
+      const current = batches.at(-1)
+      if (!current) throw new CompletedMatchArchiveError('Completed match archive command batch is missing')
+      batches[batches.length - 1] = [...current, content]
+    }
+    if (fact.type === 'match.ended' && index !== facts.length - 1)
+      throw new CompletedMatchArchiveError('Completed match archive has facts after terminal state')
+  }
+  if (facts.at(-1)?.seq !== latestSeq)
+    throw new CompletedMatchArchiveError('Completed match archive source sequence does not match journal tail')
+  const [first, ...rest] = batches
+  if (!first) throw new CompletedMatchArchiveError('Completed match archive has no semantic batches')
+  return [first, ...rest]
+}
+
 function archivesEqual(left: ArchiveRecord, right: ArchiveRecord): boolean {
   return (
     left.matchId === right.matchId &&
     left.sourceLatestSeq === right.sourceLatestSeq &&
     left.protocolVersion === right.protocolVersion &&
     left.rowsJson === right.rowsJson &&
-    left.snapshotJson === right.snapshotJson &&
+    left.stateJson === right.stateJson &&
     left.createdAt === right.createdAt
   )
 }
@@ -65,7 +150,7 @@ function catalogMatchesArchive(storedMatch: StoredMatchRow, endedAt: UnixEpochMi
   )
 }
 
-function validateTerminalArchive(input: CompletedMatchArchiveInput): MatchSnapshot {
+function validateTerminalArchive(input: CompletedMatchArchiveInput): MatchState {
   const { facts, matchId, sourceLatestSeq, projection: suppliedProjection } = input
   const orderedFacts = requireNonemptyFacts(facts)
 
@@ -95,36 +180,29 @@ function validateTerminalArchive(input: CompletedMatchArchiveInput): MatchSnapsh
 
   let session
   try {
-    session = restoreSparringMatchSession(orderedFacts)
+    session = restoreSparringMatch(validateAndGroupJournal(orderedFacts, matchId, sourceLatestSeq))
   } catch (error) {
-    if (error instanceof SparringMatchReplayError) {
+    if (error instanceof SparringMatchHistoryError) {
       throw new CompletedMatchArchiveError(`Completed match archive replay failed: ${error.message}`)
     }
     throw error
   }
 
   try {
-    if (session.state.phase !== 'match-over') {
-      throw new CompletedMatchArchiveError('Completed match archive replay is not terminal')
+    const replayProjection = session.project()
+    if (replayProjection.state.status !== 'finished') {
+      throw new CompletedMatchArchiveError('Completed match archive replay state is not finished')
     }
-
-    const replayProjection = session.project(sourceLatestSeq)
-    if (replayProjection.snapshot.status !== 'finished') {
-      throw new CompletedMatchArchiveError('Completed match archive replay snapshot is not finished')
-    }
-    if (replayProjection.snapshot.matchId !== matchId) {
-      throw new CompletedMatchArchiveError('Completed match archive replay snapshot match ID mismatch')
-    }
-    if (replayProjection.snapshot.latestSeq !== sourceLatestSeq) {
-      throw new CompletedMatchArchiveError('Completed match archive replay snapshot sequence mismatch')
+    if (replayProjection.state.matchId !== matchId) {
+      throw new CompletedMatchArchiveError('Completed match archive replay state match ID mismatch')
     }
     if (!projectionsEqual(replayProjection, suppliedProjection)) {
       throw new CompletedMatchArchiveError('Completed match archive terminal projection does not match replay')
     }
 
-    return replayProjection.snapshot
+    return replayProjection.state
   } catch (error) {
-    if (error instanceof SparringMatchReplayError) {
+    if (error instanceof SparringMatchHistoryError) {
       throw new CompletedMatchArchiveError(`Completed match archive replay failed: ${error.message}`)
     }
     throw error
@@ -134,13 +212,17 @@ function validateTerminalArchive(input: CompletedMatchArchiveInput): MatchSnapsh
 }
 
 export async function archiveCompletedMatch(db: ApplicationDatabase, input: CompletedMatchArchiveInput): Promise<void> {
-  const snapshot = validateTerminalArchive(input)
+  const terminal = input.facts.at(-1)
+  if (terminal?.type !== 'match.ended' || terminal.acceptedAt !== input.endedAt) {
+    throw new CompletedMatchArchiveError('Completed match archive endedAt does not match terminal acceptance')
+  }
+  const state = validateTerminalArchive(input)
   const archive: ArchiveRecord = {
     matchId: input.matchId,
     sourceLatestSeq: input.sourceLatestSeq,
     protocolVersion: PROTOCOL_ARCHIVE_VERSION,
     rowsJson: JSON.stringify(prepareProtocolRowsForArchive(requireNonemptyFacts(input.facts))),
-    snapshotJson: JSON.stringify(snapshot),
+    stateJson: JSON.stringify(state),
     createdAt: input.endedAt,
   }
 

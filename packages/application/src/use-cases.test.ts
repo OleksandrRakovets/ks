@@ -1,11 +1,11 @@
 import { describe, expect, test } from 'bun:test'
 
-import type { MatchSnapshotFor } from '@ks/competition'
+import type { MatchStateFor } from '@ks/competition'
 import {
   type ControlCommand,
   FactIdSchema,
   MatchIdSchema,
-  MatchSnapshotSchema,
+  MatchStateSchema,
   newCommandId,
   PlayerRefSchema,
   UnixEpochMillisecondsSchema,
@@ -24,7 +24,7 @@ const playerRefA = v.parse(PlayerRefSchema, 'gp_01ARZ3NDEKTSV4RRFFQ69G5FAA')
 const playerRefB = v.parse(PlayerRefSchema, 'gp_01ARZ3NDEKTSV4RRFFQ69G5FAB')
 const factId = v.parse(FactIdSchema, '01ARZ3NDEKTSV4RRFFQ69G5FAC')
 
-function snapshotFor<K extends RegisteredGameKey>(gameKey: K, status: 'active' | 'finished' = 'active'): MatchSnapshotFor<K> {
+function snapshotFor<K extends RegisteredGameKey>(gameKey: K, status: 'active' | 'finished' = 'active'): MatchStateFor<K> {
   return {
     matchId,
     gameKey,
@@ -33,7 +33,6 @@ function snapshotFor<K extends RegisteredGameKey>(gameKey: K, status: 'active' |
     currentFrameIndex: 1,
     framesWonBySeat: { A: 0, B: 0 },
     frames: [{ frameIndex: 1, pointsBySeat: { A: 0, B: 0 }, breakerSeat: 'A' }],
-    latestSeq: 2,
   }
 }
 
@@ -67,35 +66,40 @@ function activeRoomSnapshot(gameKey: RegisteredGameKey) {
     case 'strila-v2':
       return {
         ok: true as const,
-        snapshot: snapshotFor(gameKey),
+        state: snapshotFor(gameKey),
+        latestSeq: 2,
         controlProjection: controlProjections[gameKey],
         controlSections,
       }
     case 'free-pyramid':
       return {
         ok: true as const,
-        snapshot: snapshotFor(gameKey),
+        state: snapshotFor(gameKey),
+        latestSeq: 2,
         controlProjection: controlProjections[gameKey],
         controlSections,
       }
     case 'free-pyramid-long':
       return {
         ok: true as const,
-        snapshot: snapshotFor(gameKey),
+        state: snapshotFor(gameKey),
+        latestSeq: 2,
         controlProjection: controlProjections[gameKey],
         controlSections,
       }
     case 'combined-pyramid':
       return {
         ok: true as const,
-        snapshot: snapshotFor(gameKey),
+        state: snapshotFor(gameKey),
+        latestSeq: 2,
         controlProjection: controlProjections[gameKey],
         controlSections,
       }
     case 'combined-pyramid-old':
       return {
         ok: true as const,
-        snapshot: snapshotFor(gameKey),
+        state: snapshotFor(gameKey),
+        latestSeq: 2,
         controlProjection: controlProjections[gameKey],
         controlSections,
       }
@@ -104,7 +108,8 @@ function activeRoomSnapshot(gameKey: RegisteredGameKey) {
 
 type UnsafeRoomSnapshotMock = {
   ok: true
-  snapshot: object
+  state: object
+  latestSeq: unknown
   controlProjection: object | undefined
   controlSections: object
 }
@@ -153,7 +158,7 @@ function applicationForActiveGame(
 function applicationForArchivedGame(
   catalogGameKey: RegisteredGameKey,
   snapshotGameKey = catalogGameKey,
-  archivedSnapshot: MatchSnapshotFor<RegisteredGameKey> = snapshotFor(snapshotGameKey, 'finished'),
+  archivedSnapshot: MatchStateFor<RegisteredGameKey> = snapshotFor(snapshotGameKey, 'finished'),
   archiveRead?: () => Promise<ProtocolArchiveRecord | null>,
 ) {
   return createApplicationWithDependencies({
@@ -173,10 +178,10 @@ function applicationForArchivedGame(
     getProtocolArchive:
       archiveRead ??
       (async () => ({
-        sourceLatestSeq: archivedSnapshot.latestSeq,
+        sourceLatestSeq: 2,
         protocolVersion: 1,
         rows: [],
-        snapshot: archivedSnapshot,
+        state: archivedSnapshot,
       })),
     beginMatchCreation: unused,
     activateMatch: unused,
@@ -230,14 +235,14 @@ describe('application orchestration', () => {
       const application = applicationForActiveGame(gameKey)
       const control = await application.readMatchControl(matchId, 'en', gameKey)
       expect(control.ok).toBe(true)
-      if (!control.ok || control.state !== 'frame-active') throw new Error('Expected active frame')
-      expect(control.snapshot.gameKey).toBe(gameKey)
+      if (!control.ok || control.controlState !== 'frame-active') throw new Error('Expected active frame')
+      expect(control.state.gameKey).toBe(gameKey)
       expect(control.controlProjection.gameKey).toBe(gameKey)
 
       const protocol = await application.readMatchProtocol(matchId, 'UTC', 'en', gameKey)
       expect(protocol.ok).toBe(true)
       if (!protocol.ok) throw new Error('Expected protocol')
-      expect(protocol.snapshot.gameKey).toBe(gameKey)
+      expect(protocol.state.gameKey).toBe(gameKey)
       expect(protocol.controlProjection?.gameKey).toBe(gameKey)
     }
   })
@@ -302,13 +307,13 @@ describe('application orchestration', () => {
     const valid = activeRoomSnapshot('free-pyramid')
     const malformed = unsafeRoomSnapshot({
       ...valid,
-      snapshot: { ...valid.snapshot, latestSeq: 'not-a-sequence' },
+      latestSeq: 'not-a-sequence',
     })
     expect(
       await applicationForActiveGame('free-pyramid', 'free-pyramid', malformed).readMatchControl(matchId, 'en', 'free-pyramid'),
     ).toEqual({
       ok: false,
-      error: 'Invalid room snapshot',
+      error: 'Invalid room cursor',
       status: 502,
     })
   })
@@ -327,12 +332,12 @@ describe('application orchestration', () => {
 
   test('rejects a projection between frames', async () => {
     const valid = activeRoomSnapshot('free-pyramid')
-    const latestFrame = valid.snapshot.frames[0]
+    const latestFrame = valid.state.frames[0]
     if (!latestFrame) throw new Error('Expected frame fixture')
     const contradictory = unsafeRoomSnapshot({
       ...valid,
-      snapshot: {
-        ...valid.snapshot,
+      state: {
+        ...valid.state,
         frames: [{ ...latestFrame, winnerSeat: 'A' }],
       },
     })
@@ -349,7 +354,7 @@ describe('application orchestration', () => {
     const valid = activeRoomSnapshot('free-pyramid')
     const preFirstFrame = unsafeRoomSnapshot({
       ...valid,
-      snapshot: { ...valid.snapshot, currentFrameIndex: 0, frames: [] },
+      state: { ...valid.state, currentFrameIndex: 0, frames: [] },
       controlProjection: undefined,
     })
     const result = await applicationForActiveGame('free-pyramid', 'free-pyramid', preFirstFrame).readMatchControl(
@@ -357,7 +362,7 @@ describe('application orchestration', () => {
       'en',
       'free-pyramid',
     )
-    expect(result.ok && result.state).toBe('between-frames')
+    expect(result.ok && result.controlState).toBe('between-frames')
     const protocol = await applicationForActiveGame('free-pyramid', 'free-pyramid', preFirstFrame).readMatchProtocol(
       matchId,
       'UTC',
@@ -380,14 +385,14 @@ describe('application orchestration', () => {
     const active = applicationForArchivedGame('free-pyramid', 'free-pyramid', snapshotFor('free-pyramid', 'active'))
     expect(await active.readMatchProtocol(matchId, 'UTC', 'en', 'free-pyramid')).toEqual({
       ok: false,
-      error: 'Failed to parse completed match snapshot',
+      error: 'Failed to parse completed match state',
       status: 500,
     })
 
     const unfinished = applicationForArchivedGame('free-pyramid', 'free-pyramid')
     expect(await unfinished.readMatchControl(matchId, 'en', 'free-pyramid')).toEqual({
       ok: false,
-      error: 'Failed to parse completed match snapshot',
+      error: 'Failed to parse completed match state',
       status: 500,
     })
   })
@@ -414,8 +419,8 @@ describe('application orchestration', () => {
       status: 500,
     })
 
-    const terminalSnapshot: MatchSnapshotFor<'free-pyramid'> = {
-      ...v.parse(MatchSnapshotSchema, {
+    const terminalSnapshot: MatchStateFor<'free-pyramid'> = {
+      ...v.parse(MatchStateSchema, {
         matchId,
         gameKey: 'free-pyramid',
         targets: { frameTargetPointsBySeat: { A: 8, B: 8 }, matchTargetFrames: 1 },
@@ -431,7 +436,7 @@ describe('application orchestration', () => {
       sourceLatestSeq: 9,
       protocolVersion: 1,
       rows: [],
-      snapshot: terminalSnapshot,
+      state: terminalSnapshot,
     }
     let reads = 0
     const protocolApplication = applicationForArchivedGame('free-pyramid', 'free-pyramid', terminalSnapshot, async () => {
@@ -719,7 +724,7 @@ describe('application orchestration', () => {
   })
 
   test('reads a finished match entirely from its D1 archive', async () => {
-    const snapshot = v.parse(MatchSnapshotSchema, {
+    const snapshot = v.parse(MatchStateSchema, {
       matchId,
       gameKey: 'free-pyramid',
       targets: { frameTargetPointsBySeat: { A: 8, B: 8 }, matchTargetFrames: 1 },
@@ -760,7 +765,7 @@ describe('application orchestration', () => {
         sourceLatestSeq: 9,
         protocolVersion: 1,
         rows: [],
-        snapshot,
+        state: snapshot,
       }),
       beginMatchCreation: unused,
       activateMatch: unused,
@@ -773,8 +778,9 @@ describe('application orchestration', () => {
 
     expect(result).toEqual({
       ok: true,
-      state: 'between-frames',
-      snapshot: { ...snapshot, gameKey: 'free-pyramid' },
+      controlState: 'between-frames',
+      state: { ...snapshot, gameKey: 'free-pyramid' },
+      latestSeq: 9,
       controlSections: {
         neutral: [],
         primary: { A: [], B: [] },
@@ -787,7 +793,7 @@ describe('application orchestration', () => {
       },
     })
     const protocol = await application.readMatchProtocol(matchId, 'UTC', 'en', 'free-pyramid')
-    expect(protocol.ok && protocol.snapshot.gameKey).toBe('free-pyramid')
+    expect(protocol.ok && protocol.state.gameKey).toBe('free-pyramid')
     expect(protocol.ok && protocol.controlProjection).toBeUndefined()
     expect(
       await application.submitMatchCommand(
@@ -908,7 +914,7 @@ describe('application orchestration', () => {
                     endedAt,
                     facts: [],
                     projection: {
-                      snapshot: { ...snapshotFor('free-pyramid', 'finished'), latestSeq: 9 },
+                      state: snapshotFor('free-pyramid', 'finished'),
                       controlProjection: undefined,
                       controlSections: {
                         neutral: [],

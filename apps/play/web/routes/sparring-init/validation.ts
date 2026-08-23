@@ -3,10 +3,6 @@ import * as v from 'valibot'
 
 import type { RackRolloverOption } from './profile'
 
-export function normalizeDisplayName(value: string): string {
-  return v.parse(DisplayNameSchema, value)
-}
-
 export function safeNormalizeDisplayName(value: string): string | null {
   const parsed = v.safeParse(DisplayNameSchema, value)
   return parsed.success ? parsed.output : null

@@ -14,7 +14,6 @@
   },
   "dependencies": {
     "@ks/application": "workspace:*",
-    "@ks/competition": "workspace:*",
     "@ks/core": "workspace:*",
     "@ks/gameplay": "workspace:*",
     "@ks/i18n": "workspace:*",

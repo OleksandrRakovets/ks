@@ -4,7 +4,7 @@
 
 This is the implemented source architecture after the application/MatchRoom refactor. The project has not yet been deployed, so there is no legacy remote namespace or database to preserve.
 
-The accepted but not yet implemented replacement for match-level commit-before-apply, resident match actors, product snapshot vocabulary, and dual fact timestamps is `speculative-resident-match-execution.md`. Its implementation plan is `../speculative-match-execution-spec.md`. The sections below continue to describe the current source until that replacement lands.
+The speculative resident execution architecture in `speculative-resident-match-execution.md` is implemented. Its completed implementation plan is `../speculative-match-execution-spec.md`.
 
 The accepted gameplay follow-up is `snapshot-backed-gameplay-sessions.md`, with implementation plan `../gameplay-session-simplification-spec.md`. It replaces gameplay actors, prepared transitions, custom state restoration, and unused summary/scoreboard surfaces after speculative match execution lands.
 
@@ -91,8 +91,8 @@ d1/
   - production server API exposes opaque sessions and factories; raw machines are tooling-only subpath exports,
   - depends on `core`, never on `competition`.
 - `packages/competition`
-  - sparring lifecycle policy, match command decisions, replay, restore, and room projection,
-  - one production room projection implementation backed by resident `SparringMatchSession`,
+  - sparring lifecycle policy, speculative command execution, semantic-history restoration, and room projection,
+  - one production aggregate operation backed by a pure XState lifecycle snapshot and at most one gameplay session,
   - depends on `core` and `gameplay`.
 - `packages/application`
   - framework-neutral use-case orchestration and private global persistence/RPC adapters,
@@ -122,12 +122,15 @@ Application and MatchRoom independently consume that domain direction; Play sits
 - Competition owns generic match lifecycle; MatchRoom owns serialized persistence sequence.
 - Game implementations own game semantics, control projection, and public display projection.
 
-## Authoritative Match Sessions
+## Authoritative Match Execution
 
 - Accepted facts in MatchRoom SQLite are durable authority.
-- Resident `SparringMatchSession` and at most one resident gameplay session are disposable behavioral authority.
-- Command `decide` is non-mutating; exact committed facts advance prepared transitions through `applyCommitted`.
-- Cold replay through `restoreSparringMatchSession` equals warm projection for the same journal and code version.
+- Resident `SparringMatch` is a disposable speculative cache; accepted `execute` advances it before persistence.
+- MatchRoom clears the resident after any accepted enveloping or persistence failure and after any execution defect.
+- MatchRoom validates stored envelopes and mechanically groups command transactions before `restoreSparringMatch`; competition sees only semantic content batches.
+- Restoration reconstructs one canonical command per batch, invokes the same aggregate operation as warm execution, and compares the complete ordered emitted batch.
+- Competition retains a pure XState lifecycle snapshot rather than a match actor. During an active frame it retains at most one gameplay session.
+- Application independently validates and groups the terminal RPC journal before archive restoration and projection comparison.
 - Completed archive creation replays the terminal journal, verifies MatchRoom-supplied projection equality, and persists the replay snapshot plus stored historical protocol rows.
 - Raw XState snapshots remain in-memory tooling contracts only; they are not persisted.
 

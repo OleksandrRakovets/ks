@@ -2,7 +2,7 @@
 
 ## Status
 
-Implementation plan for `decisions/speculative-resident-match-execution.md`. Production code has not yet been changed to this design.
+Implemented on 2026-08-23. This document is the completed implementation record for `decisions/speculative-resident-match-execution.md`.
 
 The implementation replaces the old path directly. The project is unreleased, so there are no compatibility aliases, dual timestamp fields, parallel match implementations, or data backfills.
 

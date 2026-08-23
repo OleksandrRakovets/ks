@@ -1,4 +1,4 @@
-import { type CreateMatchRequest, type MatchSnapshotFor } from '@ks/competition'
+import { type CreateMatchRequest, type MatchStateFor } from '@ks/competition'
 import {
   type CommandId,
   type ControlCommand,
@@ -7,7 +7,8 @@ import {
   emptyControlCommandSections,
   type HydratedMatchParticipant,
   type MatchId,
-  MatchSnapshotSchema,
+  MatchStateSchema,
+  NonNegativeIntegerSchema,
   type PlayerRef,
   type UnixEpochMilliseconds,
 } from '@ks/core'
@@ -71,27 +72,27 @@ type ApplicationDependencies = {
 
 type ReadKeyedMatchSuccess<K extends RegisteredGameKey> = {
   ok: true
-  snapshot: MatchSnapshotFor<K>
+  state: MatchStateFor<K>
+  latestSeq: number
   participants: HydratedMatchParticipants
   controlProjection?: ControlProjectionFor<K>
   controlSections?: ControlCommandSections
 }
 type ReadKeyedMatchResult<K extends RegisteredGameKey> = ReadKeyedMatchSuccess<K> | ReadMatchFailure
 
-function expectsControlProjection(snapshot: v.InferOutput<typeof MatchSnapshotSchema>): boolean | null {
-  const latestFrame = snapshot.frames.at(-1)
-  if (!latestFrame) return snapshot.currentFrameIndex === 0 ? false : null
-  if (latestFrame.frameIndex !== snapshot.currentFrameIndex) return null
-  return snapshot.status === 'active' && latestFrame.winnerSeat === undefined
+function expectsControlProjection(state: v.InferOutput<typeof MatchStateSchema>): boolean | null {
+  const latestFrame = state.frames.at(-1)
+  if (!latestFrame) return state.currentFrameIndex === 0 ? false : null
+  if (latestFrame.frameIndex !== state.currentFrameIndex) return null
+  return state.status === 'active' && latestFrame.winnerSeat === undefined
 }
 
-function isTerminalArchivedSnapshot(snapshot: v.InferOutput<typeof MatchSnapshotSchema>): boolean {
-  if (snapshot.status !== 'finished') return false
-  const latestFrame = snapshot.frames.at(-1)
-  if (!latestFrame?.winnerSeat || latestFrame.frameIndex !== snapshot.currentFrameIndex) return false
+function isTerminalArchivedSnapshot(state: v.InferOutput<typeof MatchStateSchema>): boolean {
+  if (state.status !== 'finished') return false
+  const latestFrame = state.frames.at(-1)
+  if (!latestFrame?.winnerSeat || latestFrame.frameIndex !== state.currentFrameIndex) return false
   return (
-    snapshot.framesWonBySeat.A >= snapshot.targets.matchTargetFrames ||
-    snapshot.framesWonBySeat.B >= snapshot.targets.matchTargetFrames
+    state.framesWonBySeat.A >= state.targets.matchTargetFrames || state.framesWonBySeat.B >= state.targets.matchTargetFrames
   )
 }
 
@@ -192,8 +193,10 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
       return { ok: false, error: roomResult.error, status }
     }
 
-    const snapshot = v.safeParse(MatchSnapshotSchema, roomResult.snapshot)
+    const snapshot = v.safeParse(MatchStateSchema, roomResult.state)
     if (!snapshot.success) return { ok: false, error: 'Invalid room snapshot', status: 502 }
+    const latestSeq = v.safeParse(NonNegativeIntegerSchema, roomResult.latestSeq)
+    if (!latestSeq.success) return { ok: false, error: 'Invalid room cursor', status: 502 }
     if (snapshot.output.gameKey !== expectedGameKey) return { ok: false, error: 'Unknown match', status: 404 }
     const controlSections = v.safeParse(ControlCommandSectionsSchema, roomResult.controlSections)
     if (!controlSections.success) return { ok: false, error: 'Invalid room control sections', status: 502 }
@@ -205,7 +208,8 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     }
     const result: ReadKeyedMatchSuccess<K> = {
       ok: true,
-      snapshot: { ...snapshot.output, gameKey: expectedGameKey },
+      state: { ...snapshot.output, gameKey: expectedGameKey },
+      latestSeq: latestSeq.output,
       participants: await hydrateParticipants(record, locale),
       controlSections: controlSections.output,
     }
@@ -222,8 +226,8 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     if (!match.ok) return match
     const controlSections = match.controlSections ?? emptyControlCommandSections()
     return match.controlProjection
-      ? { ...match, state: 'frame-active', controlProjection: match.controlProjection, controlSections }
-      : { ...match, state: 'between-frames', controlSections }
+      ? { ...match, controlState: 'frame-active', controlProjection: match.controlProjection, controlSections }
+      : { ...match, controlState: 'between-frames', controlSections }
   }
 
   async function submitMatchCommand<K extends RegisteredGameKey>(
@@ -259,12 +263,12 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     if (!match.ok) return match
     const seatNames = { A: match.participants.A.displayName, B: match.participants.B.displayName }
     let protocolRows
-    if (match.snapshot.status === 'active') {
-      const facts = await dependencies.matchRoom.listFacts(match.snapshot.matchId)
+    if (match.state.status === 'active') {
+      const facts = await dependencies.matchRoom.listFacts(match.state.matchId)
       if (!facts.ok) {
         if (facts.error === 'Match is finalizing') {
-          await archiveAndFinishRoom(match.snapshot.matchId)
-          return await readMatchProtocol(match.snapshot.matchId, timeZone, locale, expectedGameKey)
+          await archiveAndFinishRoom(match.state.matchId)
+          return await readMatchProtocol(match.state.matchId, timeZone, locale, expectedGameKey)
         }
         return { ok: false, error: facts.error, status: facts.status }
       }
@@ -272,7 +276,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     } else {
       let archive: ProtocolArchiveRecord | null
       try {
-        archive = await dependencies.getProtocolArchive(match.snapshot.matchId)
+        archive = await dependencies.getProtocolArchive(match.state.matchId)
       } catch (error) {
         const failure = error instanceof Error ? archiveReadFailure(error) : null
         if (failure) return failure
@@ -283,7 +287,8 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     }
     const result: Extract<ReadMatchProtocolResult<K>, { ok: true }> = {
       ok: true,
-      snapshot: match.snapshot,
+      state: match.state,
+      latestSeq: match.latestSeq,
       participants: match.participants,
       protocolRows,
     }
@@ -325,14 +330,15 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
       throw error
     }
     if (!archive) return { ok: false, error: 'Missing completed match archive', status: 500 }
-    const snapshot = archive.snapshot
-    if (snapshot.gameKey !== expectedGameKey) return { ok: false, error: 'Unknown match', status: 404 }
-    if (!isTerminalArchivedSnapshot(snapshot)) {
-      return { ok: false, error: 'Failed to parse completed match snapshot', status: 500 }
+    const state = archive.state
+    if (state.gameKey !== expectedGameKey) return { ok: false, error: 'Unknown match', status: 404 }
+    if (!isTerminalArchivedSnapshot(state)) {
+      return { ok: false, error: 'Failed to parse completed match state', status: 500 }
     }
     return {
       ok: true,
-      snapshot: { ...snapshot, gameKey: expectedGameKey },
+      state: { ...state, gameKey: expectedGameKey },
+      latestSeq: archive.sourceLatestSeq,
       participants: await hydrateParticipants(record, locale),
     }
   }

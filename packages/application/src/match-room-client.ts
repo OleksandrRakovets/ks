@@ -1,4 +1,4 @@
-import type { CreateMatchRequest, MatchSnapshotFor, SparringMatchRoomProjection } from '@ks/competition'
+import type { CreateMatchRequest, MatchStateFor, SparringMatchRoomProjection } from '@ks/competition'
 import type {
   CommandId,
   ControlCommand,
@@ -30,7 +30,8 @@ type MatchRoomCommandResult =
 type MatchRoomSnapshotSuccess = {
   [K in RegisteredGameKey]: {
     ok: true
-    snapshot: MatchSnapshotFor<K>
+    state: MatchStateFor<K>
+    latestSeq: number
     controlProjection: ControlProjectionFor<K> | undefined
     controlSections: ControlCommandSections
   }

@@ -1,4 +1,4 @@
-import { CreateMatchRequestSchema, type SparringMatchRoomProjection, type SparringMatchSession } from '@ks/competition'
+import { CreateMatchRequestSchema, type SparringMatch, type SparringMatchRoomProjection } from '@ks/competition'
 import {
   type ControlCommand,
   MatchIdSchema,
@@ -8,7 +8,7 @@ import {
   type StoredMatchFact,
   UnixEpochMillisecondsSchema,
 } from '@ks/core'
-import type { ControlCommandSections, MatchSnapshot } from '@ks/core'
+import type { ControlCommandSections, MatchState } from '@ks/core'
 import type { ControlProjectionFor, RegisteredGameKey } from '@ks/gameplay/definitions'
 import { env, evictDurableObject, runInDurableObject } from 'cloudflare:test'
 import * as v from 'valibot'
@@ -77,7 +77,8 @@ function unsupportedCommand(): ControlCommand {
 
 type RoomSnapshotSuccessFor<K extends RegisteredGameKey> = {
   ok: true
-  snapshot: MatchSnapshot & { gameKey: K }
+  state: MatchState & { gameKey: K }
+  latestSeq: number
   controlProjection: ControlProjectionFor<K> | undefined
   controlSections: ControlCommandSections
 }
@@ -99,7 +100,7 @@ type FinalizationOk = {
   }
 }
 
-type ResidentReader = { resident: { latestSeq: number; session: SparringMatchSession } | null }
+type ResidentReader = { resident: { latestSeq: number; match: SparringMatch } | null }
 
 async function evictMatchRoom(stub: ReturnType<typeof env.MATCH_ROOM.getByName>): Promise<void> {
   // SAFETY: vitest pool typings widen MATCH_ROOM stubs; this suite only evicts MatchRoom instances.
@@ -112,10 +113,10 @@ function readResident(instance: MatchRoom): ResidentReader['resident'] {
   return instance.resident
 }
 
-function warmResidentSession(instance: MatchRoom): SparringMatchSession {
+function warmResidentMatch(instance: MatchRoom): SparringMatch {
   const resident = readResident(instance)
   if (!resident) throw new Error('Expected warm resident')
-  return resident.session
+  return resident.match
 }
 
 function submitCommandLocked(instance: MatchRoom, args: SubmitCommandBody) {
@@ -125,7 +126,7 @@ function submitCommandLocked(instance: MatchRoom, args: SubmitCommandBody) {
 
 function sqlScalar(state: DurableObjectState, sql: string, ...params: unknown[]): number {
   const cursor = state.storage.sql.exec(sql, ...params)
-  const rows = [...cursor]
+  const rows = [...cursor.raw()]
   return Number(rows[0]?.[0] ?? 0)
 }
 
@@ -175,7 +176,7 @@ describe('MatchRoom integration', () => {
     expect(facts.facts).toEqual([expect.objectContaining({ seq: 1, type: 'match.created', causedByCommandId: null })])
 
     const snapshot = assertOk<SnapshotOk>(await stub.snapshot({ matchId }))
-    expect(snapshot.snapshot.currentFrameIndex).toBe(0)
+    expect(snapshot.state.currentFrameIndex).toBe(0)
     expect(snapshot.controlSections.neutral[0]?.commandType).toBe('frame.start')
   })
 
@@ -313,7 +314,7 @@ describe('MatchRoom integration', () => {
     expect(retry).toEqual(result)
   })
 
-  test('leaves resident state unchanged when commitAccepted fails', async () => {
+  test('rolls back persistence and clears speculative resident when commitAccepted fails', async () => {
     const matchId = newMatchId()
     const stub = env.MATCH_ROOM.getByName(matchId)
     await stub.create(createBody(matchId))
@@ -335,13 +336,14 @@ describe('MatchRoom integration', () => {
           /test persistence failure|Failed query/,
         )
         expect(receiptExists(state, commandId)).toBe(false)
+        expect(readResident(room)).toBeNull()
       } finally {
         state.storage.sql.exec('DROP TRIGGER IF EXISTS test_block_accepted_facts')
       }
     })
 
     const warmSnapshot = assertOk<SnapshotOk>(await stub.snapshot({ matchId }))
-    expect(warmSnapshot.snapshot.currentFrameIndex).toBe(0)
+    expect(warmSnapshot.state.currentFrameIndex).toBe(0)
 
     const facts = assertOk<ListFactsOk>(await stub.listFacts({ matchId }))
     expect(facts.facts).toHaveLength(1)
@@ -350,48 +352,123 @@ describe('MatchRoom integration', () => {
     expect(retry.outcome._tag).toBe('accepted')
   })
 
-  test('preserves committed receipts and cold-restores after post-commit apply failure', async () => {
+  test('clears speculative resident and writes nothing when accepted-fact enveloping fails', async () => {
     const matchId = newMatchId()
     const stub = env.MATCH_ROOM.getByName(matchId)
     await stub.create(createBody(matchId))
-    await stub.submitCommand({ matchId, commandId: newCommandId(), command: frameStartCommand() })
 
     const commandId = newCommandId()
-    const commenceCommand = frameCommenceCommand('A')
-
-    let streamBody = ''
-    await runInDurableObject(stub, async (instance, _state) => {
+    await runInDurableObject(stub, async (instance, state) => {
       // SAFETY: runInDurableObject delivers the MatchRoom instance for MATCH_ROOM bindings in this suite.
       const room = instance as MatchRoom
       await room.snapshot({ matchId })
-      const session = warmResidentSession(room)
-      session.applyCommitted = () => {
-        throw new Error('post-commit apply failure')
+      // @ts-expect-error integration test injects a defect at the private accepted-content enveloping seam.
+      room.envelopeContents = () => {
+        throw new Error('enveloping defect')
+      }
+
+      expect(() => submitCommandLocked(room, { matchId, commandId, command: frameStartCommand() })).toThrow('enveloping defect')
+      expect(readResident(room)).toBeNull()
+      expect(receiptExists(state, commandId)).toBe(false)
+      expect(sqlScalar(state, 'SELECT COUNT(*) FROM accepted_facts')).toBe(1)
+      expect(sqlScalar(state, 'SELECT latest_seq FROM active_matches')).toBe(1)
+    })
+  })
+
+  test('returns a matching receipt before restoring a corrupt evicted resident', async () => {
+    const matchId = newMatchId()
+    const stub = env.MATCH_ROOM.getByName(matchId)
+    await stub.create(createBody(matchId))
+    const commandId = newCommandId()
+    const accepted = await stub.submitCommand({ matchId, commandId, command: frameStartCommand() })
+
+    await runInDurableObject(stub, async (_instance, state) => {
+      state.storage.sql.exec('DELETE FROM accepted_facts WHERE seq = 1')
+    })
+    await evictMatchRoom(stub)
+
+    expect(await stub.submitCommand({ matchId, commandId, command: frameStartCommand() })).toEqual(accepted)
+  })
+
+  test('clears speculative resident when the persisted cursor changes before accepted commit', async () => {
+    const matchId = newMatchId()
+    const stub = env.MATCH_ROOM.getByName(matchId)
+    await stub.create(createBody(matchId))
+    const commandId = newCommandId()
+
+    await runInDurableObject(stub, async (instance, state) => {
+      // SAFETY: runInDurableObject delivers the MatchRoom instance for MATCH_ROOM bindings in this suite.
+      const room = instance as MatchRoom
+      await room.snapshot({ matchId })
+      const match = warmResidentMatch(room)
+      const originalExecute = match.execute.bind(match)
+      match.execute = (command) => {
+        const result = originalExecute(command)
+        state.storage.sql.exec('UPDATE active_matches SET latest_seq = 99')
+        return result
+      }
+
+      expect(() => submitCommandLocked(room, { matchId, commandId, command: frameStartCommand() })).toThrow(
+        'Active match cursor mismatch',
+      )
+      expect(readResident(room)).toBeNull()
+      expect(receiptExists(state, commandId)).toBe(false)
+      expect(sqlScalar(state, 'SELECT COUNT(*) FROM accepted_facts')).toBe(1)
+      state.storage.sql.exec('UPDATE active_matches SET latest_seq = 1')
+    })
+  })
+
+  test('clears speculative resident and writes nothing when execute fails after warm load', async () => {
+    const matchId = newMatchId()
+    const stub = env.MATCH_ROOM.getByName(matchId)
+    await stub.create(createBody(matchId))
+
+    const commandId = newCommandId()
+    const startCommand = frameStartCommand()
+
+    let streamBody = ''
+    await runInDurableObject(stub, async (instance, state) => {
+      // SAFETY: runInDurableObject delivers the MatchRoom instance for MATCH_ROOM bindings in this suite.
+      const room = instance as MatchRoom
+      await room.snapshot({ matchId })
+      const match = warmResidentMatch(room)
+      const originalExecute = match.execute.bind(match)
+      match.execute = (command) => {
+        const result = originalExecute(command)
+        expect(result._tag).toBe('accepted')
+        throw new Error('execute defect')
       }
 
       const streamResponse = await room.stream({ matchId, since: 1 })
-      expect(() => submitCommandLocked(room, { matchId, commandId, command: commenceCommand })).toThrow(
-        'post-commit apply failure',
-      )
+      expect(() => submitCommandLocked(room, { matchId, commandId, command: startCommand })).toThrow('execute defect')
       expect(readResident(room)).toBeNull()
+      const durableSnapshot = assertOk<SnapshotOk>(await room.snapshot({ matchId }))
+      expect(durableSnapshot.latestSeq).toBe(1)
+      expect(durableSnapshot.state.currentFrameIndex).toBe(0)
+      expect(durableSnapshot.controlProjection).toBeUndefined()
+      const durableFacts = assertOk<ListFactsOk>(await room.listFacts({ matchId }))
+      expect(durableFacts.facts).toHaveLength(1)
+      expect(receiptExists(state, commandId)).toBe(false)
       streamBody = await readStreamBody(streamResponse)
     })
 
-    expect(streamBody).not.toContain('"type":"frame.commenced"')
-    expect(streamBody).not.toContain('"seq":3')
+    expect(streamBody).not.toContain('"type":"frame.started"')
+    expect(streamBody).not.toContain('"seq":2')
 
-    const retry = await stub.submitCommand({ matchId, commandId, command: commenceCommand })
+    await evictMatchRoom(stub)
+    const restored = assertOk<SnapshotOk>(await stub.snapshot({ matchId }))
+    expect(restored.latestSeq).toBe(1)
+    expect(restored.state.currentFrameIndex).toBe(0)
+    expect(restored.controlProjection).toBeUndefined()
+
+    const retry = await stub.submitCommand({ matchId, commandId, command: startCommand })
     expect(retry).toEqual({
       ok: true,
-      outcome: { _tag: 'accepted', accepted: [expect.objectContaining({ seq: 3 })] },
+      outcome: { _tag: 'accepted', accepted: [expect.objectContaining({ seq: 2 })] },
     })
 
     const committedFacts = assertOk<ListFactsOk>(await stub.listFacts({ matchId }))
-    expect(committedFacts.facts).toHaveLength(3)
-
-    await evictMatchRoom(stub)
-    const snapshot = assertOk<SnapshotOk>(await stub.snapshot({ matchId }))
-    expect(snapshot.controlProjection).toBeDefined()
+    expect(committedFacts.facts).toHaveLength(2)
   })
 
   test('reuses the warm resident across snapshots without replacing the session', async () => {
@@ -498,7 +575,7 @@ describe('MatchRoom integration', () => {
 
     const finalized = assertOk<FinalizationOk>(await stub.finalization({ matchId }))
     expect(finalized.data.sourceLatestSeq).toBe(4)
-    expect(finalized.data.projection.snapshot.status).toBe('finished')
+    expect(finalized.data.projection.state.status).toBe('finished')
     expect(finalized.data.facts.at(-1)?.type).toBe('match.ended')
   })
 
@@ -558,8 +635,8 @@ describe('MatchRoom integration', () => {
       // SAFETY: runInDurableObject delivers the MatchRoom instance for MATCH_ROOM bindings in this suite.
       const room = instance as MatchRoom
       await room.snapshot({ matchId })
-      const session = warmResidentSession(room)
-      session.decide = () => {
+      const match = warmResidentMatch(room)
+      match.execute = () => {
         throw new Error('decision defect')
       }
       expect(() => submitCommandLocked(room, { matchId, commandId, command: potRecordCommand('A', 1) })).toThrow(
@@ -619,7 +696,7 @@ describe('MatchRoom integration', () => {
     })
   })
 
-  test('delegates internal sequence gaps to competition replay', async () => {
+  test('MatchRoom storage adapter rejects internal journal sequence gaps', async () => {
     const matchId = newMatchId()
     const stub = env.MATCH_ROOM.getByName(matchId)
     await stub.create(createBody(matchId))
@@ -634,7 +711,7 @@ describe('MatchRoom integration', () => {
     await runInDurableObject(stub, async (instance) => {
       // SAFETY: runInDurableObject delivers the MatchRoom instance for MATCH_ROOM bindings in this suite.
       const room = instance as MatchRoom
-      await expect(room.snapshot({ matchId })).rejects.toThrow('Journal sequence must be contiguous')
+      await expect(room.snapshot({ matchId })).rejects.toThrow('Active match journal envelope mismatch')
     })
   })
 })

@@ -8,7 +8,7 @@ import {
   GameCommandFactSchema,
   MatchCreatedFactSchema,
   MatchEndedFactSchema,
-  MatchFactDraftSchema,
+  MatchFactContentSchema,
   MatchFactSchema,
   StoredMatchFactSchema,
 } from './facts'
@@ -32,8 +32,7 @@ function storedMatchCreated(envelopeMatchId: string, payloadMatchId: string, gam
     seq: 1,
     factId,
     matchId: envelopeMatchId,
-    occurredAt: 1_700_000_000_000,
-    receivedAt: 1_700_000_000_001,
+    acceptedAt: 1_700_000_000_001,
     causedByCommandId: null,
     type: 'match.created',
     payload: {
@@ -62,7 +61,7 @@ describe('stored match fact identity', () => {
       v.safeParse(MatchCreatedFactSchema, {
         factId,
         matchId,
-        occurredAt: v.parse(UnixEpochMillisecondsSchema, 1),
+        acceptedAt: v.parse(UnixEpochMillisecondsSchema, 1),
         type: 'match.created',
         payload: matchConfig,
       }).success,
@@ -74,7 +73,7 @@ describe('stored match fact identity', () => {
       v.safeParse(MatchCreatedFactSchema, {
         factId,
         matchId,
-        occurredAt: v.parse(UnixEpochMillisecondsSchema, 1),
+        acceptedAt: v.parse(UnixEpochMillisecondsSchema, 1),
         causedByCommandId: commandId,
         type: 'match.created',
         payload: matchConfig,
@@ -87,7 +86,7 @@ describe('stored match fact identity', () => {
       v.safeParse(GameCommandFactSchema, {
         factId,
         matchId,
-        occurredAt: v.parse(UnixEpochMillisecondsSchema, 1),
+        acceptedAt: v.parse(UnixEpochMillisecondsSchema, 1),
         causedByCommandId: null,
         type: 'game.command',
         payload: {
@@ -106,7 +105,7 @@ describe('stored match fact identity', () => {
       v.safeParse(GameCommandFactSchema, {
         factId,
         matchId,
-        occurredAt: v.parse(UnixEpochMillisecondsSchema, 1),
+        acceptedAt: v.parse(UnixEpochMillisecondsSchema, 1),
         type: 'game.command',
         payload: {
           frameIndex: 1,
@@ -124,7 +123,7 @@ describe('stored match fact identity', () => {
       v.safeParse(MatchFactSchema, {
         factId,
         matchId,
-        occurredAt: v.parse(UnixEpochMillisecondsSchema, 1),
+        acceptedAt: v.parse(UnixEpochMillisecondsSchema, 1),
         causedByCommandId: commandId,
         type: 'game.command',
         payload: {
@@ -143,7 +142,7 @@ describe('stored match fact identity', () => {
   })
 
   test('accepts all submitted-command variants with causation', () => {
-    const base = { factId, matchId, occurredAt: v.parse(UnixEpochMillisecondsSchema, 1), causedByCommandId: commandId }
+    const base = { factId, matchId, acceptedAt: v.parse(UnixEpochMillisecondsSchema, 1), causedByCommandId: commandId }
     expect(
       v.safeParse(FrameStartedFactSchema, {
         ...base,
@@ -177,9 +176,9 @@ describe('stored match fact identity', () => {
   })
 
   test('accepts every match fact draft variant', () => {
-    expect(v.safeParse(MatchFactDraftSchema, { type: 'match.created', payload: matchConfig }).success).toBe(true)
+    expect(v.safeParse(MatchFactContentSchema, { type: 'match.created', payload: matchConfig }).success).toBe(true)
     expect(
-      v.safeParse(MatchFactDraftSchema, {
+      v.safeParse(MatchFactContentSchema, {
         type: 'frame.started',
         payload: {
           frameIndex: 1,
@@ -190,7 +189,7 @@ describe('stored match fact identity', () => {
       }).success,
     ).toBe(true)
     expect(
-      v.safeParse(MatchFactDraftSchema, {
+      v.safeParse(MatchFactContentSchema, {
         type: 'game.command',
         payload: {
           frameIndex: 1,
@@ -207,7 +206,7 @@ describe('stored match fact identity', () => {
     const fact = v.parse(FrameStartedFactSchema, {
       factId,
       matchId,
-      occurredAt: v.parse(UnixEpochMillisecondsSchema, 1),
+      acceptedAt: v.parse(UnixEpochMillisecondsSchema, 1),
       causedByCommandId: commandId,
       clientId: 'legacy-client',
       clientSeq: 1,

@@ -17,9 +17,8 @@ const StoredMatchFactColumnsSchema = v.object({
   matchId: MatchIdSchema,
   type: v.string(),
   payloadJson: v.pipe(v.string(), v.parseJson()),
-  occurredAt: UnixEpochMillisecondsSchema,
+  acceptedAt: UnixEpochMillisecondsSchema,
   causedByCommandId: v.nullable(CommandIdSchema),
-  receivedAt: UnixEpochMillisecondsSchema,
 })
 
 export type StoredMatchFactRow = v.InferInput<typeof StoredMatchFactColumnsSchema>
@@ -32,9 +31,8 @@ export function decodeStoredMatchFactRow(row: StoredMatchFactRow): StoredMatchFa
     matchId: columns.matchId,
     type: columns.type,
     payload: columns.payloadJson,
-    occurredAt: columns.occurredAt,
+    acceptedAt: columns.acceptedAt,
     causedByCommandId: columns.causedByCommandId,
-    receivedAt: columns.receivedAt,
   })
 }
 
@@ -45,8 +43,7 @@ export function encodeStoredMatchFactRow(fact: StoredMatchFact): typeof schema.a
     matchId: fact.matchId,
     type: fact.type,
     payloadJson: JSON.stringify(fact.payload),
-    occurredAt: fact.occurredAt,
+    acceptedAt: fact.acceptedAt,
     causedByCommandId: fact.causedByCommandId,
-    receivedAt: fact.receivedAt,
   }
 }

@@ -20,7 +20,6 @@ function creationFact(): MatchFact {
   return {
     factId: newFactId(),
     matchId,
-    occurredAt: createdAt,
     causedByCommandId: null,
     type: 'match.created',
     payload: matchConfig,
@@ -28,12 +27,10 @@ function creationFact(): MatchFact {
 }
 
 function commandFact(commandId: ReturnType<typeof newCommandId>, type: 'frame.started' | 'match.ended'): MatchFact {
-  const occurredAt = v.parse(UnixEpochMillisecondsSchema, createdAt + (type === 'frame.started' ? 1 : 2))
   if (type === 'frame.started') {
     return {
       factId: newFactId(),
       matchId,
-      occurredAt,
       causedByCommandId: commandId,
       type,
       payload: {
@@ -47,7 +44,6 @@ function commandFact(commandId: ReturnType<typeof newCommandId>, type: 'frame.st
   return {
     factId: newFactId(),
     matchId,
-    occurredAt,
     causedByCommandId: commandId,
     type,
     payload: { winnerSeat: 'A' },
@@ -80,6 +76,7 @@ describe('ActiveMatchStore', () => {
     })
 
     expect(stored.seq).toBe(1)
+    expect(stored.acceptedAt).toBeInteger()
     expect(stored.causedByCommandId).toBeNull()
     expect(store.match()).toMatchObject({ matchId, latestSeq: 1, status: 'active' })
     expect(store.factsAfter(0)).toEqual([stored])
@@ -104,9 +101,10 @@ describe('ActiveMatchStore', () => {
     const ended = commandFact(commandId, 'match.ended')
     const facts: [MatchFact, ...MatchFact[]] = [started, ended]
 
-    const committed = store.commitAccepted({ facts, receipt: { commandId, requestJson } })
+    const committed = store.commitAccepted({ facts, receipt: { commandId, requestJson }, expectedLatestSeq: 1 })
 
     expect(committed.storedFacts.map((fact) => fact.seq)).toEqual([2, 3])
+    expect(new Set(committed.storedFacts.map((fact) => fact.acceptedAt)).size).toBe(1)
     expect(committed.outcome).toEqual({
       _tag: 'accepted',
       accepted: committed.storedFacts.map(({ seq, factId }) => ({ seq, factId })),
@@ -127,8 +125,23 @@ describe('ActiveMatchStore', () => {
       store.commitAccepted({
         facts,
         receipt: { commandId, requestJson: '{}' },
+        expectedLatestSeq: 1,
       }),
     ).toThrow('Fact causation mismatch')
+  })
+
+  test('commitAccepted guards the transaction with the expected persisted cursor', () => {
+    const { store } = initializeStore()
+    const commandId = newCommandId()
+    expect(() =>
+      store.commitAccepted({
+        facts: [commandFact(commandId, 'frame.started')],
+        receipt: { commandId, requestJson: '{}' },
+        expectedLatestSeq: 2,
+      }),
+    ).toThrow('Active match cursor mismatch')
+    expect(store.match()?.latestSeq).toBe(1)
+    expect(store.receipt(commandId)).toBeNull()
   })
 
   test('commitRejected stores only the tagged receipt without changing sequence or status', () => {
@@ -160,6 +173,7 @@ describe('ActiveMatchStore', () => {
     store.commitAccepted({
       facts: [commandFact(acceptedCommandId, 'frame.started')],
       receipt: { commandId: acceptedCommandId, requestJson: rejectedRequest },
+      expectedLatestSeq: 1,
     })
 
     expect(store.receipt(rejectedCommandId)).toEqual({
@@ -206,6 +220,7 @@ describe('ActiveMatchStore', () => {
       store.commitAccepted({
         facts: [first, duplicateFactId],
         receipt: { commandId, requestJson: '{}' },
+        expectedLatestSeq: 1,
       }),
     ).toThrow()
 

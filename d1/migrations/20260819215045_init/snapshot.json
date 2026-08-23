@@ -126,7 +126,7 @@
       "autoincrement": false,
       "default": null,
       "generated": null,
-      "name": "snapshot_json",
+      "name": "state_json",
       "entityType": "columns",
       "table": "match_protocol_archives"
     },

@@ -1,4 +1,4 @@
-import { type SparringMatchRejection, SparringMatchRejectionSchema } from '@ks/competition'
+import { SparringMatchRejectionSchema } from '@ks/competition'
 import { AcceptedFactRefSchema, type CommandId } from '@ks/core'
 import * as v from 'valibot'
 
@@ -41,5 +41,3 @@ export function decodeCommandReceiptRow(
     outcome: decodeCommandReceiptOutcome(row.outcomeJson, commandId),
   }
 }
-
-export type { SparringMatchRejection }

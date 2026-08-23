@@ -19,9 +19,8 @@ export const acceptedFacts = sqliteTable('accepted_facts', {
     .references(() => activeMatches.matchId),
   type: text('type').notNull(),
   payloadJson: text('payload_json').notNull(),
-  occurredAt: integer('occurred_at').$type<UnixEpochMilliseconds>().notNull(),
+  acceptedAt: integer('accepted_at').$type<UnixEpochMilliseconds>().notNull(),
   causedByCommandId: text('caused_by_command_id').$type<CommandId | null>(),
-  receivedAt: integer('received_at').$type<UnixEpochMilliseconds>().notNull(),
 })
 
 export const commandReceipts = sqliteTable('command_receipts', {

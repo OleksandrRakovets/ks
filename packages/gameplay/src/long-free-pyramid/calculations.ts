@@ -29,7 +29,7 @@ export function ballsOnTableFromRacks(racks: readonly LongFreePyramidRack[]): nu
   return Math.max(0, 16 - removedByRack(currentRack(racks)))
 }
 
-export function addRackScore(rack: LongFreePyramidRack, seat: Seat, points: number): LongFreePyramidRack {
+function addRackScore(rack: LongFreePyramidRack, seat: Seat, points: number): LongFreePyramidRack {
   return { ...rack, scoreBySeat: { ...rack.scoreBySeat, [seat]: rack.scoreBySeat[seat] + points } }
 }
 

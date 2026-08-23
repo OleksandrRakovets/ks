@@ -6,14 +6,13 @@ import * as v from 'valibot'
 import { decodeStoredMatchFactRow, encodeStoredMatchFactRow, type StoredMatchFactRow } from './stored-match-fact-row'
 
 const matchId = v.parse(MatchIdSchema, '01ARZ3NDEKTSV4RRFFQ69G5FAV')
-const occurredAt = v.parse(UnixEpochMillisecondsSchema, 1_700_000_000_000)
+const acceptedAt = v.parse(UnixEpochMillisecondsSchema, 1_700_000_000_000)
 
 const fact = v.parse(StoredMatchFactSchema, {
   seq: 1,
   factId: newFactId(),
   matchId,
-  occurredAt,
-  receivedAt: occurredAt,
+  acceptedAt: acceptedAt,
   causedByCommandId: null,
   type: 'match.created',
   payload: {
@@ -36,8 +35,7 @@ describe('stored match fact row codec', () => {
       seq: 2,
       factId: newFactId(),
       matchId,
-      occurredAt,
-      receivedAt: occurredAt,
+      acceptedAt: acceptedAt,
       causedByCommandId: commandId,
       type: 'frame.started',
       payload: {

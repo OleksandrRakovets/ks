@@ -20,33 +20,32 @@ export const handle = {
   headerConfig: (data: ProtocolRouteData<'free-pyramid-long'>) => ({
     titleKey: keys.match.sparring.protocolHeaderTitle,
     titleParams: { gameTitle: data.gameTitle },
-    backTo:
-      data.snapshot.status === 'active' ? matchControlUrl('free-pyramid-long', data.snapshot.matchId) : '/sparring/matches/',
+    backTo: data.state.status === 'active' ? matchControlUrl('free-pyramid-long', data.state.matchId) : '/sparring/matches/',
   }),
 }
 
 export default function FreePyramidLongProtocolRoute() {
   const { t } = useTranslation()
   const data = useLoaderData<typeof loader>()
-  useProtocolLiveRevalidation(data.snapshot)
+  useProtocolLiveRevalidation(data.state, data.latestSeq)
   return (
     <main className="flex flex-1 flex-col bg-surface">
       <ScoreBox
         nameA={data.participants.A.displayName}
         nameB={data.participants.B.displayName}
-        matchScore={data.snapshot.framesWonBySeat}
-        frameScore={protocolFrameScore(data.snapshot, data.controlProjection)}
-        matchStatus={data.snapshot.status}
-        frameIndex={data.snapshot.currentFrameIndex}
-        targetFrames={data.snapshot.targets.matchTargetFrames}
+        matchScore={data.state.framesWonBySeat}
+        frameScore={protocolFrameScore(data.state, data.controlProjection)}
+        matchStatus={data.state.status}
+        frameIndex={data.state.currentFrameIndex}
+        targetFrames={data.state.targets.matchTargetFrames}
       />
       <div className="px-4 py-3 pb-12">
         <ProtocolPanel rows={data.protocolRows} emptyLabel={t(keys.match.sparring.protocolEmpty)} />
       </div>
-      {data.snapshot.status === 'active' ? (
+      {data.state.status === 'active' ? (
         <nav className="sticky bottom-0 z-10 mt-auto flex h-14 border-t border-border bg-background">
           <Link
-            to={matchControlUrl('free-pyramid-long', data.snapshot.matchId)}
+            to={matchControlUrl('free-pyramid-long', data.state.matchId)}
             className="-mt-px flex flex-1 items-center justify-center border-t-2 border-transparent text-center text-base font-medium text-muted-foreground hover:text-foreground"
           >
             {t(keys.match.sparring.tabControl)}

@@ -34,7 +34,7 @@ export const matchProtocolArchives = sqliteTable('match_protocol_archives', {
   sourceLatestSeq: integer('source_latest_seq').notNull(),
   protocolVersion: integer('protocol_version').notNull(),
   rowsJson: text('rows_json').notNull(),
-  snapshotJson: text('snapshot_json').notNull(),
+  stateJson: text('state_json').notNull(),
   createdAt: integer('created_at').$type<UnixEpochMilliseconds>().notNull(),
 })
 

@@ -10,7 +10,7 @@ import {
   SeatSchema,
   stripOptionalPrefix,
 } from '@ks/core'
-import type { MatchSnapshot } from '@ks/core'
+import type { MatchState } from '@ks/core'
 import { RegisteredGameKeySchema } from '@ks/gameplay/definitions'
 import * as v from 'valibot'
 
@@ -43,7 +43,7 @@ export const CreateMatchRequestSchema = v.pipe(
 
 export type CreateMatchRequest = v.InferOutput<typeof CreateMatchRequestSchema>
 
-export type MatchSnapshotFor<K extends GameKey> = Omit<MatchSnapshot, 'gameKey'> & { gameKey: K }
+export type MatchStateFor<K extends GameKey> = Omit<MatchState, 'gameKey'> & { gameKey: K }
 
 type MatchAssignmentsBySeat = { A: PlayerRef; B: PlayerRef }
 

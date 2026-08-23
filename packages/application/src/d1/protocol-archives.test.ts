@@ -1,13 +1,13 @@
 import { describe, expect, test } from 'bun:test'
 
-import { MatchIdSchema, MatchSnapshotSchema } from '@ks/core'
+import { MatchIdSchema, MatchStateSchema } from '@ks/core'
 import * as v from 'valibot'
 
 import { getProtocolArchive } from './protocol-archives'
 import type { ApplicationDatabase } from './types'
 
 const matchId = v.parse(MatchIdSchema, '01ARZ3NDEKTSV4RRFFQ69G5FAV')
-const snapshot = v.parse(MatchSnapshotSchema, {
+const snapshot = v.parse(MatchStateSchema, {
   matchId,
   gameKey: 'historical-game',
   targets: { frameTargetPointsBySeat: { A: 8, B: 8 }, matchTargetFrames: 1 },
@@ -15,7 +15,6 @@ const snapshot = v.parse(MatchSnapshotSchema, {
   currentFrameIndex: 1,
   framesWonBySeat: { A: 1, B: 0 },
   frames: [{ frameIndex: 1, pointsBySeat: { A: 8, B: 2 }, breakerSeat: 'A', winnerSeat: 'A' }],
-  latestSeq: 4,
 })
 
 const validRow = {
@@ -23,7 +22,7 @@ const validRow = {
   sourceLatestSeq: 4,
   protocolVersion: 1,
   rowsJson: '[]',
-  snapshotJson: JSON.stringify(snapshot),
+  stateJson: JSON.stringify(snapshot),
 }
 
 type ProtocolArchiveDatabaseRow = {
@@ -31,7 +30,7 @@ type ProtocolArchiveDatabaseRow = {
   sourceLatestSeq: number
   protocolVersion: number
   rowsJson: string
-  snapshotJson: string
+  stateJson: string
 }
 
 function databaseReturning(row: ProtocolArchiveDatabaseRow): ApplicationDatabase {
@@ -57,19 +56,18 @@ describe('D1 protocol archive codec', () => {
       sourceLatestSeq: 4,
       protocolVersion: 1,
       rows: [],
-      snapshot,
+      state: snapshot,
     })
   })
 
   test.each([
     ['malformed JSON', { ...validRow, rowsJson: '[' }],
-    ['sequence mismatch', { ...validRow, sourceLatestSeq: 3 }],
-    ['unfinished snapshot', { ...validRow, snapshotJson: JSON.stringify({ ...snapshot, status: 'active' }) }],
+    ['unfinished state', { ...validRow, stateJson: JSON.stringify({ ...snapshot, status: 'active' }) }],
     [
-      'snapshot match mismatch',
+      'state match mismatch',
       {
         ...validRow,
-        snapshotJson: JSON.stringify({ ...snapshot, matchId: '01ARZ3NDEKTSV4RRFFQ69G5FAA' }),
+        stateJson: JSON.stringify({ ...snapshot, matchId: '01ARZ3NDEKTSV4RRFFQ69G5FAA' }),
       },
     ],
     ['requested match mismatch', { ...validRow, matchId: '01ARZ3NDEKTSV4RRFFQ69G5FAA' }],

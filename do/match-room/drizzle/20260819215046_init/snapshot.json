@@ -72,7 +72,7 @@
       "autoincrement": false,
       "default": null,
       "generated": null,
-      "name": "occurred_at",
+      "name": "accepted_at",
       "entityType": "columns",
       "table": "accepted_facts"
     },
@@ -83,16 +83,6 @@
       "default": null,
       "generated": null,
       "name": "caused_by_command_id",
-      "entityType": "columns",
-      "table": "accepted_facts"
-    },
-    {
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "received_at",
       "entityType": "columns",
       "table": "accepted_facts"
     },

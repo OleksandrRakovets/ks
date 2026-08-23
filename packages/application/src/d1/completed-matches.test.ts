@@ -3,17 +3,17 @@ import { describe, expect, test } from 'bun:test'
 import {
   buildMatchConfig,
   CreateMatchRequestSchema,
-  createSparringMatchSession,
   draftSparringMatchCreation,
-  restoreSparringMatchSession,
-  type SparringMatchCommand,
+  restoreSparringMatch,
+  type SparringMatch,
   type SparringMatchRoomProjection,
-  type SparringMatchSession,
 } from '@ks/competition'
 import {
   type CommandId,
+  type ControlCommand,
   type MatchConfig,
-  type MatchFactDraft,
+  type MatchFactContent,
+  MatchFactContentSchema,
   MatchIdSchema,
   newCommandId,
   newFactId,
@@ -47,17 +47,16 @@ function makeConfig(): MatchConfig {
 }
 
 function toStored(
-  draft: MatchFactDraft,
+  draft: MatchFactContent,
   config: MatchConfig,
   seq: number,
   commandId: CommandId,
-  occurredAt: number,
+  acceptedAt: number,
 ): StoredMatchFact {
   const envelope = {
     factId: newFactId(),
     matchId: config.matchId,
-    occurredAt,
-    receivedAt: occurredAt + 1,
+    acceptedAt,
     seq,
     type: draft.type,
     payload: draft.payload,
@@ -75,34 +74,35 @@ function nonemptyStoredFacts(facts: StoredMatchFact[]): [StoredMatchFact, ...Sto
 }
 
 function acceptWarm(
-  session: SparringMatchSession,
-  command: SparringMatchCommand,
+  session: SparringMatch,
+  config: MatchConfig,
+  command: ControlCommand,
   seq: number,
   commandId: CommandId,
-  occurredAt: number,
+  acceptedAt: number,
 ): StoredMatchFact[] {
-  const decision = session.decide(command)
-  if (decision._tag !== 'accepted') throw new Error(`Expected accepted decision for ${command.type}`)
+  const decision = session.execute(command)
+  if (decision._tag !== 'accepted') throw new Error(`Expected accepted decision for ${command.commandType}`)
   const facts = nonemptyStoredFacts(
-    decision.facts.map((draft, index) => toStored(draft, session.state.config, seq + index, commandId, occurredAt)),
+    decision.facts.map((draft, index) => toStored(draft, config, seq + index, commandId, acceptedAt)),
   )
-  session.applyCommitted(decision.transition, facts)
   return [...facts]
 }
 
 function buildValidTerminalJournal(config = makeConfig()): [StoredMatchFact, ...StoredMatchFact[]] {
-  const session = createSparringMatchSession(config)
-  const occurredAt = 1000
+  const creation = draftSparringMatchCreation(config)
+  const session = restoreSparringMatch([[creation]])
+  const acceptedAt = 1000
   let seq = 1
-  const journal: StoredMatchFact[] = [toStored(draftSparringMatchCreation(config), config, seq++, newCommandId(), occurredAt)]
+  const journal: StoredMatchFact[] = [toStored(creation, config, seq++, newCommandId(), acceptedAt)]
   try {
     for (const command of [
-      { type: 'frame.start' },
-      { type: 'frame.commence', seat: 'A' as const },
-      { type: 'game.command', gameKey: 'free-pyramid', command: { type: 'pot.record', seat: 'A' as const, points: 2 } },
-      { type: 'game.command', gameKey: 'free-pyramid', command: { type: 'frame.award', seat: 'A' as const } },
-    ] satisfies SparringMatchCommand[]) {
-      journal.push(...acceptWarm(session, command, seq, newCommandId(), occurredAt))
+      { source: 'match', commandType: 'frame.start', command: {} },
+      { source: 'match', commandType: 'frame.commence', command: { seat: 'A' } },
+      { source: 'game', commandType: 'pot.record', command: { seat: 'A', points: 2 } },
+      { source: 'game', commandType: 'frame.award', command: { seat: 'A' } },
+    ] satisfies ControlCommand[]) {
+      journal.push(...acceptWarm(session, config, command, seq, newCommandId(), acceptedAt))
       seq = journal.at(-1)!.seq + 1
     }
     return nonemptyStoredFacts(journal)
@@ -112,9 +112,22 @@ function buildValidTerminalJournal(config = makeConfig()): [StoredMatchFact, ...
 }
 
 function terminalProjection(facts: [StoredMatchFact, ...StoredMatchFact[]]): SparringMatchRoomProjection {
-  const session = restoreSparringMatchSession(facts)
+  const batches = facts.reduce<MatchFactContent[][]>((result, fact) => {
+    const content = v.parse(MatchFactContentSchema, { type: fact.type, payload: fact.payload })
+    if (
+      fact.type === 'match.created' ||
+      result.length === 0 ||
+      facts[facts.indexOf(fact) - 1]?.causedByCommandId !== fact.causedByCommandId
+    )
+      result.push([content])
+    else result.at(-1)!.push(content)
+    return result
+  }, [])
+  const grouped: unknown = batches
+  // SAFETY: this fixture groups the non-empty journal by contiguous command causation.
+  const session = restoreSparringMatch(grouped as Parameters<typeof restoreSparringMatch>[0])
   try {
-    return session.project(facts.at(-1)!.seq)
+    return session.project()
   } finally {
     session.dispose()
   }
@@ -122,7 +135,7 @@ function terminalProjection(facts: [StoredMatchFact, ...StoredMatchFact[]]): Spa
 
 function validArchiveInput(config = makeConfig()): CompletedMatchArchiveInput {
   const facts = buildValidTerminalJournal(config)
-  const endedAt = v.parse(UnixEpochMillisecondsSchema, facts.at(-1)!.receivedAt)
+  const endedAt = v.parse(UnixEpochMillisecondsSchema, facts.at(-1)!.acceptedAt)
   return {
     matchId: config.matchId,
     sourceLatestSeq: facts.at(-1)!.seq,
@@ -137,7 +150,7 @@ type ArchiveRow = {
   sourceLatestSeq: number
   protocolVersion: number
   rowsJson: string
-  snapshotJson: string
+  stateJson: string
   createdAt: number
 }
 
@@ -237,7 +250,7 @@ describe('completed match archive', () => {
       archiveCompletedMatch(archiveDb.db, {
         matchId: config.matchId,
         sourceLatestSeq: 1,
-        endedAt: terminal.at(-1)!.receivedAt,
+        endedAt: terminal.at(-1)!.acceptedAt,
         facts: [],
         projection: terminalProjection(terminal),
       }),
@@ -247,10 +260,13 @@ describe('completed match archive', () => {
 
   test('rejects non-terminal journals', async () => {
     const config = makeConfig()
-    const session = createSparringMatchSession(config)
-    const facts = [toStored(draftSparringMatchCreation(config), config, 1, newCommandId(), 1000)]
+    const creation = draftSparringMatchCreation(config)
+    const session = restoreSparringMatch([[creation]])
+    const facts = [toStored(creation, config, 1, newCommandId(), 1000)]
     try {
-      facts.push(...acceptWarm(session, { type: 'frame.start' }, 2, newCommandId(), 1000))
+      facts.push(
+        ...acceptWarm(session, config, { source: 'match', commandType: 'frame.start', command: {} }, 2, newCommandId(), 1000),
+      )
     } finally {
       session.dispose()
     }
@@ -259,7 +275,7 @@ describe('completed match archive', () => {
       archiveCompletedMatch(archiveDb.db, {
         matchId: config.matchId,
         sourceLatestSeq: facts.at(-1)!.seq,
-        endedAt: facts.at(-1)!.receivedAt,
+        endedAt: facts.at(-1)!.acceptedAt,
         facts,
         projection: terminalProjection(buildValidTerminalJournal(config)),
       }),
@@ -340,14 +356,14 @@ describe('completed match archive', () => {
   test('accepts idempotent identical archive writes', async () => {
     const input = validArchiveInput()
     const rowsJson = JSON.stringify(prepareProtocolRowsForArchive(nonemptyStoredFacts([...input.facts])))
-    const snapshotJson = JSON.stringify(input.projection.snapshot)
+    const stateJson = JSON.stringify(input.projection.state)
     const archiveDb = createArchiveDatabase({
       archive: {
         matchId: input.matchId,
         sourceLatestSeq: input.sourceLatestSeq,
         protocolVersion: 1,
         rowsJson,
-        snapshotJson,
+        stateJson,
         createdAt: input.endedAt,
       },
       match: { matchId: input.matchId, status: StoredMatchStatus.finalizing, endedAt: input.endedAt },
@@ -365,7 +381,7 @@ describe('completed match archive', () => {
         sourceLatestSeq: input.sourceLatestSeq,
         protocolVersion: 1,
         rowsJson: '[]',
-        snapshotJson: '{}',
+        stateJson: '{}',
         createdAt: input.endedAt,
       },
       match: initialMatch,
@@ -373,6 +389,6 @@ describe('completed match archive', () => {
     await expect(archiveCompletedMatch(archiveDb.db, input)).rejects.toThrow(CompletedMatchArchiveError)
     expect(archiveDb.batchCalls).toBe(0)
     expect(archiveDb.matchRow).toEqual(initialMatch)
-    expect(archiveDb.archiveRow?.snapshotJson).toBe('{}')
+    expect(archiveDb.archiveRow?.stateJson).toBe('{}')
   })
 })

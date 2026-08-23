@@ -1,23 +1,24 @@
 import {
   buildMatchConfig,
   draftSparringMatchCreation,
-  parseSparringMatchCommand,
-  restoreSparringMatchSession,
+  restoreSparringMatch,
+  type SparringMatch,
   type SparringMatchRoomProjection,
-  type SparringMatchSession,
 } from '@ks/competition'
 import {
   type CommandId,
   type MatchConfig,
   type MatchFact,
-  type MatchFactDraft,
+  type MatchFactContent,
+  type MatchFactContentBatch,
+  type MatchFactContentHistory,
+  MatchFactContentSchema,
   MatchFactSchema,
   newFactId,
-  nowUnixEpochMilliseconds,
   type StoredMatchFact,
   type UnixEpochMilliseconds,
 } from '@ks/core'
-import type { ControlCommandSections, MatchSnapshot } from '@ks/core'
+import type { ControlCommandSections, MatchState } from '@ks/core'
 import type { ControlProjectionFor, RegisteredGameKey } from '@ks/gameplay/definitions'
 import { DurableObject } from 'cloudflare:workers'
 import { migrate } from 'drizzle-orm/durable-sqlite/migrator'
@@ -38,17 +39,18 @@ import {
   SubmitCommandBodySchema,
   type SubmitCommandResult,
 } from './rpc-contract'
+import { type ActiveMatchRecord, ActiveMatchStore } from './storage/active-match-store'
 import type { CommandReceiptOutcome } from './storage/command-receipt'
-import { type ActiveMatchRecord, ActiveMatchStore } from './storage/store'
 
 type ResidentRoom = {
   readonly latestSeq: number
-  readonly session: SparringMatchSession
+  readonly match: SparringMatch
 }
 
 type RoomSnapshotSuccessFor<K extends RegisteredGameKey> = {
   ok: true
-  snapshot: MatchSnapshot & { gameKey: K }
+  state: MatchState & { gameKey: K }
+  latestSeq: number
   controlProjection: ControlProjectionFor<K> | undefined
   controlSections: ControlCommandSections
 }
@@ -113,6 +115,10 @@ export class MatchRoom extends DurableObject<Env> {
     })
   }
 
+  /**
+   * Returns the active semantic projection with the independently persisted cursor.
+   * A cold read validates and restores the complete journal; finalizing and deleted rooms are unavailable through this RPC.
+   */
   async snapshot(args: SnapshotBody): Promise<SnapshotResult> {
     await this.ready
     if (!v.safeParse(SnapshotBodySchema, args).success) return { ok: false, error: 'Invalid snapshot body', status: 400 }
@@ -123,9 +129,14 @@ export class MatchRoom extends DurableObject<Env> {
       return { ok: false, error: 'Match is finalizing', status: 409 }
     }
     const resident = this.loadResident()
-    return { ok: true, ...resident.session.project(match.latestSeq) }
+    return { ok: true, ...resident.match.project(), latestSeq: match.latestSeq }
   }
 
+  /**
+   * Executes one control command serially, returning a matching durable receipt before resident execution.
+   * Accepted execution advances resident state speculatively; facts, cursor, finalizing status, and receipt then commit
+   * atomically before broadcast. Any execution, enveloping, or persistence defect discards the resident for cold restore.
+   */
   async submitCommand(args: SubmitCommandBody): Promise<SubmitCommandResult> {
     await this.ready
     const body = v.safeParse(SubmitCommandBodySchema, args)
@@ -153,41 +164,43 @@ export class MatchRoom extends DurableObject<Env> {
     }
 
     const resident = this.loadResident()
-    const commandResult = parseSparringMatchCommand(resident.session.gameKey, body.command)
-    if (commandResult._tag === 'parse-failed') {
-      return { ok: false, error: 'invalid-command-body', status: 400 }
-    }
-
-    const decision = resident.session.decide(commandResult.command)
-    if (decision._tag === 'rejected') {
-      const outcome = this.store.commitRejected({
-        receipt: { commandId: body.commandId, requestJson },
-        reason: decision.reason,
-      })
-      return this.submitSuccess(outcome, match.status)
-    }
-
-    const occurredAt = nowUnixEpochMilliseconds()
-    const facts = this.envelopeDrafts(decision.facts, match.matchId, body.commandId, occurredAt)
-    const committed = this.store.commitAccepted({
-      facts: this.nonemptyFacts(facts),
-      receipt: { commandId: body.commandId, requestJson },
-    })
-
+    let commandResult
     try {
-      resident.session.applyCommitted(decision.transition, committed.storedFacts)
+      commandResult = resident.match.execute(body.command)
     } catch (error) {
       this.clearResident()
       throw error
     }
-
-    const lastStoredFact = committed.storedFacts[committed.storedFacts.length - 1]!
-    this.resident = { latestSeq: lastStoredFact.seq, session: resident.session }
-    for (const fact of committed.storedFacts) {
-      if (fact.type !== 'match.ended') this.live.broadcast(fact)
+    if (commandResult._tag === 'parse-failed') {
+      return { ok: false, error: 'invalid-command-body', status: 400 }
     }
-    const matchStatus = committed.storedFacts.some((fact) => fact.type === 'match.ended') ? 'finalizing' : match.status
-    return this.submitSuccess(committed.outcome, matchStatus)
+
+    if (commandResult._tag === 'rejected') {
+      const outcome = this.store.commitRejected({
+        receipt: { commandId: body.commandId, requestJson },
+        reason: commandResult.reason,
+      })
+      return this.submitSuccess(outcome, match.status)
+    }
+
+    try {
+      const facts = this.envelopeContents(commandResult.facts, match.matchId, body.commandId)
+      const committed = this.store.commitAccepted({
+        facts: this.nonemptyFacts(facts),
+        receipt: { commandId: body.commandId, requestJson },
+        expectedLatestSeq: resident.latestSeq,
+      })
+      const lastStoredFact = committed.storedFacts[committed.storedFacts.length - 1]!
+      this.resident = { latestSeq: lastStoredFact.seq, match: resident.match }
+      for (const fact of committed.storedFacts) {
+        if (fact.type !== 'match.ended') this.live.broadcast(fact)
+      }
+      const matchStatus = committed.storedFacts.some((fact) => fact.type === 'match.ended') ? 'finalizing' : match.status
+      return this.submitSuccess(committed.outcome, matchStatus)
+    } catch (error) {
+      this.clearResident()
+      throw error
+    }
   }
 
   async stream(args: StreamBody): Promise<Response> {
@@ -219,6 +232,10 @@ export class MatchRoom extends DurableObject<Env> {
     return { ok: true, facts: this.store.factsAfter(0) }
   }
 
+  /**
+   * Returns archive input only for a finalizing match after validating and restoring its complete durable journal.
+   * The returned terminal acceptance time is authoritative for `endedAt`; this operation does not archive or delete the room.
+   */
   async finalization(args: SnapshotBody): Promise<
     | {
         ok: true
@@ -244,7 +261,7 @@ export class MatchRoom extends DurableObject<Env> {
     if (!terminalFact) throw new Error('Missing terminal fact')
 
     const resident = this.ensureResident(validatedMatch.latestSeq, facts)
-    if (resident.session.state.phase !== 'match-over') {
+    if (resident.match.project().state.status !== 'finished') {
       throw new Error('Session is not terminal')
     }
 
@@ -252,9 +269,9 @@ export class MatchRoom extends DurableObject<Env> {
       ok: true,
       data: {
         sourceLatestSeq: validatedMatch.latestSeq,
-        endedAt: terminalFact.receivedAt,
+        endedAt: terminalFact.acceptedAt,
         facts: [...facts],
-        projection: resident.session.project(validatedMatch.latestSeq),
+        projection: resident.match.project(),
       },
     }
   }
@@ -282,17 +299,15 @@ export class MatchRoom extends DurableObject<Env> {
     })
   }
 
-  private envelopeDrafts(
-    drafts: readonly [MatchFactDraft, ...MatchFactDraft[]],
+  private envelopeContents(
+    drafts: readonly [MatchFactContent, ...MatchFactContent[]],
     matchId: MatchConfig['matchId'],
     commandId: CommandId,
-    occurredAt: UnixEpochMilliseconds,
   ): [MatchFact, ...MatchFact[]] {
     const facts = drafts.map((draft) =>
       v.parse(MatchFactSchema, {
         factId: newFactId(),
         matchId,
-        occurredAt,
         causedByCommandId: commandId,
         type: draft.type,
         payload: draft.payload,
@@ -306,7 +321,6 @@ export class MatchRoom extends DurableObject<Env> {
     return {
       factId: newFactId(),
       matchId: config.matchId,
-      occurredAt: nowUnixEpochMilliseconds(),
       causedByCommandId: null,
       type: draft.type,
       payload: draft.payload,
@@ -341,12 +355,52 @@ export class MatchRoom extends DurableObject<Env> {
     return { match, facts }
   }
 
+  private semanticHistory(match: ActiveMatchRecord, facts: [StoredMatchFact, ...StoredMatchFact[]]): MatchFactContentHistory {
+    const batches: MatchFactContentBatch[] = []
+    const seen = new Set<string>()
+    let commandId: string | null = null
+    let acceptedAt: number | null = null
+    for (let index = 0; index < facts.length; index += 1) {
+      const fact = facts[index]!
+      if (fact.seq !== index + 1 || fact.matchId !== match.matchId) throw new Error('Active match journal envelope mismatch')
+      const content = v.parse(MatchFactContentSchema, { type: fact.type, payload: fact.payload })
+      if (index === 0) {
+        if (fact.type !== 'match.created' || fact.causedByCommandId !== null)
+          throw new Error('Active match journal must begin with singleton match.created')
+        batches.push([content])
+        continue
+      }
+      if (fact.type === 'match.created' || fact.causedByCommandId === null)
+        throw new Error('Active match journal command causation mismatch')
+      if (fact.causedByCommandId !== commandId) {
+        if (seen.has(fact.causedByCommandId)) throw new Error('Active match journal command causation recurs')
+        seen.add(fact.causedByCommandId)
+        batches.push([content])
+        commandId = fact.causedByCommandId
+        acceptedAt = fact.acceptedAt
+      } else if (fact.acceptedAt !== acceptedAt) throw new Error('Active match journal batch timestamp mismatch')
+      else {
+        const current = batches.at(-1)
+        if (!current) throw new Error('Active match journal command batch is missing')
+        batches[batches.length - 1] = [...current, content]
+      }
+      if (fact.type === 'match.ended' && index !== facts.length - 1)
+        throw new Error('Active match journal has facts after terminal state')
+    }
+    if (facts.at(-1)?.seq !== match.latestSeq) throw new Error('Active match journal tail sequence mismatch')
+    const [first, ...rest] = batches
+    if (!first) throw new Error('Active match journal has no semantic batches')
+    return [first, ...rest]
+  }
+
   private ensureResident(latestSeq: number, facts: [StoredMatchFact, ...StoredMatchFact[]]): ResidentRoom {
     if (this.resident?.latestSeq === latestSeq) return this.resident
     this.clearResident()
     try {
-      const session = restoreSparringMatchSession(facts)
-      this.resident = { latestSeq, session }
+      const matchRecord = this.store.match()
+      if (!matchRecord) throw new Error('Unknown match')
+      const residentMatch = restoreSparringMatch(this.semanticHistory(matchRecord, facts))
+      this.resident = { latestSeq, match: residentMatch }
       return this.resident
     } catch (error) {
       this.resident = null
@@ -364,8 +418,9 @@ export class MatchRoom extends DurableObject<Env> {
   }
 
   private clearResident(): void {
-    this.resident?.session.dispose()
+    const resident = this.resident
     this.resident = null
+    resident?.match.dispose()
   }
 
   private commitCreation(
@@ -378,8 +433,10 @@ export class MatchRoom extends DurableObject<Env> {
     },
   ): StoredMatchFact {
     const storedFact = this.store.commitCreation({ initialization, fact: this.creationFact(config) })
-    const session = restoreSparringMatchSession([storedFact])
-    this.resident = { latestSeq: 1, session }
+    const content = v.parse(MatchFactContentSchema, { type: storedFact.type, payload: storedFact.payload })
+    if (content.type !== 'match.created') throw new Error('Creation commit did not return match.created')
+    const residentMatch = restoreSparringMatch([[content]])
+    this.resident = { latestSeq: 1, match: residentMatch }
     this.live.broadcast(storedFact)
     return storedFact
   }

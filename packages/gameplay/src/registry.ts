@@ -117,13 +117,6 @@ export type ScoreboardProjectionFor<K extends RegisteredGameKey> = GameContracts
 export type SummaryProjectionFor<K extends RegisteredGameKey> = GameContracts[K]['summary']
 export type GameCommandFor<K extends RegisteredGameKey> = GameContracts[K]['command']
 
-export type AnyGameCommand = {
-  [K in RegisteredGameKey]: {
-    readonly gameKey: K
-    readonly command: GameCommandFor<K>
-  }
-}[RegisteredGameKey]
-
 export function isRegisteredGameKey(value: string): value is RegisteredGameKey {
   return v.is(RegisteredGameKeySchema, value)
 }

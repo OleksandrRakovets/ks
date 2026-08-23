@@ -72,7 +72,7 @@ export const FrameOutcomeSchema = v.object({
 })
 export type FrameOutcome = v.InferOutput<typeof FrameOutcomeSchema>
 
-export const MatchSnapshotSchema = v.object({
+export const MatchStateSchema = v.object({
   matchId: MatchIdSchema,
   gameKey: GameKeySchema,
   targets: MatchTargetsSchema,
@@ -80,6 +80,5 @@ export const MatchSnapshotSchema = v.object({
   currentFrameIndex: NonNegativeIntegerSchema,
   framesWonBySeat: BySeatNumberSchema,
   frames: v.array(FrameStateSchema),
-  latestSeq: NonNegativeIntegerSchema,
 })
-export type MatchSnapshot = v.InferOutput<typeof MatchSnapshotSchema>
+export type MatchState = v.InferOutput<typeof MatchStateSchema>

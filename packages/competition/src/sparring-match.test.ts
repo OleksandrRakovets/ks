@@ -1,609 +1,89 @@
 import { describe, expect, test } from 'bun:test'
 
-import {
-  type CommandId,
-  type MatchConfig,
-  type MatchFactDraft,
-  newCommandId,
-  newFactId,
-  newMatchId,
-  type StoredMatchFact,
-  StoredMatchFactSchema,
-} from '@ks/core'
-import { listGameKeys, type RegisteredGameKey } from '@ks/gameplay/definitions'
-import * as v from 'valibot'
+import { type MatchConfig, newMatchId } from '@ks/core'
 
-import { buildMatchConfig, CreateMatchRequestSchema } from './matches'
-import {
-  createSparringMatchSession,
-  draftSparringMatchCreation,
-  InvalidSparringPreparedTransitionError,
-  parseSparringMatchCommand,
-  replaySparringMatch,
-  restoreSparringMatchSession,
-  type SparringMatchCommand,
-  type SparringMatchSession,
-  SparringMatchSessionDisposedError,
-} from './sparring-match'
+import { draftSparringMatchCreation, restoreSparringMatch } from './sparring-match'
 
-const createRequest = v.parse(CreateMatchRequestSchema, {
-  gameKey: 'free-pyramid',
-  targets: {
-    frameTargetPointsBySeat: { A: 8, B: 8 },
-    matchTargetFrames: 3,
-  },
-  firstBreakerSeat: 'A',
-  participants: [
-    { seat: 'A', playerRef: 'gp_01HX0000000000000000000000' },
-    { seat: 'B', playerRef: 'gp_01HX0000000000000000000001' },
-  ],
-})
-
-function makeConfig(gameKey: RegisteredGameKey, matchTargetFrames = 1, frameTarget = 8): MatchConfig {
-  return buildMatchConfig(newMatchId(), {
-    ...createRequest,
-    gameKey,
-    targets: {
-      frameTargetPointsBySeat: { A: frameTarget, B: frameTarget },
-      matchTargetFrames,
-    },
-    gameConfiguration: gameKey === 'free-pyramid-long' ? { rackRollover: 14 } : undefined,
-  })
-}
-
-function toStored(
-  draft: MatchFactDraft,
-  config: MatchConfig,
-  seq: number,
-  commandId: CommandId,
-  occurredAt: number,
-): StoredMatchFact {
-  const envelope = {
-    factId: newFactId(),
-    matchId: config.matchId,
-    occurredAt,
-    receivedAt: occurredAt + 1,
-    seq,
-    type: draft.type,
-    payload: draft.payload,
-  }
-  return v.parse(StoredMatchFactSchema, {
-    ...envelope,
-    causedByCommandId: draft.type === 'match.created' ? null : commandId,
-  })
-}
-
-function nonemptyStoredFacts(facts: StoredMatchFact[]): [StoredMatchFact, ...StoredMatchFact[]] {
-  const [first, ...rest] = facts
-  if (!first) throw new Error('Expected at least one stored fact')
-  return [first, ...rest]
-}
-
-function acceptWarm(
-  session: SparringMatchSession,
-  command: SparringMatchCommand,
-  seq: number,
-  commandId: CommandId,
-  occurredAt: number,
-): StoredMatchFact[] {
-  const before = structuredClone(session.state)
-  const decision = session.decide(command)
-  if (decision._tag !== 'accepted') throw new Error(`Expected accepted decision for ${command.type}`)
-  expect(session.state).toEqual(before)
-
-  const facts = nonemptyStoredFacts(
-    decision.facts.map((draft, index) => toStored(draft, session.state.config, seq + index, commandId, occurredAt)),
-  )
-  session.applyCommitted(decision.transition, facts)
-  return [...facts]
-}
-
-function expectRejected(session: SparringMatchSession, command: SparringMatchCommand) {
-  const before = structuredClone(session.state)
-  const decision = session.decide(command)
-  expect(decision._tag).toBe('rejected')
-  expect(session.state).toEqual(before)
-  return decision
-}
-
-describe('sparring match creation and parsing', () => {
-  test('draftSparringMatchCreation returns match.created draft', () => {
-    const config = makeConfig('free-pyramid')
-    expect(draftSparringMatchCreation(config)).toEqual({ type: 'match.created', payload: config })
-  })
-
-  test('rejects unknown registered game keys at creation boundaries', () => {
-    const unknownConfig: MatchConfig = {
-      matchId: newMatchId(),
-      gameKey: 'historical-game',
-      targets: createRequest.targets,
-      firstBreakerSeat: 'A',
-    }
-    expect(() => draftSparringMatchCreation(unknownConfig)).toThrow()
-    expect(() => createSparringMatchSession(unknownConfig)).toThrow()
-  })
-
-  test('session exposes validated registered game key from creation and replay', () => {
-    const config = makeConfig('free-pyramid-long')
-    const session = createSparringMatchSession(config)
-    expect(session.gameKey).toBe('free-pyramid-long')
-
-    const journal = [toStored(draftSparringMatchCreation(config), config, 1, newCommandId(), 1)]
-    const restored = restoreSparringMatchSession(nonemptyStoredFacts(journal))
-    expect(restored.gameKey).toBe('free-pyramid-long')
-  })
-
-  test('parseSparringMatchCommand maps match and game control envelopes', () => {
-    expect(parseSparringMatchCommand('free-pyramid', { source: 'match', commandType: 'frame.start', command: {} })).toEqual({
-      _tag: 'parsed',
-      command: { type: 'frame.start' },
-    })
-    expect(
-      parseSparringMatchCommand('free-pyramid', { source: 'match', commandType: 'frame.commence', command: { seat: 'A' } }),
-    ).toEqual({
-      _tag: 'parsed',
-      command: { type: 'frame.commence', seat: 'A' },
-    })
-    expect(
-      parseSparringMatchCommand('free-pyramid', {
-        source: 'game',
-        commandType: 'pot.record',
-        command: { seat: 'A', points: 1 },
-      }),
-    ).toEqual({
-      _tag: 'parsed',
-      command: { type: 'game.command', gameKey: 'free-pyramid', command: { type: 'pot.record', seat: 'A', points: 1 } },
-    })
-  })
-
-  test('unsupported match commands return parse-failed', () => {
-    expect(parseSparringMatchCommand('free-pyramid', { source: 'match', commandType: 'match.end', command: {} })).toEqual({
-      _tag: 'parse-failed',
-      reason: { code: 'unsupported-match-command', commandType: 'match.end' },
-    })
-  })
-
-  test('rejects malformed frame.start payload', () => {
-    expect(
-      parseSparringMatchCommand('free-pyramid', {
-        source: 'match',
-        commandType: 'frame.start',
-        command: { type: 'frame.start' },
-      }),
-    ).toEqual({
-      _tag: 'parse-failed',
-      reason: { code: 'unsupported-match-command', commandType: 'frame.start' },
-    })
-  })
-
-  test('rejects game source submitting match-owned commands', () => {
-    expect(
-      parseSparringMatchCommand('free-pyramid', { source: 'game', commandType: 'frame.commence', command: { seat: 'A' } }),
-    ).toEqual({
-      _tag: 'parse-failed',
-      reason: { code: 'unsupported-match-command', commandType: 'frame.commence' },
-    })
-  })
-
-  test('rejects match source submitting gameplay commands', () => {
-    expect(
-      parseSparringMatchCommand('free-pyramid', {
-        source: 'match',
-        commandType: 'pot.record',
-        command: { seat: 'A', points: 1 },
-      }),
-    ).toEqual({
-      _tag: 'parse-failed',
-      reason: { code: 'unsupported-match-command', commandType: 'pot.record' },
-    })
-  })
-
-  test('malformed nested game payload fails parse before decision', () => {
-    const parsed = parseSparringMatchCommand('free-pyramid', { source: 'game', commandType: 'pot.record', command: {} })
-    expect(parsed._tag).toBe('parse-failed')
-  })
-
-  test('accepted game.command facts omit command type from stored payload', () => {
-    const session = createSparringMatchSession(makeConfig('free-pyramid', 1, 2))
-    try {
-      acceptWarm(session, { type: 'frame.start' }, 1, newCommandId(), 1000)
-      acceptWarm(session, { type: 'frame.commence', seat: 'A' }, 2, newCommandId(), 1000)
-      const decision = session.decide({
-        type: 'game.command',
-        gameKey: 'free-pyramid',
-        command: { type: 'pot.record', seat: 'A', points: 2 },
-      })
-      if (decision._tag !== 'accepted') throw new Error('expected accepted')
-      const gameFact = decision.facts.find((fact) => fact.type === 'game.command')
-      if (!gameFact || gameFact.type !== 'game.command') throw new Error('expected game.command fact')
-      expect(gameFact.payload.command).toEqual({ seat: 'A', points: 2 })
-      expect(gameFact.payload.commandType).toBe('pot.record')
-    } finally {
-      session.dispose()
-    }
-  })
-})
-
-describe('sparring match command rejections', () => {
-  test('rejects commands when match is over', () => {
-    const config = makeConfig('free-pyramid', 1, 2)
-    const session = createSparringMatchSession(config)
-    try {
-      const commandId = newCommandId()
-      acceptWarm(session, { type: 'frame.start' }, 1, commandId, 1000)
-      acceptWarm(session, { type: 'frame.commence', seat: 'A' }, 2, commandId, 1000)
-      acceptWarm(
-        session,
-        { type: 'game.command', gameKey: 'free-pyramid', command: { type: 'pot.record', seat: 'A', points: 2 } },
-        3,
-        commandId,
-        1000,
-      )
-      acceptWarm(
-        session,
-        { type: 'game.command', gameKey: 'free-pyramid', command: { type: 'frame.award', seat: 'A' } },
-        4,
-        commandId,
-        1000,
-      )
-      expectRejected(session, { type: 'frame.start' })
-      const overDecision = session.decide({ type: 'frame.start' })
-      expect(overDecision._tag).toBe('rejected')
-      if (overDecision._tag === 'rejected') expect(overDecision.reason.code).toBe('match-already-over')
-    } finally {
-      session.dispose()
-    }
-  })
-
-  test('rejects frame.start while frame is active', () => {
-    const session = createSparringMatchSession(makeConfig('free-pyramid'))
-    try {
-      acceptWarm(session, { type: 'frame.start' }, 1, newCommandId(), 1000)
-      expectRejected(session, { type: 'frame.start' })
-      const activeDecision = session.decide({ type: 'frame.start' })
-      expect(activeDecision._tag).toBe('rejected')
-      if (activeDecision._tag === 'rejected') expect(activeDecision.reason.code).toBe('frame-already-active')
-    } finally {
-      session.dispose()
-    }
-  })
-
-  test('rejects frame.commence for wrong breaker', () => {
-    const session = createSparringMatchSession(makeConfig('free-pyramid'))
-    try {
-      acceptWarm(session, { type: 'frame.start' }, 1, newCommandId(), 1000)
-      const decision = expectRejected(session, { type: 'frame.commence', seat: 'B' })
-      if (decision._tag !== 'rejected') throw new Error('expected rejection')
-      expect(decision.reason).toEqual({ code: 'wrong-breaker', expectedSeat: 'A' })
-    } finally {
-      session.dispose()
-    }
-  })
-
-  test('rejects gameplay commands without active frame', () => {
-    const session = createSparringMatchSession(makeConfig('free-pyramid'))
-    try {
-      const decision = expectRejected(session, {
-        type: 'game.command',
-        gameKey: 'free-pyramid',
-        command: { type: 'pot.record', seat: 'A', points: 1 },
-      })
-      if (decision._tag !== 'rejected') throw new Error('expected rejection')
-      expect(decision.reason.code).toBe('no-active-frame')
-    } finally {
-      session.dispose()
-    }
-  })
-})
-
-describe('sparring match prepared transitions', () => {
-  test('applyCommitted verifies owner, revision, and single-use tokens', () => {
-    const session = createSparringMatchSession(makeConfig('free-pyramid'))
-    const foreign = createSparringMatchSession(makeConfig('free-pyramid'))
-    try {
-      const commandId = newCommandId()
-      const decision = session.decide({ type: 'frame.start' })
-      if (decision._tag !== 'accepted') throw new Error('expected accepted')
-      const facts = nonemptyStoredFacts(
-        decision.facts.map((draft, index) => toStored(draft, session.state.config, index + 1, commandId, 1000)),
-      )
-
-      expect(() => foreign.applyCommitted(decision.transition, facts)).toThrow(InvalidSparringPreparedTransitionError)
-      session.applyCommitted(decision.transition, facts)
-      expect(() => session.applyCommitted(decision.transition, facts)).toThrow(InvalidSparringPreparedTransitionError)
-
-      const stale = session.decide({ type: 'frame.commence', seat: 'A' })
-      if (stale._tag !== 'accepted') throw new Error('expected accepted commence')
-      const staleFacts = nonemptyStoredFacts(
-        stale.facts.map((draft) => toStored(draft, session.state.config, 2, commandId, 1000)),
-      )
-      acceptWarm(session, { type: 'frame.commence', seat: 'A' }, 2, commandId, 1000)
-      expect(() => session.applyCommitted(stale.transition, staleFacts)).toThrow(InvalidSparringPreparedTransitionError)
-    } finally {
-      session.dispose()
-      foreign.dispose()
-    }
-  })
-
-  test('applyCommitted rejects draft payload mismatches and batch binding defects', () => {
-    const session = createSparringMatchSession(makeConfig('free-pyramid', 1, 2))
-    try {
-      const commandId = newCommandId()
-      acceptWarm(session, { type: 'frame.start' }, 1, commandId, 1000)
-      acceptWarm(session, { type: 'frame.commence', seat: 'A' }, 2, commandId, 1000)
-      acceptWarm(
-        session,
-        { type: 'game.command', gameKey: 'free-pyramid', command: { type: 'pot.record', seat: 'A', points: 2 } },
-        3,
-        commandId,
-        1000,
-      )
-      const decision = session.decide({
-        type: 'game.command',
-        gameKey: 'free-pyramid',
-        command: { type: 'frame.award', seat: 'A' },
-      })
-      if (decision._tag !== 'accepted') throw new Error('expected accepted')
-      const facts = nonemptyStoredFacts(
-        decision.facts.map((draft, index) => toStored(draft, session.state.config, 5 + index, commandId, 1000)),
-      )
-      const firstFact = facts[0]
-      if (firstFact?.type !== 'game.command') throw new Error('expected game.command fact')
-      facts[0] = toStored(
-        {
-          type: 'game.command',
-          payload: {
-            ...firstFact.payload,
-            protocolEntries: [{ source: 'system', entryType: 'system-note', body: {} }],
-          },
-        },
-        session.state.config,
-        firstFact.seq,
-        commandId,
-        1000,
-      )
-      expect(() => session.applyCommitted(decision.transition, facts)).toThrow(InvalidSparringPreparedTransitionError)
-
-      const replayDecision = session.decide({
-        type: 'game.command',
-        gameKey: 'free-pyramid',
-        command: { type: 'frame.award', seat: 'A' },
-      })
-      if (replayDecision._tag !== 'accepted') throw new Error('expected accepted')
-      const replayFacts = nonemptyStoredFacts(
-        replayDecision.facts.map((draft, index) => toStored(draft, session.state.config, 10 + index, commandId, 1000)),
-      )
-      const secondFact = replayFacts[1]
-      if (!secondFact || secondFact.type === 'match.created') throw new Error('expected command fact')
-      replayFacts[1] = { ...secondFact, causedByCommandId: newCommandId() }
-      expect(() => session.applyCommitted(replayDecision.transition, replayFacts)).toThrow(
-        InvalidSparringPreparedTransitionError,
-      )
-    } finally {
-      session.dispose()
-    }
-  })
-
-  test('applyCommitted rejects a batch enveloped with another match ID without changing session state', () => {
-    const session = createSparringMatchSession(makeConfig('free-pyramid'))
-    const foreignMatchId = newMatchId()
-    try {
-      const before = structuredClone(session.state)
-      const decision = session.decide({ type: 'frame.start' })
-      if (decision._tag !== 'accepted') throw new Error('expected accepted')
-      const facts = nonemptyStoredFacts(
-        decision.facts.map((draft, index) => {
-          const stored = toStored(draft, session.state.config, index + 1, newCommandId(), 1000)
-          return { ...stored, matchId: foreignMatchId }
-        }),
-      )
-      expect(() => session.applyCommitted(decision.transition, facts)).toThrow(InvalidSparringPreparedTransitionError)
-      expect(session.state).toEqual(before)
-    } finally {
-      session.dispose()
-    }
-  })
-})
-
-const frameTargetByGame = {
-  'strila-v2': 9,
-  'free-pyramid': 2,
-  'free-pyramid-long': 2,
-  'combined-pyramid': 2,
-  'combined-pyramid-old': 2,
-} satisfies Record<RegisteredGameKey, number>
-
-function winPotGameCommand(gameKey: RegisteredGameKey): SparringMatchCommand {
-  switch (gameKey) {
-    case 'strila-v2':
-      return {
-        type: 'game.command',
-        gameKey,
-        command: { type: 'pot.record', seat: 'A', pottedBalls: [1, 2, 3, 4, 5] },
-      }
-    case 'free-pyramid':
-      return {
-        type: 'game.command',
-        gameKey,
-        command: { type: 'pot.record', seat: 'A', points: frameTargetByGame[gameKey] },
-      }
-    case 'free-pyramid-long':
-      return {
-        type: 'game.command',
-        gameKey,
-        command: { type: 'pot.record', seat: 'A', points: 2 },
-      }
-    case 'combined-pyramid':
-      return {
-        type: 'game.command',
-        gameKey,
-        command: { type: 'pot.record', seat: 'A', points: frameTargetByGame[gameKey] },
-      }
-    case 'combined-pyramid-old':
-      return {
-        type: 'game.command',
-        gameKey,
-        command: { type: 'pot.record', seat: 'A', points: frameTargetByGame[gameKey] },
-      }
+function config(target = 2): MatchConfig {
+  return {
+    matchId: newMatchId(),
+    gameKey: 'free-pyramid',
+    targets: { frameTargetPointsBySeat: { A: 8, B: 8 }, matchTargetFrames: target },
+    firstBreakerSeat: 'A',
   }
 }
 
-function winAwardGameCommand(gameKey: RegisteredGameKey): SparringMatchCommand {
-  return { type: 'game.command', gameKey, command: { type: 'frame.award', seat: 'A' } }
-}
-
-function pushWarm(
-  journal: StoredMatchFact[],
-  session: SparringMatchSession,
-  command: SparringMatchCommand,
-  seq: number,
-  commandId: CommandId,
-  occurredAt: number,
-): number {
-  const facts = acceptWarm(session, command, seq, commandId, occurredAt)
-  journal.push(...facts)
-  return seq + facts.length
-}
-
-describe('sparring match per-game warm path', () => {
-  for (const gameKey of listGameKeys()) {
-    test(`${gameKey}: gameplay session, winner-determined retention, award terminal batch, warm=cold`, () => {
-      const config = makeConfig(gameKey, 1, frameTargetByGame[gameKey])
-      const session = createSparringMatchSession(config)
-      const occurredAt = 1000
-      let seq = 1
-      const journal: StoredMatchFact[] = [
-        toStored(draftSparringMatchCreation(config), config, seq++, newCommandId(), occurredAt),
-      ]
-
-      try {
-        seq = pushWarm(journal, session, { type: 'frame.start' }, seq, newCommandId(), occurredAt)
-        expect(session.state.activeGame?.gameKey).toBe(gameKey)
-        expect(session.state.phase).toBe('frame-in-progress')
-
-        seq = pushWarm(journal, session, { type: 'frame.commence', seat: 'A' }, seq, newCommandId(), occurredAt)
-        seq = pushWarm(journal, session, winPotGameCommand(gameKey), seq, newCommandId(), occurredAt)
-        expect(session.state.activeGame?.state.phase).toBe('winner-determined')
-        expect(session.state.phase).toBe('frame-in-progress')
-        expect(session.state.activeGame).not.toBeNull()
-
-        seq = pushWarm(journal, session, winAwardGameCommand(gameKey), seq, newCommandId(), occurredAt)
-        expect(session.state.phase).toBe('match-over')
-        expect(session.state.activeGame).toBeNull()
-        expect(session.project(10).controlSections.neutral).toEqual([])
-
-        const cold = replaySparringMatch(nonemptyStoredFacts(journal))
-        expect(cold).toEqual(session.state)
-
-        const restored = restoreSparringMatchSession(nonemptyStoredFacts(journal))
-        try {
-          expect(restored.project(10)).toEqual(session.project(10))
-        } finally {
-          restored.dispose()
-        }
-      } finally {
-        session.dispose()
-        expect(() => session.decide({ type: 'frame.start' })).toThrow(SparringMatchSessionDisposedError)
-      }
-    })
-  }
-})
-
-describe('sparring match automatic terminal facts', () => {
-  test('match-winning frame award emits game.command, frame.completed, and match.ended in order', () => {
-    const config = makeConfig('free-pyramid', 1, 2)
-    const session = createSparringMatchSession(config)
+describe('SparringMatch', () => {
+  test('drafts creation without resident state and executes accepted commands speculatively', () => {
+    const creation = draftSparringMatchCreation(config())
+    const match = restoreSparringMatch([[creation]])
     try {
-      const commandId = newCommandId()
-      acceptWarm(session, { type: 'frame.start' }, 1, commandId, 1000)
-      acceptWarm(session, { type: 'frame.commence', seat: 'A' }, 2, commandId, 1000)
-      acceptWarm(
-        session,
-        { type: 'game.command', gameKey: 'free-pyramid', command: { type: 'pot.record', seat: 'A', points: 2 } },
-        3,
-        commandId,
-        1000,
-      )
-      const decision = session.decide({
-        type: 'game.command',
-        gameKey: 'free-pyramid',
-        command: { type: 'frame.award', seat: 'A' },
+      expect(match.execute({ source: 'match', commandType: 'frame.start', command: {} })).toMatchObject({
+        _tag: 'accepted',
+        facts: [{ type: 'frame.started', payload: { frameIndex: 1, breakerSeat: 'A' } }],
       })
-      if (decision._tag !== 'accepted') throw new Error('expected award acceptance')
-      expect(decision.facts.map((fact) => fact.type)).toEqual(['game.command', 'frame.completed', 'match.ended'])
+      expect(match.project().state).toMatchObject({ status: 'active', currentFrameIndex: 1 })
     } finally {
-      session.dispose()
+      match.dispose()
     }
   })
 
-  test('concession emits frame.completed and match.ended when target is reached', () => {
-    const config = makeConfig('free-pyramid', 1, 2)
-    const session = createSparringMatchSession(config)
+  test('parses behind execute and keeps expected rejection as valid behavior', () => {
+    const match = restoreSparringMatch([[draftSparringMatchCreation(config())]])
     try {
-      const commandId = newCommandId()
-      acceptWarm(session, { type: 'frame.start' }, 1, commandId, 1000)
-      acceptWarm(session, { type: 'frame.commence', seat: 'A' }, 2, commandId, 1000)
-      const decision = session.decide({ type: 'frame.concede', seat: 'A' })
-      if (decision._tag !== 'accepted') throw new Error('expected concede acceptance')
-      expect(decision.facts.map((fact) => fact.type)).toEqual(['frame.completed', 'match.ended'])
+      expect(match.execute({ source: 'match', commandType: 'unknown', command: {} })).toEqual({
+        _tag: 'parse-failed',
+        reason: { code: 'unsupported-match-command', commandType: 'unknown' },
+      })
+      expect(match.execute({ source: 'match', commandType: 'frame.concede', command: { seat: 'A' } })).toEqual({
+        _tag: 'rejected',
+        reason: { code: 'no-active-frame' },
+      })
     } finally {
-      session.dispose()
+      match.dispose()
     }
   })
-})
 
-describe('sparring match keyed gameplay correlation', () => {
-  test('decide throws when game command key mismatches resident session', () => {
-    const session = createSparringMatchSession(makeConfig('free-pyramid'))
+  test('restored semantic batches produce the same warm projection', () => {
+    const creation = draftSparringMatchCreation(config())
+    const warm = restoreSparringMatch([[creation]])
+    const started = warm.execute({ source: 'match', commandType: 'frame.start', command: {} })
+    expect(started._tag).toBe('accepted')
+    if (started._tag !== 'accepted') throw new Error('Expected accepted frame start')
+    const restored = restoreSparringMatch([[creation], started.facts])
     try {
-      acceptWarm(session, { type: 'frame.start' }, 1, newCommandId(), 1000)
-      acceptWarm(session, { type: 'frame.commence', seat: 'A' }, 2, newCommandId(), 1000)
-      expect(() =>
-        session.decide({
-          type: 'game.command',
-          gameKey: 'strila-v2',
-          command: { type: 'pot.record', seat: 'A', pottedBalls: [1] },
-        }),
-      ).toThrow('Game command key mismatch')
+      expect(restored.project()).toEqual(warm.project())
     } finally {
-      session.dispose()
+      warm.dispose()
+      restored.dispose()
     }
   })
-})
 
-describe('sparring match projection controls', () => {
-  test('exposes frame.start between frames and breaker commence before open play', () => {
-    const session = createSparringMatchSession(makeConfig('free-pyramid'))
-    try {
-      expect(session.project(0).controlSections.neutral.map((entry) => entry.commandType)).toEqual(['frame.start'])
-      acceptWarm(session, { type: 'frame.start' }, 1, newCommandId(), 1000)
-      expect(session.project(1).controlSections.primary.A.map((entry) => entry.commandType)).toEqual(['frame.commence'])
-      acceptWarm(session, { type: 'frame.commence', seat: 'A' }, 2, newCommandId(), 1000)
-      const sections = session.project(2).controlSections
-      expect(sections.tertiary.A.map((entry) => entry.commandType)).toContain('frame.concede')
-      expect(sections.tertiary.B.map((entry) => entry.commandType)).toContain('frame.concede')
-    } finally {
-      session.dispose()
-    }
-  })
-})
+  test('executes gameplay through terminal batching and restores the same terminal projection', () => {
+    const creation = draftSparringMatchCreation(config(1))
+    const warm = restoreSparringMatch([[creation]])
+    const history = [[creation]] as const
+    const accepted = [
+      warm.execute({ source: 'match', commandType: 'frame.start', command: {} }),
+      warm.execute({ source: 'match', commandType: 'frame.commence', command: { seat: 'A' } }),
+      warm.execute({ source: 'game', commandType: 'pot.record', command: { seat: 'A', points: 4 } }),
+      warm.execute({ source: 'game', commandType: 'pot.record', command: { seat: 'A', points: 4 } }),
+      warm.execute({ source: 'game', commandType: 'frame.award', command: { seat: 'A' } }),
+    ]
+    for (const result of accepted) expect(result._tag).toBe('accepted')
+    const batches = accepted.map((result) => {
+      if (result._tag !== 'accepted') throw new Error('Expected accepted command')
+      return result.facts
+    })
+    expect(batches.at(-1)?.map((fact) => fact.type)).toEqual(['game.command', 'frame.completed', 'match.ended'])
 
-describe('sparring match prepared transition internals', () => {
-  test('two decisions at one revision become mutually stale after one applies', () => {
-    const session = createSparringMatchSession(makeConfig('free-pyramid'))
+    const restored = restoreSparringMatch([...history, ...batches])
     try {
-      acceptWarm(session, { type: 'frame.start' }, 1, newCommandId(), 1000)
-      const first = session.decide({ type: 'frame.commence', seat: 'A' })
-      const second = session.decide({ type: 'frame.commence', seat: 'A' })
-      if (first._tag !== 'accepted' || second._tag !== 'accepted') throw new Error('expected accepted')
-      const commandId = newCommandId()
-      const facts = nonemptyStoredFacts(first.facts.map((draft) => toStored(draft, session.state.config, 2, commandId, 1000)))
-      session.applyCommitted(first.transition, facts)
-      expect(() => session.applyCommitted(second.transition, facts)).toThrow(InvalidSparringPreparedTransitionError)
-      expect(Object.getOwnPropertySymbols(first.transition)).toHaveLength(1)
-      expect(() => session.applyCommitted(first.transition, facts)).toThrow(InvalidSparringPreparedTransitionError)
+      expect(warm.project().state).toMatchObject({ status: 'finished', framesWonBySeat: { A: 1, B: 0 } })
+      expect(restored.project()).toEqual(warm.project())
     } finally {
-      session.dispose()
+      warm.dispose()
+      restored.dispose()
     }
   })
 })

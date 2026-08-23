@@ -57,7 +57,7 @@ export interface GameplaySession<K extends RegisteredGameKey> {
 
 export type GameplaySessionFactoryArgs = GameCreateStateArgs
 
-export const commandNotAvailable: GameCommandRejection = { code: 'command-not-available' }
+const commandNotAvailable: GameCommandRejection = { code: 'command-not-available' }
 
 export function rejectedDecision<K extends RegisteredGameKey>(): GameCommandDecision<K> {
   return { _tag: 'rejected', reason: commandNotAvailable }

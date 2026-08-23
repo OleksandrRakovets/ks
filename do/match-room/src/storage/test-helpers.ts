@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { ActiveMatchStore } from './store'
+import { ActiveMatchStore } from './active-match-store'
 
 type SqlStorageValue = ArrayBuffer | string | number | null
 
@@ -11,9 +11,11 @@ class MockSqlCursor<T extends Record<string, SqlStorageValue>> {
   columnNames: string[] = []
   private index = 0
   private readonly rows: T[]
+  private readonly written: number
 
-  constructor(rows: T[]) {
+  constructor(rows: T[], written: number) {
     this.rows = rows
+    this.written = written
     if (rows.length > 0) this.columnNames = Object.keys(rows[0]!)
   }
 
@@ -22,7 +24,7 @@ class MockSqlCursor<T extends Record<string, SqlStorageValue>> {
   }
 
   get rowsWritten(): number {
-    return 0
+    return this.written
   }
 
   toArray(): T[] {
@@ -63,8 +65,10 @@ function createTestSqlStorage(db: Database, failOnAcceptedFactInsert: boolean): 
       }
       const stmt = db.prepare(query)
       const rows = bindings.length > 0 ? stmt.all(...bindings) : stmt.all()
+      // SAFETY: SQLite changes() returns one numeric column for the immediately preceding statement.
+      const written = (db.query('SELECT changes() AS changes').get() as { changes: number }).changes
       // SAFETY: MockSqlCursor implements the cursor surface drizzle reads via exec results.
-      return new MockSqlCursor(rows as T[]) as SqlStorageCursor<T>
+      return new MockSqlCursor(rows as T[], written) as SqlStorageCursor<T>
     },
   }
 
@@ -83,7 +87,7 @@ function applyInitialMigration(db: Database): void {
   }
 }
 
-export function createTestStorage(options?: { failOnAcceptedFactInsert?: boolean }): DurableObjectStorage {
+function createTestStorage(options?: { failOnAcceptedFactInsert?: boolean }): DurableObjectStorage {
   const db = new Database(':memory:')
   applyInitialMigration(db)
   const failOnAcceptedFactInsert = options?.failOnAcceptedFactInsert ?? false

@@ -13,9 +13,8 @@ CREATE TABLE `accepted_facts` (
 	`match_id` text NOT NULL REFERENCES `active_matches`(`match_id`),
 	`type` text NOT NULL,
 	`payload_json` text NOT NULL,
-	`occurred_at` integer NOT NULL,
-	`caused_by_command_id` text,
-	`received_at` integer NOT NULL
+	`accepted_at` integer NOT NULL,
+	`caused_by_command_id` text
 );
 --> statement-breakpoint
 CREATE TABLE `command_receipts` (

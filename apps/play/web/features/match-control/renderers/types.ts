@@ -1,10 +1,10 @@
 import type { HydratedMatchParticipants } from '@ks/application'
-import type { ControlCommandPreset, ControlCommandSections, MatchSnapshot } from '@ks/core'
+import type { ControlCommandPreset, ControlCommandSections, MatchState } from '@ks/core'
 
 export type MatchControlRendererProps<Projection> = {
   projection: Projection
   commandSections: ControlCommandSections
-  snapshot: MatchSnapshot
+  state: MatchState
   participants: HydratedMatchParticipants
   onSubmitCommand: (command: ControlCommandPreset) => void
   submitting: boolean

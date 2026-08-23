@@ -8,7 +8,7 @@ import {
   SeatSchema,
 } from '@ks/core'
 import * as v from 'valibot'
-import { type Actor, assign, createActor, initialTransition, setup, type SnapshotFrom, transition } from 'xstate'
+import { assign, initialTransition, setup, type SnapshotFrom, transition } from 'xstate'
 
 export type CompletedSparringFrame = {
   readonly frameIndex: number
@@ -63,7 +63,7 @@ export type SparringMatchLifecycleEvent =
       readonly outcome: FrameOutcome
     }
 
-export const SparringMatchPhaseSchema = v.picklist(['between-frames', 'frame-in-progress', 'match-over'])
+const SparringMatchPhaseSchema = v.picklist(['between-frames', 'frame-in-progress', 'match-over'])
 export type SparringMatchPhase = v.InferOutput<typeof SparringMatchPhaseSchema>
 
 function expectedBreakerSeat(config: MatchConfig, frameIndex: number): Seat {
@@ -190,8 +190,6 @@ export const SparringMatchMachine = setup({
 })
 
 export type SparringMatchSnapshot = SnapshotFrom<typeof SparringMatchMachine>
-export type SparringMatchMachineInput = MatchConfig
-export type SparringMatchActor = Actor<typeof SparringMatchMachine>
 
 export function getSparringMatchPhase(snapshot: SparringMatchSnapshot): SparringMatchPhase {
   return getPhase(snapshot)
@@ -202,7 +200,7 @@ export function createInitialSnapshot(config: MatchConfig): SparringMatchSnapsho
   return snapshot
 }
 
-export function getPhase(snapshot: SparringMatchSnapshot): SparringMatchPhase {
+function getPhase(snapshot: SparringMatchSnapshot): SparringMatchPhase {
   return v.parse(SparringMatchPhaseSchema, snapshot.value)
 }
 
@@ -335,39 +333,4 @@ export function sendLifecycleEvent(snapshot: SparringMatchSnapshot, event: Sparr
 
   projectLifecycleState(nextSnapshot)
   return nextSnapshot
-}
-
-export function previewLifecycleEvents(
-  snapshot: SparringMatchSnapshot,
-  events: readonly SparringMatchLifecycleEvent[],
-): SparringMatchSnapshot {
-  let current = snapshot
-  for (const event of events) {
-    current = sendLifecycleEvent(current, event)
-  }
-  return current
-}
-
-export function sparringSnapshotsEqual(left: SparringMatchSnapshot, right: SparringMatchSnapshot): boolean {
-  if (left === right) return true
-  return (
-    left.status === right.status &&
-    JSON.stringify(left.value) === JSON.stringify(right.value) &&
-    JSON.stringify(left.context) === JSON.stringify(right.context)
-  )
-}
-
-export function createSparringMatchActor(config: MatchConfig): SparringMatchActor {
-  const actor = createActor(SparringMatchMachine, { input: config })
-  actor.start()
-  return actor
-}
-
-export function createSparringMatchActorFromSnapshot(snapshot: SparringMatchSnapshot): SparringMatchActor {
-  const actor = createActor(SparringMatchMachine, {
-    snapshot,
-    input: snapshot.context.config,
-  })
-  actor.start()
-  return actor
 }

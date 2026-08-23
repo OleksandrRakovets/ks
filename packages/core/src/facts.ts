@@ -57,45 +57,50 @@ export const MatchEndedPayloadSchema = v.object({
 })
 export type MatchEndedPayload = v.InferOutput<typeof MatchEndedPayloadSchema>
 
-export const MatchCreatedFactDraftSchema = v.object({
+export const MatchCreatedContentSchema = v.object({
   type: v.literal('match.created'),
   payload: MatchConfigSchema,
 })
 
-export const FrameStartedFactDraftSchema = v.object({
+export const FrameStartedContentSchema = v.object({
   type: v.literal('frame.started'),
   payload: FrameStartedPayloadSchema,
 })
 
-export const GameCommandFactDraftSchema = v.object({
+export const GameCommandContentSchema = v.object({
   type: v.literal('game.command'),
   payload: GameCommandPayloadSchema,
 })
 
-export const FrameCompletedFactDraftSchema = v.object({
+export const FrameCompletedContentSchema = v.object({
   type: v.literal('frame.completed'),
   payload: FrameCompletedPayloadSchema,
 })
 
-export const MatchEndedFactDraftSchema = v.object({
+export const MatchEndedContentSchema = v.object({
   type: v.literal('match.ended'),
   payload: MatchEndedPayloadSchema,
 })
 
-export const MatchFactDraftSchema = v.variant('type', [
-  MatchCreatedFactDraftSchema,
-  FrameStartedFactDraftSchema,
-  GameCommandFactDraftSchema,
-  FrameCompletedFactDraftSchema,
-  MatchEndedFactDraftSchema,
+export const MatchFactContentSchema = v.variant('type', [
+  MatchCreatedContentSchema,
+  FrameStartedContentSchema,
+  GameCommandContentSchema,
+  FrameCompletedContentSchema,
+  MatchEndedContentSchema,
 ])
 
-export type MatchFactDraft = v.InferOutput<typeof MatchFactDraftSchema>
+export type MatchFactContent = v.InferOutput<typeof MatchFactContentSchema>
+
+/** Semantic facts produced atomically by one accepted match command. */
+export type MatchFactContentBatch = readonly [MatchFactContent, ...MatchFactContent[]]
+
+/** Accepted semantic history, beginning with a singleton match.created batch. */
+export type MatchFactContentHistory = readonly [MatchFactContentBatch, ...MatchFactContentBatch[]]
 
 const MatchFactEnvelopeBaseSchema = v.object({
   factId: FactIdSchema,
   matchId: MatchIdSchema,
-  occurredAt: UnixEpochMillisecondsSchema,
 })
 
 export const MatchCreatedFactSchema = v.pipe(
@@ -151,7 +156,7 @@ export const StoredMatchFactSchema = v.pipe(
     MatchFactSchema,
     v.object({
       seq: PositiveIntegerSchema,
-      receivedAt: UnixEpochMillisecondsSchema,
+      acceptedAt: UnixEpochMillisecondsSchema,
     }),
   ]),
   v.check(

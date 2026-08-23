@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { buildMatchConfig, CreateMatchRequestSchema, createSparringMatchSession } from '@ks/competition'
+import { buildMatchConfig, CreateMatchRequestSchema, draftSparringMatchCreation, restoreSparringMatch } from '@ks/competition'
 import { MatchIdSchema, newCommandId } from '@ks/core'
 import * as v from 'valibot'
 
@@ -28,12 +28,12 @@ const createRequest = v.parse(CreateMatchRequestSchema, {
 describe('MatchRoom RPC request contract', () => {
   test('wraps production session projection through the MatchRoom seam', () => {
     const config = buildMatchConfig(v.parse(MatchIdSchema, matchId), createRequest)
-    const session = createSparringMatchSession(config)
-    const snapshot = { ok: true as const, ...session.project(1) }
+    const session = restoreSparringMatch([[draftSparringMatchCreation(config)]])
+    const snapshot = { ok: true as const, ...session.project(), latestSeq: 1 }
 
     expect(snapshot.controlProjection).toBeUndefined()
     expect(snapshot.controlSections.neutral[0]?.commandType).toBe('frame.start')
-    expect(snapshot.snapshot.status).toBe('active')
+    expect(snapshot.state.status).toBe('active')
   })
 
   test('accepts the create request sent by the application adapter', () => {

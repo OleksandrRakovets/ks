@@ -8,7 +8,7 @@ import {
   StoredMatchFactSchema,
   type UnixEpochMilliseconds,
 } from '@ks/core'
-import { asc, eq, gt } from 'drizzle-orm'
+import { and, asc, eq, gt } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/durable-sqlite'
 import * as v from 'valibot'
 
@@ -88,14 +88,19 @@ export class ActiveMatchStore {
     return decodeCommandReceiptRow(row, commandId)
   }
 
+  /**
+   * Atomically creates the active-match row and its sequence-1 creation fact.
+   *
+   * @returns The committed creation fact with its assigned sequence and acceptance time.
+   * @throws If the match already exists, the creation fact is inconsistent, or the transaction cannot commit.
+   */
   commitCreation(args: { readonly initialization: ActiveMatchInitialization; readonly fact: MatchFact }): StoredMatchFact {
     if (this.match()) throw new Error('Match already exists')
     assertCreationFact(args.fact, args.initialization)
 
-    const receivedAt = nowUnixEpochMilliseconds()
-    const storedFact = v.parse(StoredMatchFactSchema, { ...args.fact, seq: 1, receivedAt })
-
     return this.db.transaction((transaction) => {
+      const acceptedAt = nowUnixEpochMilliseconds()
+      const storedFact = v.parse(StoredMatchFactSchema, { ...args.fact, seq: 1, acceptedAt })
       transaction
         .insert(schema.activeMatches)
         .values({ ...args.initialization, latestSeq: 1, status: 'active' })
@@ -105,43 +110,59 @@ export class ActiveMatchStore {
     })
   }
 
-  commitAccepted(args: { readonly facts: readonly [MatchFact, ...MatchFact[]]; readonly receipt: CommitReceipt }): {
+  /**
+   * Atomically appends accepted facts, advances the match cursor, and records the command receipt.
+   * `expectedLatestSeq` must equal the persisted cursor at commit time.
+   *
+   * @returns The committed facts with assigned sequences and the receipt outcome derived from them.
+   * @throws If match/fact invariants or the expected cursor fail, or the transaction cannot commit.
+   */
+  commitAccepted(args: {
+    readonly facts: readonly [MatchFact, ...MatchFact[]]
+    readonly receipt: CommitReceipt
+    readonly expectedLatestSeq: number
+  }): {
     readonly outcome: Extract<CommandReceiptOutcome, { _tag: 'accepted' }>
     readonly storedFacts: readonly [StoredMatchFact, ...StoredMatchFact[]]
   } {
     const existingMatch = this.match()
     if (!existingMatch || existingMatch.status !== 'active') throw new Error('Match is not active')
+    if (existingMatch.latestSeq !== args.expectedLatestSeq) throw new Error('Active match cursor mismatch')
     assertCommandFacts(args.facts, existingMatch.matchId, args.receipt.commandId)
 
-    const receivedAt = nowUnixEpochMilliseconds()
-    let nextSequence = existingMatch.latestSeq
-    const [head, ...tail] = args.facts
-    nextSequence += 1
-    const storedHead = v.parse(StoredMatchFactSchema, { ...head, seq: nextSequence, receivedAt })
-    const storedTail = tail.map((fact) => {
-      nextSequence += 1
-      return v.parse(StoredMatchFactSchema, { ...fact, seq: nextSequence, receivedAt })
-    })
-    const storedFacts: [StoredMatchFact, ...StoredMatchFact[]] = [storedHead, ...storedTail]
-
-    const outcome: Extract<CommandReceiptOutcome, { _tag: 'accepted' }> = {
-      _tag: 'accepted',
-      accepted: storedFacts.map(({ seq, factId }) => ({ seq, factId })),
-    }
-
     return this.db.transaction((transaction) => {
+      const acceptedAt = nowUnixEpochMilliseconds()
+      let nextSequence = existingMatch.latestSeq
+      const [head, ...tail] = args.facts
+      nextSequence += 1
+      const storedHead = v.parse(StoredMatchFactSchema, { ...head, seq: nextSequence, acceptedAt })
+      const storedTail = tail.map((fact) => {
+        nextSequence += 1
+        return v.parse(StoredMatchFactSchema, { ...fact, seq: nextSequence, acceptedAt })
+      })
+      const storedFacts: [StoredMatchFact, ...StoredMatchFact[]] = [storedHead, ...storedTail]
+      const outcome: Extract<CommandReceiptOutcome, { _tag: 'accepted' }> = {
+        _tag: 'accepted',
+        accepted: storedFacts.map(({ seq, factId }) => ({ seq, factId })),
+      }
       for (const fact of storedFacts) {
         transaction.insert(schema.acceptedFacts).values(encodeStoredMatchFactRow(fact)).run()
       }
 
-      transaction
+      const updateResult = transaction
         .update(schema.activeMatches)
         .set({
           latestSeq: nextSequence,
           status: storedFacts.some((fact) => fact.type === 'match.ended') ? 'finalizing' : existingMatch.status,
         })
-        .where(eq(schema.activeMatches.matchId, existingMatch.matchId))
+        .where(
+          and(
+            eq(schema.activeMatches.matchId, existingMatch.matchId),
+            eq(schema.activeMatches.latestSeq, args.expectedLatestSeq),
+          ),
+        )
         .run()
+      if (updateResult.rowsWritten !== 1) throw new Error('Active match cursor mismatch')
 
       transaction
         .insert(schema.commandReceipts)
@@ -156,6 +177,12 @@ export class ActiveMatchStore {
     })
   }
 
+  /**
+   * Atomically persists a rejected command receipt without advancing the match or fact cursor.
+   *
+   * @returns The committed rejected receipt outcome.
+   * @throws If the match is unknown or the transaction cannot commit.
+   */
   commitRejected(args: {
     readonly receipt: CommitReceipt
     readonly reason: SparringMatchRejection

@@ -12,14 +12,14 @@ Reconsider only if KS develops several multi-step application workflows that com
 
 ## Frozen outcome model
 
-| KS outcome | Correct package mapping | Required KS behavior |
-| --- | --- | --- |
-| Parse failed | `Err<ParseFailure>` is a reasonable in-memory representation | MatchRoom must return an invalid-body transport failure and write **no receipt**. The parse branch therefore remains before any receipt commit (`do/match-room/src/MatchRoom.ts:155-168`). |
-| Rejected | `Err<SparringMatchRejection>` is reasonable only inside `session.decide` | MatchRoom must consume that `Err`, persist a rejected receipt, and return outer submission success. It must not escape as the same transport error lane as parse/RPC failure (`MatchRoom.ts:161-168`; `storage/command-receipt.ts:5-16`). |
-| Accepted | `Ok<{ facts; transition }>` is a natural representation | Facts and the prepared transition remain KS domain types; MatchRoom must commit facts before applying the transition (`MatchRoom.ts:170-190`). |
-| Defect | Throw | Keep disposed/unusable/invalid-transition/replay/invariant failures thrown. The package also throws defects, but wraps exceptions thrown inside its combinators as `Panic`; adopting combinators would therefore alter error identity at those boundaries. [Package defect policy](https://better-result.dev/errors/panic-and-defects), [source](https://github.com/dmmulroy/better-result/blob/v3.0.1/src/core.ts). |
+| KS outcome   | Correct package mapping                                                  | Required KS behavior                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ------------ | ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Parse failed | `Err<ParseFailure>` is a reasonable in-memory representation             | MatchRoom must return an invalid-body transport failure and write **no receipt**. The parse branch therefore remains before any receipt commit (`do/match-room/src/MatchRoom.ts:155-168`).                                                                                                                                                                                                                           |
+| Rejected     | `Err<SparringMatchRejection>` is reasonable only as an `execute` outcome | MatchRoom must consume that `Err`, persist a rejected receipt, and return outer submission success. It must not escape as the same transport error lane as parse/RPC failure (`do/match-room/src/MatchRoom.ts:165-175`; `storage/command-receipt.ts:5-16`).                                                                                                                                                          |
+| Accepted     | `Ok<{ facts }>` is a natural representation                              | `execute` speculatively advances resident state and returns semantic facts. MatchRoom persists those facts; if persistence fails, it discards the advanced resident and later restores from durable history (`do/match-room/src/MatchRoom.ts:157-194`; `packages/competition/src/sparring-match.ts:83-96`).                                                                                                          |
+| Defect       | Throw                                                                    | Keep disposed/unusable/invalid-transition/replay/invariant failures thrown. The package also throws defects, but wraps exceptions thrown inside its combinators as `Panic`; adopting combinators would therefore alter error identity at those boundaries. [Package defect policy](https://better-result.dev/errors/panic-and-defects), [source](https://github.com/dmmulroy/better-result/blob/v3.0.1/src/core.ts). |
 
-This means the command path is not one flattenable `Result`. At most it is staged composition: parse `Result`, then decision `Result`, then conversion into a durable receipt, inside an outer transport/application result. Flattening these lanes would lose the no-receipt versus durable-rejection distinction.
+This means the command path is not one flattenable `Result`. At most it is staged composition: parse inside `execute`, then accepted/rejected execution outcome, then conversion into a durable receipt inside an outer transport/application result. Flattening these lanes would lose the no-receipt versus durable-rejection distinction.
 
 ## Capability comparison
 
@@ -30,8 +30,8 @@ This means the command path is not one flattenable `Result`. At most it is stage
 KS already expresses the relevant lanes explicitly:
 
 - gameplay decision: `accepted | rejected` (`packages/gameplay/src/gameplay-session.ts:33-42`);
-- match decision: `accepted | rejected` (`packages/competition/src/sparring-match.ts:108-117`);
-- command parse: `parsed | parse-failed` (`sparring-match.ts:74-82`, `packages/gameplay/src/parse-game-command.ts:7-16`);
+- match execution: `parse-failed | accepted | rejected` (`packages/competition/src/sparring-match.ts:68-71`);
+- command parse: internal parsed command or parse failure (`sparring-match.ts:117-123,162-179`; `packages/gameplay/src/parse-game-command.ts:7-16`);
 - durable receipt: `accepted | rejected` (`do/match-room/src/storage/command-receipt.ts:5-16`);
 - application/RPC transport result around that receipt (`packages/application/src/contracts.ts:19-21,72-74`).
 
@@ -53,7 +53,7 @@ KS's receipt format is instead `{ _tag: "accepted", accepted } | { _tag: "reject
 
 The package supports `Promise<Result>`, async generators through `Result.gen` plus `Result.await`, async chaining/recovery/observation, concurrent collection, cancellation-aware `tryPromise`, and bounded retries. Rejected callbacks/promises inside combinators become `Panic`. [Async workflow overview](https://github.com/dmmulroy/better-result/tree/v3.0.1#compose-asynchronous-workflows), [async/retry details](https://better-result.dev/core/async-and-retries).
 
-KS's `Application` is async (`contracts.ts:86-107`), but the command decision itself is intentionally synchronous and the surrounding use case has protocol-specific steps: catalog check, MatchRoom RPC, possible archive/finalization, and result adaptation (`packages/application/src/use-cases.ts:229-249`). A generator could restyle this function, but would not remove those branches or their distinct return contracts.
+KS's `Application` is async (`packages/application/src/contracts.ts`), but command execution itself is intentionally synchronous and the surrounding use case has protocol-specific steps: catalog check, MatchRoom RPC, possible archive/finalization, and result adaptation (`packages/application/src/use-cases.ts`). A generator could restyle this function, but would not remove those branches or their distinct return contracts.
 
 ### Thrown defects
 
@@ -76,8 +76,8 @@ If adoption were limited to in-memory parse/decision boundaries, it could replac
 
 1. `ParseGameCommandResult<K>` (`parse-game-command.ts:14-16`).
 2. `GameCommandDecision<K>` (`gameplay-session.ts:33-42`).
-3. `ParseSparringMatchCommandResult` (`sparring-match.ts:74-82`).
-4. `SparringMatchDecision` (`sparring-match.ts:108-117`).
+3. The internal parsed-command-or-failure branch (`sparring-match.ts:117-123,162-179`).
+4. `MatchCommandResult` (`sparring-match.ts:68-71`).
 
 It could also remove the local `accepted`/`rejected` envelope construction in `acceptDecision` and `rejectedDecision` (`gameplay-session.ts:62-64,156-160`) in favor of `Result.ok/err`, and replace parsed/accepted/rejected object literals at return sites with package constructors.
 
@@ -87,9 +87,9 @@ That is the full meaningful deletion. Even binary inspection branches are not de
 
 - `GameCommandParseFailure`, its game key/command type/issues, and parse validation branches (`parse-game-command.ts:7-45`).
 - `GameCommandRejection`, `SparringMatchRejection`, all domain `code` variants, and their Valibot schemas (`gameplay-session.ts:14-18`; `sparring-match.ts:84-105`).
-- `PreparedGameCommandResult`, prepared transition brands/records, accepted facts, and non-empty tuple invariants (`gameplay-session.ts:20-31`; `sparring-match.ts:54-58,108-117`).
-- Every state-dependent decision guard that determines a rejection reason (`sparring-match.ts:1016-1033,1152-1337`).
-- The MatchRoom parse-failed branch (no receipt), rejected commit branch, accepted commit/apply branch, and defect cleanup (`MatchRoom.ts:155-190`).
+- `PreparedGameCommandResult`, prepared transition brands/records, accepted facts, and non-empty tuple invariants (`gameplay-session.ts:20-31`; `sparring-match.ts:68-71,194-197`).
+- Every state-dependent execution guard that determines a rejection reason (`sparring-match.ts:298-355`).
+- The MatchRoom parse-failed branch (no receipt), rejected commit branch, accepted persistence branch, and resident discard on defects or persistence failure (`do/match-room/src/MatchRoom.ts:157-194`).
 - `CommandReceiptOutcomeSchema`, its accepted/rejected tags, and encode/decode corruption handling unless KS intentionally migrates the durable SQLite format (`command-receipt.ts:5-43`).
 - The outer application/RPC `ok/error/status` contracts and the inner durable receipt outcome; they represent different failure ownership (`contracts.ts:19-21,41,52,72-74`; `match-room-client.ts:25-29`).
 - Application finalization policy, including the accepted-outcome check (`use-cases.ts:242-249`).

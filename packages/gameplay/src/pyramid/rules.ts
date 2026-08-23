@@ -1,7 +1,7 @@
 import { IntegerSchema } from '@ks/core'
 import * as v from 'valibot'
 
-export const PyramidGameKeySchema = v.picklist(['free-pyramid', 'combined-pyramid', 'combined-pyramid-old'])
+const PyramidGameKeySchema = v.picklist(['free-pyramid', 'combined-pyramid', 'combined-pyramid-old'])
 export type PyramidGameKey = v.InferOutput<typeof PyramidGameKeySchema>
 
 export const PyramidRulesSchema = v.object({

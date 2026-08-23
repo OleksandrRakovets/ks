@@ -1,7 +1,7 @@
 import * as v from 'valibot'
 
 import { AcceptedFactRefSchema, StoredMatchFactSchema } from './facts'
-import { HydratedMatchParticipantsSchema, MatchSnapshotSchema } from './match'
+import { HydratedMatchParticipantsSchema, MatchStateSchema } from './match'
 import { NonEmptyStringSchema, NonNegativeIntegerSchema, UnknownObjectSchema } from './valicombos'
 
 export const ErrorResponseSchema = v.object({
@@ -12,7 +12,8 @@ export const ErrorResponseSchema = v.object({
 export const SnapshotResponseSchema = v.union([
   v.object({
     ok: v.literal(true),
-    snapshot: MatchSnapshotSchema,
+    state: MatchStateSchema,
+    latestSeq: NonNegativeIntegerSchema,
     participants: HydratedMatchParticipantsSchema,
     controlProjection: v.optional(v.unknown()),
   }),
