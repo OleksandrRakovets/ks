@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
-import type { BySeatNumber } from '@ks/core'
+import { type BySeatNumber, FrameOutcomeSchema } from '@ks/core'
+import * as v from 'valibot'
 
 import { StrilaMeta } from './definitions'
 import { createInitialSnapshot, getPhase, sendEvent, type StrilaSparringFrameSnapshot } from './machine'
@@ -64,10 +65,21 @@ describe('machine-sparring: basic', () => {
     snap = sendEvent(snap, { type: 'frame.award', seat: 'A' })
 
     expect(getPhase(snap)).toBe('frame-over')
+    expect(snap.output).toEqual({ winnerSeat: 'A', winReason: 'target-reached', score: { A: 10, B: 0 } })
+    expect(v.is(FrameOutcomeSchema, snap.output)).toBe(true)
   })
 })
 
 describe('machine-sparring: foul handling', () => {
+  test('only the opponent of the foul offender may choose the penalty', () => {
+    let snap = start()
+    snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
+    snap = sendEvent(snap, { type: 'foul.commit', seat: 'A' })
+
+    expect(() => sendEvent(snap, { type: 'penalty.select', seat: 'A', choice: 'ball-in-hand' })).toThrow('Invalid Strila event')
+    expect(() => sendEvent(snap, { type: 'penalty.select', seat: 'B', choice: 'ball-in-hand' })).not.toThrow()
+  })
+
   test('foul then ball-in-hand then miss returns to opponent open-play', () => {
     let snap = start()
     snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
@@ -295,8 +307,6 @@ describe('machine-sparring: ball validation', () => {
     snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
     snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [1] })
 
-    expect(() => sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [1] })).toThrow(
-      'Potted ball 1 is not on the table',
-    )
+    expect(() => sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [1] })).toThrow('Invalid Strila event')
   })
 })

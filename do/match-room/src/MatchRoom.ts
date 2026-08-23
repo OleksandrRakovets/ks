@@ -418,9 +418,7 @@ export class MatchRoom extends DurableObject<Env> {
   }
 
   private clearResident(): void {
-    const resident = this.resident
     this.resident = null
-    resident?.match.dispose()
   }
 
   private commitCreation(

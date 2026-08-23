@@ -1,87 +1,51 @@
 import * as v from 'valibot'
 
-import type { GameCreateStateArgs } from './constants'
-import type { GameplaySession, GameplaySessionFactoryArgs } from './gameplay-session'
+import type { GameplaySession, GameplaySessionCreateArgsFor } from './gameplay-session'
 import { LongFreePyramidCommandSchema } from './long-free-pyramid/definitions'
 import { createLongFreePyramidGameplaySession } from './long-free-pyramid/session'
 import { PyramidCommandSchema } from './pyramid/definitions'
 import { createPyramidGameplaySession } from './pyramid/session'
-import type { GameCommandFor, GameStateFor, RegisteredGameKey } from './registry'
+import type { GameCommandFor, RegisteredGameKey } from './registry'
 import { StrilaCommandSchema } from './strila-v2/definitions'
 import { createStrilaGameplaySession } from './strila-v2/session'
 
-type GameplayRegistryEntry<K extends RegisteredGameKey> = {
-  create(args: GameplaySessionFactoryArgs): GameplaySession<K>
-  restore(state: GameStateFor<K>, args: GameCreateStateArgs): GameplaySession<K>
-  createArgsFromState(state: GameStateFor<K>): GameCreateStateArgs
-  commandSchema: v.GenericSchema<GameCommandFor<K>>
+type GameplayServerEntry<K extends RegisteredGameKey> = {
+  readonly commandSchema: v.GenericSchema<GameCommandFor<K>>
+  readonly create: (args: GameplaySessionCreateArgsFor<K>) => GameplaySession<K>
 }
+type GameplayServerRegistry = { readonly [K in RegisteredGameKey]: GameplayServerEntry<K> }
 
-type GameplayRegistry = {
-  [K in RegisteredGameKey]: GameplayRegistryEntry<K>
-}
-
-const gameplayRegistry: GameplayRegistry = {
-  'strila-v2': {
-    create: createStrilaGameplaySession,
-    restore: (state, args) => createStrilaGameplaySession(args, state),
-    createArgsFromState: (state) => ({ targetPointsBySeat: state.targetPoints, breakerSeat: 'A' }),
-    commandSchema: StrilaCommandSchema,
-  },
-  'free-pyramid': {
-    create: (args) => createPyramidGameplaySession('free-pyramid', args),
-    restore: (state, args) => createPyramidGameplaySession('free-pyramid', args, state),
-    createArgsFromState: (state) => ({ targetPointsBySeat: state.targetPointsBySeat, breakerSeat: 'A' }),
-    commandSchema: PyramidCommandSchema,
-  },
-  'free-pyramid-long': {
-    create: createLongFreePyramidGameplaySession,
-    restore: (state, args) => createLongFreePyramidGameplaySession(args, state),
-    createArgsFromState: (state) => ({
-      targetPointsBySeat: state.targetPointsBySeat,
-      breakerSeat: 'A',
-      gameConfiguration: { rackRollover: state.rackRollover },
-    }),
-    commandSchema: LongFreePyramidCommandSchema,
-  },
+const gameplayServerRegistry = {
+  'strila-v2': { commandSchema: StrilaCommandSchema, create: createStrilaGameplaySession },
+  'free-pyramid': { commandSchema: PyramidCommandSchema, create: (args) => createPyramidGameplaySession('free-pyramid', args) },
+  'free-pyramid-long': { commandSchema: LongFreePyramidCommandSchema, create: createLongFreePyramidGameplaySession },
   'combined-pyramid': {
-    create: (args) => createPyramidGameplaySession('combined-pyramid', args),
-    restore: (state, args) => createPyramidGameplaySession('combined-pyramid', args, state),
-    createArgsFromState: (state) => ({ targetPointsBySeat: state.targetPointsBySeat, breakerSeat: 'A' }),
     commandSchema: PyramidCommandSchema,
+    create: (args) => createPyramidGameplaySession('combined-pyramid', args),
   },
   'combined-pyramid-old': {
-    create: (args) => createPyramidGameplaySession('combined-pyramid-old', args),
-    restore: (state, args) => createPyramidGameplaySession('combined-pyramid-old', args, state),
-    createArgsFromState: (state) => ({ targetPointsBySeat: state.targetPointsBySeat, breakerSeat: 'A' }),
     commandSchema: PyramidCommandSchema,
+    create: (args) => createPyramidGameplaySession('combined-pyramid-old', args),
   },
+} satisfies GameplayServerRegistry
+
+export function getGameplayRegistryEntry<K extends RegisteredGameKey>(gameKey: K): GameplayServerEntry<K> {
+  // SAFETY: the exhaustive registry entry and its creator both use the same registered game key.
+  // @ts-expect-error TypeScript does not preserve the dependent key while indexing the exhaustive registry.
+  return gameplayServerRegistry[gameKey]
 }
 
-export function getGameplayRegistryEntry<K extends RegisteredGameKey>(gameKey: K): GameplayRegistryEntry<K> {
-  const entry = gameplayRegistry[gameKey]
-  if (!entry) throw new Error(`Missing gameplay registry entry for game key: ${gameKey}`)
-  return entry
-}
-
+/**
+ * Creates fresh gameplay at the initial machine snapshot.
+ *
+ * @param gameKey - The registered game selecting one private family implementation.
+ * @param args - Creation input correlated with that game key.
+ * @returns Fresh gameplay waiting for frame commencement.
+ * @throws An unrecoverable defect when the private registry is incomplete or machine input is invalid.
+ */
 export function createGameplaySession<K extends RegisteredGameKey>(
   gameKey: K,
-  args: GameplaySessionFactoryArgs,
+  args: GameplaySessionCreateArgsFor<K>,
 ): GameplaySession<K> {
-  return gameplayRegistry[gameKey].create(args)
-}
-
-export function restoreGameplaySession<K extends RegisteredGameKey>(
-  gameKey: K,
-  state: GameStateFor<K>,
-  args: GameCreateStateArgs,
-): GameplaySession<K> {
-  return gameplayRegistry[gameKey].restore(state, args)
-}
-
-export function createGameplaySessionArgsFromState<K extends RegisteredGameKey>(
-  gameKey: K,
-  state: GameStateFor<K>,
-): GameCreateStateArgs {
-  return gameplayRegistry[gameKey].createArgsFromState(state)
+  return getGameplayRegistryEntry(gameKey).create(args)
 }

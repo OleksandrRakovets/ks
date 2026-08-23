@@ -6,7 +6,7 @@ This is the implemented source architecture after the application/MatchRoom refa
 
 The speculative resident execution architecture in `speculative-resident-match-execution.md` is implemented. Its completed implementation plan is `../speculative-match-execution-spec.md`.
 
-The accepted gameplay follow-up is `snapshot-backed-gameplay-sessions.md`, with implementation plan `../gameplay-session-simplification-spec.md`. With speculative match execution landed, it can now replace gameplay actors, prepared transitions, custom state restoration, and unused summary/scoreboard surfaces.
+Snapshot-backed gameplay sessions from `snapshot-backed-gameplay-sessions.md` are implemented. Gameplay retains private immutable machine snapshots, executes typed commands directly, and restores only by replaying accepted match facts.
 
 The accepted test-surface follow-up is `responsibility-shaped-test-surfaces.md`, with implementation plan `../test-surface-simplification-spec.md`. It replaces application D1 query fakes with a real match-lifecycle integration project, removes private MatchRoom test manipulation, and introduces explicit fast and full verification gates. Gameplay test restructuring remains owned by the gameplay follow-up rather than this decision.
 
@@ -91,7 +91,7 @@ d1/
   - no dependency on other internal packages.
 - `packages/gameplay`
   - authoritative frame-machine definitions and resident gameplay sessions,
-  - game registry and typed projections,
+  - browser-safe game metadata, keyed command/control contracts, and typed control projections,
   - production server API exposes opaque sessions and factories; raw machines are tooling-only subpath exports,
   - depends on `core`, never on `competition`.
 - `packages/competition`
@@ -117,14 +117,14 @@ Application and MatchRoom independently consume that domain direction; Play sits
 ## Game Integration Rules
 
 - Game keys come from the central registry.
-- Gameplay's finite `GameContracts` map is the public source of each registered key's state, control, scoreboard, and summary projection types. Concrete projections retain their literal game key.
+- Gameplay's finite `GameContracts` map correlates each registered key with its command and control projection types. Concrete controls retain their literal game key; raw state, summary, and scoreboard projections are not supported surfaces.
 - Dynamic MatchRoom code keeps the game key correlated with its state and isolates unavoidable exhaustive narrowing inside MatchRoom; application and static routes receive keyed results.
 - Play registers one explicit control route and one explicit protocol route per game. Each route supplies its literal expected key and imports its concrete renderer directly; there is no dynamic game route, renderer registry, or generic all-game page renderer.
 - A valid route paired with another game's match ID is reported as not found. Between frames, control results omit the game projection instead of fabricating an empty one.
 - Shared app code should consume game projections, not game internals.
 - Keep one consistent game command path based on `game.command` with game-specific payloads.
 - Competition owns generic match lifecycle; MatchRoom owns serialized persistence sequence.
-- Game implementations own game semantics, control projection, and public display projection.
+- Game implementations own machine semantics, protocol derivation, and control projection.
 
 ## Authoritative Match Execution
 

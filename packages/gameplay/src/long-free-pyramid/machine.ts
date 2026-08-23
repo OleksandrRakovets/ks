@@ -1,4 +1,4 @@
-import { type BySeatNumber, opponentOf, type Seat } from '@ks/core'
+import { type BySeatNumber, type FrameOutcome, opponentOf, type Seat } from '@ks/core'
 import invariant from 'tiny-invariant'
 import * as v from 'valibot'
 import { assign, initialTransition, setup, type SnapshotFrom, transition } from 'xstate'
@@ -266,10 +266,10 @@ export const LongFreePyramidSparringFrameMachine = setup({
     },
   },
 
-  output: ({ context }) => {
+  output: ({ context }): FrameOutcome => {
     invariant(context.winner !== null, 'Winner is required for LongFreePyramid machine output')
     return {
-      winner: context.winner,
+      winnerSeat: context.winner,
       winReason: 'target-reached' as const,
       score: totalScore(context.racks),
     }

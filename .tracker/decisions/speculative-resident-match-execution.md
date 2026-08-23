@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted on 2026-08-23. This supersedes the match-level commit-before-apply decision in `../authoritative-match-machine.md`. Gameplay's current prepared-transition interface remains unchanged until a separate gameplay simplification.
+Implemented. Its temporary gameplay prepared-transition details were superseded by `snapshot-backed-gameplay-sessions.md`; warm and cold execution now call `GameplaySession.execute` directly.
+
+Accepted on 2026-08-23. This supersedes the match-level commit-before-apply decision in `../authoritative-match-machine.md`. References below to gameplay prepared transitions describe the temporary interface at acceptance time; `snapshot-backed-gameplay-sessions.md` supersedes them completely.
 
 ## Context
 
@@ -29,7 +31,7 @@ The invariant was stronger than the product requires. MatchRoom serializes comma
 - Acceptance advances resident match and gameplay state once and returns semantic fact content.
 - A defect throws.
 
-MatchRoom persists accepted fact content after execution. If execution fails after partial advancement, accepted-fact enveloping fails, or accepted persistence fails, MatchRoom disposes and clears the resident match. The next state operation restores from `accepted_facts`.
+MatchRoom persists accepted fact content after execution. If execution fails after partial advancement, accepted-fact enveloping fails, or accepted persistence fails, MatchRoom clears the resident match. The next state operation restores from `accepted_facts`.
 
 Receipt lookup remains before resident loading and execution. A retry of a committed command returns its existing receipt without executing the command again.
 
@@ -42,7 +44,7 @@ warm: command -> aggregate command kernel -> resident state + fact-content batch
 cold: stored fact-content batch -> canonical command -> aggregate command kernel -> full-batch verification
 ```
 
-Warm execution invokes one aggregate command operation and advances resident match and gameplay state once. Cold restoration reconstructs one canonical command from each accepted semantic batch, invokes the same aggregate command operation, and compares its complete ordered output with the stored batch. Gameplay's existing private `decide` / `applyCommitted` implementation may internally evaluate its XState event twice until gameplay is simplified separately.
+Warm execution invokes one aggregate command operation and advances resident match and gameplay state once. Cold restoration reconstructs one canonical command from each accepted semantic batch, invokes the same aggregate command operation, and compares its complete ordered output with the stored batch. The former gameplay `decide` / `applyCommitted` detail was removed by `snapshot-backed-gameplay-sessions.md`; both paths now call `GameplaySession.execute` directly.
 
 Cold restoration has no independent target calculation, completion policy, terminal policy, game-key dispatch, semantic replay batch grouper, or pending-completion state. It fails loudly when accepted history is impossible or incompatible with the deployed code.
 
@@ -97,9 +99,9 @@ There is no client occurrence clock or asynchronous ingestion delay that justifi
 
 ### Gameplay seam
 
-Competition continues to coordinate gameplay through the existing gameplay interface. During accepted execution, competition calls gameplay decision once and immediately consumes gameplay's private prepared transition before persistence. Semantic facts derive from the verified applied gameplay result. Match-level prepared transitions do not exist.
+Competition coordinates gameplay through `GameplaySession.execute`. During accepted execution, semantic facts derive from that validated, applied gameplay result. Neither gameplay-level nor match-level prepared transitions exist.
 
-Gameplay actor and prepared-transition simplification is separate work. This decision does not move game scoring rules into competition.
+That gameplay simplification was completed by `snapshot-backed-gameplay-sessions.md`. This decision does not move game scoring rules into competition.
 
 ## Failure ordering
 
@@ -141,7 +143,7 @@ Failure outcomes:
 - eviction and cold restoration,
 - semantic replay validation,
 - expected command rejection,
-- terminal archival and disposal,
+- terminal archival,
 - gameplay-specific transition semantics.
 
 ### Testing rule

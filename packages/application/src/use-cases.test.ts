@@ -39,17 +39,12 @@ function snapshotFor<K extends RegisteredGameKey>(gameKey: K, status: 'active' |
 function controlProjectionFor<K extends RegisteredGameKey>(gameKey: K): ControlProjectionFor<K> {
   const args =
     gameKey === 'free-pyramid-long'
-      ? { targetPointsBySeat: { A: 30, B: 30 }, breakerSeat: 'A' as const, gameConfiguration: { rackRollover: 14 as const } }
+      ? { targetPointsBySeat: { A: 30, B: 30 }, rackRollover: 14 as const }
       : {
           targetPointsBySeat: { A: gameKey === 'strila-v2' ? 9 : 8, B: gameKey === 'strila-v2' ? 9 : 8 },
-          breakerSeat: 'A' as const,
         }
-  const session = createGameplaySession(gameKey, args)
-  try {
-    return session.deriveControl()
-  } finally {
-    session.dispose()
-  }
+  // SAFETY: the only specialized creation argument is selected by the matching long-pyramid key above.
+  return createGameplaySession(gameKey, args as never).deriveControl()
 }
 
 const controlProjections = {

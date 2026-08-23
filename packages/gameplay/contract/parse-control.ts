@@ -24,6 +24,13 @@ const gameControlParsers: GameControlParsers = {
   'combined-pyramid-old': (input) => v.parse(CombinedPyramidOldControlViewSchema, input),
 }
 
+/**
+ * Validates an advertised MatchRoom control projection for one registered game.
+ *
+ * @param gameKey - The registered game selecting the exact control schema.
+ * @param input - The typed wire representation, which still requires runtime validation at the RPC trust seam.
+ * @returns The canonical control projection correlated with `gameKey`.
+ */
 export function parseGameControl<K extends RegisteredGameKey>(
   gameKey: K,
   input: GameControlProjectionInput,

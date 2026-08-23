@@ -1,4 +1,4 @@
-import { type BySeatNumber, opponentOf, type Seat } from '@ks/core'
+import { type BySeatNumber, type FrameOutcome, opponentOf, type Seat } from '@ks/core'
 import invariant from 'tiny-invariant'
 import * as v from 'valibot'
 import { assign, initialTransition, setup, type SnapshotFrom, transition } from 'xstate'
@@ -11,7 +11,6 @@ import {
   StrilaMeta,
   type StrilaPhase,
   StrilaPhaseSchema,
-  type StrilaWinnerDeterminationReason,
 } from './definitions'
 
 const RESPOTTED_BLACK: StrilaColoredBall[] = [7]
@@ -83,9 +82,12 @@ function outputWinner(context: StrilaContext): Seat {
   return context.winner
 }
 
-function outputWinnerDeterminationReason(context: StrilaContext): StrilaWinnerDeterminationReason {
-  invariant(context.winnerDeterminationReason !== null, 'Winner determination reason is required for Strila machine output')
-  return context.winnerDeterminationReason
+function availableStrilaBalls(context: StrilaContext): readonly StrilaBall[] {
+  return [StrilaMeta.cueBall, ...context.coloredBallsOnTable]
+}
+
+function isAvailablePot(context: StrilaContext, event: StrilaCommand): boolean {
+  return event.type !== 'pot.record' || event.pottedBalls.every((ball) => availableStrilaBalls(context).includes(ball))
 }
 
 export const StrilaSparringFrameMachine = setup({
@@ -98,35 +100,55 @@ export const StrilaSparringFrameMachine = setup({
     input: {} as StrilaMachineInput,
   },
   guards: {
+    isAvailablePot: ({ context, event }) => isAvailablePot(context, event),
     isThirdCueBallPot: ({ context, event }) => {
       const e = potEvent(event)
-      return context.cueBallSerialPots?.seat === e.seat && context.cueBallSerialPots.count >= 2 && e.pottedBalls.includes(0)
+      return (
+        isAvailablePot(context, event) &&
+        context.cueBallSerialPots?.seat === e.seat &&
+        context.cueBallSerialPots.count >= 2 &&
+        e.pottedBalls.includes(0)
+      )
     },
-    isIllegalBallInHandPot: ({ event }) => {
+    isIllegalBallInHandPot: ({ context, event }) => {
       const e = potEvent(event)
-      return e.pottedBalls.includes(0) && e.pottedBalls.some((b) => b !== 0)
+      return isAvailablePot(context, event) && e.pottedBalls.includes(0) && e.pottedBalls.some((b) => b !== 0)
     },
-    isValidRespottedBlackOpeningPot: ({ event }) => {
+    isValidRespottedBlackOpeningPot: ({ context, event }) => {
       const e = potEvent(event)
-      return e.pottedBalls.length === 1 && e.pottedBalls[0] === 7
+      return isAvailablePot(context, event) && e.pottedBalls.length === 1 && e.pottedBalls[0] === 7
     },
     isTargetReachedAfterPot: ({ context, event }) => {
       const e = potEvent(event)
+      if (!isAvailablePot(context, event)) return false
       const next = addPoints(context.score, e.seat, pointsForPottedBalls(e.pottedBalls))
       return next.A >= context.targetPoints.A || next.B >= context.targetPoints.B
     },
     isRespottedBlackTrigger: ({ context, event }) => {
       const e = potEvent(event)
+      if (!isAvailablePot(context, event)) return false
       const next = addPoints(context.score, e.seat, pointsForPottedBalls(e.pottedBalls))
       const nextBalls = removePottedColoredBalls(context.coloredBallsOnTable, e.pottedBalls)
       return nextBalls.length === 0 && next.A === 8 && next.B === 8
     },
-    isBallInHandChoice: ({ event }) => event.type === 'penalty.select' && event.choice === 'ball-in-hand',
-    isPlayFromPositionChoice: ({ event }) => event.type === 'penalty.select' && event.choice === 'play-from-position',
-    isPassPositionChoice: ({ event }) => event.type === 'penalty.select' && event.choice === 'pass-position',
+    isBallInHandChoice: ({ context, event }) =>
+      event.type === 'penalty.select' &&
+      context.foulOffender !== null &&
+      event.seat === opponentOf(context.foulOffender) &&
+      event.choice === 'ball-in-hand',
+    isPlayFromPositionChoice: ({ context, event }) =>
+      event.type === 'penalty.select' &&
+      context.foulOffender !== null &&
+      event.seat === opponentOf(context.foulOffender) &&
+      event.choice === 'play-from-position',
+    isPassPositionChoice: ({ context, event }) =>
+      event.type === 'penalty.select' &&
+      context.foulOffender !== null &&
+      event.seat === opponentOf(context.foulOffender) &&
+      event.choice === 'pass-position',
     isSeatWinner: ({ context, event }) => {
       if (event.type !== 'pot.record') return false
-      return context.winner === event.seat
+      return isAvailablePot(context, event) && context.winner === event.seat
     },
     isAwardForWinner: ({ context, event }) => {
       if (event.type !== 'frame.award') return false
@@ -270,6 +292,7 @@ export const StrilaSparringFrameMachine = setup({
             actions: ['applyPot', 'setRespottedBlackOpening'],
           },
           {
+            guard: 'isAvailablePot',
             target: 'open-play',
             actions: 'applyPot',
           },
@@ -328,6 +351,7 @@ export const StrilaSparringFrameMachine = setup({
                 actions: ['applyPotResetStreak', 'setRespottedBlackOpening'],
               },
               {
+                guard: 'isAvailablePot',
                 target: 'resolved',
                 actions: 'applyPotResetStreak',
               },
@@ -370,6 +394,7 @@ export const StrilaSparringFrameMachine = setup({
                 actions: 'applyRespottedBlackPot',
               },
               {
+                guard: 'isAvailablePot',
                 target: 'determined',
                 actions: 'setRespottedBlackOpeningFoulWinner',
               },
@@ -383,6 +408,7 @@ export const StrilaSparringFrameMachine = setup({
         play: {
           on: {
             'pot.record': {
+              guard: 'isAvailablePot',
               target: 'determined',
               actions: 'applyRespottedBlackPot',
             },
@@ -414,10 +440,10 @@ export const StrilaSparringFrameMachine = setup({
     },
   },
 
-  output: ({ context }) => ({
-    winner: outputWinner(context),
-    winnerDeterminationReason: outputWinnerDeterminationReason(context),
-    score: context.score,
+  output: ({ context }): FrameOutcome => ({
+    winnerSeat: outputWinner(context),
+    score: { ...context.score },
+    winReason: 'target-reached',
   }),
 })
 
@@ -451,13 +477,6 @@ export function sendEvent(snapshot: StrilaSparringFrameSnapshot, event: StrilaCo
     throw new Error(`Invalid Strila event ${event.type} in phase ${getPhase(snapshot)}`)
   }
 
-  if (event.type === 'pot.record') {
-    for (const ball of event.pottedBalls) {
-      if (ball !== 0 && !snapshot.context.coloredBallsOnTable.includes(ball)) {
-        throw new Error(`Potted ball ${ball} is not on the table`)
-      }
-    }
-  }
   const [nextSnapshot] = transition(StrilaSparringFrameMachine, snapshot, event)
   return nextSnapshot
 }

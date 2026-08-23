@@ -2,7 +2,7 @@ import { IntegerSchema, ProtocolEntrySchema } from '@ks/core'
 import * as v from 'valibot'
 
 import type { PyramidCommand } from './definitions'
-import type { PyramidFrameState } from './definitions'
+import type { PyramidSparringFrameSnapshot } from './machine'
 import type { PyramidRules } from './rules'
 
 const PyramidProtocolEntryBodySchema = v.variant('commandType', [
@@ -20,29 +20,29 @@ const PyramidProtocolEntrySchema = v.object({
   body: PyramidProtocolEntryBodySchema,
 })
 
-function scoreChanged(previous: PyramidFrameState, next: PyramidFrameState): boolean {
-  return previous.pointsBySeat.A !== next.pointsBySeat.A || previous.pointsBySeat.B !== next.pointsBySeat.B
+function scoreChanged(previous: PyramidSparringFrameSnapshot, next: PyramidSparringFrameSnapshot): boolean {
+  return previous.context.score.A !== next.context.score.A || previous.context.score.B !== next.context.score.B
 }
 
 function protocolEntry(args: {
   seat: 'A' | 'B'
   body: v.InferOutput<typeof PyramidProtocolEntryBodySchema>
-  previous: PyramidFrameState
-  next: PyramidFrameState
+  previous: PyramidSparringFrameSnapshot
+  next: PyramidSparringFrameSnapshot
 }) {
   return v.parse(PyramidProtocolEntrySchema, {
     source: 'player',
     entryType: 'player-command',
     seat: args.seat,
-    scoreAfter: scoreChanged(args.previous, args.next) ? args.next.pointsBySeat : undefined,
+    scoreAfter: scoreChanged(args.previous, args.next) ? { ...args.next.context.score } : undefined,
     body: args.body,
   })
 }
 
 export function projectPyramidProtocolEntries(args: {
-  previous: PyramidFrameState
+  previous: PyramidSparringFrameSnapshot
   command: PyramidCommand
-  next: PyramidFrameState
+  next: PyramidSparringFrameSnapshot
   rules: PyramidRules
 }) {
   const { previous, command, next, rules } = args

@@ -3,11 +3,7 @@ import {
   BySeatNumberSchema,
   ControlCommandPresetSchema,
   emptyControlCommandSections,
-  type FrameOutcome,
-  type GameConfiguration,
   NonEmptyStringSchema,
-  type ProtocolEntry,
-  type Seat,
 } from '@ks/core'
 import * as v from 'valibot'
 
@@ -45,29 +41,3 @@ export const GameControlProjectionSchema = v.object({
   details: v.optional(v.unknown()),
 })
 export type GameControlProjectionInput = v.InferOutput<typeof GameControlProjectionSchema>
-
-export const GameScoreboardProjectionSchema = v.object({
-  gameKey: NonEmptyStringSchema,
-  projection: v.literal('scoreboard'),
-  score: BySeatNumberSchema,
-  details: v.optional(v.unknown()),
-})
-
-export const GameSummaryProjectionSchema = v.object({
-  gameKey: NonEmptyStringSchema,
-  projection: v.literal('summary'),
-  score: BySeatNumberSchema,
-  details: v.optional(v.unknown()),
-})
-
-export type GameCommandResult<State> = {
-  state: State
-  outcome?: FrameOutcome | undefined
-  protocolEntries: ProtocolEntry[]
-}
-
-export type GameCreateStateArgs = {
-  targetPointsBySeat: BySeatNumber
-  breakerSeat: Seat
-  gameConfiguration?: GameConfiguration
-}

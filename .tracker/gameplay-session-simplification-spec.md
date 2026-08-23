@@ -192,7 +192,7 @@ type GameplayServerRegistry = {
 
 The registry is exhaustive over all five keys and dispatches to three family-local implementations. It contains no scoring, phases, protocol, outcome, or projection policy.
 
-One localized key-correlation assertion is acceptable when TypeScript cannot preserve dependent indexing. Its `// SAFETY:` comment must name the exhaustive registry and matching key. Do not erase family snapshot state through `unknown`, `object`, JSON, symbols, carriers, or a `WeakMap`. Parser input remains `unknown` because it is an actual representation boundary; that is not state erasure.
+One localized key-correlation assertion is acceptable when TypeScript cannot preserve dependent indexing. Its `// SAFETY:` comment must name the exhaustive registry and matching key. Do not erase family snapshot state through `unknown`, `object`, JSON, symbols, carriers, or a `WeakMap`. A parser may retain its advertised wire input type while still performing mandatory runtime validation at the representation boundary.
 
 Do not add an injectable registry, public factory interface, generic family base class, or callback-driven machine adapter.
 

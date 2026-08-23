@@ -206,8 +206,6 @@ function validateTerminalArchive(input: CompletedMatchArchiveInput): MatchState 
       throw new CompletedMatchArchiveError(`Completed match archive replay failed: ${error.message}`)
     }
     throw error
-  } finally {
-    session.dispose()
   }
 }
 

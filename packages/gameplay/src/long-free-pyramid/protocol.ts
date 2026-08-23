@@ -2,7 +2,8 @@ import { IntegerSchema, ProtocolEntrySchema } from '@ks/core'
 import * as v from 'valibot'
 
 import { totalScore } from './calculations'
-import type { LongFreePyramidCommand, LongFreePyramidFrameState } from './definitions'
+import type { LongFreePyramidCommand } from './definitions'
+import type { LongFreePyramidSparringFrameSnapshot } from './machine'
 
 const LongFreePyramidProtocolEntryBodySchema = v.variant('commandType', [
   v.object({ commandType: v.literal('frame.commence') }),
@@ -16,19 +17,19 @@ const LongFreePyramidProtocolEntrySchema = v.object({
   body: LongFreePyramidProtocolEntryBodySchema,
 })
 
-function scoreChanged(previous: LongFreePyramidFrameState, next: LongFreePyramidFrameState): boolean {
-  const previousScore = totalScore(previous.racks)
-  const nextScore = totalScore(next.racks)
+function scoreChanged(previous: LongFreePyramidSparringFrameSnapshot, next: LongFreePyramidSparringFrameSnapshot): boolean {
+  const previousScore = totalScore(previous.context.racks)
+  const nextScore = totalScore(next.context.racks)
   return previousScore.A !== nextScore.A || previousScore.B !== nextScore.B
 }
 
 function protocolEntry(args: {
   seat: 'A' | 'B'
   body: v.InferOutput<typeof LongFreePyramidProtocolEntryBodySchema>
-  previous: LongFreePyramidFrameState
-  next: LongFreePyramidFrameState
+  previous: LongFreePyramidSparringFrameSnapshot
+  next: LongFreePyramidSparringFrameSnapshot
 }) {
-  const nextScore = totalScore(args.next.racks)
+  const nextScore = totalScore(args.next.context.racks)
   return v.parse(LongFreePyramidProtocolEntrySchema, {
     source: 'player',
     entryType: 'player-command',
@@ -39,9 +40,9 @@ function protocolEntry(args: {
 }
 
 export function projectLongFreePyramidProtocolEntries(args: {
-  previous: LongFreePyramidFrameState
+  previous: LongFreePyramidSparringFrameSnapshot
   command: LongFreePyramidCommand
-  next: LongFreePyramidFrameState
+  next: LongFreePyramidSparringFrameSnapshot
 }) {
   const { previous, command, next } = args
 

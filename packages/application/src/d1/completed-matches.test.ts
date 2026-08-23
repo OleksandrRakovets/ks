@@ -95,20 +95,16 @@ function buildValidTerminalJournal(config = makeConfig()): [StoredMatchFact, ...
   const acceptedAt = 1000
   let seq = 1
   const journal: StoredMatchFact[] = [toStored(creation, config, seq++, newCommandId(), acceptedAt)]
-  try {
-    for (const command of [
-      { source: 'match', commandType: 'frame.start', command: {} },
-      { source: 'match', commandType: 'frame.commence', command: { seat: 'A' } },
-      { source: 'game', commandType: 'pot.record', command: { seat: 'A', points: 2 } },
-      { source: 'game', commandType: 'frame.award', command: { seat: 'A' } },
-    ] satisfies ControlCommand[]) {
-      journal.push(...acceptWarm(session, config, command, seq, newCommandId(), acceptedAt))
-      seq = journal.at(-1)!.seq + 1
-    }
-    return nonemptyStoredFacts(journal)
-  } finally {
-    session.dispose()
+  for (const command of [
+    { source: 'match', commandType: 'frame.start', command: {} },
+    { source: 'match', commandType: 'frame.commence', command: { seat: 'A' } },
+    { source: 'game', commandType: 'pot.record', command: { seat: 'A', points: 2 } },
+    { source: 'game', commandType: 'frame.award', command: { seat: 'A' } },
+  ] satisfies ControlCommand[]) {
+    journal.push(...acceptWarm(session, config, command, seq, newCommandId(), acceptedAt))
+    seq = journal.at(-1)!.seq + 1
   }
+  return nonemptyStoredFacts(journal)
 }
 
 function terminalProjection(facts: [StoredMatchFact, ...StoredMatchFact[]]): SparringMatchRoomProjection {
@@ -126,11 +122,7 @@ function terminalProjection(facts: [StoredMatchFact, ...StoredMatchFact[]]): Spa
   const grouped: unknown = batches
   // SAFETY: this fixture groups the non-empty journal by contiguous command causation.
   const session = restoreSparringMatch(grouped as Parameters<typeof restoreSparringMatch>[0])
-  try {
-    return session.project()
-  } finally {
-    session.dispose()
-  }
+  return session.project()
 }
 
 function validArchiveInput(config = makeConfig()): CompletedMatchArchiveInput {
@@ -263,13 +255,9 @@ describe('completed match archive', () => {
     const creation = draftSparringMatchCreation(config)
     const session = restoreSparringMatch([[creation]])
     const facts = [toStored(creation, config, 1, newCommandId(), 1000)]
-    try {
-      facts.push(
-        ...acceptWarm(session, config, { source: 'match', commandType: 'frame.start', command: {} }, 2, newCommandId(), 1000),
-      )
-    } finally {
-      session.dispose()
-    }
+    facts.push(
+      ...acceptWarm(session, config, { source: 'match', commandType: 'frame.start', command: {} }, 2, newCommandId(), 1000),
+    )
     const archiveDb = createArchiveDatabase()
     await expect(
       archiveCompletedMatch(archiveDb.db, {

@@ -1,22 +1,27 @@
 import invariant from 'tiny-invariant'
 import * as v from 'valibot'
 
-import { type StrilaCommand, type StrilaFrameState, type StrilaProtocolEntry, StrilaProtocolEntrySchema } from './definitions'
+import { type StrilaCommand, type StrilaProtocolEntry, StrilaProtocolEntrySchema } from './definitions'
+import { getPhase, type StrilaSparringFrameSnapshot } from './machine'
 
-function isMixedBallInHandPot(previous: StrilaFrameState, command: StrilaCommand): boolean {
+function isMixedBallInHandPot(previous: StrilaSparringFrameSnapshot, command: StrilaCommand): boolean {
   return (
-    previous.phase === 'foul-committed.ball-in-hand' &&
+    getPhase(previous) === 'foul-committed.ball-in-hand' &&
     command.type === 'pot.record' &&
     command.pottedBalls.includes(0) &&
     command.pottedBalls.some((ball) => ball !== 0)
   )
 }
 
-function scoreChanged(previous: StrilaFrameState, next: StrilaFrameState): boolean {
-  return previous.score.A !== next.score.A || previous.score.B !== next.score.B
+function scoreChanged(previous: StrilaSparringFrameSnapshot, next: StrilaSparringFrameSnapshot): boolean {
+  return previous.context.score.A !== next.context.score.A || previous.context.score.B !== next.context.score.B
 }
 
-function playerEntry(previous: StrilaFrameState, command: StrilaCommand, next: StrilaFrameState): StrilaProtocolEntry {
+function playerEntry(
+  previous: StrilaSparringFrameSnapshot,
+  command: StrilaCommand,
+  next: StrilaSparringFrameSnapshot,
+): StrilaProtocolEntry {
   const body = (() => {
     switch (command.type) {
       case 'frame.commence':
@@ -35,39 +40,39 @@ function playerEntry(previous: StrilaFrameState, command: StrilaCommand, next: S
     source: 'player',
     entryType: 'player-command',
     seat: command.seat,
-    scoreAfter: scoreChanged(previous, next) ? next.score : undefined,
+    scoreAfter: scoreChanged(previous, next) ? { ...next.context.score } : undefined,
     body,
   })
 }
 
-function isThirdConsecutiveCueBallPot(previous: StrilaFrameState, command: StrilaCommand): boolean {
+function isThirdConsecutiveCueBallPot(previous: StrilaSparringFrameSnapshot, command: StrilaCommand): boolean {
   return (
-    previous.phase === 'open-play' &&
-    previous.cueBallSerialPots?.seat === command.seat &&
-    previous.cueBallSerialPots.count === 2 &&
+    getPhase(previous) === 'open-play' &&
+    previous.context.cueBallSerialPots?.seat === command.seat &&
+    previous.context.cueBallSerialPots.count === 2 &&
     command.type === 'pot.record' &&
     command.pottedBalls.includes(0)
   )
 }
 
-function isRespottedBlackOpeningIllegalPot(previous: StrilaFrameState, command: StrilaCommand): boolean {
+function isRespottedBlackOpeningIllegalPot(previous: StrilaSparringFrameSnapshot, command: StrilaCommand): boolean {
   return (
-    previous.phase === 'respotted-black.opening' &&
+    getPhase(previous) === 'respotted-black.opening' &&
     command.type === 'pot.record' &&
     !(command.pottedBalls.length === 1 && command.pottedBalls[0] === 7)
   )
 }
 
 export function projectStrilaProtocolEntries(args: {
-  previous: StrilaFrameState
+  previous: StrilaSparringFrameSnapshot
   command: StrilaCommand
-  next: StrilaFrameState
+  next: StrilaSparringFrameSnapshot
 }): StrilaProtocolEntry[] {
   const { previous, command, next } = args
 
   const entries: StrilaProtocolEntry[] = [playerEntry(previous, command, next)]
 
-  if (previous.phase !== 'respotted-black.opening' && next.phase === 'respotted-black.opening') {
+  if (getPhase(previous) !== 'respotted-black.opening' && getPhase(next) === 'respotted-black.opening') {
     entries.push(
       v.parse(StrilaProtocolEntrySchema, {
         source: 'system',
@@ -110,18 +115,18 @@ export function projectStrilaProtocolEntries(args: {
     )
   }
 
-  if (previous.phase !== 'winner-determined' && next.phase === 'winner-determined') {
-    invariant(next.winner !== null, 'Winner is required when protocol records winner determination')
+  if (getPhase(previous) !== 'winner-determined' && getPhase(next) === 'winner-determined') {
+    invariant(next.context.winner !== null, 'Winner is required when protocol records winner determination')
     invariant(
-      next.winnerDeterminationReason !== null,
+      next.context.winnerDeterminationReason !== null,
       'Winner determination reason is required when protocol records winner determination',
     )
     entries.push(
       v.parse(StrilaProtocolEntrySchema, {
         source: 'system',
         entryType: 'system-note',
-        seat: next.winner,
-        body: { systemType: 'winner-determined', reason: next.winnerDeterminationReason },
+        seat: next.context.winner,
+        body: { systemType: 'winner-determined', reason: next.context.winnerDeterminationReason },
       }),
     )
   }

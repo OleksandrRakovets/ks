@@ -13,15 +13,11 @@ const config: MatchConfig = {
 
 function acceptedBatches(commands: ControlCommand[]): MatchFactContentBatch[] {
   const match = restoreSparringMatch([[draftSparringMatchCreation(config)]])
-  try {
-    return commands.map((command) => {
-      const result = match.execute(command)
-      if (result._tag !== 'accepted') throw new Error(`Expected ${command.commandType} to be accepted`)
-      return result.facts
-    })
-  } finally {
-    match.dispose()
-  }
+  return commands.map((command) => {
+    const result = match.execute(command)
+    if (result._tag !== 'accepted') throw new Error(`Expected ${command.commandType} to be accepted`)
+    return result.facts
+  })
 }
 
 const startAndCommence = [
@@ -42,16 +38,14 @@ test('restoreSparringMatch accepts canonical content with reordered object keys'
       },
     },
   ]
-  const restored = restoreSparringMatch([[draftSparringMatchCreation(config)], reordered])
-  restored.dispose()
+  restoreSparringMatch([[draftSparringMatchCreation(config)], reordered])
 })
 
 test('restoreSparringMatch accepts canonical content after JSON persistence', () => {
   const batches = acceptedBatches(startAndCommence)
   // SAFETY: JSON round-trips schema-produced semantic batches without changing their JSON value types.
   const persisted = JSON.parse(JSON.stringify(batches)) as MatchFactContentBatch[]
-  const restored = restoreSparringMatch([[draftSparringMatchCreation(config)], ...persisted])
-  restored.dispose()
+  restoreSparringMatch([[draftSparringMatchCreation(config)], ...persisted])
 })
 
 test('restoreSparringMatch rejects a batch whose complete content differs from canonical execution', () => {

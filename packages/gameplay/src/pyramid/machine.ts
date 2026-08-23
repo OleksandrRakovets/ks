@@ -1,4 +1,4 @@
-import { type BySeatNumber, opponentOf, type Seat } from '@ks/core'
+import { type BySeatNumber, type FrameOutcome, opponentOf, type Seat } from '@ks/core'
 import invariant from 'tiny-invariant'
 import * as v from 'valibot'
 import { assign, initialTransition, setup, type SnapshotFrom, transition } from 'xstate'
@@ -210,10 +210,10 @@ export const PyramidSparringFrameMachine = setup({
     },
   },
 
-  output: ({ context }) => ({
-    winner: outputWinner(context),
+  output: ({ context }): FrameOutcome => ({
+    winnerSeat: outputWinner(context),
     winReason: 'target-reached' as const,
-    score: context.score,
+    score: { ...context.score },
   }),
 })
 

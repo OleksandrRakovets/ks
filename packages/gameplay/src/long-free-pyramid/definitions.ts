@@ -2,7 +2,7 @@ import { BySeatNumberSchema, ControlCommandSectionsSchema, IntegerSchema, SeatSc
 import * as v from 'valibot'
 
 import { FoulCommitCommandSchema, FrameAwardCommandSchema, FrameCommenceCommandSchema } from '../command-schemas'
-import { GameControlProjectionSchema, GameScoreboardProjectionSchema, GameSummaryProjectionSchema } from '../constants'
+import { GameControlProjectionSchema } from '../constants'
 
 const LongFreePyramidPotPointsSchema = v.picklist([1, 2, 3, 4])
 
@@ -14,7 +14,7 @@ export const LongFreePyramidCommandSchema = v.variant('type', [
 ])
 export type LongFreePyramidCommand = v.InferOutput<typeof LongFreePyramidCommandSchema>
 
-export const LongFreePyramidRackSchema = v.object({
+const LongFreePyramidRackSchema = v.object({
   rackNumber: v.pipe(IntegerSchema, v.minValue(1)),
   scoreBySeat: BySeatNumberSchema,
 })
@@ -42,16 +42,6 @@ const LongFreePyramidContextSchema = v.object({
 })
 export type LongFreePyramidContext = v.InferOutput<typeof LongFreePyramidContextSchema>
 
-export const LongFreePyramidFrameStateSchema = v.object({
-  racks: v.pipe(v.array(LongFreePyramidRackSchema), v.minLength(1)),
-  targetPointsBySeat: BySeatNumberSchema,
-  rackRollover: v.picklist([14, 15]),
-  phase: LongFreePyramidPhaseSchema,
-  winner: v.nullable(SeatSchema),
-  messages: v.array(LongFreePyramidMessageSchema),
-})
-export type LongFreePyramidFrameState = v.InferOutput<typeof LongFreePyramidFrameStateSchema>
-
 const LongFreePyramidProjectionDetailsSchema = v.object({
   phase: LongFreePyramidPhaseSchema,
   winner: v.optional(SeatSchema),
@@ -76,17 +66,3 @@ export const LongFreePyramidControlViewSchema = v.object({
   details: LongFreePyramidControlDetailsSchema,
 })
 export type LongFreePyramidControlView = v.InferOutput<typeof LongFreePyramidControlViewSchema>
-
-export const LongFreePyramidScoreboardViewSchema = v.object({
-  ...GameScoreboardProjectionSchema.entries,
-  gameKey: v.literal('free-pyramid-long'),
-  details: LongFreePyramidProjectionDetailsSchema,
-})
-export type LongFreePyramidScoreboardView = v.InferOutput<typeof LongFreePyramidScoreboardViewSchema>
-
-export const LongFreePyramidSummaryViewSchema = v.object({
-  ...GameSummaryProjectionSchema.entries,
-  gameKey: v.literal('free-pyramid-long'),
-  details: LongFreePyramidProjectionDetailsSchema,
-})
-export type LongFreePyramidSummaryView = v.InferOutput<typeof LongFreePyramidSummaryViewSchema>

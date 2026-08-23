@@ -1,28 +1,10 @@
 import * as v from 'valibot'
 
 import type { GameMeta } from './constants'
-import type {
-  LongFreePyramidCommand,
-  LongFreePyramidControlView,
-  LongFreePyramidFrameState,
-  LongFreePyramidScoreboardView,
-  LongFreePyramidSummaryView,
-} from './long-free-pyramid/definitions'
-import type {
-  PyramidCommand,
-  PyramidControlViewFor,
-  PyramidFrameState,
-  PyramidScoreboardViewFor,
-  PyramidSummaryViewFor,
-} from './pyramid/definitions'
+import type { LongFreePyramidCommand, LongFreePyramidControlView } from './long-free-pyramid/definitions'
+import type { PyramidCommand, PyramidControlViewFor } from './pyramid/definitions'
 import type { PyramidGameKey } from './pyramid/rules'
-import type {
-  StrilaCommand,
-  StrilaControlView,
-  StrilaFrameState,
-  StrilaScoreboardView,
-  StrilaSummaryView,
-} from './strila-v2/definitions'
+import type { StrilaCommand, StrilaControlView } from './strila-v2/definitions'
 
 type RegistryEntry = {
   meta: GameMeta
@@ -88,33 +70,21 @@ export type RegisteredGameKey = v.InferOutput<typeof RegisteredGameKeySchema>
 
 export type GameContracts = {
   'strila-v2': {
-    state: StrilaFrameState
     control: StrilaControlView
-    scoreboard: StrilaScoreboardView
-    summary: StrilaSummaryView
     command: StrilaCommand
   }
   'free-pyramid-long': {
-    state: LongFreePyramidFrameState
     control: LongFreePyramidControlView
-    scoreboard: LongFreePyramidScoreboardView
-    summary: LongFreePyramidSummaryView
     command: LongFreePyramidCommand
   }
 } & {
   [K in PyramidGameKey]: {
-    state: PyramidFrameState
     control: PyramidControlViewFor<K>
-    scoreboard: PyramidScoreboardViewFor<K>
-    summary: PyramidSummaryViewFor<K>
     command: PyramidCommand
   }
 }
 
-export type GameStateFor<K extends RegisteredGameKey> = GameContracts[K]['state']
 export type ControlProjectionFor<K extends RegisteredGameKey> = GameContracts[K]['control']
-export type ScoreboardProjectionFor<K extends RegisteredGameKey> = GameContracts[K]['scoreboard']
-export type SummaryProjectionFor<K extends RegisteredGameKey> = GameContracts[K]['summary']
 export type GameCommandFor<K extends RegisteredGameKey> = GameContracts[K]['command']
 
 export function isRegisteredGameKey(value: string): value is RegisteredGameKey {

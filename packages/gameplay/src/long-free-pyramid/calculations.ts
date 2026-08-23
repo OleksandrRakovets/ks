@@ -1,11 +1,6 @@
 import { type BySeatNumber, type Seat } from '@ks/core'
 
-import type {
-  LongFreePyramidFrameState,
-  LongFreePyramidPhase,
-  LongFreePyramidProjectionDetails,
-  LongFreePyramidRack,
-} from './definitions'
+import type { LongFreePyramidContext, LongFreePyramidPhase, LongFreePyramidRack } from './definitions'
 
 export function zeroScore(): BySeatNumber {
   return { A: 0, B: 0 }
@@ -46,7 +41,7 @@ export function maybeRollRacks(args: {
   racks: readonly LongFreePyramidRack[]
   rackRollover: 14 | 15
   phase: LongFreePyramidPhase
-}): Pick<LongFreePyramidFrameState, 'racks' | 'messages'> {
+}): Pick<LongFreePyramidContext, 'racks' | 'messages'> {
   const { racks, rackRollover, phase } = args
   if (phase === 'awaiting-award') {
     return { racks: [...racks], messages: [] }
@@ -61,19 +56,6 @@ export function maybeRollRacks(args: {
   return {
     racks: [...racks, { rackNumber: nextRackNumber, scoreBySeat: zeroScore() }],
     messages: [{ code: 'rack-started', rackNumber: nextRackNumber }],
-  }
-}
-
-export function projectionDetailsFromState(state: LongFreePyramidFrameState): LongFreePyramidProjectionDetails {
-  const rack = currentRack(state.racks)
-  return {
-    phase: state.phase,
-    winner: state.winner ?? undefined,
-    rackHistory: state.racks,
-    currentRack: rack,
-    ballsRemoved: removedByRack(rack),
-    ballsOnTable: ballsOnTableFromRacks(state.racks),
-    messages: state.messages,
   }
 }
 

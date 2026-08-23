@@ -2,19 +2,13 @@ import {
   BySeatNumberSchema,
   ControlCommandSectionsSchema,
   NonEmptyStringSchema,
-  NonNegativeIntegerSchema,
   ProtocolEntrySchema,
   SeatSchema,
 } from '@ks/core'
 import * as v from 'valibot'
 
 import { FoulCommitCommandSchema, FrameAwardCommandSchema, FrameCommenceCommandSchema } from '../command-schemas'
-import {
-  GameControlCommandSchema,
-  GameControlProjectionSchema,
-  GameScoreboardProjectionSchema,
-  GameSummaryProjectionSchema,
-} from '../constants'
+import { GameControlCommandSchema, GameControlProjectionSchema } from '../constants'
 
 const CueBallSchema = v.literal(0)
 const ColoredBallSchema = v.union([
@@ -71,7 +65,6 @@ export const StrilaPhaseSchema = v.picklist([
 export type StrilaPhase = v.InferOutput<typeof StrilaPhaseSchema>
 
 const WinnerDeterminationReasonSchema = v.picklist(['target-reached', 'respotted-black-won', 'automatic-foul'])
-export type StrilaWinnerDeterminationReason = v.InferOutput<typeof WinnerDeterminationReasonSchema>
 
 const ContextSchema = v.object({
   score: BySeatNumberSchema,
@@ -88,12 +81,6 @@ const ContextSchema = v.object({
   winnerDeterminationReason: v.nullable(WinnerDeterminationReasonSchema),
 })
 export type StrilaContext = v.InferOutput<typeof ContextSchema>
-
-export const StrilaFrameStateSchema = v.object({
-  ...ContextSchema.entries,
-  phase: StrilaPhaseSchema,
-})
-export type StrilaFrameState = v.InferOutput<typeof StrilaFrameStateSchema>
 
 const BallStatusSchema = v.picklist(['object', 'on-table', 'potted'])
 export const StrilaBallStatusesSchema = v.object({
@@ -133,32 +120,6 @@ export const StrilaControlViewSchema = v.object({
   details: StrilaControlDetailsSchema,
 })
 export type StrilaControlView = v.InferOutput<typeof StrilaControlViewSchema>
-
-const ScoreboardDetailsSchema = v.object({
-  objectBalls: v.array(ColoredBallSchema),
-  ballsRemaining: v.array(ColoredBallSchema),
-  pointsAvailable: NonNegativeIntegerSchema,
-  phase: StrilaPhaseSchema,
-  winner: v.optional(SeatSchema),
-})
-
-export const StrilaScoreboardViewSchema = v.object({
-  ...GameScoreboardProjectionSchema.entries,
-  gameKey: v.literal('strila-v2'),
-  score: ContextSchema.entries.score,
-  details: ScoreboardDetailsSchema,
-})
-export type StrilaScoreboardView = v.InferOutput<typeof StrilaScoreboardViewSchema>
-
-export const StrilaSummaryViewSchema = v.object({
-  ...GameSummaryProjectionSchema.entries,
-  gameKey: v.literal('strila-v2'),
-  score: ContextSchema.entries.score,
-  details: v.object({
-    phase: StrilaPhaseSchema,
-  }),
-})
-export type StrilaSummaryView = v.InferOutput<typeof StrilaSummaryViewSchema>
 
 const AutomaticFoulReasonSchema = v.picklist([
   'third-consecutive-cue-ball-pot',
