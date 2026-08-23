@@ -60,6 +60,56 @@ The current live transport is SSE. A direct MatchRoom gateway and hibernatable W
 - Prefer built-in Valibot actions in schemas; use `v.trim()` rather than adding one-off trim helper functions.
 - Prefer Valibot JSON actions such as `v.parseJson()` over one-off `JSON.parse` helper functions when validating JSON strings.
 
+## Code documentation
+
+Document interfaces, invariants, and non-obvious implementation decisions. Do not document syntax.
+
+Add JSDoc to an original declaration when either condition applies:
+
+1. The symbol is part of a supported interface and callers must know behavior not obvious from its TypeScript declaration.
+2. Correct maintenance requires knowledge of a non-obvious invariant, ordering rule, mutation, authority rule, trust assumption, unit, performance characteristic, or safety justification.
+
+A supported interface includes symbols consumed through:
+
+- a workspace package entrypoint or declared package subpath,
+- the `Application` contract,
+- a Durable Object RPC interface,
+- a Worker or framework entrypoint.
+
+For supported classes and object interfaces, document public methods and properties when their correct use has non-obvious behavior or constraints. Internal and private code requires documentation only when its complexity warrants it.
+
+JSDoc is normally required for exported operations that:
+
+- mutate resident or persisted state,
+- perform I/O,
+- parse untrusted or persisted representations,
+- coordinate transactions or required call ordering,
+- expose lifecycle or authority semantics,
+- can throw unrecoverable defects,
+- have important units or performance characteristics.
+
+JSDoc is normally required for exported types when they have invariants that TypeScript cannot encode.
+
+JSDoc may be omitted for:
+
+- re-exports,
+- generated declarations,
+- self-explanatory constants,
+- straightforward schemas, DTOs, and discriminated unions,
+- symbols exported only to organize code within one workspace,
+- framework-required exports whose behavior is already obvious,
+- test helpers and fixtures.
+
+When several declarations form one obvious schema/type pair, document the declaration that carries the useful contract rather than duplicating the same prose.
+
+Put documentation on the original declaration. Do not use `@inheritDoc`, `@inherit`, or similar inheritance tags. Write required documentation explicitly.
+
+Use standard JSDoc syntax. Include `@param`, `@returns`, and `@template` when they communicate information beyond the TypeScript declaration. Use `@throws` only for unrecoverable defects, framework-required behavior, or temporary `notYetImplemented` paths; do not document expected typed errors as throws.
+
+If an interface needs extensive documentation to explain routine use, first challenge whether the interface is too shallow or exposes unnecessary ordering.
+
+Apply this standard to new or materially changed interfaces. Do not perform a repository-wide documentation retrofit unless separately requested.
+
 ## Architecture guardrails
 
 - Keep route modules thin; route loaders/actions own HTTP, forms, cookies, redirects, and presentation adaptation, while use-case orchestration belongs in `@ks/application`.
