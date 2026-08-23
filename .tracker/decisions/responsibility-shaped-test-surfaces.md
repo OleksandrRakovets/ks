@@ -2,9 +2,9 @@
 
 ## Status
 
-Accepted on 2026-08-23. Candidate 1's speculative match execution and the combined candidate 2+3 snapshot-backed gameplay simplification are implemented. They removed competition's private transition/replay surface and gameplay's actor, prepared-transition, restoration, and duplicate test machinery. This decision concentrates the remaining work on application D1 persistence and MatchRoom runtime tests.
+Implemented on 2026-08-23. Candidate 1's speculative match execution and the combined candidate 2+3 snapshot-backed gameplay simplification were its implemented baseline. This decision replaced application D1 query fakes with a real match-lifecycle integration project, removed private MatchRoom test manipulation, and introduced explicit fast and full verification gates.
 
-The implementation plan is `../test-surface-simplification-spec.md`.
+The completed implementation plan is `../test-surface-simplification-spec.md`.
 
 ## Context
 

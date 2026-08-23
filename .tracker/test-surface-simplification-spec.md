@@ -2,7 +2,7 @@
 
 ## Status
 
-Ready implementation plan for `decisions/responsibility-shaped-test-surfaces.md`. Candidate 1's speculative match execution and the combined candidate 2+3 snapshot-backed gameplay simplification have landed. Their production and test surfaces are the baseline for this independent runtime/persistence cleanup.
+Implemented on 2026-08-23. This is the completed implementation record for `decisions/responsibility-shaped-test-surfaces.md`. Candidate 1's speculative match execution and the combined candidate 2+3 snapshot-backed gameplay simplification were its production and test baseline.
 
 ## Target test topology
 

@@ -2,7 +2,7 @@
 
 ## Status
 
-Planned follow-up after `test-surface-simplification-spec.md`. Candidate 4 completion is a hard entry gate because this cleanup relocates cases into its real integration projects. Candidate 1 already concentrated terminal semantics in canonical competition execution and replay. This cleanup moves remaining representation validation to the adapters that own each trust seam and deletes policy reconstruction from application orchestration.
+Planned follow-up after the implemented `test-surface-simplification-spec.md`. Candidate 4's real integration projects now satisfy this cleanup's entry gate. Candidate 1 already concentrated terminal semantics in canonical competition execution and replay. This cleanup moves remaining representation validation to the adapters that own each trust seam and deletes policy reconstruction from application orchestration.
 
 This plan does not merge MatchRoom and archive validation. They consume different persisted representations across a Worker boundary and must remain independently fail-closed.
 

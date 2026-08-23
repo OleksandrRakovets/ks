@@ -8,7 +8,7 @@ The speculative resident execution architecture in `speculative-resident-match-e
 
 Snapshot-backed gameplay sessions from `snapshot-backed-gameplay-sessions.md` are implemented. Gameplay retains private immutable machine snapshots, executes typed commands directly, and restores only by replaying accepted match facts.
 
-The accepted test-surface follow-up is `responsibility-shaped-test-surfaces.md`, with implementation plan `../test-surface-simplification-spec.md`. It replaces application D1 query fakes with a real match-lifecycle integration project, removes private MatchRoom test manipulation, and introduces explicit fast and full verification gates. Gameplay test restructuring remains owned by the gameplay follow-up rather than this decision.
+Responsibility-shaped test surfaces from `responsibility-shaped-test-surfaces.md` are implemented; the completed plan is `../test-surface-simplification-spec.md`. Application match-lifecycle persistence now runs against real migrated D1, MatchRoom integration tests use public RPC with local pre-operation corruption seeds, and the repository exposes explicit fast and full verification gates.
 
 The remaining terminal-validation locality cleanup is recorded in `../terminal-validation-locality-cleanup.md`. Candidate 1 already owns terminal semantics; the cleanup moves active-row and RPC parsing to their adapters and removes terminal/control policy reconstruction from application use cases without collapsing independent MatchRoom and archive replay.
 
