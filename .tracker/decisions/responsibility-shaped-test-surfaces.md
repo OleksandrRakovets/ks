@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted on 2026-08-23. Candidate 1 already replaced competition's private transition and replay test surfaces. The snapshot-backed gameplay plan owns gameplay test restructuring separately. This decision concentrates the remaining work on application D1 persistence and MatchRoom runtime tests.
+Accepted on 2026-08-23. Candidate 1's speculative match execution and the combined candidate 2+3 snapshot-backed gameplay simplification are implemented. They removed competition's private transition/replay surface and gameplay's actor, prepared-transition, restoration, and duplicate test machinery. This decision concentrates the remaining work on application D1 persistence and MatchRoom runtime tests.
 
 The implementation plan is `../test-surface-simplification-spec.md`.
 
@@ -84,7 +84,7 @@ Delete the Bun implementation of `DurableObjectStorage`, its fake SQL cursor, an
 
 ### Gameplay and competition
 
-This candidate does not restructure gameplay tests. `snapshot-backed-gameplay-sessions.md` and its implementation plan own machine, control, protocol, and gameplay-session test responsibility.
+This candidate does not restructure gameplay tests. The implemented `snapshot-backed-gameplay-sessions.md` decision already established machine, control, protocol, and gameplay-session test responsibility.
 
 Competition already tests command execution and semantic restoration through `SparringMatch`. Candidate 4 only changes a corruption fixture when necessary to ensure it remains schema-valid and reachable from persisted facts.
 
@@ -106,7 +106,7 @@ Drizzle migration checks remain conditional when schemas or generated migrations
 - D1 behavior is demonstrated by D1 rather than a query-chain imitation.
 - Runtime tests assert RPC-visible behavior rather than cache shape.
 - Test setup remains local enough to audit as persisted input.
-- Candidate 2 can replace gameplay internals without unrelated test resistance.
+- Gameplay's implemented responsibility-shaped suites remain outside this runtime/persistence cleanup.
 - Fast and full verification costs are explicit.
 
 ### Costs

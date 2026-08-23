@@ -2,7 +2,7 @@
 
 ## Status
 
-Implementation plan for `decisions/responsibility-shaped-test-surfaces.md`. Candidate 1 has landed. This work is independent of the gameplay implementation, whose test restructuring remains owned by `gameplay-session-simplification-spec.md`.
+Ready implementation plan for `decisions/responsibility-shaped-test-surfaces.md`. Candidate 1's speculative match execution and the combined candidate 2+3 snapshot-backed gameplay simplification have landed. Their production and test surfaces are the baseline for this independent runtime/persistence cleanup.
 
 ## Target test topology
 
@@ -23,7 +23,7 @@ MatchRoom integration project
   -> local pre-operation corruption seeds only
 ```
 
-Gameplay's target machine/control/protocol/session topology remains specified separately.
+Gameplay's implemented machine/control/protocol/session topology is documented separately and remains unchanged by this plan.
 
 ## Application D1 project
 
