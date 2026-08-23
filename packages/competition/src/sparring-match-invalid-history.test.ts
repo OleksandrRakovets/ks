@@ -105,7 +105,18 @@ test('restoreSparringMatch rejects a stored protocol mismatch', () => {
   const gameBatch = batches[2]!
   const fact = gameBatch[0]
   if (fact.type !== 'game.command') throw new Error('Expected game.command')
-  const mismatched: MatchFactContentBatch = [{ ...fact, payload: { ...fact.payload, protocolEntries: [] } }]
+  const [entry] = fact.payload.protocolEntries
+  if (!entry) throw new Error('Expected protocol entry')
+  if (!entry.scoreAfter) throw new Error('Expected protocol score')
+  const mismatched: MatchFactContentBatch = [
+    {
+      ...fact,
+      payload: {
+        ...fact.payload,
+        protocolEntries: [{ ...entry, scoreAfter: { ...entry.scoreAfter, B: entry.scoreAfter.B + 1 } }],
+      },
+    },
+  ]
   expect(() => restoreSparringMatch([[draftSparringMatchCreation(config)], batches[0]!, batches[1]!, mismatched])).toThrow(
     SparringMatchHistoryError,
   )

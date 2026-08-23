@@ -106,8 +106,12 @@
         "valibot": "catalog:",
       },
       "devDependencies": {
+        "@cloudflare/vitest-pool-workers": "catalog:",
         "@cloudflare/workers-types": "catalog:",
+        "@types/node": "catalog:",
         "bun-types": "catalog:",
+        "typescript": "catalog:",
+        "vitest": "catalog:",
       },
     },
     "packages/competition": {

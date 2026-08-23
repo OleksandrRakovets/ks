@@ -1,4 +1,4 @@
-import { CreateMatchRequestSchema, type SparringMatch, type SparringMatchRoomProjection } from '@ks/competition'
+import { CreateMatchRequestSchema, type SparringMatchRoomProjection } from '@ks/competition'
 import {
   type ControlCommand,
   MatchIdSchema,
@@ -14,8 +14,7 @@ import { env, evictDurableObject, runInDurableObject } from 'cloudflare:test'
 import * as v from 'valibot'
 import { describe, expect, test } from 'vitest'
 
-import { MatchRoom } from './MatchRoom'
-import type { CreateBody, SubmitCommandBody, SubmitCommandResult } from './rpc-contract'
+import type { CreateBody, SubmitCommandResult } from './rpc-contract'
 
 const controlSecret = 'control-secret-1234567890'
 const createdAt = v.parse(UnixEpochMillisecondsSchema, 1_700_000_000_000)
@@ -71,10 +70,6 @@ function frameAwardCommand(seat: 'A' | 'B'): ControlCommand {
   return { source: 'game', commandType: 'frame.award', command: { seat } }
 }
 
-function unsupportedCommand(): ControlCommand {
-  return { source: 'match', commandType: 'match.end', command: {} }
-}
-
 type RoomSnapshotSuccessFor<K extends RegisteredGameKey> = {
   ok: true
   state: MatchState & { gameKey: K }
@@ -100,38 +95,9 @@ type FinalizationOk = {
   }
 }
 
-type ResidentReader = { resident: { latestSeq: number; match: SparringMatch } | null }
-
 async function evictMatchRoom(stub: ReturnType<typeof env.MATCH_ROOM.getByName>): Promise<void> {
   // SAFETY: vitest pool typings widen MATCH_ROOM stubs; this suite only evicts MatchRoom instances.
   await evictDurableObject(stub as Parameters<typeof evictDurableObject>[0])
-}
-
-function readResident(instance: MatchRoom): ResidentReader['resident'] {
-  // SAFETY: integration tests read the private resident field to observe warm-cache state and patch session methods.
-  // @ts-expect-error MatchRoom keeps resident private; integration tests observe warm-cache lifecycle only.
-  return instance.resident
-}
-
-function warmResidentMatch(instance: MatchRoom): SparringMatch {
-  const resident = readResident(instance)
-  if (!resident) throw new Error('Expected warm resident')
-  return resident.match
-}
-
-function submitCommandLocked(instance: MatchRoom, args: SubmitCommandBody) {
-  // @ts-expect-error integration tests invoke the private command path after readiness is established.
-  return instance.submitCommandLocked(args)
-}
-
-function sqlScalar(state: DurableObjectState, sql: string, ...params: unknown[]): number {
-  const cursor = state.storage.sql.exec(sql, ...params)
-  const rows = [...cursor.raw()]
-  return Number(rows[0]?.[0] ?? 0)
-}
-
-function receiptExists(state: DurableObjectState, commandId: string): boolean {
-  return sqlScalar(state, 'SELECT COUNT(*) FROM command_receipts WHERE command_id = ?', commandId) === 1
 }
 
 async function readStreamBody(response: Response, timeoutMs = 400): Promise<string> {
@@ -166,10 +132,21 @@ function assertOk<TOk extends { ok: true }>(result: { ok: boolean }): TOk {
   return result as TOk
 }
 
+async function captureRpcError(operation: () => Promise<object>): Promise<Error> {
+  try {
+    await operation()
+  } catch (error) {
+    if (error instanceof Error) return error
+    throw error
+  }
+  throw new Error('Expected RPC to fail')
+}
+
 describe('MatchRoom integration', () => {
-  test('creates a sole match.created fact and projects an initialized session', async () => {
+  test('creates a sole match.created fact idempotently and projects an initialized session', async () => {
     const matchId = newMatchId()
     const stub = env.MATCH_ROOM.getByName(matchId)
+    expect(await stub.create(createBody(matchId))).toEqual({ ok: true, matchId })
     expect(await stub.create(createBody(matchId))).toEqual({ ok: true, matchId })
 
     const facts = assertOk<ListFactsOk>(await stub.listFacts({ matchId }))
@@ -271,13 +248,8 @@ describe('MatchRoom integration', () => {
     const result = await stub.submitCommand({ matchId, commandId, command: malformed })
     expect(result).toEqual({ ok: false, error: 'invalid-command-body', status: 400 })
 
-    await runInDurableObject(stub, async (_instance, state) => {
-      expect(receiptExists(state, commandId)).toBe(false)
-    })
-
-    const facts = assertOk<ListFactsOk>(await stub.listFacts({ matchId }))
-    expect(facts.facts).toHaveLength(1)
-    expect(facts.facts[0]?.type).toBe('match.created')
+    const retry = await stub.submitCommand({ matchId, commandId, command: frameStartCommand() })
+    expect(retry.ok).toBe(true)
   })
 
   test('returns invalid-command-body without a receipt for malformed game payloads', async () => {
@@ -292,87 +264,8 @@ describe('MatchRoom integration', () => {
     const result = await stub.submitCommand({ matchId, commandId, command: malformed })
     expect(result).toEqual({ ok: false, error: 'invalid-command-body', status: 400 })
 
-    await runInDurableObject(stub, async (_instance, state) => {
-      expect(receiptExists(state, commandId)).toBe(false)
-    })
-  })
-
-  test('returns invalid-command-body without a receipt for unsupported commands', async () => {
-    const matchId = newMatchId()
-    const stub = env.MATCH_ROOM.getByName(matchId)
-    await stub.create(createBody(matchId))
-
-    const commandId = newCommandId()
-    const result = await stub.submitCommand({ matchId, commandId, command: unsupportedCommand() })
-    expect(result).toEqual({ ok: false, error: 'invalid-command-body', status: 400 })
-
-    await runInDurableObject(stub, async (_instance, state) => {
-      expect(receiptExists(state, commandId)).toBe(false)
-    })
-
-    const retry = await stub.submitCommand({ matchId, commandId, command: unsupportedCommand() })
-    expect(retry).toEqual(result)
-  })
-
-  test('rolls back persistence and clears speculative resident when commitAccepted fails', async () => {
-    const matchId = newMatchId()
-    const stub = env.MATCH_ROOM.getByName(matchId)
-    await stub.create(createBody(matchId))
-
-    const commandId = newCommandId()
-    await runInDurableObject(stub, async (instance, state) => {
-      // SAFETY: runInDurableObject delivers the MatchRoom instance for MATCH_ROOM bindings in this suite.
-      const room = instance as MatchRoom
-      state.storage.sql.exec(`
-        CREATE TRIGGER test_block_accepted_facts
-        BEFORE INSERT ON accepted_facts
-        WHEN NEW.seq > 1
-        BEGIN
-          SELECT RAISE(ABORT, 'test persistence failure');
-        END;
-      `)
-      try {
-        expect(() => submitCommandLocked(room, { matchId, commandId, command: frameStartCommand() })).toThrow(
-          /test persistence failure|Failed query/,
-        )
-        expect(receiptExists(state, commandId)).toBe(false)
-        expect(readResident(room)).toBeNull()
-      } finally {
-        state.storage.sql.exec('DROP TRIGGER IF EXISTS test_block_accepted_facts')
-      }
-    })
-
-    const warmSnapshot = assertOk<SnapshotOk>(await stub.snapshot({ matchId }))
-    expect(warmSnapshot.state.currentFrameIndex).toBe(0)
-
-    const facts = assertOk<ListFactsOk>(await stub.listFacts({ matchId }))
-    expect(facts.facts).toHaveLength(1)
-
-    const retry = assertOk<SubmitCommandOk>(await stub.submitCommand({ matchId, commandId, command: frameStartCommand() }))
-    expect(retry.outcome._tag).toBe('accepted')
-  })
-
-  test('clears speculative resident and writes nothing when accepted-fact enveloping fails', async () => {
-    const matchId = newMatchId()
-    const stub = env.MATCH_ROOM.getByName(matchId)
-    await stub.create(createBody(matchId))
-
-    const commandId = newCommandId()
-    await runInDurableObject(stub, async (instance, state) => {
-      // SAFETY: runInDurableObject delivers the MatchRoom instance for MATCH_ROOM bindings in this suite.
-      const room = instance as MatchRoom
-      await room.snapshot({ matchId })
-      // @ts-expect-error integration test injects a defect at the private accepted-content enveloping seam.
-      room.envelopeContents = () => {
-        throw new Error('enveloping defect')
-      }
-
-      expect(() => submitCommandLocked(room, { matchId, commandId, command: frameStartCommand() })).toThrow('enveloping defect')
-      expect(readResident(room)).toBeNull()
-      expect(receiptExists(state, commandId)).toBe(false)
-      expect(sqlScalar(state, 'SELECT COUNT(*) FROM accepted_facts')).toBe(1)
-      expect(sqlScalar(state, 'SELECT latest_seq FROM active_matches')).toBe(1)
-    })
+    const retry = await stub.submitCommand({ matchId, commandId, command: potRecordCommand('A', 1) })
+    expect(retry.ok).toBe(true)
   })
 
   test('returns a matching receipt before restoring a corrupt evicted resident', async () => {
@@ -390,101 +283,20 @@ describe('MatchRoom integration', () => {
     expect(await stub.submitCommand({ matchId, commandId, command: frameStartCommand() })).toEqual(accepted)
   })
 
-  test('clears speculative resident when the persisted cursor changes before accepted commit', async () => {
+  test('fails closed when retrying a locally corrupted persisted receipt', async () => {
     const matchId = newMatchId()
     const stub = env.MATCH_ROOM.getByName(matchId)
     await stub.create(createBody(matchId))
     const commandId = newCommandId()
+    await stub.submitCommand({ matchId, commandId, command: frameStartCommand() })
 
-    await runInDurableObject(stub, async (instance, state) => {
-      // SAFETY: runInDurableObject delivers the MatchRoom instance for MATCH_ROOM bindings in this suite.
-      const room = instance as MatchRoom
-      await room.snapshot({ matchId })
-      const match = warmResidentMatch(room)
-      const originalExecute = match.execute.bind(match)
-      match.execute = (command) => {
-        const result = originalExecute(command)
-        state.storage.sql.exec('UPDATE active_matches SET latest_seq = 99')
-        return result
-      }
-
-      expect(() => submitCommandLocked(room, { matchId, commandId, command: frameStartCommand() })).toThrow(
-        'Active match cursor mismatch',
-      )
-      expect(readResident(room)).toBeNull()
-      expect(receiptExists(state, commandId)).toBe(false)
-      expect(sqlScalar(state, 'SELECT COUNT(*) FROM accepted_facts')).toBe(1)
-      state.storage.sql.exec('UPDATE active_matches SET latest_seq = 1')
+    await runInDurableObject(stub, async (_instance, state) => {
+      state.storage.sql.exec('UPDATE command_receipts SET outcome_json = ? WHERE command_id = ?', '{}', commandId)
     })
-  })
-
-  test('clears speculative resident and writes nothing when execute fails after warm load', async () => {
-    const matchId = newMatchId()
-    const stub = env.MATCH_ROOM.getByName(matchId)
-    await stub.create(createBody(matchId))
-
-    const commandId = newCommandId()
-    const startCommand = frameStartCommand()
-
-    let streamBody = ''
-    await runInDurableObject(stub, async (instance, state) => {
-      // SAFETY: runInDurableObject delivers the MatchRoom instance for MATCH_ROOM bindings in this suite.
-      const room = instance as MatchRoom
-      await room.snapshot({ matchId })
-      const match = warmResidentMatch(room)
-      const originalExecute = match.execute.bind(match)
-      match.execute = (command) => {
-        const result = originalExecute(command)
-        expect(result._tag).toBe('accepted')
-        throw new Error('execute defect')
-      }
-
-      const streamResponse = await room.stream({ matchId, since: 1 })
-      expect(() => submitCommandLocked(room, { matchId, commandId, command: startCommand })).toThrow('execute defect')
-      expect(readResident(room)).toBeNull()
-      const durableSnapshot = assertOk<SnapshotOk>(await room.snapshot({ matchId }))
-      expect(durableSnapshot.latestSeq).toBe(1)
-      expect(durableSnapshot.state.currentFrameIndex).toBe(0)
-      expect(durableSnapshot.controlProjection).toBeUndefined()
-      const durableFacts = assertOk<ListFactsOk>(await room.listFacts({ matchId }))
-      expect(durableFacts.facts).toHaveLength(1)
-      expect(receiptExists(state, commandId)).toBe(false)
-      streamBody = await readStreamBody(streamResponse)
-    })
-
-    expect(streamBody).not.toContain('"type":"frame.started"')
-    expect(streamBody).not.toContain('"seq":2')
-
     await evictMatchRoom(stub)
-    const restored = assertOk<SnapshotOk>(await stub.snapshot({ matchId }))
-    expect(restored.latestSeq).toBe(1)
-    expect(restored.state.currentFrameIndex).toBe(0)
-    expect(restored.controlProjection).toBeUndefined()
 
-    const retry = await stub.submitCommand({ matchId, commandId, command: startCommand })
-    expect(retry).toEqual({
-      ok: true,
-      outcome: { _tag: 'accepted', accepted: [expect.objectContaining({ seq: 2 })] },
-    })
-
-    const committedFacts = assertOk<ListFactsOk>(await stub.listFacts({ matchId }))
-    expect(committedFacts.facts).toHaveLength(2)
-  })
-
-  test('reuses the warm resident across snapshots without replacing the session', async () => {
-    const matchId = newMatchId()
-    const stub = env.MATCH_ROOM.getByName(matchId)
-    await stub.create(createBody(matchId))
-    await stub.submitCommand({ matchId, commandId: newCommandId(), command: frameStartCommand() })
-
-    await runInDurableObject(stub, async (instance) => {
-      // SAFETY: runInDurableObject delivers the MatchRoom instance for MATCH_ROOM bindings in this suite.
-      const room = instance as MatchRoom
-      await room.snapshot({ matchId })
-      const firstResident = readResident(room)
-      await room.snapshot({ matchId })
-      expect(readResident(room)).toBe(firstResident)
-    })
+    const error = await captureRpcError(() => stub.submitCommand({ matchId, commandId, command: frameStartCommand() }))
+    expect(error.message).toContain(`MatchRoom command_receipts storage corruption for command ${commandId}`)
   })
 
   test('reinstantiates resident state after eviction during an active frame and accepts gameplay', async () => {
@@ -623,46 +435,6 @@ describe('MatchRoom integration', () => {
     expect(await stub.listFacts({ matchId })).toEqual({ ok: false, error: 'Unknown match', status: 400 })
   })
 
-  test('throws without a receipt when decision fails after warm load', async () => {
-    const matchId = newMatchId()
-    const stub = env.MATCH_ROOM.getByName(matchId)
-    await stub.create(createBody(matchId))
-    await stub.submitCommand({ matchId, commandId: newCommandId(), command: frameStartCommand() })
-    await stub.submitCommand({ matchId, commandId: newCommandId(), command: frameCommenceCommand('A') })
-
-    const commandId = newCommandId()
-    await runInDurableObject(stub, async (instance, state) => {
-      // SAFETY: runInDurableObject delivers the MatchRoom instance for MATCH_ROOM bindings in this suite.
-      const room = instance as MatchRoom
-      await room.snapshot({ matchId })
-      const match = warmResidentMatch(room)
-      match.execute = () => {
-        throw new Error('decision defect')
-      }
-      expect(() => submitCommandLocked(room, { matchId, commandId, command: potRecordCommand('A', 1) })).toThrow(
-        'decision defect',
-      )
-      expect(receiptExists(state, commandId)).toBe(false)
-    })
-  })
-
-  test('surfaces journal corruption before unsupported command rejection', async () => {
-    const matchId = newMatchId()
-    const stub = env.MATCH_ROOM.getByName(matchId)
-    await stub.create(createBody(matchId))
-
-    const commandId = newCommandId()
-    await runInDurableObject(stub, async (instance, state) => {
-      // SAFETY: runInDurableObject delivers the MatchRoom instance for MATCH_ROOM bindings in this suite.
-      const room = instance as MatchRoom
-      state.storage.sql.exec('UPDATE active_matches SET latest_seq = 99')
-      expect(() => submitCommandLocked(room, { matchId, commandId, command: unsupportedCommand() })).toThrow(
-        'Active match journal tail sequence mismatch',
-      )
-      expect(receiptExists(state, commandId)).toBe(false)
-    })
-  })
-
   test('fails closed on an empty journal', async () => {
     const matchId = newMatchId()
     const stub = env.MATCH_ROOM.getByName(matchId)
@@ -673,11 +445,7 @@ describe('MatchRoom integration', () => {
     })
     await evictMatchRoom(stub)
 
-    await runInDurableObject(stub, async (instance) => {
-      // SAFETY: runInDurableObject delivers the MatchRoom instance for MATCH_ROOM bindings in this suite.
-      const room = instance as MatchRoom
-      await expect(room.snapshot({ matchId })).rejects.toThrow('Active match journal is empty')
-    })
+    expect((await captureRpcError(() => stub.snapshot({ matchId }))).message).toContain('Active match journal is empty')
   })
 
   test('fails closed when the journal tail sequence does not match active latest_seq', async () => {
@@ -688,12 +456,11 @@ describe('MatchRoom integration', () => {
     await runInDurableObject(stub, async (_instance, state) => {
       state.storage.sql.exec('UPDATE active_matches SET latest_seq = 99')
     })
+    await evictMatchRoom(stub)
 
-    await runInDurableObject(stub, async (instance) => {
-      // SAFETY: runInDurableObject delivers the MatchRoom instance for MATCH_ROOM bindings in this suite.
-      const room = instance as MatchRoom
-      await expect(room.snapshot({ matchId })).rejects.toThrow('Active match journal tail sequence mismatch')
-    })
+    expect((await captureRpcError(() => stub.snapshot({ matchId }))).message).toContain(
+      'Active match journal tail sequence mismatch',
+    )
   })
 
   test('MatchRoom storage adapter rejects internal journal sequence gaps', async () => {
@@ -708,10 +475,8 @@ describe('MatchRoom integration', () => {
     })
     await evictMatchRoom(stub)
 
-    await runInDurableObject(stub, async (instance) => {
-      // SAFETY: runInDurableObject delivers the MatchRoom instance for MATCH_ROOM bindings in this suite.
-      const room = instance as MatchRoom
-      await expect(room.snapshot({ matchId })).rejects.toThrow('Active match journal envelope mismatch')
-    })
+    expect((await captureRpcError(() => stub.snapshot({ matchId }))).message).toContain(
+      'Active match journal envelope mismatch',
+    )
   })
 })

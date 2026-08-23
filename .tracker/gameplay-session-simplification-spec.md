@@ -407,11 +407,8 @@ Run after every slice:
 ```text
 bun test packages/gameplay/src
 bun run --cwd packages/gameplay typecheck
-bun run check
-bun run --cwd do/match-room typecheck:integration
-bun run --cwd do/match-room test:integration
 bun run --cwd apps/machine-explorer build
-bun run build
+bun run check:full
 ```
 
 No Drizzle migration or dependency installation is required.

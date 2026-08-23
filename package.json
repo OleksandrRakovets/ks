@@ -35,7 +35,9 @@
   },
   "type": "module",
   "scripts": {
-    "check": "bun run format:check && bun run lint && bun run check:boundaries && bun run typecheck && bun test",
+    "check": "bun run check:fast",
+    "check:fast": "bun run format:check && bun run lint && bun run check:boundaries && bun run typecheck && bun test",
+    "check:full": "bun run check:fast && bun run typecheck:integration && bun run test:integration && bun run build",
     "check:boundaries": "node ./scripts/check-boundaries.mjs",
     "build": "turbo run build",
     "db:migrate:local": "bun run --cwd apps/play db:migrate:local",
@@ -49,7 +51,9 @@
     "lint:fix": "oxlint --fix .",
     "machine:explore": "bun --cwd apps/machine-explorer dev",
     "test": "bun test",
-    "typecheck": "turbo run typecheck"
+    "test:integration": "turbo run test:integration",
+    "typecheck": "turbo run typecheck",
+    "typecheck:integration": "turbo run typecheck:integration"
   },
   "devDependencies": {
     "@oxlint/plugins": "1.78.0",

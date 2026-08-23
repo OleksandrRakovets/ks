@@ -29,9 +29,11 @@ The current live transport is SSE. A direct MatchRoom gateway and hibernatable W
 - Local DB migrate: `bun run db:migrate:local`
 - Local DB seed: `bun run db:seed:local`
 - Browse local D1: `bun run db:studio:local` (remote-box instructions are in `.tracker/db.md`)
-- Full repo check/gate: `bun run check`
-  - Runs format check, lint, boundary guards, workspace typecheck, and tests.
-  - Use this as the default final verification before commits or deploy/build handoff.
+- Fast local gate: `bun run check` or `bun run check:fast`
+  - Runs format check, lint, boundary guards, workspace typecheck, and Bun tests.
+- Full merge/deployment gate: `bun run check:full`
+  - Adds integration typechecks, both Workerd integration projects, and deployable builds.
+- Workerd integration tests: `bun run test:integration`
 - Build both deployables: `bun run build`
 - Build one deployable: `bun run --cwd apps/play build` or `bun run --cwd do/match-room build`
 - Lint/format: `bun run lint`, `bun run lint:fix`, `bun run format`, `bun run format:check`
@@ -41,6 +43,7 @@ The current live transport is SSE. A direct MatchRoom gateway and hibernatable W
 - Typecheck MatchRoom (also regenerates Wrangler types): `bun run --cwd do/match-room typecheck`
 - Boundary guards: `bun run check:boundaries`
 - Tests: `bun test` (single file: `bun test packages/gameplay/src/strila-v2/runtime.test.ts`)
+- Migration checks are required only when the corresponding migration assets change; see `.tracker/db.md`.
 
 ## Dependency workflow
 

@@ -6,7 +6,9 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc -b"
+    "test:integration": "vitest run --config vitest.config.ts",
+    "typecheck": "tsc -b",
+    "typecheck:integration": "tsc -p tsconfig.integration.json"
   },
   "dependencies": {
     "@ks/competition": "workspace:*",
@@ -17,7 +19,11 @@
     "valibot": "catalog:"
   },
   "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "catalog:",
     "@cloudflare/workers-types": "catalog:",
-    "bun-types": "catalog:"
+    "@types/node": "catalog:",
+    "bun-types": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

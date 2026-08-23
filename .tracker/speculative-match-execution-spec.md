@@ -268,7 +268,7 @@ Retain or add integration tests for:
 
 `match.ended` must be the final stored fact. Its `acceptedAt` is completed-match `endedAt`. Matching terminal-command retries return their receipt before the finalizing lock; new command IDs remain locked.
 
-Storage adapter tests own row parsing, sequence continuity, common causation, common `acceptedAt`, batch grouping, expected-cursor checks, and journal-tail agreement.
+This storage-test ownership paragraph is superseded by `.tracker/decisions/responsibility-shaped-test-surfaces.md`. Storage unit tests retain row representation parsing; runtime persistence and replay behavior is exercised through public MatchRoom RPC integration.
 
 ### Application
 
@@ -376,10 +376,7 @@ snapshot.latestSeq
 Run after every slice:
 
 ```text
-bun run check
-bun run --cwd do/match-room typecheck:integration
-bun run --cwd do/match-room test:integration
-bun run build
+bun run check:full
 ```
 
 Migration-changing slices also run:

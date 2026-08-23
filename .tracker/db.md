@@ -118,7 +118,7 @@ bunx drizzle-kit check --config do/match-room/drizzle.config.ts
 
 3. Review the generated SQL and snapshot under `do/match-room/drizzle/`.
 4. Add the generated SQL import and migration key to `do/match-room/drizzle/migrations.js`. The object runtime consumes this explicit bundle.
-5. Run `bun run check` and `bun run build`; the dry-run MatchRoom build proves the SQL files are bundled as text.
+5. Run the relevant Drizzle migration check, then `bun run check:full`; the dry-run MatchRoom build proves the SQL files are bundled as text.
 
 The Wrangler `migrations` entry in `do/match-room/wrangler.jsonc` creates or renames Durable Object classes. It is not the SQL migration history inside each object's SQLite database.
 
