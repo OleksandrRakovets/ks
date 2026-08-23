@@ -4,6 +4,8 @@
 
 This is the implemented source architecture after the application/MatchRoom refactor. The project has not yet been deployed, so there is no legacy remote namespace or database to preserve.
 
+The accepted but not yet implemented replacement for match-level commit-before-apply, resident match actors, product snapshot vocabulary, and dual fact timestamps is `speculative-resident-match-execution.md`. Its implementation plan is `../speculative-match-execution-spec.md`. The sections below continue to describe the current source until that replacement lands.
+
 The remaining live-transport work is intentionally separate: `.tracker/match-live-websocket-spec.md` owns both moving the SSE gateway out of React Router and replacing SSE with hibernatable WebSockets. Historical migration slices and target-state documents have been removed.
 
 ## What the refactor established

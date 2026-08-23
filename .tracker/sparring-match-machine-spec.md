@@ -2,7 +2,7 @@
 
 ## Status
 
-Implementation strategy for replacing parallel gameplay and match behavior with four authoritative XState machine definitions and resident sessions. This file is the lead/reviewer contract. Each linked slice file is the implementation and review checklist for one focused change.
+Implemented historical strategy for replacing parallel gameplay and match behavior with authoritative XState definitions. Its match-level commit-before-apply and resident actor design was superseded on 2026-08-23 by `decisions/speculative-resident-match-execution.md`; the replacement plan is `speculative-match-execution-spec.md`. Gameplay's current resident-session design remains unchanged pending separate simplification.
 
 The project is unreleased. Obsolete runtime and reducer APIs are removed after parity rather than retained as compatibility paths.
 

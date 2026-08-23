@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted target architecture. Implementation strategy and slice handoffs live in `.tracker/sparring-match-machine-spec.md`.
+Superseded in part on 2026-08-23 by `decisions/speculative-resident-match-execution.md`. XState and accepted-fact authority remain accepted; the match-level commit-before-apply and resident actor decisions do not. The replacement implementation plan lives in `speculative-match-execution-spec.md`.
 
 ## Decision
 
