@@ -204,12 +204,19 @@ describe('real D1 match lifecycle', () => {
     await seedArchive(rowsJson, stateJson, version)
     await expect(getProtocolArchive(db, matchId)).rejects.toThrow(message)
   })
+
+  test('rejects a persisted zero source sequence', async () => {
+    const db = createApplicationDatabaseClient(env.DB)
+    const state = terminalArchiveInput().projection.state
+    await seedArchive('[]', JSON.stringify(state), 1, 0)
+    await expect(getProtocolArchive(db, matchId)).rejects.toThrow(`Protocol archive storage corruption for match ${matchId}`)
+  })
 })
 
-async function seedArchive(rowsJson: string, stateJson: string, protocolVersion: number): Promise<void> {
+async function seedArchive(rowsJson: string, stateJson: string, protocolVersion: number, sourceLatestSeq = 4): Promise<void> {
   await env.DB.prepare(
     'INSERT INTO match_protocol_archives (match_id, source_latest_seq, protocol_version, rows_json, state_json, created_at) VALUES (?, ?, ?, ?, ?, ?)',
   )
-    .bind(matchId, 4, protocolVersion, rowsJson, stateJson, 2_000)
+    .bind(matchId, sourceLatestSeq, protocolVersion, rowsJson, stateJson, 2_000)
     .run()
 }

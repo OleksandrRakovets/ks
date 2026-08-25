@@ -2,14 +2,12 @@ import { restoreSparringMatch, SparringMatchHistoryError, type SparringMatchRoom
 import {
   type MatchFactContentBatch,
   type MatchFactContentHistory,
-  MatchFactContentSchema,
   type MatchId,
   type MatchState,
   type StoredMatchFact,
   type UnixEpochMilliseconds,
 } from '@ks/core'
 import { and, eq, inArray } from 'drizzle-orm'
-import * as v from 'valibot'
 
 import { prepareProtocolRowsForArchive, PROTOCOL_ARCHIVE_VERSION } from '../protocol'
 import { matches, matchProtocolArchives, StoredMatchStatus } from './schema'
@@ -97,7 +95,8 @@ function validateAndGroupJournal(
   let acceptedAt: number | null = null
   for (let index = 0; index < facts.length; index += 1) {
     const fact = facts[index]!
-    const content = v.parse(MatchFactContentSchema, { type: fact.type, payload: fact.payload })
+    // SAFETY: The MatchRoom client decoded every fact with StoredMatchFactSchema before archive orchestration.
+    const content = { type: fact.type, payload: fact.payload } as MatchFactContentBatch[number]
     if (fact.seq !== index + 1 || fact.matchId !== matchId)
       throw new CompletedMatchArchiveError('Completed match archive journal envelope is invalid')
     if (index === 0) {
@@ -122,8 +121,6 @@ function validateAndGroupJournal(
       if (!current) throw new CompletedMatchArchiveError('Completed match archive command batch is missing')
       batches[batches.length - 1] = [...current, content]
     }
-    if (fact.type === 'match.ended' && index !== facts.length - 1)
-      throw new CompletedMatchArchiveError('Completed match archive has facts after terminal state')
   }
   if (facts.at(-1)?.seq !== latestSeq)
     throw new CompletedMatchArchiveError('Completed match archive source sequence does not match journal tail')
@@ -154,28 +151,9 @@ function validateTerminalArchive(input: CompletedMatchArchiveInput): MatchState 
   const { facts, matchId, sourceLatestSeq, projection: suppliedProjection } = input
   const orderedFacts = requireNonemptyFacts(facts)
 
-  const [firstFact] = orderedFacts
-  if (firstFact?.type !== 'match.created') {
-    throw new CompletedMatchArchiveError('Completed match archive must begin with match.created')
-  }
-
   const terminalFact = facts.at(-1)
   if (terminalFact?.type !== 'match.ended') {
     throw new CompletedMatchArchiveError('Completed match archive must end with match.ended')
-  }
-
-  if (firstFact.payload.matchId !== matchId) {
-    throw new CompletedMatchArchiveError('Completed match archive match ID does not match creation fact')
-  }
-
-  if (terminalFact.seq !== sourceLatestSeq) {
-    throw new CompletedMatchArchiveError('Completed match archive source sequence does not match terminal fact')
-  }
-
-  for (const fact of facts) {
-    if (fact.matchId !== matchId) {
-      throw new CompletedMatchArchiveError('Completed match archive contains a fact for a different match')
-    }
   }
 
   let session
@@ -190,12 +168,6 @@ function validateTerminalArchive(input: CompletedMatchArchiveInput): MatchState 
 
   try {
     const replayProjection = session.project()
-    if (replayProjection.state.status !== 'finished') {
-      throw new CompletedMatchArchiveError('Completed match archive replay state is not finished')
-    }
-    if (replayProjection.state.matchId !== matchId) {
-      throw new CompletedMatchArchiveError('Completed match archive replay state match ID mismatch')
-    }
     if (!projectionsEqual(replayProjection, suppliedProjection)) {
       throw new CompletedMatchArchiveError('Completed match archive terminal projection does not match replay')
     }

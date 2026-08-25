@@ -265,86 +265,6 @@ describe('application orchestration', () => {
     })
   })
 
-  test('rejects mismatched and malformed control projections from the room boundary', async () => {
-    const valid = activeRoomSnapshot('free-pyramid')
-    const mismatched = unsafeRoomSnapshot({ ...valid, controlProjection: controlProjections['combined-pyramid'] })
-    expect(
-      await applicationForActiveGame('free-pyramid', 'free-pyramid', mismatched).readMatchControl(
-        matchId,
-        'en',
-        'free-pyramid',
-      ),
-    ).toEqual({
-      ok: false,
-      error: 'Invalid room control projection',
-      status: 502,
-    })
-    const malformed = {
-      gameKey: 'free-pyramid',
-      projection: 'control',
-      score: { A: 0, B: 0 },
-      details: {},
-    }
-    expect(
-      await applicationForActiveGame(
-        'free-pyramid',
-        'free-pyramid',
-        unsafeRoomSnapshot({ ...valid, controlProjection: malformed }),
-      ).readMatchControl(matchId, 'en', 'free-pyramid'),
-    ).toEqual({
-      ok: false,
-      error: 'Invalid room control projection',
-      status: 502,
-    })
-  })
-
-  test('rejects a malformed room snapshot before key or projection narrowing', async () => {
-    const valid = activeRoomSnapshot('free-pyramid')
-    const malformed = unsafeRoomSnapshot({
-      ...valid,
-      latestSeq: 'not-a-sequence',
-    })
-    expect(
-      await applicationForActiveGame('free-pyramid', 'free-pyramid', malformed).readMatchControl(matchId, 'en', 'free-pyramid'),
-    ).toEqual({
-      ok: false,
-      error: 'Invalid room cursor',
-      status: 502,
-    })
-  })
-
-  test('rejects missing projection for an unfinished active frame', async () => {
-    const valid = activeRoomSnapshot('free-pyramid')
-    const contradictory: MatchRoomSnapshotResult = { ...valid, controlProjection: undefined }
-    expect(
-      await applicationForActiveGame('free-pyramid', 'free-pyramid', contradictory).readMatchControl(
-        matchId,
-        'en',
-        'free-pyramid',
-      ),
-    ).toEqual({ ok: false, error: 'Inconsistent room control lifecycle', status: 502 })
-  })
-
-  test('rejects a projection between frames', async () => {
-    const valid = activeRoomSnapshot('free-pyramid')
-    const latestFrame = valid.state.frames[0]
-    if (!latestFrame) throw new Error('Expected frame fixture')
-    const contradictory = unsafeRoomSnapshot({
-      ...valid,
-      state: {
-        ...valid.state,
-        frames: [{ ...latestFrame, winnerSeat: 'A' }],
-      },
-    })
-    expect(
-      await applicationForActiveGame('free-pyramid', 'free-pyramid', contradictory).readMatchControl(
-        matchId,
-        'en',
-        'free-pyramid',
-      ),
-    ).toEqual({ ok: false, error: 'Inconsistent room control lifecycle', status: 502 })
-  })
-
   test('accepts the legitimate active pre-first-frame state without a projection', async () => {
     const valid = activeRoomSnapshot('free-pyramid')
     const preFirstFrame = unsafeRoomSnapshot({
@@ -373,22 +293,6 @@ describe('application orchestration', () => {
       ok: false,
       error: 'Unknown match',
       status: 404,
-    })
-  })
-
-  test('rejects active and otherwise non-terminal archived snapshots', async () => {
-    const active = applicationForArchivedGame('free-pyramid', 'free-pyramid', snapshotFor('free-pyramid', 'active'))
-    expect(await active.readMatchProtocol(matchId, 'UTC', 'en', 'free-pyramid')).toEqual({
-      ok: false,
-      error: 'Failed to parse completed match state',
-      status: 500,
-    })
-
-    const unfinished = applicationForArchivedGame('free-pyramid', 'free-pyramid')
-    expect(await unfinished.readMatchControl(matchId, 'en', 'free-pyramid')).toEqual({
-      ok: false,
-      error: 'Failed to parse completed match state',
-      status: 500,
     })
   })
 

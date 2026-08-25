@@ -1,6 +1,7 @@
 import { CreateMatchRequestSchema, type SparringMatchRoomProjection } from '@ks/competition'
 import {
   type ControlCommand,
+  MatchConfigSchema,
   MatchIdSchema,
   newCommandId,
   newMatchId,
@@ -460,6 +461,90 @@ describe('MatchRoom integration', () => {
 
     expect((await captureRpcError(() => stub.snapshot({ matchId }))).message).toContain(
       'Active match journal tail sequence mismatch',
+    )
+  })
+
+  test.each([
+    ['non-positive cursor', 'UPDATE active_matches SET latest_seq = 0'],
+    ['invalid status', "UPDATE active_matches SET status = 'finished'"],
+    ['invalid creation time', 'UPDATE active_matches SET created_at = -1'],
+    ['invalid control secret', "UPDATE active_matches SET control_secret = 'short'"],
+    ['malformed config JSON', "UPDATE active_matches SET config_json = '{'"],
+  ])('fails closed on an active row with %s', async (_label, statement) => {
+    const matchId = newMatchId()
+    const stub = env.MATCH_ROOM.getByName(matchId)
+    await stub.create(createBody(matchId))
+
+    await runInDurableObject(stub, async (_instance, state) => {
+      state.storage.sql.exec(statement)
+    })
+    await evictMatchRoom(stub)
+
+    expect((await captureRpcError(() => stub.snapshot({ matchId }))).message).toContain(
+      'MatchRoom active_matches storage corruption',
+    )
+  })
+
+  test('fails closed on a malformed active-row match ID', async () => {
+    const matchId = newMatchId()
+    const stub = env.MATCH_ROOM.getByName(matchId)
+    await stub.create(createBody(matchId))
+    await runInDurableObject(stub, async (_instance, state) => {
+      state.storage.sql.exec('DELETE FROM accepted_facts')
+      state.storage.sql.exec("UPDATE active_matches SET match_id = 'bad'")
+    })
+    await evictMatchRoom(stub)
+    expect((await captureRpcError(() => stub.snapshot({ matchId }))).message).toContain(
+      'MatchRoom active_matches storage corruption',
+    )
+  })
+
+  test('requires the active config to use a registered game key', async () => {
+    const matchId = newMatchId()
+    const stub = env.MATCH_ROOM.getByName(matchId)
+    await stub.create(createBody(matchId))
+
+    await runInDurableObject(stub, async (_instance, state) => {
+      const row = state.storage.sql.exec<{ config_json: string }>('SELECT config_json FROM active_matches').one()
+      const config = v.parse(v.pipe(v.string(), v.parseJson(), MatchConfigSchema), row.config_json)
+      state.storage.sql.exec(
+        'UPDATE active_matches SET config_json = ?',
+        JSON.stringify({ ...config, gameKey: 'historical-game' }),
+      )
+    })
+    await evictMatchRoom(stub)
+    expect((await captureRpcError(() => stub.snapshot({ matchId }))).message).toContain(
+      'MatchRoom active_matches storage corruption',
+    )
+  })
+
+  test('requires the creation fact to match the active config', async () => {
+    const matchId = newMatchId()
+    const stub = env.MATCH_ROOM.getByName(matchId)
+    await stub.create(createBody(matchId))
+    await runInDurableObject(stub, async (_instance, state) => {
+      const row = state.storage.sql.exec<{ config_json: string }>('SELECT config_json FROM active_matches').one()
+      const config = v.parse(v.pipe(v.string(), v.parseJson(), MatchConfigSchema), row.config_json)
+      state.storage.sql.exec('UPDATE active_matches SET config_json = ?', JSON.stringify({ ...config, firstBreakerSeat: 'B' }))
+    })
+    await evictMatchRoom(stub)
+    expect((await captureRpcError(() => stub.snapshot({ matchId }))).message).toContain(
+      'Active match journal creation does not match active config',
+    )
+  })
+
+  test('requires the active row and config match IDs to agree', async () => {
+    const matchId = newMatchId()
+    const stub = env.MATCH_ROOM.getByName(matchId)
+    await stub.create(createBody(matchId))
+    await runInDurableObject(stub, async (_instance, state) => {
+      const row = state.storage.sql.exec<{ config_json: string }>('SELECT config_json FROM active_matches').one()
+      const config = v.parse(v.pipe(v.string(), v.parseJson(), MatchConfigSchema), row.config_json)
+      state.storage.sql.exec('UPDATE active_matches SET config_json = ?', JSON.stringify({ ...config, matchId: newMatchId() }))
+    })
+    await evictMatchRoom(stub)
+    expect((await captureRpcError(() => stub.snapshot({ matchId }))).message).toContain(
+      'MatchRoom active_matches storage corruption',
     )
   })
 

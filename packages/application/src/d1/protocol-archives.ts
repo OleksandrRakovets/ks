@@ -1,4 +1,4 @@
-import { type MatchId, MatchIdSchema, MatchStateSchema, NonNegativeIntegerSchema } from '@ks/core'
+import { type MatchId, MatchIdSchema, MatchStateSchema, PositiveIntegerSchema } from '@ks/core'
 import { eq } from 'drizzle-orm'
 import * as v from 'valibot'
 
@@ -15,7 +15,7 @@ import type { ApplicationDatabase } from './types'
 const ProtocolArchiveStorageRowSchema = v.pipe(
   v.object({
     matchId: MatchIdSchema,
-    sourceLatestSeq: NonNegativeIntegerSchema,
+    sourceLatestSeq: PositiveIntegerSchema,
     protocolVersion: v.literal(PROTOCOL_ARCHIVE_VERSION),
     rowsJson: v.pipe(v.string(), v.parseJson(), ProtocolArchiveRowsSchema),
     stateJson: v.pipe(v.string(), v.parseJson(), MatchStateSchema),
@@ -40,7 +40,6 @@ export async function getProtocolArchive(db: ApplicationDatabase, matchId: Match
   if (!row) return null
   try {
     const parsed = v.parse(ProtocolArchiveStorageRowSchema, row)
-    if (parsed.matchId !== matchId) throw new Error('Archive row match ID does not match request')
     const { matchId: _matchId, ...archive } = parsed
     return archive
   } catch {

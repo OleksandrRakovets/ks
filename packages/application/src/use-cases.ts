@@ -3,17 +3,13 @@ import {
   type CommandId,
   type ControlCommand,
   type ControlCommandSections,
-  ControlCommandSectionsSchema,
   emptyControlCommandSections,
   type HydratedMatchParticipant,
   type MatchId,
-  MatchStateSchema,
-  NonNegativeIntegerSchema,
   type PlayerRef,
   type UnixEpochMilliseconds,
 } from '@ks/core'
 import { type ControlProjectionFor, type RegisteredGameKey, registry } from '@ks/gameplay/definitions'
-import { parseGameControl } from '@ks/gameplay/server'
 import type { SupportedLocale } from '@ks/i18n'
 import * as v from 'valibot'
 
@@ -79,34 +75,6 @@ type ReadKeyedMatchSuccess<K extends RegisteredGameKey> = {
   controlSections?: ControlCommandSections
 }
 type ReadKeyedMatchResult<K extends RegisteredGameKey> = ReadKeyedMatchSuccess<K> | ReadMatchFailure
-
-function expectsControlProjection(state: v.InferOutput<typeof MatchStateSchema>): boolean | null {
-  const latestFrame = state.frames.at(-1)
-  if (!latestFrame) return state.currentFrameIndex === 0 ? false : null
-  if (latestFrame.frameIndex !== state.currentFrameIndex) return null
-  return state.status === 'active' && latestFrame.winnerSeat === undefined
-}
-
-function isTerminalArchivedSnapshot(state: v.InferOutput<typeof MatchStateSchema>): boolean {
-  if (state.status !== 'finished') return false
-  const latestFrame = state.frames.at(-1)
-  if (!latestFrame?.winnerSeat || latestFrame.frameIndex !== state.currentFrameIndex) return false
-  return (
-    state.framesWonBySeat.A >= state.targets.matchTargetFrames || state.framesWonBySeat.B >= state.targets.matchTargetFrames
-  )
-}
-
-function validateRoomControlProjection<K extends RegisteredGameKey>(
-  expectedGameKey: K,
-  projection: ControlProjectionFor<RegisteredGameKey> | undefined,
-): { ok: true; projection?: ControlProjectionFor<K> } | ReadMatchFailure {
-  if (projection === undefined) return { ok: true }
-  try {
-    return { ok: true, projection: parseGameControl(expectedGameKey, projection) }
-  } catch {
-    return { ok: false, error: 'Invalid room control projection', status: 502 }
-  }
-}
 
 function archiveReadFailure(error: Error): ReadMatchFailure | null {
   if (error instanceof UnsupportedProtocolArchiveVersionError) {
@@ -193,27 +161,18 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
       return { ok: false, error: roomResult.error, status }
     }
 
-    const snapshot = v.safeParse(MatchStateSchema, roomResult.state)
-    if (!snapshot.success) return { ok: false, error: 'Invalid room snapshot', status: 502 }
-    const latestSeq = v.safeParse(NonNegativeIntegerSchema, roomResult.latestSeq)
-    if (!latestSeq.success) return { ok: false, error: 'Invalid room cursor', status: 502 }
-    if (snapshot.output.gameKey !== expectedGameKey) return { ok: false, error: 'Unknown match', status: 404 }
-    const controlSections = v.safeParse(ControlCommandSectionsSchema, roomResult.controlSections)
-    if (!controlSections.success) return { ok: false, error: 'Invalid room control sections', status: 502 }
-    const validatedProjection = validateRoomControlProjection(expectedGameKey, roomResult.controlProjection)
-    if (!validatedProjection.ok) return validatedProjection
-    const projectionExpected = expectsControlProjection(snapshot.output)
-    if (projectionExpected === null || projectionExpected !== (validatedProjection.projection !== undefined)) {
-      return { ok: false, error: 'Inconsistent room control lifecycle', status: 502 }
-    }
+    if (roomResult.state.gameKey !== expectedGameKey) return { ok: false, error: 'Unknown match', status: 404 }
     const result: ReadKeyedMatchSuccess<K> = {
       ok: true,
-      state: { ...snapshot.output, gameKey: expectedGameKey },
-      latestSeq: latestSeq.output,
+      state: { ...roomResult.state, gameKey: expectedGameKey },
+      latestSeq: roomResult.latestSeq,
       participants: await hydrateParticipants(record, locale),
-      controlSections: controlSections.output,
+      controlSections: roomResult.controlSections,
     }
-    if (validatedProjection.projection !== undefined) result.controlProjection = validatedProjection.projection
+    if (roomResult.controlProjection !== undefined) {
+      // SAFETY: The MatchRoom client correlated this projection with roomResult.state.gameKey before returning it.
+      result.controlProjection = roomResult.controlProjection as ControlProjectionFor<K>
+    }
     return result
   }
 
@@ -332,9 +291,6 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     if (!archive) return { ok: false, error: 'Missing completed match archive', status: 500 }
     const state = archive.state
     if (state.gameKey !== expectedGameKey) return { ok: false, error: 'Unknown match', status: 404 }
-    if (!isTerminalArchivedSnapshot(state)) {
-      return { ok: false, error: 'Failed to parse completed match state', status: 500 }
-    }
     return {
       ok: true,
       state: { ...state, gameKey: expectedGameKey },

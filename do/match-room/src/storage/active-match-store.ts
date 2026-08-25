@@ -1,13 +1,18 @@
 import type { SparringMatchRejection } from '@ks/competition'
 import {
   type CommandId,
+  MatchConfigSchema,
   type MatchFact,
   type MatchId,
+  MatchIdSchema,
   nowUnixEpochMilliseconds,
+  PositiveIntegerSchema,
   type StoredMatchFact,
   StoredMatchFactSchema,
   type UnixEpochMilliseconds,
+  UnixEpochMillisecondsSchema,
 } from '@ks/core'
+import { RegisteredGameKeySchema } from '@ks/gameplay/definitions'
 import { and, asc, eq, gt } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/durable-sqlite'
 import * as v from 'valibot'
@@ -21,7 +26,24 @@ import {
 import * as schema from './schema'
 import { decodeStoredMatchFactRow, encodeStoredMatchFactRow } from './stored-match-fact-row'
 
-export type ActiveMatchRecord = typeof schema.activeMatches.$inferSelect
+const ActiveMatchRecordSchema = v.pipe(
+  v.object({
+    matchId: MatchIdSchema,
+    controlSecret: v.pipe(v.string(), v.minLength(16)),
+    configJson: v.pipe(
+      v.string(),
+      v.parseJson(),
+      v.intersect([MatchConfigSchema, v.object({ gameKey: RegisteredGameKeySchema })]),
+    ),
+    latestSeq: PositiveIntegerSchema,
+    status: v.picklist(['active', 'finalizing']),
+    createdAt: UnixEpochMillisecondsSchema,
+  }),
+  v.transform(({ configJson, ...row }) => ({ ...row, config: configJson })),
+  v.check((row) => row.matchId === row.config.matchId, 'Active row and config match IDs must agree'),
+)
+
+export type ActiveMatchRecord = v.InferOutput<typeof ActiveMatchRecordSchema>
 
 export type ActiveMatchInitialization = {
   readonly matchId: MatchId
@@ -58,7 +80,13 @@ export class ActiveMatchStore {
   }
 
   match(): ActiveMatchRecord | null {
-    return this.db.select().from(schema.activeMatches).limit(1).all()[0] ?? null
+    const row = this.db.select().from(schema.activeMatches).limit(1).all()[0]
+    if (!row) return null
+    try {
+      return v.parse(ActiveMatchRecordSchema, row)
+    } catch {
+      throw new Error('MatchRoom active_matches storage corruption')
+    }
   }
 
   factsAfter(since: number): StoredMatchFact[] {

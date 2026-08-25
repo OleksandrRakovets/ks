@@ -12,7 +12,6 @@ import {
   type MatchFactContent,
   type MatchFactContentBatch,
   type MatchFactContentHistory,
-  MatchFactContentSchema,
   MatchFactSchema,
   newFactId,
   type StoredMatchFact,
@@ -95,7 +94,7 @@ export class MatchRoom extends DurableObject<Env> {
         if (
           match.matchId !== parsed.output.matchId ||
           match.controlSecret !== parsed.output.controlSecret ||
-          match.configJson !== configJson ||
+          JSON.stringify(match.config) !== configJson ||
           match.createdAt !== parsed.output.createdAt
         ) {
           return { ok: false, error: 'Match already exists', status: 409 }
@@ -257,13 +256,10 @@ export class MatchRoom extends DurableObject<Env> {
     if (match.status !== 'finalizing') return { ok: false, error: 'Match is active', status: 409 }
 
     const { match: validatedMatch, facts } = this.readColdJournal(match)
-    const terminalFact = facts.find((fact) => fact.type === 'match.ended')
-    if (!terminalFact) throw new Error('Missing terminal fact')
+    const terminalFact = facts[facts.length - 1]!
+    if (terminalFact.type !== 'match.ended') throw new Error('Missing terminal fact')
 
     const resident = this.ensureResident(validatedMatch.latestSeq, facts)
-    if (resident.match.project().state.status !== 'finished') {
-      throw new Error('Session is not terminal')
-    }
 
     return {
       ok: true,
@@ -276,6 +272,11 @@ export class MatchRoom extends DurableObject<Env> {
     }
   }
 
+  /**
+   * Destructively disposes a finalizing room after the application has durably archived it.
+   * The complete local journal is decoded and must belong to this room with `match.ended` at its persisted tail; semantic
+   * replay is intentionally not repeated. The terminal fact is broadcast, streams are closed, and local storage is deleted.
+   */
   async disposeFinalized(args: SnapshotBody): Promise<{ ok: true } | { ok: false; error: string; status: number }> {
     await this.ready
     const parsed = v.safeParse(SnapshotBodySchema, args)
@@ -287,8 +288,10 @@ export class MatchRoom extends DurableObject<Env> {
       if (match?.status === 'active') return { ok: false, error: 'Match is active', status: 409 }
 
       if (match) {
-        const terminalFact = this.store.factsAfter(0).find((fact) => fact.type === 'match.ended')
-        if (!terminalFact) throw new Error('Missing terminal fact')
+        const { facts } = this.readColdJournal(match)
+        if (facts.some((fact) => fact.matchId !== match.matchId)) throw new Error('Active match journal envelope mismatch')
+        const terminalFact = facts[facts.length - 1]!
+        if (terminalFact.type !== 'match.ended') throw new Error('Missing terminal fact')
         this.live.broadcast(terminalFact)
       }
       this.live.closeAll()
@@ -363,10 +366,13 @@ export class MatchRoom extends DurableObject<Env> {
     for (let index = 0; index < facts.length; index += 1) {
       const fact = facts[index]!
       if (fact.seq !== index + 1 || fact.matchId !== match.matchId) throw new Error('Active match journal envelope mismatch')
-      const content = v.parse(MatchFactContentSchema, { type: fact.type, payload: fact.payload })
+      // SAFETY: StoredMatchFactSchema already correlated each fact discriminator with its payload in the storage adapter.
+      const content = { type: fact.type, payload: fact.payload } as MatchFactContent
       if (index === 0) {
         if (fact.type !== 'match.created' || fact.causedByCommandId !== null)
           throw new Error('Active match journal must begin with singleton match.created')
+        if (JSON.stringify(fact.payload) !== JSON.stringify(match.config))
+          throw new Error('Active match journal creation does not match active config')
         batches.push([content])
         continue
       }
@@ -384,10 +390,7 @@ export class MatchRoom extends DurableObject<Env> {
         if (!current) throw new Error('Active match journal command batch is missing')
         batches[batches.length - 1] = [...current, content]
       }
-      if (fact.type === 'match.ended' && index !== facts.length - 1)
-        throw new Error('Active match journal has facts after terminal state')
     }
-    if (facts.at(-1)?.seq !== match.latestSeq) throw new Error('Active match journal tail sequence mismatch')
     const [first, ...rest] = batches
     if (!first) throw new Error('Active match journal has no semantic batches')
     return [first, ...rest]
@@ -431,8 +434,8 @@ export class MatchRoom extends DurableObject<Env> {
     },
   ): StoredMatchFact {
     const storedFact = this.store.commitCreation({ initialization, fact: this.creationFact(config) })
-    const content = v.parse(MatchFactContentSchema, { type: storedFact.type, payload: storedFact.payload })
-    if (content.type !== 'match.created') throw new Error('Creation commit did not return match.created')
+    if (storedFact.type !== 'match.created') throw new Error('Creation commit did not return match.created')
+    const content: MatchFactContent = { type: storedFact.type, payload: storedFact.payload }
     const residentMatch = restoreSparringMatch([[content]])
     this.resident = { latestSeq: 1, match: residentMatch }
     this.live.broadcast(storedFact)
