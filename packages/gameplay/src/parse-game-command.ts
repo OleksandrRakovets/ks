@@ -1,8 +1,7 @@
 import * as v from 'valibot'
 
 import { GameCommandTransportPayloadSchema } from './command-schemas'
-import type { GameCommandFor, RegisteredGameKey } from './registry'
-import { getGameplayRegistryEntry } from './session-factory'
+import { type GameCommandFor, type RegisteredGameKey, registry } from './registry'
 
 export type GameCommandParseFailure = {
   readonly _tag: 'game-command-parse-failure'
@@ -27,8 +26,7 @@ export function parseGameCommand<K extends RegisteredGameKey>(
   gameKey: K,
   input: { readonly commandType: string; readonly command: unknown },
 ): ParseGameCommandResult<K> {
-  const entry = getGameplayRegistryEntry(gameKey)
-  const schema = entry.commandSchema
+  const schema = registry[gameKey].commandSchema
 
   const payload = v.safeParse(GameCommandTransportPayloadSchema, input.command)
   if (!payload.success) {

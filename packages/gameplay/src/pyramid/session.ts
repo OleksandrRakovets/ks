@@ -21,11 +21,9 @@ class PyramidGameplaySession<K extends PyramidGameKey> implements GameplaySessio
   #snapshot: PyramidSparringFrameSnapshot
   #rules: PyramidRulesFor<K>
 
-  constructor(gameKey: K, args: GameplaySessionCreateArgsFor<K>) {
+  constructor(gameKey: K, args: GameplaySessionCreateArgsFor<K>, rules: PyramidRulesFor<K>) {
     this.gameKey = gameKey
-    // SAFETY: the exhaustive rules registry entry and game key are indexed by the same K.
-    // @ts-expect-error TypeScript does not preserve the dependent key while indexing the exhaustive rules registry.
-    this.#rules = PyramidRuleSpecificsByGameKey[gameKey]
+    this.#rules = rules
     this.#snapshot = createInitialSnapshot(this.#rules, { ...args.targetPointsBySeat })
   }
 
@@ -57,14 +55,27 @@ class PyramidGameplaySession<K extends PyramidGameKey> implements GameplaySessio
     return this.#snapshot.can({ type: 'frame.commence', seat })
   }
   deriveControl(): ControlProjectionFor<K> {
-    // @ts-expect-error TypeScript does not preserve K through the family control schema implementation.
-    return derivePyramidControlView(this.#snapshot, this.#rules)
+    // SAFETY: both the family projection and registry contract are discriminated by this session's same K.
+    return derivePyramidControlView(this.#snapshot, this.#rules) as ControlProjectionFor<K>
   }
 }
+
+type PyramidGameplaySessionCreation = {
+  [K in PyramidGameKey]: readonly [gameKey: K, args: GameplaySessionCreateArgsFor<K>]
+}[PyramidGameKey]
+type AnyPyramidGameplaySession = { [K in PyramidGameKey]: GameplaySession<K> }[PyramidGameKey]
 
 export function createPyramidGameplaySession<K extends PyramidGameKey>(
   gameKey: K,
   args: GameplaySessionCreateArgsFor<K>,
-): GameplaySession<K> {
-  return new PyramidGameplaySession(gameKey, args)
+): GameplaySession<K>
+export function createPyramidGameplaySession(...creation: PyramidGameplaySessionCreation): AnyPyramidGameplaySession {
+  switch (creation[0]) {
+    case 'free-pyramid':
+      return new PyramidGameplaySession(creation[0], creation[1], PyramidRuleSpecificsByGameKey['free-pyramid'])
+    case 'combined-pyramid':
+      return new PyramidGameplaySession(creation[0], creation[1], PyramidRuleSpecificsByGameKey['combined-pyramid'])
+    case 'combined-pyramid-old':
+      return new PyramidGameplaySession(creation[0], creation[1], PyramidRuleSpecificsByGameKey['combined-pyramid-old'])
+  }
 }
