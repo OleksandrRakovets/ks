@@ -33,20 +33,18 @@ _Avoid_: Negative pots
 **Command**:
 A request by a participant to change the recorded match. A command may be rejected and does not itself assert that a change occurred.
 
-**Fact**:
-An immutable truth accepted while recording an active match. Facts are distinct from the commands that caused them.
-_Avoid_: Event, command
+**Accepted Command**:
+A command that changed the recorded match. Accepted commands are ordered and retained while the match is active so its state can be restored.
 
-**Fact History**:
-The ordered facts accepted while recording an active match. It is authoritative until the match ends and its permanent records have been derived.
-_Avoid_: Journal, event stream
+**Protocol Entry**:
+One game-specific item in the Protocol produced when a command is accepted. An accepted command produces one or more Protocol entries atomically.
 
 **Protocol**:
 The official chronological record of match play, including player actions, corrections, and noteworthy system-determined outcomes.
 _Avoid_: Event log, audit log, wire protocol
 
 **Correction**:
-An explicit recorded change that compensates for an earlier accepted command without removing its facts from Fact History.
+An explicit accepted command that compensates for an earlier accepted command without removing it from the record.
 _Avoid_: Deletion, rollback
 
 **Final Match State**:
