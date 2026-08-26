@@ -11,7 +11,6 @@ export type PlayerRef = Brand<string, 'PlayerRef'>
 export type MatchId = Brand<string, 'MatchId'>
 export type FactId = Brand<string, 'FactId'>
 export type CommandId = Brand<string, 'CommandId'>
-export type ClientId = Brand<string, 'ClientId'>
 
 function toBrand<B extends string>(value: string): Brand<string, B> {
   // SAFETY: Brand only adds a phantom marker; the enclosing Valibot pipeline validates the string first.
@@ -26,14 +25,6 @@ function ulidBrandedSchema<B extends string>() {
   )
 }
 
-function minLengthBrandedSchema<B extends string>(minLength: number) {
-  return v.pipe(
-    v.string(),
-    v.minLength(minLength),
-    v.transform((value) => toBrand<B>(value)),
-  )
-}
-
 export const GuestPlayerIdSchema = ulidBrandedSchema<'GuestPlayerId'>()
 export const VerifiedPlayerIdSchema = ulidBrandedSchema<'VerifiedPlayerId'>()
 export const PlayerRefSchema = v.pipe(
@@ -44,7 +35,6 @@ export const PlayerRefSchema = v.pipe(
 export const MatchIdSchema = ulidBrandedSchema<'MatchId'>()
 export const FactIdSchema = ulidBrandedSchema<'FactId'>()
 export const CommandIdSchema = ulidBrandedSchema<'CommandId'>()
-export const ClientIdSchema = minLengthBrandedSchema<'ClientId'>(8)
 
 export function newGuestPlayerId(): GuestPlayerId {
   return v.parse(GuestPlayerIdSchema, ulid())
@@ -64,14 +54,6 @@ export function newFactId(): FactId {
 
 export function newCommandId(): CommandId {
   return v.parse(CommandIdSchema, ulid())
-}
-
-export function newClientId(): ClientId {
-  return v.parse(ClientIdSchema, ulid())
-}
-
-export function formatPrefixedId(prefix: 'm' | 'e' | 'c', id: string): string {
-  return `${prefix}_${id}`
 }
 
 export function formatPlayerRef(kind: 'gp' | 'vp', id: string): PlayerRef {

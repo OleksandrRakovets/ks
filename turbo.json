@@ -10,8 +10,8 @@
       "dependsOn": ["^typecheck"],
       "outputs": []
     },
-    "//#check": {
-      "cache": false,
+    "test:integration": {
+      "dependsOn": ["^test:integration"],
       "outputs": []
     },
     "dev": {
@@ -19,11 +19,9 @@
       "persistent": true
     },
     "@ks/play#build": {
-      "dependsOn": ["//#check"],
       "outputs": ["build/**", ".react-router/**"]
     },
     "@ks/match-room#build": {
-      "dependsOn": ["//#check"],
       "outputs": ["dist/**"]
     },
     "machine-explorer#build": {

@@ -2,18 +2,13 @@ import {
   BySeatNumberSchema,
   ControlCommandSectionsSchema,
   NonEmptyStringSchema,
-  NonNegativeIntegerSchema,
   ProtocolEntrySchema,
   SeatSchema,
 } from '@ks/core'
 import * as v from 'valibot'
 
-import {
-  GameControlCommandSchema,
-  GameControlProjectionSchema,
-  GameScoreboardProjectionSchema,
-  GameSummaryProjectionSchema,
-} from '../constants'
+import { FoulCommitCommandSchema, FrameAwardCommandSchema, FrameCommenceCommandSchema } from '../command-schemas'
+import { GameControlCommandSchema, GameControlProjectionSchema } from '../constants'
 
 const CueBallSchema = v.literal(0)
 const ColoredBallSchema = v.union([
@@ -48,12 +43,12 @@ export const StrilaMeta = {
 const FoulResponseChoiceSchema = v.picklist(['play-from-position', 'pass-position', 'ball-in-hand'])
 
 export const StrilaCommandSchema = v.variant('type', [
-  v.object({ type: v.literal('frame.commence'), seat: SeatSchema }),
-  v.object({ type: v.literal('pot.record'), seat: SeatSchema, pottedBalls: PottedBallsSchema }),
-  v.object({ type: v.literal('miss.record'), seat: SeatSchema }),
-  v.object({ type: v.literal('foul.commit'), seat: SeatSchema }),
-  v.object({ type: v.literal('penalty.select'), seat: SeatSchema, choice: FoulResponseChoiceSchema }),
-  v.object({ type: v.literal('frame.award'), seat: SeatSchema }),
+  FrameCommenceCommandSchema,
+  v.strictObject({ type: v.literal('pot.record'), seat: SeatSchema, pottedBalls: PottedBallsSchema }),
+  v.strictObject({ type: v.literal('miss.record'), seat: SeatSchema }),
+  FoulCommitCommandSchema,
+  v.strictObject({ type: v.literal('penalty.select'), seat: SeatSchema, choice: FoulResponseChoiceSchema }),
+  FrameAwardCommandSchema,
 ])
 export type StrilaCommand = v.InferOutput<typeof StrilaCommandSchema>
 
@@ -70,7 +65,6 @@ export const StrilaPhaseSchema = v.picklist([
 export type StrilaPhase = v.InferOutput<typeof StrilaPhaseSchema>
 
 const WinnerDeterminationReasonSchema = v.picklist(['target-reached', 'respotted-black-won', 'automatic-foul'])
-export type StrilaWinnerDeterminationReason = v.InferOutput<typeof WinnerDeterminationReasonSchema>
 
 const ContextSchema = v.object({
   score: BySeatNumberSchema,
@@ -87,12 +81,6 @@ const ContextSchema = v.object({
   winnerDeterminationReason: v.nullable(WinnerDeterminationReasonSchema),
 })
 export type StrilaContext = v.InferOutput<typeof ContextSchema>
-
-export const StrilaFrameStateSchema = v.object({
-  ...ContextSchema.entries,
-  phase: StrilaPhaseSchema,
-})
-export type StrilaFrameState = v.InferOutput<typeof StrilaFrameStateSchema>
 
 const BallStatusSchema = v.picklist(['object', 'on-table', 'potted'])
 export const StrilaBallStatusesSchema = v.object({
@@ -113,7 +101,7 @@ const ControlMessageSchema = v.object({
 
 export type StrilaControlCommand = v.InferOutput<typeof GameControlCommandSchema>
 
-export const StrilaControlDetailsSchema = v.object({
+const StrilaControlDetailsSchema = v.object({
   phase: StrilaPhaseSchema,
   seat: v.optional(SeatSchema),
   situationTitle: NonEmptyStringSchema,
@@ -132,32 +120,6 @@ export const StrilaControlViewSchema = v.object({
   details: StrilaControlDetailsSchema,
 })
 export type StrilaControlView = v.InferOutput<typeof StrilaControlViewSchema>
-
-const ScoreboardDetailsSchema = v.object({
-  objectBalls: v.array(ColoredBallSchema),
-  ballsRemaining: v.array(ColoredBallSchema),
-  pointsAvailable: NonNegativeIntegerSchema,
-  phase: StrilaPhaseSchema,
-  winner: v.optional(SeatSchema),
-})
-
-export const StrilaScoreboardViewSchema = v.object({
-  ...GameScoreboardProjectionSchema.entries,
-  gameKey: v.literal('strila-v2'),
-  score: ContextSchema.entries.score,
-  details: ScoreboardDetailsSchema,
-})
-export type StrilaScoreboardView = v.InferOutput<typeof StrilaScoreboardViewSchema>
-
-export const StrilaSummaryViewSchema = v.object({
-  ...GameSummaryProjectionSchema.entries,
-  gameKey: v.literal('strila-v2'),
-  score: ContextSchema.entries.score,
-  details: v.object({
-    phase: StrilaPhaseSchema,
-  }),
-})
-export type StrilaSummaryView = v.InferOutput<typeof StrilaSummaryViewSchema>
 
 const AutomaticFoulReasonSchema = v.picklist([
   'third-consecutive-cue-ball-pot',

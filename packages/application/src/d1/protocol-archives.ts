@@ -1,4 +1,4 @@
-import { type MatchId, MatchIdSchema, MatchSnapshotSchema, NonNegativeIntegerSchema } from '@ks/core'
+import { type MatchId, MatchIdSchema, MatchStateSchema, PositiveIntegerSchema } from '@ks/core'
 import { eq } from 'drizzle-orm'
 import * as v from 'valibot'
 
@@ -15,15 +15,14 @@ import type { ApplicationDatabase } from './types'
 const ProtocolArchiveStorageRowSchema = v.pipe(
   v.object({
     matchId: MatchIdSchema,
-    sourceLatestSeq: NonNegativeIntegerSchema,
+    sourceLatestSeq: PositiveIntegerSchema,
     protocolVersion: v.literal(PROTOCOL_ARCHIVE_VERSION),
     rowsJson: v.pipe(v.string(), v.parseJson(), ProtocolArchiveRowsSchema),
-    snapshotJson: v.pipe(v.string(), v.parseJson(), MatchSnapshotSchema),
+    stateJson: v.pipe(v.string(), v.parseJson(), MatchStateSchema),
   }),
-  v.transform(({ rowsJson, snapshotJson, ...row }) => ({ ...row, rows: rowsJson, snapshot: snapshotJson })),
-  v.check((value) => value.snapshot.latestSeq === value.sourceLatestSeq, 'Archive sequence does not match snapshot'),
-  v.check((value) => value.snapshot.status === 'finished', 'Archive snapshot is not finished'),
-  v.check((value) => value.snapshot.matchId === value.matchId, 'Archive match ID does not match snapshot'),
+  v.transform(({ rowsJson, stateJson, ...row }) => ({ ...row, rows: rowsJson, state: stateJson })),
+  v.check((value) => value.state.status === 'finished', 'Archive state is not finished'),
+  v.check((value) => value.state.matchId === value.matchId, 'Archive match ID does not match state'),
 )
 
 export async function getProtocolArchive(db: ApplicationDatabase, matchId: MatchId): Promise<ProtocolArchiveRecord | null> {
@@ -33,7 +32,7 @@ export async function getProtocolArchive(db: ApplicationDatabase, matchId: Match
       sourceLatestSeq: matchProtocolArchives.sourceLatestSeq,
       protocolVersion: matchProtocolArchives.protocolVersion,
       rowsJson: matchProtocolArchives.rowsJson,
-      snapshotJson: matchProtocolArchives.snapshotJson,
+      stateJson: matchProtocolArchives.stateJson,
     })
     .from(matchProtocolArchives)
     .where(eq(matchProtocolArchives.matchId, matchId))
@@ -41,7 +40,6 @@ export async function getProtocolArchive(db: ApplicationDatabase, matchId: Match
   if (!row) return null
   try {
     const parsed = v.parse(ProtocolArchiveStorageRowSchema, row)
-    if (parsed.matchId !== matchId) throw new Error('Archive row match ID does not match request')
     const { matchId: _matchId, ...archive } = parsed
     return archive
   } catch {

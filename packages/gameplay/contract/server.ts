@@ -1,10 +1,5 @@
-export {
-  applyGameCommand,
-  createInitialGameState,
-  deriveGameControl,
-  deriveGameSummary,
-  parseGameControl,
-  parseGameKey,
-} from '../src/gameplay'
-export { getGameplayRuntime } from '../src/runtime-factory'
-export { StrilaGameplayRuntime, StrilaFrameStateSchema, type StrilaFrameState } from '../src/strila-v2/runtime'
+export { parseGameControl } from './parse-control'
+export { GameCommandRejectionSchema, type GameCommandRejection, type GameplaySession } from '../src/gameplay-session'
+export { canonicalGameCommandPayload } from '../src/command-schemas'
+export { parseGameCommand } from '../src/parse-game-command'
+export { createGameplaySession } from '../src/session-factory'

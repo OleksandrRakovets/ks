@@ -1,6 +1,6 @@
 import * as v from 'valibot'
 
-import { ClientIdSchema, FactIdSchema, MatchIdSchema } from './ids'
+import { CommandIdSchema, FactIdSchema, MatchIdSchema } from './ids'
 import {
   BySeatNumberSchema,
   FrameOutcomeSchema,
@@ -10,13 +10,10 @@ import {
   SeatSchema,
 } from './match'
 import { UnixEpochMillisecondsSchema } from './time'
-import { NonNegativeIntegerSchema, PositiveIntegerSchema, SizedStringSchema, UnknownObjectSchema } from './valicombos'
+import { PositiveIntegerSchema, SizedStringSchema, UnknownObjectSchema } from './valicombos'
 
 export const ProtocolEntrySourceSchema = v.picklist(['player', 'system'])
-export type ProtocolEntrySource = v.InferOutput<typeof ProtocolEntrySourceSchema>
-
 export const ProtocolEntryTypeSchema = v.picklist(['player-command', 'system-note', 'correction'])
-export type ProtocolEntryType = v.InferOutput<typeof ProtocolEntryTypeSchema>
 
 export const ProtocolEntrySchema = v.object({
   source: ProtocolEntrySourceSchema,
@@ -27,86 +24,132 @@ export const ProtocolEntrySchema = v.object({
 })
 export type ProtocolEntry = v.InferOutput<typeof ProtocolEntrySchema>
 
-const BaseClientFactSchema = v.object({
-  factId: FactIdSchema,
-  matchId: MatchIdSchema,
-  clientId: ClientIdSchema,
-  clientSeq: NonNegativeIntegerSchema,
-  at: UnixEpochMillisecondsSchema,
+const FrameStartedPayloadSchema = v.object({
+  frameIndex: PositiveIntegerSchema,
+  gameKey: GameKeySchema,
+  targetPointsBySeat: BySeatNumberSchema,
+  breakerSeat: SeatSchema,
+  gameConfiguration: v.optional(GameConfigurationSchema),
 })
 
-export const MatchCreatedFactSchema = v.object({
-  ...BaseClientFactSchema.entries,
+const GameCommandPayloadSchema = v.object({
+  frameIndex: PositiveIntegerSchema,
+  gameKey: GameKeySchema,
+  commandType: SizedStringSchema(1, 64),
+  command: UnknownObjectSchema,
+  protocolEntries: v.pipe(v.array(ProtocolEntrySchema), v.minLength(1)),
+})
+
+const FrameCompletedPayloadSchema = v.object({
+  frameIndex: PositiveIntegerSchema,
+  gameKey: GameKeySchema,
+  outcome: FrameOutcomeSchema,
+})
+
+const MatchEndedPayloadSchema = v.object({
+  winnerSeat: SeatSchema,
+})
+
+const MatchCreatedContentSchema = v.object({
   type: v.literal('match.created'),
   payload: MatchConfigSchema,
 })
 
-export const FrameStartedFactSchema = v.object({
-  ...BaseClientFactSchema.entries,
+const FrameStartedContentSchema = v.object({
   type: v.literal('frame.started'),
-  payload: v.object({
-    frameIndex: PositiveIntegerSchema,
-    gameKey: GameKeySchema,
-    targetPointsBySeat: BySeatNumberSchema,
-    breakerSeat: SeatSchema,
-    gameConfiguration: v.optional(GameConfigurationSchema),
+  payload: FrameStartedPayloadSchema,
+})
+
+const GameCommandContentSchema = v.object({
+  type: v.literal('game.command'),
+  payload: GameCommandPayloadSchema,
+})
+
+const FrameCompletedContentSchema = v.object({
+  type: v.literal('frame.completed'),
+  payload: FrameCompletedPayloadSchema,
+})
+
+const MatchEndedContentSchema = v.object({
+  type: v.literal('match.ended'),
+  payload: MatchEndedPayloadSchema,
+})
+
+export const MatchFactContentSchema = v.variant('type', [
+  MatchCreatedContentSchema,
+  FrameStartedContentSchema,
+  GameCommandContentSchema,
+  FrameCompletedContentSchema,
+  MatchEndedContentSchema,
+])
+
+export type MatchFactContent = v.InferOutput<typeof MatchFactContentSchema>
+
+/** Semantic facts produced atomically by one accepted match command. */
+export type MatchFactContentBatch = readonly [MatchFactContent, ...MatchFactContent[]]
+
+/** Accepted semantic history, beginning with a singleton match.created batch. */
+export type MatchFactContentHistory = readonly [MatchFactContentBatch, ...MatchFactContentBatch[]]
+
+const MatchFactEnvelopeBaseSchema = v.object({
+  factId: FactIdSchema,
+  matchId: MatchIdSchema,
+})
+
+export const MatchCreatedFactSchema = v.pipe(
+  v.object({
+    ...MatchFactEnvelopeBaseSchema.entries,
+    causedByCommandId: v.null(),
+    type: v.literal('match.created'),
+    payload: MatchConfigSchema,
   }),
+  v.check((input) => input.matchId === input.payload.matchId, 'match.created envelope and payload match IDs must agree'),
+)
+
+export const FrameStartedFactSchema = v.object({
+  ...MatchFactEnvelopeBaseSchema.entries,
+  causedByCommandId: CommandIdSchema,
+  type: v.literal('frame.started'),
+  payload: FrameStartedPayloadSchema,
 })
 
 export const GameCommandFactSchema = v.object({
-  ...BaseClientFactSchema.entries,
+  ...MatchFactEnvelopeBaseSchema.entries,
+  causedByCommandId: CommandIdSchema,
   type: v.literal('game.command'),
-  payload: v.object({
-    frameIndex: PositiveIntegerSchema,
-    gameKey: GameKeySchema,
-    commandType: SizedStringSchema(1, 64),
-    command: UnknownObjectSchema,
-    protocolEntries: v.pipe(v.array(ProtocolEntrySchema), v.minLength(1)),
-  }),
+  payload: GameCommandPayloadSchema,
 })
 
 export const FrameCompletedFactSchema = v.object({
-  ...BaseClientFactSchema.entries,
+  ...MatchFactEnvelopeBaseSchema.entries,
+  causedByCommandId: CommandIdSchema,
   type: v.literal('frame.completed'),
-  payload: v.object({
-    frameIndex: PositiveIntegerSchema,
-    gameKey: GameKeySchema,
-    outcome: FrameOutcomeSchema,
-  }),
-})
-
-export const FrameReopenedFactSchema = v.object({
-  ...BaseClientFactSchema.entries,
-  type: v.literal('frame.reopened'),
-  payload: v.object({
-    frameIndex: PositiveIntegerSchema,
-    reason: v.optional(SizedStringSchema(1, 64)),
-  }),
+  payload: FrameCompletedPayloadSchema,
 })
 
 export const MatchEndedFactSchema = v.object({
-  ...BaseClientFactSchema.entries,
+  ...MatchFactEnvelopeBaseSchema.entries,
+  causedByCommandId: CommandIdSchema,
   type: v.literal('match.ended'),
-  payload: v.object({ winnerSeat: SeatSchema }),
+  payload: MatchEndedPayloadSchema,
 })
 
-export const ClientFactSchema = v.variant('type', [
+export const MatchFactSchema = v.variant('type', [
   MatchCreatedFactSchema,
   FrameStartedFactSchema,
   GameCommandFactSchema,
   FrameCompletedFactSchema,
-  FrameReopenedFactSchema,
   MatchEndedFactSchema,
 ])
 
-export type ClientFact = v.InferOutput<typeof ClientFactSchema>
+export type MatchFact = v.InferOutput<typeof MatchFactSchema>
 
-export const StoredFactSchema = v.pipe(
+export const StoredMatchFactSchema = v.pipe(
   v.intersect([
-    ClientFactSchema,
+    MatchFactSchema,
     v.object({
       seq: PositiveIntegerSchema,
-      receivedAt: UnixEpochMillisecondsSchema,
+      acceptedAt: UnixEpochMillisecondsSchema,
     }),
   ]),
   v.check(
@@ -115,4 +158,10 @@ export const StoredFactSchema = v.pipe(
   ),
 )
 
-export type StoredFact = v.InferOutput<typeof StoredFactSchema>
+export type StoredMatchFact = v.InferOutput<typeof StoredMatchFactSchema>
+
+export const AcceptedFactRefSchema = v.object({
+  seq: PositiveIntegerSchema,
+  factId: FactIdSchema,
+})
+export type AcceptedFactRef = v.InferOutput<typeof AcceptedFactRefSchema>

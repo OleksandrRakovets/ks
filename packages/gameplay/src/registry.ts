@@ -1,28 +1,19 @@
 import * as v from 'valibot'
 
-import type { GameCommandResult, GameCreateStateArgs, GameMeta } from './constants'
-import type {
-  LongFreePyramidControlView,
-  LongFreePyramidFrameState,
-  LongFreePyramidScoreboardView,
-  LongFreePyramidSummaryView,
-} from './long-free-pyramid/definitions'
-import type {
-  CombinedPyramidControlView,
-  CombinedPyramidOldControlView,
-  CombinedPyramidOldScoreboardView,
-  CombinedPyramidOldSummaryView,
-  CombinedPyramidScoreboardView,
-  CombinedPyramidSummaryView,
-  FreePyramidControlView,
-  FreePyramidScoreboardView,
-  FreePyramidSummaryView,
-  PyramidFrameState,
+import type { GameMeta } from './constants'
+import { LongFreePyramidCommandSchema, LongFreePyramidControlViewSchema } from './long-free-pyramid/definitions'
+import {
+  CombinedPyramidControlViewSchema,
+  CombinedPyramidOldControlViewSchema,
+  FreePyramidControlViewSchema,
+  PyramidCommandSchema,
 } from './pyramid/definitions'
-import type { StrilaControlView, StrilaFrameState, StrilaScoreboardView, StrilaSummaryView } from './strila-v2/definitions'
+import { StrilaCommandSchema, StrilaControlViewSchema } from './strila-v2/definitions'
 
 type RegistryEntry = {
   meta: GameMeta
+  commandSchema: v.GenericSchema
+  controlSchema: v.GenericSchema
 }
 
 export const registry = {
@@ -32,9 +23,10 @@ export const registry = {
         uk: 'Стріла',
         en: 'Strila',
       },
-      inputMode: 'strila-basic',
       defaultFrameTargetPointsBySeat: { A: 9, B: 9 },
     },
+    commandSchema: StrilaCommandSchema,
+    controlSchema: StrilaControlViewSchema,
   },
   'free-pyramid': {
     meta: {
@@ -42,9 +34,10 @@ export const registry = {
         uk: 'Вільна піраміда',
         en: 'Free pyramid',
       },
-      inputMode: 'pyramid-basic',
       defaultFrameTargetPointsBySeat: { A: 8, B: 8 },
     },
+    commandSchema: PyramidCommandSchema,
+    controlSchema: FreePyramidControlViewSchema,
   },
   'free-pyramid-long': {
     meta: {
@@ -52,9 +45,10 @@ export const registry = {
         uk: 'Вільна піраміда з продовженням',
         en: 'Free pyramid (long)',
       },
-      inputMode: 'pyramid-basic',
       defaultFrameTargetPointsBySeat: { A: 30, B: 30 },
     },
+    commandSchema: LongFreePyramidCommandSchema,
+    controlSchema: LongFreePyramidControlViewSchema,
   },
   'combined-pyramid': {
     meta: {
@@ -62,9 +56,10 @@ export const registry = {
         uk: 'Комбінована піраміда',
         en: 'Combined pyramid',
       },
-      inputMode: 'pyramid-basic',
       defaultFrameTargetPointsBySeat: { A: 8, B: 8 },
     },
+    commandSchema: PyramidCommandSchema,
+    controlSchema: CombinedPyramidControlViewSchema,
   },
   'combined-pyramid-old': {
     meta: {
@@ -72,9 +67,10 @@ export const registry = {
         uk: 'Комбінована піраміда (старі правила)',
         en: 'Combined pyramid (old rules)',
       },
-      inputMode: 'pyramid-basic',
       defaultFrameTargetPointsBySeat: { A: 8, B: 8 },
     },
+    commandSchema: PyramidCommandSchema,
+    controlSchema: CombinedPyramidOldControlViewSchema,
   },
 } as const satisfies Record<string, RegistryEntry>
 
@@ -83,52 +79,8 @@ const registeredGameKeys = Object.keys(registry) as [keyof typeof registry, ...(
 export const RegisteredGameKeySchema = v.picklist(registeredGameKeys)
 export type RegisteredGameKey = v.InferOutput<typeof RegisteredGameKeySchema>
 
-export type GameContracts = {
-  'strila-v2': {
-    state: StrilaFrameState
-    control: StrilaControlView
-    scoreboard: StrilaScoreboardView
-    summary: StrilaSummaryView
-  }
-  'free-pyramid': {
-    state: PyramidFrameState
-    control: FreePyramidControlView
-    scoreboard: FreePyramidScoreboardView
-    summary: FreePyramidSummaryView
-  }
-  'free-pyramid-long': {
-    state: LongFreePyramidFrameState
-    control: LongFreePyramidControlView
-    scoreboard: LongFreePyramidScoreboardView
-    summary: LongFreePyramidSummaryView
-  }
-  'combined-pyramid': {
-    state: PyramidFrameState
-    control: CombinedPyramidControlView
-    scoreboard: CombinedPyramidScoreboardView
-    summary: CombinedPyramidSummaryView
-  }
-  'combined-pyramid-old': {
-    state: PyramidFrameState
-    control: CombinedPyramidOldControlView
-    scoreboard: CombinedPyramidOldScoreboardView
-    summary: CombinedPyramidOldSummaryView
-  }
-}
-
-export type GameStateFor<K extends RegisteredGameKey> = GameContracts[K]['state']
-export type ControlProjectionFor<K extends RegisteredGameKey> = GameContracts[K]['control']
-export type ScoreboardProjectionFor<K extends RegisteredGameKey> = GameContracts[K]['scoreboard']
-export type SummaryProjectionFor<K extends RegisteredGameKey> = GameContracts[K]['summary']
-
-export interface GameplayDefinition<K extends RegisteredGameKey> {
-  readonly key: K
-  createInitialState(args: GameCreateStateArgs): GameStateFor<K>
-  applyCommand(args: { state: GameStateFor<K>; commandType: string; command: unknown }): GameCommandResult<GameStateFor<K>>
-  deriveControl(state: GameStateFor<K>): ControlProjectionFor<K>
-  deriveScoreboard(state: GameStateFor<K>): ScoreboardProjectionFor<K>
-  deriveSummary(state: GameStateFor<K>): SummaryProjectionFor<K>
-}
+export type ControlProjectionFor<K extends RegisteredGameKey> = v.InferOutput<(typeof registry)[K]['controlSchema']>
+export type GameCommandFor<K extends RegisteredGameKey> = v.InferOutput<(typeof registry)[K]['commandSchema']>
 
 export function isRegisteredGameKey(value: string): value is RegisteredGameKey {
   return v.is(RegisteredGameKeySchema, value)
@@ -140,8 +92,4 @@ export function listGameKeys(): RegisteredGameKey[] {
     if (isRegisteredGameKey(key)) keys.push(key)
   }
   return keys
-}
-
-export function getGameMeta(gameKey: RegisteredGameKey): GameMeta {
-  return registry[gameKey].meta
 }

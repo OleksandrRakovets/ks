@@ -2,7 +2,7 @@ import {
   type BySeatNumber,
   BySeatNumberSchema,
   type MatchId,
-  type MatchSnapshot,
+  type MatchState,
   opponentOf,
   PositiveIntegerSchema,
   type ProtocolEntry,
@@ -10,7 +10,7 @@ import {
   ProtocolEntryTypeSchema,
   type Seat,
   SeatSchema,
-  type StoredFact,
+  type StoredMatchFact,
   type UnixEpochMilliseconds,
   UnixEpochMillisecondsSchema,
   UnknownObjectSchema,
@@ -35,9 +35,9 @@ export class ProtocolArchiveCorruptionError extends Error {
 
 const ArchiveBodySchema = UnknownObjectSchema
 
-export const ProtocolArchiveRowSchema = v.object({
+const ProtocolArchiveRowSchema = v.object({
   rowNo: PositiveIntegerSchema,
-  receivedAt: UnixEpochMillisecondsSchema,
+  acceptedAt: UnixEpochMillisecondsSchema,
   frameIndex: v.optional(PositiveIntegerSchema),
   source: ProtocolEntrySourceSchema,
   entryType: ProtocolEntryTypeSchema,
@@ -53,7 +53,7 @@ export type ProtocolArchiveRecord = {
   sourceLatestSeq: number
   protocolVersion: typeof PROTOCOL_ARCHIVE_VERSION
   rows: ProtocolArchiveRow[]
-  snapshot: MatchSnapshot
+  state: MatchState
 }
 
 export const ProtocolArchiveSchema = v.object({
@@ -62,7 +62,7 @@ export const ProtocolArchiveSchema = v.object({
 })
 
 type SeatNames = { A: string; B: string }
-type StoredGameCommandFact = Extract<StoredFact, { type: 'game.command' }>
+type StoredGameCommandFact = Extract<StoredMatchFact, { type: 'game.command' }>
 
 export type ProtocolRow = {
   key: string
@@ -73,7 +73,7 @@ export type ProtocolRow = {
     pottedBalls?: ProtocolBall[]
   }
   score?: BySeatNumber | undefined
-  receivedAt: UnixEpochMilliseconds
+  acceptedAt: UnixEpochMilliseconds
   timeLabel: string
 }
 
@@ -198,7 +198,7 @@ function entryMessage(
 
 function rowFromProtocolEntry(fact: StoredGameCommandFact, entry: ProtocolEntry): ProtocolArchiveRowDraft {
   return {
-    receivedAt: fact.receivedAt,
+    acceptedAt: fact.acceptedAt,
     frameIndex: fact.payload.frameIndex,
     source: entry.source,
     entryType: entry.entryType,
@@ -208,11 +208,11 @@ function rowFromProtocolEntry(fact: StoredGameCommandFact, entry: ProtocolEntry)
   }
 }
 
-function lifecycleRowsForFact(fact: StoredFact, previous: StoredFact | undefined): ProtocolArchiveRowDraft[] {
+function lifecycleRowsForFact(fact: StoredMatchFact, previous: StoredMatchFact | undefined): ProtocolArchiveRowDraft[] {
   if (fact.type === 'frame.started') {
     return [
       {
-        receivedAt: fact.receivedAt,
+        acceptedAt: fact.acceptedAt,
         frameIndex: fact.payload.frameIndex,
         source: 'system',
         entryType: 'system-note',
@@ -228,7 +228,7 @@ function lifecycleRowsForFact(fact: StoredFact, previous: StoredFact | undefined
     const conceded = fact.payload.outcome.winReason === 'conceded'
     return [
       {
-        receivedAt: fact.receivedAt,
+        acceptedAt: fact.acceptedAt,
         frameIndex: fact.payload.frameIndex,
         source: 'system',
         entryType: 'system-note',
@@ -242,7 +242,7 @@ function lifecycleRowsForFact(fact: StoredFact, previous: StoredFact | undefined
   if (fact.type === 'match.ended') {
     return [
       {
-        receivedAt: fact.receivedAt,
+        acceptedAt: fact.acceptedAt,
         source: 'system',
         entryType: 'system-note',
         seat: fact.payload.winnerSeat,
@@ -254,7 +254,7 @@ function lifecycleRowsForFact(fact: StoredFact, previous: StoredFact | undefined
   return []
 }
 
-export function prepareProtocolRowsForArchive(facts: StoredFact[]): ProtocolArchiveRow[] {
+export function prepareProtocolRowsForArchive(facts: StoredMatchFact[]): ProtocolArchiveRow[] {
   const ordered = [...facts].sort((a, b) => a.seq - b.seq)
   const drafts = ordered.flatMap((fact, factIndex): ProtocolArchiveRowDraft[] => {
     if (fact.type === 'game.command') return fact.payload.protocolEntries.map((entry) => rowFromProtocolEntry(fact, entry))
@@ -275,8 +275,8 @@ export function renderProtocolRows(
       key: `protocol-${row.rowNo}`,
       message: entryMessage(row, seatNames),
       score: row.scoreAfter,
-      receivedAt: row.receivedAt,
-      timeLabel: new Date(row.receivedAt).toLocaleTimeString(locale, {
+      acceptedAt: row.acceptedAt,
+      timeLabel: new Date(row.acceptedAt).toLocaleTimeString(locale, {
         hour: '2-digit',
         minute: '2-digit',
         hour12: false,
@@ -286,6 +286,11 @@ export function renderProtocolRows(
   })
 }
 
-export function deriveProtocolRows(facts: StoredFact[], seatNames: SeatNames, timeZone: string, locale = 'en'): ProtocolRow[] {
+export function deriveProtocolRows(
+  facts: StoredMatchFact[],
+  seatNames: SeatNames,
+  timeZone: string,
+  locale = 'en',
+): ProtocolRow[] {
   return renderProtocolRows(prepareProtocolRowsForArchive(facts), seatNames, timeZone, locale)
 }

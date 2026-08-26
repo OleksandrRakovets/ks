@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 
-import { StoredFactSchema } from '@ks/core'
+import { StoredMatchFactSchema } from '@ks/core'
 import * as v from 'valibot'
 
 import { Broadcaster } from './broadcaster'
@@ -15,14 +15,12 @@ test('broadcasts the terminal fact before closing every stream', async () => {
   await readerB.read()
 
   broadcaster.broadcast(
-    v.parse(StoredFactSchema, {
+    v.parse(StoredMatchFactSchema, {
       seq: 3,
       factId: '01ARZ3NDEKTSV4RRFFQ69G5FAC',
       matchId: '01ARZ3NDEKTSV4RRFFQ69G5FAV',
-      clientId: 'server0000',
-      clientSeq: 0,
-      at: 1_700_000_000_000,
-      receivedAt: 1_700_000_000_001,
+      acceptedAt: 1_700_000_000_001,
+      causedByCommandId: '01ARZ3NDEKTSV4RRFFQ69G5FAD',
       type: 'match.ended',
       payload: { winnerSeat: 'A' },
     }),

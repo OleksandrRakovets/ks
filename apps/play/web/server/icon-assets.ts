@@ -8,7 +8,7 @@ type IconEnv = {
   KS_DEPLOY_ENV?: string
 }
 
-export function iconVariantFromEnv(env: IconEnv | undefined): IconVariant {
+function iconVariantFromEnv(env: IconEnv | undefined): IconVariant {
   return env?.KS_DEPLOY_ENV === 'production' ? 'green' : 'amber'
 }
 

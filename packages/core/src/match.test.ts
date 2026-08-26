@@ -3,7 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import * as v from 'valibot'
 
 import { MatchIdSchema } from './ids'
-import { BySeatNumberSchema, GameKeySchema, MatchSnapshotSchema, MatchTargetsSchema } from './match'
+import { BySeatNumberSchema, GameKeySchema, MatchStateSchema, MatchTargetsSchema } from './match'
 
 describe('match value schemas', () => {
   test('requires positive frame and match targets', () => {
@@ -41,8 +41,8 @@ describe('match value schemas', () => {
     ).toBe(false)
   })
 
-  test('decodes a historical syntactic game key in a persisted snapshot', () => {
-    const snapshot = v.parse(MatchSnapshotSchema, {
+  test('decodes a historical syntactic game key in persisted state', () => {
+    const state = v.parse(MatchStateSchema, {
       matchId: v.parse(MatchIdSchema, '01ARZ3NDEKTSV4RRFFQ69G5FAV'),
       gameKey: 'historical-game',
       targets: { frameTargetPointsBySeat: { A: 8, B: 8 }, matchTargetFrames: 1 },
@@ -50,9 +50,8 @@ describe('match value schemas', () => {
       currentFrameIndex: 1,
       framesWonBySeat: { A: 1, B: 0 },
       frames: [{ frameIndex: 1, pointsBySeat: { A: 8, B: 3 }, breakerSeat: 'A', winnerSeat: 'A' }],
-      latestSeq: 4,
     })
 
-    expect(snapshot.gameKey).toBe('historical-game')
+    expect(state.gameKey).toBe('historical-game')
   })
 })

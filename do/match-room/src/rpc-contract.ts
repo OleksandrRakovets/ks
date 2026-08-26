@@ -8,6 +8,8 @@ import {
 } from '@ks/core'
 import * as v from 'valibot'
 
+import type { CommandReceiptOutcome } from './storage/command-receipt'
+
 const ControlSecretSchema = v.pipe(v.string(), v.minLength(16))
 
 export const CreateBodySchema = v.intersect([
@@ -19,13 +21,13 @@ export const CreateBodySchema = v.intersect([
   }),
 ])
 
-export const FactsBodySchema = v.object({
+export const SubmitCommandBodySchema = v.object({
   matchId: MatchIdSchema,
   commandId: CommandIdSchema,
   command: ControlCommandSchema,
 })
 
-export const SnapshotBodySchema = v.object({
+export const MatchIdBodySchema = v.object({
   matchId: MatchIdSchema,
 })
 
@@ -35,6 +37,22 @@ export const StreamBodySchema = v.object({
 })
 
 export type CreateBody = v.InferInput<typeof CreateBodySchema>
-export type FactsBody = v.InferInput<typeof FactsBodySchema>
-export type SnapshotBody = v.InferInput<typeof SnapshotBodySchema>
+export type SubmitCommandBody = v.InferInput<typeof SubmitCommandBodySchema>
+export type MatchIdBody = v.InferInput<typeof MatchIdBodySchema>
 export type StreamBody = v.InferInput<typeof StreamBodySchema>
+
+export type SubmitCommandResult =
+  | {
+      readonly ok: true
+      readonly outcome: CommandReceiptOutcome
+      readonly finalizing?: true
+    }
+  | {
+      readonly ok: false
+      readonly error: 'invalid-command-body' | 'unknown-match' | 'command-id-conflict' | 'match-locked'
+      readonly status: number
+    }
+
+export function canonicalCommandJson(command: v.InferOutput<typeof ControlCommandSchema>): string {
+  return JSON.stringify(v.parse(ControlCommandSchema, command))
+}

@@ -3,14 +3,11 @@ import {
   type GameKey,
   type MatchConfig,
   type MatchId,
-  MatchIdSchema,
   MatchSeatAssignmentSchema,
   MatchTargetsSchema,
-  type PlayerRef,
   SeatSchema,
-  stripOptionalPrefix,
 } from '@ks/core'
-import type { MatchSnapshot } from '@ks/core'
+import type { MatchState } from '@ks/core'
 import { RegisteredGameKeySchema } from '@ks/gameplay/definitions'
 import * as v from 'valibot'
 
@@ -43,21 +40,7 @@ export const CreateMatchRequestSchema = v.pipe(
 
 export type CreateMatchRequest = v.InferOutput<typeof CreateMatchRequestSchema>
 
-export type MatchSnapshotFor<K extends GameKey> = Omit<MatchSnapshot, 'gameKey'> & { gameKey: K }
-
-type MatchAssignmentsBySeat = { A: PlayerRef; B: PlayerRef }
-
-export function assignmentsBySeat(participants: CreateMatchRequest['participants']): MatchAssignmentsBySeat {
-  const seatA = participants.find((participant) => participant.seat === 'A')
-  const seatB = participants.find((participant) => participant.seat === 'B')
-  if (!seatA || !seatB) {
-    throw new Error('Participants must include one A and one B seat')
-  }
-  return {
-    A: seatA.playerRef,
-    B: seatB.playerRef,
-  }
-}
+export type MatchStateFor<K extends GameKey> = Omit<MatchState, 'gameKey'> & { gameKey: K }
 
 export function buildMatchConfig(matchId: MatchId, input: CreateMatchRequest): MatchConfig {
   return {
@@ -67,8 +50,4 @@ export function buildMatchConfig(matchId: MatchId, input: CreateMatchRequest): M
     firstBreakerSeat: input.firstBreakerSeat,
     gameConfiguration: input.gameConfiguration,
   }
-}
-
-export function normalizeMatchId(raw: string): MatchId {
-  return v.parse(MatchIdSchema, stripOptionalPrefix(raw))
 }

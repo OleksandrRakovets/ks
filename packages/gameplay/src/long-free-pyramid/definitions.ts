@@ -1,9 +1,20 @@
 import { BySeatNumberSchema, ControlCommandSectionsSchema, IntegerSchema, SeatSchema } from '@ks/core'
 import * as v from 'valibot'
 
-import { GameControlProjectionSchema, GameScoreboardProjectionSchema, GameSummaryProjectionSchema } from '../constants'
+import { FoulCommitCommandSchema, FrameAwardCommandSchema, FrameCommenceCommandSchema } from '../command-schemas'
+import { GameControlProjectionSchema } from '../constants'
 
-export const LongFreePyramidRackSchema = v.object({
+const LongFreePyramidPotPointsSchema = v.picklist([1, 2, 3, 4])
+
+export const LongFreePyramidCommandSchema = v.variant('type', [
+  FrameCommenceCommandSchema,
+  v.strictObject({ type: v.literal('pot.record'), seat: SeatSchema, points: LongFreePyramidPotPointsSchema }),
+  FoulCommitCommandSchema,
+  FrameAwardCommandSchema,
+])
+export type LongFreePyramidCommand = v.InferOutput<typeof LongFreePyramidCommandSchema>
+
+const LongFreePyramidRackSchema = v.object({
   rackNumber: v.pipe(IntegerSchema, v.minValue(1)),
   scoreBySeat: BySeatNumberSchema,
 })
@@ -13,19 +24,26 @@ const LongFreePyramidMessageSchema = v.object({
   code: v.literal('rack-started'),
   rackNumber: v.pipe(IntegerSchema, v.minValue(1)),
 })
+export const LongFreePyramidPhaseSchema = v.picklist([
+  'not-started',
+  'open-play',
+  'winner-determined',
+  'awaiting-award',
+  'frame-over',
+])
+export type LongFreePyramidPhase = v.InferOutput<typeof LongFreePyramidPhaseSchema>
 
-export const LongFreePyramidFrameStateSchema = v.object({
+const LongFreePyramidContextSchema = v.object({
   racks: v.pipe(v.array(LongFreePyramidRackSchema), v.minLength(1)),
-  targetPointsBySeat: BySeatNumberSchema,
+  targetPoints: BySeatNumberSchema,
   rackRollover: v.picklist([14, 15]),
-  phase: v.picklist(['not-started', 'open-play', 'winner-determined', 'awaiting-award', 'frame-over']),
-  winnerSeat: v.optional(SeatSchema),
+  winner: v.nullable(SeatSchema),
   messages: v.array(LongFreePyramidMessageSchema),
 })
-export type LongFreePyramidFrameState = v.InferOutput<typeof LongFreePyramidFrameStateSchema>
+export type LongFreePyramidContext = v.InferOutput<typeof LongFreePyramidContextSchema>
 
-export const LongFreePyramidProjectionDetailsSchema = v.object({
-  phase: v.picklist(['not-started', 'open-play', 'winner-determined', 'awaiting-award', 'frame-over']),
+const LongFreePyramidProjectionDetailsSchema = v.object({
+  phase: LongFreePyramidPhaseSchema,
   winner: v.optional(SeatSchema),
   rackHistory: v.pipe(v.array(LongFreePyramidRackSchema), v.minLength(1)),
   currentRack: LongFreePyramidRackSchema,
@@ -35,12 +53,11 @@ export const LongFreePyramidProjectionDetailsSchema = v.object({
 })
 export type LongFreePyramidProjectionDetails = v.InferOutput<typeof LongFreePyramidProjectionDetailsSchema>
 
-export const LongFreePyramidControlDetailsSchema = v.object({
+const LongFreePyramidControlDetailsSchema = v.object({
   ...LongFreePyramidProjectionDetailsSchema.entries,
   isPotCommandAvailable: v.boolean(),
   commandSections: ControlCommandSectionsSchema,
 })
-export type LongFreePyramidControlDetails = v.InferOutput<typeof LongFreePyramidControlDetailsSchema>
 
 export const LongFreePyramidControlViewSchema = v.object({
   ...GameControlProjectionSchema.entries,
@@ -48,17 +65,3 @@ export const LongFreePyramidControlViewSchema = v.object({
   details: LongFreePyramidControlDetailsSchema,
 })
 export type LongFreePyramidControlView = v.InferOutput<typeof LongFreePyramidControlViewSchema>
-
-export const LongFreePyramidScoreboardViewSchema = v.object({
-  ...GameScoreboardProjectionSchema.entries,
-  gameKey: v.literal('free-pyramid-long'),
-  details: LongFreePyramidProjectionDetailsSchema,
-})
-export type LongFreePyramidScoreboardView = v.InferOutput<typeof LongFreePyramidScoreboardViewSchema>
-
-export const LongFreePyramidSummaryViewSchema = v.object({
-  ...GameSummaryProjectionSchema.entries,
-  gameKey: v.literal('free-pyramid-long'),
-  details: LongFreePyramidProjectionDetailsSchema,
-})
-export type LongFreePyramidSummaryView = v.InferOutput<typeof LongFreePyramidSummaryViewSchema>

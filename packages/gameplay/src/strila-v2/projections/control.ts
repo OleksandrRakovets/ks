@@ -8,9 +8,9 @@ import {
   type StrilaControlCommand,
   type StrilaControlDetails,
   type StrilaControlView,
-  type StrilaFrameState,
   StrilaMeta,
 } from '../definitions'
+import { getPhase, type StrilaSparringFrameSnapshot } from '../machine'
 import { computeStrilaObjectBalls } from './computeds'
 
 type StrilaControlCommandInput =
@@ -30,10 +30,10 @@ function seatCommands(commandType: StrilaSeatControlCommandType, prominence: Str
   return [command({ type: commandType, seat: 'A' }, { prominence }), command({ type: commandType, seat: 'B' }, { prominence })]
 }
 
-function deriveBallStatuses(state: StrilaFrameState): StrilaControlDetails['ballStatuses'] {
-  const objectBalls = new Set(computeStrilaObjectBalls(state.coloredBallsOnTable))
-  const onTableColored = new Set(state.coloredBallsOnTable)
-  const cueStatus: 'object' | 'on-table' = state.phase === 'respotted-black.opening' ? 'on-table' : 'object'
+function deriveBallStatuses(snapshot: StrilaSparringFrameSnapshot): StrilaControlDetails['ballStatuses'] {
+  const objectBalls = new Set(computeStrilaObjectBalls(snapshot.context.coloredBallsOnTable))
+  const onTableColored = new Set(snapshot.context.coloredBallsOnTable)
+  const cueStatus: 'object' | 'on-table' = getPhase(snapshot) === 'respotted-black.opening' ? 'on-table' : 'object'
   const ballStatuses = v.parse(StrilaBallStatusesSchema, {
     0: cueStatus,
     1: 'potted',
@@ -74,7 +74,7 @@ function messages(entries: Array<{ type: 'hint' | 'warning'; code: 'cue-ball-and
 }
 
 function view(
-  state: StrilaFrameState,
+  snapshot: StrilaSparringFrameSnapshot,
   args: {
     commands: StrilaControlCommand[]
     situationTitle: string
@@ -86,38 +86,38 @@ function view(
   return {
     gameKey: 'strila-v2',
     projection: 'control',
-    score: state.score,
+    score: { ...snapshot.context.score },
     details: {
-      phase: state.phase,
+      phase: getPhase(snapshot),
       seat: args.seat,
       situationTitle: args.situationTitle,
       situationSummary: args.situationSummary,
       isPotCommandAvailable: args.commands.some((entry) => entry.commandType === 'pot.record'),
-      ballStatuses: deriveBallStatuses(state),
+      ballStatuses: deriveBallStatuses(snapshot),
       commandSections: deriveGameCommandSections(args.commands),
       messages: messages(args.messages ?? []),
     },
   }
 }
 
-export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlView {
-  switch (state.phase) {
+export function deriveStrilaControlView(snapshot: StrilaSparringFrameSnapshot): StrilaControlView {
+  switch (getPhase(snapshot)) {
     case 'not-started':
-      return view(state, {
+      return view(snapshot, {
         commands: [],
         situationTitle: 'Break-off',
         situationSummary: 'Waiting for the match to open the frame.',
       })
     case 'open-play':
-      return view(state, {
+      return view(snapshot, {
         commands: [...seatCommands('pot.record', 'primary'), ...seatCommands('foul.commit', 'secondary')],
         situationTitle: 'Open play',
         situationSummary: 'Log pots or a foul.',
       })
     case 'foul-committed.penalty-selection': {
-      invariant(state.foulOffender !== null, 'Foul offender is required while selecting a foul penalty')
-      const chooser = opponentOf(state.foulOffender)
-      return view(state, {
+      invariant(snapshot.context.foulOffender !== null, 'Foul offender is required while selecting a foul penalty')
+      const chooser = opponentOf(snapshot.context.foulOffender)
+      return view(snapshot, {
         commands: [
           command(
             { type: 'penalty.select', seat: chooser, choice: 'play-from-position' },
@@ -147,7 +147,7 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
       })
     }
     case 'foul-committed.ball-in-hand':
-      return view(state, {
+      return view(snapshot, {
         commands: [
           ...seatCommands('pot.record', 'primary'),
           ...seatCommands('miss.record', 'primary'),
@@ -158,7 +158,7 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
         messages: [{ type: 'warning', code: 'cue-ball-and-colored-is-foul' }],
       })
     case 'respotted-black.opening':
-      return view(state, {
+      return view(snapshot, {
         commands: [
           ...seatCommands('pot.record', 'primary'),
           ...seatCommands('miss.record', 'primary'),
@@ -169,24 +169,24 @@ export function deriveStrilaControlView(state: StrilaFrameState): StrilaControlV
         messages: [{ type: 'hint', code: 'black-pot-wins' }],
       })
     case 'respotted-black.play':
-      return view(state, {
+      return view(snapshot, {
         commands: [...seatCommands('pot.record', 'primary'), ...seatCommands('foul.commit', 'secondary')],
         situationTitle: 'Respotted black play',
         situationSummary: 'Record the outcome of the shot on the respotted black.',
       })
     case 'winner-determined':
-      invariant(state.winner !== null, 'Winner is required before awarding a determined frame')
-      return view(state, {
+      invariant(snapshot.context.winner !== null, 'Winner is required before awarding a determined frame')
+      return view(snapshot, {
         commands: [
-          ...seatCommands('pot.record', 'primary'),
-          command({ type: 'frame.award', seat: state.winner }, { prominence: 'primary' }),
+          command({ type: 'pot.record', seat: snapshot.context.winner }, { prominence: 'primary' }),
+          command({ type: 'frame.award', seat: snapshot.context.winner }, { prominence: 'primary' }),
         ],
-        seat: state.winner,
+        seat: snapshot.context.winner,
         situationTitle: 'Winner determined',
         situationSummary: 'The break may continue, or the frame can be awarded now.',
       })
     case 'frame-over':
-      return view(state, {
+      return view(snapshot, {
         commands: [],
         situationTitle: 'Frame over',
         situationSummary: 'No further scoring commands are available.',

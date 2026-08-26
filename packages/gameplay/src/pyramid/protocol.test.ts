@@ -1,0 +1,22 @@
+import { expect, test } from 'bun:test'
+
+import { createInitialSnapshot, sendEvent } from './machine'
+import { projectPyramidProtocolEntries } from './protocol'
+import { PyramidRuleSpecificsByGameKey } from './rules'
+
+test('projects the exact ordered entry and scoreAfter for a foul', () => {
+  const rules = PyramidRuleSpecificsByGameKey['free-pyramid']
+  const previous = sendEvent(createInitialSnapshot(rules, { A: 8, B: 8 }), { type: 'frame.commence', seat: 'A' })
+  const command = { type: 'foul.commit', seat: 'A' } as const
+  const next = sendEvent(previous, command)
+
+  expect(projectPyramidProtocolEntries({ previous, command, next, rules })).toEqual([
+    {
+      source: 'player',
+      entryType: 'player-command',
+      seat: 'A',
+      scoreAfter: { A: 0, B: 1 },
+      body: { commandType: 'foul.commit', penalty: 'opponent-plus-one' },
+    },
+  ])
+})

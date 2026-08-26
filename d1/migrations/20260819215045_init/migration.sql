@@ -12,7 +12,7 @@ CREATE TABLE `match_protocol_archives` (
 	`source_latest_seq` integer NOT NULL,
 	`protocol_version` integer NOT NULL,
 	`rows_json` text NOT NULL,
-	`snapshot_json` text NOT NULL,
+	`state_json` text NOT NULL,
 	`created_at` integer NOT NULL
 );
 --> statement-breakpoint

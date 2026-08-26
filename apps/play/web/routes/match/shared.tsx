@@ -6,7 +6,7 @@ import {
   ControlCommandSchema,
   type MatchId,
   MatchIdSchema,
-  type MatchSnapshot,
+  type MatchState,
   newCommandId,
   StreamFactSchema,
   StreamReadySchema,
@@ -38,10 +38,10 @@ export type ControlRouteData<K extends RegisteredGameKey> = ControlSuccess<K> & 
 export type ProtocolRouteData<K extends RegisteredGameKey> = ProtocolSuccess<K> & { gameTitle: string }
 
 export function protocolFrameScore<K extends RegisteredGameKey>(
-  snapshot: ProtocolRouteData<K>['snapshot'],
+  state: ProtocolRouteData<K>['state'],
   controlProjection: ProtocolRouteData<K>['controlProjection'],
 ): BySeatNumber {
-  const snapshotFrame = snapshot.frames[snapshot.currentFrameIndex - 1]
+  const snapshotFrame = state.frames[state.currentFrameIndex - 1]
   return controlProjection?.score ?? snapshotFrame?.pointsBySeat ?? { A: 0, B: 0 }
 }
 
@@ -93,6 +93,7 @@ export async function loadMatchProtocol<K extends RegisteredGameKey>(
 function commandErrorKey(error: string): ControlActionErrorKey {
   if (error === 'unknown-match' || error === 'Unknown match') return keys.match.control.unknownMatch
   if (error === 'match-locked') return keys.match.control.matchLocked
+  if (error === 'invalid-command-body' || error === 'command-id-conflict') return keys.match.control.invalidFactPayload
   return keys.match.control.invalidFactPayload
 }
 
@@ -108,18 +109,23 @@ export async function commandMatchAction<K extends RegisteredGameKey>(
     return { ok: false, errorKey: keys.match.control.invalidFactPayload }
   }
 
-  const result = await requireApplication(args.context).commandMatch(matchId, commandId.output, command.output, expectedGameKey)
+  const result = await requireApplication(args.context).submitMatchCommand(
+    matchId,
+    commandId.output,
+    command.output,
+    expectedGameKey,
+  )
   if (!result.ok) {
     if (result.status === 404) throw new Response(result.error, { status: 404 })
     if (result.status === 409) return { ok: false, errorKey: keys.match.control.matchLocked }
     if (result.status >= 500) throw new Response(result.error, { status: result.status })
     return { ok: false, errorKey: commandErrorKey(result.error) }
   }
-  if (result.accepted.length === 0) return { ok: false, errorKey: keys.match.control.factRejectedByRules }
+  if (result.outcome._tag === 'rejected') return { ok: false, errorKey: keys.match.control.factRejectedByRules }
 
   return {
     ok: true,
-    acceptedSeqMax: result.accepted.reduce<number | null>(
+    acceptedSeqMax: result.outcome.accepted.reduce<number | null>(
       (max, entry) => (max == null ? entry.seq : Math.max(max, entry.seq)),
       null,
     ),
@@ -230,13 +236,14 @@ export function subscribeControlLive(args: {
 }
 
 export function useControlLiveRevalidation(
-  snapshot: MatchSnapshot,
+  state: MatchState,
+  latestSeq: number,
   fetcher: { state: string; data?: ControlActionData },
 ): () => void {
   const revalidator = useRevalidator()
   const liveStateRef = useRef<ControlLiveState>({
-    latestSeq: snapshot.latestSeq,
-    suppressUntilSeq: snapshot.latestSeq,
+    latestSeq,
+    suppressUntilSeq: latestSeq,
     localSubmitInFlight: false,
   })
   const revalidateRef = useRef(revalidator.revalidate)
@@ -252,8 +259,8 @@ export function useControlLiveRevalidation(
     revalidateRef.current = revalidator.revalidate
   }, [revalidator.revalidate])
   useEffect(() => {
-    applyLiveEvent({ type: 'snapshot', latestSeq: snapshot.latestSeq })
-  }, [snapshot.latestSeq])
+    applyLiveEvent({ type: 'snapshot', latestSeq })
+  }, [latestSeq])
   useEffect(() => {
     if (fetcher.data?.ok && fetcher.data.acceptedSeqMax != null) {
       applyLiveEvent({ type: 'accepted', seq: fetcher.data.acceptedSeqMax })
@@ -264,34 +271,34 @@ export function useControlLiveRevalidation(
   }, [fetcher.state])
 
   useEffect(() => {
-    if (snapshot.status !== 'active') return
+    if (state.status !== 'active') return
     return subscribeControlLive({
-      matchId: snapshot.matchId,
+      matchId: state.matchId,
       since: liveStateRef.current.latestSeq,
       createSource: (url) => new EventSource(url),
       applyEvent: applyLiveEvent,
     })
-  }, [snapshot.matchId, snapshot.status])
+  }, [state.matchId, state.status])
 
   return () => {
     applyLiveEvent({ type: 'submit-started' })
   }
 }
 
-export function useProtocolLiveRevalidation(snapshot: MatchSnapshot): void {
+export function useProtocolLiveRevalidation(state: MatchState, latestSeq: number): void {
   const revalidator = useRevalidator()
-  const latestSeqRef = useRef(snapshot.latestSeq)
+  const latestSeqRef = useRef(latestSeq)
   const revalidateRef = useRef(revalidator.revalidate)
 
   useEffect(() => {
     revalidateRef.current = revalidator.revalidate
   }, [revalidator.revalidate])
   useEffect(() => {
-    latestSeqRef.current = snapshot.latestSeq
-  }, [snapshot.latestSeq])
+    latestSeqRef.current = latestSeq
+  }, [latestSeq])
   useEffect(() => {
-    if (snapshot.status !== 'active') return
-    const stream = new EventSource(`/api/m/${snapshot.matchId}/stream/?since=${latestSeqRef.current}`)
+    if (state.status !== 'active') return
+    const stream = new EventSource(`/api/m/${state.matchId}/stream/?since=${latestSeqRef.current}`)
     const onReady = (event: Event) => {
       if (!(event instanceof MessageEvent)) return
       const parsed = v.safeParse(StreamReadyEventSchema, event.data)
@@ -318,7 +325,7 @@ export function useProtocolLiveRevalidation(snapshot: MatchSnapshot): void {
       stream.removeEventListener('error', onError)
       stream.close()
     }
-  }, [snapshot.matchId, snapshot.status])
+  }, [state.matchId, state.status])
 }
 
 function matchCommandLabel(t: TFunction, command: ControlCommandPreset): string {
@@ -418,7 +425,7 @@ export function ProtocolPanel(props: { rows: ProtocolRow[]; emptyLabel: string }
             {row.score ? <span className="text-xs text-muted-foreground">{`${row.score.A}:${row.score.B}`}</span> : null}
           </span>
           <span className="text-xs text-muted-foreground tabular-nums">
-            <time dateTime={new Date(row.receivedAt).toISOString()}>{row.timeLabel}</time>
+            <time dateTime={new Date(row.acceptedAt).toISOString()}>{row.timeLabel}</time>
           </span>
         </div>
       ))}

@@ -67,42 +67,22 @@
       "table": "accepted_facts"
     },
     {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "accepted_at",
+      "entityType": "columns",
+      "table": "accepted_facts"
+    },
+    {
       "type": "text",
-      "notNull": true,
+      "notNull": false,
       "autoincrement": false,
       "default": null,
       "generated": null,
-      "name": "client_id",
-      "entityType": "columns",
-      "table": "accepted_facts"
-    },
-    {
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "client_seq",
-      "entityType": "columns",
-      "table": "accepted_facts"
-    },
-    {
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "at",
-      "entityType": "columns",
-      "table": "accepted_facts"
-    },
-    {
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "received_at",
+      "name": "caused_by_command_id",
       "entityType": "columns",
       "table": "accepted_facts"
     },
@@ -192,7 +172,7 @@
       "autoincrement": false,
       "default": null,
       "generated": null,
-      "name": "accepted_json",
+      "name": "outcome_json",
       "entityType": "columns",
       "table": "command_receipts"
     },

@@ -34,10 +34,10 @@ export default function CombinedPyramidControlRoute() {
   const { t } = useTranslation()
   const data = useLoaderData<typeof loader>()
   const fetcher = useFetcher<typeof action>()
-  const markLocalSubmit = useControlLiveRevalidation(data.snapshot, fetcher)
-  const snapshotFrame = data.snapshot.frames[data.snapshot.currentFrameIndex - 1]
+  const markLocalSubmit = useControlLiveRevalidation(data.state, data.latestSeq, fetcher)
+  const snapshotFrame = data.state.frames[data.state.currentFrameIndex - 1]
   const frameScore =
-    data.state === 'frame-active' ? data.controlProjection.score : (snapshotFrame?.pointsBySeat ?? { A: 0, B: 0 })
+    data.controlState === 'frame-active' ? data.controlProjection.score : (snapshotFrame?.pointsBySeat ?? { A: 0, B: 0 })
   function submitCommand(command: ControlCommandPreset) {
     markLocalSubmit()
     fetcher.submit(controlCommandForm(command), { method: 'post' })
@@ -47,18 +47,18 @@ export default function CombinedPyramidControlRoute() {
       <ScoreBox
         nameA={data.participants.A.displayName}
         nameB={data.participants.B.displayName}
-        matchScore={data.snapshot.framesWonBySeat}
+        matchScore={data.state.framesWonBySeat}
         frameScore={frameScore}
-        matchStatus={data.snapshot.status}
-        frameIndex={data.snapshot.currentFrameIndex}
-        targetFrames={data.snapshot.targets.matchTargetFrames}
+        matchStatus={data.state.status}
+        frameIndex={data.state.currentFrameIndex}
+        targetFrames={data.state.targets.matchTargetFrames}
       />
-      {data.state === 'frame-active' ? (
+      {data.controlState === 'frame-active' ? (
         <section aria-label={t(keys.match.control.perGameContainer)} className="flex flex-col">
           <CombinedPyramidControlRenderer
             projection={data.controlProjection}
             commandSections={data.controlSections}
-            snapshot={data.snapshot}
+            state={data.state}
             participants={data.participants}
             submitting={fetcher.state === 'submitting'}
             onSubmitCommand={submitCommand}
@@ -77,7 +77,7 @@ export default function CombinedPyramidControlRoute() {
           {t(keys.match.sparring.tabControl)}
         </span>
         <Link
-          to={matchProtocolUrl('combined-pyramid', data.snapshot.matchId)}
+          to={matchProtocolUrl('combined-pyramid', data.state.matchId)}
           className="-mt-px flex flex-1 items-center justify-center border-t-2 border-transparent text-center text-base font-medium text-muted-foreground hover:text-foreground"
         >
           {t(keys.match.sparring.tabProtocol)}

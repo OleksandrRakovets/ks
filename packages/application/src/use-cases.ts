@@ -1,24 +1,20 @@
-import { type CreateMatchRequest, type MatchSnapshotFor } from '@ks/competition'
+import { type CreateMatchRequest, type MatchStateFor } from '@ks/competition'
 import {
   type CommandId,
   type ControlCommand,
   type ControlCommandSections,
-  ControlCommandSectionsSchema,
   emptyControlCommandSections,
   type HydratedMatchParticipant,
   type MatchId,
-  MatchSnapshotSchema,
   type PlayerRef,
   type UnixEpochMilliseconds,
 } from '@ks/core'
 import { type ControlProjectionFor, type RegisteredGameKey, registry } from '@ks/gameplay/definitions'
-import { parseGameControl } from '@ks/gameplay/server'
 import type { SupportedLocale } from '@ks/i18n'
 import * as v from 'valibot'
 
 import type {
   Application,
-  CommandMatchResult,
   CreateMatchInput,
   CreateMatchResult,
   HydratedMatchParticipants,
@@ -26,6 +22,7 @@ import type {
   ReadMatchControlResult,
   ReadMatchFailure,
   ReadMatchProtocolResult,
+  SubmitMatchCommandResult,
 } from './contracts'
 import { CreateMatchInputSchema } from './contracts'
 import type { MatchRoomClient, MatchRoomCreateRequest, MatchRoomFinalizationData } from './match-room-client'
@@ -71,41 +68,13 @@ type ApplicationDependencies = {
 
 type ReadKeyedMatchSuccess<K extends RegisteredGameKey> = {
   ok: true
-  snapshot: MatchSnapshotFor<K>
+  state: MatchStateFor<K>
+  latestSeq: number
   participants: HydratedMatchParticipants
   controlProjection?: ControlProjectionFor<K>
   controlSections?: ControlCommandSections
 }
 type ReadKeyedMatchResult<K extends RegisteredGameKey> = ReadKeyedMatchSuccess<K> | ReadMatchFailure
-
-function expectsControlProjection(snapshot: v.InferOutput<typeof MatchSnapshotSchema>): boolean | null {
-  const latestFrame = snapshot.frames.at(-1)
-  if (!latestFrame) return snapshot.currentFrameIndex === 0 ? false : null
-  if (latestFrame.frameIndex !== snapshot.currentFrameIndex) return null
-  return snapshot.status === 'active' && latestFrame.winnerSeat === undefined
-}
-
-function isTerminalArchivedSnapshot(snapshot: v.InferOutput<typeof MatchSnapshotSchema>): boolean {
-  if (snapshot.status !== 'finished') return false
-  const latestFrame = snapshot.frames.at(-1)
-  if (!latestFrame?.winnerSeat || latestFrame.frameIndex !== snapshot.currentFrameIndex) return false
-  return (
-    snapshot.framesWonBySeat.A >= snapshot.targets.matchTargetFrames ||
-    snapshot.framesWonBySeat.B >= snapshot.targets.matchTargetFrames
-  )
-}
-
-function validateRoomControlProjection<K extends RegisteredGameKey>(
-  expectedGameKey: K,
-  projection: ControlProjectionFor<RegisteredGameKey> | undefined,
-): { ok: true; projection?: ControlProjectionFor<K> } | ReadMatchFailure {
-  if (projection === undefined) return { ok: true }
-  try {
-    return { ok: true, projection: parseGameControl(expectedGameKey, projection) }
-  } catch {
-    return { ok: false, error: 'Invalid room control projection', status: 502 }
-  }
-}
 
 function archiveReadFailure(error: Error): ReadMatchFailure | null {
   if (error instanceof UnsupportedProtocolArchiveVersionError) {
@@ -176,7 +145,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     }
     if (record.status !== 'active') return { ok: false, error: 'Unknown match', status: 404 }
 
-    const roomResult = await dependencies.matchRoom.snapshot(matchId)
+    const roomResult = await dependencies.matchRoom.readMatch(matchId, expectedGameKey)
     if (!roomResult.ok) {
       if (roomResult.error === 'Match is finalizing') {
         await archiveAndFinishRoom(matchId)
@@ -192,24 +161,16 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
       return { ok: false, error: roomResult.error, status }
     }
 
-    const snapshot = v.safeParse(MatchSnapshotSchema, roomResult.snapshot)
-    if (!snapshot.success) return { ok: false, error: 'Invalid room snapshot', status: 502 }
-    if (snapshot.output.gameKey !== expectedGameKey) return { ok: false, error: 'Unknown match', status: 404 }
-    const controlSections = v.safeParse(ControlCommandSectionsSchema, roomResult.controlSections)
-    if (!controlSections.success) return { ok: false, error: 'Invalid room control sections', status: 502 }
-    const validatedProjection = validateRoomControlProjection(expectedGameKey, roomResult.controlProjection)
-    if (!validatedProjection.ok) return validatedProjection
-    const projectionExpected = expectsControlProjection(snapshot.output)
-    if (projectionExpected === null || projectionExpected !== (validatedProjection.projection !== undefined)) {
-      return { ok: false, error: 'Inconsistent room control lifecycle', status: 502 }
-    }
     const result: ReadKeyedMatchSuccess<K> = {
       ok: true,
-      snapshot: { ...snapshot.output, gameKey: expectedGameKey },
+      state: roomResult.state,
+      latestSeq: roomResult.latestSeq,
       participants: await hydrateParticipants(record, locale),
-      controlSections: controlSections.output,
+      controlSections: roomResult.controlSections,
     }
-    if (validatedProjection.projection !== undefined) result.controlProjection = validatedProjection.projection
+    if (roomResult.controlProjection !== undefined) {
+      result.controlProjection = roomResult.controlProjection
+    }
     return result
   }
 
@@ -222,16 +183,16 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     if (!match.ok) return match
     const controlSections = match.controlSections ?? emptyControlCommandSections()
     return match.controlProjection
-      ? { ...match, state: 'frame-active', controlProjection: match.controlProjection, controlSections }
-      : { ...match, state: 'between-frames', controlSections }
+      ? { ...match, controlState: 'frame-active', controlProjection: match.controlProjection, controlSections }
+      : { ...match, controlState: 'between-frames', controlSections }
   }
 
-  async function commandMatch<K extends RegisteredGameKey>(
+  async function submitMatchCommand<K extends RegisteredGameKey>(
     matchId: MatchId,
     commandId: CommandId,
     command: ControlCommand,
     expectedGameKey: K,
-  ): Promise<CommandMatchResult> {
+  ): Promise<SubmitMatchCommandResult> {
     const record = await dependencies.getMatchRecord(matchId)
     if (!record || record.gameKey !== expectedGameKey) return { ok: false, error: 'Unknown match', status: 404 }
     if (record.status === 'finalizing') await disposeAndFinishRoom(matchId)
@@ -239,10 +200,14 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
       return { ok: false, error: 'Match is finished', status: 409 }
     }
     if (record.status !== 'active') return { ok: false, error: 'Unknown match', status: 404 }
-    const result = await dependencies.matchRoom.command(matchId, commandId, command)
-    if (result.ok && result.finalizing) await archiveAndFinishRoom(matchId)
+    const result = await dependencies.matchRoom.submitCommand(matchId, commandId, command)
+    if (result.ok && result.outcome._tag === 'accepted' && result.finalizing) {
+      await archiveAndFinishRoom(matchId)
+      return { ok: true, outcome: result.outcome }
+    }
     if (!result.ok && result.error === 'match-locked') await archiveAndFinishRoom(matchId)
-    return result.ok ? { ok: true, accepted: result.accepted } : result
+    if (result.ok) return { ok: true, outcome: result.outcome }
+    return result
   }
 
   async function readMatchProtocol<K extends RegisteredGameKey>(
@@ -255,12 +220,12 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     if (!match.ok) return match
     const seatNames = { A: match.participants.A.displayName, B: match.participants.B.displayName }
     let protocolRows
-    if (match.snapshot.status === 'active') {
-      const facts = await dependencies.matchRoom.facts(match.snapshot.matchId)
+    if (match.state.status === 'active') {
+      const facts = await dependencies.matchRoom.listFacts(match.state.matchId)
       if (!facts.ok) {
         if (facts.error === 'Match is finalizing') {
-          await archiveAndFinishRoom(match.snapshot.matchId)
-          return await readMatchProtocol(match.snapshot.matchId, timeZone, locale, expectedGameKey)
+          await archiveAndFinishRoom(match.state.matchId)
+          return await readMatchProtocol(match.state.matchId, timeZone, locale, expectedGameKey)
         }
         return { ok: false, error: facts.error, status: facts.status }
       }
@@ -268,7 +233,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     } else {
       let archive: ProtocolArchiveRecord | null
       try {
-        archive = await dependencies.getProtocolArchive(match.snapshot.matchId)
+        archive = await dependencies.getProtocolArchive(match.state.matchId)
       } catch (error) {
         const failure = error instanceof Error ? archiveReadFailure(error) : null
         if (failure) return failure
@@ -279,7 +244,8 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     }
     const result: Extract<ReadMatchProtocolResult<K>, { ok: true }> = {
       ok: true,
-      snapshot: match.snapshot,
+      state: match.state,
+      latestSeq: match.latestSeq,
       participants: match.participants,
       protocolRows,
     }
@@ -321,14 +287,12 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
       throw error
     }
     if (!archive) return { ok: false, error: 'Missing completed match archive', status: 500 }
-    const snapshot = archive.snapshot
-    if (snapshot.gameKey !== expectedGameKey) return { ok: false, error: 'Unknown match', status: 404 }
-    if (!isTerminalArchivedSnapshot(snapshot)) {
-      return { ok: false, error: 'Failed to parse completed match snapshot', status: 500 }
-    }
+    const state = archive.state
+    if (state.gameKey !== expectedGameKey) return { ok: false, error: 'Unknown match', status: 404 }
     return {
       ok: true,
-      snapshot: { ...snapshot, gameKey: expectedGameKey },
+      state: { ...state, gameKey: expectedGameKey },
+      latestSeq: archive.sourceLatestSeq,
       participants: await hydrateParticipants(record, locale),
     }
   }
@@ -337,7 +301,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     createMatch,
     listMatches,
     readMatchControl,
-    commandMatch,
+    submitMatchCommand,
     readMatchProtocol,
     streamMatchFacts: async (matchId, since) => {
       const record = await dependencies.getMatchRecord(matchId)

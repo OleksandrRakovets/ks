@@ -1,6 +1,13 @@
 import { describe, expect, test } from 'bun:test'
 
-import { type ClientFact, ClientIdSchema, FactIdSchema, MatchIdSchema, type StoredFact, StoredFactSchema } from '@ks/core'
+import {
+  CommandIdSchema,
+  FactIdSchema,
+  type MatchFact,
+  MatchIdSchema,
+  type StoredMatchFact,
+  StoredMatchFactSchema,
+} from '@ks/core'
 import * as v from 'valibot'
 
 import {
@@ -12,19 +19,23 @@ import {
 } from './protocol'
 
 const matchId = v.parse(MatchIdSchema, '01ARZ3NDEKTSV4RRFFQ69G5FAV')
-const clientId = v.parse(ClientIdSchema, 'server0000')
+const commandId = v.parse(CommandIdSchema, '01ARZ3NDEKTSV4RRFFQ69G5FAD')
 
-function stored(seq: number, fact: Omit<ClientFact, 'at' | 'clientId' | 'clientSeq' | 'factId' | 'matchId'>): StoredFact {
-  return v.parse(StoredFactSchema, {
+function stored(
+  seq: number,
+  fact: Omit<MatchFact, 'factId' | 'matchId' | 'causedByCommandId'> & {
+    causedByCommandId?: string | null
+  },
+): StoredMatchFact {
+  const envelope = {
     matchId,
-    clientId,
-    clientSeq: 0,
-    at: 1000 + seq,
     factId: v.parse(FactIdSchema, `01ARZ3NDEKTSV4RRFFQ69G5FA${seq}`),
-    receivedAt: 2000 + seq,
+    acceptedAt: 2000 + seq,
     seq,
     ...fact,
-  })
+    causedByCommandId: fact.type === 'match.created' ? null : (fact.causedByCommandId ?? commandId),
+  }
+  return v.parse(StoredMatchFactSchema, envelope)
 }
 
 describe('protocol reader', () => {
@@ -111,28 +122,28 @@ describe('protocol reader', () => {
     const rows = v.parse(ProtocolArchiveRowsSchema, [
       {
         rowNo: 1,
-        receivedAt: 1,
+        acceptedAt: 1,
         source: 'player',
         entryType: 'player-command',
         body: { commandType: 'penalty.select', choice: 'invalid' },
       },
       {
         rowNo: 2,
-        receivedAt: 2,
+        acceptedAt: 2,
         source: 'system',
         entryType: 'system-note',
         body: { systemType: 'automatic-foul', reason: 'invalid' },
       },
       {
         rowNo: 3,
-        receivedAt: 3,
+        acceptedAt: 3,
         source: 'system',
         entryType: 'system-note',
         body: { systemType: 'winner-determined', reason: 'invalid' },
       },
       {
         rowNo: 4,
-        receivedAt: 4,
+        acceptedAt: 4,
         source: 'player',
         entryType: 'player-command',
         body: { commandType: 'pot.record', points: 'legacy' },

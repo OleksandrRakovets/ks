@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
-  "ignorePatterns": ["**/.agents/**", "tools/oxlint/anti-slop/**"],
+  "ignorePatterns": ["**/.agents/**", ".tracker/**", "tools/oxlint/anti-slop/**"],
   "semi": false,
   "singleQuote": true,
   "sortImports": {},
