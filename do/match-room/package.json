@@ -8,12 +8,11 @@
   },
   "scripts": {
     "build": "wrangler deploy --dry-run --outdir dist",
-    "cf-typegen": "CI=1 wrangler types",
+    "cf-typegen": "wrangler types",
     "dev": "wrangler dev",
     "test": "bun test src",
-    "test:integration": "vitest run --config vitest.config.ts",
-    "typecheck": "CI=1 wrangler types && tsc -b",
-    "typecheck:integration": "tsc -p tsconfig.integration.json"
+    "test:integration": "tsc -p tsconfig.integration.json && vitest run --config vitest.config.ts",
+    "typecheck": "wrangler types && tsc -b"
   },
   "dependencies": {
     "@ks/competition": "workspace:*",

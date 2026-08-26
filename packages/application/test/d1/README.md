@@ -2,7 +2,7 @@
 
 This project exercises application-owned persistence through the private D1 adapters against an isolated, migrated Miniflare D1 database. Each test resets storage and reapplies the production migrations.
 
-Run with `bun run typecheck:integration` and `bun run test:integration` from `packages/application`.
+Run with `bun run test:integration` from `packages/application`; the command type-checks the integration project before running it.
 
 ## Follow-up opportunities
 

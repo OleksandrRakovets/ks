@@ -10,10 +10,6 @@
       "dependsOn": ["^typecheck"],
       "outputs": []
     },
-    "typecheck:integration": {
-      "dependsOn": ["^typecheck:integration"],
-      "outputs": []
-    },
     "test:integration": {
       "dependsOn": ["^test:integration"],
       "outputs": []
