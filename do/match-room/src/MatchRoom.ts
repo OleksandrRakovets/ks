@@ -30,8 +30,8 @@ import {
   canonicalCommandJson,
   type CreateBody,
   CreateBodySchema,
-  type SnapshotBody,
-  SnapshotBodySchema,
+  type MatchIdBody,
+  MatchIdBodySchema,
   type StreamBody,
   StreamBodySchema,
   type SubmitCommandBody,
@@ -46,7 +46,7 @@ type ResidentRoom = {
   readonly match: SparringMatch
 }
 
-type RoomSnapshotSuccessFor<K extends RegisteredGameKey> = {
+type RoomReadSuccessFor<K extends RegisteredGameKey> = {
   ok: true
   state: MatchState & { gameKey: K }
   latestSeq: number
@@ -54,11 +54,11 @@ type RoomSnapshotSuccessFor<K extends RegisteredGameKey> = {
   controlSections: ControlCommandSections
 }
 
-type RoomSnapshotSuccess = {
-  [K in RegisteredGameKey]: RoomSnapshotSuccessFor<K>
+type RoomReadSuccess = {
+  [K in RegisteredGameKey]: RoomReadSuccessFor<K>
 }[RegisteredGameKey]
 
-type SnapshotResult = RoomSnapshotSuccess | { ok: false; error: string; status: number }
+type ReadMatchResult = RoomReadSuccess | { ok: false; error: string; status: number }
 
 type ColdJournal = {
   match: ActiveMatchRecord
@@ -118,9 +118,9 @@ export class MatchRoom extends DurableObject<Env> {
    * Returns the active semantic projection with the independently persisted cursor.
    * A cold read validates and restores the complete journal; finalizing and deleted rooms are unavailable through this RPC.
    */
-  async snapshot(args: SnapshotBody): Promise<SnapshotResult> {
+  async readMatch(args: MatchIdBody): Promise<ReadMatchResult> {
     await this.ready
-    if (!v.safeParse(SnapshotBodySchema, args).success) return { ok: false, error: 'Invalid snapshot body', status: 400 }
+    if (!v.safeParse(MatchIdBodySchema, args).success) return { ok: false, error: 'Invalid match ID body', status: 400 }
     if (this.deleted) return { ok: false, error: 'Unknown match', status: 400 }
     const match = this.store.match()
     if (!match || match.matchId !== args.matchId) return { ok: false, error: 'Unknown match', status: 400 }
@@ -217,10 +217,10 @@ export class MatchRoom extends DurableObject<Env> {
   }
 
   async listFacts(
-    args: SnapshotBody,
+    args: MatchIdBody,
   ): Promise<{ ok: true; facts: StoredMatchFact[] } | { ok: false; error: string; status: number }> {
     await this.ready
-    const parsed = v.safeParse(SnapshotBodySchema, args)
+    const parsed = v.safeParse(MatchIdBodySchema, args)
     if (!parsed.success) return { ok: false, error: 'Invalid facts body', status: 400 }
     if (this.deleted) return { ok: false, error: 'Unknown match', status: 400 }
     const match = this.store.match()
@@ -235,7 +235,7 @@ export class MatchRoom extends DurableObject<Env> {
    * Returns archive input only for a finalizing match after validating and restoring its complete durable journal.
    * The returned terminal acceptance time is authoritative for `endedAt`; this operation does not archive or delete the room.
    */
-  async finalization(args: SnapshotBody): Promise<
+  async finalization(args: MatchIdBody): Promise<
     | {
         ok: true
         data: {
@@ -248,7 +248,7 @@ export class MatchRoom extends DurableObject<Env> {
     | { ok: false; error: string; status: number }
   > {
     await this.ready
-    const parsed = v.safeParse(SnapshotBodySchema, args)
+    const parsed = v.safeParse(MatchIdBodySchema, args)
     if (!parsed.success) return { ok: false, error: 'Invalid finalize body', status: 400 }
     if (this.deleted) return { ok: false, error: 'Unknown match', status: 400 }
     const match = this.store.match()
@@ -277,9 +277,9 @@ export class MatchRoom extends DurableObject<Env> {
    * The complete local journal is decoded and must belong to this room with `match.ended` at its persisted tail; semantic
    * replay is intentionally not repeated. The terminal fact is broadcast, streams are closed, and local storage is deleted.
    */
-  async disposeFinalized(args: SnapshotBody): Promise<{ ok: true } | { ok: false; error: string; status: number }> {
+  async disposeFinalized(args: MatchIdBody): Promise<{ ok: true } | { ok: false; error: string; status: number }> {
     await this.ready
-    const parsed = v.safeParse(SnapshotBodySchema, args)
+    const parsed = v.safeParse(MatchIdBodySchema, args)
     if (!parsed.success) return { ok: false, error: 'Invalid dispose body', status: 400 }
     return await this.ctx.blockConcurrencyWhile(async () => {
       if (this.deleted) return { ok: true }

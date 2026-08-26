@@ -27,7 +27,7 @@ const state = {
   frames: [{ frameIndex: 1, pointsBySeat: { A: 0, B: 0 }, breakerSeat: 'A' as const }],
 }
 const controlProjection = createGameplaySession('free-pyramid', { targetPointsBySeat: { A: 8, B: 8 } }).deriveControl()
-const snapshot = { ok: true as const, state, latestSeq: 2, controlProjection, controlSections: emptyControlCommandSections() }
+const roomRead = { ok: true as const, state, latestSeq: 2, controlProjection, controlSections: emptyControlCommandSections() }
 const creationFact = v.parse(StoredMatchFactSchema, {
   factId: v.parse(FactIdSchema, '01ARZ3NDEKTSV4RRFFQ69G5FAC'),
   matchId,
@@ -60,7 +60,7 @@ function clientReturning(result: TestRpcResult) {
   const response = new Response()
   const stub = {
     create: async () => result,
-    snapshot: async () => result,
+    readMatch: async () => result,
     submitCommand: async () => result,
     stream: async () => response,
     listFacts: async () => result,
@@ -87,7 +87,7 @@ describe('MatchRoom RPC response decoding', () => {
   test('rejects malformed results from every structured RPC', async () => {
     const { client } = clientReturning({ ok: 'yes' })
     expect(await client.create(request)).toEqual(invalid)
-    expect(await client.snapshot(matchId)).toEqual(invalid)
+    expect(await client.readMatch(matchId, 'free-pyramid')).toEqual(invalid)
     expect(
       await client.submitCommand(matchId, newCommandId(), { source: 'match', commandType: 'frame.start', command: {} }),
     ).toEqual(invalid)
@@ -96,30 +96,42 @@ describe('MatchRoom RPC response decoding', () => {
     expect(await client.disposeFinalized(matchId)).toEqual(invalid)
   })
 
-  test('enforces request identity and snapshot projection coherence', async () => {
+  test('enforces request identity and room read projection coherence', async () => {
     expect(await clientReturning({ ok: true, matchId: otherMatchId }).client.create(request)).toEqual(invalid)
-    expect(await clientReturning({ ...snapshot, state: { ...state, matchId: otherMatchId } }).client.snapshot(matchId)).toEqual(
-      invalid,
-    )
-    expect(await clientReturning({ ...snapshot, controlProjection: undefined }).client.snapshot(matchId)).toEqual(invalid)
+    expect(
+      await clientReturning({ ...roomRead, state: { ...state, matchId: otherMatchId } }).client.readMatch(
+        matchId,
+        'free-pyramid',
+      ),
+    ).toEqual(invalid)
+    expect(await clientReturning(roomRead).client.readMatch(matchId, 'combined-pyramid')).toEqual(invalid)
+    expect(
+      await clientReturning({ ...roomRead, controlProjection: undefined }).client.readMatch(matchId, 'free-pyramid'),
+    ).toEqual(invalid)
     expect(
       await clientReturning({
-        ...snapshot,
+        ...roomRead,
         controlProjection: { ...controlProjection, gameKey: 'combined-pyramid' },
-      }).client.snapshot(matchId),
+      }).client.readMatch(matchId, 'free-pyramid'),
     ).toEqual(invalid)
   })
 
-  test('decodes a coherent snapshot and rejects malformed cursor, sections, and failures', async () => {
-    expect(await clientReturning(snapshot).client.snapshot(matchId)).toEqual(snapshot)
-    expect(await clientReturning({ ...snapshot, latestSeq: 0 }).client.snapshot(matchId)).toEqual(invalid)
-    expect(await clientReturning({ ...snapshot, latestSeq: -1 }).client.snapshot(matchId)).toEqual(invalid)
-    expect(await clientReturning({ ...snapshot, state: { ...state, status: 'finished' } }).client.snapshot(matchId)).toEqual(
+  test('decodes a coherent room read and rejects malformed cursor, sections, and failures', async () => {
+    expect(await clientReturning(roomRead).client.readMatch(matchId, 'free-pyramid')).toEqual(roomRead)
+    expect(await clientReturning({ ...roomRead, latestSeq: 0 }).client.readMatch(matchId, 'free-pyramid')).toEqual(invalid)
+    expect(await clientReturning({ ...roomRead, latestSeq: -1 }).client.readMatch(matchId, 'free-pyramid')).toEqual(invalid)
+    expect(
+      await clientReturning({ ...roomRead, state: { ...state, status: 'finished' } }).client.readMatch(matchId, 'free-pyramid'),
+    ).toEqual(invalid)
+    expect(await clientReturning({ ...roomRead, controlSections: {} }).client.readMatch(matchId, 'free-pyramid')).toEqual(
       invalid,
     )
-    expect(await clientReturning({ ...snapshot, controlSections: {} }).client.snapshot(matchId)).toEqual(invalid)
-    expect(await clientReturning({ ok: false, error: 'failure', status: 200 }).client.snapshot(matchId)).toEqual(invalid)
-    expect(await clientReturning({ ok: false, error: '', status: 700 }).client.snapshot(matchId)).toEqual(invalid)
+    expect(
+      await clientReturning({ ok: false, error: 'failure', status: 200 }).client.readMatch(matchId, 'free-pyramid'),
+    ).toEqual(invalid)
+    expect(await clientReturning({ ok: false, error: '', status: 700 }).client.readMatch(matchId, 'free-pyramid')).toEqual(
+      invalid,
+    )
   })
 
   test('validates command receipts and disposal responses', async () => {
@@ -148,7 +160,7 @@ describe('MatchRoom RPC response decoding', () => {
           sourceLatestSeq: 1,
           endedAt: 1_700_000_000_000,
           facts: [],
-          projection: snapshot,
+          projection: roomRead,
         },
       }).client.finalization(matchId),
     ).toEqual(invalid)
@@ -174,7 +186,7 @@ describe('MatchRoom RPC response decoding', () => {
     expect(
       await clientReturning({
         ...finalization,
-        data: { ...finalization.data, projection: snapshot },
+        data: { ...finalization.data, projection: roomRead },
       }).client.finalization(matchId),
     ).toEqual(invalid)
     expect(await clientReturning(finalization).client.finalization(matchId)).toEqual({
@@ -193,7 +205,7 @@ describe('MatchRoom RPC response decoding', () => {
   })
 
   test('passes stream responses through and does not catch transport failures', async () => {
-    const { client, response } = clientReturning(snapshot)
+    const { client, response } = clientReturning(roomRead)
     expect(await client.stream(matchId)).toBe(response)
     const error = new Error('transport')
     const failing = createMatchRoomClient({
@@ -201,7 +213,7 @@ describe('MatchRoom RPC response decoding', () => {
         create: async () => {
           throw error
         },
-        snapshot: async () => snapshot,
+        readMatch: async () => roomRead,
         submitCommand: async () => invalid,
         stream: async () => response,
         listFacts: async () => invalid,

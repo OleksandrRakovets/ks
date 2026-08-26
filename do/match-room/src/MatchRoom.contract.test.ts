@@ -6,7 +6,7 @@ import * as v from 'valibot'
 import {
   canonicalCommandJson,
   CreateBodySchema,
-  SnapshotBodySchema,
+  MatchIdBodySchema,
   StreamBodySchema,
   SubmitCommandBodySchema,
 } from './rpc-contract'
@@ -45,7 +45,7 @@ describe('MatchRoom RPC request contract', () => {
   })
 
   test('accepts commands without a control secret and rejects invalid IDs', () => {
-    expect(v.safeParse(SnapshotBodySchema, { matchId }).success).toBe(true)
+    expect(v.safeParse(MatchIdBodySchema, { matchId }).success).toBe(true)
     expect(
       v.safeParse(SubmitCommandBodySchema, {
         matchId,
@@ -54,6 +54,6 @@ describe('MatchRoom RPC request contract', () => {
       }).success,
     ).toBe(true)
     expect(v.safeParse(StreamBodySchema, { matchId, since: 2 }).success).toBe(true)
-    expect(v.safeParse(SnapshotBodySchema, { matchId: 'not-a-match-id' }).success).toBe(false)
+    expect(v.safeParse(MatchIdBodySchema, { matchId: 'not-a-match-id' }).success).toBe(false)
   })
 })

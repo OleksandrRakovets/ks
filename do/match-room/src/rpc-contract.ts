@@ -27,7 +27,7 @@ export const SubmitCommandBodySchema = v.object({
   command: ControlCommandSchema,
 })
 
-export const SnapshotBodySchema = v.object({
+export const MatchIdBodySchema = v.object({
   matchId: MatchIdSchema,
 })
 
@@ -38,7 +38,7 @@ export const StreamBodySchema = v.object({
 
 export type CreateBody = v.InferInput<typeof CreateBodySchema>
 export type SubmitCommandBody = v.InferInput<typeof SubmitCommandBodySchema>
-export type SnapshotBody = v.InferInput<typeof SnapshotBodySchema>
+export type MatchIdBody = v.InferInput<typeof MatchIdBodySchema>
 export type StreamBody = v.InferInput<typeof StreamBodySchema>
 
 export type SubmitCommandResult =

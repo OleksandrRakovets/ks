@@ -172,7 +172,7 @@ Creation generates a control secret and stores it with the active match, but doe
 ```text
 literal game route -> application.readMatchControl(expectedGameKey)
   -> read catalog + participants from D1
-  -> read active snapshot/control projections from MatchRoom
+  -> read active state/control projections from MatchRoom
 
 literal protocol route -> application.readMatchProtocol(expectedGameKey)
   -> active: read facts from MatchRoom and derive localized protocol rows

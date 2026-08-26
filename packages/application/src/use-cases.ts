@@ -145,7 +145,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     }
     if (record.status !== 'active') return { ok: false, error: 'Unknown match', status: 404 }
 
-    const roomResult = await dependencies.matchRoom.snapshot(matchId)
+    const roomResult = await dependencies.matchRoom.readMatch(matchId, expectedGameKey)
     if (!roomResult.ok) {
       if (roomResult.error === 'Match is finalizing') {
         await archiveAndFinishRoom(matchId)
@@ -161,17 +161,15 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
       return { ok: false, error: roomResult.error, status }
     }
 
-    if (roomResult.state.gameKey !== expectedGameKey) return { ok: false, error: 'Unknown match', status: 404 }
     const result: ReadKeyedMatchSuccess<K> = {
       ok: true,
-      state: { ...roomResult.state, gameKey: expectedGameKey },
+      state: roomResult.state,
       latestSeq: roomResult.latestSeq,
       participants: await hydrateParticipants(record, locale),
       controlSections: roomResult.controlSections,
     }
     if (roomResult.controlProjection !== undefined) {
-      // SAFETY: The MatchRoom client correlated this projection with roomResult.state.gameKey before returning it.
-      result.controlProjection = roomResult.controlProjection as ControlProjectionFor<K>
+      result.controlProjection = roomResult.controlProjection
     }
     return result
   }

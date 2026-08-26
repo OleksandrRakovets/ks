@@ -71,7 +71,7 @@ function frameAwardCommand(seat: 'A' | 'B'): ControlCommand {
   return { source: 'game', commandType: 'frame.award', command: { seat } }
 }
 
-type RoomSnapshotSuccessFor<K extends RegisteredGameKey> = {
+type RoomReadSuccessFor<K extends RegisteredGameKey> = {
   ok: true
   state: MatchState & { gameKey: K }
   latestSeq: number
@@ -79,12 +79,12 @@ type RoomSnapshotSuccessFor<K extends RegisteredGameKey> = {
   controlSections: ControlCommandSections
 }
 
-type RoomSnapshotSuccess = {
-  [K in RegisteredGameKey]: RoomSnapshotSuccessFor<K>
+type RoomReadSuccess = {
+  [K in RegisteredGameKey]: RoomReadSuccessFor<K>
 }[RegisteredGameKey]
 
 type ListFactsOk = { ok: true; facts: StoredMatchFact[] }
-type SnapshotOk = RoomSnapshotSuccess
+type ReadMatchOk = RoomReadSuccess
 type SubmitCommandOk = Extract<SubmitCommandResult, { ok: true }>
 type FinalizationOk = {
   ok: true
@@ -153,9 +153,9 @@ describe('MatchRoom integration', () => {
     const facts = assertOk<ListFactsOk>(await stub.listFacts({ matchId }))
     expect(facts.facts).toEqual([expect.objectContaining({ seq: 1, type: 'match.created', causedByCommandId: null })])
 
-    const snapshot = assertOk<SnapshotOk>(await stub.snapshot({ matchId }))
-    expect(snapshot.state.currentFrameIndex).toBe(0)
-    expect(snapshot.controlSections.neutral[0]?.commandType).toBe('frame.start')
+    const roomRead = assertOk<ReadMatchOk>(await stub.readMatch({ matchId }))
+    expect(roomRead.state.currentFrameIndex).toBe(0)
+    expect(roomRead.controlSections.neutral[0]?.commandType).toBe('frame.start')
   })
 
   test('accepts warm commands with shared causation and broadcasts non-terminal facts', async () => {
@@ -318,8 +318,8 @@ describe('MatchRoom integration', () => {
     )
     expect(accepted.outcome._tag).toBe('accepted')
 
-    const snapshot = assertOk<SnapshotOk>(await stub.snapshot({ matchId }))
-    expect(snapshot.controlProjection?.score).toEqual({ A: 1, B: 0 })
+    const roomRead = assertOk<ReadMatchOk>(await stub.readMatch({ matchId }))
+    expect(roomRead.controlProjection?.score).toEqual({ A: 1, B: 0 })
   })
 
   test('commits game.command, frame.completed, and match.ended atomically and locks new command IDs while finalizing', async () => {
@@ -446,7 +446,7 @@ describe('MatchRoom integration', () => {
     })
     await evictMatchRoom(stub)
 
-    expect((await captureRpcError(() => stub.snapshot({ matchId }))).message).toContain('Active match journal is empty')
+    expect((await captureRpcError(() => stub.readMatch({ matchId }))).message).toContain('Active match journal is empty')
   })
 
   test('fails closed when the journal tail sequence does not match active latest_seq', async () => {
@@ -459,7 +459,7 @@ describe('MatchRoom integration', () => {
     })
     await evictMatchRoom(stub)
 
-    expect((await captureRpcError(() => stub.snapshot({ matchId }))).message).toContain(
+    expect((await captureRpcError(() => stub.readMatch({ matchId }))).message).toContain(
       'Active match journal tail sequence mismatch',
     )
   })
@@ -480,7 +480,7 @@ describe('MatchRoom integration', () => {
     })
     await evictMatchRoom(stub)
 
-    expect((await captureRpcError(() => stub.snapshot({ matchId }))).message).toContain(
+    expect((await captureRpcError(() => stub.readMatch({ matchId }))).message).toContain(
       'MatchRoom active_matches storage corruption',
     )
   })
@@ -494,7 +494,7 @@ describe('MatchRoom integration', () => {
       state.storage.sql.exec("UPDATE active_matches SET match_id = 'bad'")
     })
     await evictMatchRoom(stub)
-    expect((await captureRpcError(() => stub.snapshot({ matchId }))).message).toContain(
+    expect((await captureRpcError(() => stub.readMatch({ matchId }))).message).toContain(
       'MatchRoom active_matches storage corruption',
     )
   })
@@ -513,7 +513,7 @@ describe('MatchRoom integration', () => {
       )
     })
     await evictMatchRoom(stub)
-    expect((await captureRpcError(() => stub.snapshot({ matchId }))).message).toContain(
+    expect((await captureRpcError(() => stub.readMatch({ matchId }))).message).toContain(
       'MatchRoom active_matches storage corruption',
     )
   })
@@ -528,7 +528,7 @@ describe('MatchRoom integration', () => {
       state.storage.sql.exec('UPDATE active_matches SET config_json = ?', JSON.stringify({ ...config, firstBreakerSeat: 'B' }))
     })
     await evictMatchRoom(stub)
-    expect((await captureRpcError(() => stub.snapshot({ matchId }))).message).toContain(
+    expect((await captureRpcError(() => stub.readMatch({ matchId }))).message).toContain(
       'Active match journal creation does not match active config',
     )
   })
@@ -543,7 +543,7 @@ describe('MatchRoom integration', () => {
       state.storage.sql.exec('UPDATE active_matches SET config_json = ?', JSON.stringify({ ...config, matchId: newMatchId() }))
     })
     await evictMatchRoom(stub)
-    expect((await captureRpcError(() => stub.snapshot({ matchId }))).message).toContain(
+    expect((await captureRpcError(() => stub.readMatch({ matchId }))).message).toContain(
       'MatchRoom active_matches storage corruption',
     )
   })
@@ -560,7 +560,7 @@ describe('MatchRoom integration', () => {
     })
     await evictMatchRoom(stub)
 
-    expect((await captureRpcError(() => stub.snapshot({ matchId }))).message).toContain(
+    expect((await captureRpcError(() => stub.readMatch({ matchId }))).message).toContain(
       'Active match journal envelope mismatch',
     )
   })

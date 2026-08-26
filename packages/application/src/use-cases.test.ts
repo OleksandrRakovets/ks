@@ -4,6 +4,7 @@ import type { MatchStateFor } from '@ks/competition'
 import {
   type ControlCommand,
   FactIdSchema,
+  type MatchId,
   MatchIdSchema,
   MatchStateSchema,
   newCommandId,
@@ -14,7 +15,7 @@ import { type ControlProjectionFor, listGameKeys, type RegisteredGameKey } from 
 import { createGameplaySession } from '@ks/gameplay/server'
 import * as v from 'valibot'
 
-import type { MatchRoomCreateRequest, MatchRoomSnapshotResult } from './match-room-client'
+import type { MatchRoomCreateRequest, MatchRoomReadResult } from './match-room-client'
 import { ProtocolArchiveCorruptionError, type ProtocolArchiveRecord, UnsupportedProtocolArchiveVersionError } from './protocol'
 import { createApplicationWithDependencies } from './use-cases'
 
@@ -24,7 +25,7 @@ const playerRefA = v.parse(PlayerRefSchema, 'gp_01ARZ3NDEKTSV4RRFFQ69G5FAA')
 const playerRefB = v.parse(PlayerRefSchema, 'gp_01ARZ3NDEKTSV4RRFFQ69G5FAB')
 const factId = v.parse(FactIdSchema, '01ARZ3NDEKTSV4RRFFQ69G5FAC')
 
-function snapshotFor<K extends RegisteredGameKey>(gameKey: K, status: 'active' | 'finished' = 'active'): MatchStateFor<K> {
+function stateFor<K extends RegisteredGameKey>(gameKey: K, status: 'active' | 'finished' = 'active'): MatchStateFor<K> {
   return {
     matchId,
     gameKey,
@@ -55,13 +56,13 @@ const controlProjections = {
   'combined-pyramid-old': controlProjectionFor('combined-pyramid-old'),
 } satisfies { [K in RegisteredGameKey]: ControlProjectionFor<K> }
 
-function activeRoomSnapshot(gameKey: RegisteredGameKey) {
+function activeRoomRead(gameKey: RegisteredGameKey) {
   const controlSections = controlProjections[gameKey].details.commandSections
   switch (gameKey) {
     case 'strila-v2':
       return {
         ok: true as const,
-        state: snapshotFor(gameKey),
+        state: stateFor(gameKey),
         latestSeq: 2,
         controlProjection: controlProjections[gameKey],
         controlSections,
@@ -69,7 +70,7 @@ function activeRoomSnapshot(gameKey: RegisteredGameKey) {
     case 'free-pyramid':
       return {
         ok: true as const,
-        state: snapshotFor(gameKey),
+        state: stateFor(gameKey),
         latestSeq: 2,
         controlProjection: controlProjections[gameKey],
         controlSections,
@@ -77,7 +78,7 @@ function activeRoomSnapshot(gameKey: RegisteredGameKey) {
     case 'free-pyramid-long':
       return {
         ok: true as const,
-        state: snapshotFor(gameKey),
+        state: stateFor(gameKey),
         latestSeq: 2,
         controlProjection: controlProjections[gameKey],
         controlSections,
@@ -85,7 +86,7 @@ function activeRoomSnapshot(gameKey: RegisteredGameKey) {
     case 'combined-pyramid':
       return {
         ok: true as const,
-        state: snapshotFor(gameKey),
+        state: stateFor(gameKey),
         latestSeq: 2,
         controlProjection: controlProjections[gameKey],
         controlSections,
@@ -93,7 +94,7 @@ function activeRoomSnapshot(gameKey: RegisteredGameKey) {
     case 'combined-pyramid-old':
       return {
         ok: true as const,
-        state: snapshotFor(gameKey),
+        state: stateFor(gameKey),
         latestSeq: 2,
         controlProjection: controlProjections[gameKey],
         controlSections,
@@ -101,7 +102,7 @@ function activeRoomSnapshot(gameKey: RegisteredGameKey) {
   }
 }
 
-type UnsafeRoomSnapshotMock = {
+type UnsafeRoomReadMock = {
   ok: true
   state: object
   latestSeq: unknown
@@ -109,15 +110,15 @@ type UnsafeRoomSnapshotMock = {
   controlSections: object
 }
 
-function unsafeRoomSnapshot(value: UnsafeRoomSnapshotMock): MatchRoomSnapshotResult {
+function unsafeRoomRead(value: UnsafeRoomReadMock): MatchRoomReadResult {
   // SAFETY: Tests use this single boundary to model malformed external RPC data that violates the advertised contract.
-  return value as MatchRoomSnapshotResult
+  return value as MatchRoomReadResult
 }
 
 function applicationForActiveGame(
   catalogGameKey: RegisteredGameKey,
   roomGameKey = catalogGameKey,
-  roomSnapshot: MatchRoomSnapshotResult = activeRoomSnapshot(roomGameKey),
+  roomRead: MatchRoomReadResult = activeRoomRead(roomGameKey),
 ) {
   return createApplicationWithDependencies({
     newMatchId: unused,
@@ -140,7 +141,13 @@ function applicationForActiveGame(
     finishCompletedMatch: unused,
     matchRoom: {
       create: unused,
-      snapshot: async () => roomSnapshot,
+      readMatch: async <K extends RegisteredGameKey>(_matchId: MatchId, expectedGameKey: K) => {
+        if (roomRead.ok && roomRead.state.gameKey !== expectedGameKey) {
+          return { ok: false as const, error: 'Invalid MatchRoom response', status: 502 }
+        }
+        // SAFETY: The key equality check models the private client trust boundary for this use-case fixture.
+        return roomRead as MatchRoomReadResult<K>
+      },
       submitCommand: unused,
       listFacts: async () => ({ ok: true as const, facts: [] }),
       stream: unused,
@@ -152,8 +159,8 @@ function applicationForActiveGame(
 
 function applicationForArchivedGame(
   catalogGameKey: RegisteredGameKey,
-  snapshotGameKey = catalogGameKey,
-  archivedSnapshot: MatchStateFor<RegisteredGameKey> = snapshotFor(snapshotGameKey, 'finished'),
+  archivedGameKey = catalogGameKey,
+  archivedState: MatchStateFor<RegisteredGameKey> = stateFor(archivedGameKey, 'finished'),
   archiveRead?: () => Promise<ProtocolArchiveRecord | null>,
 ) {
   return createApplicationWithDependencies({
@@ -176,7 +183,7 @@ function applicationForArchivedGame(
         sourceLatestSeq: 2,
         protocolVersion: 1,
         rows: [],
-        state: archivedSnapshot,
+        state: archivedState,
       })),
     beginMatchCreation: unused,
     activateMatch: unused,
@@ -184,7 +191,7 @@ function applicationForArchivedGame(
     finishCompletedMatch: unused,
     matchRoom: {
       create: unused,
-      snapshot: unused,
+      readMatch: unused,
       submitCommand: unused,
       listFacts: unused,
       stream: unused,
@@ -214,7 +221,7 @@ function applicationForInvalidCreation() {
     finishCompletedMatch: unused,
     matchRoom: {
       create: unused,
-      snapshot: unused,
+      readMatch: unused,
       submitCommand: unused,
       listFacts: unused,
       stream: unused,
@@ -251,23 +258,23 @@ describe('application orchestration', () => {
     })
   })
 
-  test('hides a match when the room snapshot key does not match the expected game key', async () => {
+  test('returns invalid RPC when the room state key does not match the expected game key', async () => {
     const application = applicationForActiveGame('free-pyramid', 'combined-pyramid')
     expect(await application.readMatchControl(matchId, 'en', 'free-pyramid')).toEqual({
       ok: false,
-      error: 'Unknown match',
-      status: 404,
+      error: 'Invalid MatchRoom response',
+      status: 502,
     })
     expect(await application.readMatchProtocol(matchId, 'UTC', 'en', 'free-pyramid')).toEqual({
       ok: false,
-      error: 'Unknown match',
-      status: 404,
+      error: 'Invalid MatchRoom response',
+      status: 502,
     })
   })
 
   test('accepts the legitimate active pre-first-frame state without a projection', async () => {
-    const valid = activeRoomSnapshot('free-pyramid')
-    const preFirstFrame = unsafeRoomSnapshot({
+    const valid = activeRoomRead('free-pyramid')
+    const preFirstFrame = unsafeRoomRead({
       ...valid,
       state: { ...valid.state, currentFrameIndex: 0, frames: [] },
       controlProjection: undefined,
@@ -287,7 +294,7 @@ describe('application orchestration', () => {
     expect(protocol.ok && protocol.controlProjection).toBeUndefined()
   })
 
-  test('hides archived protocol when the archived snapshot key does not match the expected game', async () => {
+  test('hides archived protocol when the archived state key does not match the expected game', async () => {
     const application = applicationForArchivedGame('free-pyramid', 'combined-pyramid')
     expect(await application.readMatchProtocol(matchId, 'UTC', 'en', 'free-pyramid')).toEqual({
       ok: false,
@@ -303,11 +310,11 @@ describe('application orchestration', () => {
       () => new UnsupportedProtocolArchiveVersionError(matchId, 2),
       'Unsupported protocol archive version',
     ],
-  ])('converts %s into declared failures for completed snapshots and protocol rows', async (_label, error, expectedError) => {
+  ])('converts %s into declared failures for completed states and protocol rows', async (_label, error, expectedError) => {
     const controlApplication = applicationForArchivedGame(
       'free-pyramid',
       'free-pyramid',
-      snapshotFor('free-pyramid', 'finished'),
+      stateFor('free-pyramid', 'finished'),
       async () => {
         throw error()
       },
@@ -361,7 +368,7 @@ describe('application orchestration', () => {
         roomRequest = request
         return { ok: true as const, matchId }
       },
-      snapshot: unused,
+      readMatch: unused,
       submitCommand: unused,
       listFacts: unused,
       stream: unused,
@@ -457,7 +464,7 @@ describe('application orchestration', () => {
     const calls: unknown[][] = []
     const room = {
       create: unused,
-      snapshot: unused,
+      readMatch: unused,
       async submitCommand(matchId: string, commandId: string, command: ControlCommand) {
         calls.push([matchId, commandId, command])
         return { ok: true as const, outcome: { _tag: 'accepted' as const, accepted: [{ seq: 3, factId }] } }
@@ -528,7 +535,7 @@ describe('application orchestration', () => {
       finishCompletedMatch: unused,
       matchRoom: {
         create: unused,
-        snapshot: unused,
+        readMatch: unused,
         submitCommand: async () => ({ ok: false, error: 'invalid-command-body', status: 400 }),
         listFacts: unused,
         stream: unused,
@@ -568,7 +575,7 @@ describe('application orchestration', () => {
       finishCompletedMatch: unused,
       matchRoom: {
         create: unused,
-        snapshot: unused,
+        readMatch: unused,
         submitCommand: async () => ({ ok: true, outcome: rejectedOutcome }),
         listFacts: unused,
         stream: unused,
@@ -606,7 +613,7 @@ describe('application orchestration', () => {
       finishCompletedMatch: unused,
       matchRoom: {
         create: unused,
-        snapshot: unused,
+        readMatch: unused,
         submitCommand: async () => {
           throw new Error('post-commit apply failure')
         },
@@ -623,7 +630,7 @@ describe('application orchestration', () => {
   })
 
   test('reads a finished match entirely from its D1 archive', async () => {
-    const snapshot = v.parse(MatchStateSchema, {
+    const archivedState = v.parse(MatchStateSchema, {
       matchId,
       gameKey: 'free-pyramid',
       targets: { frameTargetPointsBySeat: { A: 8, B: 8 }, matchTargetFrames: 1 },
@@ -635,7 +642,7 @@ describe('application orchestration', () => {
     })
     const room = {
       create: unused,
-      snapshot: unused,
+      readMatch: unused,
       submitCommand: unused,
       listFacts: unused,
       stream: unused,
@@ -664,7 +671,7 @@ describe('application orchestration', () => {
         sourceLatestSeq: 9,
         protocolVersion: 1,
         rows: [],
-        state: snapshot,
+        state: archivedState,
       }),
       beginMatchCreation: unused,
       activateMatch: unused,
@@ -678,7 +685,7 @@ describe('application orchestration', () => {
     expect(result).toEqual({
       ok: true,
       controlState: 'between-frames',
-      state: { ...snapshot, gameKey: 'free-pyramid' },
+      state: { ...archivedState, gameKey: 'free-pyramid' },
       latestSeq: 9,
       controlSections: {
         neutral: [],
@@ -734,7 +741,7 @@ describe('application orchestration', () => {
       },
       matchRoom: {
         create: unused,
-        snapshot: unused,
+        readMatch: unused,
         submitCommand: unused,
         listFacts: unused,
         stream: unused,
@@ -793,7 +800,7 @@ describe('application orchestration', () => {
         },
         matchRoom: {
           create: unused,
-          snapshot: unused,
+          readMatch: unused,
           submitCommand: async () => {
             commandCalls += 1
             return {
@@ -813,7 +820,7 @@ describe('application orchestration', () => {
                     endedAt,
                     facts: [],
                     projection: {
-                      state: snapshotFor('free-pyramid', 'finished'),
+                      state: stateFor('free-pyramid', 'finished'),
                       controlProjection: undefined,
                       controlSections: {
                         neutral: [],
