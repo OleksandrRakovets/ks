@@ -332,8 +332,8 @@ function matchCommandLabel(t: TFunction, command: ControlCommandPreset): string 
   switch (command.commandType) {
     case 'frame.commence':
       return t('match.control.commands.match.frame.commence')
-    case 'frame.start':
-      return t('match.control.commands.match.frame.start')
+    case 'frame.prepare':
+      return t('match.control.commands.match.frame.prepare')
     case 'frame.concede':
       return t('match.control.commands.match.frame.concede')
     case 'match.end':

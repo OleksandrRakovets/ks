@@ -29,7 +29,7 @@ type PotEvent = Extract<LongFreePyramidCommand, { type: 'pot.record' }>
 type FoulCommitEvent = Extract<LongFreePyramidCommand, { type: 'foul.commit' }>
 type FrameAwardEvent = Extract<LongFreePyramidCommand, { type: 'frame.award' }>
 
-const VALID_POT_POINTS = [1, 2, 3, 4] as const
+const VALID_POTTED_BALL_COUNTS = [1, 2, 3, 4] as const
 
 function requireRackRollover(rackRollover: number): 14 | 15 {
   invariant(rackRollover === 14 || rackRollover === 15, 'Long free pyramid requires rackRollover 14 or 15')
@@ -51,8 +51,8 @@ function frameAwardEvent(event: LongFreePyramidCommand): FrameAwardEvent {
   return event
 }
 
-function isValidPotPoints(points: number): points is 1 | 2 | 3 | 4 {
-  return VALID_POT_POINTS.some((option) => option === points)
+function isValidPottedBallCount(pottedBallCount: number): pottedBallCount is 1 | 2 | 3 | 4 {
+  return VALID_POTTED_BALL_COUNTS.some((option) => option === pottedBallCount)
 }
 
 function finalizeScoringUpdate(args: {
@@ -85,14 +85,14 @@ export const LongFreePyramidSparringFrameMachine = setup({
   guards: {
     isValidPotWithinTable: ({ context, event }) => {
       const e = potEvent(event)
-      if (!isValidPotPoints(e.points)) return false
-      return e.points <= ballsOnTableFromRacks(context.racks)
+      if (!isValidPottedBallCount(e.pottedBallCount)) return false
+      return e.pottedBallCount <= ballsOnTableFromRacks(context.racks)
     },
     isValidWinnerPotWithinTable: ({ context, event }) => {
       const e = potEvent(event)
       if (context.winner !== e.seat) return false
-      if (!isValidPotPoints(e.points)) return false
-      return e.points <= ballsOnTableFromRacks(context.racks)
+      if (!isValidPottedBallCount(e.pottedBallCount)) return false
+      return e.pottedBallCount <= ballsOnTableFromRacks(context.racks)
     },
     isCurrentRackHasBall: ({ context }) => ballsOnTableFromRacks(context.racks) >= 1,
     isWinnerFoulWithBall: ({ context, event }) => {
@@ -101,8 +101,8 @@ export const LongFreePyramidSparringFrameMachine = setup({
     },
     isOpenPlayPotReachingTarget: ({ context, event }) => {
       const e = potEvent(event)
-      if (!isValidPotPoints(e.points) || e.points > ballsOnTableFromRacks(context.racks)) return false
-      const racks = applyPotToRacks(context.racks, e.seat, e.points)
+      if (!isValidPottedBallCount(e.pottedBallCount) || e.pottedBallCount > ballsOnTableFromRacks(context.racks)) return false
+      const racks = applyPotToRacks(context.racks, e.seat, e.pottedBallCount)
       const score = totalScore(racks)
       return targetReachedBySeat(score, context.targetPoints, e.seat)
     },
@@ -122,7 +122,7 @@ export const LongFreePyramidSparringFrameMachine = setup({
   actions: {
     applyOpenPlayPot: assign(({ context, event }) => {
       const e = potEvent(event)
-      const racks = applyPotToRacks(context.racks, e.seat, e.points)
+      const racks = applyPotToRacks(context.racks, e.seat, e.pottedBallCount)
       return finalizeScoringUpdate({
         racks,
         rackRollover: context.rackRollover,
@@ -132,7 +132,7 @@ export const LongFreePyramidSparringFrameMachine = setup({
     }),
     applyOpenPlayPotAndSetWinner: assign(({ context, event }) => {
       const e = potEvent(event)
-      const racks = applyPotToRacks(context.racks, e.seat, e.points)
+      const racks = applyPotToRacks(context.racks, e.seat, e.pottedBallCount)
       return finalizeScoringUpdate({
         racks,
         rackRollover: context.rackRollover,
@@ -142,7 +142,7 @@ export const LongFreePyramidSparringFrameMachine = setup({
     }),
     applyWinnerPot: assign(({ context, event }) => {
       const e = potEvent(event)
-      const racks = applyPotToRacks(context.racks, e.seat, e.points)
+      const racks = applyPotToRacks(context.racks, e.seat, e.pottedBallCount)
       return finalizeScoringUpdate({
         racks,
         rackRollover: context.rackRollover,

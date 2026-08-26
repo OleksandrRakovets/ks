@@ -38,8 +38,8 @@ function setSeat(score: BySeatNumber, seat: Seat, value: number): BySeatNumber {
   return seat === 'A' ? { A: value, B: score.B } : { A: score.A, B: value }
 }
 
-function applyShot(score: BySeatNumber, seat: Seat, points: number, allowNegative: boolean): BySeatNumber {
-  return setSeat(score, seat, clamp(score[seat] + points, allowNegative))
+function applyShot(score: BySeatNumber, seat: Seat, pottedBallCount: number, allowNegative: boolean): BySeatNumber {
+  return setSeat(score, seat, clamp(score[seat] + pottedBallCount, allowNegative))
 }
 
 function applyFoul(score: BySeatNumber, offender: Seat, rules: PyramidRules): BySeatNumber {
@@ -71,14 +71,14 @@ export const PyramidSparringFrameMachine = setup({
     input: {} as PyramidMachineInput,
   },
   guards: {
-    isAllowedShotPoints: ({ context, event }) => {
+    isAllowedPottedBallCount: ({ context, event }) => {
       const e = potEvent(event)
-      return context.rules.shotPointOptions.includes(e.points)
+      return context.rules.shotPointOptions.includes(e.pottedBallCount)
     },
-    isAllowedShotPointsAndTargetReachedAfterPot: ({ context, event }) => {
+    isAllowedPottedBallCountAndTargetReachedAfterPot: ({ context, event }) => {
       const e = potEvent(event)
-      if (!context.rules.shotPointOptions.includes(e.points)) return false
-      const next = applyShot(context.score, e.seat, e.points, context.rules.allowNegative)
+      if (!context.rules.shotPointOptions.includes(e.pottedBallCount)) return false
+      const next = applyShot(context.score, e.seat, e.pottedBallCount, context.rules.allowNegative)
       return targetReached(next, context.targetPoints) !== null
     },
     isTargetReachedAfterFoul: ({ context, event }) => {
@@ -94,9 +94,9 @@ export const PyramidSparringFrameMachine = setup({
       if (event.type === 'frame.commence' || event.type === 'frame.award') return false
       return context.winner === event.seat
     },
-    isSeatWinnerWithAllowedShotPoints: ({ context, event }) => {
+    isSeatWinnerWithAllowedPottedBallCount: ({ context, event }) => {
       const e = potEvent(event)
-      return context.winner === e.seat && context.rules.shotPointOptions.includes(e.points)
+      return context.winner === e.seat && context.rules.shotPointOptions.includes(e.pottedBallCount)
     },
   },
   actions: {
@@ -106,12 +106,12 @@ export const PyramidSparringFrameMachine = setup({
     applyPot: assign(({ context, event }) => {
       const e = potEvent(event)
       return {
-        score: applyShot(context.score, e.seat, e.points, context.rules.allowNegative),
+        score: applyShot(context.score, e.seat, e.pottedBallCount, context.rules.allowNegative),
       }
     }),
     applyPotAndSetWinner: assign(({ context, event }) => {
       const e = potEvent(event)
-      const score = applyShot(context.score, e.seat, e.points, context.rules.allowNegative)
+      const score = applyShot(context.score, e.seat, e.pottedBallCount, context.rules.allowNegative)
       const winner = targetReached(score, context.targetPoints)
       invariant(winner !== null, 'Pot did not reach target')
       return {
@@ -160,12 +160,12 @@ export const PyramidSparringFrameMachine = setup({
       on: {
         'pot.record': [
           {
-            guard: 'isAllowedShotPointsAndTargetReachedAfterPot',
+            guard: 'isAllowedPottedBallCountAndTargetReachedAfterPot',
             target: 'winner-determined',
             actions: 'applyPotAndSetWinner',
           },
           {
-            guard: 'isAllowedShotPoints',
+            guard: 'isAllowedPottedBallCount',
             target: 'open-play',
             actions: 'applyPot',
           },
@@ -187,7 +187,7 @@ export const PyramidSparringFrameMachine = setup({
     'winner-determined': {
       on: {
         'pot.record': {
-          guard: 'isSeatWinnerWithAllowedShotPoints',
+          guard: 'isSeatWinnerWithAllowedPottedBallCount',
           target: 'winner-determined',
           actions: 'applyPot',
         },

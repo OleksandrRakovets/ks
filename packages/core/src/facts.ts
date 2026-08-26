@@ -24,7 +24,7 @@ export const ProtocolEntrySchema = v.object({
 })
 export type ProtocolEntry = v.InferOutput<typeof ProtocolEntrySchema>
 
-const FrameStartedPayloadSchema = v.object({
+const FramePreparedPayloadSchema = v.object({
   frameIndex: PositiveIntegerSchema,
   gameKey: GameKeySchema,
   targetPointsBySeat: BySeatNumberSchema,
@@ -55,9 +55,9 @@ const MatchCreatedContentSchema = v.object({
   payload: MatchConfigSchema,
 })
 
-const FrameStartedContentSchema = v.object({
-  type: v.literal('frame.started'),
-  payload: FrameStartedPayloadSchema,
+const FramePreparedContentSchema = v.object({
+  type: v.literal('frame.prepared'),
+  payload: FramePreparedPayloadSchema,
 })
 
 const GameCommandContentSchema = v.object({
@@ -77,7 +77,7 @@ const MatchEndedContentSchema = v.object({
 
 export const MatchFactContentSchema = v.variant('type', [
   MatchCreatedContentSchema,
-  FrameStartedContentSchema,
+  FramePreparedContentSchema,
   GameCommandContentSchema,
   FrameCompletedContentSchema,
   MatchEndedContentSchema,
@@ -106,11 +106,11 @@ export const MatchCreatedFactSchema = v.pipe(
   v.check((input) => input.matchId === input.payload.matchId, 'match.created envelope and payload match IDs must agree'),
 )
 
-export const FrameStartedFactSchema = v.object({
+export const FramePreparedFactSchema = v.object({
   ...MatchFactEnvelopeBaseSchema.entries,
   causedByCommandId: CommandIdSchema,
-  type: v.literal('frame.started'),
-  payload: FrameStartedPayloadSchema,
+  type: v.literal('frame.prepared'),
+  payload: FramePreparedPayloadSchema,
 })
 
 export const GameCommandFactSchema = v.object({
@@ -136,7 +136,7 @@ export const MatchEndedFactSchema = v.object({
 
 export const MatchFactSchema = v.variant('type', [
   MatchCreatedFactSchema,
-  FrameStartedFactSchema,
+  FramePreparedFactSchema,
   GameCommandFactSchema,
   FrameCompletedFactSchema,
   MatchEndedFactSchema,

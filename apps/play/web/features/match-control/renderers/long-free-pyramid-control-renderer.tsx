@@ -7,25 +7,27 @@ import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui'
 
-import { controlCommandLabel } from './control-copy'
+import { controlCommandLabel, potRecordPottedBallCount } from './control-copy'
 import type { MatchControlRendererProps } from './types'
 
 type SeatCommands = MatchControlRendererProps<LongFreePyramidControlView>['commandSections']['primary']
 type LabelledLongFreePyramidCommand =
-  | { kind: 'points'; command: ControlCommandPreset; points: number }
+  | { kind: 'pottedBallCount'; command: ControlCommandPreset; pottedBallCount: number }
   | { kind: 'command'; command: ControlCommandPreset }
 
 export function labelLongFreePyramidCommands(commands: ControlCommandPreset[]): LabelledLongFreePyramidCommand[] {
-  let points = 0
   return commands.map((command) => {
     if (command.commandType !== 'pot.record') return { kind: 'command', command }
-    points += 1
-    return { kind: 'points', command, points }
+    const pottedBallCount = potRecordPottedBallCount(command)
+    if (pottedBallCount === undefined) return { kind: 'command', command }
+    return { kind: 'pottedBallCount', command, pottedBallCount }
   })
 }
 
 function longFreePyramidCommandLabel(t: TFunction, labelled: LabelledLongFreePyramidCommand): string {
-  if (labelled.kind === 'points') return t('match.control.commands.game.pot.points', { points: labelled.points })
+  if (labelled.kind === 'pottedBallCount') {
+    return t('match.control.commands.game.pot.pottedBallCount', { pottedBallCount: labelled.pottedBallCount })
+  }
   return controlCommandLabel(t, labelled.command)
 }
 

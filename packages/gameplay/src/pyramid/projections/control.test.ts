@@ -21,10 +21,22 @@ test('projects exact combined-pyramid open-play presentation and command section
       commandSections: {
         primary: {
           A: [
-            { source: 'game', commandType: 'pot.record', command: { seat: 'A', points: 1 }, seat: 'A', prominence: 'primary' },
+            {
+              source: 'game',
+              commandType: 'pot.record',
+              command: { seat: 'A', pottedBallCount: 1 },
+              seat: 'A',
+              prominence: 'primary',
+            },
           ],
           B: [
-            { source: 'game', commandType: 'pot.record', command: { seat: 'B', points: 1 }, seat: 'B', prominence: 'primary' },
+            {
+              source: 'game',
+              commandType: 'pot.record',
+              command: { seat: 'B', pottedBallCount: 1 },
+              seat: 'B',
+              prominence: 'primary',
+            },
           ],
         },
         secondary: {
@@ -32,7 +44,7 @@ test('projects exact combined-pyramid open-play presentation and command section
             {
               source: 'game',
               commandType: 'pot.record',
-              command: { seat: 'A', points: 2 },
+              command: { seat: 'A', pottedBallCount: 2 },
               seat: 'A',
               prominence: 'secondary',
             },
@@ -49,7 +61,7 @@ test('projects exact combined-pyramid open-play presentation and command section
             {
               source: 'game',
               commandType: 'pot.record',
-              command: { seat: 'B', points: 2 },
+              command: { seat: 'B', pottedBallCount: 2 },
               seat: 'B',
               prominence: 'secondary',
             },

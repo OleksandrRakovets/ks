@@ -12,18 +12,18 @@ test('winner-determined pot keeps its one-point label and original command', () 
     seat: 'A',
     prominence: 'primary',
   }
-  const onePointPot: ControlCommandPreset = {
+  const oneBallPot: ControlCommandPreset = {
     source: 'game',
     commandType: 'pot.record',
-    command: { seat: 'A', points: 1 },
+    command: { seat: 'A', pottedBallCount: 1 },
     seat: 'A',
     prominence: 'secondary',
   }
 
-  const labelled = labelLongFreePyramidCommands([frameAward, onePointPot])
+  const labelled = labelLongFreePyramidCommands([frameAward, oneBallPot])
   expect(labelled).toEqual([
     { kind: 'command', command: frameAward },
-    { kind: 'points', command: onePointPot, points: 1 },
+    { kind: 'pottedBallCount', command: oneBallPot, pottedBallCount: 1 },
   ])
-  expect(labelled[1]?.command).toBe(onePointPot)
+  expect(labelled[1]?.command).toBe(oneBallPot)
 })

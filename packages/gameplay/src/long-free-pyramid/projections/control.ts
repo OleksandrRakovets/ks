@@ -6,7 +6,7 @@ import { type LongFreePyramidControlView, type LongFreePyramidProjectionDetails 
 import { getPhase, type LongFreePyramidSparringFrameSnapshot } from '../machine'
 
 type LongFreePyramidControlCommandInput =
-  | { type: 'pot.record'; seat: Seat; points: 1 | 2 | 3 | 4 }
+  | { type: 'pot.record'; seat: Seat; pottedBallCount: 1 | 2 | 3 | 4 }
   | { type: 'foul.commit'; seat: Seat }
   | { type: 'frame.award'; seat: Seat }
 
@@ -36,8 +36,10 @@ export function deriveLongFreePyramidControlView(snapshot: LongFreePyramidSparri
         ? [
             ...seats.flatMap((seat) =>
               ([1, 2, 3, 4] as const)
-                .filter((points) => points <= ballsOnTable)
-                .map((points, index) => command({ type: 'pot.record', seat, points }, index === 0 ? 'primary' : 'secondary')),
+                .filter((pottedBallCount) => pottedBallCount <= ballsOnTable)
+                .map((pottedBallCount, index) =>
+                  command({ type: 'pot.record', seat, pottedBallCount }, index === 0 ? 'primary' : 'secondary'),
+                ),
             ),
             ...seats.map((seat) => command({ type: 'foul.commit', seat }, 'secondary')),
           ]
@@ -45,7 +47,7 @@ export function deriveLongFreePyramidControlView(snapshot: LongFreePyramidSparri
           ? [
               command({ type: 'frame.award', seat: snapshot.context.winner }, 'primary'),
               ...(ballsOnTable >= 1
-                ? [command({ type: 'pot.record', seat: snapshot.context.winner, points: 1 }, 'secondary')]
+                ? [command({ type: 'pot.record', seat: snapshot.context.winner, pottedBallCount: 1 }, 'secondary')]
                 : []),
             ]
           : phase === 'awaiting-award' && snapshot.context.winner

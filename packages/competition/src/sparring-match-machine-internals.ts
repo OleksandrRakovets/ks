@@ -45,7 +45,7 @@ export type SparringMatchMachineContext = {
 
 export type SparringMatchLifecycleEvent =
   | {
-      readonly type: 'frame.started'
+      readonly type: 'frame.prepared'
       readonly frameIndex: number
       readonly breakerSeat: Seat
     }
@@ -83,8 +83,8 @@ export const SparringMatchMachine = setup({
     input: {} as MatchConfig,
   },
   guards: {
-    isValidFrameStart: ({ context, event }) => {
-      if (event.type !== 'frame.started') return false
+    isValidFramePrepare: ({ context, event }) => {
+      if (event.type !== 'frame.prepared') return false
       return (
         event.frameIndex === context.nextFrameIndex &&
         event.breakerSeat === expectedBreakerSeat(context.config, event.frameIndex)
@@ -103,7 +103,7 @@ export const SparringMatchMachine = setup({
   },
   actions: {
     activateFrame: assign(({ event }) => {
-      if (event.type !== 'frame.started') throw new Error('Expected frame.started')
+      if (event.type !== 'frame.prepared') throw new Error('Expected frame.prepared')
       return {
         activeFrame: {
           frameIndex: event.frameIndex,
@@ -152,8 +152,8 @@ export const SparringMatchMachine = setup({
   states: {
     'between-frames': {
       on: {
-        'frame.started': {
-          guard: 'isValidFrameStart',
+        'frame.prepared': {
+          guard: 'isValidFramePrepare',
           target: 'frame-in-progress',
           actions: 'activateFrame',
         },

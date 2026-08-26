@@ -460,7 +460,7 @@ describe('application orchestration', () => {
   })
 
   test('submits commands to the selected room without a control secret', async () => {
-    const command: ControlCommand = { source: 'match', commandType: 'frame.start', command: {} }
+    const command: ControlCommand = { source: 'match', commandType: 'frame.prepare', command: {} }
     const calls: unknown[][] = []
     const room = {
       create: unused,
@@ -552,7 +552,7 @@ describe('application orchestration', () => {
   })
 
   test('passes through valid unavailable rejected receipt as declared outcome', async () => {
-    const command: ControlCommand = { source: 'match', commandType: 'frame.start', command: {} }
+    const command: ControlCommand = { source: 'match', commandType: 'frame.prepare', command: {} }
     const rejectedOutcome = { _tag: 'rejected' as const, reason: { code: 'frame-already-active' as const } }
     const application = createApplicationWithDependencies({
       newMatchId: unused,
@@ -591,7 +591,7 @@ describe('application orchestration', () => {
   })
 
   test('lets a thrown MatchRoom defect reject rather than synthesizing an outcome', async () => {
-    const command: ControlCommand = { source: 'match', commandType: 'frame.start', command: {} }
+    const command: ControlCommand = { source: 'match', commandType: 'frame.prepare', command: {} }
     const application = createApplicationWithDependencies({
       newMatchId: unused,
       newControlSecret: unused,
@@ -707,7 +707,7 @@ describe('application orchestration', () => {
         newCommandId(),
         {
           source: 'match',
-          commandType: 'frame.start',
+          commandType: 'frame.prepare',
           command: {},
         },
         'free-pyramid',

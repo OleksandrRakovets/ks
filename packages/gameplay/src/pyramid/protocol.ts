@@ -1,4 +1,4 @@
-import { IntegerSchema, ProtocolEntrySchema } from '@ks/core'
+import { PositiveIntegerSchema, ProtocolEntrySchema } from '@ks/core'
 import * as v from 'valibot'
 
 import type { PyramidCommand } from './definitions'
@@ -7,7 +7,7 @@ import type { PyramidRules } from './rules'
 
 const PyramidProtocolEntryBodySchema = v.variant('commandType', [
   v.object({ commandType: v.literal('frame.commence') }),
-  v.object({ commandType: v.literal('pot.record'), points: IntegerSchema }),
+  v.object({ commandType: v.literal('pot.record'), pottedBallCount: PositiveIntegerSchema }),
   v.object({
     commandType: v.literal('foul.commit'),
     penalty: v.picklist(['opponent-plus-one', 'offender-minus-one']),
@@ -61,7 +61,7 @@ export function projectPyramidProtocolEntries(args: {
       return [
         protocolEntry({
           seat: command.seat,
-          body: { commandType: 'pot.record', points: command.points },
+          body: { commandType: 'pot.record', pottedBallCount: command.pottedBallCount },
           previous,
           next,
         }),

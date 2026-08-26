@@ -57,18 +57,22 @@ export const resources = {
         control: {
           title: 'Керування матчем',
           awardFrame: 'Зарахувати фрейм',
-          startNextFrame: 'Почати наступний фрейм',
+          prepareNextFrame: 'Підготувати наступний фрейм',
           endMatch: 'Завершити матч',
           invalidFactPayload: 'Некоректні дані факту',
           factRejectedByRules: 'Факт відхилено правилами матчу',
           targetReached: 'Ціль досягнута',
           commands: {
             match: {
-              frame: { commence: 'Початковий удар', start: 'Почати наступну партію', concede: 'Визнати поразку в партії' },
+              frame: {
+                commence: 'Початковий удар',
+                prepare: 'Підготувати наступну партію',
+                concede: 'Визнати поразку в партії',
+              },
               match: { end: 'Завершити матч' },
             },
             game: {
-              pot: { record: 'Забити кулю', points: '+{{points}}' },
+              pot: { record: 'Забити кулю', pottedBallCount: '+{{pottedBallCount}}' },
               miss: { record: 'Зафіксувати промах' },
               foul: { commit: 'Фол' },
               frame: { award: 'Зарахувати партію' },
@@ -154,7 +158,7 @@ export const resources = {
             pot: {
               record: {
                 balls: 'Забиття ({{balls}})',
-                points: 'Забиття {{points}}',
+                pottedBallCount: 'Забиття {{pottedBallCount}}',
                 default: 'Забиття',
               },
             },
@@ -176,9 +180,9 @@ export const resources = {
             },
           },
           system: {
-            'frame-started': {
-              breaker: 'Розбиває у партії {{frameIndex}}',
-              default: 'Початок партії {{frameIndex}}',
+            'frame-prepared': {
+              breaker: 'Підготовлено партію {{frameIndex}}',
+              default: 'Підготовлено партію {{frameIndex}}',
             },
             'frame-completed': 'Партію завершено',
             'frame-conceded': 'Визнав поразку в партії',
@@ -316,18 +320,18 @@ export const resources = {
         control: {
           title: 'Match control',
           awardFrame: 'Award frame',
-          startNextFrame: 'Start next frame',
+          prepareNextFrame: 'Prepare next frame',
           endMatch: 'End match',
           invalidFactPayload: 'Invalid fact payload',
           factRejectedByRules: 'Fact rejected by match rules',
           targetReached: 'Target reached',
           commands: {
             match: {
-              frame: { commence: 'Break-off', start: 'Start next frame', concede: 'Concede frame' },
+              frame: { commence: 'Break-off', prepare: 'Prepare next frame', concede: 'Concede frame' },
               match: { end: 'End match' },
             },
             game: {
-              pot: { record: 'Record pot', points: '+{{points}}' },
+              pot: { record: 'Record pot', pottedBallCount: '+{{pottedBallCount}}' },
               miss: { record: 'Record miss' },
               foul: { commit: 'Foul' },
               frame: { award: 'Award frame' },
@@ -411,7 +415,7 @@ export const resources = {
           commands: {
             frame: { commence: 'Frame commenced', award: 'Frame awarded' },
             pot: {
-              record: { balls: 'Pot ({{balls}})', points: 'Pot {{points}}', default: 'Pot' },
+              record: { balls: 'Pot ({{balls}})', pottedBallCount: 'Pot {{pottedBallCount}}', default: 'Pot' },
             },
             miss: { record: 'Miss' },
             foul: {
@@ -431,9 +435,9 @@ export const resources = {
             },
           },
           system: {
-            'frame-started': {
-              breaker: 'Breaks in frame {{frameIndex}}',
-              default: 'Frame {{frameIndex}} started',
+            'frame-prepared': {
+              breaker: 'Frame {{frameIndex}} prepared',
+              default: 'Frame {{frameIndex}} prepared',
             },
             'frame-completed': 'Frame completed',
             'frame-conceded': 'Frame conceded',

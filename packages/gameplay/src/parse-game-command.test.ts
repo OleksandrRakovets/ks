@@ -18,14 +18,14 @@ const strilaValidCommands = [
 
 const pyramidValidCommands = [
   { commandType: 'frame.commence', command: { seat: 'A' } },
-  { commandType: 'pot.record', command: { seat: 'A', points: 1 } },
+  { commandType: 'pot.record', command: { seat: 'A', pottedBallCount: 1 } },
   { commandType: 'foul.commit', command: { seat: 'A' } },
   { commandType: 'frame.award', command: { seat: 'A' } },
 ] as const
 
 const longValidCommands = [
   { commandType: 'frame.commence', command: { seat: 'A' } },
-  { commandType: 'pot.record', command: { seat: 'A', points: 1 } },
+  { commandType: 'pot.record', command: { seat: 'A', pottedBallCount: 1 } },
   { commandType: 'foul.commit', command: { seat: 'A' } },
   { commandType: 'frame.award', command: { seat: 'A' } },
 ] as const
@@ -43,9 +43,9 @@ function representativePotCommand(gameKey: RegisteredGameKey) {
     case 'strila-v2':
       return { commandType: 'pot.record', command: { seat: 'A', pottedBalls: [1] } }
     case 'free-pyramid-long':
-      return { commandType: 'pot.record', command: { seat: 'A', points: 2 } }
+      return { commandType: 'pot.record', command: { seat: 'A', pottedBallCount: 2 } }
     default:
-      return { commandType: 'pot.record', command: { seat: 'A', points: 1 } }
+      return { commandType: 'pot.record', command: { seat: 'A', pottedBallCount: 1 } }
   }
 }
 
@@ -113,26 +113,37 @@ describe('parseGameCommand', () => {
     )
   })
 
-  test('regular pyramid accepts any integer points at parse time', () => {
-    const parsed = parseGameCommand('free-pyramid', { commandType: 'pot.record', command: { seat: 'A', points: 99 } })
+  test('regular pyramid accepts any positive integer count at parse time', () => {
+    const parsed = parseGameCommand('free-pyramid', { commandType: 'pot.record', command: { seat: 'A', pottedBallCount: 99 } })
     expect(parsed._tag).toBe('parsed')
-    const fractional = parseGameCommand('free-pyramid', { commandType: 'pot.record', command: { seat: 'A', points: 1.5 } })
+    const fractional = parseGameCommand('free-pyramid', {
+      commandType: 'pot.record',
+      command: { seat: 'A', pottedBallCount: 1.5 },
+    })
     expect(fractional._tag).toBe('game-command-parse-failure')
   })
 
-  test('long free pyramid accepts each points literal 1 through 4', () => {
-    for (const points of [1, 2, 3, 4] as const) {
-      expect(parseGameCommand('free-pyramid-long', { commandType: 'pot.record', command: { seat: 'A', points } })._tag).toBe(
-        'parsed',
-      )
+  test('regular pyramid rejects zero and negative pottedBallCount at parse time', () => {
+    for (const pottedBallCount of [0, -1]) {
+      expect(
+        parseGameCommand('free-pyramid', { commandType: 'pot.record', command: { seat: 'A', pottedBallCount } })._tag,
+      ).toBe('game-command-parse-failure')
     }
   })
 
-  test('long free pyramid rejects points outside 1 through 4', () => {
-    for (const points of [0, 5, -1, 1.5]) {
-      expect(parseGameCommand('free-pyramid-long', { commandType: 'pot.record', command: { seat: 'A', points } })._tag).toBe(
-        'game-command-parse-failure',
-      )
+  test('long free pyramid accepts each pottedBallCount literal 1 through 4', () => {
+    for (const pottedBallCount of [1, 2, 3, 4] as const) {
+      expect(
+        parseGameCommand('free-pyramid-long', { commandType: 'pot.record', command: { seat: 'A', pottedBallCount } })._tag,
+      ).toBe('parsed')
+    }
+  })
+
+  test('long free pyramid rejects pottedBallCount outside 1 through 4', () => {
+    for (const pottedBallCount of [0, 5, -1, 1.5]) {
+      expect(
+        parseGameCommand('free-pyramid-long', { commandType: 'pot.record', command: { seat: 'A', pottedBallCount } })._tag,
+      ).toBe('game-command-parse-failure')
     }
   })
 })

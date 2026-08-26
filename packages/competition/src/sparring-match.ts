@@ -91,7 +91,7 @@ export class SparringMatchHistoryError extends Error {
 type CorrelatedGameplay<K extends RegisteredGameKey> = { readonly key: K; readonly session: GameplaySession<K> }
 type AnyCorrelatedGameplay = { [K in RegisteredGameKey]: CorrelatedGameplay<K> }[RegisteredGameKey]
 type ParsedCommand =
-  | { readonly type: 'frame.start' }
+  | { readonly type: 'frame.prepare' }
   | { readonly type: 'frame.commence'; readonly seat: Seat }
   | { readonly type: 'frame.concede'; readonly seat: Seat }
   | {
@@ -133,15 +133,15 @@ function requireGameplay<K extends RegisteredGameKey>(key: K, gameplay: AnyCorre
 function parseCommand(gameKey: RegisteredGameKey, command: ControlCommand): ParsedCommand | MatchCommandParseFailure {
   const failed = (): MatchCommandParseFailure => ({ code: 'unsupported-match-command', commandType: command.commandType })
   if (command.source === 'match') {
-    if (command.commandType === 'frame.start' && v.safeParse(v.strictObject({}), command.command).success)
-      return { type: 'frame.start' }
+    if (command.commandType === 'frame.prepare' && v.safeParse(v.strictObject({}), command.command).success)
+      return { type: 'frame.prepare' }
     if (command.commandType === 'frame.commence' || command.commandType === 'frame.concede') {
       const parsed = v.safeParse(v.strictObject({ seat: SeatSchema }), command.command)
       if (parsed.success) return { type: command.commandType, seat: parsed.output.seat }
     }
     return failed()
   }
-  if (command.source !== 'game' || ['frame.start', 'frame.commence', 'frame.concede'].includes(command.commandType))
+  if (command.source !== 'game' || ['frame.prepare', 'frame.commence', 'frame.concede'].includes(command.commandType))
     return failed()
   const parsed = parseGameCommand(gameKey, { commandType: command.commandType, command: command.command })
   if (parsed._tag === 'game-command-parse-failure') return failed()
@@ -248,7 +248,7 @@ class ResidentSparringMatch implements SparringMatch {
     }
     const matchSections = emptyControlCommandSections()
     if (lifecycle.phase === 'between-frames')
-      matchSections.neutral.push({ source: 'match', commandType: 'frame.start', command: {}, prominence: 'secondary' })
+      matchSections.neutral.push({ source: 'match', commandType: 'frame.prepare', command: {}, prominence: 'secondary' })
     if (lifecycle.phase === 'frame-in-progress' && this.gameplay) {
       if (this.gameplay.session.canCommence(lifecycle.activeFrame.breakerSeat)) {
         const seat = lifecycle.activeFrame.breakerSeat
@@ -276,13 +276,13 @@ class ResidentSparringMatch implements SparringMatch {
   private applyAggregate(command: ParsedCommand): MatchCommandResult {
     const lifecycle = projectLifecycleState(this.snapshot)
     if (lifecycle.phase === 'match-over') return { _tag: 'rejected', reason: { code: 'match-already-over' } }
-    if (command.type === 'frame.start') {
+    if (command.type === 'frame.prepare') {
       if (lifecycle.phase !== 'between-frames') return { _tag: 'rejected', reason: { code: 'frame-already-active' } }
       const frameIndex = lifecycle.nextFrameIndex
       const breakerSeat =
         frameIndex % 2 === 1 ? lifecycle.config.firstBreakerSeat : opponentOf(lifecycle.config.firstBreakerSeat)
       const content = {
-        type: 'frame.started',
+        type: 'frame.prepared',
         payload: {
           frameIndex,
           gameKey: lifecycle.config.gameKey,
@@ -291,7 +291,7 @@ class ResidentSparringMatch implements SparringMatch {
           gameConfiguration: lifecycle.config.gameConfiguration,
         },
       } satisfies MatchFactContent
-      this.snapshot = sendLifecycleEvent(this.snapshot, { type: 'frame.started', frameIndex, breakerSeat })
+      this.snapshot = sendLifecycleEvent(this.snapshot, { type: 'frame.prepared', frameIndex, breakerSeat })
       this.gameplay = createGameplay(gameKeyOf(lifecycle.config.gameKey), lifecycle.config)
       return { _tag: 'accepted', facts: [content] }
     }
@@ -356,7 +356,7 @@ class ResidentSparringMatch implements SparringMatch {
 
 function commandFromBatch(batch: MatchFactContentBatch): ParsedCommand {
   const first = batch[0]
-  if (first.type === 'frame.started') return { type: 'frame.start' }
+  if (first.type === 'frame.prepared') return { type: 'frame.prepare' }
   if (first.type === 'frame.completed' && first.payload.outcome.winReason === 'conceded') {
     return { type: 'frame.concede', seat: opponentOf(first.payload.outcome.winnerSeat) }
   }

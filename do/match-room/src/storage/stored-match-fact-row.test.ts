@@ -37,7 +37,7 @@ describe('stored match fact row codec', () => {
       matchId,
       acceptedAt: acceptedAt,
       causedByCommandId: commandId,
-      type: 'frame.started',
+      type: 'frame.prepared',
       payload: {
         frameIndex: 1,
         gameKey: 'strila-v2',

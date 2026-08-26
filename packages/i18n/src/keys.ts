@@ -55,7 +55,7 @@ export const keys = {
     control: {
       title: 'match.control.title',
       awardFrame: 'match.control.awardFrame',
-      startNextFrame: 'match.control.startNextFrame',
+      prepareNextFrame: 'match.control.prepareNextFrame',
       endMatch: 'match.control.endMatch',
       invalidFactPayload: 'match.control.invalidFactPayload',
       factRejectedByRules: 'match.control.factRejectedByRules',

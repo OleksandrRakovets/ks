@@ -17,9 +17,9 @@ describe('SparringMatch', () => {
   test('drafts creation without resident state and executes accepted commands speculatively', () => {
     const creation = draftSparringMatchCreation(config())
     const match = restoreSparringMatch([[creation]])
-    expect(match.execute({ source: 'match', commandType: 'frame.start', command: {} })).toMatchObject({
+    expect(match.execute({ source: 'match', commandType: 'frame.prepare', command: {} })).toMatchObject({
       _tag: 'accepted',
-      facts: [{ type: 'frame.started', payload: { frameIndex: 1, breakerSeat: 'A' } }],
+      facts: [{ type: 'frame.prepared', payload: { frameIndex: 1, breakerSeat: 'A' } }],
     })
     expect(match.project().state).toMatchObject({ status: 'active', currentFrameIndex: 1 })
   })
@@ -39,10 +39,10 @@ describe('SparringMatch', () => {
   test('restored semantic batches produce the same warm projection', () => {
     const creation = draftSparringMatchCreation(config())
     const warm = restoreSparringMatch([[creation]])
-    const started = warm.execute({ source: 'match', commandType: 'frame.start', command: {} })
-    expect(started._tag).toBe('accepted')
-    if (started._tag !== 'accepted') throw new Error('Expected accepted frame start')
-    const restored = restoreSparringMatch([[creation], started.facts])
+    const prepared = warm.execute({ source: 'match', commandType: 'frame.prepare', command: {} })
+    expect(prepared._tag).toBe('accepted')
+    if (prepared._tag !== 'accepted') throw new Error('Expected accepted frame prepare')
+    const restored = restoreSparringMatch([[creation], prepared.facts])
     expect(restored.project()).toEqual(warm.project())
   })
 
@@ -51,10 +51,10 @@ describe('SparringMatch', () => {
     const warm = restoreSparringMatch([[creation]])
     const history = [[creation]] as const
     const accepted = [
-      warm.execute({ source: 'match', commandType: 'frame.start', command: {} }),
+      warm.execute({ source: 'match', commandType: 'frame.prepare', command: {} }),
       warm.execute({ source: 'match', commandType: 'frame.commence', command: { seat: 'A' } }),
-      warm.execute({ source: 'game', commandType: 'pot.record', command: { seat: 'A', points: 4 } }),
-      warm.execute({ source: 'game', commandType: 'pot.record', command: { seat: 'A', points: 4 } }),
+      warm.execute({ source: 'game', commandType: 'pot.record', command: { seat: 'A', pottedBallCount: 4 } }),
+      warm.execute({ source: 'game', commandType: 'pot.record', command: { seat: 'A', pottedBallCount: 4 } }),
       warm.execute({ source: 'game', commandType: 'frame.award', command: { seat: 'A' } }),
     ]
     for (const result of accepted) expect(result._tag).toBe('accepted')
@@ -71,9 +71,9 @@ describe('SparringMatch', () => {
 
   test('enforces alternating breaker policy and records concession completion', () => {
     const match = restoreSparringMatch([[draftSparringMatchCreation(config())]])
-    expect(match.execute({ source: 'match', commandType: 'frame.start', command: {} })).toMatchObject({
+    expect(match.execute({ source: 'match', commandType: 'frame.prepare', command: {} })).toMatchObject({
       _tag: 'accepted',
-      facts: [{ type: 'frame.started', payload: { frameIndex: 1, breakerSeat: 'A' } }],
+      facts: [{ type: 'frame.prepared', payload: { frameIndex: 1, breakerSeat: 'A' } }],
     })
     expect(match.execute({ source: 'match', commandType: 'frame.commence', command: { seat: 'B' } })).toEqual({
       _tag: 'rejected',
@@ -83,17 +83,33 @@ describe('SparringMatch', () => {
       _tag: 'accepted',
       facts: [{ type: 'frame.completed', payload: { frameIndex: 1, outcome: { winnerSeat: 'B', winReason: 'conceded' } } }],
     })
-    expect(match.execute({ source: 'match', commandType: 'frame.start', command: {} })).toMatchObject({
+    expect(match.execute({ source: 'match', commandType: 'frame.prepare', command: {} })).toMatchObject({
       _tag: 'accepted',
-      facts: [{ type: 'frame.started', payload: { frameIndex: 2, breakerSeat: 'B' } }],
+      facts: [{ type: 'frame.prepared', payload: { frameIndex: 2, breakerSeat: 'B' } }],
     })
+  })
+
+  test('control flow offers prepare, then commence, then award', () => {
+    const match = restoreSparringMatch([[draftSparringMatchCreation(config())]])
+    expect(match.project().controlSections.neutral.map((command) => command.commandType)).toEqual(['frame.prepare'])
+
+    match.execute({ source: 'match', commandType: 'frame.prepare', command: {} })
+    expect(match.project().controlSections.primary.A.map((command) => command.commandType)).toEqual(['frame.commence'])
+    expect(match.project().controlProjection?.details.phase).toBe('not-started')
+
+    match.execute({ source: 'match', commandType: 'frame.commence', command: { seat: 'A' } })
+    expect(match.project().controlSections.primary.A.some((command) => command.commandType === 'frame.commence')).toBe(false)
+
+    match.execute({ source: 'game', commandType: 'pot.record', command: { seat: 'A', pottedBallCount: 4 } })
+    match.execute({ source: 'game', commandType: 'pot.record', command: { seat: 'A', pottedBallCount: 4 } })
+    expect(match.project().controlSections.primary.A.map((command) => command.commandType)).toEqual(['frame.award'])
   })
 
   test('ordinary accepted gameplay emits only the ordered game.command fact', () => {
     const match = restoreSparringMatch([[draftSparringMatchCreation(config())]])
-    match.execute({ source: 'match', commandType: 'frame.start', command: {} })
+    match.execute({ source: 'match', commandType: 'frame.prepare', command: {} })
     match.execute({ source: 'match', commandType: 'frame.commence', command: { seat: 'A' } })
-    const result = match.execute({ source: 'game', commandType: 'pot.record', command: { seat: 'A', points: 1 } })
+    const result = match.execute({ source: 'game', commandType: 'pot.record', command: { seat: 'A', pottedBallCount: 1 } })
     expect(result).toMatchObject({
       _tag: 'accepted',
       facts: [
@@ -101,5 +117,46 @@ describe('SparringMatch', () => {
       ],
     })
     if (result._tag === 'accepted') expect(result.facts.map((fact) => fact.type)).toEqual(['game.command'])
+  })
+
+  test('rejected gameplay retains projection and emits no facts', () => {
+    const match = restoreSparringMatch([[draftSparringMatchCreation(config())]])
+    match.execute({ source: 'match', commandType: 'frame.prepare', command: {} })
+    match.execute({ source: 'match', commandType: 'frame.commence', command: { seat: 'A' } })
+    const before = match.project()
+    expect(
+      match.execute({ source: 'game', commandType: 'pot.record', command: { seat: 'A', pottedBallCount: 3 } }),
+    ).toMatchObject({
+      _tag: 'rejected',
+      reason: { code: 'game-command-rejected' },
+    })
+    expect(match.project()).toEqual(before)
+  })
+
+  test('JSON round-trip restores prepare and pottedBallCount contracts', () => {
+    const creation = draftSparringMatchCreation(config())
+    const warm = restoreSparringMatch([[creation]])
+    const accepted = [
+      warm.execute({ source: 'match', commandType: 'frame.prepare', command: {} }),
+      warm.execute({ source: 'match', commandType: 'frame.commence', command: { seat: 'A' } }),
+      warm.execute({ source: 'game', commandType: 'pot.record', command: { seat: 'A', pottedBallCount: 2 } }),
+    ]
+    const batches = accepted.map((result) => {
+      if (result._tag !== 'accepted') throw new Error('Expected accepted command')
+      return result.facts
+    })
+    expect(batches[0]?.[0]).toMatchObject({ type: 'frame.prepared' })
+    expect(batches[2]?.[0]).toMatchObject({
+      type: 'game.command',
+      payload: {
+        commandType: 'pot.record',
+        command: { seat: 'A', pottedBallCount: 2 },
+        protocolEntries: [{ body: { commandType: 'pot.record', pottedBallCount: 2 } }],
+      },
+    })
+    // SAFETY: JSON round-trips schema-produced semantic batches without changing their JSON value types.
+    const persisted = JSON.parse(JSON.stringify(batches)) as typeof batches
+    const restored = restoreSparringMatch([[creation], ...persisted])
+    expect(restored.project()).toEqual(warm.project())
   })
 })

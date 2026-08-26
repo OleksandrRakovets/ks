@@ -1,4 +1,4 @@
-import { IntegerSchema, ProtocolEntrySchema } from '@ks/core'
+import { PositiveIntegerSchema, ProtocolEntrySchema } from '@ks/core'
 import * as v from 'valibot'
 
 import { totalScore } from './calculations'
@@ -7,7 +7,7 @@ import type { LongFreePyramidSparringFrameSnapshot } from './machine'
 
 const LongFreePyramidProtocolEntryBodySchema = v.variant('commandType', [
   v.object({ commandType: v.literal('frame.commence') }),
-  v.object({ commandType: v.literal('pot.record'), points: IntegerSchema }),
+  v.object({ commandType: v.literal('pot.record'), pottedBallCount: PositiveIntegerSchema }),
   v.object({ commandType: v.literal('foul.commit'), penalty: v.literal('opponent-plus-one') }),
   v.object({ commandType: v.literal('frame.award') }),
 ])
@@ -60,7 +60,7 @@ export function projectLongFreePyramidProtocolEntries(args: {
       return [
         protocolEntry({
           seat: command.seat,
-          body: { commandType: 'pot.record', points: command.points },
+          body: { commandType: 'pot.record', pottedBallCount: command.pottedBallCount },
           previous,
           next,
         }),

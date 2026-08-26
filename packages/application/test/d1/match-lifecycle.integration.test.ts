@@ -74,9 +74,9 @@ function terminalArchiveInput(id = matchId): CompletedMatchArchiveInput {
   const acceptedAt = 2_000
   const facts: StoredMatchFact[] = [storedFact(creation, config, 1, newCommandId(), acceptedAt)]
   for (const command of [
-    { source: 'match', commandType: 'frame.start', command: {} },
+    { source: 'match', commandType: 'frame.prepare', command: {} },
     { source: 'match', commandType: 'frame.commence', command: { seat: 'A' } },
-    { source: 'game', commandType: 'pot.record', command: { seat: 'A', points: 2 } },
+    { source: 'game', commandType: 'pot.record', command: { seat: 'A', pottedBallCount: 2 } },
     { source: 'game', commandType: 'frame.award', command: { seat: 'A' } },
   ] satisfies ControlCommand[]) {
     const decision = session.execute(command)
@@ -146,7 +146,7 @@ describe('real D1 match lifecycle', () => {
         const index = facts.findIndex((fact) => fact.type === 'game.command')
         const fact = facts[index]!
         if (fact.type !== 'game.command') throw new Error('Expected game command fixture fact')
-        facts[index] = { ...fact, payload: { ...fact.payload, command: { seat: 'B', points: 99 } } }
+        facts[index] = { ...fact, payload: { ...fact.payload, command: { seat: 'B', pottedBallCount: 99 } } }
         return { ...input, facts }
       },
     ],

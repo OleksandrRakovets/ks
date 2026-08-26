@@ -20,18 +20,18 @@ function acceptedBatches(commands: ControlCommand[]): MatchFactContentBatch[] {
   })
 }
 
-const startAndCommence = [
-  { source: 'match', commandType: 'frame.start', command: {} },
+const prepareAndCommence = [
+  { source: 'match', commandType: 'frame.prepare', command: {} },
   { source: 'match', commandType: 'frame.commence', command: { seat: 'A' } },
 ] satisfies ControlCommand[]
 
 test('restoreSparringMatch accepts canonical content with reordered object keys', () => {
-  const [started] = acceptedBatches([startAndCommence[0]!])
-  const fact = started![0]
-  if (fact.type !== 'frame.started') throw new Error('Expected frame.started')
+  const [prepared] = acceptedBatches([prepareAndCommence[0]!])
+  const fact = prepared![0]
+  if (fact.type !== 'frame.prepared') throw new Error('Expected frame.prepared')
   const reordered: MatchFactContentBatch = [
     {
-      type: 'frame.started',
+      type: 'frame.prepared',
       payload: {
         ...fact.payload,
         targetPointsBySeat: { B: fact.payload.targetPointsBySeat.B, A: fact.payload.targetPointsBySeat.A },
@@ -42,7 +42,7 @@ test('restoreSparringMatch accepts canonical content with reordered object keys'
 })
 
 test('restoreSparringMatch accepts canonical content after JSON persistence', () => {
-  const batches = acceptedBatches(startAndCommence)
+  const batches = acceptedBatches(prepareAndCommence)
   // SAFETY: JSON round-trips schema-produced semantic batches without changing their JSON value types.
   const persisted = JSON.parse(JSON.stringify(batches)) as MatchFactContentBatch[]
   restoreSparringMatch([[draftSparringMatchCreation(config)], ...persisted])
@@ -55,7 +55,7 @@ test('restoreSparringMatch rejects a batch whose complete content differs from c
       [creation],
       [
         {
-          type: 'frame.started',
+          type: 'frame.prepared',
           payload: { frameIndex: 1, gameKey: 'free-pyramid', targetPointsBySeat: { A: 9, B: 8 }, breakerSeat: 'A' },
         },
       ],
@@ -65,8 +65,8 @@ test('restoreSparringMatch rejects a batch whose complete content differs from c
 
 test('restoreSparringMatch rejects facts after terminal state through canonical execution', () => {
   const batches = acceptedBatches([
-    ...startAndCommence,
-    { source: 'game', commandType: 'pot.record', command: { seat: 'A', points: 2 } },
+    ...prepareAndCommence,
+    { source: 'game', commandType: 'pot.record', command: { seat: 'A', pottedBallCount: 2 } },
     { source: 'game', commandType: 'frame.award', command: { seat: 'A' } },
   ])
   expect(() =>
@@ -75,7 +75,7 @@ test('restoreSparringMatch rejects facts after terminal state through canonical 
       ...batches,
       [
         {
-          type: 'frame.started',
+          type: 'frame.prepared',
           payload: { frameIndex: 2, gameKey: 'free-pyramid', targetPointsBySeat: { A: 2, B: 2 }, breakerSeat: 'B' },
         },
       ],
@@ -85,8 +85,8 @@ test('restoreSparringMatch rejects facts after terminal state through canonical 
 
 test('restoreSparringMatch rejects an incompatible stored game command', () => {
   const batches = acceptedBatches([
-    ...startAndCommence,
-    { source: 'game', commandType: 'pot.record', command: { seat: 'A', points: 1 } },
+    ...prepareAndCommence,
+    { source: 'game', commandType: 'pot.record', command: { seat: 'A', pottedBallCount: 1 } },
   ])
   const gameBatch = batches[2]!
   const fact = gameBatch[0]
@@ -99,8 +99,8 @@ test('restoreSparringMatch rejects an incompatible stored game command', () => {
 
 test('restoreSparringMatch rejects a stored protocol mismatch', () => {
   const batches = acceptedBatches([
-    ...startAndCommence,
-    { source: 'game', commandType: 'pot.record', command: { seat: 'A', points: 1 } },
+    ...prepareAndCommence,
+    { source: 'game', commandType: 'pot.record', command: { seat: 'A', pottedBallCount: 1 } },
   ])
   const gameBatch = batches[2]!
   const fact = gameBatch[0]
@@ -124,8 +124,8 @@ test('restoreSparringMatch rejects a stored protocol mismatch', () => {
 
 test('restoreSparringMatch rejects a stored completion mismatch', () => {
   const batches = acceptedBatches([
-    ...startAndCommence,
-    { source: 'game', commandType: 'pot.record', command: { seat: 'A', points: 2 } },
+    ...prepareAndCommence,
+    { source: 'game', commandType: 'pot.record', command: { seat: 'A', pottedBallCount: 2 } },
     { source: 'game', commandType: 'frame.award', command: { seat: 'A' } },
   ])
   const completionBatch = batches[3]!

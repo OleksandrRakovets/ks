@@ -4,11 +4,11 @@ import * as v from 'valibot'
 import { FoulCommitCommandSchema, FrameAwardCommandSchema, FrameCommenceCommandSchema } from '../command-schemas'
 import { GameControlProjectionSchema } from '../constants'
 
-const LongFreePyramidPotPointsSchema = v.picklist([1, 2, 3, 4])
+const LongFreePyramidPottedBallCountSchema = v.picklist([1, 2, 3, 4])
 
 export const LongFreePyramidCommandSchema = v.variant('type', [
   FrameCommenceCommandSchema,
-  v.strictObject({ type: v.literal('pot.record'), seat: SeatSchema, points: LongFreePyramidPotPointsSchema }),
+  v.strictObject({ type: v.literal('pot.record'), seat: SeatSchema, pottedBallCount: LongFreePyramidPottedBallCountSchema }),
   FoulCommitCommandSchema,
   FrameAwardCommandSchema,
 ])

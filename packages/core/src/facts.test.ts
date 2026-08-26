@@ -4,7 +4,7 @@ import * as v from 'valibot'
 
 import {
   FrameCompletedFactSchema,
-  FrameStartedFactSchema,
+  FramePreparedFactSchema,
   GameCommandFactSchema,
   MatchCreatedFactSchema,
   MatchEndedFactSchema,
@@ -144,9 +144,9 @@ describe('stored match fact identity', () => {
   test('accepts all submitted-command variants with causation', () => {
     const base = { factId, matchId, acceptedAt: v.parse(UnixEpochMillisecondsSchema, 1), causedByCommandId: commandId }
     expect(
-      v.safeParse(FrameStartedFactSchema, {
+      v.safeParse(FramePreparedFactSchema, {
         ...base,
-        type: 'frame.started',
+        type: 'frame.prepared',
         payload: {
           frameIndex: 1,
           gameKey: 'free-pyramid',
@@ -179,7 +179,7 @@ describe('stored match fact identity', () => {
     expect(v.safeParse(MatchFactContentSchema, { type: 'match.created', payload: matchConfig }).success).toBe(true)
     expect(
       v.safeParse(MatchFactContentSchema, {
-        type: 'frame.started',
+        type: 'frame.prepared',
         payload: {
           frameIndex: 1,
           gameKey: 'free-pyramid',
@@ -203,7 +203,7 @@ describe('stored match fact identity', () => {
   })
 
   test('omits removed client-authored envelope fields from parsed facts', () => {
-    const fact = v.parse(FrameStartedFactSchema, {
+    const fact = v.parse(FramePreparedFactSchema, {
       factId,
       matchId,
       acceptedAt: v.parse(UnixEpochMillisecondsSchema, 1),
@@ -211,7 +211,7 @@ describe('stored match fact identity', () => {
       clientId: 'legacy-client',
       clientSeq: 1,
       at: 1,
-      type: 'frame.started',
+      type: 'frame.prepared',
       payload: {
         frameIndex: 1,
         gameKey: 'free-pyramid',

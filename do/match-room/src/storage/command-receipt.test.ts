@@ -41,7 +41,7 @@ describe('command receipt outcome codec', () => {
     expect(
       v.safeParse(CommandReceiptOutcomeSchema, {
         _tag: 'rejected',
-        reason: { code: 'unsupported-match-command', commandType: 'frame.start' },
+        reason: { code: 'unsupported-match-command', commandType: 'frame.prepare' },
       }).success,
     ).toBe(false)
   })

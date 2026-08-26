@@ -33,14 +33,14 @@ describe('MatchRoom RPC request contract', () => {
   })
 
   test('canonicalizes parsed commands with stable key order and distinct payloads', () => {
-    expect(canonicalCommandJson({ source: 'match', commandType: 'frame.start', command: {} })).toBe(
-      JSON.stringify({ source: 'match', commandType: 'frame.start', command: {} }),
+    expect(canonicalCommandJson({ source: 'match', commandType: 'frame.prepare', command: {} })).toBe(
+      JSON.stringify({ source: 'match', commandType: 'frame.prepare', command: {} }),
     )
-    expect(canonicalCommandJson({ source: 'match', commandType: 'frame.start', command: {} })).toBe(
-      canonicalCommandJson({ command: {}, commandType: 'frame.start', source: 'match' }),
+    expect(canonicalCommandJson({ source: 'match', commandType: 'frame.prepare', command: {} })).toBe(
+      canonicalCommandJson({ command: {}, commandType: 'frame.prepare', source: 'match' }),
     )
     expect(canonicalCommandJson({ source: 'match', commandType: 'match.end', command: {} })).not.toBe(
-      canonicalCommandJson({ source: 'match', commandType: 'frame.start', command: {} }),
+      canonicalCommandJson({ source: 'match', commandType: 'frame.prepare', command: {} }),
     )
   })
 
@@ -50,7 +50,7 @@ describe('MatchRoom RPC request contract', () => {
       v.safeParse(SubmitCommandBodySchema, {
         matchId,
         commandId: newCommandId(),
-        command: { source: 'match', commandType: 'frame.start', command: {} },
+        command: { source: 'match', commandType: 'frame.prepare', command: {} },
       }).success,
     ).toBe(true)
     expect(v.safeParse(StreamBodySchema, { matchId, since: 2 }).success).toBe(true)

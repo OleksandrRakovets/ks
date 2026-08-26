@@ -7,7 +7,7 @@ import { getPhase, type PyramidSparringFrameSnapshot } from '../machine'
 import type { PyramidGameKey, PyramidRulesFor } from '../rules'
 
 type PyramidControlCommandInput =
-  | { type: 'pot.record'; seat: 'A' | 'B'; points: number }
+  | { type: 'pot.record'; seat: 'A' | 'B'; pottedBallCount: number }
   | { type: 'foul.commit'; seat: 'A' | 'B' }
   | { type: 'frame.award'; seat: 'A' | 'B' }
 
@@ -52,8 +52,8 @@ export function derivePyramidControlView<K extends PyramidGameKey>(
     const seats: Array<'A' | 'B'> = ['A', 'B']
     const commands = [
       ...seats.flatMap((seat) =>
-        rules.shotPointOptions.map((points, index) =>
-          command({ type: 'pot.record', seat, points }, { prominence: index === 0 ? 'primary' : 'secondary' }),
+        rules.shotPointOptions.map((pottedBallCount, index) =>
+          command({ type: 'pot.record', seat, pottedBallCount }, { prominence: index === 0 ? 'primary' : 'secondary' }),
         ),
       ),
       ...seats.map((seat) =>
@@ -86,7 +86,7 @@ export function derivePyramidControlView<K extends PyramidGameKey>(
     invariant(snapshot.context.winner !== null, 'Winner is required before awarding a determined pyramid frame')
     const commands = [
       command({ type: 'frame.award', seat: snapshot.context.winner }, { prominence: 'primary' }),
-      command({ type: 'pot.record', seat: snapshot.context.winner, points: 1 }, { prominence: 'secondary' }),
+      command({ type: 'pot.record', seat: snapshot.context.winner, pottedBallCount: 1 }, { prominence: 'secondary' }),
     ]
 
     const projection = {

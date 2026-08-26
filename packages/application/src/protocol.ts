@@ -85,7 +85,7 @@ const ProtocolMessageBodySchema = v.object({
   commandType: v.optional(v.string()),
   systemType: v.optional(v.string()),
   pottedBalls: v.optional(v.unknown()),
-  points: v.optional(v.number()),
+  pottedBallCount: v.optional(v.number()),
   penalty: v.optional(v.string()),
   choice: v.optional(v.string()),
   frameIndex: v.optional(v.unknown()),
@@ -111,12 +111,12 @@ function entryMessage(
         return { key: 'match.protocol.commands.pot.record.balls', actor, pottedBalls: pottedBalls.output }
       }
 
-      const points = body.points
-      if (points !== undefined) {
+      const pottedBallCount = body.pottedBallCount
+      if (pottedBallCount !== undefined) {
         return {
-          key: 'match.protocol.commands.pot.record.points',
+          key: 'match.protocol.commands.pot.record.pottedBallCount',
           actor,
-          params: { points: points >= 0 ? `+${points}` : String(points) },
+          params: { pottedBallCount: `+${pottedBallCount}` },
         }
       }
       return { key: 'match.protocol.commands.pot.record.default', actor }
@@ -148,15 +148,15 @@ function entryMessage(
 
   const systemType = body.systemType ?? null
   switch (systemType) {
-    case 'frame-started':
+    case 'frame-prepared':
       if (entry.seat) {
         return {
-          key: 'match.protocol.system.frame-started.breaker',
+          key: 'match.protocol.system.frame-prepared.breaker',
           actor: seatLabel(entry.seat),
           params: { frameIndex: String(body.frameIndex) },
         }
       }
-      return { key: 'match.protocol.system.frame-started.default', params: { frameIndex: String(body.frameIndex) } }
+      return { key: 'match.protocol.system.frame-prepared.default', params: { frameIndex: String(body.frameIndex) } }
     case 'frame-completed':
       return { key: 'match.protocol.system.frame-completed', actor }
     case 'frame-conceded':
@@ -209,7 +209,7 @@ function rowFromProtocolEntry(fact: StoredGameCommandFact, entry: ProtocolEntry)
 }
 
 function lifecycleRowsForFact(fact: StoredMatchFact, previous: StoredMatchFact | undefined): ProtocolArchiveRowDraft[] {
-  if (fact.type === 'frame.started') {
+  if (fact.type === 'frame.prepared') {
     return [
       {
         acceptedAt: fact.acceptedAt,
@@ -217,7 +217,7 @@ function lifecycleRowsForFact(fact: StoredMatchFact, previous: StoredMatchFact |
         source: 'system',
         entryType: 'system-note',
         seat: fact.payload.breakerSeat,
-        body: { systemType: 'frame-started', frameIndex: fact.payload.frameIndex },
+        body: { systemType: 'frame-prepared', frameIndex: fact.payload.frameIndex },
       },
     ]
   }

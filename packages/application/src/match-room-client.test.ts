@@ -89,7 +89,7 @@ describe('MatchRoom RPC response decoding', () => {
     expect(await client.create(request)).toEqual(invalid)
     expect(await client.readMatch(matchId, 'free-pyramid')).toEqual(invalid)
     expect(
-      await client.submitCommand(matchId, newCommandId(), { source: 'match', commandType: 'frame.start', command: {} }),
+      await client.submitCommand(matchId, newCommandId(), { source: 'match', commandType: 'frame.prepare', command: {} }),
     ).toEqual(invalid)
     expect(await client.listFacts(matchId)).toEqual(invalid)
     expect(await client.finalization(matchId)).toEqual(invalid)
@@ -135,7 +135,7 @@ describe('MatchRoom RPC response decoding', () => {
   })
 
   test('validates command receipts and disposal responses', async () => {
-    const command = { source: 'match' as const, commandType: 'frame.start', command: {} }
+    const command = { source: 'match' as const, commandType: 'frame.prepare', command: {} }
     expect(
       await clientReturning({ ok: true, outcome: { _tag: 'accepted', accepted: [] } }).client.submitCommand(
         matchId,

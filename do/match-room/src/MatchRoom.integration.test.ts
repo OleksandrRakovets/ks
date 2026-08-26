@@ -51,8 +51,8 @@ function createBody(matchId: string, request = baseRequest): CreateBody {
   }
 }
 
-function frameStartCommand(): ControlCommand {
-  return { source: 'match', commandType: 'frame.start', command: {} }
+function framePrepareCommand(): ControlCommand {
+  return { source: 'match', commandType: 'frame.prepare', command: {} }
 }
 
 function frameCommenceCommand(seat: 'A' | 'B'): ControlCommand {
@@ -63,8 +63,8 @@ function frameConcedeCommand(seat: 'A' | 'B'): ControlCommand {
   return { source: 'match', commandType: 'frame.concede', command: { seat } }
 }
 
-function potRecordCommand(seat: 'A' | 'B', points: number): ControlCommand {
-  return { source: 'game', commandType: 'pot.record', command: { seat, points } }
+function potRecordCommand(seat: 'A' | 'B', pottedBallCount: number): ControlCommand {
+  return { source: 'game', commandType: 'pot.record', command: { seat, pottedBallCount } }
 }
 
 function frameAwardCommand(seat: 'A' | 'B'): ControlCommand {
@@ -155,7 +155,7 @@ describe('MatchRoom integration', () => {
 
     const roomRead = assertOk<ReadMatchOk>(await stub.readMatch({ matchId }))
     expect(roomRead.state.currentFrameIndex).toBe(0)
-    expect(roomRead.controlSections.neutral[0]?.commandType).toBe('frame.start')
+    expect(roomRead.controlSections.neutral[0]?.commandType).toBe('frame.prepare')
   })
 
   test('accepts warm commands with shared causation and broadcasts non-terminal facts', async () => {
@@ -165,24 +165,24 @@ describe('MatchRoom integration', () => {
 
     const commandId = newCommandId()
     const streamResponse = await stub.stream({ matchId, since: 1 })
-    const accepted = await stub.submitCommand({ matchId, commandId, command: frameStartCommand() })
+    const accepted = await stub.submitCommand({ matchId, commandId, command: framePrepareCommand() })
     const streamBody = await readStreamBody(streamResponse)
 
     expect(accepted).toEqual({
       ok: true,
       outcome: { _tag: 'accepted', accepted: [expect.objectContaining({ seq: 2 })] },
     })
-    expect(streamBody).toContain('"type":"frame.started"')
+    expect(streamBody).toContain('"type":"frame.prepared"')
     expect(streamBody).toContain('"seq":2')
 
     const facts = assertOk<ListFactsOk>(await stub.listFacts({ matchId }))
     expect(facts.facts[1]).toMatchObject({
       seq: 2,
-      type: 'frame.started',
+      type: 'frame.prepared',
       causedByCommandId: commandId,
     })
 
-    const retry = await stub.submitCommand({ matchId, commandId, command: frameStartCommand() })
+    const retry = await stub.submitCommand({ matchId, commandId, command: framePrepareCommand() })
     expect(retry).toEqual(accepted)
   })
 
@@ -190,16 +190,16 @@ describe('MatchRoom integration', () => {
     const matchId = newMatchId()
     const stub = env.MATCH_ROOM.getByName(matchId)
     await stub.create(createBody(matchId))
-    await stub.submitCommand({ matchId, commandId: newCommandId(), command: frameStartCommand() })
+    await stub.submitCommand({ matchId, commandId: newCommandId(), command: framePrepareCommand() })
 
     const commandId = newCommandId()
-    const rejected = await stub.submitCommand({ matchId, commandId, command: frameStartCommand() })
+    const rejected = await stub.submitCommand({ matchId, commandId, command: framePrepareCommand() })
     expect(rejected.ok).toBe(true)
     if (!rejected.ok) throw new Error('Expected rejected receipt')
     expect(rejected.outcome._tag).toBe('rejected')
 
     const factsBefore = assertOk<ListFactsOk>(await stub.listFacts({ matchId }))
-    const retry = await stub.submitCommand({ matchId, commandId, command: frameStartCommand() })
+    const retry = await stub.submitCommand({ matchId, commandId, command: framePrepareCommand() })
     const factsAfter = assertOk<ListFactsOk>(await stub.listFacts({ matchId }))
 
     expect(retry).toEqual(rejected)
@@ -213,7 +213,7 @@ describe('MatchRoom integration', () => {
     await stub.create(createBody(matchId))
 
     const commandId = newCommandId()
-    await stub.submitCommand({ matchId, commandId, command: frameStartCommand() })
+    await stub.submitCommand({ matchId, commandId, command: framePrepareCommand() })
     const conflict = await stub.submitCommand({
       matchId,
       commandId,
@@ -227,10 +227,10 @@ describe('MatchRoom integration', () => {
     const matchId = newMatchId()
     const stub = env.MATCH_ROOM.getByName(matchId)
     await stub.create(createBody(matchId))
-    await stub.submitCommand({ matchId, commandId: newCommandId(), command: frameStartCommand() })
+    await stub.submitCommand({ matchId, commandId: newCommandId(), command: framePrepareCommand() })
 
     const commandId = newCommandId()
-    const rejected = await stub.submitCommand({ matchId, commandId, command: frameStartCommand() })
+    const rejected = await stub.submitCommand({ matchId, commandId, command: framePrepareCommand() })
     expect(rejected.ok).toBe(true)
     if (!rejected.ok) throw new Error('Expected rejected receipt')
     expect(rejected.outcome._tag).toBe('rejected')
@@ -239,17 +239,17 @@ describe('MatchRoom integration', () => {
     expect(conflict).toEqual({ ok: false, error: 'command-id-conflict', status: 409 })
   })
 
-  test('returns invalid-command-body without a receipt for malformed frame.start payload', async () => {
+  test('returns invalid-command-body without a receipt for malformed frame.prepare payload', async () => {
     const matchId = newMatchId()
     const stub = env.MATCH_ROOM.getByName(matchId)
     await stub.create(createBody(matchId))
 
     const commandId = newCommandId()
-    const malformed = { source: 'match', commandType: 'frame.start', command: { extra: true } } satisfies ControlCommand
+    const malformed = { source: 'match', commandType: 'frame.prepare', command: { extra: true } } satisfies ControlCommand
     const result = await stub.submitCommand({ matchId, commandId, command: malformed })
     expect(result).toEqual({ ok: false, error: 'invalid-command-body', status: 400 })
 
-    const retry = await stub.submitCommand({ matchId, commandId, command: frameStartCommand() })
+    const retry = await stub.submitCommand({ matchId, commandId, command: framePrepareCommand() })
     expect(retry.ok).toBe(true)
   })
 
@@ -257,7 +257,7 @@ describe('MatchRoom integration', () => {
     const matchId = newMatchId()
     const stub = env.MATCH_ROOM.getByName(matchId)
     await stub.create(createBody(matchId))
-    await stub.submitCommand({ matchId, commandId: newCommandId(), command: frameStartCommand() })
+    await stub.submitCommand({ matchId, commandId: newCommandId(), command: framePrepareCommand() })
     await stub.submitCommand({ matchId, commandId: newCommandId(), command: frameCommenceCommand('A') })
 
     const commandId = newCommandId()
@@ -274,14 +274,14 @@ describe('MatchRoom integration', () => {
     const stub = env.MATCH_ROOM.getByName(matchId)
     await stub.create(createBody(matchId))
     const commandId = newCommandId()
-    const accepted = await stub.submitCommand({ matchId, commandId, command: frameStartCommand() })
+    const accepted = await stub.submitCommand({ matchId, commandId, command: framePrepareCommand() })
 
     await runInDurableObject(stub, async (_instance, state) => {
       state.storage.sql.exec('DELETE FROM accepted_facts WHERE seq = 1')
     })
     await evictMatchRoom(stub)
 
-    expect(await stub.submitCommand({ matchId, commandId, command: frameStartCommand() })).toEqual(accepted)
+    expect(await stub.submitCommand({ matchId, commandId, command: framePrepareCommand() })).toEqual(accepted)
   })
 
   test('fails closed when retrying a locally corrupted persisted receipt', async () => {
@@ -289,14 +289,14 @@ describe('MatchRoom integration', () => {
     const stub = env.MATCH_ROOM.getByName(matchId)
     await stub.create(createBody(matchId))
     const commandId = newCommandId()
-    await stub.submitCommand({ matchId, commandId, command: frameStartCommand() })
+    await stub.submitCommand({ matchId, commandId, command: framePrepareCommand() })
 
     await runInDurableObject(stub, async (_instance, state) => {
       state.storage.sql.exec('UPDATE command_receipts SET outcome_json = ? WHERE command_id = ?', '{}', commandId)
     })
     await evictMatchRoom(stub)
 
-    const error = await captureRpcError(() => stub.submitCommand({ matchId, commandId, command: frameStartCommand() }))
+    const error = await captureRpcError(() => stub.submitCommand({ matchId, commandId, command: framePrepareCommand() }))
     expect(error.message).toContain(`MatchRoom command_receipts storage corruption for command ${commandId}`)
   })
 
@@ -304,7 +304,7 @@ describe('MatchRoom integration', () => {
     const matchId = newMatchId()
     const stub = env.MATCH_ROOM.getByName(matchId)
     await stub.create(createBody(matchId))
-    await stub.submitCommand({ matchId, commandId: newCommandId(), command: frameStartCommand() })
+    await stub.submitCommand({ matchId, commandId: newCommandId(), command: framePrepareCommand() })
     await stub.submitCommand({ matchId, commandId: newCommandId(), command: frameCommenceCommand('A') })
 
     await evictMatchRoom(stub)
@@ -326,7 +326,7 @@ describe('MatchRoom integration', () => {
     const matchId = newMatchId()
     const stub = env.MATCH_ROOM.getByName(matchId)
     await stub.create(createBody(matchId, quickWinRequest))
-    await stub.submitCommand({ matchId, commandId: newCommandId(), command: frameStartCommand() })
+    await stub.submitCommand({ matchId, commandId: newCommandId(), command: framePrepareCommand() })
     await stub.submitCommand({ matchId, commandId: newCommandId(), command: frameCommenceCommand('A') })
     await stub.submitCommand({ matchId, commandId: newCommandId(), command: potRecordCommand('A', 2) })
 
@@ -356,7 +356,7 @@ describe('MatchRoom integration', () => {
     const retry = await stub.submitCommand({ matchId, commandId: terminalId, command: frameAwardCommand('A') })
     expect(retry).toEqual(terminal)
 
-    const locked = await stub.submitCommand({ matchId, commandId: newCommandId(), command: frameStartCommand() })
+    const locked = await stub.submitCommand({ matchId, commandId: newCommandId(), command: framePrepareCommand() })
     expect(locked).toEqual({ ok: false, error: 'match-locked', status: 409 })
   })
 
@@ -364,7 +364,7 @@ describe('MatchRoom integration', () => {
     const matchId = newMatchId()
     const stub = env.MATCH_ROOM.getByName(matchId)
     await stub.create(createBody(matchId))
-    await stub.submitCommand({ matchId, commandId: newCommandId(), command: frameStartCommand() })
+    await stub.submitCommand({ matchId, commandId: newCommandId(), command: framePrepareCommand() })
     await stub.submitCommand({ matchId, commandId: newCommandId(), command: frameCommenceCommand('A') })
 
     const terminalId = newCommandId()
@@ -383,7 +383,7 @@ describe('MatchRoom integration', () => {
     const matchId = newMatchId()
     const stub = env.MATCH_ROOM.getByName(matchId)
     await stub.create(createBody(matchId))
-    await stub.submitCommand({ matchId, commandId: newCommandId(), command: frameStartCommand() })
+    await stub.submitCommand({ matchId, commandId: newCommandId(), command: framePrepareCommand() })
     await stub.submitCommand({ matchId, commandId: newCommandId(), command: frameConcedeCommand('A') })
 
     const finalized = assertOk<FinalizationOk>(await stub.finalization({ matchId }))
@@ -396,7 +396,7 @@ describe('MatchRoom integration', () => {
     const matchId = newMatchId()
     const stub = env.MATCH_ROOM.getByName(matchId)
     await stub.create(createBody(matchId))
-    await stub.submitCommand({ matchId, commandId: newCommandId(), command: frameStartCommand() })
+    await stub.submitCommand({ matchId, commandId: newCommandId(), command: framePrepareCommand() })
     await stub.submitCommand({ matchId, commandId: newCommandId(), command: frameCommenceCommand('A') })
 
     const streamResponse = await stub.stream({ matchId, since: 1 })
@@ -552,7 +552,7 @@ describe('MatchRoom integration', () => {
     const matchId = newMatchId()
     const stub = env.MATCH_ROOM.getByName(matchId)
     await stub.create(createBody(matchId))
-    await stub.submitCommand({ matchId, commandId: newCommandId(), command: frameStartCommand() })
+    await stub.submitCommand({ matchId, commandId: newCommandId(), command: framePrepareCommand() })
     await stub.submitCommand({ matchId, commandId: newCommandId(), command: frameCommenceCommand('A') })
 
     await runInDurableObject(stub, async (_instance, state) => {

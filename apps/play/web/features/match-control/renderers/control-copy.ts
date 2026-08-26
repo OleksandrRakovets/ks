@@ -1,13 +1,21 @@
-import type { ControlCommandPreset } from '@ks/core'
+import { type ControlCommandPreset, PositiveIntegerSchema } from '@ks/core'
 import type { TFunction } from 'i18next'
+import * as v from 'valibot'
+
+const PotRecordCountPayloadSchema = v.object({ pottedBallCount: PositiveIntegerSchema })
+
+export function potRecordPottedBallCount(command: ControlCommandPreset): number | undefined {
+  const parsed = v.safeParse(PotRecordCountPayloadSchema, command.command)
+  return parsed.success ? parsed.output.pottedBallCount : undefined
+}
 
 export function controlCommandLabel(t: TFunction, command: ControlCommandPreset): string {
   if (command.source === 'match') {
     switch (command.commandType) {
       case 'frame.commence':
         return t('match.control.commands.match.frame.commence')
-      case 'frame.start':
-        return t('match.control.commands.match.frame.start')
+      case 'frame.prepare':
+        return t('match.control.commands.match.frame.prepare')
       case 'frame.concede':
         return t('match.control.commands.match.frame.concede')
       case 'match.end':

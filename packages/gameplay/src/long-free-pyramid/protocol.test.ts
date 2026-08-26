@@ -8,8 +8,9 @@ test('projects the exact ordered entry and total scoreAfter across rack state', 
     type: 'frame.commence',
     seat: 'A',
   })
-  for (const points of [4, 4, 4] as const) previous = sendEvent(previous, { type: 'pot.record', seat: 'A', points })
-  const command = { type: 'pot.record', seat: 'B', points: 2 } as const
+  for (const pottedBallCount of [4, 4, 4] as const)
+    previous = sendEvent(previous, { type: 'pot.record', seat: 'A', pottedBallCount })
+  const command = { type: 'pot.record', seat: 'B', pottedBallCount: 2 } as const
   const next = sendEvent(previous, command)
 
   expect(projectLongFreePyramidProtocolEntries({ previous, command, next })).toEqual([
@@ -18,7 +19,7 @@ test('projects the exact ordered entry and total scoreAfter across rack state', 
       entryType: 'player-command',
       seat: 'B',
       scoreAfter: { A: 12, B: 2 },
-      body: { commandType: 'pot.record', points: 2 },
+      body: { commandType: 'pot.record', pottedBallCount: 2 },
     },
   ])
 })

@@ -40,7 +40,7 @@ describe('commandMatchAction adaptation', () => {
       },
     }))
     const form = new FormData()
-    form.set('command', JSON.stringify({ source: 'match', commandType: 'frame.start', command: {} }))
+    form.set('command', JSON.stringify({ source: 'match', commandType: 'frame.prepare', command: {} }))
     form.set('commandId', commandId)
 
     const result = await commandMatchAction(
@@ -58,7 +58,7 @@ describe('commandMatchAction adaptation', () => {
       outcome: { _tag: 'rejected', reason: { code: 'frame-already-active' } },
     }))
     const form = new FormData()
-    form.set('command', JSON.stringify({ source: 'match', commandType: 'frame.start', command: {} }))
+    form.set('command', JSON.stringify({ source: 'match', commandType: 'frame.prepare', command: {} }))
     form.set('commandId', commandId)
 
     const result = await commandMatchAction(
@@ -138,7 +138,7 @@ class FakeEventSource {
   }
 }
 
-function factJson(matchId: ReturnType<typeof newMatchId>, seq: number, type: 'frame.started' | 'match.ended'): string {
+function factJson(matchId: ReturnType<typeof newMatchId>, seq: number, type: 'frame.prepared' | 'match.ended'): string {
   const acceptedAt = nowUnixEpochMilliseconds()
   const base = {
     factId: newFactId(),
@@ -192,16 +192,16 @@ test('control subscription wires, parses, applies, and cleans up the production 
   expect(state.latestSeq).toBe(5)
   expect(revalidations).toBe(1)
 
-  source.emit('ev', new MessageEvent('ev', { data: factJson(matchId, 4, 'frame.started') }))
+  source.emit('ev', new MessageEvent('ev', { data: factJson(matchId, 4, 'frame.prepared') }))
   expect(state.latestSeq).toBe(5)
   expect(revalidations).toBe(1)
 
-  source.emit('ev', new MessageEvent('ev', { data: factJson(matchId, 6, 'frame.started') }))
+  source.emit('ev', new MessageEvent('ev', { data: factJson(matchId, 6, 'frame.prepared') }))
   expect(state.latestSeq).toBe(6)
   expect(revalidations).toBe(2)
 
   state = transitionControlLive(state, { type: 'accepted', seq: 8 }).state
-  source.emit('ev', new MessageEvent('ev', { data: factJson(matchId, 8, 'frame.started') }))
+  source.emit('ev', new MessageEvent('ev', { data: factJson(matchId, 8, 'frame.prepared') }))
   expect(state.latestSeq).toBe(8)
   expect(revalidations).toBe(2)
 

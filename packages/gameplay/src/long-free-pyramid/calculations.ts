@@ -24,13 +24,17 @@ export function ballsOnTableFromRacks(racks: readonly LongFreePyramidRack[]): nu
   return Math.max(0, 16 - removedByRack(currentRack(racks)))
 }
 
-function addRackScore(rack: LongFreePyramidRack, seat: Seat, points: number): LongFreePyramidRack {
-  return { ...rack, scoreBySeat: { ...rack.scoreBySeat, [seat]: rack.scoreBySeat[seat] + points } }
+function addRackScore(rack: LongFreePyramidRack, seat: Seat, pottedBallCount: number): LongFreePyramidRack {
+  return { ...rack, scoreBySeat: { ...rack.scoreBySeat, [seat]: rack.scoreBySeat[seat] + pottedBallCount } }
 }
 
-export function applyPotToRacks(racks: readonly LongFreePyramidRack[], seat: Seat, points: number): LongFreePyramidRack[] {
+export function applyPotToRacks(
+  racks: readonly LongFreePyramidRack[],
+  seat: Seat,
+  pottedBallCount: number,
+): LongFreePyramidRack[] {
   const rack = currentRack(racks)
-  return [...racks.slice(0, -1), addRackScore(rack, seat, points)]
+  return [...racks.slice(0, -1), addRackScore(rack, seat, pottedBallCount)]
 }
 
 export function applyFoulToRacks(racks: readonly LongFreePyramidRack[], awardedSeat: Seat): LongFreePyramidRack[] {
