@@ -15,11 +15,9 @@ import {
 
 const RESPOTTED_BLACK: StrilaColoredBall[] = [7]
 
-type StrilaMachineInput = {
+type StrilaSparringFrameMachineInput = {
   targetPointsBySeat?: BySeatNumber
 }
-
-export type StrilaSparringFrameMachineInput = StrilaMachineInput
 
 const FoulSnapshotValueSchema = v.object({ 'foul-committed': v.picklist(['penalty-selection', 'ball-in-hand']) })
 const RespottedBlackSnapshotValueSchema = v.object({ 'respotted-black': v.picklist(['opening', 'play']) })
@@ -97,7 +95,7 @@ export const StrilaSparringFrameMachine = setup({
     // SAFETY: XState's setup API uses empty values solely to capture these compile-time contracts.
     events: {} as StrilaCommand,
     // SAFETY: XState's setup API uses empty values solely to capture these compile-time contracts.
-    input: {} as StrilaMachineInput,
+    input: {} as StrilaSparringFrameMachineInput,
   },
   guards: {
     isAvailablePot: ({ context, event }) => isAvailablePot(context, event),
