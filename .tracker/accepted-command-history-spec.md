@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Replace the active `Fact` model with one ordered Accepted Command record per successful command. Each Accepted Command owns the game-specific Protocol entries produced by that command. Persist Final Match State atomically when the match ends, then transfer Protocol and Final Match State from MatchRoom SQLite to D1 without replaying gameplay in the application Worker.
+Replace the active `Fact` model with one ordered Accepted Command record per successful command. Each Accepted Command owns the gameplay and match-lifecycle Protocol entries produced by that command. Persist Final Match State atomically when the match ends, then transfer Protocol and Final Match State from MatchRoom SQLite to D1 without replaying gameplay in the application Worker.
 
 Read `CONTEXT.md` first. Its language is authoritative:
 
@@ -78,6 +78,21 @@ D1 owns:
 
 Application validates the MatchRoom RPC representation and copies it idempotently to D1. It must not replay commands or execute gameplay during this transfer. After archival, application asks MatchRoom to broadcast terminal completion, close live connections, and delete local storage, then marks the D1 match row finished.
 
+## Creation And Sequence Zero
+
+Match creation remains outside Accepted Command history and Protocol. Preserve current idempotent creation checks for match identity, control secret, canonical configuration, and `createdAt`.
+
+A newly created match has:
+
+- `latestSeq = 0`;
+- no command rows;
+- no Protocol-entry rows;
+- active state projected directly from configuration;
+- an empty Protocol response;
+- live/read cursor `0`.
+
+Accepted Command sequence starts at `1`. Change RPC, application, browser, and live cursor schemas from positive to non-negative wherever they represent `latestSeq` or `since`. `since=0` means replay every accepted command update; an empty match returns or announces `latestSeq=0` without synthetic creation data.
+
 ## Frame Vocabulary
 
 Apply these names consistently in commands, Protocol entries, UI control descriptors, tests, and copy:
@@ -90,18 +105,18 @@ Apply these names consistently in commands, Protocol entries, UI control descrip
 
 Rename current `frame.start` to `frame.prepare`. Retain `frame.commence` and `frame.award`. Do not replace commence with start or award with close.
 
-Protocol entries should describe the accepted real-world record using game-owned structured bodies. They do not need a parallel past-tense fact type merely to state that the command was accepted.
+Protocol entries should describe the accepted real-world record using gameplay-owned or competition-owned structured bodies. They do not need a parallel past-tense fact type merely to state that the command was accepted.
 
 ## Active Storage
 
 Replace `accepted_facts` and the current receipt representation with two normalized tables:
 
-- `commands` represents every submitted command and its accepted or rejected outcome;
+- `commands` represents every fully parsed command that reaches aggregate evaluation and its accepted or rejected outcome;
 - `protocol_entries` contains one row per official entry produced by an Accepted Command.
 
 Do not add a repository or collection abstraction merely for naming.
 
-The table must support this logical shape:
+The tables must support this logical shape:
 
 ```ts
 type StoredCommand = {
@@ -145,6 +160,17 @@ Required constraints:
 - rejection does not advance accepted sequence;
 - an accepted command, its Protocol entries, latest sequence, and any terminal state/status change commit in one SQLite transaction.
 
+Use real relational constraints where practical:
+
+- `commands.command_id` is the primary key;
+- accepted sequence is unique;
+- Protocol entries have a foreign key to `commands.command_id`;
+- include accepted sequence in a composite unique/foreign-key relationship if it remains duplicated on `protocol_entries`, so a row cannot pair one command ID with another command's sequence;
+- `(caused_by_command_id, entry_index)` and `(accepted_seq, entry_index)` are unique;
+- `entryIndex` is zero-based and contiguous within each Accepted Command.
+
+SQL constraints enforce nullability, uniqueness, and referential identity. The transactional store and decoder enforce invariants SQL cannot express conveniently: contiguous accepted sequence, zero-based entry indices without gaps, at least one entry for every accepted command, no entries for rejected commands, canonical decoded bodies, and terminal consistency.
+
 The active Protocol tab must query `protocol_entries` directly in `(acceptedSeq, entryIndex)` order. It must not load command rows to concatenate embedded arrays. `bodyJson` remains appropriate for validated game-specific detail; scalar ordering, actor, frame, and score fields should remain directly queryable.
 
 The physical schema may use explicit nullable columns plus checks or another equally small normalized representation, but it must not store command payload twice or retain `accepted_facts` alongside Accepted Commands.
@@ -165,17 +191,18 @@ Keep command handling and Protocol computation in one request. This is intention
 
 For a new command:
 
-1. Parse and validate the command at the RPC boundary.
-2. Check an existing row by command ID before resident restoration.
-3. If a matching row exists, return its stored outcome.
-4. Restore resident state from Accepted Commands only when the cache is absent or stale.
-5. Execute the new command against gameplay.
-6. On rejection, persist the rejected outcome without advancing sequence.
-7. On acceptance, obtain the next gameplay state, one or more Protocol entries, and any terminal Final Match State.
-8. Advance resident state speculatively.
-9. Atomically persist the Accepted Command and all associated output.
-10. If execution, encoding, or persistence fails, discard resident state so the next operation restores from durable Accepted Commands.
-11. Broadcast live change only after commit.
+1. Parse the RPC envelope and canonical Control Command representation.
+2. Check an existing row by command ID before resident restoration; return its stored outcome for identical canonical content and conflict for different content.
+3. For a new ID, fully parse the match/game-specific command before persistence.
+4. Return `invalid-command-body` for malformed commands without inserting a row. The same command ID may subsequently be reused with valid content.
+5. Restore resident state from Accepted Commands only when the cache is absent or stale.
+6. Execute the parsed command against the aggregate.
+7. On domain rejection, persist the rejected outcome without advancing sequence.
+8. On acceptance, obtain the next state, one or more Protocol entries, and any terminal Final Match State.
+9. Advance resident state speculatively.
+10. Atomically persist the Accepted Command and all associated output.
+11. If execution, encoding, or persistence fails, discard resident state so the next operation restores from durable Accepted Commands.
+12. Broadcast one live command update only after commit, subject to terminal withholding.
 
 Do not split a gameplay transition into a command-to-facts stage followed by a fact applier. The accepted command is sufficient replay input.
 
@@ -183,7 +210,12 @@ Every accepted command must produce at least one Protocol entry. If an operation
 
 ## Protocol Entries
 
-Gameplay continues to own game-specific Protocol-entry production because it has the previous state, command, next state, automatic rule consequences, and score transition together.
+Protocol ownership is split by domain layer and merged by competition:
+
+- gameplay owns entries for gameplay commands and automatic game-rule consequences because it has previous game state, command, next game state, and score transition together;
+- competition owns match lifecycle entries for frame preparation, concession, frame award/completion context, and match completion;
+- application does not invent lifecycle entries; it validates, archives, localizes, and renders the structured entries it receives;
+- one aggregate command execution merges gameplay and competition entries into one canonical ordered nonempty result.
 
 Retain the useful current execution shape:
 
@@ -225,21 +257,53 @@ Do not move game-specific Protocol semantics into `@ks/application`. Application
 
 At active reads and finalization, query entries directly in `(acceptedSeq, entryIndex)` order. Do not reconstruct Protocol by loading and concatenating per-command arrays.
 
+## Active Route Reads
+
+Use separate serialized MatchRoom RPC reads for the control and Protocol routes. Do not return both views in one response:
+
+```ts
+type ActiveControlRead = {
+  latestSeq: number
+  state: MatchState
+  controlProjection?: unknown
+  controlSections: ControlCommandSections
+}
+
+type ActiveProtocolRead = {
+  latestSeq: number
+  state: MatchState
+  protocolEntries: StoredProtocolEntry[]
+}
+```
+
+The control route calls only `ActiveControlRead`. The Protocol route calls only `ActiveProtocolRead`. Navigating to a tab loads that route's representation; live revalidation refreshes the currently loaded route and does not maintain the inactive tab in the background.
+
+Each response is internally coherent at its returned cursor. `ActiveProtocolRead` captures state, `latestSeq`, and all Protocol entries through that sequence under one serialized MatchRoom operation. A command may commit before or after that operation, never between its state and Protocol portions. Application must not assemble one Protocol response from separate state and entry calls.
+
 ## Restoration
 
 Cold restoration is required only while a match is active. It must:
 
 1. Load canonical match configuration.
 2. Load accepted command rows ordered by `acceptedSeq`.
-3. Decode and validate every command and Protocol-entry array at the storage boundary.
+3. Decode and validate every command and its ordered Protocol-entry rows at the storage boundary.
 4. Re-execute each Accepted Command through the same aggregate operation used for warm execution.
-5. Compare regenerated Protocol entries with persisted entries.
+5. Compare regenerated semantic Protocol values with persisted decoded semantic values.
 6. Reject malformed, impossible, reordered, incompatible, or semantically divergent history.
 7. Produce resident state equal to warm execution.
 
 Do not restore rejected commands. Do not reconstruct commands from Protocol entries. Do not create a second semantic history format.
 
 The comparison protects an active match from storage corruption and execution/persistence defects. No legacy-rule versioning is required because the project has not been deployed and active histories are temporary.
+
+Restoration validates storage metadata independently from semantic comparison:
+
+- command sequences are contiguous from `1`;
+- each entry has the owning command's sequence, command ID, and `acceptedAt`;
+- entry indices start at `0` and have no gaps;
+- decoded bodies pass the owning game/lifecycle schema;
+- regenerated entries compare structurally after canonical decoding, excluding storage metadata (`acceptedSeq`, `entryIndex`, `causedByCommandId`, and `acceptedAt`);
+- comparison is over canonical typed values, never raw `bodyJson` text or object-key order.
 
 ## Terminal Persistence And Transfer
 
@@ -250,6 +314,8 @@ Extend the active match storage record with terminal-only fields as needed, for 
 - `finalStateJson`, nullable while active and required while finalizing;
 - `endedAt`, nullable while active and required while finalizing.
 
+Require `terminalCommand.acceptedAt === endedAt`. The terminal command's final Protocol entry is the unique `match-ended` entry and has the same `acceptedAt`.
+
 Storage decoding must enforce:
 
 - active rows have no Final Match State or `endedAt`;
@@ -258,11 +324,28 @@ Storage decoding must enforce:
 - source latest sequence matches the terminal Accepted Command;
 - terminal Protocol entries exist and describe completion.
 
+The finalizing transfer decoder must enforce all of these cross-field invariants without executing gameplay:
+
+- transfer match ID and Final Match State match the MatchRoom record;
+- Final Match State has status `finished` and the same game key and targets as configuration;
+- `currentFrameIndex` equals the final stored frame index and frame indices are contiguous;
+- `framesWonBySeat` equals counts recomputed from frame winners;
+- exactly one seat reaches `matchTargetFrames`, and that seat is the completed-match winner;
+- the final awarded/conceded frame outcome agrees with its terminal Protocol entry and Final Match State;
+- there is exactly one `match-ended` Protocol entry in the complete Protocol;
+- `match-ended` is the last entry (`entryIndex` tail) of the terminal Accepted Command;
+- its seat equals the completed-match winner;
+- its accepted sequence equals `sourceLatestSeq`;
+- its `acceptedAt` equals terminal command `acceptedAt` and `endedAt`;
+- accepted command sequences and Protocol entry ownership/order satisfy all active storage invariants through the terminal sequence.
+
 Rewrite `MatchRoom.finalization()` to return only validated transfer data:
 
 ```ts
 type CompletedMatchTransfer = {
   matchId: MatchId
+  gameKey: RegisteredGameKey
+  createdAt: UnixEpochMilliseconds
   sourceLatestSeq: number
   endedAt: UnixEpochMilliseconds
   protocolEntries: StoredProtocolEntry[]
@@ -275,11 +358,12 @@ It must read SQLite and work after Durable Object eviction without restoring gam
 Rewrite application archival so it:
 
 1. Validates the MatchRoom RPC result structurally.
-2. Verifies match identity, game key, terminal state, sequence, timestamps, and Protocol entry ordering.
-3. Adapts entries to the existing versioned D1 Protocol archive representation.
-4. Idempotently writes Protocol and Final Match State.
-5. Does not import or execute `restoreSparringMatch` in the D1 adapter.
-6. Does not compare against a separately replayed projection.
+2. Loads the authoritative D1 match row and verifies match ID, game key, lifecycle eligibility, and `createdAt` against the transfer.
+3. Repeats representation-level terminal cross-field checks over the untrusted RPC result: winner, frame totals/index, unique terminal tail entry, sequence, causation, and timestamps.
+4. Adapts entries to the existing versioned D1 Protocol archive representation.
+5. Idempotently writes Protocol and Final Match State.
+6. Does not import or execute `restoreSparringMatch` in the D1 adapter.
+7. Does not compare against a separately replayed projection.
 
 Keep existing cross-store ordering:
 
@@ -292,15 +376,40 @@ MatchRoom terminal transaction
 
 Archive failure leaves the complete finalizing transfer durable in MatchRoom for retry. Disposal and D1 finish remain idempotent.
 
+Preserve recovery behavior explicitly:
+
+- while finalizing, retry of the identical terminal command ID/content returns its accepted receipt before rejecting commands due to status;
+- reuse of that ID with different canonical content conflicts;
+- every new command ID is rejected while finalizing;
+- concurrent or repeated archive attempts converge on one semantically identical D1 archive;
+- disposal is idempotent after local storage has already been deleted;
+- repeated D1 finish is idempotent;
+- failure after archive but before disposal or finish resumes from the remaining step without gameplay restoration.
+
+Creation idempotency remains separate from command history. Disposal should rely on the already-addressed named MatchRoom identity rather than accepting an unrelated match identity after deletion; same-room retries succeed and mismatched identity is rejected before destructive work.
+
+Canonicalize command JSON before idempotency comparison. Encode Protocol bodies and archive rows deterministically, and compare decoded canonical values when validating existing data. D1 archive byte equality is acceptable only when both candidate and stored forms use the same canonical serializer; otherwise compare validated semantic values before deciding idempotency or conflict.
+
 ## Live Delivery
 
 Facts currently double as live invalidation messages. Replace that wire contract deliberately; do not expose submitted command payloads merely because Accepted Commands are now authoritative internally.
 
-Use a small validated update DTO containing:
+Use one atomic live update per Accepted Command, never one message per Protocol entry:
 
-- latest accepted sequence;
-- newly committed public Protocol entries or enough information to trigger revalidation;
-- explicit terminal indication when archival is complete.
+```ts
+type MatchLiveUpdate = {
+  type: 'command-accepted'
+  acceptedSeq: number
+  entries: ProtocolEntry[]
+  terminal: boolean
+}
+```
+
+Entries retain `entryIndex` order inside the update. The browser advances its cursor once after validating and processing the complete batch. Replay sends updates in accepted-sequence order. This prevents one-command-to-many-entry output from being dropped by a sequence-only cursor.
+
+On connection, establish subscription and capture/replay the committed backlog without a replay/live race. Replay updates with `acceptedSeq > since`, then send `ready`. Any command committed after the captured backlog is delivered as a live update after it, never lost or inserted before an earlier sequence. `ready.latestSeq` is the highest update already sent on that connection; receiving `ready` must not advance the browser cursor. The browser verifies that its applied cursor equals `ready.latestSeq`. For an empty match both are `0`.
+
+The terminal Accepted Command update is withheld as one whole batch until D1 archival succeeds. While finalizing, replay and `ready.latestSeq` expose only the latest publicly deliverable nonterminal sequence. Disposal broadcasts the terminal batch with `terminal: true`, closes clients, and deletes storage. Do not expose part of a terminal command before archival.
 
 The browser currently treats most live records as revalidation signals and treats `match.ended` specially. Preserve those behaviors without retaining a fake domain fact. Terminal notification must remain withheld until D1 archival succeeds, then stop reconnection and permit finished reads from D1.
 
@@ -370,20 +479,26 @@ Do not leave a mixed active authority where some commands restore from facts and
 ## Acceptance Criteria
 
 - No KS entity or active storage table is named Fact or Journal.
+- A newly created match has sequence `0`, empty Protocol, and supports active reads and `since=0` live connection.
 - One stored command row contains the canonical request and outcome without duplicating the payload.
 - Protocol has one independently queryable row per entry, ordered by `(acceptedSeq, entryIndex)` and linked by `causedByCommandId`.
 - Command payload is not duplicated across receipt and history storage.
-- Every accepted command produces a nonempty Protocol-entry array atomically.
-- Rejected commands remain idempotent and do not advance accepted sequence.
+- Every accepted command produces one or more Protocol-entry rows atomically.
+- Fully parsed domain-rejected commands remain idempotent and do not advance accepted sequence.
+- Malformed commands create no row and permit valid reuse of the same command ID.
 - Active cold restoration replays Accepted Commands and validates regenerated Protocol entries.
 - Warm and restored projections agree for every registered game.
+- Control and Protocol use separate route-specific RPC reads; each response is internally cursor-consistent and neither loads the other tab's data.
 - Terminal command acceptance atomically stores Final Match State, `endedAt`, latest sequence, Protocol entries, and `finalizing` status.
 - MatchRoom finalization works from SQLite after resident eviction without gameplay replay.
 - Application archival performs no command or gameplay replay.
 - MatchRoom finalization RPC does not send Accepted Command history to application.
+- Terminal transfer validation enforces winner, frame totals/index, unique terminal tail entry, causation, sequence, and timestamp coherence.
 - D1 receives validated Protocol and Final Match State by idempotent transfer.
 - Archive failure leaves retryable finalizing data in MatchRoom.
 - Terminal live notification remains withheld until archive success.
+- One Accepted Command with multiple Protocol entries produces one ordered live update and advances the browser cursor once.
+- `ready` never advances the cursor and replay/live handoff has no gap or reordering.
 - All gameplay-correction regression tests continue to pass unchanged.
 - No backward-compatibility branch remains.
 - `git diff --check` passes.
@@ -391,6 +506,24 @@ Do not leave a mixed active authority where some commands restore from facts and
 - `bun run check` passes.
 - `bun run test:integration` passes.
 - `bun run check:full` passes.
+
+Required acceptance and corruption scenarios include:
+
+- empty new match at sequence zero;
+- malformed request followed by valid reuse of the same command ID;
+- retry of the identical terminal command while finalizing;
+- same terminal command ID with different canonical content conflicts;
+- prepare then concede before commencement, preserving current behavior;
+- one command producing several ordered Protocol rows and one live update;
+- finalization after resident eviction with no gameplay restoration;
+- missing or duplicate terminal entry;
+- accepted-sequence or entry-index gaps;
+- mismatched command causation, acceptance timestamp, match ID, game key, final winner, frame index, or frame totals;
+- concurrent/repeated archive, disposal, and D1 finish attempts;
+- active Protocol read while another command commits, proving its state and entries share one coherent cursor boundary;
+- control read proving no Protocol rows are queried or returned, and Protocol read proving no control projection is produced;
+- archive success followed by lost SSE terminal delivery, with browser revalidation still reaching finished D1 state;
+- canonical JSON with different object insertion order comparing semantically equal rather than conflicting.
 
 ## Out Of Scope
 
