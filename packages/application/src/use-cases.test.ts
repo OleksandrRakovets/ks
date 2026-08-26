@@ -249,7 +249,7 @@ describe('application orchestration', () => {
     }
   })
 
-  test('hides a match when the expected game key does not match the catalog', async () => {
+  test('hides a match when the expected game key does not match the stored match', async () => {
     const application = applicationForActiveGame('free-pyramid')
     expect(await application.readMatchControl(matchId, 'en', 'combined-pyramid')).toEqual({
       ok: false,
@@ -426,7 +426,7 @@ describe('application orchestration', () => {
     ])
   })
 
-  test('rejects a zero target before player or catalog writes', async () => {
+  test('rejects a zero target before player or match writes', async () => {
     expect(
       await applicationForInvalidCreation().createMatch({
         gameKey: 'free-pyramid',
@@ -437,7 +437,7 @@ describe('application orchestration', () => {
     ).toEqual({ ok: false, error: 'Invalid match creation input', status: 400 })
   })
 
-  test('rejects duplicate normalized names before player or catalog writes', async () => {
+  test('rejects duplicate normalized names before player or match writes', async () => {
     expect(
       await applicationForInvalidCreation().createMatch({
         gameKey: 'free-pyramid',
@@ -760,7 +760,7 @@ describe('application orchestration', () => {
   for (const failurePoint of ['archive', 'dispose', 'finish'] as const) {
     test(`terminal archival converges after a failure before ${failurePoint}`, async () => {
       let failurePending = true
-      let catalog: 'active' | 'finalizing' | 'finished' = 'active'
+      let matchStatus: 'active' | 'finalizing' | 'finished' = 'active'
       let roomStorageExists = true
       let archiveWrites = 0
       let commandCalls = 0
@@ -782,7 +782,7 @@ describe('application orchestration', () => {
         getMatchRecord: async () => ({
           matchId,
           gameKey: 'free-pyramid',
-          status: catalog,
+          status: matchStatus,
           createdAt: v.parse(UnixEpochMillisecondsSchema, 1_700_000_000_000),
           participantRefs: { A: playerRefA, B: playerRefB },
         }),
@@ -792,11 +792,11 @@ describe('application orchestration', () => {
         archiveCompletedMatch: async () => {
           failOnce('archive')
           if (archiveWrites === 0) archiveWrites += 1
-          catalog = 'finalizing'
+          matchStatus = 'finalizing'
         },
         finishCompletedMatch: async () => {
           failOnce('finish')
-          catalog = 'finished'
+          matchStatus = 'finished'
         },
         matchRoom: {
           create: unused,
@@ -849,7 +849,7 @@ describe('application orchestration', () => {
 
       expect(archiveWrites).toBe(1)
       expect(roomStorageExists).toBe(false)
-      expect(String(catalog)).toBe('finished')
+      expect(String(matchStatus)).toBe('finished')
       expect(commandCalls).toBe(failurePoint === 'archive' ? 2 : 1)
     })
   }

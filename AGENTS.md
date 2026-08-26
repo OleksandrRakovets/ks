@@ -45,9 +45,9 @@ KS is a two-player billiards scorekeeper with public live scoring. A match is a 
 ## Authority And Lifecycle
 
 - Active facts, sequence, and command receipts are authoritative in each MatchRoom's SQLite database. Do not mirror active facts into D1.
-- D1 owns players, the global match catalog, and completed snapshot/protocol archives.
+- D1 owns players, the `matches` table, and completed protocol archives with final match state.
 - Resident match/gameplay state is a disposable cache restored by replaying accepted facts; raw XState snapshots are not persisted.
-- `match.ended` is terminal. Application archives and verifies the terminal journal in D1, asks MatchRoom to broadcast/close/delete local storage, then marks the catalog row finished.
+- `match.ended` is terminal. Application verifies the terminal fact history, archives its derived protocol and final match state in D1, asks MatchRoom to broadcast/close/delete local storage, then marks the match row finished.
 - Finished reads use D1 and must not access the deleted MatchRoom.
 
 ## Runtime Notes

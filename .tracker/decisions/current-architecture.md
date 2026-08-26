@@ -36,35 +36,35 @@ Game keys come from `packages/gameplay/src/registry.ts`. Each game has explicit 
 
 | Store | Authority |
 | --- | --- |
-| D1 | Players, global match catalog/status, completed snapshot and versioned protocol archive |
-| MatchRoom SQLite | Active config, control secret, accepted fact journal, monotonic sequence, command receipts, active/finalizing status |
+| D1 | Players, match rows and status, completed protocol archive and final match state |
+| MatchRoom SQLite | Active config, control secret, fact history, monotonic sequence, command receipts, active/finalizing status |
 
-Active facts are the source of truth and are never mirrored to D1. A resident `SparringMatch` is only a disposable execution cache. Cold restoration validates the complete stored journal, groups facts by command transaction, replays semantic batches through the same aggregate operation, and compares emitted batches. Raw XState snapshots are not persisted.
+Active facts are the source of truth and are never mirrored to D1. A resident `SparringMatch` is only a disposable execution cache. Cold restoration validates the complete stored fact history, groups facts by command transaction, replays semantic batches through the same aggregate operation, and compares emitted batches. Raw XState snapshots are not persisted.
 
 An accepted command advances resident state before one SQLite transaction appends facts, updates the sequence and status, and stores its idempotency receipt. Execution or persistence defects discard the resident cache so the next operation restores from durable facts.
 
-Finished snapshot and protocol reads use D1 only. The snapshot is a read optimization derived from the terminal journal, not a second active authority.
+Finished match-state and protocol reads use D1 only. The final match state is a read optimization derived from the terminal fact history, not a second active authority.
 
 ## Match Lifecycle
 
 Creation is coordinated by application:
 
 ```text
-D1 catalog: creating
+D1 matches.status: creating
   -> MatchRoom.create persists config and match.created
-  -> D1 catalog: active
+  -> D1 matches.status: active
 ```
 
-Ordinary commands verify catalog lifecycle, then write only to MatchRoom. `commandId` receipts make retries idempotent and reject reuse with a different canonical request.
+Ordinary commands verify the match row's lifecycle, then write only to MatchRoom. `commandId` receipts make retries idempotent and reject reuse with a different canonical request.
 
 `match.ended` is committed atomically with MatchRoom's `finalizing` status and withheld from live clients until archival succeeds:
 
 ```text
-MatchRoom finalizing journal
-  -> application replays and verifies journal/projection
-  -> idempotently archive protocol and snapshot in D1
+MatchRoom finalizing fact history
+  -> application replays and verifies fact history/projection
+  -> idempotently archive protocol and final match state in D1
   -> MatchRoom broadcasts match.ended, closes streams, and deletes local storage
-  -> D1 catalog: finished
+  -> D1 matches.status: finished
 ```
 
 Failure leaves durable `finalizing` state. A later relevant application request retries the idempotent finalization steps. There is no alarm-driven retry. Public list results present `finalizing` as finished while cleanup proceeds.
@@ -87,7 +87,7 @@ The browser validates events and tracks the latest sequence. MatchRoom retains s
 
 - Canonical schemas are `packages/application/src/d1/schema.ts` and `do/match-room/src/storage/schema.ts`.
 - D1 and MatchRoom SQLite have independent migration histories and application mechanisms.
-- Persisted JSON and journals are decoded and validated in their owning adapters. Malformed data fails the operation rather than yielding partial state.
+- Persisted JSON and fact histories are decoded and validated in their owning adapters. Malformed data fails the operation rather than yielding partial state.
 - MatchRoom SQLite uses explicit integer `seq` for ordering; fact ULIDs are identities, not cursors.
 - See `.tracker/db.md` for migration and inspection procedures.
 

@@ -27,7 +27,7 @@ Accept: text/event-stream
 
 Its Cloudflare route must be more specific than Play's catch-all route. All unrelated public requests are rejected. Local multi-Worker development must exercise the same ownership rather than silently falling back to a React Router route.
 
-The Worker gateway validates method, protocol version, normalized `MatchId`, non-negative cursor, the current public-read policy, and active D1 catalog status before selecting a named object. Add a narrow server-only `@ks/application/match-live/admission` operation so the D1 query remains application-owned; the MatchRoom Worker is another adapter of that use case. Keep this subpath isolated from general application composition so it does not pull gameplay or React Router code into the Worker bundle. The D1 binding and read belong to the host Worker admission edge, never to the `MatchRoom` class. This guard prevents a finished request from recreating a deleted object's SQLite database.
+The Worker gateway validates method, protocol version, normalized `MatchId`, non-negative cursor, the current public-read policy, and active D1 match status before selecting a named object. Add a narrow server-only `@ks/application/match-live/admission` operation so the D1 query remains application-owned; the MatchRoom Worker is another adapter of that use case. Keep this subpath isolated from general application composition so it does not pull gameplay or React Router code into the Worker bundle. The D1 binding and read belong to the host Worker admission edge, never to the `MatchRoom` class. This guard prevents a finished request from recreating a deleted object's SQLite database.
 
 Forward the accepted request to the selected DO without buffering the response so browser cancellation reaches the stream owner. Preserve the existing SSE contract in this slice:
 
@@ -112,7 +112,7 @@ export const MATCH_LIVE_ENDED_CLOSE_REASON = 'match-ended'
 
 On connection, send facts with `seq > since` in ascending order, followed by `caught-up`. Accepting the socket, reading replay, and establishing live delivery must have no replay/live race. Thereafter send committed facts in sequence order. `match.ended` remains an ordinary domain fact; do not duplicate it as another message type. Because archival precedes its broadcast, receipt means the completed D1 representation is available.
 
-After the application has archived the finalized facts in D1, it asks MatchRoom to dispose. MatchRoom broadcasts `match.ended`, closes every socket with the exported terminal code/reason, and deletes its storage. The application then completes the D1 catalog transition from finalizing to finished. A client stops reconnecting after either processing that fact or observing the terminal close code.
+After the application has archived the finalized facts in D1, it asks MatchRoom to dispose. MatchRoom broadcasts `match.ended`, closes every socket with the exported terminal code/reason, and deletes its storage. The application then transitions the D1 match row from finalizing to finished. A client stops reconnecting after either processing that fact or observing the terminal close code.
 
 Once deployed, protocol version 1 is stable for open pages. Changes must remain additive or introduce a separately negotiated version; never silently change an existing message's meaning. Retaining old hashed browser assets across later deployments remains a separate deployment-policy decision, not part of this transport implementation.
 

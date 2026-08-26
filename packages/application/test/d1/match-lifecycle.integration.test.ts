@@ -105,7 +105,7 @@ describe('real D1 match lifecycle', () => {
     await beginMatchCreation(db, input)
     await beginMatchCreation(db, input)
     await expect(beginMatchCreation(db, { ...input, gameKey: 'combined-pyramid' })).rejects.toThrow(
-      'Match catalog entry conflicts with room creation',
+      'Match row conflicts with room creation',
     )
     await activateMatch(db, matchId)
 
@@ -154,7 +154,7 @@ describe('real D1 match lifecycle', () => {
       'terminal projection mismatch',
       (input: CompletedMatchArchiveInput) => ({ ...input, projection: terminalArchiveInput(otherMatchId).projection }),
     ],
-  ])('rejects %s without changing the catalog or archive', async (_label, corrupt) => {
+  ])('rejects %s without changing the match row or archive', async (_label, corrupt) => {
     const db = createApplicationDatabaseClient(env.DB)
     await beginMatchCreation(db, catalogInput())
     await activateMatch(db, matchId)
@@ -163,7 +163,7 @@ describe('real D1 match lifecycle', () => {
     expect(await getProtocolArchive(db, matchId)).toBeNull()
   })
 
-  test('rejects conflicting persisted archive data without changing the active catalog row', async () => {
+  test('rejects conflicting persisted archive data without changing the active match row', async () => {
     const db = createApplicationDatabaseClient(env.DB)
     await beginMatchCreation(db, catalogInput())
     await activateMatch(db, matchId)

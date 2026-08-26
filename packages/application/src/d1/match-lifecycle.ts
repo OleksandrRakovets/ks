@@ -46,7 +46,7 @@ export async function beginMatchCreation(db: ApplicationDatabase, input: ActiveM
     (stored.status !== StoredMatchStatus.creating && stored.status !== StoredMatchStatus.active) ||
     stored.createdAt !== input.createdAt
   ) {
-    throw new Error('Match catalog entry conflicts with room creation')
+    throw new Error('Match row conflicts with room creation')
   }
 }
 
