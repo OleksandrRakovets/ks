@@ -17,7 +17,6 @@ export const registry = {
         uk: 'Стріла',
         en: 'Strila',
       },
-      inputMode: 'strila-basic',
       defaultFrameTargetPointsBySeat: { A: 9, B: 9 },
     },
   },
@@ -27,7 +26,6 @@ export const registry = {
         uk: 'Вільна піраміда',
         en: 'Free pyramid',
       },
-      inputMode: 'pyramid-basic',
       defaultFrameTargetPointsBySeat: { A: 8, B: 8 },
     },
   },
@@ -37,7 +35,6 @@ export const registry = {
         uk: 'Вільна піраміда з продовженням',
         en: 'Free pyramid (long)',
       },
-      inputMode: 'pyramid-basic',
       defaultFrameTargetPointsBySeat: { A: 30, B: 30 },
     },
   },
@@ -47,7 +44,6 @@ export const registry = {
         uk: 'Комбінована піраміда',
         en: 'Combined pyramid',
       },
-      inputMode: 'pyramid-basic',
       defaultFrameTargetPointsBySeat: { A: 8, B: 8 },
     },
   },
@@ -57,7 +53,6 @@ export const registry = {
         uk: 'Комбінована піраміда (старі правила)',
         en: 'Combined pyramid (old rules)',
       },
-      inputMode: 'pyramid-basic',
       defaultFrameTargetPointsBySeat: { A: 8, B: 8 },
     },
   },
@@ -68,7 +63,7 @@ const registeredGameKeys = Object.keys(registry) as [keyof typeof registry, ...(
 export const RegisteredGameKeySchema = v.picklist(registeredGameKeys)
 export type RegisteredGameKey = v.InferOutput<typeof RegisteredGameKeySchema>
 
-export type GameContracts = {
+type GameContracts = {
   'strila-v2': {
     control: StrilaControlView
     command: StrilaCommand
@@ -97,12 +92,4 @@ export function listGameKeys(): RegisteredGameKey[] {
     if (isRegisteredGameKey(key)) keys.push(key)
   }
   return keys
-}
-
-export function getGameMeta(gameKey: RegisteredGameKey): GameMeta {
-  return registry[gameKey].meta
-}
-
-export function parseGameKey(value: string): RegisteredGameKey {
-  return v.parse(RegisteredGameKeySchema, value)
 }

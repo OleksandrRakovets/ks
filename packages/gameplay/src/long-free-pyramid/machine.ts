@@ -20,12 +20,10 @@ import {
   type LongFreePyramidRack,
 } from './definitions'
 
-export type LongFreePyramidMachineInput = {
+type LongFreePyramidMachineInput = {
   readonly targetPointsBySeat: BySeatNumber
   readonly rackRollover: 14 | 15
 }
-
-export type LongFreePyramidSparringFrameMachineInput = LongFreePyramidMachineInput
 
 type PotEvent = Extract<LongFreePyramidCommand, { type: 'pot.record' }>
 type FoulCommitEvent = Extract<LongFreePyramidCommand, { type: 'foul.commit' }>

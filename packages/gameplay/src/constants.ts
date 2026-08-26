@@ -7,8 +7,6 @@ import {
 } from '@ks/core'
 import * as v from 'valibot'
 
-export type GameInputMode = 'pyramid-basic' | 'strila-basic'
-
 export type LocalizedGameTitle = {
   uk: string
   en: string
@@ -16,7 +14,6 @@ export type LocalizedGameTitle = {
 
 export type GameMeta = {
   title: LocalizedGameTitle
-  inputMode: GameInputMode
   defaultFrameTargetPointsBySeat: BySeatNumber
 }
 

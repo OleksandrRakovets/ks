@@ -11,8 +11,6 @@ type PyramidMachineInput = {
   rules: PyramidRules
 }
 
-export type PyramidSparringFrameMachineInput = PyramidMachineInput
-
 type PotEvent = Extract<PyramidCommand, { type: 'pot.record' }>
 type FoulCommitEvent = Extract<PyramidCommand, { type: 'foul.commit' }>
 type FrameAwardEvent = Extract<PyramidCommand, { type: 'frame.award' }>
