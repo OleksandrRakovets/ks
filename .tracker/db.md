@@ -1,39 +1,19 @@
-# Database Quick Guide
+# Database Operations
 
-Run commands below from the repository root unless stated otherwise.
+Run commands from the repository root.
 
-## Two independent SQLite lifecycles
+## Stores
 
-| Store                                | Owns                                                               | Drizzle schema                          | Generated migrations     | Applied by                           |
-| ------------------------------------ | ------------------------------------------------------------------ | --------------------------------------- | ------------------------ | ------------------------------------ |
-| Cloudflare D1 `ks`                   | Global match catalog, completed snapshot/protocol archive, players | `packages/application/src/d1/schema.ts` | `d1/migrations/`         | Wrangler D1 migrations               |
-| One SQLite database per MatchRoom DO | Active match config, facts, sequence, command receipts             | `do/match-room/src/storage/schema.ts`   | `do/match-room/drizzle/` | MatchRoom's runtime Drizzle migrator |
+| Store | Schema | Migrations | Applied by |
+| --- | --- | --- | --- |
+| D1 `ks` | `packages/application/src/d1/schema.ts` | `d1/migrations/` | Wrangler |
+| MatchRoom per-object SQLite | `do/match-room/src/storage/schema.ts` | `do/match-room/drizzle/` | Runtime Drizzle migrator |
 
-Active facts are not stored in D1. Do not expect a D1 `facts` table: inspect an active match through MatchRoom/application APIs. Finished protocol rows and the derived finished snapshot are archived in D1's `match_protocol_archives` table.
+These stores have independent histories. D1 contains players, catalog rows, and completed archives. Active facts and command receipts exist only in MatchRoom SQLite.
 
-Drizzle ORM and Kit are pinned to `1.0.0-rc.4`. Drizzle owns the TypeScript schemas and generates SQL. Cloudflare still owns database creation, D1 migration bookkeeping, bindings, and per-object storage.
+Drizzle ORM and Kit are pinned to `1.0.0-rc.4`. Both stores currently have one generated initial migration because the project has not been deployed. Do not rewrite migration history after deployment.
 
-Because the project has never been deployed, each schema currently has one generated initial migration. From this baseline forward, add migrations normally; do not rewrite an applied remote history.
-
-## Browse local D1 with Drizzle Studio
-
-After creating the local database at least once, start the visual table browser:
-
-```sh
-bun run db:studio:local
-```
-
-Drizzle prints a `local.drizzle.studio` URL. Open it to browse, filter, add, edit, or delete rows in the local D1 database. Studio writes to the real local Wrangler database, so treat edits as data changes rather than a read-only preview.
-
-When the dev box is remote, bind Studio to the box's Tailscale address instead of browser-local `127.0.0.1`:
-
-```sh
-KS_DB_STUDIO_HOST=$(tailscale ip -4) bun run db:studio:local
-```
-
-Open the exact URL Drizzle prints, such as `https://local.drizzle.studio?host=100.x.x.x`. The browser machine must be connected to the same tailnet and able to reach TCP port `4983`. Binding to the specific Tailscale IP exposes the Studio gateway only on that interface; avoid `0.0.0.0` unless broader network exposure is intentional.
-
-If no local SQLite file exists yet:
+## Local D1
 
 ```sh
 bun run db:migrate:local
@@ -41,90 +21,57 @@ bun run db:seed:local
 bun run db:studio:local
 ```
 
-The Studio command targets global D1 only. It does not combine or browse all per-match Durable Object databases.
+Studio connects to the real local Wrangler D1 and can mutate it. It does not browse Durable Object databases.
 
-## Inspect D1 from the terminal
-
-Wrangler remains the source-of-truth tool for local and remote D1 access.
+For a remote development box, expose Studio only on its Tailscale interface:
 
 ```sh
-# List tables
+KS_DB_STUDIO_HOST=$(tailscale ip -4) bun run db:studio:local
+```
+
+Open the URL Drizzle prints. The browser must be on the same tailnet and able to reach TCP port `4983`.
+
+Use Wrangler for terminal access:
+
+```sh
 bunx wrangler d1 execute ks --local --config apps/play/wrangler.jsonc \
   --command "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;"
 
-# Recent matches, with readable local time
 bunx wrangler d1 execute ks --local --config apps/play/wrangler.jsonc \
   --command "SELECT match_id, game_key, status, datetime(created_at / 1000, 'unixepoch', 'localtime') AS created_at FROM matches ORDER BY created_at DESC LIMIT 20;"
-
-# Archived protocols
-bunx wrangler d1 execute ks --local --config apps/play/wrangler.jsonc \
-  --command "SELECT match_id, source_latest_seq, protocol_version, datetime(created_at / 1000, 'unixepoch', 'localtime') AS archived_at FROM match_protocol_archives ORDER BY created_at DESC LIMIT 20;"
-
-# Compact JSON, useful with jq
-bunx wrangler d1 execute ks --local --config apps/play/wrangler.jsonc --json \
-  --command "SELECT * FROM matches ORDER BY created_at DESC LIMIT 20;" | jq '.[0].results'
 ```
 
-Replace `--local` with `--remote` only when intentionally inspecting or changing remote D1. `wrangler d1 execute` is not read-only: review commands containing `INSERT`, `UPDATE`, `DELETE`, or DDL before running them.
+Replace `--local` with `--remote` only intentionally. `wrangler d1 execute` is not read-only.
 
-## Change the D1 schema
+## Change D1 Schema
 
 1. Edit `packages/application/src/d1/schema.ts`.
-2. Generate, but do not apply, the SQL:
-
-   ```sh
-   bunx drizzle-kit generate --config d1/drizzle.config.ts --name <short-name>
-   ```
-
-3. Review the new `d1/migrations/<timestamp>_<name>/migration.sql` and snapshot.
-4. Check migration history:
-
-   ```sh
-   bunx drizzle-kit check --config d1/drizzle.config.ts
-   bunx wrangler d1 migrations list ks --local --config apps/play/wrangler.jsonc
-   ```
-
-5. Apply locally and verify:
-
-   ```sh
-   bun run db:migrate:local
-   bun run db:seed:local # optional after the first seed
-   ```
-
-6. Applying remote migrations is a separate, explicit operation:
-
-   ```sh
-   bunx wrangler d1 migrations list ks --remote --config apps/play/wrangler.jsonc
-   bunx wrangler d1 migrations apply ks --remote --config apps/play/wrangler.jsonc
-   ```
-
-Use `drizzle-kit generate` plus Wrangler apply. Do not use `drizzle-kit push` or `drizzle-kit migrate` for D1 in this repository; they bypass the reviewed Cloudflare migration workflow.
-
-To validate both generated histories without applying them:
+2. Generate SQL: `bunx drizzle-kit generate --config d1/drizzle.config.ts --name <short-name>`.
+3. Review the generated SQL and snapshot under `d1/migrations/`.
+4. Validate with `bunx drizzle-kit check --config d1/drizzle.config.ts`.
+5. Apply locally with `bun run db:migrate:local` and run `bun run check:full`.
+6. Apply remotely only as an explicit deployment operation:
 
 ```sh
-bunx drizzle-kit check --config d1/drizzle.config.ts
-bunx drizzle-kit check --config do/match-room/drizzle.config.ts
+bunx wrangler d1 migrations list ks --remote --config apps/play/wrangler.jsonc
+bunx wrangler d1 migrations apply ks --remote --config apps/play/wrangler.jsonc
 ```
 
-## Change the MatchRoom SQLite schema
+Use Drizzle Kit to generate and Wrangler to apply. Do not use `drizzle-kit push` or `drizzle-kit migrate` for D1.
+
+## Change MatchRoom Schema
 
 1. Edit `do/match-room/src/storage/schema.ts`.
-2. Generate SQL:
-
-   ```sh
-   bunx drizzle-kit generate --config do/match-room/drizzle.config.ts --name <short-name>
-   ```
-
+2. Generate SQL: `bunx drizzle-kit generate --config do/match-room/drizzle.config.ts --name <short-name>`.
 3. Review the generated SQL and snapshot under `do/match-room/drizzle/`.
-4. Add the generated SQL import and migration key to `do/match-room/drizzle/migrations.js`. The object runtime consumes this explicit bundle.
-5. Run the relevant Drizzle migration check, then `bun run check:full`; the dry-run MatchRoom build proves the SQL files are bundled as text.
+4. Add the SQL import and migration key to `do/match-room/drizzle/migrations.js`.
+5. Run `bunx drizzle-kit check --config do/match-room/drizzle.config.ts` and `bun run check:full`.
 
-The Wrangler `migrations` entry in `do/match-room/wrangler.jsonc` creates or renames Durable Object classes. It is not the SQL migration history inside each object's SQLite database.
+The `migrations` entry in `do/match-room/wrangler.jsonc` manages Durable Object classes, not each object's SQLite schema.
 
-## Reset local D1
+## Reset Local D1
 
-Local data is disposable while the project remains undeployed:
+Stop the dev server, then run:
 
 ```sh
 rm -rf apps/play/.wrangler/state/v3/d1
@@ -132,4 +79,4 @@ bun run db:migrate:local
 bun run db:seed:local
 ```
 
-Stop the dev server before deleting its state, then restart it after the reset. This resets D1 only; MatchRoom Durable Object SQLite has a separate local state lifecycle.
+This does not reset MatchRoom Durable Object SQLite state.

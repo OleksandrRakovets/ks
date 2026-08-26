@@ -1,279 +1,96 @@
 # Current Architecture
 
-## Status
-
-This is the implemented source architecture after the application/MatchRoom refactor. The project has not yet been deployed, so there is no legacy remote namespace or database to preserve.
-
-The speculative resident execution architecture in `speculative-resident-match-execution.md` is implemented. Its completed implementation plan is `../speculative-match-execution-spec.md`.
-
-Snapshot-backed gameplay sessions from `snapshot-backed-gameplay-sessions.md` are implemented. Gameplay retains private immutable machine snapshots, executes typed commands directly, and restores only by replaying accepted match facts.
-
-Responsibility-shaped test surfaces from `responsibility-shaped-test-surfaces.md` are implemented; the completed plan is `../test-surface-simplification-spec.md`. Application match-lifecycle persistence now runs against real migrated D1, MatchRoom integration tests use public RPC with local pre-operation corruption seeds, and the repository exposes explicit fast and full verification gates.
-
-The remaining terminal-validation locality cleanup is recorded in `../terminal-validation-locality-cleanup.md`. Candidate 1 already owns terminal semantics; the cleanup moves active-row and RPC parsing to their adapters and removes terminal/control policy reconstruction from application use cases without collapsing independent MatchRoom and archive replay.
-
-The remaining live-transport work is intentionally separate: `.tracker/match-live-websocket-spec.md` owns both moving the SSE gateway out of React Router and replacing SSE with hibernatable WebSockets. Historical migration slices and target-state documents have been removed.
-
-## What the refactor established
-
-- **Replaceable presentation:** React Router receives a framework-neutral `Application`; route modules no longer issue SQL or call Durable Object stubs.
-- **Independent runtime builds:** Play and MatchRoom are separate Cloudflare Worker deployables. MatchRoom's bundle contains no React Router server build, and Play does not runtime-import MatchRoom's implementation.
-- **Local active writes:** an active match commits its fact journal and command receipts only to its strongly consistent per-object SQLite database.
-- **Definite completion:** terminal facts are archived in D1, live clients are closed, and MatchRoom storage is deleted immediately.
-- **Testable orchestration:** creation, active/finished read routing, commands, and cross-store finalization can be tested through application dependencies without React Router or a live Cloudflare runtime.
-- **Explicit database lifecycles:** D1 and MatchRoom SQLite have separate Drizzle schemas and migration workflows. Migrations are operational assets, not packages.
-- **Less package ceremony:** the single-consumer UI package was merged into Play.
-
-## Runtime Shape
+## Runtime
 
 ```text
 Browser
-  -> Play Worker (React Router/React)
+  -> Play Worker (React Router and React)
        -> @ks/application
-            -> D1 (global catalog, players, completed archive)
+            -> D1
             -> external MATCH_ROOM binding
-                 -> ks-match-room Worker / named MatchRoom DO
-                      -> one SQLite database per active match
-                      -> current SSE broadcaster
+                 -> ks-match-room Worker
+                      -> named MatchRoom Durable Object
+                           -> per-match SQLite
 ```
 
-There are two independently built deployables:
+Play owns HTTP and presentation adaptation. `@ks/application` owns use-case orchestration, private D1 access, active-versus-finished read routing, and cross-store finalization. MatchRoom owns serialized active-match execution, persistence, replay, and SSE fan-out.
 
-- `apps/play` owns the browser UI, HTTP adaptation, and application composition.
-- `do/match-room` hosts the `MatchRoom` Durable Object. Its Worker entrypoint currently has no public `fetch` route; Play reaches named objects through an external Durable Object binding.
+Play and MatchRoom are independently built Cloudflare Workers. MatchRoom has no public `fetch` gateway and no D1 binding; Play reaches it through an external Durable Object binding. Play imports `@ks/match-room` only for generated RPC types, while application uses a private structural stub contract.
 
-Play's type-only import of `@ks/match-room` lets Wrangler derive `DurableObjectNamespace<MatchRoom>` and RPC method types. TypeScript erases that import. The application package does not depend on the MatchRoom package: its private adapter accepts the structural stub shape supplied by the generated binding.
+## Domain Boundaries
 
-## Ownership
-
-| Owner             | Owns                                                                                                                                               | Does not own                                                              |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| `apps/play`       | React UI and local UI components, RR loaders/actions, request parsing, forms/cookies, redirects, `Response`/route errors, Worker composition       | SQL, gameplay policy, DO storage or sequencing                            |
-| `@ks/application` | Public use cases/DTOs, private D1/Drizzle adapters, MatchRoom RPC adapter, active-vs-finished read routing, terminal cross-store orchestration     | React components, route types, gameplay rules, DO SQLite/live bookkeeping |
-| `do/match-room`   | Per-match command serialization, active fact journal, sequence and command deduplication, projections/cache, SSE replay/fan-out, terminal disposal | Play/application imports, D1 queries, global player/catalog policy        |
-| D1                | Players, global match catalog/lifecycle, completed snapshot and versioned protocol archive                                                         | Active fact journal and command receipts                                  |
-| MatchRoom SQLite  | Active config, reserved control secret, accepted facts, latest integer sequence, command receipts, active/finalizing state                         | Global lookup, player records, completed history                          |
-
-`@ks/application` exposes use cases rather than repository interfaces. Its D1 modules and MatchRoom client are private implementation details. The temporary exception to its framework-neutral results is `streamMatchFacts(): Promise<Response>`; it exists only for the current SSE pass-through and is removed by the direct-gateway slice.
-
-## Directory Shape
+The domain dependency direction is:
 
 ```text
-apps/play/
-  workers/app.ts                    Play Worker composition root
-  web/routes.ts                     React Router routes
-  web/components/ui/                single-consumer visual components
-
-do/match-room/
-  src/worker.ts                     independent Worker/DO export
-  src/MatchRoom.ts                  public RPC methods and per-object orchestration
-  src/storage/{schema,store}.ts     active SQLite schema and persistence seam
-  src/live/broadcaster.ts           current low-level SSE bookkeeping
-  drizzle/                          generated per-object SQL + explicit bundle
-
-packages/application/
-  src/contracts.ts                  public use-case interface and DTOs
-  src/use-cases.ts                  framework-neutral orchestration
-  src/match-room-client.ts           private structural RPC adapter
-  src/d1/                            private global schema and query adapters
-
-d1/
-  drizzle.config.ts
-  migrations/                       generated global migration assets
-  seeds/
+core <- gameplay <- competition
 ```
 
-## Package Boundaries
+- `core` defines shared IDs, schemas, facts, seats, and generic contracts.
+- `gameplay` defines registered games, frame machines, commands, and control projections.
+- `competition` defines sparring lifecycle, match execution, restoration, and room projection.
+- `application` and MatchRoom consume the domain independently; neither depends on the other.
 
-- `packages/core`
-  - shared IDs, contracts, schemas, and generic envelopes only,
-  - no runtime or persistence concerns,
-  - no dependency on other internal packages.
-- `packages/gameplay`
-  - authoritative frame-machine definitions and resident gameplay sessions,
-  - browser-safe game metadata, keyed command/control contracts, and typed control projections,
-  - production server API exposes opaque sessions and factories; raw machines are tooling-only subpath exports,
-  - depends on `core`, never on `competition`.
-- `packages/competition`
-  - sparring lifecycle policy, speculative command execution, semantic-history restoration, and room projection,
-  - one production aggregate operation backed by a pure XState lifecycle snapshot and at most one gameplay session,
-  - depends on `core` and `gameplay`.
-- `packages/application`
-  - framework-neutral use-case orchestration and private global persistence/RPC adapters,
-  - depends on domain packages and i18n, never on Play or MatchRoom implementation.
-- `do/match-room`
-  - a deployable workspace, not a shared logic package,
-  - consumes domain packages and owns active runtime/storage concerns.
-- `apps/play`
-  - owns Cloudflare binding composition and presentation adapters,
-  - consumes the application interface and domain types needed to render controls.
+Game keys come from `packages/gameplay/src/registry.ts`. Each game has explicit control and protocol routes. Commands share the `game.command` path, while gameplay owns their semantics.
 
-Core domain direction:
+## Data Authority
 
-`core <- gameplay <- competition`
+| Store | Authority |
+| --- | --- |
+| D1 | Players, global match catalog/status, completed snapshot and versioned protocol archive |
+| MatchRoom SQLite | Active config, control secret, accepted fact journal, monotonic sequence, command receipts, active/finalizing status |
 
-Application and MatchRoom independently consume that domain direction; Play sits at the outer edge.
+Active facts are the source of truth and are never mirrored to D1. A resident `SparringMatch` is only a disposable execution cache. Cold restoration validates the complete stored journal, groups facts by command transaction, replays semantic batches through the same aggregate operation, and compares emitted batches. Raw XState snapshots are not persisted.
 
-## Game Integration Rules
+An accepted command advances resident state before one SQLite transaction appends facts, updates the sequence and status, and stores its idempotency receipt. Execution or persistence defects discard the resident cache so the next operation restores from durable facts.
 
-- Game keys come from the central registry.
-- Gameplay's finite `GameContracts` map correlates each registered key with its command and control projection types. Concrete controls retain their literal game key; raw state, summary, and scoreboard projections are not supported surfaces.
-- Dynamic MatchRoom code keeps the game key correlated with its state and isolates unavoidable exhaustive narrowing inside MatchRoom; application and static routes receive keyed results.
-- Play registers one explicit control route and one explicit protocol route per game. Each route supplies its literal expected key and imports its concrete renderer directly; there is no dynamic game route, renderer registry, or generic all-game page renderer.
-- A valid route paired with another game's match ID is reported as not found. Between frames, control results omit the game projection instead of fabricating an empty one.
-- Shared app code should consume game projections, not game internals.
-- Keep one consistent game command path based on `game.command` with game-specific payloads.
-- Competition owns generic match lifecycle; MatchRoom owns serialized persistence sequence.
-- Game implementations own machine semantics, protocol derivation, and control projection.
+Finished snapshot and protocol reads use D1 only. The snapshot is a read optimization derived from the terminal journal, not a second active authority.
 
-## Authoritative Match Execution
+## Match Lifecycle
 
-- Accepted facts in MatchRoom SQLite are durable authority.
-- Resident `SparringMatch` is a disposable speculative cache; accepted `execute` advances it before persistence.
-- MatchRoom clears the resident after any accepted enveloping or persistence failure and after any execution defect.
-- MatchRoom validates stored envelopes and mechanically groups command transactions before `restoreSparringMatch`; competition sees only semantic content batches.
-- Restoration reconstructs one canonical command per batch, invokes the same aggregate operation as warm execution, and compares the complete ordered emitted batch.
-- Competition retains a pure XState lifecycle snapshot rather than a match actor. During an active frame it retains at most one gameplay session.
-- Application independently validates and groups the terminal RPC journal before archive restoration and projection comparison.
-- Completed archive creation replays the terminal journal, verifies MatchRoom-supplied projection equality, and persists the replay snapshot plus stored historical protocol rows.
-- Raw XState snapshots remain in-memory tooling contracts only; they are not persisted.
-
-## Persistence Rules
-
-- D1 and MatchRoom SQLite are separate schemas with separate lifecycles. Their canonical definitions are `packages/application/src/d1/schema.ts` and `do/match-room/src/storage/schema.ts`.
-- Active accepted facts are the match source of truth and exist only in MatchRoom SQLite. `seq` is an explicit monotonic integer assigned by the serialized DO commit; ULID fact IDs identify facts but do not replace cursor/order semantics.
-- Active snapshots and control projections are derived from local facts and may be cached in memory. They are not mirrored to D1.
-- D1 keeps stable cross-game catalog/player fields relational. Protocol rows and the finished snapshot are materialized as validated JSON in the completed archive.
-- Application-owned relational D1 columns use Drizzle `$type<...>()` to preserve canonical IDs, player references, game keys, statuses, and timestamps through trusted internal reads. Serialized JSON and independently persisted machine state are still decoded and validated at their storage seams.
-- MatchRoom fact rows and D1 protocol archive rows decode as complete semantic records in their private persistence adapters. Malformed persisted data fails the operation rather than producing a partial replay or leaking JSON column details into use cases.
-- Final facts are sufficient to derive both finished representations. Persisting the snapshot avoids replay and a deleted-DO call on finished score-page reads; it is not another active source of truth.
-- Keep game-specific or policy-specific variability in JSON. Normalize more only for a real lookup, reporting, or integrity need.
-- See `../db.md` for migration, reset, query, and Drizzle Studio commands.
-
-## Call Stacks
-
-### Match creation
+Creation is coordinated by application:
 
 ```text
-RR action parses form
-  -> application.createMatch
-       -> resolve/create guest players in D1
-       -> insert D1 catalog row as creating
-       -> MatchRoom.create over RPC
-            -> transactionally persist active config + initial facts in DO SQLite
-       -> mark D1 catalog row active
-  -> RR redirects to the match page
+D1 catalog: creating
+  -> MatchRoom.create persists config and match.created
+  -> D1 catalog: active
 ```
 
-Creation generates a control secret and stores it with the active match, but does not return it to the browser. No command path currently checks it; ownership and invite-link authorization remain future product work.
+Ordinary commands verify catalog lifecycle, then write only to MatchRoom. `commandId` receipts make retries idempotent and reject reuse with a different canonical request.
 
-### Active read and protocol
+`match.ended` is committed atomically with MatchRoom's `finalizing` status and withheld from live clients until archival succeeds:
 
 ```text
-literal game route -> application.readMatchControl(expectedGameKey)
-  -> read catalog + participants from D1
-  -> read active state/control projections from MatchRoom
-
-literal protocol route -> application.readMatchProtocol(expectedGameKey)
-  -> active: read facts from MatchRoom and derive localized protocol rows
-  -> finished: read the versioned protocol archive from D1 only
+MatchRoom finalizing journal
+  -> application replays and verifies journal/projection
+  -> idempotently archive protocol and snapshot in D1
+  -> MatchRoom broadcasts match.ended, closes streams, and deletes local storage
+  -> D1 catalog: finished
 ```
 
-The match list reads D1 catalog/participants only. It does not currently display live scores; that would require an explicit D1 summary projection or querying active rooms, not an accidental return to active fact mirroring.
+Failure leaves durable `finalizing` state. A later relevant application request retries the idempotent finalization steps. There is no alarm-driven retry. Public list results present `finalizing` as finished while cleanup proceeds.
 
-### Score command
+The generated control secret is stored in MatchRoom but is not exposed or checked by the current command path.
 
-```text
-RR action validates command
-  -> application.commandMatch verifies D1 lifecycle
-       -> named MatchRoom.facts RPC
-            -> serialize command handling
-            -> deduplicate by commandId/request payload
-            -> derive domain facts
-            -> transactionally append facts + receipt + latest seq in DO SQLite
-            -> broadcast each committed non-terminal fact
-       -> return accepted seq/fact IDs
-```
-
-An ordinary score command performs no D1 write.
-
-### Terminal completion
-
-`match.ended` is terminal and is committed together with MatchRoom's `finalizing` state. Later gameplay commands are rejected. The terminal fact is deliberately withheld from live clients until archival succeeds:
-
-```text
-DO SQLite transaction: append match.ended + mark finalizing
-  -> return finalization facts to @ks/application
-  -> derive and idempotently write D1 protocol + snapshot archive
-     after production replay/projection verification
-     and mark catalog finalizing
-  -> application calls MatchRoom.disposeFinalized
-       -> broadcast match.ended
-       -> close all live clients and clear timers
-       -> ctx.storage.deleteAll()
-  -> application marks D1 catalog finished
-```
-
-If archival fails, MatchRoom remains `finalizing`, retains its facts, sends no terminal event, and rejects further commands. If execution stops later, application reads observe either the DO or D1 `finalizing` state and synchronously retry the idempotent remaining steps. There is no alarm or correction grace window. Cleanup after an interrupted request therefore waits for a later relevant request; the normal path deletes immediately.
-
-Finished snapshot/protocol reads use D1 only and do not select the deleted room. D1 list entries collapse `finalizing` to the public `finished` status while driving cleanup.
-
-## Current Live Path
+## Live Updates
 
 ```text
 Browser EventSource
-  -> Play RR loader /api/m/:matchId/stream/
-  -> application validates D1 lifecycle and passes through Response
-  -> MatchRoom.stream RPC
-  -> SSE ready event + fact replay + live fact broadcasts
+  -> Play /api/m/:matchId/stream/ loader
+  -> application lifecycle check and Response pass-through
+  -> MatchRoom.stream
+  -> replay after cursor and live SSE facts
 ```
 
-The browser validates SSE payloads, tracks the latest sequence, closes its `EventSource` when it processes `match.ended`, and revalidates the page. React effect cleanup also closes the stream. MatchRoom still broadcasts the terminal fact before closing all server-side controllers, so client cooperation is helpful but not required for disposal.
+The browser validates events and tracks the latest sequence. MatchRoom retains stream controllers and 25-second ping timers, so connected clients keep the Durable Object active; the current SSE transport is not hibernatable.
 
-The private broadcaster correctly removes cancelled streams and clears 25-second ping intervals. Its in-memory controller set and timers keep the DO active for the lifetime of connected SSE clients. That follows Cloudflare's normal streaming rules; it simply cannot benefit from Durable Object hibernation. The remaining two-stage transport change is specified in `../match-live-websocket-spec.md`.
+## Persistence Boundaries
 
-## Deployment and Development
+- Canonical schemas are `packages/application/src/d1/schema.ts` and `do/match-room/src/storage/schema.ts`.
+- D1 and MatchRoom SQLite have independent migration histories and application mechanisms.
+- Persisted JSON and journals are decoded and validated in their owning adapters. Malformed data fails the operation rather than yielding partial state.
+- MatchRoom SQLite uses explicit integer `seq` for ordering; fact ULIDs are identities, not cursors.
+- See `.tracker/db.md` for migration and inspection procedures.
 
-- Play binds D1 and the external `ks-match-room` namespace using `script_name`; MatchRoom itself has no D1 binding.
-- Both Workers currently use compatibility date `2026-08-11`; no legacy Node.js compatibility flag is required.
-- The first deployment order is MatchRoom, then Play, then an end-to-end create/read/command/live check.
-- `bun run dev` starts normal combined development through Play. Each deployable also has its own build/typecheck scripts.
-- Do not add location hints or regional constraints before measuring deployed latency. Treat Worker, DO, and D1 placement as independent.
+## Deployment
 
-## Active Match UI
-
-- Active match controls optimize for fast table-top scoring on an iPhone 16-class vertical screen.
-- Use the dedicated `control` button size for live scoring commands instead of globally enlarging ordinary app buttons.
-- Keep visible active-match text at 16px or larger unless it is screen-reader-only.
-- Preserve centered neutral actions when centering carries meaning; avoid full-width neutral controls by default.
-- Do not show command-tier labels such as Primary, Secondary, or Tertiary in the scoring surface.
-
-## Validation And Schemas
-
-- Standardize schema imports on `valibot`.
-- Shared schemas originate in `packages/core`.
-- Client-side validation is helpful, but server-side validation is mandatory.
-- Parse where representation or trust changes: HTTP/form input, browser storage, RPC messages, database rows, decoded JSON, and restored machine state. Do not widen canonical internal values to `string`, `number`, or `unknown` and parse them again later.
-- Prefer whole-record schemas that decode JSON fields with `v.parseJson()` and then validate the semantic object recursively. Persistence column shapes remain private to their adapters.
-- Export inferred canonical types only with an immediate consumer; do not preserve parallel structural copies.
-- Drizzle owns TypeScript database schemas and generated SQL. D1 and per-object SQLite never share a migration history.
-
-## Guardrails
-
-- Do not place domain rules directly in route files.
-- Do not expose raw D1/MatchRoom bindings through route context.
-- Do not make MatchRoom import application or D1 modules.
-- Do not mirror active facts to D1 without a concrete read-model requirement.
-- Do not select a finished match's deleted DO for snapshots or protocol reads.
-- Do not let app code infer behavior from hardcoded game keys.
-- Do not keep generic helpers that secretly encode Pyramid assumptions as shared truth.
-- Do not normalize game internals prematurely.
-- Do not let competition or referee concerns leak into core game reducers unless they are true game semantics.
-
-## Deferred By Design
-
-- the direct live gateway and hibernatable WebSocket protocol are the next runtime slices, but are deliberately paused,
-- ownership/invite authorization will eventually use server-side ownership mappings; the reserved control secret alone is not authorization,
-- guest/session-based access control and managed scoreboards remain later product milestones,
-- historical hashed frontend assets/R2 deployment policy is a separate decision,
-- additional storage normalization should follow real lookup/stat/reporting screens.
+Both Workers use compatibility date `2026-08-11`. Deploy MatchRoom before Play because Play binds its namespace through `script_name: "ks-match-room"`. The project has not yet been deployed, so both initial migration histories still represent clean baselines.
