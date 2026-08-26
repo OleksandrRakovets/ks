@@ -13,8 +13,20 @@ A two-player match scored by the players themselves, without a dedicated referee
 **Frame**:
 One scoring contest within a match. Winning a frame advances a player toward the match's target number of frames.
 
+**Commence a Frame**:
+Begin play in a prepared frame.
+_Avoid_: Start a frame
+
+**Award a Frame**:
+Formally assign a completed frame to its winner in the match protocol.
+_Avoid_: Close a frame
+
 **Rack**:
 A subdivision of a frame used by games whose play resets or continues across successive arrangements of balls.
+
+**Owed Balls**:
+In old Combined Pyramid, the number of balls a player must legally pot to repay penalties before accumulating a positive score.
+_Avoid_: Negative pots
 
 ## Records
 
