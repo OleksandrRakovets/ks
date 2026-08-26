@@ -16,8 +16,6 @@ Read `CONTEXT.md` first. Its language is authoritative:
 
 The project has not been deployed. Replace the clean baseline directly. Do not add compatibility readers, migrations for old local data, dual-write paths, or legacy unions. Do not hand-format generated Drizzle migrations or generated Worker types.
 
-Complete `.tracker/gameplay-corrections-spec.md` first. This refactor assumes its corrected terminology, command payloads, and regression coverage. Do not combine those behavioral changes with the persistence refactor.
-
 ## Current Design And Problem
 
 The current implementation spreads one accepted command across several representations:
@@ -417,7 +415,7 @@ Do not implement the separate WebSocket design in `.tracker/match-live-websocket
 
 ## Behavioral Baseline
 
-Treat gameplay behavior established by `.tracker/gameplay-corrections-spec.md` as fixed input. Persistence work must preserve it without opportunistic rule or vocabulary changes.
+Treat the current gameplay contracts and characterization tests as fixed input. Persistence work must preserve them without opportunistic rule or vocabulary changes.
 
 This refactor does not implement Undo. The ordered Accepted Command identity and retained request make future correction possible without deleting history.
 
@@ -463,16 +461,15 @@ Respect `core <- gameplay <- competition`. Core owns shared IDs, seats, command 
 
 ## Implementation Order
 
-1. Confirm `.tracker/gameplay-corrections-spec.md` is complete and all gates pass.
-2. Introduce the accepted-command storage/RPC contracts and tests without adding another abstraction layer.
-3. Change MatchRoom persistence from facts plus receipts to normalized command and Protocol-entry rows.
-4. Restore active matches by replaying accepted rows and comparing Protocol entries.
-5. Persist terminal Final Match State and `endedAt` atomically.
-6. Change MatchRoom finalization to return transfer data without replay.
-7. Remove application-side replay and archive directly from validated transfer data.
-8. Replace fact-based live messages with the narrow update DTO.
-9. Remove fact types, codecs, tables, tests, and residual terminology.
-10. Update `.tracker/decisions/current-architecture.md`, `AGENTS.md`, and `.tracker/db.md` to describe the implemented authority model.
+1. Introduce the accepted-command storage/RPC contracts and tests without adding another abstraction layer.
+2. Change MatchRoom persistence from facts plus receipts to normalized command and Protocol-entry rows.
+3. Restore active matches by replaying accepted rows and comparing Protocol entries.
+4. Persist terminal Final Match State and `endedAt` atomically.
+5. Change MatchRoom finalization to return transfer data without replay.
+6. Remove application-side replay and archive directly from validated transfer data.
+7. Replace fact-based live messages with the narrow update DTO.
+8. Remove fact types, codecs, tables, tests, and residual terminology.
+9. Update `.tracker/decisions/current-architecture.md`, `AGENTS.md`, and `.tracker/db.md` to describe the implemented authority model.
 
 Do not leave a mixed active authority where some commands restore from facts and others from accepted-command rows. Small reviewable intermediate commits are welcome, but the final branch must have one model.
 
@@ -499,7 +496,7 @@ Do not leave a mixed active authority where some commands restore from facts and
 - Terminal live notification remains withheld until archive success.
 - One Accepted Command with multiple Protocol entries produces one ordered live update and advances the browser cursor once.
 - `ready` never advances the cursor and replay/live handoff has no gap or reordering.
-- All gameplay-correction regression tests continue to pass unchanged.
+- Existing gameplay characterization and regression tests continue to pass unchanged.
 - No backward-compatibility branch remains.
 - `git diff --check` passes.
 - `bun test` passes.
