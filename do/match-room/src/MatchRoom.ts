@@ -120,10 +120,11 @@ export class MatchRoom extends DurableObject<Env> {
    */
   async readMatch(args: MatchIdBody): Promise<ReadMatchResult> {
     await this.ready
-    if (!v.safeParse(MatchIdBodySchema, args).success) return { ok: false, error: 'Invalid match ID body', status: 400 }
+    const parsed = v.safeParse(MatchIdBodySchema, args)
+    if (!parsed.success) return { ok: false, error: 'Invalid match ID body', status: 400 }
     if (this.deleted) return { ok: false, error: 'Unknown match', status: 400 }
     const match = this.store.match()
-    if (!match || match.matchId !== args.matchId) return { ok: false, error: 'Unknown match', status: 400 }
+    if (!match || match.matchId !== parsed.output.matchId) return { ok: false, error: 'Unknown match', status: 400 }
     if (match.status === 'finalizing') {
       return { ok: false, error: 'Match is finalizing', status: 409 }
     }
