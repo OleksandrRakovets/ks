@@ -3,7 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import { newMatchId } from '@ks/core'
 import * as v from 'valibot'
 
-import { assignmentsBySeat, buildMatchConfig, CreateMatchRequestSchema } from './matches'
+import { buildMatchConfig, CreateMatchRequestSchema } from './matches'
 
 const request = v.parse(CreateMatchRequestSchema, {
   gameKey: 'strila-v2',
@@ -51,13 +51,6 @@ describe('match creation helpers', () => {
       targets: request.targets,
       firstBreakerSeat: 'A',
       gameConfiguration: { rackRollover: 14 },
-    })
-  })
-
-  test('maps participants by seat', () => {
-    expect(assignmentsBySeat(request.participants)).toEqual({
-      A: request.participants[0].playerRef,
-      B: request.participants[1].playerRef,
     })
   })
 

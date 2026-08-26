@@ -27,11 +27,6 @@ import { createGameplaySession } from '@ks/gameplay/server'
 import * as v from 'valibot'
 
 import type { MatchStateFor } from './matches'
-export type {
-  ActiveSparringFrame,
-  CompletedSparringFrame,
-  SparringMatchLifecycleState,
-} from './sparring-match-machine-internals'
 import {
   createInitialSnapshot,
   projectLifecycleState,
@@ -39,7 +34,7 @@ import {
   type SparringMatchSnapshot,
 } from './sparring-match-machine-internals'
 
-export type MatchCommandParseFailure = {
+type MatchCommandParseFailure = {
   readonly code: 'unsupported-match-command'
   readonly commandType: string
 }
@@ -59,12 +54,12 @@ export const SparringMatchRejectionSchema = v.variant('code', [
   v.object({ code: v.literal('game-command-rejected'), reason: GameCommandRejectionSchema }),
 ])
 
-export type MatchCommandResult =
+type MatchCommandResult =
   | { readonly _tag: 'parse-failed'; readonly reason: MatchCommandParseFailure }
   | { readonly _tag: 'rejected'; readonly reason: SparringMatchRejection }
   | { readonly _tag: 'accepted'; readonly facts: MatchFactContentBatch }
 
-export type SparringMatchRoomProjectionFor<K extends RegisteredGameKey> = {
+type SparringMatchRoomProjectionFor<K extends RegisteredGameKey> = {
   readonly state: MatchStateFor<K>
   readonly controlProjection: ControlProjectionFor<K> | undefined
   readonly controlSections: ControlCommandSections
