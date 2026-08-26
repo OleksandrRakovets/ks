@@ -24,7 +24,6 @@ export const MatchTargetsSchema = v.object({
 export const GameConfigurationSchema = v.object({
   rackRollover: v.optional(v.picklist([14, 15])),
 })
-export type GameConfiguration = v.InferOutput<typeof GameConfigurationSchema>
 
 export const MatchSeatAssignmentSchema = v.object({
   seat: SeatSchema,
@@ -38,7 +37,7 @@ export const HydratedMatchParticipantSchema = v.object({
 })
 export type HydratedMatchParticipant = v.InferOutput<typeof HydratedMatchParticipantSchema>
 
-export const HydratedMatchParticipantsSchema = v.object({
+const HydratedMatchParticipantsSchema = v.object({
   A: HydratedMatchParticipantSchema,
   B: HydratedMatchParticipantSchema,
 })
@@ -54,7 +53,7 @@ export const MatchConfigSchema = v.object({
 
 export type MatchConfig = v.InferOutput<typeof MatchConfigSchema>
 
-export const FrameStateSchema = v.object({
+const FrameStateSchema = v.object({
   frameIndex: PositiveIntegerSchema,
   pointsBySeat: BySeatNumberSchema,
   breakerSeat: SeatSchema,
@@ -62,8 +61,7 @@ export const FrameStateSchema = v.object({
 })
 export type FrameState = v.InferOutput<typeof FrameStateSchema>
 
-export const FrameWinReasonSchema = v.picklist(['target-reached', 'conceded'])
-export type FrameWinReason = v.InferOutput<typeof FrameWinReasonSchema>
+const FrameWinReasonSchema = v.picklist(['target-reached', 'conceded'])
 
 export const FrameOutcomeSchema = v.object({
   winnerSeat: SeatSchema,

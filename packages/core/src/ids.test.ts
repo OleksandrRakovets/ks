@@ -5,7 +5,6 @@ import * as v from 'valibot'
 import {
   FactIdSchema,
   formatPlayerRef,
-  formatPrefixedId,
   GuestPlayerIdSchema,
   MatchIdSchema,
   newFactId,
@@ -25,10 +24,9 @@ describe('ID generation', () => {
     expect(v.is(FactIdSchema, newFactId())).toBe(true)
   })
 
-  test('preserves prefixed ID formatting and optional-prefix stripping', () => {
+  test('formats player refs and strips optional ULID prefixes', () => {
     const id = '01ARZ3NDEKTSV4RRFFQ69G5FAV'
 
-    expect(formatPrefixedId('m', id)).toBe(`m_${id}`)
     expect(formatPlayerRef('gp', id)).toBe(v.parse(PlayerRefSchema, `gp_${id}`))
     expect(stripOptionalPrefix(`m_${id}`)).toBe(id)
     expect(stripOptionalPrefix(`unknown_${id}`)).toBe(id)

@@ -56,10 +56,6 @@ export function newCommandId(): CommandId {
   return v.parse(CommandIdSchema, ulid())
 }
 
-export function formatPrefixedId(prefix: 'm' | 'e' | 'c', id: string): string {
-  return `${prefix}_${id}`
-}
-
 export function formatPlayerRef(kind: 'gp' | 'vp', id: string): PlayerRef {
   return v.parse(PlayerRefSchema, `${kind}_${id}`)
 }

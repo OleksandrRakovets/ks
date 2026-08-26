@@ -13,10 +13,7 @@ import { UnixEpochMillisecondsSchema } from './time'
 import { PositiveIntegerSchema, SizedStringSchema, UnknownObjectSchema } from './valicombos'
 
 export const ProtocolEntrySourceSchema = v.picklist(['player', 'system'])
-export type ProtocolEntrySource = v.InferOutput<typeof ProtocolEntrySourceSchema>
-
 export const ProtocolEntryTypeSchema = v.picklist(['player-command', 'system-note', 'correction'])
-export type ProtocolEntryType = v.InferOutput<typeof ProtocolEntryTypeSchema>
 
 export const ProtocolEntrySchema = v.object({
   source: ProtocolEntrySourceSchema,
@@ -27,57 +24,53 @@ export const ProtocolEntrySchema = v.object({
 })
 export type ProtocolEntry = v.InferOutput<typeof ProtocolEntrySchema>
 
-export const FrameStartedPayloadSchema = v.object({
+const FrameStartedPayloadSchema = v.object({
   frameIndex: PositiveIntegerSchema,
   gameKey: GameKeySchema,
   targetPointsBySeat: BySeatNumberSchema,
   breakerSeat: SeatSchema,
   gameConfiguration: v.optional(GameConfigurationSchema),
 })
-export type FrameStartedPayload = v.InferOutput<typeof FrameStartedPayloadSchema>
 
-export const GameCommandPayloadSchema = v.object({
+const GameCommandPayloadSchema = v.object({
   frameIndex: PositiveIntegerSchema,
   gameKey: GameKeySchema,
   commandType: SizedStringSchema(1, 64),
   command: UnknownObjectSchema,
   protocolEntries: v.pipe(v.array(ProtocolEntrySchema), v.minLength(1)),
 })
-export type GameCommandPayload = v.InferOutput<typeof GameCommandPayloadSchema>
 
-export const FrameCompletedPayloadSchema = v.object({
+const FrameCompletedPayloadSchema = v.object({
   frameIndex: PositiveIntegerSchema,
   gameKey: GameKeySchema,
   outcome: FrameOutcomeSchema,
 })
-export type FrameCompletedPayload = v.InferOutput<typeof FrameCompletedPayloadSchema>
 
-export const MatchEndedPayloadSchema = v.object({
+const MatchEndedPayloadSchema = v.object({
   winnerSeat: SeatSchema,
 })
-export type MatchEndedPayload = v.InferOutput<typeof MatchEndedPayloadSchema>
 
-export const MatchCreatedContentSchema = v.object({
+const MatchCreatedContentSchema = v.object({
   type: v.literal('match.created'),
   payload: MatchConfigSchema,
 })
 
-export const FrameStartedContentSchema = v.object({
+const FrameStartedContentSchema = v.object({
   type: v.literal('frame.started'),
   payload: FrameStartedPayloadSchema,
 })
 
-export const GameCommandContentSchema = v.object({
+const GameCommandContentSchema = v.object({
   type: v.literal('game.command'),
   payload: GameCommandPayloadSchema,
 })
 
-export const FrameCompletedContentSchema = v.object({
+const FrameCompletedContentSchema = v.object({
   type: v.literal('frame.completed'),
   payload: FrameCompletedPayloadSchema,
 })
 
-export const MatchEndedContentSchema = v.object({
+const MatchEndedContentSchema = v.object({
   type: v.literal('match.ended'),
   payload: MatchEndedPayloadSchema,
 })
