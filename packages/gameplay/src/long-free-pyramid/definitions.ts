@@ -53,12 +53,11 @@ const LongFreePyramidProjectionDetailsSchema = v.object({
 })
 export type LongFreePyramidProjectionDetails = v.InferOutput<typeof LongFreePyramidProjectionDetailsSchema>
 
-export const LongFreePyramidControlDetailsSchema = v.object({
+const LongFreePyramidControlDetailsSchema = v.object({
   ...LongFreePyramidProjectionDetailsSchema.entries,
   isPotCommandAvailable: v.boolean(),
   commandSections: ControlCommandSectionsSchema,
 })
-export type LongFreePyramidControlDetails = v.InferOutput<typeof LongFreePyramidControlDetailsSchema>
 
 export const LongFreePyramidControlViewSchema = v.object({
   ...GameControlProjectionSchema.entries,

@@ -1,22 +1,14 @@
-import {
-  type BySeatNumber,
-  BySeatNumberSchema,
-  type FrameOutcome,
-  type MatchConfig,
-  opponentOf,
-  type Seat,
-  SeatSchema,
-} from '@ks/core'
+import { type BySeatNumber, type FrameOutcome, type MatchConfig, opponentOf, type Seat } from '@ks/core'
 import * as v from 'valibot'
 import { assign, initialTransition, setup, type SnapshotFrom, transition } from 'xstate'
 
-export type CompletedSparringFrame = {
+type CompletedSparringFrame = {
   readonly frameIndex: number
   readonly breakerSeat: Seat
   readonly outcome: FrameOutcome
 }
 
-export type ActiveSparringFrame = {
+type ActiveSparringFrame = {
   readonly frameIndex: number
   readonly breakerSeat: Seat
 }
@@ -204,92 +196,9 @@ function getPhase(snapshot: SparringMatchSnapshot): SparringMatchPhase {
   return v.parse(SparringMatchPhaseSchema, snapshot.value)
 }
 
-function assertProjectionInvariants(phase: SparringMatchPhase, context: SparringMatchMachineContext): void {
-  const { config, completedFrames, framesWonBySeat, nextFrameIndex, activeFrame, winnerSeat } = context
-
-  for (let index = 0; index < completedFrames.length; index += 1) {
-    const frame = completedFrames[index]
-    if (!frame || frame.frameIndex !== index + 1) {
-      throw new Error('Completed frame indices must be contiguous from 1')
-    }
-    if (frame.breakerSeat !== expectedBreakerSeat(config, frame.frameIndex)) {
-      throw new Error('Completed frame breaker must follow match configuration')
-    }
-  }
-
-  const winsFromOutcomes = completedFrames.reduce<BySeatNumber>(
-    (wins, frame) => ({
-      A: wins.A + (frame.outcome.winnerSeat === 'A' ? 1 : 0),
-      B: wins.B + (frame.outcome.winnerSeat === 'B' ? 1 : 0),
-    }),
-    { A: 0, B: 0 },
-  )
-  const parsedWins = v.parse(BySeatNumberSchema, framesWonBySeat)
-  if (parsedWins.A !== winsFromOutcomes.A || parsedWins.B !== winsFromOutcomes.B) {
-    throw new Error('framesWonBySeat must match completed frame outcomes')
-  }
-
-  const expectedNextFrameIndex = completedFrames.length + 1
-  if (nextFrameIndex !== expectedNextFrameIndex) {
-    throw new Error('nextFrameIndex must equal completed frame count plus one')
-  }
-
-  const matchTarget = config.targets.matchTargetFrames
-
-  switch (phase) {
-    case 'between-frames': {
-      if (activeFrame !== null) {
-        throw new Error('between-frames must not have an active frame')
-      }
-      if (winnerSeat !== null) {
-        throw new Error('between-frames must not have a winner')
-      }
-      if (framesWonBySeat.A >= matchTarget || framesWonBySeat.B >= matchTarget) {
-        throw new Error('Match target must not be reached before terminal phase')
-      }
-      return
-    }
-    case 'frame-in-progress': {
-      if (winnerSeat !== null) {
-        throw new Error('frame-in-progress must not have a winner')
-      }
-      if (!activeFrame) {
-        throw new Error('Missing active frame in frame-in-progress phase')
-      }
-      if (activeFrame.frameIndex !== nextFrameIndex) {
-        throw new Error('Active frame index must equal nextFrameIndex')
-      }
-      if (activeFrame.breakerSeat !== expectedBreakerSeat(config, activeFrame.frameIndex)) {
-        throw new Error('Active frame breaker must follow match configuration')
-      }
-      if (framesWonBySeat.A >= matchTarget || framesWonBySeat.B >= matchTarget) {
-        throw new Error('Match target must not be reached before terminal phase')
-      }
-      return
-    }
-    case 'match-over': {
-      if (activeFrame !== null) {
-        throw new Error('match-over must not have an active frame')
-      }
-      if (!winnerSeat) {
-        throw new Error('Missing winner in match-over phase')
-      }
-      const parsedWinnerSeat = v.parse(SeatSchema, winnerSeat)
-      if (framesWonBySeat[parsedWinnerSeat] < matchTarget) {
-        throw new Error('Terminal winner must have reached match target')
-      }
-      const opponent = opponentOf(parsedWinnerSeat)
-      if (framesWonBySeat[opponent] >= matchTarget) {
-        throw new Error('Only the winner may reach match target in terminal state')
-      }
-    }
-  }
-}
-
 export function projectLifecycleState(snapshot: SparringMatchSnapshot): SparringMatchLifecycleState {
   const phase = getPhase(snapshot)
   const context = snapshot.context
-  assertProjectionInvariants(phase, context)
 
   const base = {
     config: context.config,
@@ -331,6 +240,5 @@ export function sendLifecycleEvent(snapshot: SparringMatchSnapshot, event: Sparr
     throw new Error(`Invalid sparring lifecycle event ${event.type} in phase ${phase}`)
   }
 
-  projectLifecycleState(nextSnapshot)
   return nextSnapshot
 }

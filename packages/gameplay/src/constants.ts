@@ -7,7 +7,7 @@ import {
 } from '@ks/core'
 import * as v from 'valibot'
 
-export type LocalizedGameTitle = {
+type LocalizedGameTitle = {
   uk: string
   en: string
 }

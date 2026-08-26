@@ -3,7 +3,7 @@ import * as v from 'valibot'
 import { GameCommandTransportPayloadSchema } from './command-schemas'
 import { type GameCommandFor, type RegisteredGameKey, registry } from './registry'
 
-export type GameCommandParseFailure = {
+type GameCommandParseFailure = {
   readonly _tag: 'game-command-parse-failure'
   readonly gameKey: RegisteredGameKey
   readonly commandType: string

@@ -101,7 +101,7 @@ const ControlMessageSchema = v.object({
 
 export type StrilaControlCommand = v.InferOutput<typeof GameControlCommandSchema>
 
-export const StrilaControlDetailsSchema = v.object({
+const StrilaControlDetailsSchema = v.object({
   phase: StrilaPhaseSchema,
   seat: v.optional(SeatSchema),
   situationTitle: NonEmptyStringSchema,

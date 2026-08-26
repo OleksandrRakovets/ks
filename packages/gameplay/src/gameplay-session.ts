@@ -12,7 +12,7 @@ export type GameCommandExecution =
   | { readonly _tag: 'accepted'; readonly protocolEntries: NonEmptyProtocolEntries; readonly outcome?: FrameOutcome }
   | { readonly _tag: 'rejected'; readonly reason: GameCommandRejection }
 
-export type GameplaySessionCreateArgsByKey = {
+type GameplaySessionCreateArgsByKey = {
   readonly 'strila-v2': { readonly targetPointsBySeat: BySeatNumber }
   readonly 'free-pyramid': { readonly targetPointsBySeat: BySeatNumber }
   readonly 'free-pyramid-long': { readonly targetPointsBySeat: BySeatNumber; readonly rackRollover: 14 | 15 }
