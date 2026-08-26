@@ -19,10 +19,16 @@
       "persistent": true
     },
     "@ks/play#build": {
-      "outputs": ["build/**", ".react-router/**"]
+      "outputs": ["build/**"]
+    },
+    "@ks/play#typecheck": {
+      "outputs": [".react-router/types/**", "worker-configuration.d.ts"]
     },
     "@ks/match-room#build": {
       "outputs": ["dist/**"]
+    },
+    "@ks/match-room#typecheck": {
+      "outputs": ["worker-configuration.d.ts"]
     },
     "machine-explorer#build": {
       "outputs": ["dist/**"]
