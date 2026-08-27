@@ -1,4 +1,4 @@
-import type { ControlCommandPreset } from '@ks/core'
+import type { MatchCommand } from '@ks/core'
 import { keys } from '@ks/i18n'
 import { useTranslation } from 'react-i18next'
 import { Link, useFetcher, useLoaderData } from 'react-router'
@@ -10,9 +10,9 @@ import type { Route } from './+types/strila-v2-control'
 import {
   BetweenFrameControls,
   commandMatchAction,
-  controlCommandForm,
   type ControlRouteData,
   loadMatchControl,
+  matchCommandForm,
   useControlLiveRevalidation,
 } from './shared'
 
@@ -41,9 +41,9 @@ export default function StrilaV2ControlRoute() {
   const frameScore =
     data.controlState === 'frame-active' ? data.controlProjection.score : (snapshotFrame?.pointsBySeat ?? { A: 0, B: 0 })
 
-  function submitCommand(command: ControlCommandPreset) {
+  function submitCommand(command: MatchCommand) {
     markLocalSubmit()
-    fetcher.submit(controlCommandForm(command), { method: 'post' })
+    fetcher.submit(matchCommandForm(command), { method: 'post' })
   }
 
   return (
@@ -61,7 +61,7 @@ export default function StrilaV2ControlRoute() {
         <section aria-label={t(keys.match.control.perGameContainer)} className="flex flex-col">
           <StrilaControlRenderer
             projection={data.controlProjection}
-            commandSections={data.controlSections}
+            controlSections={data.controlSections}
             state={data.state}
             participants={data.participants}
             submitting={fetcher.state === 'submitting'}

@@ -1,13 +1,5 @@
 import { MatchCreationDefinitionSchema, type MatchStateFor, type SparringMatchRejection } from '@ks/competition'
-import type {
-  AcceptedFactRef,
-  CommandId,
-  ControlCommand,
-  ControlCommandSections,
-  HydratedMatchParticipants,
-  MatchId,
-  UnixEpochMilliseconds,
-} from '@ks/core'
+import type { ControlSections, HydratedMatchParticipants, MatchCommand, MatchId, UnixEpochMilliseconds } from '@ks/core'
 import type { ControlProjectionFor, RegisteredGameKey } from '@ks/gameplay/definitions'
 import type { SupportedLocale } from '@ks/i18n'
 import * as v from 'valibot'
@@ -17,7 +9,7 @@ import type { ProtocolRow } from './protocol'
 export type { HydratedMatchParticipant, HydratedMatchParticipants } from '@ks/core'
 
 export type CommandReceiptOutcome =
-  | { readonly _tag: 'accepted'; readonly accepted: readonly AcceptedFactRef[] }
+  | { readonly _tag: 'accepted'; readonly acceptedSeq: number }
   | { readonly _tag: 'rejected'; readonly reason: SparringMatchRejection }
 
 export const DisplayNameSchema = v.pipe(
@@ -58,7 +50,7 @@ export type ReadMatchControlResult<K extends RegisteredGameKey> =
       state: MatchStateFor<K>
       latestSeq: number
       controlProjection: ControlProjectionFor<K>
-      controlSections: ControlCommandSections
+      controlSections: ControlSections
       participants: HydratedMatchParticipants
     }
   | {
@@ -66,7 +58,7 @@ export type ReadMatchControlResult<K extends RegisteredGameKey> =
       controlState: 'between-frames'
       state: MatchStateFor<K>
       latestSeq: number
-      controlSections: ControlCommandSections
+      controlSections: ControlSections
       participants: HydratedMatchParticipants
     }
   | ReadMatchFailure
@@ -80,7 +72,6 @@ export type ReadMatchProtocolResult<K extends RegisteredGameKey> =
       ok: true
       state: MatchStateFor<K>
       latestSeq: number
-      controlProjection?: ControlProjectionFor<K>
       participants: HydratedMatchParticipants
       protocolRows: ProtocolRow[]
     }
@@ -96,8 +87,7 @@ export type Application = {
   ): Promise<ReadMatchControlResult<K>>
   submitMatchCommand<K extends RegisteredGameKey>(
     matchId: MatchId,
-    commandId: CommandId,
-    command: ControlCommand,
+    command: MatchCommand,
     expectedGameKey: K,
   ): Promise<SubmitMatchCommandResult>
   readMatchProtocol<K extends RegisteredGameKey>(
@@ -106,5 +96,5 @@ export type Application = {
     locale: SupportedLocale,
     expectedGameKey: K,
   ): Promise<ReadMatchProtocolResult<K>>
-  streamMatchFacts(matchId: MatchId, since?: number): Promise<Response>
+  streamMatchUpdates(matchId: MatchId, since?: number): Promise<Response>
 }

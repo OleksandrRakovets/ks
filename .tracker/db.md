@@ -9,7 +9,7 @@ Run commands from the repository root.
 | D1 `ks` | `packages/application/src/d1/schema.ts` | `d1/migrations/` | Wrangler |
 | MatchRoom per-object SQLite | `do/match-room/src/storage/schema.ts` | `do/match-room/drizzle/` | Runtime Drizzle migrator |
 
-These stores have independent histories. D1 contains players, catalog rows, and completed archives. Active facts and command receipts exist only in MatchRoom SQLite.
+These stores have independent lifecycles. D1 contains players, match rows, and completed archives. Active Accepted Commands, command outcomes, and Protocol entries exist only in MatchRoom SQLite.
 
 Drizzle ORM and Kit are pinned to `1.0.0-rc.4`. Both stores currently have one generated initial migration because the project has not been deployed. Do not rewrite migration history after deployment.
 

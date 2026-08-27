@@ -1,4 +1,4 @@
-import { IntegerSchema, ProtocolEntrySchema } from '@ks/core'
+import { GameProtocolEntry, PositiveIntegerSchema } from '@ks/core'
 import * as v from 'valibot'
 
 import type { PyramidCommand } from './definitions'
@@ -6,31 +6,34 @@ import type { PyramidSparringFrameSnapshot } from './machine'
 import type { PyramidRules } from './rules'
 
 const PyramidProtocolEntryBodySchema = v.variant('commandType', [
-  v.object({ commandType: v.literal('frame.commence') }),
-  v.object({ commandType: v.literal('pot.record'), points: IntegerSchema }),
-  v.object({
+  v.strictObject({ commandType: v.literal('frame.commence') }),
+  v.strictObject({ commandType: v.literal('pot.record'), pottedBallCount: PositiveIntegerSchema }),
+  v.strictObject({
     commandType: v.literal('foul.commit'),
     penalty: v.picklist(['opponent-plus-one', 'offender-minus-one']),
   }),
-  v.object({ commandType: v.literal('frame.award') }),
+  v.strictObject({ commandType: v.literal('frame.award') }),
 ])
 
-const PyramidProtocolEntrySchema = v.object({
-  ...ProtocolEntrySchema.entries,
+export const PyramidProtocolEntry = v.object({
+  ...GameProtocolEntry.entries,
   body: PyramidProtocolEntryBodySchema,
 })
+export type PyramidProtocolEntry = v.InferOutput<typeof PyramidProtocolEntry>
 
 function scoreChanged(previous: PyramidSparringFrameSnapshot, next: PyramidSparringFrameSnapshot): boolean {
   return previous.context.score.A !== next.context.score.A || previous.context.score.B !== next.context.score.B
 }
 
 function protocolEntry(args: {
+  gameKey: PyramidRules['gameKey']
   seat: 'A' | 'B'
   body: v.InferOutput<typeof PyramidProtocolEntryBodySchema>
   previous: PyramidSparringFrameSnapshot
   next: PyramidSparringFrameSnapshot
 }) {
-  return v.parse(PyramidProtocolEntrySchema, {
+  return v.parse(PyramidProtocolEntry, {
+    gameKey: args.gameKey,
     source: 'player',
     entryType: 'player-command',
     seat: args.seat,
@@ -44,13 +47,14 @@ export function projectPyramidProtocolEntries(args: {
   command: PyramidCommand
   next: PyramidSparringFrameSnapshot
   rules: PyramidRules
-}) {
+}): [PyramidProtocolEntry] {
   const { previous, command, next, rules } = args
 
   switch (command.type) {
     case 'frame.commence':
       return [
         protocolEntry({
+          gameKey: rules.gameKey,
           seat: command.seat,
           body: { commandType: 'frame.commence' },
           previous,
@@ -60,8 +64,9 @@ export function projectPyramidProtocolEntries(args: {
     case 'pot.record':
       return [
         protocolEntry({
+          gameKey: rules.gameKey,
           seat: command.seat,
-          body: { commandType: 'pot.record', points: command.points },
+          body: { commandType: 'pot.record', pottedBallCount: command.pottedBallCount },
           previous,
           next,
         }),
@@ -69,6 +74,7 @@ export function projectPyramidProtocolEntries(args: {
     case 'foul.commit':
       return [
         protocolEntry({
+          gameKey: rules.gameKey,
           seat: command.seat,
           body: { commandType: 'foul.commit', penalty: rules.foulPenalty },
           previous,
@@ -78,6 +84,7 @@ export function projectPyramidProtocolEntries(args: {
     case 'frame.award':
       return [
         protocolEntry({
+          gameKey: rules.gameKey,
           seat: command.seat,
           body: { commandType: 'frame.award' },
           previous,

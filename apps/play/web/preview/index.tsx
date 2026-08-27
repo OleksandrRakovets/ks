@@ -17,7 +17,7 @@ export default function PreviewIndexRoute() {
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">Top-secret previews</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Internal pages for reviewing generated facts and UI building blocks.
+            Internal pages for reviewing Protocol output and UI building blocks.
           </p>
         </div>
 

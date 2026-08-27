@@ -1,15 +1,13 @@
 import type { ProtocolRow, ReadMatchControlResult, ReadMatchProtocolResult } from '@ks/application'
 import {
   type BySeatNumber,
-  CommandIdSchema,
-  type ControlCommandPreset,
-  ControlCommandSchema,
+  type Control,
+  MatchCommand,
   type MatchId,
   MatchIdSchema,
   type MatchState,
-  newCommandId,
-  StreamFactSchema,
-  StreamReadySchema,
+  MatchStreamReadySchema,
+  MatchStreamUpdate,
 } from '@ks/core'
 import { type RegisteredGameKey, registry } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
@@ -20,6 +18,7 @@ import { useRevalidator } from 'react-router'
 import * as v from 'valibot'
 
 import { Button } from '@/components/ui'
+import { matchCommandFromControl } from '@/features/match-control/renderers/types'
 
 import type { AppLoadContext } from '../../server/context'
 import { requireApplication } from '../../server/context'
@@ -37,12 +36,9 @@ type ProtocolSuccess<K extends RegisteredGameKey> = Extract<ReadMatchProtocolRes
 export type ControlRouteData<K extends RegisteredGameKey> = ControlSuccess<K> & { gameTitle: string }
 export type ProtocolRouteData<K extends RegisteredGameKey> = ProtocolSuccess<K> & { gameTitle: string }
 
-export function protocolFrameScore<K extends RegisteredGameKey>(
-  state: ProtocolRouteData<K>['state'],
-  controlProjection: ProtocolRouteData<K>['controlProjection'],
-): BySeatNumber {
+export function protocolFrameScore<K extends RegisteredGameKey>(state: ProtocolRouteData<K>['state']): BySeatNumber {
   const snapshotFrame = state.frames[state.currentFrameIndex - 1]
-  return controlProjection?.score ?? snapshotFrame?.pointsBySeat ?? { A: 0, B: 0 }
+  return snapshotFrame?.pointsBySeat ?? { A: 0, B: 0 }
 }
 
 export type ControlActionData =
@@ -50,17 +46,17 @@ export type ControlActionData =
   | {
       ok: false
       errorKey:
-        | typeof keys.match.control.invalidFactPayload
-        | typeof keys.match.control.factRejectedByRules
+        | typeof keys.match.control.invalidCommandPayload
+        | typeof keys.match.control.commandRejectedByRules
         | typeof keys.match.control.unknownMatch
         | typeof keys.match.control.matchLocked
     }
 
 type ControlActionErrorKey = Extract<ControlActionData, { ok: false }>['errorKey']
 
-const SubmittedControlCommandSchema = v.pipe(v.string(), v.parseJson(), ControlCommandSchema)
-const StreamReadyEventSchema = v.pipe(v.string(), v.parseJson(), StreamReadySchema)
-const StreamFactEventSchema = v.pipe(v.string(), v.parseJson(), StreamFactSchema)
+const SubmittedMatchCommand = v.pipe(v.string(), v.parseJson(), MatchCommand)
+const StreamReadyEventSchema = v.pipe(v.string(), v.parseJson(), MatchStreamReadySchema)
+const StreamUpdateEventSchema = v.pipe(v.string(), v.parseJson(), MatchStreamUpdate)
 
 function matchIdFromParams(params: RouteArgs['params']): MatchId {
   const matchId = v.safeParse(MatchIdSchema, params.matchId)
@@ -93,8 +89,8 @@ export async function loadMatchProtocol<K extends RegisteredGameKey>(
 function commandErrorKey(error: string): ControlActionErrorKey {
   if (error === 'unknown-match' || error === 'Unknown match') return keys.match.control.unknownMatch
   if (error === 'match-locked') return keys.match.control.matchLocked
-  if (error === 'invalid-command-body' || error === 'command-id-conflict') return keys.match.control.invalidFactPayload
-  return keys.match.control.invalidFactPayload
+  if (error === 'invalid-command-body' || error === 'command-id-conflict') return keys.match.control.invalidCommandPayload
+  return keys.match.control.invalidCommandPayload
 }
 
 export async function commandMatchAction<K extends RegisteredGameKey>(
@@ -103,39 +99,29 @@ export async function commandMatchAction<K extends RegisteredGameKey>(
 ): Promise<ControlActionData> {
   const matchId = matchIdFromParams(args.params)
   const form = await args.request.formData()
-  const command = v.safeParse(SubmittedControlCommandSchema, form.get('command'))
-  const commandId = v.safeParse(CommandIdSchema, form.get('commandId'))
-  if (!command.success || !commandId.success) {
-    return { ok: false, errorKey: keys.match.control.invalidFactPayload }
+  const command = v.safeParse(SubmittedMatchCommand, form.get('command'))
+  if (!command.success) {
+    return { ok: false, errorKey: keys.match.control.invalidCommandPayload }
   }
 
-  const result = await requireApplication(args.context).submitMatchCommand(
-    matchId,
-    commandId.output,
-    command.output,
-    expectedGameKey,
-  )
+  const result = await requireApplication(args.context).submitMatchCommand(matchId, command.output, expectedGameKey)
   if (!result.ok) {
     if (result.status === 404) throw new Response(result.error, { status: 404 })
     if (result.status === 409) return { ok: false, errorKey: keys.match.control.matchLocked }
     if (result.status >= 500) throw new Response(result.error, { status: result.status })
     return { ok: false, errorKey: commandErrorKey(result.error) }
   }
-  if (result.outcome._tag === 'rejected') return { ok: false, errorKey: keys.match.control.factRejectedByRules }
+  if (result.outcome._tag === 'rejected') return { ok: false, errorKey: keys.match.control.commandRejectedByRules }
 
   return {
     ok: true,
-    acceptedSeqMax: result.outcome.accepted.reduce<number | null>(
-      (max, entry) => (max == null ? entry.seq : Math.max(max, entry.seq)),
-      null,
-    ),
+    acceptedSeqMax: result.outcome.acceptedSeq,
   }
 }
 
-export function controlCommandForm(command: ControlCommandPreset) {
+export function matchCommandForm(command: MatchCommand) {
   return {
-    command: JSON.stringify({ source: command.source, commandType: command.commandType, command: command.command }),
-    commandId: newCommandId(),
+    command: JSON.stringify(command),
   }
 }
 
@@ -151,7 +137,7 @@ export type ControlLiveEvent =
   | { type: 'submit-finished' }
   | { type: 'accepted'; seq: number }
   | { type: 'ready'; seq: number }
-  | { type: 'fact'; seq: number }
+  | { type: 'update'; seq: number }
   | { type: 'match-ended'; seq: number }
   | { type: 'error' }
 
@@ -186,6 +172,7 @@ export function transitionControlLive(state: ControlLiveState, event: ControlLiv
     }
   }
   if (event.type === 'error') return { state, revalidate: true, close: false }
+  if (event.type === 'ready') return { state, revalidate: false, close: false }
   if (event.seq <= state.latestSeq) return { state, revalidate: false, close: false }
   return {
     state: { ...state, latestSeq: event.seq },
@@ -214,12 +201,12 @@ export function subscribeControlLive(args: {
   }
   const onEvent = (event: Event) => {
     if (!(event instanceof MessageEvent)) return
-    const parsed = v.safeParse(StreamFactEventSchema, event.data)
+    const parsed = v.safeParse(StreamUpdateEventSchema, event.data)
     if (!parsed.success) return
     args.applyEvent(
-      parsed.output.type === 'match.ended'
-        ? { type: 'match-ended', seq: parsed.output.seq }
-        : { type: 'fact', seq: parsed.output.seq },
+      parsed.output.terminal
+        ? { type: 'match-ended', seq: parsed.output.acceptedSeq }
+        : { type: 'update', seq: parsed.output.acceptedSeq },
       source,
     )
   }
@@ -302,17 +289,15 @@ export function useProtocolLiveRevalidation(state: MatchState, latestSeq: number
     const onReady = (event: Event) => {
       if (!(event instanceof MessageEvent)) return
       const parsed = v.safeParse(StreamReadyEventSchema, event.data)
-      if (parsed.success && parsed.output.latestSeq > latestSeqRef.current) {
-        latestSeqRef.current = parsed.output.latestSeq
-        revalidateRef.current()
-      }
+      // ready confirms the highest update already delivered; it never advances the cursor.
+      if (parsed.success && parsed.output.latestSeq !== latestSeqRef.current) revalidateRef.current()
     }
     const onEvent = (event: Event) => {
       if (!(event instanceof MessageEvent)) return
-      const parsed = v.safeParse(StreamFactEventSchema, event.data)
-      if (!parsed.success || parsed.output.seq <= latestSeqRef.current) return
-      latestSeqRef.current = parsed.output.seq
-      if (parsed.output.type === 'match.ended') stream.close()
+      const parsed = v.safeParse(StreamUpdateEventSchema, event.data)
+      if (!parsed.success || parsed.output.acceptedSeq <= latestSeqRef.current) return
+      latestSeqRef.current = parsed.output.acceptedSeq
+      if (parsed.output.terminal) stream.close()
       revalidateRef.current()
     }
     const onError = () => revalidateRef.current()
@@ -328,12 +313,12 @@ export function useProtocolLiveRevalidation(state: MatchState, latestSeq: number
   }, [state.matchId, state.status])
 }
 
-function matchCommandLabel(t: TFunction, command: ControlCommandPreset): string {
-  switch (command.commandType) {
+function matchControlLabel(t: TFunction, control: Control): string {
+  switch (control.type) {
     case 'frame.commence':
       return t('match.control.commands.match.frame.commence')
-    case 'frame.start':
-      return t('match.control.commands.match.frame.start')
+    case 'frame.prepare':
+      return t('match.control.commands.match.frame.prepare')
     case 'frame.concede':
       return t('match.control.commands.match.frame.concede')
     case 'match.end':
@@ -346,10 +331,10 @@ function matchCommandLabel(t: TFunction, command: ControlCommandPreset): string 
 export function BetweenFrameControls(props: {
   sections: ControlSuccess<RegisteredGameKey>['controlSections']
   submitting: boolean
-  onSubmit: (command: ControlCommandPreset) => void
+  onSubmit: (command: MatchCommand) => void
 }) {
   const { t } = useTranslation()
-  const commands = [
+  const controls = [
     ...props.sections.neutral,
     ...props.sections.primary.A,
     ...props.sections.primary.B,
@@ -357,22 +342,22 @@ export function BetweenFrameControls(props: {
     ...props.sections.secondary.B,
     ...props.sections.tertiary.A,
     ...props.sections.tertiary.B,
-  ].filter((command) => command.source === 'match')
+  ].filter((control) => control.source === 'match')
   return (
     <section aria-label={t(keys.match.control.perGameContainer)} className="border-b border-divider px-4 py-3">
       <div className="mx-auto grid w-2/3 gap-3.5">
-        {commands.map((command, index) => (
+        {controls.map((control, index) => (
           <Button
-            key={`${command.commandType}-${index}`}
+            key={`${control.type}-${index}`}
             type="button"
             size="control"
             variant={
-              command.prominence === 'primary' ? 'default' : command.prominence === 'secondary' ? 'secondary' : 'outline'
+              control.prominence === 'primary' ? 'default' : control.prominence === 'secondary' ? 'secondary' : 'outline'
             }
             disabled={props.submitting}
-            onClick={() => props.onSubmit(command)}
+            onClick={() => props.onSubmit(matchCommandFromControl(control))}
           >
-            {matchCommandLabel(t, command)}
+            {matchControlLabel(t, control)}
           </Button>
         ))}
       </div>

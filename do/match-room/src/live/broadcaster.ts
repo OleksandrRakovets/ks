@@ -1,4 +1,4 @@
-import type { StoredMatchFact } from '@ks/core'
+import type { MatchStreamUpdate } from '@ks/core'
 
 const encoder = new TextEncoder()
 
@@ -7,12 +7,12 @@ type Client = { controller: ReadableStreamDefaultController<Uint8Array>; pingTim
 export class Broadcaster {
   private clients = new Set<Client>()
 
-  stream(ready: number, backlog: StoredMatchFact[]): Response {
+  stream(ready: number, backlog: MatchStreamUpdate[]): Response {
     let client: Client | null = null
     const stream = new ReadableStream<Uint8Array>({
       start: (controller) => {
+        for (const update of backlog) controller.enqueue(encoder.encode(`event: ev\ndata: ${JSON.stringify(update)}\n\n`))
         controller.enqueue(encoder.encode(`event: ready\ndata: ${JSON.stringify({ latestSeq: ready })}\n\n`))
-        for (const fact of backlog) controller.enqueue(encoder.encode(`event: ev\ndata: ${JSON.stringify(fact)}\n\n`))
         client = {
           controller,
           pingTimer: setInterval(() => {
@@ -32,8 +32,8 @@ export class Broadcaster {
     })
   }
 
-  broadcast(fact: StoredMatchFact): void {
-    const bytes = encoder.encode(`event: ev\ndata: ${JSON.stringify(fact)}\n\n`)
+  broadcast(update: MatchStreamUpdate): void {
+    const bytes = encoder.encode(`event: ev\ndata: ${JSON.stringify(update)}\n\n`)
     for (const client of this.clients) {
       try {
         client.controller.enqueue(bytes)

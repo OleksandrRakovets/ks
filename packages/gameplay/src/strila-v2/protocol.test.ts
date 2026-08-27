@@ -11,6 +11,7 @@ test('orders player entry before winner system note and records exact scoreAfter
 
   expect(projectStrilaProtocolEntries({ previous, command, next })).toEqual([
     {
+      gameKey: 'strila-v2',
       source: 'player',
       entryType: 'player-command',
       seat: 'A',
@@ -18,6 +19,7 @@ test('orders player entry before winner system note and records exact scoreAfter
       body: { commandType: 'pot.record', pottedBalls: [0] },
     },
     {
+      gameKey: 'strila-v2',
       source: 'system',
       entryType: 'system-note',
       seat: 'A',

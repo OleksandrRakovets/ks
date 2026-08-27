@@ -2,6 +2,8 @@
 
 KS is a two-player billiards scorekeeper with public live scoring. A match is a race across frames; seats are always `A` and `B`. Supported games are registered in `packages/gameplay/src/registry.ts`.
 
+Domain vocabulary and distinctions are defined in CONTEXT.md. Treat it as authoritative when naming concepts in code, tests, UI copy, and architecture documentation.
+
 ## Working Mode
 
 - Optimize for architectural clarity and small, reviewable slices.
@@ -39,15 +41,15 @@ KS is a two-player billiards scorekeeper with public live scoring. A match is a 
 - Validate at trust and representation boundaries: HTTP, RPC, persisted rows/JSON, browser storage, and restored machine state. Do not reparse canonical typed values.
 - Schemas use Valibot. Prefer built-in actions such as `v.trim()` and `v.parseJson()`.
 - Use core seat contracts (`Seat`, `SeatSchema`, `BySeatNumberSchema`, `opponentOf`) rather than local equivalents.
-- Keep one `game.command` path; gameplay runtimes own game-specific semantics.
+- Keep one `game` path; gameplay runtimes own game-specific semantics.
 - UI components have one consumer and live in `apps/play/web/components/ui`.
 
 ## Authority And Lifecycle
 
-- Active facts, sequence, and command receipts are authoritative in each MatchRoom's SQLite database. Do not mirror active facts into D1.
-- D1 owns players, the global match catalog, and completed snapshot/protocol archives.
-- Resident match/gameplay state is a disposable cache restored by replaying accepted facts; raw XState snapshots are not persisted.
-- `match.ended` is terminal. Application archives and verifies the terminal journal in D1, asks MatchRoom to broadcast/close/delete local storage, then marks the catalog row finished.
+- Accepted Commands and Protocol entries, their sequence, and command outcomes are authoritative in each MatchRoom's SQLite database. Do not mirror active command history into D1.
+- D1 owns players, the `matches` table, and completed protocol archives with final match state.
+- Resident match/gameplay state is a disposable cache restored by replaying Accepted Commands and comparing regenerated Protocol entries; raw XState snapshots are not persisted.
+- The terminal Accepted Command atomically stores Final Match State and `endedAt`. Application validates and archives MatchRoom's Protocol and Final Match State transfer without gameplay replay, asks MatchRoom to broadcast/close/delete local storage, then marks the match row finished.
 - Finished reads use D1 and must not access the deleted MatchRoom.
 
 ## Runtime Notes

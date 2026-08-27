@@ -34,7 +34,7 @@ export default function FreePyramidProtocolRoute() {
         nameA={data.participants.A.displayName}
         nameB={data.participants.B.displayName}
         matchScore={data.state.framesWonBySeat}
-        frameScore={protocolFrameScore(data.state, data.controlProjection)}
+        frameScore={protocolFrameScore(data.state)}
         matchStatus={data.state.status}
         frameIndex={data.state.currentFrameIndex}
         targetFrames={data.state.targets.matchTargetFrames}

@@ -1,28 +1,22 @@
 import {
-  type ControlCommand,
-  type ControlCommandPreset,
-  type ControlCommandSections,
-  emptyControlCommandSections,
+  type AcceptedCommandHistoryEntry,
+  type Control,
+  type ControlSections,
+  emptyControlSections,
   type FrameOutcome,
   type FrameState,
+  type MatchCommand,
   type MatchConfig,
-  type MatchFactContent,
-  type MatchFactContentBatch,
-  type MatchFactContentHistory,
   type MatchState,
+  type NonEmptyProtocolEntryContents,
   opponentOf,
+  type ProtocolEntryContent,
   type Seat,
   SeatSchema,
 } from '@ks/core'
 import { type ControlProjectionFor, type RegisteredGameKey, RegisteredGameKeySchema } from '@ks/gameplay/definitions'
 import type { GameCommandFor } from '@ks/gameplay/definitions'
-import {
-  canonicalGameCommandPayload,
-  type GameCommandRejection,
-  GameCommandRejectionSchema,
-  type GameplaySession,
-  parseGameCommand,
-} from '@ks/gameplay/server'
+import { GameCommandRejectionSchema, type GameplaySession, parseGameCommand } from '@ks/gameplay/server'
 import { createGameplaySession } from '@ks/gameplay/server'
 import * as v from 'valibot'
 
@@ -39,13 +33,6 @@ type MatchCommandParseFailure = {
   readonly commandType: string
 }
 
-export type SparringMatchRejection =
-  | { readonly code: 'frame-already-active' }
-  | { readonly code: 'no-active-frame' }
-  | { readonly code: 'wrong-breaker'; readonly expectedSeat: Seat }
-  | { readonly code: 'match-already-over' }
-  | { readonly code: 'game-command-rejected'; readonly reason: GameCommandRejection }
-
 export const SparringMatchRejectionSchema = v.variant('code', [
   v.object({ code: v.literal('frame-already-active') }),
   v.object({ code: v.literal('no-active-frame') }),
@@ -53,16 +40,21 @@ export const SparringMatchRejectionSchema = v.variant('code', [
   v.object({ code: v.literal('match-already-over') }),
   v.object({ code: v.literal('game-command-rejected'), reason: GameCommandRejectionSchema }),
 ])
+export type SparringMatchRejection = v.InferOutput<typeof SparringMatchRejectionSchema>
 
 type MatchCommandResult =
   | { readonly _tag: 'parse-failed'; readonly reason: MatchCommandParseFailure }
   | { readonly _tag: 'rejected'; readonly reason: SparringMatchRejection }
-  | { readonly _tag: 'accepted'; readonly facts: MatchFactContentBatch }
+  | {
+      readonly _tag: 'accepted'
+      readonly command: MatchCommand
+      readonly protocolEntryContents: NonEmptyProtocolEntryContents
+    }
 
 type SparringMatchRoomProjectionFor<K extends RegisteredGameKey> = {
   readonly state: MatchStateFor<K>
   readonly controlProjection: ControlProjectionFor<K> | undefined
-  readonly controlSections: ControlCommandSections
+  readonly controlSections: ControlSections
 }
 
 export type SparringMatchRoomProjection = {
@@ -75,7 +67,7 @@ export interface SparringMatch {
    * The caller must discard this resident if accepted content cannot subsequently be persisted.
    * @throws An unrecoverable execution defect; resident state may have partially advanced and must be discarded.
    */
-  execute(command: ControlCommand): MatchCommandResult
+  execute(command: MatchCommand): MatchCommandResult
 
   /** Returns current semantic state and controls without storage cursor metadata. */
   project(): SparringMatchRoomProjection
@@ -90,13 +82,12 @@ export class SparringMatchHistoryError extends Error {
 
 type CorrelatedGameplay<K extends RegisteredGameKey> = { readonly key: K; readonly session: GameplaySession<K> }
 type AnyCorrelatedGameplay = { [K in RegisteredGameKey]: CorrelatedGameplay<K> }[RegisteredGameKey]
-type ParsedCommand =
-  | { readonly type: 'frame.start' }
-  | { readonly type: 'frame.commence'; readonly seat: Seat }
-  | { readonly type: 'frame.concede'; readonly seat: Seat }
-  | {
-      [K in RegisteredGameKey]: { readonly type: 'game.command'; readonly gameKey: K; readonly command: GameCommandFor<K> }
-    }[RegisteredGameKey]
+const MatchLifecycleCommand = v.variant('type', [
+  v.strictObject({ type: v.literal('frame.prepare') }),
+  v.strictObject({ type: v.literal('frame.commence'), seat: SeatSchema }),
+  v.strictObject({ type: v.literal('frame.concede'), seat: SeatSchema }),
+])
+type MatchLifecycleCommand = v.InferOutput<typeof MatchLifecycleCommand>
 
 function gameKeyOf(value: string): RegisteredGameKey {
   return v.parse(RegisteredGameKeySchema, value)
@@ -130,29 +121,10 @@ function requireGameplay<K extends RegisteredGameKey>(key: K, gameplay: AnyCorre
   return gameplay as CorrelatedGameplay<K>
 }
 
-function parseCommand(gameKey: RegisteredGameKey, command: ControlCommand): ParsedCommand | MatchCommandParseFailure {
-  const failed = (): MatchCommandParseFailure => ({ code: 'unsupported-match-command', commandType: command.commandType })
-  if (command.source === 'match') {
-    if (command.commandType === 'frame.start' && v.safeParse(v.strictObject({}), command.command).success)
-      return { type: 'frame.start' }
-    if (command.commandType === 'frame.commence' || command.commandType === 'frame.concede') {
-      const parsed = v.safeParse(v.strictObject({ seat: SeatSchema }), command.command)
-      if (parsed.success) return { type: command.commandType, seat: parsed.output.seat }
-    }
-    return failed()
-  }
-  if (command.source !== 'game' || ['frame.start', 'frame.commence', 'frame.concede'].includes(command.commandType))
-    return failed()
-  const parsed = parseGameCommand(gameKey, { commandType: command.commandType, command: command.command })
-  if (parsed._tag === 'game-command-parse-failure') return failed()
-  // SAFETY: parseGameCommand produced this command for the supplied registered game key.
-  return { type: 'game.command', gameKey, command: parsed.command } as ParsedCommand
-}
-
-function contentEqual(left: MatchFactContentBatch, right: MatchFactContentBatch): boolean {
-  // SAFETY: fact content has already crossed its schema boundary; command dictionaries contain validated JSON values.
+function contentEqual(left: NonEmptyProtocolEntryContents, right: NonEmptyProtocolEntryContents): boolean {
+  // SAFETY: Protocol values have already crossed their schema boundaries.
   const leftContent = left as StructuralValue
-  // SAFETY: fact content has already crossed its schema boundary; command dictionaries contain validated JSON values.
+  // SAFETY: Protocol values have already crossed their schema boundaries.
   const rightContent = right as StructuralValue
   return structuralEqual(leftContent, rightContent)
 }
@@ -183,17 +155,17 @@ function structuralEqual(left: StructuralValue, right: StructuralValue): boolean
   )
 }
 
-function nonempty(contents: MatchFactContent[]): MatchFactContentBatch {
-  if (!contents[0]) throw new Error('Aggregate command emitted no facts')
+function nonempty(contents: ProtocolEntryContent[]): NonEmptyProtocolEntryContents {
+  if (!contents[0]) throw new Error('Accepted command emitted no Protocol entries')
   return [contents[0], ...contents.slice(1)]
 }
 
-function concedeControl(seat: Seat): ControlCommandPreset {
-  return { source: 'match', commandType: 'frame.concede', command: { seat }, seat, prominence: 'tertiary' }
+function concedeControl(seat: Seat): Control {
+  return { source: 'match', type: 'frame.concede', fixedInput: {}, seat, prominence: 'tertiary' }
 }
 
-function mergeSections(match: ControlCommandSections, game?: ControlCommandSections): ControlCommandSections {
-  const result = emptyControlCommandSections()
+function mergeSections(match: ControlSections, game?: ControlSections): ControlSections {
+  const result = emptyControlSections()
   result.neutral = [...match.neutral, ...(game?.neutral ?? [])]
   for (const prominence of ['primary', 'secondary', 'tertiary'] as const) {
     for (const seat of ['A', 'B'] as const)
@@ -211,11 +183,23 @@ class ResidentSparringMatch implements SparringMatch {
     this.gameplay = gameplay
   }
 
-  execute(command: ControlCommand): MatchCommandResult {
+  execute(command: MatchCommand): MatchCommandResult {
     const lifecycle = projectLifecycleState(this.snapshot)
-    const parsed = parseCommand(gameKeyOf(lifecycle.config.gameKey), command)
-    if ('code' in parsed) return { _tag: 'parse-failed', reason: parsed }
-    return this.applyAggregate(parsed)
+    const discriminator = v.safeParse(v.object({ type: v.string() }), command.command)
+    const commandType = discriminator.success ? discriminator.output.type : 'unknown'
+    const parseFailed = (): MatchCommandResult => ({
+      _tag: 'parse-failed',
+      reason: { code: 'unsupported-match-command', commandType },
+    })
+    if (command.source === 'match') {
+      const parsed = v.safeParse(MatchLifecycleCommand, command.command)
+      return parsed.success ? this.applyMatchCommand(parsed.output, command) : parseFailed()
+    }
+    if (['frame.prepare', 'frame.commence', 'frame.concede'].includes(commandType)) return parseFailed()
+    const gameKey = gameKeyOf(lifecycle.config.gameKey)
+    const parsed = parseGameCommand(gameKey, command.command)
+    if (parsed._tag === 'game-command-parse-failure') return parseFailed()
+    return this.applyGameCommand(gameKey, parsed.command, command)
   }
 
   project(): SparringMatchRoomProjection {
@@ -246,16 +230,16 @@ class ResidentSparringMatch implements SparringMatch {
       framesWonBySeat: lifecycle.framesWonBySeat,
       frames,
     }
-    const matchSections = emptyControlCommandSections()
+    const matchSections = emptyControlSections()
     if (lifecycle.phase === 'between-frames')
-      matchSections.neutral.push({ source: 'match', commandType: 'frame.start', command: {}, prominence: 'secondary' })
+      matchSections.neutral.push({ source: 'match', type: 'frame.prepare', fixedInput: {}, prominence: 'secondary' })
     if (lifecycle.phase === 'frame-in-progress' && this.gameplay) {
       if (this.gameplay.session.canCommence(lifecycle.activeFrame.breakerSeat)) {
         const seat = lifecycle.activeFrame.breakerSeat
         matchSections.primary[seat].push({
           source: 'match',
-          commandType: 'frame.commence',
-          command: { seat },
+          type: 'frame.commence',
+          fixedInput: {},
           seat,
           prominence: 'primary',
         })
@@ -269,31 +253,37 @@ class ResidentSparringMatch implements SparringMatch {
     return {
       state,
       controlProjection: gameControl,
-      controlSections: mergeSections(matchSections, gameControl?.details.commandSections),
+      controlSections: mergeSections(matchSections, gameControl?.details.controlSections),
     } as SparringMatchRoomProjection
   }
 
-  private applyAggregate(command: ParsedCommand): MatchCommandResult {
+  private applyMatchCommand(command: MatchLifecycleCommand, acceptedCommand: MatchCommand): MatchCommandResult {
     const lifecycle = projectLifecycleState(this.snapshot)
     if (lifecycle.phase === 'match-over') return { _tag: 'rejected', reason: { code: 'match-already-over' } }
-    if (command.type === 'frame.start') {
+    if (command.type === 'frame.prepare') {
       if (lifecycle.phase !== 'between-frames') return { _tag: 'rejected', reason: { code: 'frame-already-active' } }
       const frameIndex = lifecycle.nextFrameIndex
       const breakerSeat =
         frameIndex % 2 === 1 ? lifecycle.config.firstBreakerSeat : opponentOf(lifecycle.config.firstBreakerSeat)
-      const content = {
-        type: 'frame.started',
-        payload: {
-          frameIndex,
-          gameKey: lifecycle.config.gameKey,
-          targetPointsBySeat: lifecycle.config.targets.frameTargetPointsBySeat,
-          breakerSeat,
-          gameConfiguration: lifecycle.config.gameConfiguration,
-        },
-      } satisfies MatchFactContent
-      this.snapshot = sendLifecycleEvent(this.snapshot, { type: 'frame.started', frameIndex, breakerSeat })
+      this.snapshot = sendLifecycleEvent(this.snapshot, { type: 'frame.prepared', frameIndex, breakerSeat })
       this.gameplay = createGameplay(gameKeyOf(lifecycle.config.gameKey), lifecycle.config)
-      return { _tag: 'accepted', facts: [content] }
+      return {
+        _tag: 'accepted',
+        command: acceptedCommand,
+        protocolEntryContents: [
+          {
+            gameKey: lifecycle.config.gameKey,
+            frameIndex,
+            source: 'system',
+            entryType: 'frame-prepared',
+            seat: breakerSeat,
+            body: {
+              targetPointsBySeat: lifecycle.config.targets.frameTargetPointsBySeat,
+              gameConfiguration: lifecycle.config.gameConfiguration,
+            },
+          },
+        ],
+      }
     }
     if (lifecycle.phase !== 'frame-in-progress' || !this.gameplay)
       return { _tag: 'rejected', reason: { code: 'no-active-frame' } }
@@ -303,38 +293,62 @@ class ResidentSparringMatch implements SparringMatch {
         score: this.gameplay.session.getScore(),
         winReason: 'conceded',
       }
-      return this.completeFrame(outcome, [])
+      return this.completeFrame(outcome, acceptedCommand, [
+        {
+          gameKey: lifecycle.config.gameKey,
+          frameIndex: lifecycle.activeFrame.frameIndex,
+          source: 'player',
+          entryType: 'frame-conceded',
+          seat: command.seat,
+          scoreAfter: outcome.score,
+          body: {},
+        },
+      ])
     }
-    if (command.type === 'frame.commence' && command.seat !== lifecycle.activeFrame.breakerSeat) {
+    if (command.seat !== lifecycle.activeFrame.breakerSeat) {
       return { _tag: 'rejected', reason: { code: 'wrong-breaker', expectedSeat: lifecycle.activeFrame.breakerSeat } }
     }
     const gameKey = gameKeyOf(lifecycle.config.gameKey)
-    const gameplay = requireGameplay(gameKey, this.gameplay)
-    const gameCommand = command.type === 'frame.commence' ? command : command.command
-    if (command.type === 'game.command' && command.gameKey !== gameKey) throw new Error('Game command key mismatch')
-    // SAFETY: match and command game keys were checked before dispatch to the correlated session.
-    const execution = gameplay.session.execute(gameCommand as GameCommandFor<typeof gameKey>)
-    if (execution._tag === 'rejected')
-      return { _tag: 'rejected', reason: { code: 'game-command-rejected', reason: execution.reason } }
-    const content = {
-      type: 'game.command',
-      payload: {
-        frameIndex: lifecycle.activeFrame.frameIndex,
-        gameKey,
-        commandType: gameCommand.type,
-        command: canonicalGameCommandPayload(gameCommand),
-        protocolEntries: [...execution.protocolEntries],
-      },
-    } satisfies MatchFactContent
-    return execution.outcome ? this.completeFrame(execution.outcome, [content]) : { _tag: 'accepted', facts: [content] }
+    return this.applyGameCommand(gameKey, command, acceptedCommand)
   }
 
-  private completeFrame(outcome: FrameOutcome, contents: MatchFactContent[]): MatchCommandResult {
+  private applyGameCommand<K extends RegisteredGameKey>(
+    gameKey: K,
+    gameCommand: GameCommandFor<K>,
+    acceptedCommand: MatchCommand,
+  ): MatchCommandResult {
+    const lifecycle = projectLifecycleState(this.snapshot)
+    if (lifecycle.phase === 'match-over') return { _tag: 'rejected', reason: { code: 'match-already-over' } }
+    if (lifecycle.phase !== 'frame-in-progress' || !this.gameplay)
+      return { _tag: 'rejected', reason: { code: 'no-active-frame' } }
+    const gameplay = requireGameplay(gameKey, this.gameplay)
+    const execution = gameplay.session.execute(gameCommand)
+    if (execution._tag === 'rejected')
+      return { _tag: 'rejected', reason: { code: 'game-command-rejected', reason: execution.reason } }
+    const entryContents = execution.gameProtocolEntries.map((entry) => ({
+      ...entry,
+      frameIndex: lifecycle.activeFrame.frameIndex,
+    }))
+    return execution.outcome
+      ? this.completeFrame(execution.outcome, acceptedCommand, entryContents)
+      : { _tag: 'accepted', command: acceptedCommand, protocolEntryContents: nonempty(entryContents) }
+  }
+
+  private completeFrame(
+    outcome: FrameOutcome,
+    acceptedCommand: MatchCommand,
+    entryContents: ProtocolEntryContent[],
+  ): MatchCommandResult {
     const lifecycle = projectLifecycleState(this.snapshot)
     if (lifecycle.phase !== 'frame-in-progress') throw new Error('Cannot complete inactive frame')
-    contents.push({
-      type: 'frame.completed',
-      payload: { frameIndex: lifecycle.activeFrame.frameIndex, gameKey: lifecycle.config.gameKey, outcome },
+    entryContents.push({
+      gameKey: lifecycle.config.gameKey,
+      frameIndex: lifecycle.activeFrame.frameIndex,
+      source: 'system',
+      entryType: 'frame-awarded',
+      seat: outcome.winnerSeat,
+      scoreAfter: outcome.score,
+      body: { winReason: outcome.winReason },
     })
     this.snapshot = sendLifecycleEvent(this.snapshot, {
       type: 'frame.completed',
@@ -342,58 +356,45 @@ class ResidentSparringMatch implements SparringMatch {
       outcome,
     })
     const resulting = projectLifecycleState(this.snapshot)
-    if (resulting.phase === 'match-over') contents.push({ type: 'match.ended', payload: { winnerSeat: resulting.winnerSeat } })
+    if (resulting.phase === 'match-over')
+      entryContents.push({
+        gameKey: lifecycle.config.gameKey,
+        frameIndex: lifecycle.activeFrame.frameIndex,
+        source: 'system',
+        entryType: 'match-ended',
+        seat: resulting.winnerSeat,
+        body: {},
+      })
     this.gameplay = null
-    return { _tag: 'accepted', facts: nonempty(contents) }
+    return { _tag: 'accepted', command: acceptedCommand, protocolEntryContents: nonempty(entryContents) }
   }
 
-  restore(command: ParsedCommand, expected: MatchFactContentBatch): void {
-    const result = this.applyAggregate(command)
-    if (result._tag !== 'accepted' || !contentEqual(result.facts, expected))
-      throw new SparringMatchHistoryError('Stored semantic batch does not match canonical execution')
+  restore(record: AcceptedCommandHistoryEntry): void {
+    const result = this.execute(record.command)
+    if (result._tag === 'parse-failed') throw new SparringMatchHistoryError('Malformed stored Match Command')
+    if (result._tag !== 'accepted' || !contentEqual(result.protocolEntryContents, nonempty([...record.protocolEntryContents])))
+      throw new SparringMatchHistoryError('Stored Protocol does not match canonical execution')
   }
-}
-
-function commandFromBatch(batch: MatchFactContentBatch): ParsedCommand {
-  const first = batch[0]
-  if (first.type === 'frame.started') return { type: 'frame.start' }
-  if (first.type === 'frame.completed' && first.payload.outcome.winReason === 'conceded') {
-    return { type: 'frame.concede', seat: opponentOf(first.payload.outcome.winnerSeat) }
-  }
-  if (first.type !== 'game.command') throw new SparringMatchHistoryError(`Cannot reconstruct command from ${first.type}`)
-  if (first.payload.commandType === 'frame.commence') {
-    const parsed = v.safeParse(v.strictObject({ seat: SeatSchema }), first.payload.command)
-    if (!parsed.success) throw new SparringMatchHistoryError('Malformed stored frame commence command')
-    return { type: 'frame.commence', seat: parsed.output.seat }
-  }
-  const gameKey = gameKeyOf(first.payload.gameKey)
-  const parsed = parseGameCommand(gameKey, { commandType: first.payload.commandType, command: first.payload.command })
-  if (parsed._tag === 'game-command-parse-failure') throw new SparringMatchHistoryError('Malformed stored game command')
-  // SAFETY: parseGameCommand produced this command for the stored registered game key.
-  return { type: 'game.command', gameKey, command: parsed.command } as ParsedCommand
 }
 
 /**
  * Drafts semantic creation content without constructing resident state.
  * @throws A Valibot parse error when the configuration uses an unregistered game key.
  */
-export function draftSparringMatchCreation(config: MatchConfig): Extract<MatchFactContent, { type: 'match.created' }> {
+export function createSparringMatch(config: MatchConfig): SparringMatch {
   gameKeyOf(config.gameKey)
-  return { type: 'match.created', payload: config }
+  return new ResidentSparringMatch(createInitialSnapshot(config), null)
 }
 
 /**
  * Restores disposable resident state from envelope-validated semantic command batches.
  * @throws SparringMatchHistoryError when accepted history is impossible or incompatible with current rules.
  */
-export function restoreSparringMatch(batches: MatchFactContentHistory): SparringMatch {
-  const creation = batches[0]
-  if (creation.length !== 1 || creation[0].type !== 'match.created')
-    throw new SparringMatchHistoryError('History must begin with singleton match.created')
-  gameKeyOf(creation[0].payload.gameKey)
-  const resident = new ResidentSparringMatch(createInitialSnapshot(creation[0].payload), null)
+export function restoreSparringMatch(config: MatchConfig, history: readonly AcceptedCommandHistoryEntry[]): SparringMatch {
+  // SAFETY: createSparringMatch always constructs the private implementation in this module.
+  const resident = createSparringMatch(config) as ResidentSparringMatch
   try {
-    for (const batch of batches.slice(1)) resident.restore(commandFromBatch(batch), batch)
+    for (const record of history) resident.restore(record)
     return resident
   } catch (error) {
     if (error instanceof SparringMatchHistoryError) throw error

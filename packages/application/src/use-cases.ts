@@ -1,10 +1,9 @@
 import { type CreateMatchRequest, type MatchStateFor } from '@ks/competition'
 import {
-  type CommandId,
-  type ControlCommand,
-  type ControlCommandSections,
-  emptyControlCommandSections,
+  type ControlSections,
+  emptyControlSections,
   type HydratedMatchParticipant,
+  type MatchCommand,
   type MatchId,
   type PlayerRef,
   type UnixEpochMilliseconds,
@@ -27,7 +26,6 @@ import type {
 import { CreateMatchInputSchema } from './contracts'
 import type { MatchRoomClient, MatchRoomCreateRequest, MatchRoomFinalizationData } from './match-room-client'
 import {
-  deriveProtocolRows,
   ProtocolArchiveCorruptionError,
   type ProtocolArchiveRecord,
   renderProtocolRows,
@@ -72,7 +70,7 @@ type ReadKeyedMatchSuccess<K extends RegisteredGameKey> = {
   latestSeq: number
   participants: HydratedMatchParticipants
   controlProjection?: ControlProjectionFor<K>
-  controlSections?: ControlCommandSections
+  controlSections?: ControlSections
 }
 type ReadKeyedMatchResult<K extends RegisteredGameKey> = ReadKeyedMatchSuccess<K> | ReadMatchFailure
 
@@ -145,7 +143,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     }
     if (record.status !== 'active') return { ok: false, error: 'Unknown match', status: 404 }
 
-    const roomResult = await dependencies.matchRoom.readMatch(matchId, expectedGameKey)
+    const roomResult = await dependencies.matchRoom.readControl(matchId, expectedGameKey)
     if (!roomResult.ok) {
       if (roomResult.error === 'Match is finalizing') {
         await archiveAndFinishRoom(matchId)
@@ -181,7 +179,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
   ): Promise<ReadMatchControlResult<K>> {
     const match = await readKeyedMatch(matchId, locale, expectedGameKey)
     if (!match.ok) return match
-    const controlSections = match.controlSections ?? emptyControlCommandSections()
+    const controlSections = match.controlSections ?? emptyControlSections()
     return match.controlProjection
       ? { ...match, controlState: 'frame-active', controlProjection: match.controlProjection, controlSections }
       : { ...match, controlState: 'between-frames', controlSections }
@@ -189,8 +187,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
 
   async function submitMatchCommand<K extends RegisteredGameKey>(
     matchId: MatchId,
-    commandId: CommandId,
-    command: ControlCommand,
+    command: MatchCommand,
     expectedGameKey: K,
   ): Promise<SubmitMatchCommandResult> {
     const record = await dependencies.getMatchRecord(matchId)
@@ -200,7 +197,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
       return { ok: false, error: 'Match is finished', status: 409 }
     }
     if (record.status !== 'active') return { ok: false, error: 'Unknown match', status: 404 }
-    const result = await dependencies.matchRoom.submitCommand(matchId, commandId, command)
+    const result = await dependencies.matchRoom.submitCommand(matchId, command)
     if (result.ok && result.outcome._tag === 'accepted' && result.finalizing) {
       await archiveAndFinishRoom(matchId)
       return { ok: true, outcome: result.outcome }
@@ -216,47 +213,52 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     locale: SupportedLocale,
     expectedGameKey: K,
   ): Promise<ReadMatchProtocolResult<K>> {
-    const match = await readKeyedMatch(matchId, locale, expectedGameKey)
-    if (!match.ok) return match
-    const seatNames = { A: match.participants.A.displayName, B: match.participants.B.displayName }
-    let protocolRows
-    if (match.state.status === 'active') {
-      const facts = await dependencies.matchRoom.listFacts(match.state.matchId)
-      if (!facts.ok) {
-        if (facts.error === 'Match is finalizing') {
-          await archiveAndFinishRoom(match.state.matchId)
-          return await readMatchProtocol(match.state.matchId, timeZone, locale, expectedGameKey)
+    const record = await dependencies.getMatchRecord(matchId)
+    if (!record || record.gameKey !== expectedGameKey) return { ok: false, error: 'Unknown match', status: 404 }
+    const participants = await hydrateParticipants(record, locale)
+    const seatNames = { A: participants.A.displayName, B: participants.B.displayName }
+    if (record.status === 'active') {
+      const room = await dependencies.matchRoom.readProtocol(matchId, expectedGameKey)
+      if (!room.ok) {
+        if (room.error === 'Match is finalizing') {
+          await archiveAndFinishRoom(matchId)
+          return readMatchProtocol(matchId, timeZone, locale, expectedGameKey)
         }
-        return { ok: false, error: facts.error, status: facts.status }
+        return room
       }
-      protocolRows = deriveProtocolRows(facts.facts, seatNames, timeZone, locale).reverse()
+      return {
+        ok: true,
+        state: room.state,
+        latestSeq: room.latestSeq,
+        participants,
+        protocolRows: renderProtocolRows(room.protocolEntries, seatNames, timeZone, locale).reverse(),
+      }
     } else {
+      if (record.status === 'finalizing') await disposeAndFinishRoom(matchId)
       let archive: ProtocolArchiveRecord | null
       try {
-        archive = await dependencies.getProtocolArchive(match.state.matchId)
+        archive = await dependencies.getProtocolArchive(matchId)
       } catch (error) {
         const failure = error instanceof Error ? archiveReadFailure(error) : null
         if (failure) return failure
         throw error
       }
       if (!archive) return { ok: false, error: 'Missing protocol archive', status: 500 }
-      protocolRows = renderProtocolRows(archive.rows, seatNames, timeZone, locale)
+      if (archive.state.gameKey !== expectedGameKey) return { ok: false, error: 'Unknown match', status: 404 }
+      return {
+        ok: true,
+        state: { ...archive.state, gameKey: expectedGameKey },
+        latestSeq: archive.sourceLatestSeq,
+        participants,
+        protocolRows: renderProtocolRows(archive.entries, seatNames, timeZone, locale),
+      }
     }
-    const result: Extract<ReadMatchProtocolResult<K>, { ok: true }> = {
-      ok: true,
-      state: match.state,
-      latestSeq: match.latestSeq,
-      participants: match.participants,
-      protocolRows,
-    }
-    if (match.controlProjection) result.controlProjection = match.controlProjection
-    return result
   }
 
   async function archiveAndFinishRoom(matchId: MatchId): Promise<void> {
     const result = await dependencies.matchRoom.finalization(matchId)
     if (!result.ok) throw new Error(result.error)
-    await dependencies.archiveCompletedMatch({ matchId, ...result.data })
+    await dependencies.archiveCompletedMatch(result.data)
     await disposeAndFinishRoom(matchId)
   }
 
@@ -303,7 +305,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     readMatchControl,
     submitMatchCommand,
     readMatchProtocol,
-    streamMatchFacts: async (matchId, since) => {
+    streamMatchUpdates: async (matchId, since) => {
       const record = await dependencies.getMatchRecord(matchId)
       if (!record) return Response.json({ ok: false, error: 'Unknown match' }, { status: 404 })
       if (record.status === 'finalizing') await disposeAndFinishRoom(matchId)

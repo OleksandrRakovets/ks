@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
 import type { Application } from '@ks/application'
-import { newCommandId, newFactId, newMatchId, nowUnixEpochMilliseconds } from '@ks/core'
+import { newCommandId, newMatchId } from '@ks/core'
 import { keys } from '@ks/i18n'
 import { RouterContextProvider } from 'react-router'
 
@@ -33,15 +33,11 @@ describe('commandMatchAction adaptation', () => {
       ok: true,
       outcome: {
         _tag: 'accepted',
-        accepted: [
-          { seq: 3, factId: newFactId() },
-          { seq: 5, factId: newFactId() },
-        ],
+        acceptedSeq: 5,
       },
     }))
     const form = new FormData()
-    form.set('command', JSON.stringify({ source: 'match', commandType: 'frame.start', command: {} }))
-    form.set('commandId', commandId)
+    form.set('command', JSON.stringify({ commandId, source: 'match', command: { type: 'frame.prepare' } }))
 
     const result = await commandMatchAction(
       { params: { matchId }, request: new Request('http://localhost', { method: 'POST', body: form }), context },
@@ -50,7 +46,7 @@ describe('commandMatchAction adaptation', () => {
     expect(result).toEqual({ ok: true, acceptedSeqMax: 5 })
   })
 
-  test('returns factRejectedByRules for rejected outcomes', async () => {
+  test('returns commandRejectedByRules for rejected outcomes', async () => {
     const matchId = newMatchId()
     const commandId = newCommandId()
     const context = makeActionContext(async () => ({
@@ -58,30 +54,29 @@ describe('commandMatchAction adaptation', () => {
       outcome: { _tag: 'rejected', reason: { code: 'frame-already-active' } },
     }))
     const form = new FormData()
-    form.set('command', JSON.stringify({ source: 'match', commandType: 'frame.start', command: {} }))
-    form.set('commandId', commandId)
+    form.set('command', JSON.stringify({ commandId, source: 'match', command: { type: 'frame.prepare' } }))
 
     const result = await commandMatchAction(
       { params: { matchId }, request: new Request('http://localhost', { method: 'POST', body: form }), context },
       'free-pyramid',
     )
-    expect(result).toEqual({ ok: false, errorKey: keys.match.control.factRejectedByRules })
+    expect(result).toEqual({ ok: false, errorKey: keys.match.control.commandRejectedByRules })
   })
 })
 
 describe('control live transitions', () => {
-  test('ready and ordinary newer facts advance and revalidate', () => {
+  test('ready confirms without advancing and ordinary newer updates revalidate', () => {
     const ready = transitionControlLive(initial, { type: 'ready', seq: 5 })
     expect(ready).toEqual({
-      state: { latestSeq: 5, suppressUntilSeq: 4, localSubmitInFlight: false },
-      revalidate: true,
+      state: initial,
+      revalidate: false,
       close: false,
     })
-    expect(transitionControlLive(ready.state, { type: 'fact', seq: 6 }).revalidate).toBe(true)
+    expect(transitionControlLive(ready.state, { type: 'update', seq: 6 }).revalidate).toBe(true)
   })
 
-  test('stale facts do nothing', () => {
-    expect(transitionControlLive(initial, { type: 'fact', seq: 4 })).toEqual({
+  test('stale updates do nothing', () => {
+    expect(transitionControlLive(initial, { type: 'update', seq: 4 })).toEqual({
       state: initial,
       revalidate: false,
       close: false,
@@ -92,10 +87,10 @@ describe('control live transitions', () => {
     const submitting = transitionControlLive(initial, { type: 'submit-started' }).state
     const accepted = transitionControlLive(submitting, { type: 'accepted', seq: 7 }).state
     const finished = transitionControlLive(accepted, { type: 'submit-finished' }).state
-    const echoed = transitionControlLive(finished, { type: 'fact', seq: 7 })
+    const echoed = transitionControlLive(finished, { type: 'update', seq: 7 })
     expect(echoed.state.latestSeq).toBe(7)
     expect(echoed.revalidate).toBe(false)
-    expect(transitionControlLive(echoed.state, { type: 'fact', seq: 8 }).revalidate).toBe(true)
+    expect(transitionControlLive(echoed.state, { type: 'update', seq: 8 }).revalidate).toBe(true)
   })
 
   test('match end closes and revalidates even when its sequence is stale', () => {
@@ -138,29 +133,12 @@ class FakeEventSource {
   }
 }
 
-function factJson(matchId: ReturnType<typeof newMatchId>, seq: number, type: 'frame.started' | 'match.ended'): string {
-  const acceptedAt = nowUnixEpochMilliseconds()
-  const base = {
-    factId: newFactId(),
-    matchId,
-    seq,
-    acceptedAt,
-    causedByCommandId: newCommandId(),
-  }
-  return JSON.stringify(
-    type === 'match.ended'
-      ? { ...base, type, payload: { winnerSeat: 'A' } }
-      : {
-          ...base,
-          type,
-          payload: {
-            frameIndex: 1,
-            gameKey: 'strila-v2',
-            targetPointsBySeat: { A: 9, B: 9 },
-            breakerSeat: 'A',
-          },
-        },
-  )
+function updateJson(_matchId: ReturnType<typeof newMatchId>, acceptedSeq: number, terminal: boolean): string {
+  return JSON.stringify({
+    type: 'command-accepted',
+    acceptedSeq,
+    terminal,
+  })
 }
 
 test('control subscription wires, parses, applies, and cleans up the production stream', () => {
@@ -189,38 +167,38 @@ test('control subscription wires, parses, applies, and cleans up the production 
   expect(source.registrations).toEqual(['ready', 'ev', 'error'])
 
   source.emit('ready', new MessageEvent('ready', { data: JSON.stringify({ latestSeq: 5 }) }))
-  expect(state.latestSeq).toBe(5)
-  expect(revalidations).toBe(1)
+  expect(state.latestSeq).toBe(4)
+  expect(revalidations).toBe(0)
 
-  source.emit('ev', new MessageEvent('ev', { data: factJson(matchId, 4, 'frame.started') }))
-  expect(state.latestSeq).toBe(5)
-  expect(revalidations).toBe(1)
+  source.emit('ev', new MessageEvent('ev', { data: updateJson(matchId, 4, false) }))
+  expect(state.latestSeq).toBe(4)
+  expect(revalidations).toBe(0)
 
-  source.emit('ev', new MessageEvent('ev', { data: factJson(matchId, 6, 'frame.started') }))
+  source.emit('ev', new MessageEvent('ev', { data: updateJson(matchId, 6, false) }))
   expect(state.latestSeq).toBe(6)
-  expect(revalidations).toBe(2)
+  expect(revalidations).toBe(1)
 
   state = transitionControlLive(state, { type: 'accepted', seq: 8 }).state
-  source.emit('ev', new MessageEvent('ev', { data: factJson(matchId, 8, 'frame.started') }))
+  source.emit('ev', new MessageEvent('ev', { data: updateJson(matchId, 8, false) }))
   expect(state.latestSeq).toBe(8)
-  expect(revalidations).toBe(2)
+  expect(revalidations).toBe(1)
 
   source.emit('ev', new MessageEvent('ev', { data: '{invalid json' }))
   source.emit('ready', new Event('ready'))
   expect(state.latestSeq).toBe(8)
-  expect(revalidations).toBe(2)
+  expect(revalidations).toBe(1)
 
   source.emit('error', new Event('error'))
-  expect(revalidations).toBe(3)
+  expect(revalidations).toBe(2)
 
-  source.emit('ev', new MessageEvent('ev', { data: factJson(matchId, 9, 'match.ended') }))
+  source.emit('ev', new MessageEvent('ev', { data: updateJson(matchId, 9, true) }))
   expect(state.latestSeq).toBe(9)
-  expect(revalidations).toBe(4)
+  expect(revalidations).toBe(3)
   expect(source.closeCalls).toBe(1)
 
   cleanup()
   expect(source.removals).toEqual(['ready', 'ev', 'error'])
   expect(source.closeCalls).toBe(2)
   source.emit('error', new Event('error'))
-  expect(revalidations).toBe(4)
+  expect(revalidations).toBe(3)
 })

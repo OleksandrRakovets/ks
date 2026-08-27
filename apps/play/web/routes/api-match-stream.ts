@@ -10,5 +10,5 @@ export async function loader({ params, request, context }: Route.LoaderArgs) {
 
   const since = new URL(request.url).searchParams.get('since')
   const parsedSince = since && since.length > 0 ? v.safeParse(NonNegativeIntegerSchema, Number(since)) : undefined
-  return requireApplication(context).streamMatchFacts(matchId.output, parsedSince?.success ? parsedSince.output : undefined)
+  return requireApplication(context).streamMatchUpdates(matchId.output, parsedSince?.success ? parsedSince.output : undefined)
 }

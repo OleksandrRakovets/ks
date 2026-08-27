@@ -1,10 +1,14 @@
 import * as v from 'valibot'
 
-import { StoredMatchFactSchema } from './facts'
-import { NonNegativeIntegerSchema } from './valicombos'
+import { NonNegativeIntegerSchema, PositiveIntegerSchema } from './valicombos'
 
-export const StreamReadySchema = v.object({
+export const MatchStreamReadySchema = v.object({
   latestSeq: NonNegativeIntegerSchema,
 })
 
-export const StreamFactSchema = StoredMatchFactSchema
+export const MatchStreamUpdate = v.object({
+  type: v.literal('command-accepted'),
+  acceptedSeq: PositiveIntegerSchema,
+  terminal: v.boolean(),
+})
+export type MatchStreamUpdate = v.InferOutput<typeof MatchStreamUpdate>

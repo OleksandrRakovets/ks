@@ -1,4 +1,4 @@
-import { FrameOutcomeSchema, ProtocolEntrySchema, type Seat } from '@ks/core'
+import { FrameOutcomeSchema, type Seat } from '@ks/core'
 import * as v from 'valibot'
 import { transition } from 'xstate'
 
@@ -7,7 +7,6 @@ import {
   type GameCommandExecution,
   type GameplaySession,
   type GameplaySessionCreateArgsFor,
-  type NonEmptyProtocolEntries,
 } from '../gameplay-session'
 import type { StrilaCommand } from './definitions'
 import { createInitialSnapshot, StrilaSparringFrameMachine, type StrilaSparringFrameSnapshot } from './machine'
@@ -26,18 +25,13 @@ class StrilaGameplaySession implements GameplaySession<'strila-v2'> {
     const previous = this.#snapshot
     if (!previous.can(command)) return commandNotAvailable()
     const [candidate] = transition(StrilaSparringFrameMachine, previous, command)
-    // Validate semantic output before retaining the candidate, despite both producers being internally typed.
     const projected = projectStrilaProtocolEntries({ previous, command, next: candidate })
-    if (!v.is(v.array(ProtocolEntrySchema), projected))
-      throw new Error('Accepted Strila command produced invalid protocol entries')
-    if (!projected[0]) throw new Error('Accepted Strila command produced no protocol entries')
-    const protocolEntries: NonEmptyProtocolEntries = [projected[0], ...projected.slice(1)]
     const output = candidate.status === 'done' ? candidate.output : undefined
     if (output !== undefined && !v.is(FrameOutcomeSchema, output)) throw new Error('Strila machine produced an invalid outcome')
     const outcome = output
     const result = outcome
-      ? { _tag: 'accepted' as const, protocolEntries, outcome }
-      : { _tag: 'accepted' as const, protocolEntries }
+      ? { _tag: 'accepted' as const, gameProtocolEntries: projected, outcome }
+      : { _tag: 'accepted' as const, gameProtocolEntries: projected }
     this.#snapshot = candidate
     return result
   }

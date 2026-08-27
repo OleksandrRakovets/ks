@@ -1,15 +1,10 @@
-import { buildMatchConfig, CreateMatchRequestSchema, draftSparringMatchCreation, restoreSparringMatch } from '@ks/competition'
+import { buildMatchConfig, CreateMatchRequestSchema, createSparringMatch } from '@ks/competition'
 import {
-  type CommandId,
-  type ControlCommand,
-  type MatchConfig,
-  type MatchFactContent,
+  type MatchCommand,
   MatchIdSchema,
   newCommandId,
-  newFactId,
   PlayerRefSchema,
-  type StoredMatchFact,
-  StoredMatchFactSchema,
+  type ProtocolEntry,
   UnixEpochMillisecondsSchema,
 } from '@ks/core'
 import { applyD1Migrations, env, reset } from 'cloudflare:test'
@@ -49,47 +44,41 @@ function catalogInput(id = matchId, timestamp = createdAt): ActiveMatchCatalogIn
   return { matchId: id, gameKey: 'free-pyramid', seatAPlayerRef, seatBPlayerRef, createdAt: timestamp }
 }
 
-function storedFact(
-  draft: MatchFactContent,
-  config: MatchConfig,
-  seq: number,
-  commandId: CommandId,
-  acceptedAt: number,
-): StoredMatchFact {
-  return v.parse(StoredMatchFactSchema, {
-    factId: newFactId(),
-    matchId: config.matchId,
-    causedByCommandId: draft.type === 'match.created' ? null : commandId,
-    acceptedAt,
-    seq,
-    type: draft.type,
-    payload: draft.payload,
-  })
-}
-
 function terminalArchiveInput(id = matchId): CompletedMatchArchiveInput {
   const config = buildMatchConfig(id, createRequest)
-  const creation = draftSparringMatchCreation(config)
-  const session = restoreSparringMatch([[creation]])
-  const acceptedAt = 2_000
-  const facts: StoredMatchFact[] = [storedFact(creation, config, 1, newCommandId(), acceptedAt)]
+  const session = createSparringMatch(config)
+  const acceptedAt = v.parse(UnixEpochMillisecondsSchema, 2_000)
+  const protocolEntries: ProtocolEntry[] = []
+  let acceptedSeq = 0
   for (const command of [
-    { source: 'match', commandType: 'frame.start', command: {} },
-    { source: 'match', commandType: 'frame.commence', command: { seat: 'A' } },
-    { source: 'game', commandType: 'pot.record', command: { seat: 'A', points: 2 } },
-    { source: 'game', commandType: 'frame.award', command: { seat: 'A' } },
-  ] satisfies ControlCommand[]) {
+    { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } },
+    { commandId: newCommandId(), source: 'match', command: { type: 'frame.commence', seat: 'A' } },
+    { commandId: newCommandId(), source: 'game', command: { type: 'pot.record', seat: 'A', pottedBallCount: 2 } },
+    { commandId: newCommandId(), source: 'game', command: { type: 'frame.award', seat: 'A' } },
+  ] satisfies MatchCommand[]) {
     const decision = session.execute(command)
-    if (decision._tag !== 'accepted') throw new Error(`Fixture command rejected: ${command.commandType}`)
-    const commandId = newCommandId()
-    for (const draft of decision.facts) facts.push(storedFact(draft, config, facts.length + 1, commandId, acceptedAt))
+    if (decision._tag !== 'accepted') throw new Error(`Fixture command rejected: ${String(command.command.type)}`)
+    acceptedSeq += 1
+    decision.protocolEntryContents.forEach((entry, entryIndex) =>
+      protocolEntries.push({
+        ...entry,
+        acceptedSeq,
+        entryIndex,
+        causedByCommandId: command.commandId,
+        acceptedAt,
+      }),
+    )
   }
+  const finalState = session.project().state
+  if (finalState.status !== 'finished') throw new Error('Fixture did not finish')
   return {
     matchId: id,
-    sourceLatestSeq: facts.length,
-    endedAt: v.parse(UnixEpochMillisecondsSchema, acceptedAt),
-    facts,
-    projection: session.project(),
+    gameKey: 'free-pyramid',
+    createdAt,
+    sourceLatestSeq: acceptedSeq,
+    endedAt: acceptedAt,
+    protocolEntries,
+    finalState: { ...finalState, status: 'finished' as const },
   }
 }
 
@@ -105,7 +94,7 @@ describe('real D1 match lifecycle', () => {
     await beginMatchCreation(db, input)
     await beginMatchCreation(db, input)
     await expect(beginMatchCreation(db, { ...input, gameKey: 'combined-pyramid' })).rejects.toThrow(
-      'Match catalog entry conflicts with room creation',
+      'Match row conflicts with room creation',
     )
     await activateMatch(db, matchId)
 
@@ -125,7 +114,7 @@ describe('real D1 match lifecycle', () => {
     expect(await getProtocolArchive(db, matchId)).toMatchObject({
       sourceLatestSeq: archive.sourceLatestSeq,
       protocolVersion: 1,
-      state: archive.projection.state,
+      state: archive.finalState,
     })
     await archiveCompletedMatch(db, archive)
     await expect(archiveCompletedMatch(db, { ...archive, sourceLatestSeq: archive.sourceLatestSeq + 1 })).rejects.toThrow(
@@ -140,21 +129,18 @@ describe('real D1 match lifecycle', () => {
   test.each([
     ['invalid envelope', (input: CompletedMatchArchiveInput) => ({ ...input, sourceLatestSeq: input.sourceLatestSeq + 1 })],
     [
-      'semantic replay mismatch',
+      'Protocol ownership mismatch',
       (input: CompletedMatchArchiveInput) => {
-        const facts = [...input.facts]
-        const index = facts.findIndex((fact) => fact.type === 'game.command')
-        const fact = facts[index]!
-        if (fact.type !== 'game.command') throw new Error('Expected game command fixture fact')
-        facts[index] = { ...fact, payload: { ...fact.payload, command: { seat: 'B', points: 99 } } }
-        return { ...input, facts }
+        const protocolEntries = [...input.protocolEntries]
+        protocolEntries[0] = { ...protocolEntries[0]!, entryIndex: 2 }
+        return { ...input, protocolEntries }
       },
     ],
     [
-      'terminal projection mismatch',
-      (input: CompletedMatchArchiveInput) => ({ ...input, projection: terminalArchiveInput(otherMatchId).projection }),
+      'terminal state mismatch',
+      (input: CompletedMatchArchiveInput) => ({ ...input, finalState: terminalArchiveInput(otherMatchId).finalState }),
     ],
-  ])('rejects %s without changing the catalog or archive', async (_label, corrupt) => {
+  ])('rejects %s without changing the match row or archive', async (_label, corrupt) => {
     const db = createApplicationDatabaseClient(env.DB)
     await beginMatchCreation(db, catalogInput())
     await activateMatch(db, matchId)
@@ -163,7 +149,7 @@ describe('real D1 match lifecycle', () => {
     expect(await getProtocolArchive(db, matchId)).toBeNull()
   })
 
-  test('rejects conflicting persisted archive data without changing the active catalog row', async () => {
+  test('rejects conflicting persisted archive data without changing the active match row', async () => {
     const db = createApplicationDatabaseClient(env.DB)
     await beginMatchCreation(db, catalogInput())
     await activateMatch(db, matchId)
@@ -181,6 +167,29 @@ describe('real D1 match lifecycle', () => {
     ).toBe('{}')
   })
 
+  test('allows only one of two concurrent conflicting archives to finalize the match', async () => {
+    const db = createApplicationDatabaseClient(env.DB)
+    await beginMatchCreation(db, catalogInput())
+    await activateMatch(db, matchId)
+    const first = terminalArchiveInput()
+    const conflictingTimestamp = v.parse(UnixEpochMillisecondsSchema, first.endedAt + 1)
+    const candidates = [
+      first,
+      {
+        ...terminalArchiveInput(),
+        endedAt: conflictingTimestamp,
+        protocolEntries: first.protocolEntries.map((entry) => ({ ...entry, acceptedAt: conflictingTimestamp })),
+      },
+    ]
+
+    const results = await Promise.allSettled(candidates.map(async (candidate) => await archiveCompletedMatch(db, candidate)))
+
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1)
+    expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1)
+    expect(await getMatchRow(db, matchId)).toMatchObject({ status: 'finalizing' })
+    expect(await getProtocolArchive(db, matchId)).not.toBeNull()
+  })
+
   test('reads a locally seeded historical game key archive', async () => {
     const db = createApplicationDatabaseClient(env.DB)
     const state = {
@@ -192,8 +201,22 @@ describe('real D1 match lifecycle', () => {
       framesWonBySeat: { A: 1, B: 0 },
       frames: [{ frameIndex: 1, pointsBySeat: { A: 8, B: 2 }, breakerSeat: 'A', winnerSeat: 'A' }],
     }
-    await seedArchive(JSON.stringify([]), JSON.stringify(state), 1)
-    expect(await getProtocolArchive(db, matchId)).toMatchObject({ protocolVersion: 1, rows: [], state })
+    const entries = [
+      {
+        acceptedSeq: 1,
+        entryIndex: 0,
+        causedByCommandId: newCommandId(),
+        acceptedAt: 2_000,
+        gameKey: 'historical-game',
+        frameIndex: 1,
+        source: 'system',
+        entryType: 'match-ended',
+        seat: 'A',
+        body: {},
+      },
+    ]
+    await seedArchive(JSON.stringify(entries), JSON.stringify(state), 1)
+    expect(await getProtocolArchive(db, matchId)).toMatchObject({ protocolVersion: 1, entries, state })
   })
 
   test.each([
@@ -207,7 +230,7 @@ describe('real D1 match lifecycle', () => {
 
   test('rejects a persisted zero source sequence', async () => {
     const db = createApplicationDatabaseClient(env.DB)
-    const state = terminalArchiveInput().projection.state
+    const state = terminalArchiveInput().finalState
     await seedArchive('[]', JSON.stringify(state), 1, 0)
     await expect(getProtocolArchive(db, matchId)).rejects.toThrow(`Protocol archive storage corruption for match ${matchId}`)
   })

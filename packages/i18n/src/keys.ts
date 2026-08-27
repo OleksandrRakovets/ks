@@ -55,10 +55,10 @@ export const keys = {
     control: {
       title: 'match.control.title',
       awardFrame: 'match.control.awardFrame',
-      startNextFrame: 'match.control.startNextFrame',
+      prepareNextFrame: 'match.control.prepareNextFrame',
       endMatch: 'match.control.endMatch',
-      invalidFactPayload: 'match.control.invalidFactPayload',
-      factRejectedByRules: 'match.control.factRejectedByRules',
+      invalidCommandPayload: 'match.control.invalidCommandPayload',
+      commandRejectedByRules: 'match.control.commandRejectedByRules',
       targetReached: 'match.control.targetReached',
       undo: 'match.control.undo',
       offline: 'match.control.offline',

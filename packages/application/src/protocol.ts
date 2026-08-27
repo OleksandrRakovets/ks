@@ -1,19 +1,11 @@
 import {
   type BySeatNumber,
-  BySeatNumberSchema,
   type MatchId,
   type MatchState,
-  opponentOf,
-  PositiveIntegerSchema,
-  type ProtocolEntry,
-  ProtocolEntrySourceSchema,
-  ProtocolEntryTypeSchema,
+  type NonEmptyProtocolEntries,
+  ProtocolEntry,
   type Seat,
-  SeatSchema,
-  type StoredMatchFact,
   type UnixEpochMilliseconds,
-  UnixEpochMillisecondsSchema,
-  UnknownObjectSchema,
 } from '@ks/core'
 import * as v from 'valibot'
 
@@ -33,36 +25,14 @@ export class ProtocolArchiveCorruptionError extends Error {
   }
 }
 
-const ArchiveBodySchema = UnknownObjectSchema
-
-const ProtocolArchiveRowSchema = v.object({
-  rowNo: PositiveIntegerSchema,
-  acceptedAt: UnixEpochMillisecondsSchema,
-  frameIndex: v.optional(PositiveIntegerSchema),
-  source: ProtocolEntrySourceSchema,
-  entryType: ProtocolEntryTypeSchema,
-  seat: v.optional(SeatSchema),
-  scoreAfter: v.optional(BySeatNumberSchema),
-  body: ArchiveBodySchema,
-})
-export type ProtocolArchiveRow = v.InferOutput<typeof ProtocolArchiveRowSchema>
-
-export const ProtocolArchiveRowsSchema = v.array(ProtocolArchiveRowSchema)
-
 export type ProtocolArchiveRecord = {
   sourceLatestSeq: number
   protocolVersion: typeof PROTOCOL_ARCHIVE_VERSION
-  rows: ProtocolArchiveRow[]
+  entries: NonEmptyProtocolEntries
   state: MatchState
 }
 
-export const ProtocolArchiveSchema = v.object({
-  protocolVersion: v.literal(PROTOCOL_ARCHIVE_VERSION),
-  rows: ProtocolArchiveRowsSchema,
-})
-
 type SeatNames = { A: string; B: string }
-type StoredGameCommandFact = Extract<StoredMatchFact, { type: 'game.command' }>
 
 export type ProtocolRow = {
   key: string
@@ -77,7 +47,6 @@ export type ProtocolRow = {
   timeLabel: string
 }
 
-type ProtocolArchiveRowDraft = Omit<ProtocolArchiveRow, 'rowNo'>
 const ProtocolBallSchema = v.picklist([0, 1, 2, 3, 4, 5, 6, 7])
 type ProtocolBall = v.InferOutput<typeof ProtocolBallSchema>
 const PottedBallsSchema = v.pipe(v.array(ProtocolBallSchema), v.minLength(1))
@@ -85,7 +54,7 @@ const ProtocolMessageBodySchema = v.object({
   commandType: v.optional(v.string()),
   systemType: v.optional(v.string()),
   pottedBalls: v.optional(v.unknown()),
-  points: v.optional(v.number()),
+  pottedBallCount: v.optional(v.number()),
   penalty: v.optional(v.string()),
   choice: v.optional(v.string()),
   frameIndex: v.optional(v.unknown()),
@@ -93,11 +62,11 @@ const ProtocolMessageBodySchema = v.object({
 })
 
 function entryMessage(
-  entry: Pick<ProtocolArchiveRow, 'body' | 'entryType' | 'seat'>,
+  entry: Pick<ProtocolEntry, 'body' | 'entryType' | 'seat' | 'frameIndex'>,
   seatNames: SeatNames,
 ): ProtocolRow['message'] {
   const seatLabel = (seat: Seat) => seatNames[seat]
-  const actor = entry.seat && seatLabel(entry.seat)
+  const actor = seatLabel(entry.seat)
   const parsedBody = v.safeParse(ProtocolMessageBodySchema, entry.body)
   const body = parsedBody.success ? parsedBody.output : {}
   const commandType = body.commandType ?? null
@@ -111,12 +80,12 @@ function entryMessage(
         return { key: 'match.protocol.commands.pot.record.balls', actor, pottedBalls: pottedBalls.output }
       }
 
-      const points = body.points
-      if (points !== undefined) {
+      const pottedBallCount = body.pottedBallCount
+      if (pottedBallCount !== undefined) {
         return {
-          key: 'match.protocol.commands.pot.record.points',
+          key: 'match.protocol.commands.pot.record.pottedBallCount',
           actor,
-          params: { points: points >= 0 ? `+${points}` : String(points) },
+          params: { pottedBallCount: `+${pottedBallCount}` },
         }
       }
       return { key: 'match.protocol.commands.pot.record.default', actor }
@@ -146,18 +115,15 @@ function entryMessage(
       return { key: 'match.protocol.commands.frame.award', actor }
   }
 
-  const systemType = body.systemType ?? null
+  const systemType = body.systemType ?? entry.entryType
   switch (systemType) {
-    case 'frame-started':
-      if (entry.seat) {
-        return {
-          key: 'match.protocol.system.frame-started.breaker',
-          actor: seatLabel(entry.seat),
-          params: { frameIndex: String(body.frameIndex) },
-        }
+    case 'frame-prepared':
+      return {
+        key: 'match.protocol.system.frame-prepared.breaker',
+        actor: seatLabel(entry.seat),
+        params: { frameIndex: String(entry.frameIndex) },
       }
-      return { key: 'match.protocol.system.frame-started.default', params: { frameIndex: String(body.frameIndex) } }
-    case 'frame-completed':
+    case 'frame-awarded':
       return { key: 'match.protocol.system.frame-completed', actor }
     case 'frame-conceded':
       return { key: 'match.protocol.system.frame-conceded', actor }
@@ -196,87 +162,19 @@ function entryMessage(
   return { key: 'match.protocol.unknown', params: { value: commandType ?? systemType ?? entry.entryType } }
 }
 
-function rowFromProtocolEntry(fact: StoredGameCommandFact, entry: ProtocolEntry): ProtocolArchiveRowDraft {
-  return {
-    acceptedAt: fact.acceptedAt,
-    frameIndex: fact.payload.frameIndex,
-    source: entry.source,
-    entryType: entry.entryType,
-    seat: entry.seat,
-    scoreAfter: entry.scoreAfter,
-    body: entry.body,
-  }
-}
-
-function lifecycleRowsForFact(fact: StoredMatchFact, previous: StoredMatchFact | undefined): ProtocolArchiveRowDraft[] {
-  if (fact.type === 'frame.started') {
-    return [
-      {
-        acceptedAt: fact.acceptedAt,
-        frameIndex: fact.payload.frameIndex,
-        source: 'system',
-        entryType: 'system-note',
-        seat: fact.payload.breakerSeat,
-        body: { systemType: 'frame-started', frameIndex: fact.payload.frameIndex },
-      },
-    ]
-  }
-
-  if (fact.type === 'frame.completed') {
-    if (previous?.type === 'game.command' && previous.payload.commandType === 'frame.award') return []
-
-    const conceded = fact.payload.outcome.winReason === 'conceded'
-    return [
-      {
-        acceptedAt: fact.acceptedAt,
-        frameIndex: fact.payload.frameIndex,
-        source: 'system',
-        entryType: 'system-note',
-        seat: conceded ? opponentOf(fact.payload.outcome.winnerSeat) : fact.payload.outcome.winnerSeat,
-        scoreAfter: fact.payload.outcome.score,
-        body: { systemType: conceded ? 'frame-conceded' : 'frame-completed', winReason: fact.payload.outcome.winReason },
-      },
-    ]
-  }
-
-  if (fact.type === 'match.ended') {
-    return [
-      {
-        acceptedAt: fact.acceptedAt,
-        source: 'system',
-        entryType: 'system-note',
-        seat: fact.payload.winnerSeat,
-        body: { systemType: 'match-ended' },
-      },
-    ]
-  }
-
-  return []
-}
-
-export function prepareProtocolRowsForArchive(facts: StoredMatchFact[]): ProtocolArchiveRow[] {
-  const ordered = [...facts].sort((a, b) => a.seq - b.seq)
-  const drafts = ordered.flatMap((fact, factIndex): ProtocolArchiveRowDraft[] => {
-    if (fact.type === 'game.command') return fact.payload.protocolEntries.map((entry) => rowFromProtocolEntry(fact, entry))
-    return lifecycleRowsForFact(fact, ordered[factIndex - 1])
-  })
-
-  return drafts.map((row, index) => ({ ...row, rowNo: index + 1 }))
-}
-
 export function renderProtocolRows(
-  rows: ProtocolArchiveRow[],
+  entries: ProtocolEntry[],
   seatNames: SeatNames,
   timeZone: string,
   locale = 'en',
 ): ProtocolRow[] {
-  return rows.map((row) => {
+  return entries.map((entry) => {
     return {
-      key: `protocol-${row.rowNo}`,
-      message: entryMessage(row, seatNames),
-      score: row.scoreAfter,
-      acceptedAt: row.acceptedAt,
-      timeLabel: new Date(row.acceptedAt).toLocaleTimeString(locale, {
+      key: `protocol-${entry.acceptedSeq}-${entry.entryIndex}`,
+      message: entryMessage(entry, seatNames),
+      score: entry.scoreAfter,
+      acceptedAt: entry.acceptedAt,
+      timeLabel: new Date(entry.acceptedAt).toLocaleTimeString(locale, {
         hour: '2-digit',
         minute: '2-digit',
         hour12: false,
@@ -284,13 +182,4 @@ export function renderProtocolRows(
       }),
     }
   })
-}
-
-export function deriveProtocolRows(
-  facts: StoredMatchFact[],
-  seatNames: SeatNames,
-  timeZone: string,
-  locale = 'en',
-): ProtocolRow[] {
-  return renderProtocolRows(prepareProtocolRowsForArchive(facts), seatNames, timeZone, locale)
 }

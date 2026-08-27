@@ -209,8 +209,8 @@ function renderPyramidFrame(snap: PyramidSparringFrameSnapshot) {
       controls.append(btn(`Award frame to ${winner}`, () => frameActor.send({ type: 'frame.award', seat: winner }), 'primary'))
   }
   controls.append(
-    btn('Pot A (+1)', () => frameActor.send({ type: 'pot.record', seat: 'A', points: 1 })),
-    btn('Pot B (+1)', () => frameActor.send({ type: 'pot.record', seat: 'B', points: 1 })),
+    btn('Pot A (+1)', () => frameActor.send({ type: 'pot.record', seat: 'A', pottedBallCount: 1 })),
+    btn('Pot B (+1)', () => frameActor.send({ type: 'pot.record', seat: 'B', pottedBallCount: 1 })),
     btn('Foul A', () => frameActor.send({ type: 'foul.commit', seat: 'A' })),
     btn('Foul B', () => frameActor.send({ type: 'foul.commit', seat: 'B' })),
   )
@@ -242,8 +242,8 @@ function renderLongFreePyramidFrame(snap: LongFreePyramidSparringFrameSnapshot) 
       controls.append(btn(`Award frame to ${winner}`, () => frameActor.send({ type: 'frame.award', seat: winner }), 'primary'))
   }
   controls.append(
-    btn('Pot A (+1)', () => frameActor.send({ type: 'pot.record', seat: 'A', points: 1 })),
-    btn('Pot B (+1)', () => frameActor.send({ type: 'pot.record', seat: 'B', points: 1 })),
+    btn('Pot A (+1)', () => frameActor.send({ type: 'pot.record', seat: 'A', pottedBallCount: 1 })),
+    btn('Pot B (+1)', () => frameActor.send({ type: 'pot.record', seat: 'B', pottedBallCount: 1 })),
     btn('Foul A', () => frameActor.send({ type: 'foul.commit', seat: 'A' })),
     btn('Foul B', () => frameActor.send({ type: 'foul.commit', seat: 'B' })),
   )
@@ -326,10 +326,10 @@ function renderMatchControls(snap: SparringMatchSnapshot) {
   if (phase === 'between-frames') {
     controls.append(
       btn(
-        `Start frame ${ctx.nextFrameIndex}`,
+        `Prepare frame ${ctx.nextFrameIndex}`,
         () =>
           matchActor.send({
-            type: 'frame.started',
+            type: 'frame.prepared',
             frameIndex: ctx.nextFrameIndex,
             breakerSeat: ctx.nextFrameIndex % 2 === 1 ? 'A' : 'B',
           }),

@@ -1,8 +1,7 @@
 import { cloudflare } from '@cloudflare/vite-plugin'
 import { reactRouter } from '@react-router/dev/vite'
-import babel from '@rolldown/plugin-babel'
 import tailwindcss from '@tailwindcss/vite'
-import { reactCompilerPreset } from '@vitejs/plugin-react'
+import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
 export default defineConfig({
@@ -17,16 +16,16 @@ export default defineConfig({
     }),
     tailwindcss(),
     reactRouter(),
-    babel({ presets: [reactCompilerPreset()] }),
+    react({ compiler: true }),
   ],
   server: {
     port: 7529,
     strictPort: true,
-    host: true,
+    host: '0.0.0.0',
   },
   preview: {
     port: 7529,
     strictPort: true,
-    host: true,
+    host: '0.0.0.0',
   },
 })

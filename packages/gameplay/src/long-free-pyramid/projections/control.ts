@@ -1,19 +1,9 @@
 import { type Seat } from '@ks/core'
 
-import { deriveGameCommandSections, type GameControlCommand } from '../../constants'
+import { deriveGameControlSections } from '../../constants'
 import { ballsOnTableFromRacks, currentRack, removedByRack, totalScore } from '../calculations'
 import { type LongFreePyramidControlView, type LongFreePyramidProjectionDetails } from '../definitions'
 import { getPhase, type LongFreePyramidSparringFrameSnapshot } from '../machine'
-
-type LongFreePyramidControlCommandInput =
-  | { type: 'pot.record'; seat: Seat; points: 1 | 2 | 3 | 4 }
-  | { type: 'foul.commit'; seat: Seat }
-  | { type: 'frame.award'; seat: Seat }
-
-function command(input: LongFreePyramidControlCommandInput, prominence: GameControlCommand['prominence']): GameControlCommand {
-  const { type: commandType, ...command } = input
-  return { source: 'game', commandType, command, seat: input.seat, prominence }
-}
 
 export function deriveLongFreePyramidControlView(snapshot: LongFreePyramidSparringFrameSnapshot): LongFreePyramidControlView {
   const phase = getPhase(snapshot)
@@ -29,27 +19,61 @@ export function deriveLongFreePyramidControlView(snapshot: LongFreePyramidSparri
     messages: snapshot.context.messages.map((message) => ({ ...message })),
   }
   const seats: Seat[] = ['A', 'B']
-  const commands =
+  const controls =
     phase === 'not-started'
       ? []
       : phase === 'open-play'
         ? [
             ...seats.flatMap((seat) =>
               ([1, 2, 3, 4] as const)
-                .filter((points) => points <= ballsOnTable)
-                .map((points, index) => command({ type: 'pot.record', seat, points }, index === 0 ? 'primary' : 'secondary')),
+                .filter((pottedBallCount) => pottedBallCount <= ballsOnTable)
+                .map((pottedBallCount, index) => ({
+                  source: 'game' as const,
+                  type: 'pot.record',
+                  seat,
+                  fixedInput: { pottedBallCount },
+                  prominence: index === 0 ? ('primary' as const) : ('secondary' as const),
+                })),
             ),
-            ...seats.map((seat) => command({ type: 'foul.commit', seat }, 'secondary')),
+            ...seats.map((seat) => ({
+              source: 'game' as const,
+              type: 'foul.commit',
+              seat,
+              fixedInput: {},
+              prominence: 'secondary' as const,
+            })),
           ]
         : phase === 'winner-determined' && snapshot.context.winner
           ? [
-              command({ type: 'frame.award', seat: snapshot.context.winner }, 'primary'),
+              {
+                source: 'game' as const,
+                type: 'frame.award',
+                seat: snapshot.context.winner,
+                fixedInput: {},
+                prominence: 'primary' as const,
+              },
               ...(ballsOnTable >= 1
-                ? [command({ type: 'pot.record', seat: snapshot.context.winner, points: 1 }, 'secondary')]
+                ? [
+                    {
+                      source: 'game' as const,
+                      type: 'pot.record',
+                      seat: snapshot.context.winner,
+                      fixedInput: { pottedBallCount: 1 },
+                      prominence: 'secondary' as const,
+                    },
+                  ]
                 : []),
             ]
           : phase === 'awaiting-award' && snapshot.context.winner
-            ? [command({ type: 'frame.award', seat: snapshot.context.winner }, 'primary')]
+            ? [
+                {
+                  source: 'game' as const,
+                  type: 'frame.award',
+                  seat: snapshot.context.winner,
+                  fixedInput: {},
+                  prominence: 'primary' as const,
+                },
+              ]
             : []
 
   const isPotCommandAvailable = phase === 'open-play' || phase === 'winner-determined'
@@ -61,7 +85,7 @@ export function deriveLongFreePyramidControlView(snapshot: LongFreePyramidSparri
     details: {
       ...details,
       isPotCommandAvailable: isPotCommandAvailable && ballsOnTable > 0,
-      commandSections: deriveGameCommandSections(commands),
+      controlSections: deriveGameControlSections(controls),
     },
   }
 }

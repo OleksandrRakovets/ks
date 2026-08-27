@@ -3,11 +3,9 @@ import { describe, expect, test } from 'bun:test'
 import * as v from 'valibot'
 
 import {
-  FactIdSchema,
   formatPlayerRef,
   GuestPlayerIdSchema,
   MatchIdSchema,
-  newFactId,
   newGuestPlayerId,
   newMatchId,
   newVerifiedPlayerId,
@@ -21,7 +19,6 @@ describe('ID generation', () => {
     expect(v.is(GuestPlayerIdSchema, newGuestPlayerId())).toBe(true)
     expect(v.is(VerifiedPlayerIdSchema, newVerifiedPlayerId())).toBe(true)
     expect(v.is(MatchIdSchema, newMatchId())).toBe(true)
-    expect(v.is(FactIdSchema, newFactId())).toBe(true)
   })
 
   test('formats player refs and strips optional ULID prefixes', () => {

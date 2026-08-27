@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { FrameOutcomeSchema, ProtocolEntrySchema } from '@ks/core'
+import { FrameOutcomeSchema, GameProtocolEntry } from '@ks/core'
 import * as v from 'valibot'
 
 import { LongFreePyramidControlViewSchema } from './long-free-pyramid/definitions'
@@ -23,25 +23,25 @@ const scenarios = [
     gameKey: 'free-pyramid',
     create: () => createGameplaySession('free-pyramid', { targetPointsBySeat: { A: 1, B: 1 } }),
     controlSchema: FreePyramidControlViewSchema,
-    score: () => ({ type: 'pot.record' as const, seat: 'A' as const, points: 1 }),
+    score: () => ({ type: 'pot.record' as const, seat: 'A' as const, pottedBallCount: 1 }),
   },
   {
     gameKey: 'free-pyramid-long',
     create: () => createGameplaySession('free-pyramid-long', { targetPointsBySeat: { A: 1, B: 1 }, rackRollover: 14 }),
     controlSchema: LongFreePyramidControlViewSchema,
-    score: () => ({ type: 'pot.record' as const, seat: 'A' as const, points: 1 as const }),
+    score: () => ({ type: 'pot.record' as const, seat: 'A' as const, pottedBallCount: 1 as const }),
   },
   {
     gameKey: 'combined-pyramid',
     create: () => createGameplaySession('combined-pyramid', { targetPointsBySeat: { A: 1, B: 1 } }),
     controlSchema: CombinedPyramidControlViewSchema,
-    score: () => ({ type: 'pot.record' as const, seat: 'A' as const, points: 1 }),
+    score: () => ({ type: 'pot.record' as const, seat: 'A' as const, pottedBallCount: 1 }),
   },
   {
     gameKey: 'combined-pyramid-old',
     create: () => createGameplaySession('combined-pyramid-old', { targetPointsBySeat: { A: 1, B: 1 } }),
     controlSchema: CombinedPyramidOldControlViewSchema,
-    score: () => ({ type: 'pot.record' as const, seat: 'A' as const, points: 1 }),
+    score: () => ({ type: 'pot.record' as const, seat: 'A' as const, pottedBallCount: 1 }),
   },
 ] as const
 
@@ -60,8 +60,8 @@ describe('GameplaySession', () => {
       const commenced = session.execute({ type: 'frame.commence', seat: 'A' })
       expect(commenced._tag).toBe('accepted')
       if (commenced._tag === 'accepted') {
-        expect(commenced.protocolEntries.length).toBeGreaterThan(0)
-        expect(commenced.protocolEntries.every((entry) => v.is(ProtocolEntrySchema, entry))).toBe(true)
+        expect(commenced.gameProtocolEntries.length).toBeGreaterThan(0)
+        expect(commenced.gameProtocolEntries.every((entry) => v.is(GameProtocolEntry, entry))).toBe(true)
       }
 
       const scoreBeforeRejection = session.getScore()
