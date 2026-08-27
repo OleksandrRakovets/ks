@@ -9,11 +9,17 @@ function playerInitial(name: string): string {
   return name.trim().slice(0, 1).toLocaleUpperCase()
 }
 
-export function FirstBreakerField(props: {
+type FirstBreakerFieldProps = {
   playerNames: { A: string; B: string }
   firstBreakerSeat: Seat | null
   onFirstBreakerSeatChange: (seat: Seat | null) => void
-}) {
+}
+
+export function FirstBreakerField(props: FirstBreakerFieldProps) {
+  return <FirstBreakerToss key={`${props.playerNames.A}\0${props.playerNames.B}`} {...props} />
+}
+
+function FirstBreakerToss(props: FirstBreakerFieldProps) {
   const { t } = useTranslation()
   const [tossWinner, setTossWinner] = useState<Seat | null>(null)
   const [isRolling, setIsRolling] = useState(false)
@@ -31,13 +37,6 @@ export function FirstBreakerField(props: {
   useEffect(() => {
     return () => clearTimers()
   }, [])
-
-  useEffect(() => {
-    clearTimers()
-    setTossWinner(null)
-    setIsRolling(false)
-    setDisplaySeat(null)
-  }, [props.playerNames.A, props.playerNames.B])
 
   function rollCoin() {
     clearTimers()

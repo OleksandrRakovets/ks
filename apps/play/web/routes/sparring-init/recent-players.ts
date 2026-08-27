@@ -1,5 +1,5 @@
 import { nowUnixEpochMilliseconds, type UnixEpochMilliseconds, UnixEpochMillisecondsSchema } from '@ks/core'
-import { useEffect, useMemo, useState } from 'react'
+import { useSyncExternalStore } from 'react'
 import * as v from 'valibot'
 
 import { safeNormalizeDisplayName } from './validation'
@@ -37,7 +37,11 @@ function readRecentPlayers(): RecentPlayer[] {
   }
 }
 
+const EMPTY_RECENT_PLAYERS: RecentPlayer[] = []
+let clientRecentPlayers: RecentPlayer[] | undefined
+
 function writeRecentPlayers(players: RecentPlayer[]) {
+  clientRecentPlayers = players
   try {
     localStorage.setItem(
       RECENT_PLAYERS_KEY,
@@ -48,9 +52,22 @@ function writeRecentPlayers(players: RecentPlayer[]) {
   }
 }
 
+function getClientRecentPlayers(): RecentPlayer[] {
+  clientRecentPlayers ??= readRecentPlayers()
+  return clientRecentPlayers
+}
+
+function getServerRecentPlayers(): RecentPlayer[] {
+  return EMPTY_RECENT_PLAYERS
+}
+
+function subscribeRecentPlayers() {
+  return () => {}
+}
+
 export function rememberRecentPlayers(names: string[]) {
   const now = nowUnixEpochMilliseconds()
-  const existing = readRecentPlayers()
+  const existing = getClientRecentPlayers()
   const byName = new Map(existing.map((player) => [normalizeRecentKey(player.name), player]))
 
   for (const rawName of names) {
@@ -65,13 +82,7 @@ export function rememberRecentPlayers(names: string[]) {
 }
 
 export function useRecentPlayers() {
-  const [players, setPlayers] = useState<RecentPlayer[]>([])
-
-  useEffect(() => {
-    setPlayers(readRecentPlayers())
-  }, [])
-
-  return useMemo(() => players, [players])
+  return useSyncExternalStore(subscribeRecentPlayers, getClientRecentPlayers, getServerRecentPlayers)
 }
 
 export function recentPlayerSuggestions(players: RecentPlayer[], excludedName: string): string[] {
