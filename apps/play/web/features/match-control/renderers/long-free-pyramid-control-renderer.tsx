@@ -1,4 +1,4 @@
-import type { ControlCommandPreset } from '@ks/core'
+import type { Control, MatchCommand } from '@ks/core'
 import type { LongFreePyramidControlView } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
 import type { TFunction } from 'i18next'
@@ -7,17 +7,17 @@ import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui'
 
-import { controlCommandLabel, potRecordPottedBallCount } from './control-copy'
-import type { MatchControlRendererProps } from './types'
+import { controlLabel, potRecordPottedBallCount } from './control-copy'
+import { matchCommandFromControl, type MatchControlRendererProps } from './types'
 
-type SeatCommands = MatchControlRendererProps<LongFreePyramidControlView>['commandSections']['primary']
+type SeatControls = MatchControlRendererProps<LongFreePyramidControlView>['controlSections']['primary']
 type LabelledLongFreePyramidCommand =
-  | { kind: 'pottedBallCount'; command: ControlCommandPreset; pottedBallCount: number }
-  | { kind: 'command'; command: ControlCommandPreset }
+  | { kind: 'pottedBallCount'; command: Control; pottedBallCount: number }
+  | { kind: 'command'; command: Control }
 
-export function labelLongFreePyramidCommands(commands: ControlCommandPreset[]): LabelledLongFreePyramidCommand[] {
-  return commands.map((command) => {
-    if (command.commandType !== 'pot.record') return { kind: 'command', command }
+export function labelLongFreePyramidCommands(controls: Control[]): LabelledLongFreePyramidCommand[] {
+  return controls.map((command) => {
+    if (command.type !== 'pot.record') return { kind: 'command', command }
     const pottedBallCount = potRecordPottedBallCount(command)
     if (pottedBallCount === undefined) return { kind: 'command', command }
     return { kind: 'pottedBallCount', command, pottedBallCount }
@@ -26,23 +26,23 @@ export function labelLongFreePyramidCommands(commands: ControlCommandPreset[]): 
 
 function longFreePyramidCommandLabel(t: TFunction, labelled: LabelledLongFreePyramidCommand): string {
   if (labelled.kind === 'pottedBallCount') {
-    return t('match.control.commands.game.pot.pottedBallCount', { pottedBallCount: labelled.pottedBallCount })
+    return t('match.control.controls.game.pot.pottedBallCount', { pottedBallCount: labelled.pottedBallCount })
   }
-  return controlCommandLabel(t, labelled.command)
+  return controlLabel(t, labelled.command)
 }
 
-function buttonVariant(prominence: ControlCommandPreset['prominence']): 'default' | 'secondary' | 'outline' {
+function buttonVariant(prominence: Control['prominence']): 'default' | 'secondary' | 'outline' {
   if (prominence === 'primary') return 'default'
   if (prominence === 'secondary') return 'secondary'
   return 'outline'
 }
 
-function CommandRows(props: { commands: SeatCommands; onSubmit: (command: ControlCommandPreset) => void }) {
+function ControlRows(props: { controls: SeatControls; onSubmit: (command: MatchCommand) => void }) {
   const { t } = useTranslation()
 
-  const commands = {
-    A: [...props.commands.A],
-    B: [...props.commands.B],
+  const controls = {
+    A: [...props.controls.A],
+    B: [...props.controls.B],
   }
 
   return (
@@ -50,13 +50,13 @@ function CommandRows(props: { commands: SeatCommands; onSubmit: (command: Contro
       <div className="grid grid-cols-2 gap-6">
         {(['A', 'B'] as const).map((seat) => (
           <div key={seat} className="grid gap-3.5">
-            {labelLongFreePyramidCommands(commands[seat]).map((labelled, index) => (
+            {labelLongFreePyramidCommands(controls[seat]).map((labelled, index) => (
               <Button
-                key={`${seat}-${labelled.command.commandType}-${index}`}
+                key={`${seat}-${labelled.command.type}-${index}`}
                 type="button"
                 variant={buttonVariant(labelled.command.prominence)}
                 size="control"
-                onClick={() => props.onSubmit(labelled.command)}
+                onClick={() => props.onSubmit(matchCommandFromControl(labelled.command))}
               >
                 {longFreePyramidCommandLabel(t, labelled)}
               </Button>
@@ -68,21 +68,21 @@ function CommandRows(props: { commands: SeatCommands; onSubmit: (command: Contro
   )
 }
 
-function NeutralCommandRows(props: { commands: ControlCommandPreset[]; onSubmit: (command: ControlCommandPreset) => void }) {
+function NeutralControlRows(props: { controls: Control[]; onSubmit: (command: MatchCommand) => void }) {
   const { t } = useTranslation()
 
   return (
     <section className="border-b border-divider px-4 py-3">
       <div className="mx-auto grid w-2/3 gap-3.5">
-        {props.commands.map((command, index) => (
+        {props.controls.map((command, index) => (
           <Button
-            key={`${command.source}-${command.commandType}-${index}`}
+            key={`${command.source}-${command.type}-${index}`}
             type="button"
             variant={buttonVariant(command.prominence)}
             size="control"
-            onClick={() => props.onSubmit(command)}
+            onClick={() => props.onSubmit(matchCommandFromControl(command))}
           >
-            {controlCommandLabel(t, command)}
+            {controlLabel(t, command)}
           </Button>
         ))}
       </div>
@@ -93,12 +93,12 @@ function NeutralCommandRows(props: { commands: ControlCommandPreset[]; onSubmit:
 export function LongFreePyramidControlRenderer(props: MatchControlRendererProps<LongFreePyramidControlView>) {
   const [showTertiary, setShowTertiary] = useState(false)
   const { t } = useTranslation()
-  const commandSections = props.commandSections
-  const hasNeutral = commandSections.neutral.length > 0
-  const hasTertiary = commandSections.tertiary.A.length > 0 || commandSections.tertiary.B.length > 0
+  const controlSections = props.controlSections
+  const hasNeutral = controlSections.neutral.length > 0
+  const hasTertiary = controlSections.tertiary.A.length > 0 || controlSections.tertiary.B.length > 0
   const scoringCommands = {
-    A: [...commandSections.primary.A, ...commandSections.secondary.A],
-    B: [...commandSections.primary.B, ...commandSections.secondary.B],
+    A: [...controlSections.primary.A, ...controlSections.secondary.A],
+    B: [...controlSections.primary.B, ...controlSections.secondary.B],
   }
   const hasScoringCommands = scoringCommands.A.length > 0 || scoringCommands.B.length > 0
 
@@ -139,8 +139,8 @@ export function LongFreePyramidControlRenderer(props: MatchControlRendererProps<
         </div>
       </section>
 
-      {hasNeutral ? <NeutralCommandRows commands={commandSections.neutral} onSubmit={props.onSubmitCommand} /> : null}
-      {hasScoringCommands ? <CommandRows commands={scoringCommands} onSubmit={props.onSubmitCommand} /> : null}
+      {hasNeutral ? <NeutralControlRows controls={controlSections.neutral} onSubmit={props.onSubmitCommand} /> : null}
+      {hasScoringCommands ? <ControlRows controls={scoringCommands} onSubmit={props.onSubmitCommand} /> : null}
       {hasTertiary ? (
         <div className="grid">
           <button
@@ -150,7 +150,7 @@ export function LongFreePyramidControlRenderer(props: MatchControlRendererProps<
           >
             {showTertiary ? t(keys.match.control.showLess) : t(keys.match.control.showMore)}
           </button>
-          {showTertiary ? <CommandRows commands={commandSections.tertiary} onSubmit={props.onSubmitCommand} /> : null}
+          {showTertiary ? <ControlRows controls={controlSections.tertiary} onSubmit={props.onSubmitCommand} /> : null}
         </div>
       ) : null}
     </div>

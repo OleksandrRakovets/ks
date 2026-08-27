@@ -1,11 +1,11 @@
 import {
   type AcceptedCommandHistoryEntry,
-  type ControlCommand,
-  type ControlCommandPreset,
-  type ControlCommandSections,
-  emptyControlCommandSections,
+  type Control,
+  type ControlSections,
+  emptyControlSections,
   type FrameOutcome,
   type FrameState,
+  type MatchCommand,
   type MatchConfig,
   type MatchState,
   type NonEmptyProtocolEntries,
@@ -17,7 +17,6 @@ import {
 import { type ControlProjectionFor, type RegisteredGameKey, RegisteredGameKeySchema } from '@ks/gameplay/definitions'
 import type { GameCommandFor } from '@ks/gameplay/definitions'
 import {
-  canonicalGameCommandPayload,
   type GameCommandRejection,
   GameCommandRejectionSchema,
   type GameplaySession,
@@ -59,14 +58,14 @@ type MatchCommandResult =
   | { readonly _tag: 'rejected'; readonly reason: SparringMatchRejection }
   | {
       readonly _tag: 'accepted'
-      readonly command: ControlCommand
+      readonly command: MatchCommand
       readonly protocolEntries: NonEmptyProtocolEntries
     }
 
 type SparringMatchRoomProjectionFor<K extends RegisteredGameKey> = {
   readonly state: MatchStateFor<K>
   readonly controlProjection: ControlProjectionFor<K> | undefined
-  readonly controlSections: ControlCommandSections
+  readonly controlSections: ControlSections
 }
 
 export type SparringMatchRoomProjection = {
@@ -79,7 +78,7 @@ export interface SparringMatch {
    * The caller must discard this resident if accepted content cannot subsequently be persisted.
    * @throws An unrecoverable execution defect; resident state may have partially advanced and must be discarded.
    */
-  execute(command: ControlCommand): MatchCommandResult
+  execute(command: MatchCommand): MatchCommandResult
 
   /** Returns current semantic state and controls without storage cursor metadata. */
   project(): SparringMatchRoomProjection
@@ -134,20 +133,24 @@ function requireGameplay<K extends RegisteredGameKey>(key: K, gameplay: AnyCorre
   return gameplay as CorrelatedGameplay<K>
 }
 
-function parseCommand(gameKey: RegisteredGameKey, command: ControlCommand): ParsedCommand | MatchCommandParseFailure {
-  const failed = (): MatchCommandParseFailure => ({ code: 'unsupported-match-command', commandType: command.commandType })
+function parseCommand(gameKey: RegisteredGameKey, command: MatchCommand): ParsedCommand | MatchCommandParseFailure {
+  const discriminator = v.safeParse(v.object({ type: v.string() }), command.command)
+  const commandType = discriminator.success ? discriminator.output.type : 'unknown'
+  const failed = (): MatchCommandParseFailure => ({ code: 'unsupported-match-command', commandType })
   if (command.source === 'match') {
-    if (command.commandType === 'frame.prepare' && v.safeParse(v.strictObject({}), command.command).success)
+    if (
+      commandType === 'frame.prepare' &&
+      v.safeParse(v.strictObject({ type: v.literal('frame.prepare') }), command.command).success
+    )
       return { type: 'frame.prepare' }
-    if (command.commandType === 'frame.commence' || command.commandType === 'frame.concede') {
-      const parsed = v.safeParse(v.strictObject({ seat: SeatSchema }), command.command)
-      if (parsed.success) return { type: command.commandType, seat: parsed.output.seat }
+    if (commandType === 'frame.commence' || commandType === 'frame.concede') {
+      const parsed = v.safeParse(v.strictObject({ type: v.literal(commandType), seat: SeatSchema }), command.command)
+      if (parsed.success) return { type: commandType, seat: parsed.output.seat }
     }
     return failed()
   }
-  if (command.source !== 'game' || ['frame.prepare', 'frame.commence', 'frame.concede'].includes(command.commandType))
-    return failed()
-  const parsed = parseGameCommand(gameKey, { commandType: command.commandType, command: command.command })
+  if (command.source !== 'game' || ['frame.prepare', 'frame.commence', 'frame.concede'].includes(commandType)) return failed()
+  const parsed = parseGameCommand(gameKey, command.command)
   if (parsed._tag === 'game-command-parse-failure') return failed()
   // SAFETY: parseGameCommand produced this command for the supplied registered game key.
   return { type: 'game', gameKey, command: parsed.command } as ParsedCommand
@@ -192,12 +195,12 @@ function nonempty(contents: ProtocolEntry[]): NonEmptyProtocolEntries {
   return [contents[0], ...contents.slice(1)]
 }
 
-function concedeControl(seat: Seat): ControlCommandPreset {
-  return { source: 'match', commandType: 'frame.concede', command: { seat }, seat, prominence: 'tertiary' }
+function concedeControl(seat: Seat): Control {
+  return { source: 'match', type: 'frame.concede', fixedInput: {}, seat, prominence: 'tertiary' }
 }
 
-function mergeSections(match: ControlCommandSections, game?: ControlCommandSections): ControlCommandSections {
-  const result = emptyControlCommandSections()
+function mergeSections(match: ControlSections, game?: ControlSections): ControlSections {
+  const result = emptyControlSections()
   result.neutral = [...match.neutral, ...(game?.neutral ?? [])]
   for (const prominence of ['primary', 'secondary', 'tertiary'] as const) {
     for (const seat of ['A', 'B'] as const)
@@ -215,12 +218,11 @@ class ResidentSparringMatch implements SparringMatch {
     this.gameplay = gameplay
   }
 
-  execute(command: ControlCommand): MatchCommandResult {
+  execute(command: MatchCommand): MatchCommandResult {
     const lifecycle = projectLifecycleState(this.snapshot)
     const parsed = parseCommand(gameKeyOf(lifecycle.config.gameKey), command)
     if ('code' in parsed) return { _tag: 'parse-failed', reason: parsed }
-    const canonical = canonicalControlCommand(parsed)
-    return this.applyAggregate(parsed, canonical)
+    return this.applyAggregate(parsed, command)
   }
 
   project(): SparringMatchRoomProjection {
@@ -251,16 +253,16 @@ class ResidentSparringMatch implements SparringMatch {
       framesWonBySeat: lifecycle.framesWonBySeat,
       frames,
     }
-    const matchSections = emptyControlCommandSections()
+    const matchSections = emptyControlSections()
     if (lifecycle.phase === 'between-frames')
-      matchSections.neutral.push({ source: 'match', commandType: 'frame.prepare', command: {}, prominence: 'secondary' })
+      matchSections.neutral.push({ source: 'match', type: 'frame.prepare', fixedInput: {}, prominence: 'secondary' })
     if (lifecycle.phase === 'frame-in-progress' && this.gameplay) {
       if (this.gameplay.session.canCommence(lifecycle.activeFrame.breakerSeat)) {
         const seat = lifecycle.activeFrame.breakerSeat
         matchSections.primary[seat].push({
           source: 'match',
-          commandType: 'frame.commence',
-          command: { seat },
+          type: 'frame.commence',
+          fixedInput: {},
           seat,
           prominence: 'primary',
         })
@@ -274,11 +276,11 @@ class ResidentSparringMatch implements SparringMatch {
     return {
       state,
       controlProjection: gameControl,
-      controlSections: mergeSections(matchSections, gameControl?.details.commandSections),
+      controlSections: mergeSections(matchSections, gameControl?.details.controlSections),
     } as SparringMatchRoomProjection
   }
 
-  private applyAggregate(command: ParsedCommand, canonical: ControlCommand): MatchCommandResult {
+  private applyAggregate(command: ParsedCommand, acceptedCommand: MatchCommand): MatchCommandResult {
     const lifecycle = projectLifecycleState(this.snapshot)
     if (lifecycle.phase === 'match-over') return { _tag: 'rejected', reason: { code: 'match-already-over' } }
     if (command.type === 'frame.prepare') {
@@ -290,7 +292,7 @@ class ResidentSparringMatch implements SparringMatch {
       this.gameplay = createGameplay(gameKeyOf(lifecycle.config.gameKey), lifecycle.config)
       return {
         _tag: 'accepted',
-        command: canonical,
+        command: acceptedCommand,
         protocolEntries: [
           {
             frameIndex,
@@ -314,7 +316,7 @@ class ResidentSparringMatch implements SparringMatch {
         score: this.gameplay.session.getScore(),
         winReason: 'conceded',
       }
-      return this.completeFrame(outcome, canonical, [
+      return this.completeFrame(outcome, acceptedCommand, [
         {
           frameIndex: lifecycle.activeFrame.frameIndex,
           source: 'player',
@@ -341,11 +343,11 @@ class ResidentSparringMatch implements SparringMatch {
       frameIndex: lifecycle.activeFrame.frameIndex,
     }))
     return execution.outcome
-      ? this.completeFrame(execution.outcome, canonical, entries)
-      : { _tag: 'accepted', command: canonical, protocolEntries: nonempty(entries) }
+      ? this.completeFrame(execution.outcome, acceptedCommand, entries)
+      : { _tag: 'accepted', command: acceptedCommand, protocolEntries: nonempty(entries) }
   }
 
-  private completeFrame(outcome: FrameOutcome, canonical: ControlCommand, entries: ProtocolEntry[]): MatchCommandResult {
+  private completeFrame(outcome: FrameOutcome, acceptedCommand: MatchCommand, entries: ProtocolEntry[]): MatchCommandResult {
     const lifecycle = projectLifecycleState(this.snapshot)
     if (lifecycle.phase !== 'frame-in-progress') throw new Error('Cannot complete inactive frame')
     entries.push({
@@ -371,36 +373,15 @@ class ResidentSparringMatch implements SparringMatch {
         body: {},
       })
     this.gameplay = null
-    return { _tag: 'accepted', command: canonical, protocolEntries: nonempty(entries) }
+    return { _tag: 'accepted', command: acceptedCommand, protocolEntries: nonempty(entries) }
   }
 
   restore(record: AcceptedCommandHistoryEntry): void {
     const parsed = parseCommand(gameKeyOf(projectLifecycleState(this.snapshot).config.gameKey), record.command)
-    if ('code' in parsed) throw new SparringMatchHistoryError('Malformed stored Control Command')
-    const canonical = canonicalControlCommand(parsed)
-    const result = this.applyAggregate(parsed, canonical)
-    // SAFETY: Control Commands and Protocol values are schema-validated JSON structures.
-    const canonicalCommand = result._tag === 'accepted' ? (result.command as StructuralValue) : undefined
-    // SAFETY: Control Commands and Protocol values are schema-validated JSON structures.
-    const storedCommand = record.command as StructuralValue
-    if (
-      result._tag !== 'accepted' ||
-      !canonicalCommand ||
-      !structuralEqual(canonicalCommand, storedCommand) ||
-      !contentEqual(result.protocolEntries, nonempty([...record.protocolEntries]))
-    )
+    if ('code' in parsed) throw new SparringMatchHistoryError('Malformed stored Match Command')
+    const result = this.applyAggregate(parsed, record.command)
+    if (result._tag !== 'accepted' || !contentEqual(result.protocolEntries, nonempty([...record.protocolEntries])))
       throw new SparringMatchHistoryError('Stored Protocol does not match canonical execution')
-  }
-}
-
-function canonicalControlCommand(command: ParsedCommand): ControlCommand {
-  if (command.type === 'frame.prepare') return { source: 'match', commandType: command.type, command: {} }
-  if (command.type === 'frame.commence' || command.type === 'frame.concede')
-    return { source: 'match', commandType: command.type, command: { seat: command.seat } }
-  return {
-    source: 'game',
-    commandType: command.command.type,
-    command: canonicalGameCommandPayload(command.command),
   }
 }
 

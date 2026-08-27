@@ -2,32 +2,16 @@ import { opponentOf, type Seat } from '@ks/core'
 import invariant from 'tiny-invariant'
 import * as v from 'valibot'
 
-import { deriveGameCommandSections } from '../../constants'
-import {
-  StrilaBallStatusesSchema,
-  type StrilaControlCommand,
-  type StrilaControlDetails,
-  type StrilaControlView,
-  StrilaMeta,
-} from '../definitions'
+import { deriveGameControlSections, type GameControl } from '../../constants'
+import { StrilaBallStatusesSchema, type StrilaControlDetails, type StrilaControlView, StrilaMeta } from '../definitions'
 import { getPhase, type StrilaSparringFrameSnapshot } from '../machine'
 import { computeStrilaObjectBalls } from './computeds'
 
-type StrilaControlCommandInput =
-  | { type: 'pot.record' | 'miss.record' | 'foul.commit' | 'frame.award'; seat: Seat }
-  | { type: 'penalty.select'; seat: Seat; choice: 'play-from-position' | 'pass-position' | 'ball-in-hand' }
-type StrilaSeatControlCommandType = 'pot.record' | 'miss.record' | 'foul.commit' | 'frame.award'
-
-function command(
-  command: StrilaControlCommandInput,
-  extras: Omit<StrilaControlCommand, 'source' | 'commandType' | 'command' | 'seat'>,
-): StrilaControlCommand {
-  const { type: commandType, ...payload } = command
-  return { source: 'game', commandType, command: payload, seat: command.seat, ...extras }
-}
-
-function seatCommands(commandType: StrilaSeatControlCommandType, prominence: StrilaControlCommand['prominence']) {
-  return [command({ type: commandType, seat: 'A' }, { prominence }), command({ type: commandType, seat: 'B' }, { prominence })]
+function seatControls(
+  type: 'pot.record' | 'miss.record' | 'foul.commit',
+  prominence: GameControl['prominence'],
+): GameControl[] {
+  return (['A', 'B'] as const).map((seat) => ({ source: 'game', type, seat, fixedInput: {}, prominence }))
 }
 
 function deriveBallStatuses(snapshot: StrilaSparringFrameSnapshot): StrilaControlDetails['ballStatuses'] {
@@ -76,7 +60,7 @@ function messages(entries: Array<{ type: 'hint' | 'warning'; code: 'cue-ball-and
 function view(
   snapshot: StrilaSparringFrameSnapshot,
   args: {
-    commands: StrilaControlCommand[]
+    controls: GameControl[]
     situationTitle: string
     situationSummary: string
     seat?: Seat
@@ -92,9 +76,9 @@ function view(
       seat: args.seat,
       situationTitle: args.situationTitle,
       situationSummary: args.situationSummary,
-      isPotCommandAvailable: args.commands.some((entry) => entry.commandType === 'pot.record'),
+      isPotCommandAvailable: args.controls.some((entry) => entry.type === 'pot.record'),
       ballStatuses: deriveBallStatuses(snapshot),
-      commandSections: deriveGameCommandSections(args.commands),
+      controlSections: deriveGameControlSections(args.controls),
       messages: messages(args.messages ?? []),
     },
   }
@@ -104,13 +88,13 @@ export function deriveStrilaControlView(snapshot: StrilaSparringFrameSnapshot): 
   switch (getPhase(snapshot)) {
     case 'not-started':
       return view(snapshot, {
-        commands: [],
+        controls: [],
         situationTitle: 'Break-off',
         situationSummary: 'Waiting for the match to open the frame.',
       })
     case 'open-play':
       return view(snapshot, {
-        commands: [...seatCommands('pot.record', 'primary'), ...seatCommands('foul.commit', 'secondary')],
+        controls: [...seatControls('pot.record', 'primary'), ...seatControls('foul.commit', 'secondary')],
         situationTitle: 'Open play',
         situationSummary: 'Log pots or a foul.',
       })
@@ -118,28 +102,31 @@ export function deriveStrilaControlView(snapshot: StrilaSparringFrameSnapshot): 
       invariant(snapshot.context.foulOffender !== null, 'Foul offender is required while selecting a foul penalty')
       const chooser = opponentOf(snapshot.context.foulOffender)
       return view(snapshot, {
-        commands: [
-          command(
-            { type: 'penalty.select', seat: chooser, choice: 'play-from-position' },
-            {
-              prominence: 'secondary',
-              effect: 'plus-one-point',
-            },
-          ),
-          command(
-            { type: 'penalty.select', seat: chooser, choice: 'pass-position' },
-            {
-              prominence: 'secondary',
-              effect: 'plus-one-point',
-            },
-          ),
-          command(
-            { type: 'penalty.select', seat: chooser, choice: 'ball-in-hand' },
-            {
-              prominence: 'secondary',
-              effect: 'no-points-awarded',
-            },
-          ),
+        controls: [
+          {
+            source: 'game',
+            type: 'penalty.select',
+            seat: chooser,
+            fixedInput: { choice: 'play-from-position' },
+            prominence: 'secondary',
+            effect: 'plus-one-point',
+          },
+          {
+            source: 'game',
+            type: 'penalty.select',
+            seat: chooser,
+            fixedInput: { choice: 'pass-position' },
+            prominence: 'secondary',
+            effect: 'plus-one-point',
+          },
+          {
+            source: 'game',
+            type: 'penalty.select',
+            seat: chooser,
+            fixedInput: { choice: 'ball-in-hand' },
+            prominence: 'secondary',
+            effect: 'no-points-awarded',
+          },
         ],
         seat: chooser,
         situationTitle: 'Select penalty',
@@ -148,10 +135,10 @@ export function deriveStrilaControlView(snapshot: StrilaSparringFrameSnapshot): 
     }
     case 'foul-committed.ball-in-hand':
       return view(snapshot, {
-        commands: [
-          ...seatCommands('pot.record', 'primary'),
-          ...seatCommands('miss.record', 'primary'),
-          ...seatCommands('foul.commit', 'secondary'),
+        controls: [
+          ...seatControls('pot.record', 'primary'),
+          ...seatControls('miss.record', 'primary'),
+          ...seatControls('foul.commit', 'secondary'),
         ],
         situationTitle: 'Ball in hand after foul',
         situationSummary: 'Record a legal pot, a miss, or another foul.',
@@ -159,10 +146,10 @@ export function deriveStrilaControlView(snapshot: StrilaSparringFrameSnapshot): 
       })
     case 'respotted-black.opening':
       return view(snapshot, {
-        commands: [
-          ...seatCommands('pot.record', 'primary'),
-          ...seatCommands('miss.record', 'primary'),
-          ...seatCommands('foul.commit', 'secondary'),
+        controls: [
+          ...seatControls('pot.record', 'primary'),
+          ...seatControls('miss.record', 'primary'),
+          ...seatControls('foul.commit', 'secondary'),
         ],
         situationTitle: 'Respotted black opening',
         situationSummary: 'Only the black wins. Other potted outcomes lose the frame.',
@@ -170,16 +157,28 @@ export function deriveStrilaControlView(snapshot: StrilaSparringFrameSnapshot): 
       })
     case 'respotted-black.play':
       return view(snapshot, {
-        commands: [...seatCommands('pot.record', 'primary'), ...seatCommands('foul.commit', 'secondary')],
+        controls: [...seatControls('pot.record', 'primary'), ...seatControls('foul.commit', 'secondary')],
         situationTitle: 'Respotted black play',
         situationSummary: 'Record the outcome of the shot on the respotted black.',
       })
     case 'winner-determined':
       invariant(snapshot.context.winner !== null, 'Winner is required before awarding a determined frame')
       return view(snapshot, {
-        commands: [
-          command({ type: 'pot.record', seat: snapshot.context.winner }, { prominence: 'primary' }),
-          command({ type: 'frame.award', seat: snapshot.context.winner }, { prominence: 'primary' }),
+        controls: [
+          {
+            source: 'game',
+            type: 'pot.record',
+            seat: snapshot.context.winner,
+            fixedInput: {},
+            prominence: 'primary',
+          },
+          {
+            source: 'game',
+            type: 'frame.award',
+            seat: snapshot.context.winner,
+            fixedInput: {},
+            prominence: 'primary',
+          },
         ],
         seat: snapshot.context.winner,
         situationTitle: 'Winner determined',
@@ -187,7 +186,7 @@ export function deriveStrilaControlView(snapshot: StrilaSparringFrameSnapshot): 
       })
     case 'frame-over':
       return view(snapshot, {
-        commands: [],
+        controls: [],
         situationTitle: 'Frame over',
         situationSummary: 'No further scoring commands are available.',
       })

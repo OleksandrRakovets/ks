@@ -1,6 +1,6 @@
 import { buildMatchConfig, CreateMatchRequestSchema, createSparringMatch } from '@ks/competition'
 import {
-  type ControlCommand,
+  type MatchCommand,
   MatchIdSchema,
   newCommandId,
   PlayerRefSchema,
@@ -51,20 +51,19 @@ function terminalArchiveInput(id = matchId): CompletedMatchArchiveInput {
   const protocolEntries: StoredProtocolEntry[] = []
   let acceptedSeq = 0
   for (const command of [
-    { source: 'match', commandType: 'frame.prepare', command: {} },
-    { source: 'match', commandType: 'frame.commence', command: { seat: 'A' } },
-    { source: 'game', commandType: 'pot.record', command: { seat: 'A', pottedBallCount: 2 } },
-    { source: 'game', commandType: 'frame.award', command: { seat: 'A' } },
-  ] satisfies ControlCommand[]) {
+    { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } },
+    { commandId: newCommandId(), source: 'match', command: { type: 'frame.commence', seat: 'A' } },
+    { commandId: newCommandId(), source: 'game', command: { type: 'pot.record', seat: 'A', pottedBallCount: 2 } },
+    { commandId: newCommandId(), source: 'game', command: { type: 'frame.award', seat: 'A' } },
+  ] satisfies MatchCommand[]) {
     const decision = session.execute(command)
-    if (decision._tag !== 'accepted') throw new Error(`Fixture command rejected: ${command.commandType}`)
-    const commandId = newCommandId()
+    if (decision._tag !== 'accepted') throw new Error(`Fixture command rejected: ${String(command.command.type)}`)
     acceptedSeq += 1
     decision.protocolEntries.forEach((entry, entryIndex) =>
       protocolEntries.push({
         acceptedSeq,
         entryIndex,
-        causedByCommandId: commandId,
+        causedByCommandId: command.commandId,
         acceptedAt,
         frameIndex: entry.frameIndex,
         source: entry.source,

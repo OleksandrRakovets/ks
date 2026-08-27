@@ -3,48 +3,41 @@ import * as v from 'valibot'
 import { SeatSchema } from './match'
 import { NonEmptyStringSchema, UnknownObjectSchema } from './valicombos'
 
-const ControlCommandSourceSchema = v.picklist(['match', 'game'])
+const ControlProminence = v.picklist(['primary', 'secondary', 'tertiary'])
+const ControlEffect = v.picklist(['opponent-plus-one', 'offender-minus-one', 'plus-one-point', 'no-points-awarded'])
 
-const ControlCommandBaseSchema = v.object({
-  source: ControlCommandSourceSchema,
-  commandType: NonEmptyStringSchema,
-  command: UnknownObjectSchema,
-})
-
-export const ControlCommandSchema = ControlCommandBaseSchema
-export type ControlCommand = v.InferOutput<typeof ControlCommandSchema>
-export type ControlCommandPayload = ControlCommand['command']
-
-const ControlCommandProminenceSchema = v.picklist(['primary', 'secondary', 'tertiary'])
-const ControlCommandEffectSchema = v.picklist([
-  'opponent-plus-one',
-  'offender-minus-one',
-  'plus-one-point',
-  'no-points-awarded',
-])
-
-export const ControlCommandPresetSchema = v.object({
-  ...ControlCommandBaseSchema.entries,
+/**
+ * A renderable interaction permitted by the current match projection, not submitted intent.
+ *
+ * `seat` identifies and groups the focal seat without duplication in `fixedInput`. A renderer combines the type, seat,
+ * fixed input, and any browser-collected input to produce a complete MatchCommand; prominence and effect stop at that
+ * presentation boundary.
+ */
+export const Control = v.object({
+  source: v.picklist(['match', 'game']),
+  type: NonEmptyStringSchema,
   seat: v.optional(SeatSchema),
-  effect: v.optional(ControlCommandEffectSchema),
-  prominence: ControlCommandProminenceSchema,
+  fixedInput: UnknownObjectSchema,
+  effect: v.optional(ControlEffect),
+  prominence: ControlProminence,
 })
-export type ControlCommandPreset = v.InferOutput<typeof ControlCommandPresetSchema>
+export type Control = v.InferOutput<typeof Control>
 
-const SeatControlCommandBucketSchema = v.object({
-  A: v.array(ControlCommandPresetSchema),
-  B: v.array(ControlCommandPresetSchema),
+const SeatControlBucket = v.object({
+  A: v.array(Control),
+  B: v.array(Control),
 })
 
-export const ControlCommandSectionsSchema = v.object({
-  neutral: v.array(ControlCommandPresetSchema),
-  primary: SeatControlCommandBucketSchema,
-  secondary: SeatControlCommandBucketSchema,
-  tertiary: SeatControlCommandBucketSchema,
+/** Controls available at one coherent match projection, organized solely for rendering. */
+export const ControlSections = v.object({
+  neutral: v.array(Control),
+  primary: SeatControlBucket,
+  secondary: SeatControlBucket,
+  tertiary: SeatControlBucket,
 })
-export type ControlCommandSections = v.InferOutput<typeof ControlCommandSectionsSchema>
+export type ControlSections = v.InferOutput<typeof ControlSections>
 
-export function emptyControlCommandSections(): ControlCommandSections {
+export function emptyControlSections(): ControlSections {
   return {
     neutral: [],
     primary: { A: [], B: [] },

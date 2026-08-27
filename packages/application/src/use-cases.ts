@@ -1,10 +1,9 @@
 import { type CreateMatchRequest, type MatchStateFor } from '@ks/competition'
 import {
-  type CommandId,
-  type ControlCommand,
-  type ControlCommandSections,
-  emptyControlCommandSections,
+  type ControlSections,
+  emptyControlSections,
   type HydratedMatchParticipant,
+  type MatchCommand,
   type MatchId,
   type PlayerRef,
   type UnixEpochMilliseconds,
@@ -72,7 +71,7 @@ type ReadKeyedMatchSuccess<K extends RegisteredGameKey> = {
   latestSeq: number
   participants: HydratedMatchParticipants
   controlProjection?: ControlProjectionFor<K>
-  controlSections?: ControlCommandSections
+  controlSections?: ControlSections
 }
 type ReadKeyedMatchResult<K extends RegisteredGameKey> = ReadKeyedMatchSuccess<K> | ReadMatchFailure
 
@@ -181,7 +180,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
   ): Promise<ReadMatchControlResult<K>> {
     const match = await readKeyedMatch(matchId, locale, expectedGameKey)
     if (!match.ok) return match
-    const controlSections = match.controlSections ?? emptyControlCommandSections()
+    const controlSections = match.controlSections ?? emptyControlSections()
     return match.controlProjection
       ? { ...match, controlState: 'frame-active', controlProjection: match.controlProjection, controlSections }
       : { ...match, controlState: 'between-frames', controlSections }
@@ -189,8 +188,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
 
   async function submitMatchCommand<K extends RegisteredGameKey>(
     matchId: MatchId,
-    commandId: CommandId,
-    command: ControlCommand,
+    command: MatchCommand,
     expectedGameKey: K,
   ): Promise<SubmitMatchCommandResult> {
     const record = await dependencies.getMatchRecord(matchId)
@@ -200,7 +198,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
       return { ok: false, error: 'Match is finished', status: 409 }
     }
     if (record.status !== 'active') return { ok: false, error: 'Unknown match', status: 404 }
-    const result = await dependencies.matchRoom.submitCommand(matchId, commandId, command)
+    const result = await dependencies.matchRoom.submitCommand(matchId, command)
     if (result.ok && result.outcome._tag === 'accepted' && result.finalizing) {
       await archiveAndFinishRoom(matchId)
       return { ok: true, outcome: result.outcome }

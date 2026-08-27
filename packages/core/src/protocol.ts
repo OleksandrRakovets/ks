@@ -1,6 +1,6 @@
 import * as v from 'valibot'
 
-import { ControlCommandSchema } from './control'
+import { MatchCommand } from './command'
 import { CommandIdSchema } from './ids'
 import { BySeatNumberSchema, SeatSchema } from './match'
 import { UnixEpochMillisecondsSchema } from './time'
@@ -39,7 +39,7 @@ export const NonEmptyStoredProtocolEntriesSchema = v.pipe(v.array(StoredProtocol
 
 /** Durable replay input and its expected canonical semantic output. */
 export const AcceptedCommandHistoryEntrySchema = v.object({
-  command: ControlCommandSchema,
+  command: MatchCommand,
   protocolEntries: NonEmptyProtocolEntriesSchema,
 })
 export type AcceptedCommandHistoryEntry = v.InferOutput<typeof AcceptedCommandHistoryEntrySchema>

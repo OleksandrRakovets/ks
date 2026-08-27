@@ -1,4 +1,4 @@
-import type { ControlCommandPreset } from '@ks/core'
+import type { Control, MatchCommand } from '@ks/core'
 import { type StrilaBall, type StrilaControlView, StrilaMeta } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
 import type { TFunction } from 'i18next'
@@ -7,8 +7,8 @@ import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui'
 
-import { controlCommandEffect, controlCommandLabel } from './control-copy'
-import type { MatchControlRendererProps } from './types'
+import { controlEffect, controlLabel } from './control-copy'
+import { matchCommandFromControl, type MatchControlRendererProps } from './types'
 
 const BALL_COLORS = {
   0: { bg: '#F0EDE6', border: '#C0BDB5' },
@@ -21,38 +21,36 @@ const BALL_COLORS = {
   7: { bg: '#2a2a2a', border: '#555555' },
 } satisfies Record<StrilaBall, { bg: string; border: string }>
 
-type SeatCommands = MatchControlRendererProps<StrilaControlView>['commandSections']['primary']
+type SeatControls = MatchControlRendererProps<StrilaControlView>['controlSections']['primary']
 
-function strilaCommandLabel(t: TFunction, command: ControlCommandPreset, index: number): string {
-  if (command.commandType !== 'penalty.select') return controlCommandLabel(t, command)
-  if (index === 0) return t('match.control.commands.game.penalty.select.play-from-position')
-  if (index === 1) return t('match.control.commands.game.penalty.select.pass-position')
-  return t('match.control.commands.game.penalty.select.ball-in-hand')
+function strilaCommandLabel(t: TFunction, command: Control, index: number): string {
+  if (command.type !== 'penalty.select') return controlLabel(t, command)
+  if (index === 0) return t('match.control.controls.game.penalty.select.play-from-position')
+  if (index === 1) return t('match.control.controls.game.penalty.select.pass-position')
+  return t('match.control.controls.game.penalty.select.ball-in-hand')
 }
 
-function prominenceVariant(prominence: ControlCommandPreset['prominence']): 'default' | 'secondary' | 'outline' {
+function prominenceVariant(prominence: Control['prominence']): 'default' | 'secondary' | 'outline' {
   if (prominence === 'primary') return 'default'
   if (prominence === 'tertiary') return 'outline'
   return 'secondary'
 }
 
-function CommandRows({
-  commands,
+function ControlRows({
+  controls,
   selectedBalls,
   onSubmit,
 }: {
-  commands: SeatCommands
+  controls: SeatControls
   selectedBalls: StrilaBall[]
-  onSubmit: (command: ControlCommandPreset) => void
+  onSubmit: (command: MatchCommand) => void
 }) {
   const { t } = useTranslation()
 
-  function renderButton(cmd: ControlCommandPreset, key: string, index: number) {
-    const isPot = cmd.commandType === 'pot.record'
-    const command = isPot ? { ...cmd.command, pottedBalls: selectedBalls } : cmd.command
-    const preset = { ...cmd, command }
+  function renderButton(cmd: Control, key: string, index: number) {
+    const isPot = cmd.type === 'pot.record'
     const label = strilaCommandLabel(t, cmd, index)
-    const effect = controlCommandEffect(t, cmd)
+    const effect = controlEffect(t, cmd)
     return (
       <div key={key} className="grid gap-1">
         <Button
@@ -60,7 +58,7 @@ function CommandRows({
           variant={prominenceVariant(cmd.prominence)}
           size="control"
           disabled={isPot && selectedBalls.length === 0}
-          onClick={() => onSubmit(preset)}
+          onClick={() => onSubmit(matchCommandFromControl(cmd, isPot ? { pottedBalls: selectedBalls } : {}))}
         >
           {label}
         </Button>
@@ -72,32 +70,28 @@ function CommandRows({
   return (
     <section className="border-b border-divider px-4 py-2">
       <div className="grid grid-cols-2 gap-6">
-        <div className="grid gap-3.5">
-          {commands.A.map((cmd, index) => renderButton(cmd, `A-${cmd.commandType}-${index}`, index))}
-        </div>
-        <div className="grid gap-3.5">
-          {commands.B.map((cmd, index) => renderButton(cmd, `B-${cmd.commandType}-${index}`, index))}
-        </div>
+        <div className="grid gap-3.5">{controls.A.map((cmd, index) => renderButton(cmd, `A-${cmd.type}-${index}`, index))}</div>
+        <div className="grid gap-3.5">{controls.B.map((cmd, index) => renderButton(cmd, `B-${cmd.type}-${index}`, index))}</div>
       </div>
     </section>
   )
 }
 
-function NeutralCommandRows(props: { commands: ControlCommandPreset[]; onSubmit: (command: ControlCommandPreset) => void }) {
+function NeutralControlRows(props: { controls: Control[]; onSubmit: (command: MatchCommand) => void }) {
   const { t } = useTranslation()
 
   return (
     <section className="border-b border-divider px-4 py-2">
       <div className="mx-auto grid w-2/3 gap-3.5">
-        {props.commands.map((command, index) => (
+        {props.controls.map((command, index) => (
           <Button
-            key={`${command.source}-${command.commandType}-${index}`}
+            key={`${command.source}-${command.type}-${index}`}
             type="button"
             variant={prominenceVariant(command.prominence)}
             size="control"
-            onClick={() => props.onSubmit(command)}
+            onClick={() => props.onSubmit(matchCommandFromControl(command))}
           >
-            {controlCommandLabel(t, command)}
+            {controlLabel(t, command)}
           </Button>
         ))}
       </div>
@@ -110,18 +104,18 @@ export function StrilaControlRenderer(props: MatchControlRendererProps<StrilaCon
   const [showTertiary, setShowTertiary] = useState(false)
   const { t } = useTranslation()
 
-  const commandSections = props.commandSections
-  const hasNeutral = commandSections.neutral.length > 0
+  const controlSections = props.controlSections
+  const hasNeutral = controlSections.neutral.length > 0
 
-  function submitCommand(command: ControlCommandPreset) {
+  function submitCommand(command: MatchCommand) {
     setSelectedBalls([])
     props.onSubmitCommand(command)
   }
 
   const details = props.projection.details
-  const hasPrimary = commandSections.primary.A.length > 0 || commandSections.primary.B.length > 0
-  const hasSecondary = commandSections.secondary.A.length > 0 || commandSections.secondary.B.length > 0
-  const hasTertiary = commandSections.tertiary.A.length > 0 || commandSections.tertiary.B.length > 0
+  const hasPrimary = controlSections.primary.A.length > 0 || controlSections.primary.B.length > 0
+  const hasSecondary = controlSections.secondary.A.length > 0 || controlSections.secondary.B.length > 0
+  const hasTertiary = controlSections.tertiary.A.length > 0 || controlSections.tertiary.B.length > 0
 
   return (
     <div aria-label={t(keys.match.control.strila.container)} className="grid">
@@ -171,12 +165,12 @@ export function StrilaControlRenderer(props: MatchControlRendererProps<StrilaCon
         })}
       </div>
 
-      {hasNeutral && <NeutralCommandRows commands={commandSections.neutral} onSubmit={submitCommand} />}
+      {hasNeutral && <NeutralControlRows controls={controlSections.neutral} onSubmit={submitCommand} />}
 
-      {hasPrimary && <CommandRows commands={commandSections.primary} selectedBalls={selectedBalls} onSubmit={submitCommand} />}
+      {hasPrimary && <ControlRows controls={controlSections.primary} selectedBalls={selectedBalls} onSubmit={submitCommand} />}
 
       {hasSecondary && (
-        <CommandRows commands={commandSections.secondary} selectedBalls={selectedBalls} onSubmit={submitCommand} />
+        <ControlRows controls={controlSections.secondary} selectedBalls={selectedBalls} onSubmit={submitCommand} />
       )}
 
       {details.messages.map((message) => (
@@ -198,7 +192,7 @@ export function StrilaControlRenderer(props: MatchControlRendererProps<StrilaCon
             {showTertiary ? t(keys.match.control.showLess) : t(keys.match.control.showMore)}
           </button>
           {showTertiary && (
-            <CommandRows commands={commandSections.tertiary} selectedBalls={selectedBalls} onSubmit={submitCommand} />
+            <ControlRows controls={controlSections.tertiary} selectedBalls={selectedBalls} onSubmit={submitCommand} />
           )}
         </div>
       )}

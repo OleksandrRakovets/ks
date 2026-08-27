@@ -3,8 +3,7 @@ import {
   type AcceptedCommandHistoryEntry,
   type AcceptedCommandStreamUpdate,
   type CommandId,
-  type ControlCommand,
-  ControlCommandSchema,
+  MatchCommand,
   MatchConfigSchema,
   type MatchId,
   MatchIdSchema,
@@ -146,7 +145,7 @@ export class ActiveMatchStore {
         )
           throw new Error('MatchRoom protocol_entries storage corruption')
         expected += 1
-        const command = v.safeParse(v.pipe(v.string(), v.parseJson(), ControlCommandSchema), row.requestJson)
+        const command = v.safeParse(v.pipe(v.string(), v.parseJson(), MatchCommand), row.requestJson)
         if (!command.success) throw new Error('MatchRoom commands storage corruption')
         return { command: command.output, protocolEntries: owned.map(storedToSemanticEntry) }
       })
@@ -201,7 +200,7 @@ export class ActiveMatchStore {
     match: ActiveMatchRecord
     commandId: CommandId
     requestJson: string
-    command: ControlCommand
+    command: MatchCommand
     entries: NonEmptyProtocolEntries
     finalState: MatchState | null
   }): { outcome: Extract<CommandReceiptOutcome, { _tag: 'accepted' }>; update: AcceptedCommandStreamUpdate } {
@@ -214,7 +213,7 @@ export class ActiveMatchStore {
         .values({
           commandId: args.commandId,
           matchId: args.match.matchId,
-          requestJson: JSON.stringify(v.parse(ControlCommandSchema, args.command)),
+          requestJson: JSON.stringify(v.parse(MatchCommand, args.command)),
           outcome: 'accepted',
           acceptedSeq,
           acceptedAt,

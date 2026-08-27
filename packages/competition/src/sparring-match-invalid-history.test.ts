@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 
-import { type AcceptedCommandHistoryEntry, type MatchConfig, newMatchId } from '@ks/core'
+import { type AcceptedCommandHistoryEntry, type MatchConfig, newCommandId, newMatchId } from '@ks/core'
 
 import { createSparringMatch, restoreSparringMatch, SparringMatchHistoryError } from './sparring-match'
 
@@ -12,7 +12,11 @@ const config: MatchConfig = {
 }
 
 function prepared(): AcceptedCommandHistoryEntry {
-  const result = createSparringMatch(config).execute({ source: 'match', commandType: 'frame.prepare', command: {} })
+  const result = createSparringMatch(config).execute({
+    commandId: newCommandId(),
+    source: 'match',
+    command: { type: 'frame.prepare' },
+  })
   if (result._tag !== 'accepted') throw new Error('Expected acceptance')
   return { command: result.command, protocolEntries: [...result.protocolEntries] }
 }

@@ -37,8 +37,7 @@ describe('commandMatchAction adaptation', () => {
       },
     }))
     const form = new FormData()
-    form.set('command', JSON.stringify({ source: 'match', commandType: 'frame.prepare', command: {} }))
-    form.set('commandId', commandId)
+    form.set('command', JSON.stringify({ commandId, source: 'match', command: { type: 'frame.prepare' } }))
 
     const result = await commandMatchAction(
       { params: { matchId }, request: new Request('http://localhost', { method: 'POST', body: form }), context },
@@ -55,8 +54,7 @@ describe('commandMatchAction adaptation', () => {
       outcome: { _tag: 'rejected', reason: { code: 'frame-already-active' } },
     }))
     const form = new FormData()
-    form.set('command', JSON.stringify({ source: 'match', commandType: 'frame.prepare', command: {} }))
-    form.set('commandId', commandId)
+    form.set('command', JSON.stringify({ commandId, source: 'match', command: { type: 'frame.prepare' } }))
 
     const result = await commandMatchAction(
       { params: { matchId }, request: new Request('http://localhost', { method: 'POST', body: form }), context },

@@ -1,8 +1,7 @@
 import { type CreateMatchRequest, type MatchStateFor, SparringMatchRejectionSchema } from '@ks/competition'
 import {
-  type CommandId,
-  type ControlCommand,
-  ControlCommandSectionsSchema,
+  ControlSections,
+  type MatchCommand,
   type MatchId,
   MatchIdSchema,
   MatchStateSchema,
@@ -32,7 +31,7 @@ export type MatchRoomReadResult<K extends RegisteredGameKey = RegisteredGameKey>
       latestSeq: number
       state: MatchStateFor<K>
       controlProjection?: ControlProjectionFor<K>
-      controlSections: v.InferOutput<typeof ControlCommandSectionsSchema>
+      controlSections: ControlSections
     }
   | ReadMatchFailure
 export interface MatchRoomClient {
@@ -52,8 +51,7 @@ export interface MatchRoomClient {
   >
   submitCommand(
     matchId: MatchId,
-    commandId: CommandId,
-    command: ControlCommand,
+    command: MatchCommand,
   ): Promise<{ ok: true; outcome: CommandReceiptOutcome; finalizing?: true } | Failure>
   stream(matchId: MatchId, since?: number): Promise<Response>
   finalization(matchId: MatchId): Promise<{ ok: true; data: MatchRoomFinalizationData } | Failure>
@@ -80,7 +78,7 @@ type MatchRoomStub = {
   create(request: MatchRoomCreateRequest): Promise<StructuredRpcResult>
   readControl(args: { matchId: MatchId }): Promise<StructuredRpcResult>
   readProtocol(args: { matchId: MatchId }): Promise<StructuredRpcResult>
-  submitCommand(args: { matchId: MatchId; commandId: CommandId; command: ControlCommand }): Promise<StructuredRpcResult>
+  submitCommand(args: { matchId: MatchId; command: MatchCommand }): Promise<StructuredRpcResult>
   stream(args: { matchId: MatchId; since?: number }): Promise<Response>
   finalization(args: { matchId: MatchId }): Promise<StructuredRpcResult>
   disposeFinalized(args: { matchId: MatchId }): Promise<StructuredRpcResult>
@@ -110,7 +108,7 @@ const ControlResultSchema = v.variant('ok', [
     latestSeq: NonNegativeIntegerSchema,
     state: ActiveStateSchema,
     controlProjection: v.optional(ProjectionSchema),
-    controlSections: ControlCommandSectionsSchema,
+    controlSections: ControlSections,
   }),
   FailureSchema,
 ])
@@ -182,13 +180,13 @@ export function createMatchRoomClient(namespace: { getByName(name: string): Matc
       // SAFETY: the runtime game-key equality above correlates the parsed state with K.
       return { ...result, state: result.state as MatchStateFor<K> }
     },
-    submitCommand: async (matchId: MatchId, commandId: CommandId, command: ControlCommand) => {
+    submitCommand: async (matchId: MatchId, command: MatchCommand) => {
       const result = parse(
         v.variant('ok', [
           v.object({ ok: v.literal(true), outcome: OutcomeSchema, finalizing: v.optional(v.literal(true)) }),
           FailureSchema,
         ]),
-        await namespace.getByName(matchId).submitCommand({ matchId, commandId, command }),
+        await namespace.getByName(matchId).submitCommand({ matchId, command }),
       )
       if (!result.ok || result.finalizing === undefined) return result.ok ? { ok: true, outcome: result.outcome } : result
       return { ok: true, outcome: result.outcome, finalizing: true }

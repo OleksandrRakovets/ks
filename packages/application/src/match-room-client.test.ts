@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { CommandIdSchema, emptyControlCommandSections, newMatchId } from '@ks/core'
+import { CommandIdSchema, emptyControlSections, newMatchId } from '@ks/core'
 import * as v from 'valibot'
 
 import { createMatchRoomClient } from './match-room-client'
@@ -31,7 +31,7 @@ function clientReturning<T extends object>(result: T) {
 
 describe('MatchRoom client boundary', () => {
   test('accepts sequence-zero control reads', async () => {
-    const result = { ok: true as const, latestSeq: 0, state, controlSections: emptyControlCommandSections() }
+    const result = { ok: true as const, latestSeq: 0, state, controlSections: emptyControlSections() }
     expect(await clientReturning(result).readControl(matchId, 'free-pyramid')).toEqual(result)
   })
 
@@ -47,10 +47,10 @@ describe('MatchRoom client boundary', () => {
   test('decodes accepted sequence receipts', async () => {
     const result = { ok: true as const, outcome: { _tag: 'accepted' as const, acceptedSeq: 1 } }
     expect(
-      await clientReturning(result).submitCommand(matchId, v.parse(CommandIdSchema, '01ARZ3NDEKTSV4RRFFQ69G5FAC'), {
+      await clientReturning(result).submitCommand(matchId, {
+        commandId: v.parse(CommandIdSchema, '01ARZ3NDEKTSV4RRFFQ69G5FAC'),
         source: 'match',
-        commandType: 'frame.prepare',
-        command: {},
+        command: { type: 'frame.prepare' },
       }),
     ).toEqual(result)
   })

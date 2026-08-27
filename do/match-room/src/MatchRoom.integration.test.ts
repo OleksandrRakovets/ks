@@ -29,10 +29,10 @@ describe('MatchRoom accepted command history', () => {
     expect(await stub.readControl({ matchId })).toMatchObject({ ok: true, latestSeq: 0, state: { currentFrameIndex: 0 } })
 
     const commandId = newCommandId()
-    const command = { source: 'match' as const, commandType: 'frame.prepare', command: {} }
-    const accepted = await stub.submitCommand({ matchId, commandId, command })
+    const command = { commandId, source: 'match' as const, command: { type: 'frame.prepare' } }
+    const accepted = await stub.submitCommand({ matchId, command })
     expect(accepted).toEqual({ ok: true, outcome: { _tag: 'accepted', acceptedSeq: 1 } })
-    expect(await stub.submitCommand({ matchId, commandId, command })).toEqual(accepted)
+    expect(await stub.submitCommand({ matchId, command })).toEqual(accepted)
 
     const protocol = await stub.readProtocol({ matchId })
     expect(protocol).toMatchObject({
@@ -51,10 +51,10 @@ describe('MatchRoom accepted command history', () => {
     const stub = env.MATCH_ROOM.getByName(matchId)
     await stub.create(body(matchId))
     const commandId = newCommandId()
-    const command = { source: 'match' as const, commandType: 'frame.concede', command: { seat: 'A' as const } }
-    const rejected = await stub.submitCommand({ matchId, commandId, command })
+    const command = { commandId, source: 'match' as const, command: { type: 'frame.concede', seat: 'A' as const } }
+    const rejected = await stub.submitCommand({ matchId, command })
     expect(rejected).toMatchObject({ ok: true, outcome: { _tag: 'rejected' } })
-    expect(await stub.submitCommand({ matchId, commandId, command })).toEqual(rejected)
+    expect(await stub.submitCommand({ matchId, command })).toEqual(rejected)
     expect(await stub.readProtocol({ matchId })).toMatchObject({ ok: true, latestSeq: 0, protocolEntries: [] })
   })
 
@@ -64,18 +64,15 @@ describe('MatchRoom accepted command history', () => {
     await stub.create(body(matchId))
     await stub.submitCommand({
       matchId,
-      commandId: newCommandId(),
-      command: { source: 'match', commandType: 'frame.prepare', command: {} },
+      command: { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } },
     })
     await stub.submitCommand({
       matchId,
-      commandId: newCommandId(),
-      command: { source: 'match', commandType: 'frame.commence', command: { seat: 'A' } },
+      command: { commandId: newCommandId(), source: 'match', command: { type: 'frame.commence', seat: 'A' } },
     })
     const terminal = await stub.submitCommand({
       matchId,
-      commandId: newCommandId(),
-      command: { source: 'match', commandType: 'frame.concede', command: { seat: 'B' } },
+      command: { commandId: newCommandId(), source: 'match', command: { type: 'frame.concede', seat: 'B' } },
     })
     expect(terminal).toMatchObject({ ok: true, outcome: { acceptedSeq: 3 }, finalizing: true })
 

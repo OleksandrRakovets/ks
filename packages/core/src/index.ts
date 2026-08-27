@@ -1,4 +1,5 @@
 export * from './brand'
+export * from './command'
 export * from './control'
 export * from './protocol'
 export * from './ids'

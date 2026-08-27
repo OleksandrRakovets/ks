@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 
 import type { MatchStateFor } from '@ks/competition'
 import {
-  type ControlCommand,
+  type MatchCommand,
   type MatchId,
   MatchIdSchema,
   MatchStateSchema,
@@ -55,7 +55,7 @@ const controlProjections = {
 } satisfies { [K in RegisteredGameKey]: ControlProjectionFor<K> }
 
 function activeRoomRead(gameKey: RegisteredGameKey) {
-  const controlSections = controlProjections[gameKey].details.commandSections
+  const controlSections = controlProjections[gameKey].details.controlSections
   switch (gameKey) {
     case 'strila-v2':
       return {
@@ -442,13 +442,13 @@ describe('application orchestration', () => {
   })
 
   test('submits commands to the selected room without a control secret', async () => {
-    const command: ControlCommand = { source: 'match', commandType: 'frame.prepare', command: {} }
+    const command: MatchCommand = { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } }
     const calls: unknown[][] = []
     const room = {
       create: unused,
       readControl: unused,
-      async submitCommand(matchId: string, commandId: string, command: ControlCommand) {
-        calls.push([matchId, commandId, command])
+      async submitCommand(matchId: string, command: MatchCommand) {
+        calls.push([matchId, command])
         return { ok: true as const, outcome: { _tag: 'accepted' as const, acceptedSeq: 3 } }
       },
       readProtocol: unused,
@@ -478,24 +478,23 @@ describe('application orchestration', () => {
       matchRoom: room,
     })
 
-    const commandId = newCommandId()
-    expect(await application.submitMatchCommand(matchId, commandId, command, 'combined-pyramid')).toEqual({
+    expect(await application.submitMatchCommand(matchId, command, 'combined-pyramid')).toEqual({
       ok: false,
       error: 'Unknown match',
       status: 404,
     })
     expect(calls).toEqual([])
-    const result = await application.submitMatchCommand(matchId, commandId, command, 'free-pyramid')
+    const result = await application.submitMatchCommand(matchId, command, 'free-pyramid')
 
     expect(result).toEqual({
       ok: true,
       outcome: { _tag: 'accepted', acceptedSeq: 3 },
     })
-    expect(calls).toEqual([[matchId, commandId, command]])
+    expect(calls).toEqual([[matchId, command]])
   })
 
   test('passes through malformed invalid-command-body without synthesizing an outcome', async () => {
-    const command: ControlCommand = { source: 'game', commandType: 'pot.record', command: {} }
+    const command: MatchCommand = { commandId: newCommandId(), source: 'game', command: { type: 'pot.record' } }
     const application = createApplicationWithDependencies({
       newMatchId: unused,
       newControlSecret: unused,
@@ -526,7 +525,7 @@ describe('application orchestration', () => {
       },
     })
 
-    expect(await application.submitMatchCommand(matchId, newCommandId(), command, 'free-pyramid')).toEqual({
+    expect(await application.submitMatchCommand(matchId, command, 'free-pyramid')).toEqual({
       ok: false,
       error: 'invalid-command-body',
       status: 400,
@@ -534,7 +533,7 @@ describe('application orchestration', () => {
   })
 
   test('passes through valid unavailable rejected receipt as declared outcome', async () => {
-    const command: ControlCommand = { source: 'match', commandType: 'frame.prepare', command: {} }
+    const command: MatchCommand = { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } }
     const rejectedOutcome = { _tag: 'rejected' as const, reason: { code: 'frame-already-active' as const } }
     const application = createApplicationWithDependencies({
       newMatchId: unused,
@@ -566,14 +565,14 @@ describe('application orchestration', () => {
       },
     })
 
-    expect(await application.submitMatchCommand(matchId, newCommandId(), command, 'free-pyramid')).toEqual({
+    expect(await application.submitMatchCommand(matchId, command, 'free-pyramid')).toEqual({
       ok: true,
       outcome: rejectedOutcome,
     })
   })
 
   test('lets a thrown MatchRoom defect reject rather than synthesizing an outcome', async () => {
-    const command: ControlCommand = { source: 'match', commandType: 'frame.prepare', command: {} }
+    const command: MatchCommand = { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } }
     const application = createApplicationWithDependencies({
       newMatchId: unused,
       newControlSecret: unused,
@@ -606,9 +605,7 @@ describe('application orchestration', () => {
       },
     })
 
-    await expect(application.submitMatchCommand(matchId, newCommandId(), command, 'free-pyramid')).rejects.toThrow(
-      'post-commit apply failure',
-    )
+    await expect(application.submitMatchCommand(matchId, command, 'free-pyramid')).rejects.toThrow('post-commit apply failure')
   })
 
   test('reads a finished match entirely from its D1 archive', async () => {
@@ -685,11 +682,10 @@ describe('application orchestration', () => {
     expect(
       await application.submitMatchCommand(
         matchId,
-        newCommandId(),
         {
+          commandId: newCommandId(),
           source: 'match',
-          commandType: 'frame.prepare',
-          command: {},
+          command: { type: 'frame.prepare' },
         },
         'free-pyramid',
       ),
@@ -815,12 +811,12 @@ describe('application orchestration', () => {
         },
       })
       const commandId = newCommandId()
-      const command: ControlCommand = { source: 'match', commandType: 'match.end', command: {} }
+      const command: MatchCommand = { commandId, source: 'match', command: { type: 'match.end' } }
 
-      await expect(application.submitMatchCommand(matchId, commandId, command, 'free-pyramid')).rejects.toThrow(
+      await expect(application.submitMatchCommand(matchId, command, 'free-pyramid')).rejects.toThrow(
         `Injected ${failurePoint} failure`,
       )
-      await application.submitMatchCommand(matchId, commandId, command, 'free-pyramid')
+      await application.submitMatchCommand(matchId, command, 'free-pyramid')
 
       expect(archiveWrites).toBe(1)
       expect(roomStorageExists).toBe(false)

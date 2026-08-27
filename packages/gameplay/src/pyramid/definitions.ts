@@ -1,10 +1,4 @@
-import {
-  BySeatNumberSchema,
-  ControlCommandSectionsSchema,
-  NonEmptyStringSchema,
-  PositiveIntegerSchema,
-  SeatSchema,
-} from '@ks/core'
+import { BySeatNumberSchema, ControlSections, NonEmptyStringSchema, PositiveIntegerSchema, SeatSchema } from '@ks/core'
 import * as v from 'valibot'
 
 import { FoulCommitCommandSchema, FrameAwardCommandSchema, FrameCommenceCommandSchema } from '../command-schemas'
@@ -40,7 +34,7 @@ const PyramidControlDetailsSchema = v.object({
   situationTitle: NonEmptyStringSchema,
   situationSummary: NonEmptyStringSchema,
   isPotCommandAvailable: v.boolean(),
-  commandSections: ControlCommandSectionsSchema,
+  controlSections: ControlSections,
 })
 
 function controlViewSchema<K extends PyramidGameKey>(gameKey: K) {

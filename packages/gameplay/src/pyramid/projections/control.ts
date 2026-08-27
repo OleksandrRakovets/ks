@@ -1,23 +1,10 @@
-import { emptyControlCommandSections } from '@ks/core'
+import { emptyControlSections } from '@ks/core'
 import invariant from 'tiny-invariant'
 
-import { deriveGameCommandSections, type GameControlCommand } from '../../constants'
+import { deriveGameControlSections, type GameControl } from '../../constants'
 import type { AnyPyramidControlView, PyramidControlViewFor } from '../definitions'
 import { getPhase, type PyramidSparringFrameSnapshot } from '../machine'
 import type { PyramidGameKey, PyramidRulesFor } from '../rules'
-
-type PyramidControlCommandInput =
-  | { type: 'pot.record'; seat: 'A' | 'B'; pottedBallCount: number }
-  | { type: 'foul.commit'; seat: 'A' | 'B' }
-  | { type: 'frame.award'; seat: 'A' | 'B' }
-
-function command(
-  input: PyramidControlCommandInput,
-  extras: Omit<GameControlCommand, 'source' | 'commandType' | 'command' | 'seat'>,
-): GameControlCommand {
-  const { type: commandType, ...command } = input
-  return { source: 'game', commandType, command, seat: input.seat, ...extras }
-}
 
 function pyramidDetails(snapshot: PyramidSparringFrameSnapshot) {
   return {
@@ -42,7 +29,7 @@ export function derivePyramidControlView<K extends PyramidGameKey>(
         situationTitle: 'Break-off',
         situationSummary: 'Waiting for the match to open the frame.',
         isPotCommandAvailable: false,
-        commandSections: emptyControlCommandSections(),
+        controlSections: emptyControlSections(),
       },
     } satisfies AnyPyramidControlView & { gameKey: K }
     return projection
@@ -50,22 +37,25 @@ export function derivePyramidControlView<K extends PyramidGameKey>(
 
   if (phase === 'open-play') {
     const seats: Array<'A' | 'B'> = ['A', 'B']
-    const commands = [
+    const controls = [
       ...seats.flatMap((seat) =>
-        rules.shotPointOptions.map((pottedBallCount, index) =>
-          command({ type: 'pot.record', seat, pottedBallCount }, { prominence: index === 0 ? 'primary' : 'secondary' }),
-        ),
+        rules.shotPointOptions.map((pottedBallCount, index) => ({
+          source: 'game' as const,
+          type: 'pot.record',
+          seat,
+          fixedInput: { pottedBallCount },
+          prominence: index === 0 ? ('primary' as const) : ('secondary' as const),
+        })),
       ),
-      ...seats.map((seat) =>
-        command(
-          { type: 'foul.commit', seat },
-          {
-            prominence: 'secondary',
-            effect: rules.foulPenalty,
-          },
-        ),
-      ),
-    ]
+      ...seats.map((seat) => ({
+        source: 'game' as const,
+        type: 'foul.commit',
+        seat,
+        fixedInput: {},
+        prominence: 'secondary' as const,
+        effect: rules.foulPenalty,
+      })),
+    ] satisfies GameControl[]
 
     const projection = {
       gameKey: rules.gameKey,
@@ -76,7 +66,7 @@ export function derivePyramidControlView<K extends PyramidGameKey>(
         situationTitle: 'Open play',
         situationSummary: 'Record shot value or foul for either player.',
         isPotCommandAvailable: true,
-        commandSections: deriveGameCommandSections(commands),
+        controlSections: deriveGameControlSections(controls),
       },
     } satisfies AnyPyramidControlView & { gameKey: K }
     return projection
@@ -84,10 +74,22 @@ export function derivePyramidControlView<K extends PyramidGameKey>(
 
   if (phase === 'winner-determined') {
     invariant(snapshot.context.winner !== null, 'Winner is required before awarding a determined pyramid frame')
-    const commands = [
-      command({ type: 'frame.award', seat: snapshot.context.winner }, { prominence: 'primary' }),
-      command({ type: 'pot.record', seat: snapshot.context.winner, pottedBallCount: 1 }, { prominence: 'secondary' }),
-    ]
+    const controls = [
+      {
+        source: 'game',
+        type: 'frame.award',
+        seat: snapshot.context.winner,
+        fixedInput: {},
+        prominence: 'primary',
+      },
+      {
+        source: 'game',
+        type: 'pot.record',
+        seat: snapshot.context.winner,
+        fixedInput: { pottedBallCount: 1 },
+        prominence: 'secondary',
+      },
+    ] satisfies GameControl[]
 
     const projection = {
       gameKey: rules.gameKey,
@@ -98,7 +100,7 @@ export function derivePyramidControlView<K extends PyramidGameKey>(
         situationTitle: 'Winner determined',
         situationSummary: 'The winner may continue scoring, or the frame can be awarded now.',
         isPotCommandAvailable: true,
-        commandSections: deriveGameCommandSections(commands),
+        controlSections: deriveGameControlSections(controls),
       },
     } satisfies AnyPyramidControlView & { gameKey: K }
     return projection
@@ -113,7 +115,7 @@ export function derivePyramidControlView<K extends PyramidGameKey>(
       situationTitle: 'Frame over',
       situationSummary: 'No further scoring commands are available.',
       isPotCommandAvailable: false,
-      commandSections: emptyControlCommandSections(),
+      controlSections: emptyControlSections(),
     },
   } satisfies AnyPyramidControlView & { gameKey: K }
   return projection

@@ -4,7 +4,7 @@ import { createInitialSnapshot, sendEvent } from '../machine'
 import { PyramidRuleSpecificsByGameKey } from '../rules'
 import { derivePyramidControlView } from './control'
 
-test('projects exact combined-pyramid open-play presentation and command sections', () => {
+test('projects exact combined-pyramid open-play presentation and control sections', () => {
   const rules = PyramidRuleSpecificsByGameKey['combined-pyramid']
   const snapshot = sendEvent(createInitialSnapshot(rules, { A: 8, B: 8 }), { type: 'frame.commence', seat: 'A' })
 
@@ -18,13 +18,13 @@ test('projects exact combined-pyramid open-play presentation and command section
       situationSummary: 'Record shot value or foul for either player.',
       winner: undefined,
       isPotCommandAvailable: true,
-      commandSections: {
+      controlSections: {
         primary: {
           A: [
             {
               source: 'game',
-              commandType: 'pot.record',
-              command: { seat: 'A', pottedBallCount: 1 },
+              type: 'pot.record',
+              fixedInput: { pottedBallCount: 1 },
               seat: 'A',
               prominence: 'primary',
             },
@@ -32,8 +32,8 @@ test('projects exact combined-pyramid open-play presentation and command section
           B: [
             {
               source: 'game',
-              commandType: 'pot.record',
-              command: { seat: 'B', pottedBallCount: 1 },
+              type: 'pot.record',
+              fixedInput: { pottedBallCount: 1 },
               seat: 'B',
               prominence: 'primary',
             },
@@ -43,15 +43,15 @@ test('projects exact combined-pyramid open-play presentation and command section
           A: [
             {
               source: 'game',
-              commandType: 'pot.record',
-              command: { seat: 'A', pottedBallCount: 2 },
+              type: 'pot.record',
+              fixedInput: { pottedBallCount: 2 },
               seat: 'A',
               prominence: 'secondary',
             },
             {
               source: 'game',
-              commandType: 'foul.commit',
-              command: { seat: 'A' },
+              type: 'foul.commit',
+              fixedInput: {},
               seat: 'A',
               prominence: 'secondary',
               effect: 'opponent-plus-one',
@@ -60,15 +60,15 @@ test('projects exact combined-pyramid open-play presentation and command section
           B: [
             {
               source: 'game',
-              commandType: 'pot.record',
-              command: { seat: 'B', pottedBallCount: 2 },
+              type: 'pot.record',
+              fixedInput: { pottedBallCount: 2 },
               seat: 'B',
               prominence: 'secondary',
             },
             {
               source: 'game',
-              commandType: 'foul.commit',
-              command: { seat: 'B' },
+              type: 'foul.commit',
+              fixedInput: {},
               seat: 'B',
               prominence: 'secondary',
               effect: 'opponent-plus-one',

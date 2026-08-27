@@ -20,12 +20,12 @@ test('projects presentation and limits selectable pots to balls remaining', () =
     score: { A: 14, B: 0 },
     details: { phase: 'open-play', ballsRemoved: 14, ballsOnTable: 2, isPotCommandAvailable: true },
   })
-  expect(control.details.commandSections.primary).toEqual({
+  expect(control.details.controlSections.primary).toEqual({
     A: [
       {
         source: 'game',
-        commandType: 'pot.record',
-        command: { seat: 'A', pottedBallCount: 1 },
+        type: 'pot.record',
+        fixedInput: { pottedBallCount: 1 },
         seat: 'A',
         prominence: 'primary',
       },
@@ -33,17 +33,14 @@ test('projects presentation and limits selectable pots to balls remaining', () =
     B: [
       {
         source: 'game',
-        commandType: 'pot.record',
-        command: { seat: 'B', pottedBallCount: 1 },
+        type: 'pot.record',
+        fixedInput: { pottedBallCount: 1 },
         seat: 'B',
         prominence: 'primary',
       },
     ],
   })
-  expect(control.details.commandSections.secondary.A.map((entry) => entry.command)).toEqual([
-    { seat: 'A', pottedBallCount: 2 },
-    { seat: 'A' },
-  ])
+  expect(control.details.controlSections.secondary.A.map((entry) => entry.fixedInput)).toEqual([{ pottedBallCount: 2 }, {}])
 
   control.details.rackHistory[0]!.scoreBySeat.A = 99
   expect(deriveLongFreePyramidControlView(snapshot).details.rackHistory[0]!.scoreBySeat.A).toBe(14)

@@ -1,12 +1,5 @@
 import { MatchCreationDefinitionSchema, type MatchStateFor, type SparringMatchRejection } from '@ks/competition'
-import type {
-  CommandId,
-  ControlCommand,
-  ControlCommandSections,
-  HydratedMatchParticipants,
-  MatchId,
-  UnixEpochMilliseconds,
-} from '@ks/core'
+import type { ControlSections, HydratedMatchParticipants, MatchCommand, MatchId, UnixEpochMilliseconds } from '@ks/core'
 import type { ControlProjectionFor, RegisteredGameKey } from '@ks/gameplay/definitions'
 import type { SupportedLocale } from '@ks/i18n'
 import * as v from 'valibot'
@@ -57,7 +50,7 @@ export type ReadMatchControlResult<K extends RegisteredGameKey> =
       state: MatchStateFor<K>
       latestSeq: number
       controlProjection: ControlProjectionFor<K>
-      controlSections: ControlCommandSections
+      controlSections: ControlSections
       participants: HydratedMatchParticipants
     }
   | {
@@ -65,7 +58,7 @@ export type ReadMatchControlResult<K extends RegisteredGameKey> =
       controlState: 'between-frames'
       state: MatchStateFor<K>
       latestSeq: number
-      controlSections: ControlCommandSections
+      controlSections: ControlSections
       participants: HydratedMatchParticipants
     }
   | ReadMatchFailure
@@ -94,8 +87,7 @@ export type Application = {
   ): Promise<ReadMatchControlResult<K>>
   submitMatchCommand<K extends RegisteredGameKey>(
     matchId: MatchId,
-    commandId: CommandId,
-    command: ControlCommand,
+    command: MatchCommand,
     expectedGameKey: K,
   ): Promise<SubmitMatchCommandResult>
   readMatchProtocol<K extends RegisteredGameKey>(

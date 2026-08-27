@@ -2,6 +2,8 @@
 
 KS is a two-player billiards scorekeeper with public live scoring. A match is a race across frames; seats are always `A` and `B`. Supported games are registered in `packages/gameplay/src/registry.ts`.
 
+Domain vocabulary and distinctions are defined in [`CONTEXT.md`](CONTEXT.md). Treat it as authoritative when naming concepts in code, tests, UI copy, and architecture documentation.
+
 ## Working Mode
 
 - Optimize for architectural clarity and small, reviewable slices.
@@ -44,7 +46,7 @@ KS is a two-player billiards scorekeeper with public live scoring. A match is a 
 
 ## Authority And Lifecycle
 
-- Accepted Commands, their Protocol entries, sequence, and command outcomes are authoritative in each MatchRoom's SQLite database. Do not mirror active command history into D1.
+- Accepted Commands and Protocol entries, their sequence, and command outcomes are authoritative in each MatchRoom's SQLite database. Do not mirror active command history into D1.
 - D1 owns players, the `matches` table, and completed protocol archives with final match state.
 - Resident match/gameplay state is a disposable cache restored by replaying Accepted Commands and comparing regenerated Protocol entries; raw XState snapshots are not persisted.
 - The terminal Accepted Command atomically stores Final Match State and `endedAt`. Application validates and archives MatchRoom's Protocol and Final Match State transfer without gameplay replay, asks MatchRoom to broadcast/close/delete local storage, then marks the match row finished.

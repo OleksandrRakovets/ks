@@ -2,14 +2,12 @@ import type { ProtocolRow, ReadMatchControlResult, ReadMatchProtocolResult } fro
 import {
   AcceptedCommandStreamUpdateSchema,
   type BySeatNumber,
-  CommandIdSchema,
-  type ControlCommandPreset,
-  ControlCommandSchema,
+  type Control,
+  MatchCommand,
   type MatchId,
   MatchIdSchema,
   type MatchState,
   MatchStreamReadySchema,
-  newCommandId,
 } from '@ks/core'
 import { type RegisteredGameKey, registry } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
@@ -20,6 +18,7 @@ import { useRevalidator } from 'react-router'
 import * as v from 'valibot'
 
 import { Button } from '@/components/ui'
+import { matchCommandFromControl } from '@/features/match-control/renderers/types'
 
 import type { AppLoadContext } from '../../server/context'
 import { requireApplication } from '../../server/context'
@@ -55,7 +54,7 @@ export type ControlActionData =
 
 type ControlActionErrorKey = Extract<ControlActionData, { ok: false }>['errorKey']
 
-const SubmittedControlCommandSchema = v.pipe(v.string(), v.parseJson(), ControlCommandSchema)
+const SubmittedMatchCommand = v.pipe(v.string(), v.parseJson(), MatchCommand)
 const StreamReadyEventSchema = v.pipe(v.string(), v.parseJson(), MatchStreamReadySchema)
 const StreamUpdateEventSchema = v.pipe(v.string(), v.parseJson(), AcceptedCommandStreamUpdateSchema)
 
@@ -100,18 +99,12 @@ export async function commandMatchAction<K extends RegisteredGameKey>(
 ): Promise<ControlActionData> {
   const matchId = matchIdFromParams(args.params)
   const form = await args.request.formData()
-  const command = v.safeParse(SubmittedControlCommandSchema, form.get('command'))
-  const commandId = v.safeParse(CommandIdSchema, form.get('commandId'))
-  if (!command.success || !commandId.success) {
+  const command = v.safeParse(SubmittedMatchCommand, form.get('command'))
+  if (!command.success) {
     return { ok: false, errorKey: keys.match.control.invalidCommandPayload }
   }
 
-  const result = await requireApplication(args.context).submitMatchCommand(
-    matchId,
-    commandId.output,
-    command.output,
-    expectedGameKey,
-  )
+  const result = await requireApplication(args.context).submitMatchCommand(matchId, command.output, expectedGameKey)
   if (!result.ok) {
     if (result.status === 404) throw new Response(result.error, { status: 404 })
     if (result.status === 409) return { ok: false, errorKey: keys.match.control.matchLocked }
@@ -126,10 +119,9 @@ export async function commandMatchAction<K extends RegisteredGameKey>(
   }
 }
 
-export function controlCommandForm(command: ControlCommandPreset) {
+export function matchCommandForm(command: MatchCommand) {
   return {
-    command: JSON.stringify({ source: command.source, commandType: command.commandType, command: command.command }),
-    commandId: newCommandId(),
+    command: JSON.stringify(command),
   }
 }
 
@@ -321,8 +313,8 @@ export function useProtocolLiveRevalidation(state: MatchState, latestSeq: number
   }, [state.matchId, state.status])
 }
 
-function matchCommandLabel(t: TFunction, command: ControlCommandPreset): string {
-  switch (command.commandType) {
+function matchControlLabel(t: TFunction, control: Control): string {
+  switch (control.type) {
     case 'frame.commence':
       return t('match.control.commands.match.frame.commence')
     case 'frame.prepare':
@@ -339,10 +331,10 @@ function matchCommandLabel(t: TFunction, command: ControlCommandPreset): string 
 export function BetweenFrameControls(props: {
   sections: ControlSuccess<RegisteredGameKey>['controlSections']
   submitting: boolean
-  onSubmit: (command: ControlCommandPreset) => void
+  onSubmit: (command: MatchCommand) => void
 }) {
   const { t } = useTranslation()
-  const commands = [
+  const controls = [
     ...props.sections.neutral,
     ...props.sections.primary.A,
     ...props.sections.primary.B,
@@ -350,22 +342,22 @@ export function BetweenFrameControls(props: {
     ...props.sections.secondary.B,
     ...props.sections.tertiary.A,
     ...props.sections.tertiary.B,
-  ].filter((command) => command.source === 'match')
+  ].filter((control) => control.source === 'match')
   return (
     <section aria-label={t(keys.match.control.perGameContainer)} className="border-b border-divider px-4 py-3">
       <div className="mx-auto grid w-2/3 gap-3.5">
-        {commands.map((command, index) => (
+        {controls.map((control, index) => (
           <Button
-            key={`${command.commandType}-${index}`}
+            key={`${control.type}-${index}`}
             type="button"
             size="control"
             variant={
-              command.prominence === 'primary' ? 'default' : command.prominence === 'secondary' ? 'secondary' : 'outline'
+              control.prominence === 'primary' ? 'default' : control.prominence === 'secondary' ? 'secondary' : 'outline'
             }
             disabled={props.submitting}
-            onClick={() => props.onSubmit(command)}
+            onClick={() => props.onSubmit(matchCommandFromControl(control))}
           >
-            {matchCommandLabel(t, command)}
+            {matchControlLabel(t, control)}
           </Button>
         ))}
       </div>

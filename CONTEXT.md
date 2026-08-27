@@ -28,6 +28,12 @@ A subdivision of a frame used by games whose play resets or continues across suc
 In old Combined Pyramid, the number of balls a player must legally pot to repay penalties before accumulating a positive score.
 _Avoid_: Negative pots
 
+## Presentation
+
+**Control**:
+A description of an interaction that the current match projection permits the user interface to present. A control may contain fixed input and may require additional user input before the renderer produces a Command. Controls are disposable presentation guidance; they are not submitted, accepted, or retained as match history.
+_Avoid_: Available command, command preset
+
 ## Records
 
 **Command**:

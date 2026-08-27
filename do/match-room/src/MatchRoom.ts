@@ -8,7 +8,6 @@ import migrationsBundle from '../drizzle/migrations.js'
 import type { Env } from './env'
 import { Broadcaster } from './live/broadcaster'
 import {
-  canonicalCommandJson,
   type CreateBody,
   CreateBodySchema,
   type MatchIdBody,
@@ -110,8 +109,8 @@ export class MatchRoom extends DurableObject<Env> {
     return this.ctx.blockConcurrencyWhile(async () => {
       const match = this.store.match()
       if (!match || match.matchId !== body.output.matchId) return { ok: false, error: 'unknown-match', status: 400 }
-      const requestJson = canonicalCommandJson(body.output.command)
-      const prior = this.store.commandOutcome(body.output.commandId)
+      const requestJson = JSON.stringify(body.output.command)
+      const prior = this.store.commandOutcome(body.output.command.commandId)
       if (prior)
         return prior.requestJson === requestJson
           ? this.success(prior.outcome, match.status)
@@ -125,7 +124,7 @@ export class MatchRoom extends DurableObject<Env> {
           return this.success(
             this.store.commitRejected({
               matchId: match.matchId,
-              commandId: body.output.commandId,
+              commandId: body.output.command.commandId,
               requestJson,
               reason: result.reason,
             }),
@@ -135,7 +134,7 @@ export class MatchRoom extends DurableObject<Env> {
         const finalState = projection.state.status === 'finished' ? projection.state : null
         const committed = this.store.commitAccepted({
           match,
-          commandId: body.output.commandId,
+          commandId: body.output.command.commandId,
           requestJson,
           command: result.command,
           entries: result.protocolEntries,

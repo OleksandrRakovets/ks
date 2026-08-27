@@ -1,4 +1,4 @@
-import { BySeatNumberSchema, ControlCommandSectionsSchema, IntegerSchema, SeatSchema } from '@ks/core'
+import { BySeatNumberSchema, ControlSections, IntegerSchema, SeatSchema } from '@ks/core'
 import * as v from 'valibot'
 
 import { FoulCommitCommandSchema, FrameAwardCommandSchema, FrameCommenceCommandSchema } from '../command-schemas'
@@ -56,7 +56,7 @@ export type LongFreePyramidProjectionDetails = v.InferOutput<typeof LongFreePyra
 const LongFreePyramidControlDetailsSchema = v.object({
   ...LongFreePyramidProjectionDetailsSchema.entries,
   isPotCommandAvailable: v.boolean(),
-  commandSections: ControlCommandSectionsSchema,
+  controlSections: ControlSections,
 })
 
 export const LongFreePyramidControlViewSchema = v.object({

@@ -1,14 +1,8 @@
-import {
-  BySeatNumberSchema,
-  ControlCommandSectionsSchema,
-  NonEmptyStringSchema,
-  ProtocolEntrySchema,
-  SeatSchema,
-} from '@ks/core'
+import { BySeatNumberSchema, ControlSections, NonEmptyStringSchema, ProtocolEntrySchema, SeatSchema } from '@ks/core'
 import * as v from 'valibot'
 
 import { FoulCommitCommandSchema, FrameAwardCommandSchema, FrameCommenceCommandSchema } from '../command-schemas'
-import { GameControlCommandSchema, GameControlProjectionSchema } from '../constants'
+import { GameControlProjectionSchema } from '../constants'
 
 const CueBallSchema = v.literal(0)
 const ColoredBallSchema = v.union([
@@ -99,8 +93,6 @@ const ControlMessageSchema = v.object({
   code: v.picklist(['cue-ball-and-colored-is-foul', 'black-pot-wins']),
 })
 
-export type StrilaControlCommand = v.InferOutput<typeof GameControlCommandSchema>
-
 const StrilaControlDetailsSchema = v.object({
   phase: StrilaPhaseSchema,
   seat: v.optional(SeatSchema),
@@ -108,7 +100,7 @@ const StrilaControlDetailsSchema = v.object({
   situationSummary: v.optional(NonEmptyStringSchema),
   isPotCommandAvailable: v.boolean(),
   ballStatuses: StrilaBallStatusesSchema,
-  commandSections: ControlCommandSectionsSchema,
+  controlSections: ControlSections,
   messages: v.array(ControlMessageSchema),
 })
 export type StrilaControlDetails = v.InferOutput<typeof StrilaControlDetailsSchema>

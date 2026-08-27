@@ -1,6 +1,6 @@
+import type { MatchCommand } from '@ks/core'
 import * as v from 'valibot'
 
-import { GameCommandTransportPayloadSchema } from './command-schemas'
 import { type GameCommandFor, type RegisteredGameKey, registry } from './registry'
 
 type GameCommandParseFailure = {
@@ -24,19 +24,14 @@ function parseFailure<K extends RegisteredGameKey>(
 
 export function parseGameCommand<K extends RegisteredGameKey>(
   gameKey: K,
-  input: { readonly commandType: string; readonly command: unknown },
+  input: MatchCommand['command'],
 ): ParseGameCommandResult<K> {
   const schema = registry[gameKey].commandSchema
-
-  const payload = v.safeParse(GameCommandTransportPayloadSchema, input.command)
-  if (!payload.success) {
-    return parseFailure(gameKey, input.commandType, payload.issues)
-  }
-
-  const candidate = { ...payload.output, type: input.commandType }
-  const parsed = v.safeParse(schema, candidate)
+  const parsed = v.safeParse(schema, input)
   if (!parsed.success) {
-    return parseFailure(gameKey, input.commandType, parsed.issues)
+    const discriminator = v.safeParse(v.object({ type: v.string() }), input)
+    const commandType = discriminator.success ? discriminator.output.type : 'unknown'
+    return parseFailure(gameKey, commandType, parsed.issues)
   }
 
   // SAFETY: schema is keyed to gameKey in the exhaustive registry entry above.
