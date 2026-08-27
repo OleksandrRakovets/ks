@@ -30,9 +30,6 @@
     "@ks/match-room#typecheck": {
       "outputs": ["worker-configuration.d.ts"]
     },
-    "machine-explorer#build": {
-      "outputs": ["dist/**"]
-    },
     "@ks/play#dev": {
       "cache": false,
       "persistent": true
