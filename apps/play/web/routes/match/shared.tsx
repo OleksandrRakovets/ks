@@ -3,10 +3,9 @@ import {
   type BySeatNumber,
   type Control,
   MatchCommand,
-  type MatchId,
-  MatchIdSchema,
+  MatchId,
   type MatchState,
-  MatchStreamReadySchema,
+  MatchStreamReady,
   MatchStreamUpdate,
 } from '@ks/core'
 import { type RegisteredGameKey, registry } from '@ks/gameplay/definitions'
@@ -57,11 +56,11 @@ export type ControlActionData =
 type ControlActionErrorKey = Extract<ControlActionData, { ok: false }>['errorKey']
 
 const SubmittedMatchCommand = v.pipe(v.string(), v.parseJson(), MatchCommand)
-const StreamReadyEventSchema = v.pipe(v.string(), v.parseJson(), MatchStreamReadySchema)
+const StreamReadyEventSchema = v.pipe(v.string(), v.parseJson(), MatchStreamReady)
 const StreamUpdateEventSchema = v.pipe(v.string(), v.parseJson(), MatchStreamUpdate)
 
 function matchIdFromParams(params: RouteArgs['params']): MatchId {
-  const matchId = v.safeParse(MatchIdSchema, params.matchId)
+  const matchId = v.safeParse(MatchId, params.matchId)
   if (!matchId.success) throw new Response('Invalid matchId', { status: 400 })
   return matchId.output
 }

@@ -1,17 +1,17 @@
-import { SeatSchema } from '@ks/core'
+import { Seat } from '@ks/core'
 import * as v from 'valibot'
 
 export const FrameCommenceCommandSchema = v.strictObject({
   type: v.literal('frame.commence'),
-  seat: SeatSchema,
+  seat: Seat,
 })
 
 export const FoulCommitCommandSchema = v.strictObject({
   type: v.literal('foul.commit'),
-  seat: SeatSchema,
+  seat: Seat,
 })
 
 export const FrameAwardCommandSchema = v.strictObject({
   type: v.literal('frame.award'),
-  seat: SeatSchema,
+  seat: Seat,
 })

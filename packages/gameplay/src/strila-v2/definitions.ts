@@ -1,10 +1,4 @@
-import {
-  BySeatNumberSchema,
-  ControlSections,
-  GameProtocolEntry,
-  NonEmptyStringSchema,
-  SeatSchema,
-} from '@ks/core'
+import { BySeatNumber, ControlSections, GameProtocolEntry, NonEmptyString, Seat } from '@ks/core'
 import * as v from 'valibot'
 
 import {
@@ -48,10 +42,10 @@ const FoulResponseChoiceSchema = v.picklist(['play-from-position', 'pass-positio
 
 export const StrilaCommandSchema = v.variant('type', [
   FrameCommenceCommandSchema,
-  v.strictObject({ type: v.literal('pot.record'), seat: SeatSchema, pottedBalls: PottedBallsSchema }),
-  v.strictObject({ type: v.literal('miss.record'), seat: SeatSchema }),
+  v.strictObject({ type: v.literal('pot.record'), seat: Seat, pottedBalls: PottedBallsSchema }),
+  v.strictObject({ type: v.literal('miss.record'), seat: Seat }),
   FoulCommitCommandSchema,
-  v.strictObject({ type: v.literal('penalty.select'), seat: SeatSchema, choice: FoulResponseChoiceSchema }),
+  v.strictObject({ type: v.literal('penalty.select'), seat: Seat, choice: FoulResponseChoiceSchema }),
   FrameAwardCommandSchema,
 ])
 export type StrilaCommand = v.InferOutput<typeof StrilaCommandSchema>
@@ -71,17 +65,17 @@ export type StrilaPhase = v.InferOutput<typeof StrilaPhaseSchema>
 const WinnerDeterminationReasonSchema = v.picklist(['target-reached', 'respotted-black-won', 'automatic-foul'])
 
 const ContextSchema = v.object({
-  score: BySeatNumberSchema,
-  targetPoints: BySeatNumberSchema,
+  score: BySeatNumber,
+  targetPoints: BySeatNumber,
   coloredBallsOnTable: v.array(ColoredBallSchema),
   cueBallSerialPots: v.nullable(
     v.object({
-      seat: SeatSchema,
+      seat: Seat,
       count: v.union([v.literal(1), v.literal(2)]),
     }),
   ),
-  foulOffender: v.nullable(SeatSchema),
-  winner: v.nullable(SeatSchema),
+  foulOffender: v.nullable(Seat),
+  winner: v.nullable(Seat),
   winnerDeterminationReason: v.nullable(WinnerDeterminationReasonSchema),
 })
 export type StrilaContext = v.InferOutput<typeof ContextSchema>
@@ -105,9 +99,9 @@ const ControlMessageSchema = v.object({
 
 const StrilaControlDetailsSchema = v.object({
   phase: StrilaPhaseSchema,
-  seat: v.optional(SeatSchema),
-  situationTitle: NonEmptyStringSchema,
-  situationSummary: v.optional(NonEmptyStringSchema),
+  seat: v.optional(Seat),
+  situationTitle: NonEmptyString,
+  situationSummary: v.optional(NonEmptyString),
   isPotCommandAvailable: v.boolean(),
   ballStatuses: StrilaBallStatusesSchema,
   controlSections: ControlSections,

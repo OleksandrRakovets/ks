@@ -1,4 +1,4 @@
-import { type MatchId, type MatchState, MatchStateSchema, NonEmptyProtocolEntries } from '@ks/core'
+import { type MatchId, MatchState, NonEmptyProtocolEntries } from '@ks/core'
 import { and, eq, inArray } from 'drizzle-orm'
 import * as v from 'valibot'
 
@@ -92,15 +92,15 @@ function semanticArchiveEqual(
     return false
   const leftRows = v.safeParse(v.pipe(v.string(), v.parseJson(), NonEmptyProtocolEntries), left.rowsJson)
   const rightRows = v.safeParse(v.pipe(v.string(), v.parseJson(), NonEmptyProtocolEntries), right.rowsJson)
-  const leftState = v.safeParse(v.pipe(v.string(), v.parseJson(), MatchStateSchema), left.stateJson)
-  const rightState = v.safeParse(v.pipe(v.string(), v.parseJson(), MatchStateSchema), right.stateJson)
+  const leftState = v.safeParse(v.pipe(v.string(), v.parseJson(), MatchState), left.stateJson)
+  const rightState = v.safeParse(v.pipe(v.string(), v.parseJson(), MatchState), right.stateJson)
   // SAFETY: both schemas validate JSON-compatible structural values.
   const decodedLeftRows = leftRows.success ? (leftRows.output as StructuralValue) : undefined
   // SAFETY: both schemas validate JSON-compatible structural values.
   const decodedRightRows = rightRows.success ? (rightRows.output as StructuralValue) : undefined
-  // SAFETY: MatchStateSchema validates a JSON-compatible structural value.
+  // SAFETY: MatchState validates a JSON-compatible structural value.
   const decodedLeftState = leftState.success ? (leftState.output as StructuralValue) : undefined
-  // SAFETY: MatchStateSchema validates a JSON-compatible structural value.
+  // SAFETY: MatchState validates a JSON-compatible structural value.
   const decodedRightState = rightState.success ? (rightState.output as StructuralValue) : undefined
   return (
     leftRows.success &&

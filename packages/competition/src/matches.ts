@@ -1,11 +1,11 @@
 import {
-  GameConfigurationSchema,
+  GameConfiguration,
   type GameKey,
   type MatchConfig,
   type MatchId,
-  MatchSeatAssignmentSchema,
-  MatchTargetsSchema,
-  SeatSchema,
+  MatchSeatAssignment,
+  MatchTargets,
+  Seat,
 } from '@ks/core'
 import type { MatchState } from '@ks/core'
 import { RegisteredGameKeySchema } from '@ks/gameplay/definitions'
@@ -14,9 +14,9 @@ import * as v from 'valibot'
 export const MatchCreationDefinitionSchema = v.pipe(
   v.object({
     gameKey: RegisteredGameKeySchema,
-    targets: MatchTargetsSchema,
-    firstBreakerSeat: SeatSchema,
-    gameConfiguration: v.optional(GameConfigurationSchema),
+    targets: MatchTargets,
+    firstBreakerSeat: Seat,
+    gameConfiguration: v.optional(GameConfiguration),
   }),
   v.check(
     (value) =>
@@ -30,7 +30,7 @@ export const MatchCreationDefinitionSchema = v.pipe(
 export const CreateMatchRequestSchema = v.pipe(
   v.intersect([
     MatchCreationDefinitionSchema,
-    v.object({ participants: v.tuple([MatchSeatAssignmentSchema, MatchSeatAssignmentSchema]) }),
+    v.object({ participants: v.tuple([MatchSeatAssignment, MatchSeatAssignment]) }),
   ]),
   v.check(
     (value) => new Set(value.participants.map((participant) => participant.seat)).size === 2,

@@ -1,8 +1,8 @@
-import { type Control, PositiveIntegerSchema } from '@ks/core'
+import { type Control, PositiveInteger } from '@ks/core'
 import type { TFunction } from 'i18next'
 import * as v from 'valibot'
 
-const PotRecordCountPayloadSchema = v.object({ pottedBallCount: PositiveIntegerSchema })
+const PotRecordCountPayloadSchema = v.object({ pottedBallCount: PositiveInteger })
 
 export function potRecordPottedBallCount(control: Control): number | undefined {
   const parsed = v.safeParse(PotRecordCountPayloadSchema, control.fixedInput)

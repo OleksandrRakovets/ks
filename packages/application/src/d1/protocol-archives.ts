@@ -1,11 +1,5 @@
 import { parseProtocolEntryContent } from '@ks/competition'
-import {
-  type MatchId,
-  MatchIdSchema,
-  MatchStateSchema,
-  NonEmptyProtocolEntries,
-  PositiveIntegerSchema,
-} from '@ks/core'
+import { MatchId, MatchState, NonEmptyProtocolEntries, PositiveInteger } from '@ks/core'
 import { isRegisteredGameKey } from '@ks/gameplay/definitions'
 import { eq } from 'drizzle-orm'
 import * as v from 'valibot'
@@ -21,11 +15,11 @@ import type { ApplicationDatabase } from './types'
 
 const ProtocolArchiveStorageRowSchema = v.pipe(
   v.object({
-    matchId: MatchIdSchema,
-    sourceLatestSeq: PositiveIntegerSchema,
+    matchId: MatchId,
+    sourceLatestSeq: PositiveInteger,
     protocolVersion: v.literal(PROTOCOL_ARCHIVE_VERSION),
     rowsJson: v.pipe(v.string(), v.parseJson(), NonEmptyProtocolEntries),
-    stateJson: v.pipe(v.string(), v.parseJson(), MatchStateSchema),
+    stateJson: v.pipe(v.string(), v.parseJson(), MatchState),
   }),
   v.transform(({ rowsJson, stateJson, ...row }) => ({ ...row, entries: rowsJson, state: stateJson })),
   v.check((value) => value.state.status === 'finished', 'Archive state is not finished'),

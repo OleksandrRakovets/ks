@@ -1,7 +1,7 @@
 import * as v from 'valibot'
 
 import type { Brand } from './brand'
-import { NonNegativeIntegerSchema } from './valicombos'
+import { NonNegativeInteger } from './valicombos'
 
 export type UnixEpochMilliseconds = Brand<number, 'UnixEpochMilliseconds'>
 
@@ -10,11 +10,8 @@ function toUnixEpochMilliseconds(value: number): UnixEpochMilliseconds {
   return value as UnixEpochMilliseconds
 }
 
-export const UnixEpochMillisecondsSchema = v.pipe(
-  NonNegativeIntegerSchema,
-  v.transform(toUnixEpochMilliseconds),
-)
+export const UnixEpochMilliseconds = v.pipe(NonNegativeInteger, v.transform(toUnixEpochMilliseconds))
 
 export function nowUnixEpochMilliseconds(): UnixEpochMilliseconds {
-  return v.parse(UnixEpochMillisecondsSchema, Date.now())
+  return v.parse(UnixEpochMilliseconds, Date.now())
 }

@@ -2,25 +2,25 @@ import { describe, expect, test } from 'bun:test'
 
 import * as v from 'valibot'
 
-import { MatchIdSchema } from './ids'
-import { BySeatNumberSchema, GameKeySchema, MatchStateSchema, MatchTargetsSchema } from './match'
+import { MatchId } from './ids'
+import { BySeatNumber, GameKey, MatchState, MatchTargets } from './match'
 
 describe('match value schemas', () => {
   test('requires positive frame and match targets', () => {
     expect(
-      v.safeParse(MatchTargetsSchema, {
+      v.safeParse(MatchTargets, {
         frameTargetPointsBySeat: { A: 8, B: 8 },
         matchTargetFrames: 3,
       }).success,
     ).toBe(true)
     expect(
-      v.safeParse(MatchTargetsSchema, {
+      v.safeParse(MatchTargets, {
         frameTargetPointsBySeat: { A: 0, B: 8 },
         matchTargetFrames: 3,
       }).success,
     ).toBe(false)
     expect(
-      v.safeParse(MatchTargetsSchema, {
+      v.safeParse(MatchTargets, {
         frameTargetPointsBySeat: { A: 8, B: 8 },
         matchTargetFrames: -1,
       }).success,
@@ -28,13 +28,13 @@ describe('match value schemas', () => {
   })
 
   test('continues to allow signed scores and historical syntactic game keys', () => {
-    expect(v.parse(BySeatNumberSchema, { A: -2, B: 4 })).toEqual({ A: -2, B: 4 })
-    expect(v.parse(GameKeySchema, 'historical-game')).toBe('historical-game')
+    expect(v.parse(BySeatNumber, { A: -2, B: 4 })).toEqual({ A: -2, B: 4 })
+    expect(v.parse(GameKey, 'historical-game')).toBe('historical-game')
   })
 
   test('rejects a negative per-seat match target independently', () => {
     expect(
-      v.safeParse(MatchTargetsSchema, {
+      v.safeParse(MatchTargets, {
         frameTargetPointsBySeat: { A: -1, B: 8 },
         matchTargetFrames: 3,
       }).success,
@@ -42,8 +42,8 @@ describe('match value schemas', () => {
   })
 
   test('decodes a historical syntactic game key in persisted state', () => {
-    const state = v.parse(MatchStateSchema, {
-      matchId: v.parse(MatchIdSchema, '01ARZ3NDEKTSV4RRFFQ69G5FAV'),
+    const state = v.parse(MatchState, {
+      matchId: v.parse(MatchId, '01ARZ3NDEKTSV4RRFFQ69G5FAV'),
       gameKey: 'historical-game',
       targets: { frameTargetPointsBySeat: { A: 8, B: 8 }, matchTargetFrames: 1 },
       status: 'finished',

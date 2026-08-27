@@ -1,10 +1,4 @@
-import {
-  type BySeatNumber,
-  BySeatNumberSchema,
-  Control,
-  emptyControlSections,
-  NonEmptyStringSchema,
-} from '@ks/core'
+import { BySeatNumber, Control, emptyControlSections, NonEmptyString } from '@ks/core'
 import * as v from 'valibot'
 
 type LocalizedGameTitle = {
@@ -32,9 +26,9 @@ export function deriveGameControlSections(controls: readonly GameControl[]) {
 }
 
 export const GameControlProjectionSchema = v.object({
-  gameKey: NonEmptyStringSchema,
+  gameKey: NonEmptyString,
   projection: v.literal('control'),
-  score: BySeatNumberSchema,
+  score: BySeatNumber,
   details: v.optional(v.unknown()),
 })
 export type GameControlProjectionInput = v.InferOutput<typeof GameControlProjectionSchema>

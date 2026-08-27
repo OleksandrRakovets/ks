@@ -11,8 +11,7 @@ import {
   type NonEmptyProtocolEntryContents,
   opponentOf,
   type ProtocolEntryContent,
-  type Seat,
-  SeatSchema,
+  Seat,
 } from '@ks/core'
 import {
   type ControlProjectionFor,
@@ -40,7 +39,7 @@ type MatchCommandParseFailure = {
 export const SparringMatchRejectionSchema = v.variant('code', [
   v.object({ code: v.literal('frame-already-active') }),
   v.object({ code: v.literal('no-active-frame') }),
-  v.object({ code: v.literal('wrong-breaker'), expectedSeat: SeatSchema }),
+  v.object({ code: v.literal('wrong-breaker'), expectedSeat: Seat }),
   v.object({ code: v.literal('match-already-over') }),
   v.object({ code: v.literal('game-command-rejected'), reason: GameCommandRejectionSchema }),
 ])
@@ -91,8 +90,8 @@ type CorrelatedGameplay<K extends RegisteredGameKey> = {
 type AnyCorrelatedGameplay = { [K in RegisteredGameKey]: CorrelatedGameplay<K> }[RegisteredGameKey]
 const MatchLifecycleCommand = v.variant('type', [
   v.strictObject({ type: v.literal('frame.prepare') }),
-  v.strictObject({ type: v.literal('frame.commence'), seat: SeatSchema }),
-  v.strictObject({ type: v.literal('frame.concede'), seat: SeatSchema }),
+  v.strictObject({ type: v.literal('frame.commence'), seat: Seat }),
+  v.strictObject({ type: v.literal('frame.concede'), seat: Seat }),
 ])
 type MatchLifecycleCommand = v.InferOutput<typeof MatchLifecycleCommand>
 

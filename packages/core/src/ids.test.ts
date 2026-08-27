@@ -4,27 +4,27 @@ import * as v from 'valibot'
 
 import {
   formatPlayerRef,
-  GuestPlayerIdSchema,
-  MatchIdSchema,
+  GuestPlayerId,
+  MatchId,
   newGuestPlayerId,
   newMatchId,
   newVerifiedPlayerId,
-  PlayerRefSchema,
+  PlayerRef,
   stripOptionalPrefix,
-  VerifiedPlayerIdSchema,
+  VerifiedPlayerId,
 } from './ids'
 
 describe('ID generation', () => {
   test('npm ULIDs satisfy every public generated ID schema', () => {
-    expect(v.is(GuestPlayerIdSchema, newGuestPlayerId())).toBe(true)
-    expect(v.is(VerifiedPlayerIdSchema, newVerifiedPlayerId())).toBe(true)
-    expect(v.is(MatchIdSchema, newMatchId())).toBe(true)
+    expect(v.is(GuestPlayerId, newGuestPlayerId())).toBe(true)
+    expect(v.is(VerifiedPlayerId, newVerifiedPlayerId())).toBe(true)
+    expect(v.is(MatchId, newMatchId())).toBe(true)
   })
 
   test('formats player refs and strips optional ULID prefixes', () => {
     const id = '01ARZ3NDEKTSV4RRFFQ69G5FAV'
 
-    expect(formatPlayerRef('gp', id)).toBe(v.parse(PlayerRefSchema, `gp_${id}`))
+    expect(formatPlayerRef('gp', id)).toBe(v.parse(PlayerRef, `gp_${id}`))
     expect(stripOptionalPrefix(`m_${id}`)).toBe(id)
     expect(stripOptionalPrefix(`unknown_${id}`)).toBe(id)
     expect(stripOptionalPrefix('not_a_ulid')).toBe('not_a_ulid')

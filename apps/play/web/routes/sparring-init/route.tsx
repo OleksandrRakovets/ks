@@ -1,5 +1,5 @@
 import { type CreateMatchInput, DisplayNameSchema } from '@ks/application'
-import { type Seat, SeatSchema } from '@ks/core'
+import { Seat } from '@ks/core'
 import { isRegisteredGameKey, registry } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
 import { useMemo, useState } from 'react'
@@ -86,7 +86,7 @@ export async function action({
       : parsePositiveInt(form.get('matchTargetFrames'))
   const targetA = parsePositiveInt(form.get('targetA'), defaultFrameTargetPointsBySeat.A)
   const targetB = parsePositiveInt(form.get('targetB'), defaultFrameTargetPointsBySeat.B)
-  const firstBreakerSeat = v.safeParse(SeatSchema, form.get('firstBreakerSeat'))
+  const firstBreakerSeat = v.safeParse(Seat, form.get('firstBreakerSeat'))
   const rackRollover = profile.rackRollover ? parseRackRollover(form.get('rackRollover')) : null
 
   if (!seatAName.success || !seatBName.success) {

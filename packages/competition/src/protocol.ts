@@ -1,4 +1,4 @@
-import { BySeatNumberSchema, ProtocolEntryContent, UnknownObjectSchema } from '@ks/core'
+import { BySeatNumber, ProtocolEntryContent, UnknownObject } from '@ks/core'
 import { RegisteredGameKeySchema } from '@ks/gameplay/definitions'
 import { parseGameProtocolEntry } from '@ks/gameplay/server'
 import * as v from 'valibot'
@@ -8,8 +8,8 @@ export const MatchLifecycleProtocolEntry = v.variant('entryType', [
     ...ProtocolEntryContent.entries,
     entryType: v.literal('frame-prepared'),
     body: v.object({
-      targetPointsBySeat: BySeatNumberSchema,
-      gameConfiguration: v.optional(UnknownObjectSchema),
+      targetPointsBySeat: BySeatNumber,
+      gameConfiguration: v.optional(UnknownObject),
     }),
   }),
   v.object({ ...ProtocolEntryContent.entries, entryType: v.literal('frame-conceded'), body: v.object({}) }),

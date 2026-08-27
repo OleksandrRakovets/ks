@@ -1,7 +1,7 @@
 import * as v from 'valibot'
 
-import { CommandIdSchema } from './ids'
-import { UnknownObjectSchema } from './valicombos'
+import { CommandId } from './ids'
+import { UnknownObject } from './valicombos'
 
 /**
  * Complete identified intent submitted for match evaluation.
@@ -10,8 +10,8 @@ import { UnknownObjectSchema } from './valicombos'
  * with that command in the browser and remains part of the value through HTTP, RPC, persistence, and active replay.
  */
 export const MatchCommand = v.object({
-  commandId: CommandIdSchema,
+  commandId: CommandId,
   source: v.picklist(['match', 'game']),
-  command: UnknownObjectSchema,
+  command: UnknownObject,
 })
 export type MatchCommand = v.InferOutput<typeof MatchCommand>

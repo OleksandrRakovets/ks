@@ -1,11 +1,11 @@
 import { SparringMatchRejectionSchema } from '@ks/competition'
-import { type CommandId, PositiveIntegerSchema } from '@ks/core'
+import { type CommandId, PositiveInteger } from '@ks/core'
 import * as v from 'valibot'
 
-export const CommandReceiptOutcomeSchema = v.variant('_tag', [
+const CommandReceiptOutcomeSchema = v.variant('_tag', [
   v.object({
     _tag: v.literal('accepted'),
-    acceptedSeq: PositiveIntegerSchema,
+    acceptedSeq: PositiveInteger,
   }),
   v.object({
     _tag: v.literal('rejected'),

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { type BySeatNumber, FrameOutcomeSchema } from '@ks/core'
+import { type BySeatNumber, FrameOutcome } from '@ks/core'
 import * as v from 'valibot'
 
 import { createInitialSnapshot, getPhase, type PyramidSparringFrameSnapshot, sendEvent } from './machine'
@@ -56,7 +56,7 @@ describe('PyramidSparringFrameMachine: basic', () => {
 
     expect(getPhase(snap)).toBe('frame-over')
     expect(snap.output).toEqual({ winnerSeat: 'A', winReason: 'target-reached', score: { A: 2, B: 0 } })
-    expect(v.is(FrameOutcomeSchema, snap.output)).toBe(true)
+    expect(v.is(FrameOutcome, snap.output)).toBe(true)
   })
 
   test('frame.award by non-leader throws', () => {

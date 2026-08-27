@@ -24,34 +24,34 @@ function ulidBrandedSchema<B extends string>() {
   )
 }
 
-export const GuestPlayerIdSchema = ulidBrandedSchema<'GuestPlayerId'>()
-export const VerifiedPlayerIdSchema = ulidBrandedSchema<'VerifiedPlayerId'>()
-export const PlayerRefSchema = v.pipe(
+export const GuestPlayerId = ulidBrandedSchema<'GuestPlayerId'>()
+export const VerifiedPlayerId = ulidBrandedSchema<'VerifiedPlayerId'>()
+export const PlayerRef = v.pipe(
   v.string(),
   v.regex(/^(gp|vp)_[0-9A-HJKMNP-TV-Z]{26}$/),
   v.transform((value) => toBrand<'PlayerRef'>(value)),
 )
-export const MatchIdSchema = ulidBrandedSchema<'MatchId'>()
-export const CommandIdSchema = ulidBrandedSchema<'CommandId'>()
+export const MatchId = ulidBrandedSchema<'MatchId'>()
+export const CommandId = ulidBrandedSchema<'CommandId'>()
 
 export function newGuestPlayerId(): GuestPlayerId {
-  return v.parse(GuestPlayerIdSchema, ulid())
+  return v.parse(GuestPlayerId, ulid())
 }
 
 export function newVerifiedPlayerId(): VerifiedPlayerId {
-  return v.parse(VerifiedPlayerIdSchema, ulid())
+  return v.parse(VerifiedPlayerId, ulid())
 }
 
 export function newMatchId(): MatchId {
-  return v.parse(MatchIdSchema, ulid())
+  return v.parse(MatchId, ulid())
 }
 
 export function newCommandId(): CommandId {
-  return v.parse(CommandIdSchema, ulid())
+  return v.parse(CommandId, ulid())
 }
 
 export function formatPlayerRef(kind: 'gp' | 'vp', id: string): PlayerRef {
-  return v.parse(PlayerRefSchema, `${kind}_${id}`)
+  return v.parse(PlayerRef, `${kind}_${id}`)
 }
 
 export function stripOptionalPrefix(value: string): string {

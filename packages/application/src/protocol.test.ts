@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 
-import { newCommandId, UnixEpochMillisecondsSchema } from '@ks/core'
+import { newCommandId, UnixEpochMilliseconds } from '@ks/core'
 import * as v from 'valibot'
 
 import { renderProtocolRows } from './protocol'
@@ -10,7 +10,7 @@ const entry = {
   acceptedSeq: 1,
   entryIndex: 0,
   causedByCommandId: newCommandId(),
-  acceptedAt: v.parse(UnixEpochMillisecondsSchema, 1),
+  acceptedAt: v.parse(UnixEpochMilliseconds, 1),
   frameIndex: 1,
   source: 'system' as const,
   entryType: 'frame-prepared',

@@ -1,4 +1,4 @@
-import { GameProtocolEntry, PositiveIntegerSchema } from '@ks/core'
+import { GameProtocolEntry, PositiveInteger } from '@ks/core'
 import * as v from 'valibot'
 
 import type { PyramidCommand } from './definitions'
@@ -7,7 +7,7 @@ import type { PyramidRules } from './rules'
 
 const PyramidProtocolEntryBodySchema = v.variant('commandType', [
   v.strictObject({ commandType: v.literal('frame.commence') }),
-  v.strictObject({ commandType: v.literal('pot.record'), pottedBallCount: PositiveIntegerSchema }),
+  v.strictObject({ commandType: v.literal('pot.record'), pottedBallCount: PositiveInteger }),
   v.strictObject({
     commandType: v.literal('foul.commit'),
     penalty: v.picklist(['opponent-plus-one', 'offender-minus-one']),

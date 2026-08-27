@@ -1,4 +1,4 @@
-import { FrameOutcomeSchema, type Seat } from '@ks/core'
+import { FrameOutcome, type Seat } from '@ks/core'
 import * as v from 'valibot'
 import { transition } from 'xstate'
 
@@ -27,7 +27,7 @@ class StrilaGameplaySession implements GameplaySession<'strila-v2'> {
     const [candidate] = transition(StrilaSparringFrameMachine, previous, command)
     const projected = projectStrilaProtocolEntries({ previous, command, next: candidate })
     const output = candidate.status === 'done' ? candidate.output : undefined
-    if (output !== undefined && !v.is(FrameOutcomeSchema, output))
+    if (output !== undefined && !v.is(FrameOutcome, output))
       throw new Error('Strila machine produced an invalid outcome')
     const outcome = output
     const result = outcome

@@ -2,10 +2,10 @@ import { describe, expect, test } from 'bun:test'
 
 import * as v from 'valibot'
 
-import { CommandIdSchema } from './ids'
+import { CommandId } from './ids'
 import { GameProtocolEntry, ProtocolEntry } from './protocol'
 
-const commandId = v.parse(CommandIdSchema, '01ARZ3NDEKTSV4RRFFQ69G5FAB')
+const commandId = v.parse(CommandId, '01ARZ3NDEKTSV4RRFFQ69G5FAB')
 const semantic = {
   gameKey: 'strila-v2',
   frameIndex: 1,

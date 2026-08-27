@@ -1,4 +1,4 @@
-import { nowUnixEpochMilliseconds, type UnixEpochMilliseconds, UnixEpochMillisecondsSchema } from '@ks/core'
+import { nowUnixEpochMilliseconds, UnixEpochMilliseconds } from '@ks/core'
 import { useSyncExternalStore } from 'react'
 import * as v from 'valibot'
 
@@ -19,7 +19,7 @@ type RecentPlayersStore = {
 
 const RecentPlayersStoreSchema = v.object({
   version: v.literal(1),
-  players: v.array(v.object({ name: v.string(), lastUsedAt: UnixEpochMillisecondsSchema })),
+  players: v.array(v.object({ name: v.string(), lastUsedAt: UnixEpochMilliseconds })),
 })
 
 function normalizeRecentKey(name: string): string {

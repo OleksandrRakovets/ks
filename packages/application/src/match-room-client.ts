@@ -7,17 +7,15 @@ import {
 import {
   ControlSections,
   type MatchCommand,
-  type MatchId,
-  MatchIdSchema,
-  MatchStateSchema,
+  MatchId,
+  MatchState,
   NonEmptyProtocolEntries,
-  NonEmptyStringSchema,
-  NonNegativeIntegerSchema,
-  PositiveIntegerSchema,
+  NonEmptyString,
+  NonNegativeInteger,
+  PositiveInteger,
   ProtocolEntries,
   ProtocolEntry,
-  type UnixEpochMilliseconds,
-  UnixEpochMillisecondsSchema,
+  UnixEpochMilliseconds,
 } from '@ks/core'
 import {
   type ControlProjectionFor,
@@ -99,10 +97,10 @@ type MatchRoomStub = {
 
 const FailureSchema = v.object({
   ok: v.literal(false),
-  error: NonEmptyStringSchema,
+  error: NonEmptyString,
   status: v.pipe(v.number(), v.integer(), v.minValue(400), v.maxValue(599)),
 })
-const StateSchema = v.intersect([MatchStateSchema, v.object({ gameKey: RegisteredGameKeySchema })])
+const StateSchema = v.intersect([MatchState, v.object({ gameKey: RegisteredGameKeySchema })])
 const ActiveStateSchema = v.intersect([StateSchema, v.object({ status: v.literal('active') })])
 const FinishedStateSchema = v.intersect([StateSchema, v.object({ status: v.literal('finished') })])
 const ProjectionSchema = v.object({
@@ -112,13 +110,13 @@ const ProjectionSchema = v.object({
   details: v.optional(v.unknown()),
 })
 const OutcomeSchema = v.variant('_tag', [
-  v.object({ _tag: v.literal('accepted'), acceptedSeq: PositiveIntegerSchema }),
+  v.object({ _tag: v.literal('accepted'), acceptedSeq: PositiveInteger }),
   v.object({ _tag: v.literal('rejected'), reason: SparringMatchRejectionSchema }),
 ])
 const ControlResultSchema = v.variant('ok', [
   v.object({
     ok: v.literal(true),
-    latestSeq: NonNegativeIntegerSchema,
+    latestSeq: NonNegativeInteger,
     state: ActiveStateSchema,
     controlProjection: v.optional(ProjectionSchema),
     controlSections: ControlSections,
@@ -128,22 +126,21 @@ const ControlResultSchema = v.variant('ok', [
 const ProtocolResultSchema = v.variant('ok', [
   v.object({
     ok: v.literal(true),
-    latestSeq: NonNegativeIntegerSchema,
+    latestSeq: NonNegativeInteger,
     state: ActiveStateSchema,
     protocolEntries: ProtocolEntries,
   }),
   FailureSchema,
 ])
-export const CompletedMatchTransfer = v.object({
-  matchId: MatchIdSchema,
+const CompletedMatchTransfer = v.object({
+  matchId: MatchId,
   gameKey: RegisteredGameKeySchema,
-  createdAt: UnixEpochMillisecondsSchema,
-  sourceLatestSeq: PositiveIntegerSchema,
-  endedAt: UnixEpochMillisecondsSchema,
+  createdAt: UnixEpochMilliseconds,
+  sourceLatestSeq: PositiveInteger,
+  endedAt: UnixEpochMilliseconds,
   protocolEntries: NonEmptyProtocolEntries,
   finalState: FinishedStateSchema,
 })
-export type CompletedMatchTransfer = v.InferOutput<typeof CompletedMatchTransfer>
 const invalid: Failure = { ok: false, error: 'Invalid MatchRoom response', status: 502 }
 
 function parse<T extends v.BaseSchema<unknown, unknown, v.BaseIssue<unknown>>>(
@@ -172,7 +169,7 @@ export function createMatchRoomClient(namespace: { getByName(name: string): Matc
   return {
     create: async (request: MatchRoomCreateRequest) => {
       const result = parse(
-        v.variant('ok', [v.object({ ok: v.literal(true), matchId: MatchIdSchema }), FailureSchema]),
+        v.variant('ok', [v.object({ ok: v.literal(true), matchId: MatchId }), FailureSchema]),
         await namespace.getByName(request.matchId).create(request),
       )
       return result.ok && result.matchId !== request.matchId ? invalid : result

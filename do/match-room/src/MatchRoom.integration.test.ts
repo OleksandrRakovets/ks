@@ -1,5 +1,5 @@
 import { CreateMatchRequestSchema } from '@ks/competition'
-import { newCommandId, newMatchId, PlayerRefSchema, UnixEpochMillisecondsSchema } from '@ks/core'
+import { newCommandId, newMatchId, PlayerRef, UnixEpochMilliseconds } from '@ks/core'
 import { env, evictDurableObject } from 'cloudflare:test'
 import * as v from 'valibot'
 import { describe, expect, test } from 'vitest'
@@ -12,8 +12,8 @@ const request = v.parse(CreateMatchRequestSchema, {
   targets: { frameTargetPointsBySeat: { A: 8, B: 8 }, matchTargetFrames: 1 },
   firstBreakerSeat: 'A',
   participants: [
-    { seat: 'A', playerRef: v.parse(PlayerRefSchema, 'gp_01ARZ3NDEKTSV4RRFFQ69G5FAA') },
-    { seat: 'B', playerRef: v.parse(PlayerRefSchema, 'gp_01ARZ3NDEKTSV4RRFFQ69G5FAB') },
+    { seat: 'A', playerRef: v.parse(PlayerRef, 'gp_01ARZ3NDEKTSV4RRFFQ69G5FAA') },
+    { seat: 'B', playerRef: v.parse(PlayerRef, 'gp_01ARZ3NDEKTSV4RRFFQ69G5FAB') },
   ],
 })
 
@@ -22,7 +22,7 @@ function body(matchId: ReturnType<typeof newMatchId>): CreateBody {
     ...request,
     matchId,
     controlSecret,
-    createdAt: v.parse(UnixEpochMillisecondsSchema, 1_700_000_000_000),
+    createdAt: v.parse(UnixEpochMilliseconds, 1_700_000_000_000),
   }
 }
 

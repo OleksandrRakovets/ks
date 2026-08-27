@@ -1,12 +1,12 @@
 import { describe, expect, test } from 'bun:test'
 
-import { PlayerRefSchema } from '@ks/core'
+import { PlayerRef } from '@ks/core'
 import * as v from 'valibot'
 
 import { hydrateParticipant } from './players'
 import type { ApplicationDatabase } from './types'
 
-const playerRef = v.parse(PlayerRefSchema, 'gp_01ARZ3NDEKTSV4RRFFQ69G5FAA')
+const playerRef = v.parse(PlayerRef, 'gp_01ARZ3NDEKTSV4RRFFQ69G5FAA')
 
 type LocalizedPlayerRow = {
   firstNameUk: string

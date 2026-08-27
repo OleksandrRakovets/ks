@@ -1,11 +1,11 @@
 import { buildMatchConfig, CreateMatchRequestSchema, createSparringMatch } from '@ks/competition'
 import {
   type MatchCommand,
-  MatchIdSchema,
+  MatchId,
   newCommandId,
-  PlayerRefSchema,
+  PlayerRef,
   type ProtocolEntry,
-  UnixEpochMillisecondsSchema,
+  UnixEpochMilliseconds,
 } from '@ks/core'
 import { applyD1Migrations, env, reset } from 'cloudflare:test'
 import * as v from 'valibot'
@@ -22,13 +22,13 @@ import { getMatchRow, listMatchRows } from '../../src/d1/matches'
 import { getProtocolArchive } from '../../src/d1/protocol-archives'
 import { createApplicationDatabaseClient } from '../../src/d1/types'
 
-const matchId = v.parse(MatchIdSchema, '01ARZ3NDEKTSV4RRFFQ69G5FAV')
-const otherMatchId = v.parse(MatchIdSchema, '01ARZ3NDEKTSV4RRFFQ69G5FAW')
-const newestMatchId = v.parse(MatchIdSchema, '01ARZ3NDEKTSV4RRFFQ69G5FAX')
-const creatingMatchId = v.parse(MatchIdSchema, '01ARZ3NDEKTSV4RRFFQ69G5FAY')
-const seatAPlayerRef = v.parse(PlayerRefSchema, 'gp_01HX0000000000000000000000')
-const seatBPlayerRef = v.parse(PlayerRefSchema, 'gp_01HX0000000000000000000001')
-const createdAt = v.parse(UnixEpochMillisecondsSchema, 1_000)
+const matchId = v.parse(MatchId, '01ARZ3NDEKTSV4RRFFQ69G5FAV')
+const otherMatchId = v.parse(MatchId, '01ARZ3NDEKTSV4RRFFQ69G5FAW')
+const newestMatchId = v.parse(MatchId, '01ARZ3NDEKTSV4RRFFQ69G5FAX')
+const creatingMatchId = v.parse(MatchId, '01ARZ3NDEKTSV4RRFFQ69G5FAY')
+const seatAPlayerRef = v.parse(PlayerRef, 'gp_01HX0000000000000000000000')
+const seatBPlayerRef = v.parse(PlayerRef, 'gp_01HX0000000000000000000001')
+const createdAt = v.parse(UnixEpochMilliseconds, 1_000)
 
 const createRequest = v.parse(CreateMatchRequestSchema, {
   gameKey: 'free-pyramid',
@@ -47,7 +47,7 @@ function catalogInput(id = matchId, timestamp = createdAt): ActiveMatchCatalogIn
 function terminalArchiveInput(id = matchId): CompletedMatchArchiveInput {
   const config = buildMatchConfig(id, createRequest)
   const session = createSparringMatch(config)
-  const acceptedAt = v.parse(UnixEpochMillisecondsSchema, 2_000)
+  const acceptedAt = v.parse(UnixEpochMilliseconds, 2_000)
   const protocolEntries: ProtocolEntry[] = []
   let acceptedSeq = 0
   for (const command of [
@@ -103,14 +103,14 @@ describe('real D1 match lifecycle', () => {
     )
     await activateMatch(db, matchId)
 
-    await beginMatchCreation(db, catalogInput(otherMatchId, v.parse(UnixEpochMillisecondsSchema, 3_000)))
+    await beginMatchCreation(db, catalogInput(otherMatchId, v.parse(UnixEpochMilliseconds, 3_000)))
     await activateMatch(db, otherMatchId)
     await env.DB.prepare('UPDATE matches SET status = ? WHERE match_id = ?')
       .bind('finished', otherMatchId)
       .run()
-    await beginMatchCreation(db, catalogInput(newestMatchId, v.parse(UnixEpochMillisecondsSchema, 4_000)))
+    await beginMatchCreation(db, catalogInput(newestMatchId, v.parse(UnixEpochMilliseconds, 4_000)))
     await activateMatch(db, newestMatchId)
-    await beginMatchCreation(db, catalogInput(creatingMatchId, v.parse(UnixEpochMillisecondsSchema, 5_000)))
+    await beginMatchCreation(db, catalogInput(creatingMatchId, v.parse(UnixEpochMilliseconds, 5_000)))
 
     expect(await getMatchRow(db, matchId)).toMatchObject({ matchId, status: 'active' })
     expect((await listMatchRows(db)).map((row) => row.matchId)).toEqual([newestMatchId, matchId, otherMatchId])
@@ -190,7 +190,7 @@ describe('real D1 match lifecycle', () => {
     await beginMatchCreation(db, catalogInput())
     await activateMatch(db, matchId)
     const first = terminalArchiveInput()
-    const conflictingTimestamp = v.parse(UnixEpochMillisecondsSchema, first.endedAt + 1)
+    const conflictingTimestamp = v.parse(UnixEpochMilliseconds, first.endedAt + 1)
     const candidates = [
       first,
       {

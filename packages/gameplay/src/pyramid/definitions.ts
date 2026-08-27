@@ -1,10 +1,4 @@
-import {
-  BySeatNumberSchema,
-  ControlSections,
-  NonEmptyStringSchema,
-  PositiveIntegerSchema,
-  SeatSchema,
-} from '@ks/core'
+import { BySeatNumber, ControlSections, NonEmptyString, PositiveInteger, Seat } from '@ks/core'
 import * as v from 'valibot'
 
 import {
@@ -17,7 +11,7 @@ import { type PyramidGameKey, PyramidRulesSchema } from './rules'
 
 export const PyramidCommandSchema = v.variant('type', [
   FrameCommenceCommandSchema,
-  v.strictObject({ type: v.literal('pot.record'), seat: SeatSchema, pottedBallCount: PositiveIntegerSchema }),
+  v.strictObject({ type: v.literal('pot.record'), seat: Seat, pottedBallCount: PositiveInteger }),
   FoulCommitCommandSchema,
   FrameAwardCommandSchema,
 ])
@@ -27,22 +21,22 @@ export const PyramidPhaseSchema = v.picklist(['not-started', 'open-play', 'winne
 export type PyramidPhase = v.InferOutput<typeof PyramidPhaseSchema>
 
 const PyramidContextSchema = v.object({
-  score: BySeatNumberSchema,
-  targetPoints: BySeatNumberSchema,
+  score: BySeatNumber,
+  targetPoints: BySeatNumber,
   rules: PyramidRulesSchema,
-  winner: v.nullable(SeatSchema),
+  winner: v.nullable(Seat),
 })
 export type PyramidContext = v.InferOutput<typeof PyramidContextSchema>
 
 const PyramidProjectionDetailsSchema = v.object({
   phase: PyramidPhaseSchema,
-  winner: v.optional(SeatSchema),
+  winner: v.optional(Seat),
 })
 
 const PyramidControlDetailsSchema = v.object({
   ...PyramidProjectionDetailsSchema.entries,
-  situationTitle: NonEmptyStringSchema,
-  situationSummary: NonEmptyStringSchema,
+  situationTitle: NonEmptyString,
+  situationSummary: NonEmptyString,
   isPotCommandAvailable: v.boolean(),
   controlSections: ControlSections,
 })

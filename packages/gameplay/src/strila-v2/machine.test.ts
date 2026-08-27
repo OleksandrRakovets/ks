@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { type BySeatNumber, FrameOutcomeSchema } from '@ks/core'
+import { type BySeatNumber, FrameOutcome } from '@ks/core'
 import * as v from 'valibot'
 
 import { StrilaMeta } from './definitions'
@@ -66,7 +66,7 @@ describe('machine-sparring: basic', () => {
 
     expect(getPhase(snap)).toBe('frame-over')
     expect(snap.output).toEqual({ winnerSeat: 'A', winReason: 'target-reached', score: { A: 10, B: 0 } })
-    expect(v.is(FrameOutcomeSchema, snap.output)).toBe(true)
+    expect(v.is(FrameOutcome, snap.output)).toBe(true)
   })
 })
 

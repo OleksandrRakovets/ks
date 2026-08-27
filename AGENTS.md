@@ -39,8 +39,8 @@ Domain vocabulary and distinctions are defined in CONTEXT.md. Treat it as author
 - `@ks/application` owns private D1 adapters and its private structural MatchRoom RPC client. It must not expose generic repositories.
 - MatchRoom must not import Play, application, or D1 code.
 - Validate at trust and representation boundaries: HTTP, RPC, persisted rows/JSON, browser storage, and restored machine state. Do not reparse canonical typed values.
-- Schemas use Valibot. Prefer built-in actions such as `v.trim()` and `v.parseJson()`.
-- Use core seat contracts (`Seat`, `SeatSchema`, `BySeatNumberSchema`, `opponentOf`) rather than local equivalents.
+- Schemas use Valibot. Prefer built-in actions such as `v.trim()` and `v.parseJson()`. Give the inferred type the exact name as the schema (the core package already does this).
+- Use core seat contracts (`Seat`, `BySeatNumber`, `opponentOf`) rather than local equivalents.
 - Keep one `game` path; gameplay runtimes own game-specific semantics.
 - UI components have one consumer and live in `apps/play/web/components/ui`.
 

@@ -1,4 +1,4 @@
-import { FrameOutcomeSchema, type Seat } from '@ks/core'
+import { FrameOutcome, type Seat } from '@ks/core'
 import * as v from 'valibot'
 import { transition } from 'xstate'
 
@@ -36,7 +36,7 @@ class PyramidGameplaySession<K extends PyramidGameKey> implements GameplaySessio
     const [candidate] = transition(PyramidSparringFrameMachine, previous, command)
     const projected = projectPyramidProtocolEntries({ previous, command, next: candidate, rules: this.#rules })
     const output = candidate.status === 'done' ? candidate.output : undefined
-    if (output !== undefined && !v.is(FrameOutcomeSchema, output))
+    if (output !== undefined && !v.is(FrameOutcome, output))
       throw new Error('Pyramid machine produced an invalid outcome')
     const outcome = output
     const result = outcome

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { CommandIdSchema, emptyControlSections, newMatchId } from '@ks/core'
+import { CommandId, emptyControlSections, newMatchId } from '@ks/core'
 import * as v from 'valibot'
 
 import { createMatchRoomClient } from './match-room-client'
@@ -48,7 +48,7 @@ describe('MatchRoom client boundary', () => {
     const result = { ok: true as const, outcome: { _tag: 'accepted' as const, acceptedSeq: 1 } }
     expect(
       await clientReturning(result).submitCommand(matchId, {
-        commandId: v.parse(CommandIdSchema, '01ARZ3NDEKTSV4RRFFQ69G5FAC'),
+        commandId: v.parse(CommandId, '01ARZ3NDEKTSV4RRFFQ69G5FAC'),
         source: 'match',
         command: { type: 'frame.prepare' },
       }),

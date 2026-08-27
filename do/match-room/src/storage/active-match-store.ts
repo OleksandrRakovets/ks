@@ -3,19 +3,16 @@ import {
   type AcceptedCommandHistoryEntry,
   type CommandId,
   MatchCommand,
-  MatchConfigSchema,
-  type MatchId,
-  MatchIdSchema,
-  type MatchState,
-  MatchStateSchema,
+  MatchConfig,
+  MatchId,
+  MatchState,
   type MatchStreamUpdate,
   type NonEmptyProtocolEntryContents,
-  NonNegativeIntegerSchema,
+  NonNegativeInteger,
   nowUnixEpochMilliseconds,
   ProtocolEntry,
-  type UnixEpochMilliseconds,
-  UnixEpochMillisecondsSchema,
-  UnknownObjectSchema,
+  UnixEpochMilliseconds,
+  UnknownObject,
 } from '@ks/core'
 import { RegisteredGameKeySchema } from '@ks/gameplay/definitions'
 import { and, asc, eq, isNotNull, lte } from 'drizzle-orm'
@@ -35,18 +32,18 @@ import * as schema from './schema'
  */
 const ActiveMatchRecordSchema = v.pipe(
   v.object({
-    matchId: MatchIdSchema,
+    matchId: MatchId,
     controlSecret: v.pipe(v.string(), v.minLength(16)),
     configJson: v.pipe(
       v.string(),
       v.parseJson(),
-      v.intersect([MatchConfigSchema, v.object({ gameKey: RegisteredGameKeySchema })]),
+      v.intersect([MatchConfig, v.object({ gameKey: RegisteredGameKeySchema })]),
     ),
-    latestSeq: NonNegativeIntegerSchema,
+    latestSeq: NonNegativeInteger,
     status: v.picklist(['active', 'finalizing']),
-    createdAt: UnixEpochMillisecondsSchema,
-    finalStateJson: v.nullable(v.pipe(v.string(), v.parseJson(), MatchStateSchema)),
-    endedAt: v.nullable(UnixEpochMillisecondsSchema),
+    createdAt: UnixEpochMilliseconds,
+    finalStateJson: v.nullable(v.pipe(v.string(), v.parseJson(), MatchState)),
+    endedAt: v.nullable(UnixEpochMilliseconds),
   }),
   v.transform(({ configJson, finalStateJson, ...row }) => ({
     ...row,
@@ -75,7 +72,7 @@ export type ActiveMatchInitialization = {
 const StoredProtocolEntryRow = v.pipe(
   v.object({
     ...v.omit(ProtocolEntry, ['body']).entries,
-    bodyJson: v.pipe(v.string(), v.parseJson(), UnknownObjectSchema),
+    bodyJson: v.pipe(v.string(), v.parseJson(), UnknownObject),
   }),
   v.transform(({ bodyJson, ...entry }) => ({ ...entry, body: bodyJson })),
 )

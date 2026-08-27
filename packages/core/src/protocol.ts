@@ -1,15 +1,10 @@
 import * as v from 'valibot'
 
 import { MatchCommand } from './command'
-import { CommandIdSchema } from './ids'
-import { BySeatNumberSchema, GameKeySchema, SeatSchema } from './match'
-import { UnixEpochMillisecondsSchema } from './time'
-import {
-  NonNegativeIntegerSchema,
-  PositiveIntegerSchema,
-  SizedStringSchema,
-  UnknownObjectSchema,
-} from './valicombos'
+import { CommandId } from './ids'
+import { BySeatNumber, GameKey, Seat } from './match'
+import { UnixEpochMilliseconds } from './time'
+import { NonNegativeInteger, PositiveInteger, SizedString, UnknownObject } from './valicombos'
 
 export const ProtocolEntrySource = v.picklist(['player', 'system'])
 export type ProtocolEntrySource = v.InferOutput<typeof ProtocolEntrySource>
@@ -19,18 +14,18 @@ export type ProtocolEntrySource = v.InferOutput<typeof ProtocolEntrySource>
  * Each game extends this structure with its exact body schema and parses entries when projecting accepted transitions.
  */
 export const GameProtocolEntry = v.object({
-  gameKey: GameKeySchema,
+  gameKey: GameKey,
   source: ProtocolEntrySource,
-  entryType: SizedStringSchema(1, 64),
-  seat: SeatSchema,
-  scoreAfter: v.optional(BySeatNumberSchema),
-  body: UnknownObjectSchema,
+  entryType: SizedString(1, 64),
+  seat: Seat,
+  scoreAfter: v.optional(BySeatNumber),
+  body: UnknownObject,
 })
 export type GameProtocolEntry = v.InferOutput<typeof GameProtocolEntry>
 
 /** Complete Protocol meaning before MatchRoom attaches acceptance metadata. */
 export const ProtocolEntryContent = v.object({
-  frameIndex: PositiveIntegerSchema,
+  frameIndex: PositiveInteger,
   ...GameProtocolEntry.entries,
 })
 export type ProtocolEntryContent = v.InferOutput<typeof ProtocolEntryContent>
@@ -40,10 +35,10 @@ export type NonEmptyProtocolEntryContents = v.InferOutput<typeof NonEmptyProtoco
 
 /** Authoritative Protocol Entry with acceptance, causation, and ordering metadata. */
 export const ProtocolEntry = v.object({
-  acceptedSeq: PositiveIntegerSchema,
-  entryIndex: NonNegativeIntegerSchema,
-  causedByCommandId: CommandIdSchema,
-  acceptedAt: UnixEpochMillisecondsSchema,
+  acceptedSeq: PositiveInteger,
+  entryIndex: NonNegativeInteger,
+  causedByCommandId: CommandId,
+  acceptedAt: UnixEpochMilliseconds,
   ...ProtocolEntryContent.entries,
 })
 export type ProtocolEntry = v.InferOutput<typeof ProtocolEntry>

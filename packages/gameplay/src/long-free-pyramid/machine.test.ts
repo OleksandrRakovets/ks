@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { type BySeatNumber, FrameOutcomeSchema } from '@ks/core'
+import { type BySeatNumber, FrameOutcome } from '@ks/core'
 import * as v from 'valibot'
 import { createActor } from 'xstate'
 
@@ -224,7 +224,7 @@ describe('LongFreePyramidSparringFrameMachine: winner flow', () => {
     snap = sendEvent(snap, { type: 'frame.award', seat: 'A' })
     expect(getPhase(snap)).toBe('frame-over')
     expect(snap.output).toEqual({ winnerSeat: 'A', winReason: 'target-reached', score: { A: 4, B: 0 } })
-    expect(v.is(FrameOutcomeSchema, snap.output)).toBe(true)
+    expect(v.is(FrameOutcome, snap.output)).toBe(true)
 
     snap = start(15, { A: 8, B: 1 })
     snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })

@@ -1,87 +1,85 @@
 import * as v from 'valibot'
 
-import { MatchIdSchema, PlayerRefSchema } from './ids'
-import {
-  IntegerSchema,
-  NonNegativeIntegerSchema,
-  PositiveIntegerSchema,
-  SizedStringSchema,
-} from './valicombos'
+import { MatchId, PlayerRef } from './ids'
+import { Integer, NonNegativeInteger, PositiveInteger, SizedString } from './valicombos'
 
-export const SeatSchema = v.picklist(['A', 'B'])
-export type Seat = v.InferOutput<typeof SeatSchema>
+export const Seat = v.picklist(['A', 'B'])
+export type Seat = v.InferOutput<typeof Seat>
 
 export function opponentOf(seat: Seat): Seat {
   return seat === 'A' ? 'B' : 'A'
 }
 
-export const GameKeySchema = v.pipe(SizedStringSchema(1, 64), v.regex(/^[a-z0-9-]+$/))
-export type GameKey = v.InferOutput<typeof GameKeySchema>
+export const GameKey = v.pipe(SizedString(1, 64), v.regex(/^[a-z0-9-]+$/))
+export type GameKey = v.InferOutput<typeof GameKey>
 
-export const BySeatNumberSchema = v.object({ A: IntegerSchema, B: IntegerSchema })
-export type BySeatNumber = v.InferOutput<typeof BySeatNumberSchema>
+export const BySeatNumber = v.object({ A: Integer, B: Integer })
+export type BySeatNumber = v.InferOutput<typeof BySeatNumber>
 
-export const MatchTargetsSchema = v.object({
-  frameTargetPointsBySeat: v.object({ A: PositiveIntegerSchema, B: PositiveIntegerSchema }),
-  matchTargetFrames: PositiveIntegerSchema,
+export const MatchTargets = v.object({
+  frameTargetPointsBySeat: v.object({ A: PositiveInteger, B: PositiveInteger }),
+  matchTargetFrames: PositiveInteger,
 })
+export type MatchTargets = v.InferOutput<typeof MatchTargets>
 
-export const GameConfigurationSchema = v.object({
+export const GameConfiguration = v.object({
   rackRollover: v.optional(v.picklist([14, 15])),
 })
+export type GameConfiguration = v.InferOutput<typeof GameConfiguration>
 
-export const MatchSeatAssignmentSchema = v.object({
-  seat: SeatSchema,
-  playerRef: PlayerRefSchema,
+export const MatchSeatAssignment = v.object({
+  seat: Seat,
+  playerRef: PlayerRef,
+})
+export type MatchSeatAssignment = v.InferOutput<typeof MatchSeatAssignment>
+
+export const HydratedMatchParticipant = v.object({
+  playerRef: PlayerRef,
+  displayName: SizedString(1, 128),
+  shortDisplayName: SizedString(1, 128),
+})
+export type HydratedMatchParticipant = v.InferOutput<typeof HydratedMatchParticipant>
+
+const HydratedMatchParticipants = v.object({
+  A: HydratedMatchParticipant,
+  B: HydratedMatchParticipant,
+})
+export type HydratedMatchParticipants = v.InferOutput<typeof HydratedMatchParticipants>
+
+export const MatchConfig = v.object({
+  matchId: MatchId,
+  gameKey: GameKey,
+  targets: MatchTargets,
+  firstBreakerSeat: Seat,
+  gameConfiguration: v.optional(GameConfiguration),
 })
 
-export const HydratedMatchParticipantSchema = v.object({
-  playerRef: PlayerRefSchema,
-  displayName: SizedStringSchema(1, 128),
-  shortDisplayName: SizedStringSchema(1, 128),
+export type MatchConfig = v.InferOutput<typeof MatchConfig>
+
+const FrameState = v.object({
+  frameIndex: PositiveInteger,
+  pointsBySeat: BySeatNumber,
+  breakerSeat: Seat,
+  winnerSeat: v.optional(Seat),
 })
-export type HydratedMatchParticipant = v.InferOutput<typeof HydratedMatchParticipantSchema>
+export type FrameState = v.InferOutput<typeof FrameState>
 
-const HydratedMatchParticipantsSchema = v.object({
-  A: HydratedMatchParticipantSchema,
-  B: HydratedMatchParticipantSchema,
+const FrameWinReason = v.picklist(['target-reached', 'conceded'])
+
+export const FrameOutcome = v.object({
+  winnerSeat: Seat,
+  score: BySeatNumber,
+  winReason: FrameWinReason,
 })
-export type HydratedMatchParticipants = v.InferOutput<typeof HydratedMatchParticipantsSchema>
+export type FrameOutcome = v.InferOutput<typeof FrameOutcome>
 
-export const MatchConfigSchema = v.object({
-  matchId: MatchIdSchema,
-  gameKey: GameKeySchema,
-  targets: MatchTargetsSchema,
-  firstBreakerSeat: SeatSchema,
-  gameConfiguration: v.optional(GameConfigurationSchema),
-})
-
-export type MatchConfig = v.InferOutput<typeof MatchConfigSchema>
-
-const FrameStateSchema = v.object({
-  frameIndex: PositiveIntegerSchema,
-  pointsBySeat: BySeatNumberSchema,
-  breakerSeat: SeatSchema,
-  winnerSeat: v.optional(SeatSchema),
-})
-export type FrameState = v.InferOutput<typeof FrameStateSchema>
-
-const FrameWinReasonSchema = v.picklist(['target-reached', 'conceded'])
-
-export const FrameOutcomeSchema = v.object({
-  winnerSeat: SeatSchema,
-  score: BySeatNumberSchema,
-  winReason: FrameWinReasonSchema,
-})
-export type FrameOutcome = v.InferOutput<typeof FrameOutcomeSchema>
-
-export const MatchStateSchema = v.object({
-  matchId: MatchIdSchema,
-  gameKey: GameKeySchema,
-  targets: MatchTargetsSchema,
+export const MatchState = v.object({
+  matchId: MatchId,
+  gameKey: GameKey,
+  targets: MatchTargets,
   status: v.picklist(['active', 'finished']),
-  currentFrameIndex: NonNegativeIntegerSchema,
-  framesWonBySeat: BySeatNumberSchema,
-  frames: v.array(FrameStateSchema),
+  currentFrameIndex: NonNegativeInteger,
+  framesWonBySeat: BySeatNumber,
+  frames: v.array(FrameState),
 })
-export type MatchState = v.InferOutput<typeof MatchStateSchema>
+export type MatchState = v.InferOutput<typeof MatchState>

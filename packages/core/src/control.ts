@@ -1,7 +1,7 @@
 import * as v from 'valibot'
 
-import { SeatSchema } from './match'
-import { NonEmptyStringSchema, UnknownObjectSchema } from './valicombos'
+import { Seat } from './match'
+import { NonEmptyString, UnknownObject } from './valicombos'
 
 const ControlProminence = v.picklist(['primary', 'secondary', 'tertiary'])
 const ControlEffect = v.picklist([
@@ -20,9 +20,9 @@ const ControlEffect = v.picklist([
  */
 export const Control = v.object({
   source: v.picklist(['match', 'game']),
-  type: NonEmptyStringSchema,
-  seat: v.optional(SeatSchema),
-  fixedInput: UnknownObjectSchema,
+  type: NonEmptyString,
+  seat: v.optional(Seat),
+  fixedInput: UnknownObject,
   effect: v.optional(ControlEffect),
   prominence: ControlProminence,
 })

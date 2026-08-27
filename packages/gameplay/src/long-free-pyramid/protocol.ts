@@ -1,4 +1,4 @@
-import { GameProtocolEntry, PositiveIntegerSchema } from '@ks/core'
+import { GameProtocolEntry, PositiveInteger } from '@ks/core'
 import * as v from 'valibot'
 
 import { totalScore } from './calculations'
@@ -7,7 +7,7 @@ import type { LongFreePyramidSparringFrameSnapshot } from './machine'
 
 const LongFreePyramidProtocolEntryBodySchema = v.variant('commandType', [
   v.strictObject({ commandType: v.literal('frame.commence') }),
-  v.strictObject({ commandType: v.literal('pot.record'), pottedBallCount: PositiveIntegerSchema }),
+  v.strictObject({ commandType: v.literal('pot.record'), pottedBallCount: PositiveInteger }),
   v.strictObject({ commandType: v.literal('foul.commit'), penalty: v.literal('opponent-plus-one') }),
   v.strictObject({ commandType: v.literal('frame.award') }),
 ])

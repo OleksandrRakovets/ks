@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { SeatSchema } from '@ks/core'
+import { Seat } from '@ks/core'
 import * as v from 'valibot'
 
 import { parseGameCommand } from './parse-game-command'
@@ -70,7 +70,7 @@ describe('parseGameCommand', () => {
   test.each(listGameKeys())('%s rejects invalid seat', (gameKey) => {
     const result = parseGameCommand(gameKey, { ...representativePotCommand(gameKey), seat: 'C' })
     expect(result._tag).toBe('game-command-parse-failure')
-    expect(v.safeParse(SeatSchema, 'C').success).toBe(false)
+    expect(v.safeParse(Seat, 'C').success).toBe(false)
   })
 
   test('Strila rejects duplicate, out-of-range, and empty ball selections', () => {

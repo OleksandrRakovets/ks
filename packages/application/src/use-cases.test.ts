@@ -3,12 +3,11 @@ import { describe, expect, test } from 'bun:test'
 import type { MatchStateFor } from '@ks/competition'
 import {
   type MatchCommand,
-  type MatchId,
-  MatchIdSchema,
-  MatchStateSchema,
+  MatchId,
+  MatchState,
   newCommandId,
-  PlayerRefSchema,
-  UnixEpochMillisecondsSchema,
+  PlayerRef,
+  UnixEpochMilliseconds,
 } from '@ks/core'
 import { type ControlProjectionFor, listGameKeys, type RegisteredGameKey } from '@ks/gameplay/definitions'
 import { createGameplaySession } from '@ks/gameplay/server'
@@ -22,10 +21,10 @@ import {
 } from './protocol'
 import { createApplicationWithDependencies } from './use-cases'
 
-const matchId = v.parse(MatchIdSchema, '01ARZ3NDEKTSV4RRFFQ69G5FAV')
+const matchId = v.parse(MatchId, '01ARZ3NDEKTSV4RRFFQ69G5FAV')
 const controlSecret = 'control-secret-1234567890'
-const playerRefA = v.parse(PlayerRefSchema, 'gp_01ARZ3NDEKTSV4RRFFQ69G5FAA')
-const playerRefB = v.parse(PlayerRefSchema, 'gp_01ARZ3NDEKTSV4RRFFQ69G5FAB')
+const playerRefA = v.parse(PlayerRef, 'gp_01ARZ3NDEKTSV4RRFFQ69G5FAA')
+const playerRefB = v.parse(PlayerRef, 'gp_01ARZ3NDEKTSV4RRFFQ69G5FAB')
 
 function stateFor<K extends RegisteredGameKey>(
   gameKey: K,
@@ -140,7 +139,7 @@ function applicationForActiveGame(
       matchId,
       gameKey: catalogGameKey,
       status: 'active',
-      createdAt: v.parse(UnixEpochMillisecondsSchema, 1_700_000_000_000),
+      createdAt: v.parse(UnixEpochMilliseconds, 1_700_000_000_000),
       participantRefs: { A: playerRefA, B: playerRefB },
     }),
     getProtocolArchive: unused,
@@ -190,7 +189,7 @@ function applicationForArchivedGame(
       matchId,
       gameKey: catalogGameKey,
       status: 'finished',
-      createdAt: v.parse(UnixEpochMillisecondsSchema, 1_700_000_000_000),
+      createdAt: v.parse(UnixEpochMilliseconds, 1_700_000_000_000),
       participantRefs: { A: playerRefA, B: playerRefB },
     }),
     getProtocolArchive:
@@ -358,7 +357,7 @@ describe('application orchestration', () => {
   )
 
   test('creates both guest players before creating the room with generated credentials', async () => {
-    const createdAt = v.parse(UnixEpochMillisecondsSchema, 1_700_000_000_000)
+    const createdAt = v.parse(UnixEpochMilliseconds, 1_700_000_000_000)
     const lifecycle: unknown[] = []
     const playerNames: string[] = []
     let roomRequest: MatchRoomCreateRequest | undefined
@@ -489,7 +488,7 @@ describe('application orchestration', () => {
         matchId,
         gameKey: 'free-pyramid',
         status: 'active',
-        createdAt: v.parse(UnixEpochMillisecondsSchema, 1_700_000_000_000),
+        createdAt: v.parse(UnixEpochMilliseconds, 1_700_000_000_000),
         participantRefs: { A: playerRefA, B: playerRefB },
       }),
       getProtocolArchive: unused,
@@ -532,7 +531,7 @@ describe('application orchestration', () => {
         matchId,
         gameKey: 'free-pyramid',
         status: 'active',
-        createdAt: v.parse(UnixEpochMillisecondsSchema, 1_700_000_000_000),
+        createdAt: v.parse(UnixEpochMilliseconds, 1_700_000_000_000),
         participantRefs: { A: playerRefA, B: playerRefB },
       }),
       getProtocolArchive: unused,
@@ -576,7 +575,7 @@ describe('application orchestration', () => {
         matchId,
         gameKey: 'free-pyramid',
         status: 'active',
-        createdAt: v.parse(UnixEpochMillisecondsSchema, 1_700_000_000_000),
+        createdAt: v.parse(UnixEpochMilliseconds, 1_700_000_000_000),
         participantRefs: { A: playerRefA, B: playerRefB },
       }),
       getProtocolArchive: unused,
@@ -618,7 +617,7 @@ describe('application orchestration', () => {
         matchId,
         gameKey: 'free-pyramid',
         status: 'active',
-        createdAt: v.parse(UnixEpochMillisecondsSchema, 1_700_000_000_000),
+        createdAt: v.parse(UnixEpochMilliseconds, 1_700_000_000_000),
         participantRefs: { A: playerRefA, B: playerRefB },
       }),
       getProtocolArchive: unused,
@@ -645,7 +644,7 @@ describe('application orchestration', () => {
   })
 
   test('reads a finished match entirely from its D1 archive', async () => {
-    const archivedState = v.parse(MatchStateSchema, {
+    const archivedState = v.parse(MatchState, {
       matchId,
       gameKey: 'free-pyramid',
       targets: { frameTargetPointsBySeat: { A: 8, B: 8 }, matchTargetFrames: 1 },
@@ -679,7 +678,7 @@ describe('application orchestration', () => {
         matchId,
         gameKey: 'free-pyramid',
         status: 'finished',
-        createdAt: v.parse(UnixEpochMillisecondsSchema, 1_700_000_000_000),
+        createdAt: v.parse(UnixEpochMilliseconds, 1_700_000_000_000),
         participantRefs: { A: playerRefA, B: playerRefB },
       }),
       getProtocolArchive: async () => ({
@@ -742,7 +741,7 @@ describe('application orchestration', () => {
         matchId,
         gameKey: 'free-pyramid',
         status: 'finalizing',
-        createdAt: v.parse(UnixEpochMillisecondsSchema, 1_700_000_000_000),
+        createdAt: v.parse(UnixEpochMilliseconds, 1_700_000_000_000),
         participantRefs: { A: playerRefA, B: playerRefB },
       }),
       getProtocolArchive: unused,
@@ -777,7 +776,7 @@ describe('application orchestration', () => {
       let roomStorageExists = true
       let archiveWrites = 0
       let commandCalls = 0
-      const endedAt = v.parse(UnixEpochMillisecondsSchema, 1_700_000_000_999)
+      const endedAt = v.parse(UnixEpochMilliseconds, 1_700_000_000_999)
 
       const failOnce = (point: typeof failurePoint) => {
         if (failurePending && point === failurePoint) {
@@ -796,7 +795,7 @@ describe('application orchestration', () => {
           matchId,
           gameKey: 'free-pyramid',
           status: matchStatus,
-          createdAt: v.parse(UnixEpochMillisecondsSchema, 1_700_000_000_000),
+          createdAt: v.parse(UnixEpochMilliseconds, 1_700_000_000_000),
           participantRefs: { A: playerRefA, B: playerRefB },
         }),
         getProtocolArchive: unused,
@@ -831,7 +830,7 @@ describe('application orchestration', () => {
                   data: {
                     matchId,
                     gameKey: 'free-pyramid' as const,
-                    createdAt: v.parse(UnixEpochMillisecondsSchema, 1_700_000_000_000),
+                    createdAt: v.parse(UnixEpochMilliseconds, 1_700_000_000_000),
                     sourceLatestSeq: 9,
                     endedAt,
                     protocolEntries: [],

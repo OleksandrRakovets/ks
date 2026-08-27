@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { FrameOutcomeSchema, GameProtocolEntry } from '@ks/core'
+import { FrameOutcome, GameProtocolEntry } from '@ks/core'
 import * as v from 'valibot'
 
 import { LongFreePyramidControlViewSchema } from './long-free-pyramid/definitions'
@@ -79,7 +79,7 @@ describe('GameplaySession', () => {
       expect(scored._tag).toBe('accepted')
       const terminal = session.execute({ type: 'frame.award', seat: 'A' })
       expect(terminal._tag).toBe('accepted')
-      if (terminal._tag === 'accepted') expect(v.is(FrameOutcomeSchema, terminal.outcome)).toBe(true)
+      if (terminal._tag === 'accepted') expect(v.is(FrameOutcome, terminal.outcome)).toBe(true)
 
       expect(session.deriveControl()).not.toBe(session.deriveControl())
       expect(session.getScore()).not.toBe(session.getScore())

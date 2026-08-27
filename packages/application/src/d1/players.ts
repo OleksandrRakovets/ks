@@ -1,10 +1,4 @@
-import {
-  type GuestPlayerId,
-  type HydratedMatchParticipant,
-  HydratedMatchParticipantSchema,
-  type PlayerRef,
-  type VerifiedPlayerId,
-} from '@ks/core'
+import { type GuestPlayerId, HydratedMatchParticipant, type PlayerRef, type VerifiedPlayerId } from '@ks/core'
 import type { SupportedLocale } from '@ks/i18n'
 import { eq } from 'drizzle-orm'
 import * as v from 'valibot'
@@ -24,7 +18,7 @@ async function loadPlayerRow(
   playerRef: PlayerRef,
 ): Promise<LocalizedPlayerRow | null> {
   if (playerRef.startsWith('gp_')) {
-    // SAFETY: PlayerRefSchema guarantees gp_<GuestPlayerId>; the suffix is the stored guest player ID.
+    // SAFETY: PlayerRef guarantees gp_<GuestPlayerId>; the suffix is the stored guest player ID.
     const guestPlayerId = playerRef.slice(3) as GuestPlayerId
     return (
       (await db
@@ -41,7 +35,7 @@ async function loadPlayerRow(
   }
 
   if (playerRef.startsWith('vp_')) {
-    // SAFETY: PlayerRefSchema guarantees vp_<VerifiedPlayerId>; the suffix is the stored verified player ID.
+    // SAFETY: PlayerRef guarantees vp_<VerifiedPlayerId>; the suffix is the stored verified player ID.
     const verifiedPlayerId = playerRef.slice(3) as VerifiedPlayerId
     return (
       (await db
@@ -67,7 +61,7 @@ export async function hydrateParticipant(
 ): Promise<HydratedMatchParticipant> {
   const row = await loadPlayerRow(db, playerRef)
   if (!row)
-    return v.parse(HydratedMatchParticipantSchema, {
+    return v.parse(HydratedMatchParticipant, {
       playerRef,
       displayName: playerRef,
       shortDisplayName: playerRef,
@@ -77,7 +71,7 @@ export async function hydrateParticipant(
   const lastName = locale === 'en' ? row.lastNameEn : row.lastNameUk
   const displayName = `${firstName} ${lastName}`.trim()
   const initial = firstName.trim().charAt(0)
-  return v.parse(HydratedMatchParticipantSchema, {
+  return v.parse(HydratedMatchParticipant, {
     playerRef,
     displayName,
     shortDisplayName: initial ? `${initial}. ${lastName}`.trim() : lastName.trim(),

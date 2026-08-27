@@ -1,4 +1,4 @@
-import { BySeatNumberSchema, ControlSections, IntegerSchema, SeatSchema } from '@ks/core'
+import { BySeatNumber, ControlSections, Integer, Seat } from '@ks/core'
 import * as v from 'valibot'
 
 import {
@@ -14,7 +14,7 @@ export const LongFreePyramidCommandSchema = v.variant('type', [
   FrameCommenceCommandSchema,
   v.strictObject({
     type: v.literal('pot.record'),
-    seat: SeatSchema,
+    seat: Seat,
     pottedBallCount: LongFreePyramidPottedBallCountSchema,
   }),
   FoulCommitCommandSchema,
@@ -23,14 +23,14 @@ export const LongFreePyramidCommandSchema = v.variant('type', [
 export type LongFreePyramidCommand = v.InferOutput<typeof LongFreePyramidCommandSchema>
 
 const LongFreePyramidRackSchema = v.object({
-  rackNumber: v.pipe(IntegerSchema, v.minValue(1)),
-  scoreBySeat: BySeatNumberSchema,
+  rackNumber: v.pipe(Integer, v.minValue(1)),
+  scoreBySeat: BySeatNumber,
 })
 export type LongFreePyramidRack = v.InferOutput<typeof LongFreePyramidRackSchema>
 
 const LongFreePyramidMessageSchema = v.object({
   code: v.literal('rack-started'),
-  rackNumber: v.pipe(IntegerSchema, v.minValue(1)),
+  rackNumber: v.pipe(Integer, v.minValue(1)),
 })
 export const LongFreePyramidPhaseSchema = v.picklist([
   'not-started',
@@ -43,20 +43,20 @@ export type LongFreePyramidPhase = v.InferOutput<typeof LongFreePyramidPhaseSche
 
 const LongFreePyramidContextSchema = v.object({
   racks: v.pipe(v.array(LongFreePyramidRackSchema), v.minLength(1)),
-  targetPoints: BySeatNumberSchema,
+  targetPoints: BySeatNumber,
   rackRollover: v.picklist([14, 15]),
-  winner: v.nullable(SeatSchema),
+  winner: v.nullable(Seat),
   messages: v.array(LongFreePyramidMessageSchema),
 })
 export type LongFreePyramidContext = v.InferOutput<typeof LongFreePyramidContextSchema>
 
 const LongFreePyramidProjectionDetailsSchema = v.object({
   phase: LongFreePyramidPhaseSchema,
-  winner: v.optional(SeatSchema),
+  winner: v.optional(Seat),
   rackHistory: v.pipe(v.array(LongFreePyramidRackSchema), v.minLength(1)),
   currentRack: LongFreePyramidRackSchema,
-  ballsRemoved: v.pipe(IntegerSchema, v.minValue(0)),
-  ballsOnTable: v.pipe(IntegerSchema, v.minValue(0)),
+  ballsRemoved: v.pipe(Integer, v.minValue(0)),
+  ballsOnTable: v.pipe(Integer, v.minValue(0)),
   messages: v.array(LongFreePyramidMessageSchema),
 })
 export type LongFreePyramidProjectionDetails = v.InferOutput<typeof LongFreePyramidProjectionDetailsSchema>

@@ -1,5 +1,5 @@
 import { CreateMatchRequestSchema } from '@ks/competition'
-import { MatchCommand, MatchIdSchema, NonNegativeIntegerSchema, UnixEpochMillisecondsSchema } from '@ks/core'
+import { MatchCommand, MatchId, NonNegativeInteger, UnixEpochMilliseconds } from '@ks/core'
 import * as v from 'valibot'
 
 import type { CommandReceiptOutcome } from './storage/command-outcome'
@@ -9,24 +9,24 @@ const ControlSecretSchema = v.pipe(v.string(), v.minLength(16))
 export const CreateBodySchema = v.intersect([
   CreateMatchRequestSchema,
   v.object({
-    matchId: MatchIdSchema,
+    matchId: MatchId,
     controlSecret: ControlSecretSchema,
-    createdAt: UnixEpochMillisecondsSchema,
+    createdAt: UnixEpochMilliseconds,
   }),
 ])
 
 export const SubmitCommandBodySchema = v.object({
-  matchId: MatchIdSchema,
+  matchId: MatchId,
   command: MatchCommand,
 })
 
 export const MatchIdBodySchema = v.object({
-  matchId: MatchIdSchema,
+  matchId: MatchId,
 })
 
 export const StreamBodySchema = v.object({
-  matchId: MatchIdSchema,
-  since: v.optional(NonNegativeIntegerSchema),
+  matchId: MatchId,
+  since: v.optional(NonNegativeInteger),
 })
 
 export type CreateBody = v.InferInput<typeof CreateBodySchema>
