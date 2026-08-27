@@ -2,7 +2,7 @@
 
 KS is a two-player billiards scorekeeper with public live scoring. A match is a race across frames; seats are always `A` and `B`. Supported games are registered in `packages/gameplay/src/registry.ts`.
 
-Domain vocabulary and distinctions are defined in [`CONTEXT.md`](CONTEXT.md). Treat it as authoritative when naming concepts in code, tests, UI copy, and architecture documentation.
+Domain vocabulary and distinctions are defined in CONTEXT.md. Treat it as authoritative when naming concepts in code, tests, UI copy, and architecture documentation.
 
 ## Working Mode
 
