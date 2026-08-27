@@ -49,7 +49,7 @@ Domain vocabulary and distinctions are defined in CONTEXT.md. Treat it as author
 - Accepted Commands and Protocol entries, their sequence, and command outcomes are authoritative in each MatchRoom's SQLite database. Do not mirror active command history into D1.
 - D1 owns players, the `matches` table, and completed protocol archives with final match state.
 - Resident match/gameplay state is a disposable cache restored by replaying Accepted Commands and comparing regenerated Protocol entries; raw XState snapshots are not persisted.
-- The terminal Accepted Command atomically stores Final Match State and `endedAt`. Application validates and archives MatchRoom's Protocol and Final Match State transfer without gameplay replay, asks MatchRoom to broadcast/close/delete local storage, then marks the match row finished.
+- The terminal Accepted Command atomically stores Final Match State and `endedAt`. Application treats MatchRoom's Protocol and Final Match State transfer as canonical, checks D1 identity/lifecycle and archive idempotency, archives it without gameplay replay, asks MatchRoom to broadcast/close/delete local storage, then marks the match row finished.
 - Finished reads use D1 and must not access the deleted MatchRoom.
 
 ## Runtime Notes

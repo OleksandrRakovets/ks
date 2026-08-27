@@ -7,6 +7,13 @@ KS records and presents cue-sports matches. Its current match mode is optimized 
 **Match**:
 A contest whose winner is the first player to win the target number of frames.
 
+**Active Match**:
+A Match that may accept Commands. Its authoritative history and current state remain in MatchRoom storage.
+_Avoid_: Live Match
+
+**Finalizing Match**:
+A Match whose terminal Accepted Command and Final Match State are durable, but whose completed Protocol has not yet finished archival and MatchRoom disposal. It no longer accepts Commands.
+
 **Sparring Match**:
 A two-player match scored by the players themselves, without a dedicated referee or secretary. It deliberately supports less officiating detail and fewer statistics than a tournament match may require.
 
