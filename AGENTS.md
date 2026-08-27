@@ -36,9 +36,9 @@ Domain vocabulary and distinctions are defined in CONTEXT.md. Treat it as author
 
 - Domain dependency direction is `core <- gameplay <- competition` and is enforced by `check:boundaries`.
 - Routes own HTTP parsing, cookies, redirects, and presentation adaptation. They receive `Application`; SQL, Durable Object calls, and use-case orchestration stay out of routes.
-- `@ks/application` owns private D1 adapters and its private structural MatchRoom RPC client. It must not expose generic repositories.
+- `@ks/application` owns private D1 adapters and its private typed MatchRoom capability. It must not expose generic repositories.
 - MatchRoom must not import Play, application, or D1 code.
-- Validate at trust and representation boundaries: HTTP, RPC, persisted rows/JSON, browser storage, and restored machine state. Do not reparse canonical typed values.
+- Validate at external trust and representation boundaries: HTTP, persisted rows/JSON, browser storage, and restored machine state. Internal MatchRoom RPC between the owned Play and MatchRoom deployables is a trusted typed capability; do not add runtime schemas or reparse canonical values solely because a call crosses Cloudflare RPC.
 - Schemas use Valibot. Prefer built-in actions such as `v.trim()` and `v.parseJson()`. Give the inferred type the exact name as the schema (the core package already does this).
 - Use core seat contracts (`Seat`, `BySeatNumber`, `opponentOf`) rather than local equivalents.
 - Keep one `game` path; gameplay runtimes own game-specific semantics.
@@ -55,7 +55,7 @@ Domain vocabulary and distinctions are defined in CONTEXT.md. Treat it as author
 ## Runtime Notes
 
 - Play and `ks-match-room` are independent Cloudflare Workers. Play reaches MatchRoom through an external Durable Object binding with `script_name`.
-- Play's `@ks/match-room` import is type-only; application uses a structural stub contract.
+- Play's `@ks/match-room` import is type-only; application uses a private typed MatchRoom capability without runtime RPC response parsing.
 - Live updates currently use SSE through a React Router loader and application `Response` pass-through. MatchRoom's controllers and ping timers keep connected objects active, so this transport is not hibernatable.
 - MatchRoom must be deployed before Play when its external binding changes. The project has not yet been deployed.
 - Local Worker variables belong in `apps/play/.dev.vars`; start from `.dev.vars.example`.
