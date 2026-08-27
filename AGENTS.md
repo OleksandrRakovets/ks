@@ -8,6 +8,7 @@ Domain vocabulary and distinctions are defined in CONTEXT.md. Treat it as author
 
 - Optimize for architectural clarity and small, reviewable slices.
 - Respect an explicit architecture-only phase; otherwise implement and verify changes.
+- MatchRoom refactor: load `.tracker/match-room-refactor-guide.md` before editing MatchRoom, its storage/live modules, RPC capability, or completion flow.
 - Ask before adding a package, layer, or major abstraction.
 - Keep only durable, current architecture notes in `.tracker/decisions/`.
 

@@ -4,6 +4,8 @@
 
 Accepted on 2026-08-27. Implementation must follow the complete module layout, lifecycle ordering, trusted RPC interface, and executable test matrix in this specification; do not land an incomplete structural midpoint.
 
+Implementation runs follow `.tracker/match-room-refactor-guide.md` for slice order, completion criteria, and user review gates.
+
 ## Goals
 
 - Keep `MatchRoom` as the Cloudflare Durable Object composition root.
