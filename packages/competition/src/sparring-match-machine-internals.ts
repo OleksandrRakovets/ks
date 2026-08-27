@@ -200,7 +200,7 @@ function getPhase(snapshot: SparringMatchSnapshot): SparringMatchPhase {
   return v.parse(SparringMatchPhaseSchema, snapshot.value)
 }
 
-export function projectLifecycleState(snapshot: SparringMatchSnapshot): SparringMatchLifecycleState {
+export function deriveLifecycleState(snapshot: SparringMatchSnapshot): SparringMatchLifecycleState {
   const phase = getPhase(snapshot)
   const context = snapshot.context
 

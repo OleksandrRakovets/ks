@@ -42,7 +42,7 @@ function protocolEntry(args: {
   })
 }
 
-export function projectPyramidProtocolEntries(args: {
+export function createPyramidProtocolEntries(args: {
   previous: PyramidSparringFrameSnapshot
   command: PyramidCommand
   next: PyramidSparringFrameSnapshot

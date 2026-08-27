@@ -3,15 +3,15 @@ import * as v from 'valibot'
 import type { GameMeta } from './constants'
 import {
   LongFreePyramidCommandSchema,
-  LongFreePyramidControlViewSchema,
+  LongFreePyramidControlProjectionSchema,
 } from './long-free-pyramid/definitions'
 import {
-  CombinedPyramidControlViewSchema,
-  CombinedPyramidOldControlViewSchema,
-  FreePyramidControlViewSchema,
+  CombinedPyramidControlProjectionSchema,
+  CombinedPyramidOldControlProjectionSchema,
+  FreePyramidControlProjectionSchema,
   PyramidCommandSchema,
 } from './pyramid/definitions'
-import { StrilaCommandSchema, StrilaControlViewSchema } from './strila-v2/definitions'
+import { StrilaCommandSchema, StrilaControlProjectionSchema } from './strila-v2/definitions'
 
 type RegistryEntry = {
   meta: GameMeta
@@ -29,7 +29,7 @@ export const registry = {
       defaultFrameTargetPointsBySeat: { A: 9, B: 9 },
     },
     commandSchema: StrilaCommandSchema,
-    controlSchema: StrilaControlViewSchema,
+    controlSchema: StrilaControlProjectionSchema,
   },
   'free-pyramid': {
     meta: {
@@ -40,7 +40,7 @@ export const registry = {
       defaultFrameTargetPointsBySeat: { A: 8, B: 8 },
     },
     commandSchema: PyramidCommandSchema,
-    controlSchema: FreePyramidControlViewSchema,
+    controlSchema: FreePyramidControlProjectionSchema,
   },
   'free-pyramid-long': {
     meta: {
@@ -51,7 +51,7 @@ export const registry = {
       defaultFrameTargetPointsBySeat: { A: 30, B: 30 },
     },
     commandSchema: LongFreePyramidCommandSchema,
-    controlSchema: LongFreePyramidControlViewSchema,
+    controlSchema: LongFreePyramidControlProjectionSchema,
   },
   'combined-pyramid': {
     meta: {
@@ -62,7 +62,7 @@ export const registry = {
       defaultFrameTargetPointsBySeat: { A: 8, B: 8 },
     },
     commandSchema: PyramidCommandSchema,
-    controlSchema: CombinedPyramidControlViewSchema,
+    controlSchema: CombinedPyramidControlProjectionSchema,
   },
   'combined-pyramid-old': {
     meta: {
@@ -73,7 +73,7 @@ export const registry = {
       defaultFrameTargetPointsBySeat: { A: 8, B: 8 },
     },
     commandSchema: PyramidCommandSchema,
-    controlSchema: CombinedPyramidOldControlViewSchema,
+    controlSchema: CombinedPyramidOldControlProjectionSchema,
   },
 } as const satisfies Record<string, RegistryEntry>
 

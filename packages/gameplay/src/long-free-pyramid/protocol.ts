@@ -44,7 +44,7 @@ function protocolEntry(args: {
   })
 }
 
-export function projectLongFreePyramidProtocolEntries(args: {
+export function createLongFreePyramidProtocolEntries(args: {
   previous: LongFreePyramidSparringFrameSnapshot
   command: LongFreePyramidCommand
   next: LongFreePyramidSparringFrameSnapshot

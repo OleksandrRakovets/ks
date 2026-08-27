@@ -30,6 +30,10 @@ _Avoid_: Negative pots
 
 ## Presentation
 
+**Projection**:
+A disposable representation derived from authoritative match state or records and shaped for a particular reader or presentation surface. A projection never becomes authoritative match history.
+_Avoid_: View
+
 **Control**:
 A description of an interaction that the current match projection permits the user interface to present. A control may contain fixed input and may require additional user input before the renderer produces a Command. Controls are disposable presentation guidance; they are not submitted, accepted, or retained as match history.
 _Avoid_: Available command, command preset

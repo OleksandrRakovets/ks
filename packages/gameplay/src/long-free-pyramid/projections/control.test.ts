@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 
 import { createInitialSnapshot, LongFreePyramidSparringFrameMachine, sendEvent } from '../machine'
-import { deriveLongFreePyramidControlView } from './control'
+import { deriveLongFreePyramidControlProjection } from './control'
 
 test('projects presentation and limits selectable pots to balls remaining', () => {
   let snapshot = sendEvent(createInitialSnapshot({ targetPointsBySeat: { A: 30, B: 30 }, rackRollover: 15 }), {
@@ -13,7 +13,7 @@ test('projects presentation and limits selectable pots to balls remaining', () =
     context: { ...snapshot.context, racks: [{ rackNumber: 1, scoreBySeat: { A: 14, B: 0 } }] },
   })
 
-  const control = deriveLongFreePyramidControlView(snapshot)
+  const control = deriveLongFreePyramidControlProjection(snapshot)
   expect(control).toMatchObject({
     gameKey: 'free-pyramid-long',
     projection: 'control',
@@ -46,5 +46,5 @@ test('projects presentation and limits selectable pots to balls remaining', () =
   ])
 
   control.details.rackHistory[0]!.scoreBySeat.A = 99
-  expect(deriveLongFreePyramidControlView(snapshot).details.rackHistory[0]!.scoreBySeat.A).toBe(14)
+  expect(deriveLongFreePyramidControlProjection(snapshot).details.rackHistory[0]!.scoreBySeat.A).toBe(14)
 })

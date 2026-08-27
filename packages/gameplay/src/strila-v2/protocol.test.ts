@@ -2,14 +2,14 @@ import { expect, test } from 'bun:test'
 
 import type { StrilaCommand } from './definitions'
 import { createInitialSnapshot, sendEvent } from './machine'
-import { projectStrilaProtocolEntries } from './protocol'
+import { createStrilaProtocolEntries } from './protocol'
 
 test('orders player entry before winner system note and records exact scoreAfter', () => {
   const previous = sendEvent(createInitialSnapshot({ A: 1, B: 9 }), { type: 'frame.commence', seat: 'A' })
   const command: StrilaCommand = { type: 'pot.record', seat: 'A', pottedBalls: [0] }
   const next = sendEvent(previous, command)
 
-  expect(projectStrilaProtocolEntries({ previous, command, next })).toEqual([
+  expect(createStrilaProtocolEntries({ previous, command, next })).toEqual([
     {
       gameKey: 'strila-v2',
       source: 'player',

@@ -67,7 +67,7 @@ function isRespottedBlackOpeningIllegalPot(
   )
 }
 
-export function projectStrilaProtocolEntries(args: {
+export function createStrilaProtocolEntries(args: {
   previous: StrilaSparringFrameSnapshot
   command: StrilaCommand
   next: StrilaSparringFrameSnapshot

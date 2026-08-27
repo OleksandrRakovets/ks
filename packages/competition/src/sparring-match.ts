@@ -26,7 +26,7 @@ import * as v from 'valibot'
 import type { MatchStateFor } from './matches'
 import {
   createInitialSnapshot,
-  projectLifecycleState,
+  deriveLifecycleState,
   sendLifecycleEvent,
   type SparringMatchSnapshot,
 } from './sparring-match-machine-internals'
@@ -204,7 +204,7 @@ class ResidentSparringMatch implements SparringMatch {
   }
 
   execute(command: MatchCommand): MatchCommandResult {
-    const lifecycle = projectLifecycleState(this.snapshot)
+    const lifecycle = deriveLifecycleState(this.snapshot)
     const discriminator = v.safeParse(v.object({ type: v.string() }), command.command)
     const commandType = discriminator.success ? discriminator.output.type : 'unknown'
     const parseFailed = (): MatchCommandResult => ({
@@ -223,7 +223,7 @@ class ResidentSparringMatch implements SparringMatch {
   }
 
   project(): SparringMatchRoomProjection {
-    const lifecycle = projectLifecycleState(this.snapshot)
+    const lifecycle = deriveLifecycleState(this.snapshot)
     const frames: FrameState[] = lifecycle.completedFrames.map((frame) => ({
       frameIndex: frame.frameIndex,
       pointsBySeat: frame.outcome.score,
@@ -286,7 +286,7 @@ class ResidentSparringMatch implements SparringMatch {
     command: MatchLifecycleCommand,
     acceptedCommand: MatchCommand,
   ): MatchCommandResult {
-    const lifecycle = projectLifecycleState(this.snapshot)
+    const lifecycle = deriveLifecycleState(this.snapshot)
     if (lifecycle.phase === 'match-over') return { _tag: 'rejected', reason: { code: 'match-already-over' } }
     if (command.type === 'frame.prepare') {
       if (lifecycle.phase !== 'between-frames')
@@ -351,7 +351,7 @@ class ResidentSparringMatch implements SparringMatch {
     gameCommand: GameCommandFor<K>,
     acceptedCommand: MatchCommand,
   ): MatchCommandResult {
-    const lifecycle = projectLifecycleState(this.snapshot)
+    const lifecycle = deriveLifecycleState(this.snapshot)
     if (lifecycle.phase === 'match-over') return { _tag: 'rejected', reason: { code: 'match-already-over' } }
     if (lifecycle.phase !== 'frame-in-progress' || !this.gameplay)
       return { _tag: 'rejected', reason: { code: 'no-active-frame' } }
@@ -373,7 +373,7 @@ class ResidentSparringMatch implements SparringMatch {
     acceptedCommand: MatchCommand,
     entryContents: ProtocolEntryContent[],
   ): MatchCommandResult {
-    const lifecycle = projectLifecycleState(this.snapshot)
+    const lifecycle = deriveLifecycleState(this.snapshot)
     if (lifecycle.phase !== 'frame-in-progress') throw new Error('Cannot complete inactive frame')
     entryContents.push({
       gameKey: lifecycle.config.gameKey,
@@ -389,7 +389,7 @@ class ResidentSparringMatch implements SparringMatch {
       frameIndex: lifecycle.activeFrame.frameIndex,
       outcome,
     })
-    const resulting = projectLifecycleState(this.snapshot)
+    const resulting = deriveLifecycleState(this.snapshot)
     if (resulting.phase === 'match-over')
       entryContents.push({
         gameKey: lifecycle.config.gameKey,

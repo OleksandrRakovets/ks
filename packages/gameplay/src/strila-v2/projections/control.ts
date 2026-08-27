@@ -5,8 +5,8 @@ import * as v from 'valibot'
 import { deriveGameControlSections, type GameControl } from '../../constants'
 import {
   StrilaBallStatusesSchema,
-  type StrilaControlDetails,
-  type StrilaControlView,
+  type StrilaControlProjection,
+  type StrilaControlProjectionDetails,
   StrilaMeta,
 } from '../definitions'
 import { getPhase, type StrilaSparringFrameSnapshot } from '../machine'
@@ -19,7 +19,9 @@ function seatControls(
   return (['A', 'B'] as const).map((seat) => ({ source: 'game', type, seat, fixedInput: {}, prominence }))
 }
 
-function deriveBallStatuses(snapshot: StrilaSparringFrameSnapshot): StrilaControlDetails['ballStatuses'] {
+function deriveBallStatuses(
+  snapshot: StrilaSparringFrameSnapshot,
+): StrilaControlProjectionDetails['ballStatuses'] {
   const objectBalls = new Set(computeStrilaObjectBalls(snapshot.context.coloredBallsOnTable))
   const onTableColored = new Set(snapshot.context.coloredBallsOnTable)
   const cueStatus: 'object' | 'on-table' =
@@ -65,7 +67,7 @@ function messages(
   })
 }
 
-function view(
+function controlProjection(
   snapshot: StrilaSparringFrameSnapshot,
   args: {
     controls: GameControl[]
@@ -74,7 +76,7 @@ function view(
     seat?: Seat
     messages?: Array<{ type: 'hint' | 'warning'; code: 'cue-ball-and-colored-is-foul' | 'black-pot-wins' }>
   },
-): StrilaControlView {
+): StrilaControlProjection {
   return {
     gameKey: 'strila-v2',
     projection: 'control',
@@ -92,16 +94,16 @@ function view(
   }
 }
 
-export function deriveStrilaControlView(snapshot: StrilaSparringFrameSnapshot): StrilaControlView {
+export function deriveStrilaControlProjection(snapshot: StrilaSparringFrameSnapshot): StrilaControlProjection {
   switch (getPhase(snapshot)) {
     case 'not-started':
-      return view(snapshot, {
+      return controlProjection(snapshot, {
         controls: [],
         situationTitle: 'Break-off',
         situationSummary: 'Waiting for the match to open the frame.',
       })
     case 'open-play':
-      return view(snapshot, {
+      return controlProjection(snapshot, {
         controls: [...seatControls('pot.record', 'primary'), ...seatControls('foul.commit', 'secondary')],
         situationTitle: 'Open play',
         situationSummary: 'Log pots or a foul.',
@@ -112,7 +114,7 @@ export function deriveStrilaControlView(snapshot: StrilaSparringFrameSnapshot): 
         'Foul offender is required while selecting a foul penalty',
       )
       const chooser = opponentOf(snapshot.context.foulOffender)
-      return view(snapshot, {
+      return controlProjection(snapshot, {
         controls: [
           {
             source: 'game',
@@ -145,7 +147,7 @@ export function deriveStrilaControlView(snapshot: StrilaSparringFrameSnapshot): 
       })
     }
     case 'foul-committed.ball-in-hand':
-      return view(snapshot, {
+      return controlProjection(snapshot, {
         controls: [
           ...seatControls('pot.record', 'primary'),
           ...seatControls('miss.record', 'primary'),
@@ -156,7 +158,7 @@ export function deriveStrilaControlView(snapshot: StrilaSparringFrameSnapshot): 
         messages: [{ type: 'warning', code: 'cue-ball-and-colored-is-foul' }],
       })
     case 'respotted-black.opening':
-      return view(snapshot, {
+      return controlProjection(snapshot, {
         controls: [
           ...seatControls('pot.record', 'primary'),
           ...seatControls('miss.record', 'primary'),
@@ -167,14 +169,14 @@ export function deriveStrilaControlView(snapshot: StrilaSparringFrameSnapshot): 
         messages: [{ type: 'hint', code: 'black-pot-wins' }],
       })
     case 'respotted-black.play':
-      return view(snapshot, {
+      return controlProjection(snapshot, {
         controls: [...seatControls('pot.record', 'primary'), ...seatControls('foul.commit', 'secondary')],
         situationTitle: 'Respotted black play',
         situationSummary: 'Record the outcome of the shot on the respotted black.',
       })
     case 'winner-determined':
       invariant(snapshot.context.winner !== null, 'Winner is required before awarding a determined frame')
-      return view(snapshot, {
+      return controlProjection(snapshot, {
         controls: [
           {
             source: 'game',
@@ -196,7 +198,7 @@ export function deriveStrilaControlView(snapshot: StrilaSparringFrameSnapshot): 
         situationSummary: 'The break may continue, or the frame can be awarded now.',
       })
     case 'frame-over':
-      return view(snapshot, {
+      return controlProjection(snapshot, {
         controls: [],
         situationTitle: 'Frame over',
         situationSummary: 'No further scoring commands are available.',

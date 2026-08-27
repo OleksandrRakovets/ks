@@ -11,7 +11,7 @@ export type ProtocolEntrySource = v.InferOutput<typeof ProtocolEntrySource>
 
 /**
  * Game-owned Protocol content for the gameplay session's current frame.
- * Each game extends this structure with its exact body schema and parses entries when projecting accepted transitions.
+ * Each game extends this structure with its exact body schema and creates entries from accepted transitions.
  */
 export const GameProtocolEntry = v.object({
   gameKey: GameKey,

@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 
 import { createInitialSnapshot, sendEvent } from './machine'
-import { projectLongFreePyramidProtocolEntries } from './protocol'
+import { createLongFreePyramidProtocolEntries } from './protocol'
 
 test('projects the exact ordered entry and total scoreAfter across rack state', () => {
   let previous = sendEvent(createInitialSnapshot({ targetPointsBySeat: { A: 30, B: 30 }, rackRollover: 14 }), {
@@ -13,7 +13,7 @@ test('projects the exact ordered entry and total scoreAfter across rack state', 
   const command = { type: 'pot.record', seat: 'B', pottedBallCount: 2 } as const
   const next = sendEvent(previous, command)
 
-  expect(projectLongFreePyramidProtocolEntries({ previous, command, next })).toEqual([
+  expect(createLongFreePyramidProtocolEntries({ previous, command, next })).toEqual([
     {
       gameKey: 'free-pyramid-long',
       source: 'player',

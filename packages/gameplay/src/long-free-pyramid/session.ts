@@ -15,8 +15,8 @@ import {
   LongFreePyramidSparringFrameMachine,
   type LongFreePyramidSparringFrameSnapshot,
 } from './machine'
-import { deriveLongFreePyramidControlView } from './projections/control'
-import { projectLongFreePyramidProtocolEntries } from './protocol'
+import { deriveLongFreePyramidControlProjection } from './projections/control'
+import { createLongFreePyramidProtocolEntries } from './protocol'
 
 class LongFreePyramidGameplaySession implements GameplaySession<'free-pyramid-long'> {
   readonly gameKey = 'free-pyramid-long' as const
@@ -33,14 +33,13 @@ class LongFreePyramidGameplaySession implements GameplaySession<'free-pyramid-lo
     const previous = this.#snapshot
     if (!previous.can(command)) return commandNotAvailable()
     const [candidate] = transition(LongFreePyramidSparringFrameMachine, previous, command)
-    const projected = projectLongFreePyramidProtocolEntries({ previous, command, next: candidate })
-    const output = candidate.status === 'done' ? candidate.output : undefined
-    if (output !== undefined && !v.is(FrameOutcome, output))
+    const gameProtocolEntries = createLongFreePyramidProtocolEntries({ previous, command, next: candidate })
+    const outcome = candidate.status === 'done' ? candidate.output : undefined
+    if (outcome !== undefined && !v.is(FrameOutcome, outcome))
       throw new Error('Long free Pyramid machine produced an invalid outcome')
-    const outcome = output
     const result = outcome
-      ? { _tag: 'accepted' as const, gameProtocolEntries: projected, outcome }
-      : { _tag: 'accepted' as const, gameProtocolEntries: projected }
+      ? { _tag: 'accepted' as const, gameProtocolEntries, outcome }
+      : { _tag: 'accepted' as const, gameProtocolEntries }
     this.#snapshot = candidate
     return result
   }
@@ -52,7 +51,7 @@ class LongFreePyramidGameplaySession implements GameplaySession<'free-pyramid-lo
     return this.#snapshot.can({ type: 'frame.commence', seat })
   }
   deriveControl() {
-    return deriveLongFreePyramidControlView(this.#snapshot)
+    return deriveLongFreePyramidControlProjection(this.#snapshot)
   }
 }
 

@@ -28,38 +28,45 @@ const PyramidContextSchema = v.object({
 })
 export type PyramidContext = v.InferOutput<typeof PyramidContextSchema>
 
-const PyramidProjectionDetailsSchema = v.object({
+const PyramidControlProjectionStateSchema = v.object({
   phase: PyramidPhaseSchema,
   winner: v.optional(Seat),
 })
 
-const PyramidControlDetailsSchema = v.object({
-  ...PyramidProjectionDetailsSchema.entries,
+const PyramidControlProjectionDetailsSchema = v.object({
+  ...PyramidControlProjectionStateSchema.entries,
   situationTitle: NonEmptyString,
   situationSummary: NonEmptyString,
   isPotCommandAvailable: v.boolean(),
   controlSections: ControlSections,
 })
 
-function controlViewSchema<K extends PyramidGameKey>(gameKey: K) {
+function controlProjectionSchema<K extends PyramidGameKey>(gameKey: K) {
   return v.object({
     ...GameControlProjectionSchema.entries,
     gameKey: v.literal(gameKey),
-    details: PyramidControlDetailsSchema,
+    details: PyramidControlProjectionDetailsSchema,
   })
 }
 
-export const FreePyramidControlViewSchema = controlViewSchema('free-pyramid')
-export type FreePyramidControlView = v.InferOutput<typeof FreePyramidControlViewSchema>
+export const FreePyramidControlProjectionSchema = controlProjectionSchema('free-pyramid')
+export type FreePyramidControlProjection = v.InferOutput<typeof FreePyramidControlProjectionSchema>
 
-export const CombinedPyramidControlViewSchema = controlViewSchema('combined-pyramid')
-export type CombinedPyramidControlView = v.InferOutput<typeof CombinedPyramidControlViewSchema>
+export const CombinedPyramidControlProjectionSchema = controlProjectionSchema('combined-pyramid')
+export type CombinedPyramidControlProjection = v.InferOutput<typeof CombinedPyramidControlProjectionSchema>
 
-export const CombinedPyramidOldControlViewSchema = controlViewSchema('combined-pyramid-old')
-export type CombinedPyramidOldControlView = v.InferOutput<typeof CombinedPyramidOldControlViewSchema>
+export const CombinedPyramidOldControlProjectionSchema = controlProjectionSchema('combined-pyramid-old')
+export type CombinedPyramidOldControlProjection = v.InferOutput<
+  typeof CombinedPyramidOldControlProjectionSchema
+>
 
-export type AnyPyramidControlView = Omit<FreePyramidControlView, 'gameKey'> & { gameKey: PyramidGameKey }
+export type AnyPyramidControlProjection = Omit<FreePyramidControlProjection, 'gameKey'> & {
+  gameKey: PyramidGameKey
+}
 
-export type PyramidControlViewFor<K extends PyramidGameKey> = Omit<FreePyramidControlView, 'gameKey'> & {
+export type PyramidControlProjectionFor<K extends PyramidGameKey> = Omit<
+  FreePyramidControlProjection,
+  'gameKey'
+> & {
   gameKey: K
 }

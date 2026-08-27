@@ -7,10 +7,10 @@ export {
   type GameCommandFor,
   type RegisteredGameKey,
 } from '../src/registry'
-export { type LongFreePyramidControlView } from '../src/long-free-pyramid/definitions'
+export { type LongFreePyramidControlProjection } from '../src/long-free-pyramid/definitions'
 export {
-  type CombinedPyramidControlView,
-  type CombinedPyramidOldControlView,
-  type FreePyramidControlView,
+  type CombinedPyramidControlProjection,
+  type CombinedPyramidOldControlProjection,
+  type FreePyramidControlProjection,
 } from '../src/pyramid/definitions'
-export { StrilaMeta, type StrilaBall, type StrilaControlView } from '../src/strila-v2/definitions'
+export { StrilaMeta, type StrilaBall, type StrilaControlProjection } from '../src/strila-v2/definitions'

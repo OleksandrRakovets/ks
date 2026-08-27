@@ -1,8 +1,8 @@
 import type { Control, ControlSections, MatchCommand } from '@ks/core'
 import type {
-  CombinedPyramidControlView,
-  CombinedPyramidOldControlView,
-  FreePyramidControlView,
+  CombinedPyramidControlProjection,
+  CombinedPyramidOldControlProjection,
+  FreePyramidControlProjection,
 } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
 import type { TFunction } from 'i18next'
@@ -153,20 +153,22 @@ function PyramidControlRenderer(props: {
   )
 }
 
-export function FreePyramidControlRenderer(props: MatchControlRendererProps<FreePyramidControlView>) {
+export function FreePyramidControlRenderer(props: MatchControlRendererProps<FreePyramidControlProjection>) {
   return (
     <PyramidControlRenderer controlSections={props.controlSections} onSubmitCommand={props.onSubmitCommand} />
   )
 }
 
-export function CombinedPyramidControlRenderer(props: MatchControlRendererProps<CombinedPyramidControlView>) {
+export function CombinedPyramidControlRenderer(
+  props: MatchControlRendererProps<CombinedPyramidControlProjection>,
+) {
   return (
     <PyramidControlRenderer controlSections={props.controlSections} onSubmitCommand={props.onSubmitCommand} />
   )
 }
 
 export function CombinedPyramidOldControlRenderer(
-  props: MatchControlRendererProps<CombinedPyramidOldControlView>,
+  props: MatchControlRendererProps<CombinedPyramidOldControlProjection>,
 ) {
   return (
     <PyramidControlRenderer controlSections={props.controlSections} onSubmitCommand={props.onSubmitCommand} />

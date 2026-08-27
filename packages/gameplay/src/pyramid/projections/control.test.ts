@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test'
 
 import { createInitialSnapshot, sendEvent } from '../machine'
 import { PyramidRuleSpecificsByGameKey } from '../rules'
-import { derivePyramidControlView } from './control'
+import { derivePyramidControlProjection } from './control'
 
 test('projects exact combined-pyramid open-play presentation and control sections', () => {
   const rules = PyramidRuleSpecificsByGameKey['combined-pyramid']
@@ -11,7 +11,7 @@ test('projects exact combined-pyramid open-play presentation and control section
     seat: 'A',
   })
 
-  expect(derivePyramidControlView(snapshot, rules)).toEqual({
+  expect(derivePyramidControlProjection(snapshot, rules)).toEqual({
     gameKey: 'combined-pyramid',
     projection: 'control',
     score: { A: 0, B: 0 },

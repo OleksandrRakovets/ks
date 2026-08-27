@@ -15,8 +15,8 @@ import {
   PyramidSparringFrameMachine,
   type PyramidSparringFrameSnapshot,
 } from './machine'
-import { derivePyramidControlView } from './projections/control'
-import { projectPyramidProtocolEntries } from './protocol'
+import { derivePyramidControlProjection } from './projections/control'
+import { createPyramidProtocolEntries } from './protocol'
 import { type PyramidGameKey, type PyramidRulesFor, PyramidRuleSpecificsByGameKey } from './rules'
 
 class PyramidGameplaySession<K extends PyramidGameKey> implements GameplaySession<K> {
@@ -34,14 +34,18 @@ class PyramidGameplaySession<K extends PyramidGameKey> implements GameplaySessio
     const previous = this.#snapshot
     if (!previous.can(command)) return commandNotAvailable()
     const [candidate] = transition(PyramidSparringFrameMachine, previous, command)
-    const projected = projectPyramidProtocolEntries({ previous, command, next: candidate, rules: this.#rules })
-    const output = candidate.status === 'done' ? candidate.output : undefined
-    if (output !== undefined && !v.is(FrameOutcome, output))
+    const gameProtocolEntries = createPyramidProtocolEntries({
+      previous,
+      command,
+      next: candidate,
+      rules: this.#rules,
+    })
+    const outcome = candidate.status === 'done' ? candidate.output : undefined
+    if (outcome !== undefined && !v.is(FrameOutcome, outcome))
       throw new Error('Pyramid machine produced an invalid outcome')
-    const outcome = output
     const result = outcome
-      ? { _tag: 'accepted' as const, gameProtocolEntries: projected, outcome }
-      : { _tag: 'accepted' as const, gameProtocolEntries: projected }
+      ? { _tag: 'accepted' as const, gameProtocolEntries, outcome }
+      : { _tag: 'accepted' as const, gameProtocolEntries }
     this.#snapshot = candidate
     return result
   }
@@ -54,7 +58,7 @@ class PyramidGameplaySession<K extends PyramidGameKey> implements GameplaySessio
   }
   deriveControl(): ControlProjectionFor<K> {
     // SAFETY: both the family projection and registry contract are discriminated by this session's same K.
-    return derivePyramidControlView(this.#snapshot, this.#rules) as ControlProjectionFor<K>
+    return derivePyramidControlProjection(this.#snapshot, this.#rules) as ControlProjectionFor<K>
   }
 }
 

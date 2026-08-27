@@ -2,7 +2,7 @@ import { emptyControlSections } from '@ks/core'
 import invariant from 'tiny-invariant'
 
 import { deriveGameControlSections, type GameControl } from '../../constants'
-import type { AnyPyramidControlView, PyramidControlViewFor } from '../definitions'
+import type { AnyPyramidControlProjection, PyramidControlProjectionFor } from '../definitions'
 import { getPhase, type PyramidSparringFrameSnapshot } from '../machine'
 import type { PyramidGameKey, PyramidRulesFor } from '../rules'
 
@@ -13,10 +13,10 @@ function pyramidDetails(snapshot: PyramidSparringFrameSnapshot) {
   }
 }
 
-export function derivePyramidControlView<K extends PyramidGameKey>(
+export function derivePyramidControlProjection<K extends PyramidGameKey>(
   snapshot: PyramidSparringFrameSnapshot,
   rules: PyramidRulesFor<K>,
-): PyramidControlViewFor<K> {
+): PyramidControlProjectionFor<K> {
   const phase = getPhase(snapshot)
   const score = { ...snapshot.context.score }
   if (phase === 'not-started') {
@@ -31,7 +31,7 @@ export function derivePyramidControlView<K extends PyramidGameKey>(
         isPotCommandAvailable: false,
         controlSections: emptyControlSections(),
       },
-    } satisfies AnyPyramidControlView & { gameKey: K }
+    } satisfies AnyPyramidControlProjection & { gameKey: K }
     return projection
   }
 
@@ -68,7 +68,7 @@ export function derivePyramidControlView<K extends PyramidGameKey>(
         isPotCommandAvailable: true,
         controlSections: deriveGameControlSections(controls),
       },
-    } satisfies AnyPyramidControlView & { gameKey: K }
+    } satisfies AnyPyramidControlProjection & { gameKey: K }
     return projection
   }
 
@@ -105,7 +105,7 @@ export function derivePyramidControlView<K extends PyramidGameKey>(
         isPotCommandAvailable: true,
         controlSections: deriveGameControlSections(controls),
       },
-    } satisfies AnyPyramidControlView & { gameKey: K }
+    } satisfies AnyPyramidControlProjection & { gameKey: K }
     return projection
   }
 
@@ -120,6 +120,6 @@ export function derivePyramidControlView<K extends PyramidGameKey>(
       isPotCommandAvailable: false,
       controlSections: emptyControlSections(),
     },
-  } satisfies AnyPyramidControlView & { gameKey: K }
+  } satisfies AnyPyramidControlProjection & { gameKey: K }
   return projection
 }

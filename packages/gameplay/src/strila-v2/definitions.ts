@@ -97,7 +97,7 @@ const ControlMessageSchema = v.object({
   code: v.picklist(['cue-ball-and-colored-is-foul', 'black-pot-wins']),
 })
 
-const StrilaControlDetailsSchema = v.object({
+const StrilaControlProjectionDetailsSchema = v.object({
   phase: StrilaPhaseSchema,
   seat: v.optional(Seat),
   situationTitle: NonEmptyString,
@@ -107,15 +107,15 @@ const StrilaControlDetailsSchema = v.object({
   controlSections: ControlSections,
   messages: v.array(ControlMessageSchema),
 })
-export type StrilaControlDetails = v.InferOutput<typeof StrilaControlDetailsSchema>
+export type StrilaControlProjectionDetails = v.InferOutput<typeof StrilaControlProjectionDetailsSchema>
 
-export const StrilaControlViewSchema = v.object({
+export const StrilaControlProjectionSchema = v.object({
   ...GameControlProjectionSchema.entries,
   gameKey: v.literal('strila-v2'),
   score: ContextSchema.entries.score,
-  details: StrilaControlDetailsSchema,
+  details: StrilaControlProjectionDetailsSchema,
 })
-export type StrilaControlView = v.InferOutput<typeof StrilaControlViewSchema>
+export type StrilaControlProjection = v.InferOutput<typeof StrilaControlProjectionSchema>
 
 const AutomaticFoulReasonSchema = v.picklist([
   'third-consecutive-cue-ball-pot',

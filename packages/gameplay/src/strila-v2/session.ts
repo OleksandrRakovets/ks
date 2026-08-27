@@ -10,8 +10,8 @@ import {
 } from '../gameplay-session'
 import type { StrilaCommand } from './definitions'
 import { createInitialSnapshot, StrilaSparringFrameMachine, type StrilaSparringFrameSnapshot } from './machine'
-import { deriveStrilaControlView } from './projections/control'
-import { projectStrilaProtocolEntries } from './protocol'
+import { deriveStrilaControlProjection } from './projections/control'
+import { createStrilaProtocolEntries } from './protocol'
 
 class StrilaGameplaySession implements GameplaySession<'strila-v2'> {
   readonly gameKey = 'strila-v2' as const
@@ -25,14 +25,13 @@ class StrilaGameplaySession implements GameplaySession<'strila-v2'> {
     const previous = this.#snapshot
     if (!previous.can(command)) return commandNotAvailable()
     const [candidate] = transition(StrilaSparringFrameMachine, previous, command)
-    const projected = projectStrilaProtocolEntries({ previous, command, next: candidate })
-    const output = candidate.status === 'done' ? candidate.output : undefined
-    if (output !== undefined && !v.is(FrameOutcome, output))
+    const gameProtocolEntries = createStrilaProtocolEntries({ previous, command, next: candidate })
+    const outcome = candidate.status === 'done' ? candidate.output : undefined
+    if (outcome !== undefined && !v.is(FrameOutcome, outcome))
       throw new Error('Strila machine produced an invalid outcome')
-    const outcome = output
     const result = outcome
-      ? { _tag: 'accepted' as const, gameProtocolEntries: projected, outcome }
-      : { _tag: 'accepted' as const, gameProtocolEntries: projected }
+      ? { _tag: 'accepted' as const, gameProtocolEntries, outcome }
+      : { _tag: 'accepted' as const, gameProtocolEntries }
     this.#snapshot = candidate
     return result
   }
@@ -44,7 +43,7 @@ class StrilaGameplaySession implements GameplaySession<'strila-v2'> {
     return this.#snapshot.can({ type: 'frame.commence', seat })
   }
   deriveControl() {
-    return deriveStrilaControlView(this.#snapshot)
+    return deriveStrilaControlProjection(this.#snapshot)
   }
 }
 

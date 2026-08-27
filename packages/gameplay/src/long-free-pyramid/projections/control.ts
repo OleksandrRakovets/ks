@@ -2,16 +2,16 @@ import { type Seat } from '@ks/core'
 
 import { deriveGameControlSections } from '../../constants'
 import { ballsOnTableFromRacks, currentRack, removedByRack, totalScore } from '../calculations'
-import { type LongFreePyramidControlView, type LongFreePyramidProjectionDetails } from '../definitions'
+import type { LongFreePyramidControlProjection, LongFreePyramidControlProjectionState } from '../definitions'
 import { getPhase, type LongFreePyramidSparringFrameSnapshot } from '../machine'
 
-export function deriveLongFreePyramidControlView(
+export function deriveLongFreePyramidControlProjection(
   snapshot: LongFreePyramidSparringFrameSnapshot,
-): LongFreePyramidControlView {
+): LongFreePyramidControlProjection {
   const phase = getPhase(snapshot)
   const ballsOnTable = ballsOnTableFromRacks(snapshot.context.racks)
   const rack = currentRack(snapshot.context.racks)
-  const details: LongFreePyramidProjectionDetails = {
+  const details: LongFreePyramidControlProjectionState = {
     phase,
     winner: snapshot.context.winner ?? undefined,
     rackHistory: snapshot.context.racks.map((entry) => ({ ...entry, scoreBySeat: { ...entry.scoreBySeat } })),

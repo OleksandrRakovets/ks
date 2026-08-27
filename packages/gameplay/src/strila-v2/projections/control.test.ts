@@ -1,11 +1,11 @@
 import { expect, test } from 'bun:test'
 
 import { createInitialSnapshot, sendEvent } from '../machine'
-import { deriveStrilaControlView } from './control'
+import { deriveStrilaControlProjection } from './control'
 
 test('projects exact open-play controls and selectable balls', () => {
   const snapshot = sendEvent(createInitialSnapshot({ A: 9, B: 9 }), { type: 'frame.commence', seat: 'A' })
-  const control = deriveStrilaControlView(snapshot)
+  const control = deriveStrilaControlProjection(snapshot)
 
   expect(control).toMatchObject({
     gameKey: 'strila-v2',
@@ -44,6 +44,6 @@ test('projects exact open-play controls and selectable balls', () => {
 
   control.score.A = 99
   control.details.ballStatuses[1] = 'potted'
-  expect(deriveStrilaControlView(snapshot).score.A).toBe(0)
-  expect(deriveStrilaControlView(snapshot).details.ballStatuses[1]).toBe('object')
+  expect(deriveStrilaControlProjection(snapshot).score.A).toBe(0)
+  expect(deriveStrilaControlProjection(snapshot).details.ballStatuses[1]).toBe('object')
 })

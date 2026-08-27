@@ -50,7 +50,7 @@ const LongFreePyramidContextSchema = v.object({
 })
 export type LongFreePyramidContext = v.InferOutput<typeof LongFreePyramidContextSchema>
 
-const LongFreePyramidProjectionDetailsSchema = v.object({
+const LongFreePyramidControlProjectionStateSchema = v.object({
   phase: LongFreePyramidPhaseSchema,
   winner: v.optional(Seat),
   rackHistory: v.pipe(v.array(LongFreePyramidRackSchema), v.minLength(1)),
@@ -59,17 +59,19 @@ const LongFreePyramidProjectionDetailsSchema = v.object({
   ballsOnTable: v.pipe(Integer, v.minValue(0)),
   messages: v.array(LongFreePyramidMessageSchema),
 })
-export type LongFreePyramidProjectionDetails = v.InferOutput<typeof LongFreePyramidProjectionDetailsSchema>
+export type LongFreePyramidControlProjectionState = v.InferOutput<
+  typeof LongFreePyramidControlProjectionStateSchema
+>
 
-const LongFreePyramidControlDetailsSchema = v.object({
-  ...LongFreePyramidProjectionDetailsSchema.entries,
+const LongFreePyramidControlProjectionDetailsSchema = v.object({
+  ...LongFreePyramidControlProjectionStateSchema.entries,
   isPotCommandAvailable: v.boolean(),
   controlSections: ControlSections,
 })
 
-export const LongFreePyramidControlViewSchema = v.object({
+export const LongFreePyramidControlProjectionSchema = v.object({
   ...GameControlProjectionSchema.entries,
   gameKey: v.literal('free-pyramid-long'),
-  details: LongFreePyramidControlDetailsSchema,
+  details: LongFreePyramidControlProjectionDetailsSchema,
 })
-export type LongFreePyramidControlView = v.InferOutput<typeof LongFreePyramidControlViewSchema>
+export type LongFreePyramidControlProjection = v.InferOutput<typeof LongFreePyramidControlProjectionSchema>

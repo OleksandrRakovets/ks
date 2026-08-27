@@ -1,5 +1,5 @@
 import type { Control, MatchCommand } from '@ks/core'
-import { type StrilaBall, type StrilaControlView, StrilaMeta } from '@ks/gameplay/definitions'
+import { type StrilaBall, type StrilaControlProjection, StrilaMeta } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
 import type { TFunction } from 'i18next'
 import { useState } from 'react'
@@ -21,7 +21,7 @@ const BALL_COLORS = {
   7: { bg: '#2a2a2a', border: '#555555' },
 } satisfies Record<StrilaBall, { bg: string; border: string }>
 
-type SeatControls = MatchControlRendererProps<StrilaControlView>['controlSections']['primary']
+type SeatControls = MatchControlRendererProps<StrilaControlProjection>['controlSections']['primary']
 
 function strilaCommandLabel(t: TFunction, command: Control, index: number): string {
   if (command.type !== 'penalty.select') return controlLabel(t, command)
@@ -103,7 +103,7 @@ function NeutralControlRows(props: { controls: Control[]; onSubmit: (command: Ma
   )
 }
 
-export function StrilaControlRenderer(props: MatchControlRendererProps<StrilaControlView>) {
+export function StrilaControlRenderer(props: MatchControlRendererProps<StrilaControlProjection>) {
   const [selectedBalls, setSelectedBalls] = useState<StrilaBall[]>([])
   const [showTertiary, setShowTertiary] = useState(false)
   const { t } = useTranslation()

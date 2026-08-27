@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 
 import { createInitialSnapshot, sendEvent } from './machine'
-import { projectPyramidProtocolEntries } from './protocol'
+import { createPyramidProtocolEntries } from './protocol'
 import { PyramidRuleSpecificsByGameKey } from './rules'
 
 test('projects the exact ordered entry and scoreAfter for a foul', () => {
@@ -13,7 +13,7 @@ test('projects the exact ordered entry and scoreAfter for a foul', () => {
   const command = { type: 'foul.commit', seat: 'A' } as const
   const next = sendEvent(previous, command)
 
-  expect(projectPyramidProtocolEntries({ previous, command, next, rules })).toEqual([
+  expect(createPyramidProtocolEntries({ previous, command, next, rules })).toEqual([
     {
       gameKey: 'free-pyramid',
       source: 'player',
@@ -34,7 +34,7 @@ test('projects pot.record with pottedBallCount and one score point per ball', ()
   const command = { type: 'pot.record', seat: 'A', pottedBallCount: 2 } as const
   const next = sendEvent(previous, command)
 
-  expect(projectPyramidProtocolEntries({ previous, command, next, rules })).toEqual([
+  expect(createPyramidProtocolEntries({ previous, command, next, rules })).toEqual([
     {
       gameKey: 'free-pyramid',
       source: 'player',
