@@ -137,20 +137,17 @@ export async function archiveCompletedMatch(db: ApplicationDatabase, input: Comp
     stateJson: JSON.stringify(state),
     createdAt: input.endedAt,
   }
-  const [storedArchive, storedMatch] = await Promise.all([
-    db.select().from(matchProtocolArchives).where(eq(matchProtocolArchives.matchId, input.matchId)).get(),
-    db
-      .select({
-        matchId: matches.matchId,
-        gameKey: matches.gameKey,
-        status: matches.status,
-        createdAt: matches.createdAt,
-        endedAt: matches.endedAt,
-      })
-      .from(matches)
-      .where(eq(matches.matchId, input.matchId))
-      .get(),
-  ])
+  const storedMatch = await db
+    .select({
+      matchId: matches.matchId,
+      gameKey: matches.gameKey,
+      status: matches.status,
+      createdAt: matches.createdAt,
+      endedAt: matches.endedAt,
+    })
+    .from(matches)
+    .where(eq(matches.matchId, input.matchId))
+    .get()
   if (
     !storedMatch ||
     storedMatch.matchId !== input.matchId ||
@@ -158,29 +155,44 @@ export async function archiveCompletedMatch(db: ApplicationDatabase, input: Comp
     storedMatch.createdAt !== input.createdAt
   )
     throw new CompletedMatchArchiveError('Completed match identity conflicts with D1')
-  if (storedArchive) {
-    if (
-      !semanticArchiveEqual(storedArchive, archive) ||
-      (storedMatch.status !== StoredMatchStatus.finalizing && storedMatch.status !== StoredMatchStatus.finished) ||
-      storedMatch.endedAt !== input.endedAt
-    )
-      throw new CompletedMatchArchiveError('Completed match archive conflicts with existing data')
-    return
-  }
-  if (storedMatch.status !== StoredMatchStatus.active && storedMatch.status !== StoredMatchStatus.finalizing)
+  if (
+    storedMatch.status !== StoredMatchStatus.active &&
+    storedMatch.status !== StoredMatchStatus.finalizing &&
+    storedMatch.status !== StoredMatchStatus.finished
+  )
     throw new CompletedMatchArchiveError('Completed match is not ready to archive')
-  await db.batch([
-    db.insert(matchProtocolArchives).values(archive).onConflictDoNothing({ target: matchProtocolArchives.matchId }),
-    db
-      .update(matches)
-      .set({ status: StoredMatchStatus.finalizing, endedAt: input.endedAt })
-      .where(
-        and(
-          eq(matches.matchId, input.matchId),
-          inArray(matches.status, [StoredMatchStatus.active, StoredMatchStatus.finalizing]),
-        ),
+  const inserted = await db
+    .insert(matchProtocolArchives)
+    .values(archive)
+    .onConflictDoNothing({ target: matchProtocolArchives.matchId })
+    .returning()
+  const persistedArchive =
+    inserted[0] ?? (await db.select().from(matchProtocolArchives).where(eq(matchProtocolArchives.matchId, input.matchId)).get())
+  if (!persistedArchive || !semanticArchiveEqual(persistedArchive, archive))
+    throw new CompletedMatchArchiveError('Completed match archive conflicts with existing data')
+
+  const updated = await db
+    .update(matches)
+    .set({ status: StoredMatchStatus.finalizing, endedAt: input.endedAt })
+    .where(
+      and(
+        eq(matches.matchId, input.matchId),
+        inArray(matches.status, [StoredMatchStatus.active, StoredMatchStatus.finalizing]),
       ),
-  ])
+    )
+    .returning({ status: matches.status, endedAt: matches.endedAt })
+  const persistedMatch =
+    updated[0] ??
+    (await db
+      .select({ status: matches.status, endedAt: matches.endedAt })
+      .from(matches)
+      .where(eq(matches.matchId, input.matchId))
+      .get())
+  if (
+    (persistedMatch?.status !== StoredMatchStatus.finalizing && persistedMatch?.status !== StoredMatchStatus.finished) ||
+    persistedMatch.endedAt !== input.endedAt
+  )
+    throw new CompletedMatchArchiveError('Completed match lifecycle conflicts with existing data')
 }
 
 export async function finishCompletedMatch(db: ApplicationDatabase, matchId: MatchId): Promise<void> {

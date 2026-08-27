@@ -1,1 +1,1 @@
-export type Env = Record<string, never>
+export type Env = { MATCH_ROOM: DurableObjectNamespace }

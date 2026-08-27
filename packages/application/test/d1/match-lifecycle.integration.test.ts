@@ -172,6 +172,29 @@ describe('real D1 match lifecycle', () => {
     ).toBe('{}')
   })
 
+  test('allows only one of two concurrent conflicting archives to finalize the match', async () => {
+    const db = createApplicationDatabaseClient(env.DB)
+    await beginMatchCreation(db, catalogInput())
+    await activateMatch(db, matchId)
+    const first = terminalArchiveInput()
+    const conflictingTimestamp = v.parse(UnixEpochMillisecondsSchema, first.endedAt + 1)
+    const candidates = [
+      first,
+      {
+        ...terminalArchiveInput(),
+        endedAt: conflictingTimestamp,
+        protocolEntries: first.protocolEntries.map((entry) => ({ ...entry, acceptedAt: conflictingTimestamp })),
+      },
+    ]
+
+    const results = await Promise.allSettled(candidates.map(async (candidate) => await archiveCompletedMatch(db, candidate)))
+
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1)
+    expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1)
+    expect(await getMatchRow(db, matchId)).toMatchObject({ status: 'finalizing' })
+    expect(await getProtocolArchive(db, matchId)).not.toBeNull()
+  })
+
   test('reads a locally seeded historical game key archive', async () => {
     const db = createApplicationDatabaseClient(env.DB)
     const state = {

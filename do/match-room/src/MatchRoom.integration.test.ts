@@ -60,6 +60,7 @@ describe('MatchRoom accepted command history', () => {
 
   test('persists terminal transfer, withholds it live, and disposes without replay', async () => {
     const matchId = newMatchId()
+    const otherMatchId = newMatchId()
     let stub = env.MATCH_ROOM.getByName(matchId)
     await stub.create(body(matchId))
     await stub.submitCommand({
@@ -90,5 +91,6 @@ describe('MatchRoom accepted command history', () => {
 
     expect(await stub.disposeFinalized({ matchId })).toEqual({ ok: true })
     expect(await stub.disposeFinalized({ matchId })).toEqual({ ok: true })
+    expect(await stub.disposeFinalized({ matchId: otherMatchId })).toMatchObject({ ok: false, error: 'Unknown match' })
   })
 })

@@ -29,7 +29,7 @@ export class MatchRoom extends DurableObject<Env> {
   private readonly live = new Broadcaster()
   private readonly ready: Promise<void>
   private resident: ResidentRoom | null = null
-  private deletedMatchId: MatchConfig['matchId'] | null = null
+  private storageDeleted = false
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
@@ -203,11 +203,13 @@ export class MatchRoom extends DurableObject<Env> {
     await this.ready
     const parsed = v.safeParse(MatchIdBodySchema, args)
     if (!parsed.success) return { ok: false, error: 'Invalid dispose body', status: 400 }
+    if (!this.env.MATCH_ROOM.idFromName(parsed.output.matchId).equals(this.ctx.id))
+      return { ok: false, error: 'Unknown match', status: 400 }
     return this.ctx.blockConcurrencyWhile(async () => {
-      if (this.deletedMatchId)
-        return this.deletedMatchId === parsed.output.matchId ? { ok: true } : { ok: false, error: 'Unknown match', status: 400 }
+      if (this.storageDeleted) return { ok: true }
       const match = this.store.match()
-      if (!match || match.matchId !== parsed.output.matchId) return { ok: false, error: 'Unknown match', status: 400 }
+      if (!match) return { ok: true }
+      if (match.matchId !== parsed.output.matchId) return { ok: false, error: 'Unknown match', status: 400 }
       if (match.status !== 'finalizing' || !match.finalState || match.endedAt === null)
         return { ok: false, error: 'Match is active', status: 409 }
       const entries = this.store.protocolEntriesThrough(match.latestSeq)
@@ -231,7 +233,7 @@ export class MatchRoom extends DurableObject<Env> {
       })
       this.live.closeAll()
       await this.ctx.storage.deleteAll()
-      this.deletedMatchId = match.matchId
+      this.storageDeleted = true
       this.resident = null
       return { ok: true }
     })
