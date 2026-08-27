@@ -1,4 +1,4 @@
-import type { AcceptedCommandStreamUpdate } from '@ks/core'
+import type { MatchStreamUpdate } from '@ks/core'
 
 const encoder = new TextEncoder()
 
@@ -7,7 +7,7 @@ type Client = { controller: ReadableStreamDefaultController<Uint8Array>; pingTim
 export class Broadcaster {
   private clients = new Set<Client>()
 
-  stream(ready: number, backlog: AcceptedCommandStreamUpdate[]): Response {
+  stream(ready: number, backlog: MatchStreamUpdate[]): Response {
     let client: Client | null = null
     const stream = new ReadableStream<Uint8Array>({
       start: (controller) => {
@@ -32,7 +32,7 @@ export class Broadcaster {
     })
   }
 
-  broadcast(update: AcceptedCommandStreamUpdate): void {
+  broadcast(update: MatchStreamUpdate): void {
     const bytes = encoder.encode(`event: ev\ndata: ${JSON.stringify(update)}\n\n`)
     for (const client of this.clients) {
       try {

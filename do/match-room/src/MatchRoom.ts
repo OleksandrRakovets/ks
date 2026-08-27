@@ -214,12 +214,9 @@ export class MatchRoom extends DurableObject<Env> {
         return { ok: false, error: 'Match is active', status: 409 }
       const entries = this.store.protocolEntriesThrough(match.latestSeq)
       this.validateTerminal(match, entries)
-      const terminalEntries = entries.filter((entry) => entry.acceptedSeq === match.latestSeq)
-      if (!terminalEntries[0]) throw new Error('Missing terminal Protocol entries')
       this.live.broadcast({
         type: 'command-accepted',
         acceptedSeq: match.latestSeq,
-        entries: [terminalEntries[0], ...terminalEntries.slice(1)],
         terminal: true,
       })
       this.live.closeAll()

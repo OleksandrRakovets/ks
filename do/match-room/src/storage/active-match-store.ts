@@ -1,7 +1,6 @@
 import type { SparringMatchRejection } from '@ks/competition'
 import {
   type AcceptedCommandHistoryEntry,
-  type AcceptedCommandStreamUpdate,
   type CommandId,
   MatchCommand,
   MatchConfigSchema,
@@ -9,6 +8,7 @@ import {
   MatchIdSchema,
   type MatchState,
   MatchStateSchema,
+  type MatchStreamUpdate,
   type NonEmptyProtocolEntryContents,
   NonNegativeIntegerSchema,
   nowUnixEpochMilliseconds,
@@ -170,13 +170,10 @@ export class ActiveMatchStore {
       )
   }
 
-  liveUpdatesAfter(since: number, through: number): AcceptedCommandStreamUpdate[] {
-    const entries = this.protocolEntriesThrough(through).filter((entry) => entry.acceptedSeq > since)
-    const updates: AcceptedCommandStreamUpdate[] = []
+  liveUpdatesAfter(since: number, through: number): MatchStreamUpdate[] {
+    const updates: MatchStreamUpdate[] = []
     for (let seq = since + 1; seq <= through; seq += 1) {
-      const batch = entries.filter((entry) => entry.acceptedSeq === seq)
-      if (!batch[0]) throw new Error('MatchRoom protocol_entries storage corruption')
-      updates.push({ type: 'command-accepted', acceptedSeq: seq, entries: [batch[0], ...batch.slice(1)], terminal: false })
+      updates.push({ type: 'command-accepted', acceptedSeq: seq, terminal: false })
     }
     return updates
   }
@@ -214,7 +211,7 @@ export class ActiveMatchStore {
     command: MatchCommand
     entryContents: NonEmptyProtocolEntryContents
     finalState: MatchState | null
-  }): { outcome: Extract<CommandReceiptOutcome, { _tag: 'accepted' }>; update: AcceptedCommandStreamUpdate } {
+  }): { outcome: Extract<CommandReceiptOutcome, { _tag: 'accepted' }>; update: MatchStreamUpdate } {
     const acceptedSeq = args.match.latestSeq + 1
     const acceptedAt = nowUnixEpochMilliseconds()
     const terminal = args.finalState !== null
@@ -274,7 +271,7 @@ export class ActiveMatchStore {
       if (result.rowsWritten !== 1) throw new Error('Active match cursor mismatch')
       return {
         outcome: { _tag: 'accepted', acceptedSeq },
-        update: { type: 'command-accepted', acceptedSeq, entries, terminal },
+        update: { type: 'command-accepted', acceptedSeq, terminal },
       }
     })
   }

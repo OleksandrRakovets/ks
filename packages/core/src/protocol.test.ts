@@ -4,7 +4,6 @@ import * as v from 'valibot'
 
 import { CommandIdSchema } from './ids'
 import { GameProtocolEntry, ProtocolEntry } from './protocol'
-import { AcceptedCommandStreamUpdate } from './wire'
 
 const commandId = v.parse(CommandIdSchema, '01ARZ3NDEKTSV4RRFFQ69G5FAB')
 const semantic = {
@@ -32,24 +31,5 @@ describe('Protocol contracts', () => {
 
   test('validates acceptance metadata with structured Protocol content', () => {
     expect(v.is(ProtocolEntry, authoritative)).toBe(true)
-  })
-
-  test('live update batches one or more entries under one accepted sequence', () => {
-    expect(
-      v.is(AcceptedCommandStreamUpdate, {
-        type: 'command-accepted',
-        acceptedSeq: 1,
-        entries: [authoritative],
-        terminal: false,
-      }),
-    ).toBe(true)
-    expect(
-      v.is(AcceptedCommandStreamUpdate, {
-        type: 'command-accepted',
-        acceptedSeq: 1,
-        entries: [],
-        terminal: false,
-      }),
-    ).toBe(false)
   })
 })
