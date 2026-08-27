@@ -25,6 +25,10 @@ import * as v from 'valibot'
 import { type CommandReceiptOutcome, decodeStoredCommandOutcome, type StoredCommandOutcome } from './command-outcome'
 import * as schema from './schema'
 
+/**
+ * Decodes the single persisted MatchRoom row and enforces its lifecycle invariants. Active rows have no terminal data;
+ * finalizing rows carry a finished state for the same match and game, ready for transfer to D1.
+ */
 const ActiveMatchRecordSchema = v.pipe(
   v.object({
     matchId: MatchIdSchema,

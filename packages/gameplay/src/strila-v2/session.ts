@@ -30,8 +30,8 @@ class StrilaGameplaySession implements GameplaySession<'strila-v2'> {
     if (output !== undefined && !v.is(FrameOutcomeSchema, output)) throw new Error('Strila machine produced an invalid outcome')
     const outcome = output
     const result = outcome
-      ? { _tag: 'accepted' as const, protocolEntries: projected, outcome }
-      : { _tag: 'accepted' as const, protocolEntries: projected }
+      ? { _tag: 'accepted' as const, gameProtocolEntries: projected, outcome }
+      : { _tag: 'accepted' as const, gameProtocolEntries: projected }
     this.#snapshot = candidate
     return result
   }

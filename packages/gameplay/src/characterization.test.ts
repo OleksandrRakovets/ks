@@ -10,8 +10,8 @@ import { createGameplaySession } from './session-factory'
 function expectAccepted(result: GameCommandExecution): Extract<GameCommandExecution, { _tag: 'accepted' }> {
   expect(result._tag).toBe('accepted')
   if (result._tag !== 'accepted') throw new Error('Expected accepted gameplay command')
-  expect(result.protocolEntries.length).toBeGreaterThan(0)
-  expect(result.protocolEntries.every((entry) => v.is(GameProtocolEntry, entry))).toBe(true)
+  expect(result.gameProtocolEntries.length).toBeGreaterThan(0)
+  expect(result.gameProtocolEntries.every((entry) => v.is(GameProtocolEntry, entry))).toBe(true)
   return result
 }
 
@@ -64,7 +64,7 @@ describe('gameplay characterization', () => {
     const session = createGameplaySession('strila-v2', { targetPointsBySeat: { A: 1, B: 9 } })
     expectAccepted(session.execute({ type: 'frame.commence', seat: 'A' }))
     const result = expectAccepted(session.execute({ type: 'pot.record', seat: 'A', pottedBalls: [0] }))
-    expect(result.protocolEntries.map((entry) => ({ source: entry.source, body: entry.body }))).toEqual([
+    expect(result.gameProtocolEntries.map((entry) => ({ source: entry.source, body: entry.body }))).toEqual([
       { source: 'player', body: { commandType: 'pot.record', pottedBalls: [0] } },
       { source: 'system', body: { systemType: 'winner-determined', reason: 'target-reached' } },
     ])
@@ -75,7 +75,7 @@ describe('gameplay characterization', () => {
     expectAccepted(opponentPlus.execute({ type: 'frame.commence', seat: 'A' }))
     const freeFoul = expectAccepted(opponentPlus.execute({ type: 'foul.commit', seat: 'A' }))
     expect(opponentPlus.getScore()).toEqual({ A: 0, B: 1 })
-    expect(freeFoul.protocolEntries[0]?.body).toEqual({ commandType: 'foul.commit', penalty: 'opponent-plus-one' })
+    expect(freeFoul.gameProtocolEntries[0]?.body).toEqual({ commandType: 'foul.commit', penalty: 'opponent-plus-one' })
 
     const combined = createGameplaySession('combined-pyramid', { targetPointsBySeat: { A: 8, B: 8 } })
     expectAccepted(combined.execute({ type: 'frame.commence', seat: 'A' }))
@@ -86,7 +86,7 @@ describe('gameplay characterization', () => {
     expectAccepted(owed.execute({ type: 'frame.commence', seat: 'A' }))
     const oldFoul = expectAccepted(owed.execute({ type: 'foul.commit', seat: 'A' }))
     expect(owed.getScore()).toEqual({ A: -1, B: 0 })
-    expect(oldFoul.protocolEntries[0]?.body).toEqual({ commandType: 'foul.commit', penalty: 'offender-minus-one' })
+    expect(oldFoul.gameProtocolEntries[0]?.body).toEqual({ commandType: 'foul.commit', penalty: 'offender-minus-one' })
   })
 
   test('winner-determined players may continue legal scoring until award', () => {

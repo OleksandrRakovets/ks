@@ -60,8 +60,8 @@ describe('GameplaySession', () => {
       const commenced = session.execute({ type: 'frame.commence', seat: 'A' })
       expect(commenced._tag).toBe('accepted')
       if (commenced._tag === 'accepted') {
-        expect(commenced.protocolEntries.length).toBeGreaterThan(0)
-        expect(commenced.protocolEntries.every((entry) => v.is(GameProtocolEntry, entry))).toBe(true)
+        expect(commenced.gameProtocolEntries.length).toBeGreaterThan(0)
+        expect(commenced.gameProtocolEntries.every((entry) => v.is(GameProtocolEntry, entry))).toBe(true)
       }
 
       const scoreBeforeRejection = session.getScore()

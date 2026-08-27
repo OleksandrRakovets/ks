@@ -9,7 +9,7 @@ export type GameCommandRejection = v.InferOutput<typeof GameCommandRejectionSche
 export type GameCommandExecution =
   | {
       readonly _tag: 'accepted'
-      readonly protocolEntries: readonly [GameProtocolEntry, ...GameProtocolEntry[]]
+      readonly gameProtocolEntries: readonly [GameProtocolEntry, ...GameProtocolEntry[]]
       readonly outcome?: FrameOutcome
     }
   | { readonly _tag: 'rejected'; readonly reason: GameCommandRejection }
