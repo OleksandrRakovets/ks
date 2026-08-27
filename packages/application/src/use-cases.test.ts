@@ -3,7 +3,6 @@ import { describe, expect, test } from 'bun:test'
 import type { MatchStateFor } from '@ks/competition'
 import {
   type ControlCommand,
-  FactIdSchema,
   type MatchId,
   MatchIdSchema,
   MatchStateSchema,
@@ -23,7 +22,6 @@ const matchId = v.parse(MatchIdSchema, '01ARZ3NDEKTSV4RRFFQ69G5FAV')
 const controlSecret = 'control-secret-1234567890'
 const playerRefA = v.parse(PlayerRefSchema, 'gp_01ARZ3NDEKTSV4RRFFQ69G5FAA')
 const playerRefB = v.parse(PlayerRefSchema, 'gp_01ARZ3NDEKTSV4RRFFQ69G5FAB')
-const factId = v.parse(FactIdSchema, '01ARZ3NDEKTSV4RRFFQ69G5FAC')
 
 function stateFor<K extends RegisteredGameKey>(gameKey: K, status: 'active' | 'finished' = 'active'): MatchStateFor<K> {
   return {
@@ -141,7 +139,7 @@ function applicationForActiveGame(
     finishCompletedMatch: unused,
     matchRoom: {
       create: unused,
-      readMatch: async <K extends RegisteredGameKey>(_matchId: MatchId, expectedGameKey: K) => {
+      readControl: async <K extends RegisteredGameKey>(_matchId: MatchId, expectedGameKey: K) => {
         if (roomRead.ok && roomRead.state.gameKey !== expectedGameKey) {
           return { ok: false as const, error: 'Invalid MatchRoom response', status: 502 }
         }
@@ -149,7 +147,10 @@ function applicationForActiveGame(
         return roomRead as MatchRoomReadResult<K>
       },
       submitCommand: unused,
-      listFacts: async () => ({ ok: true as const, facts: [] }),
+      readProtocol: async <K extends RegisteredGameKey>(_matchId: MatchId, expectedGameKey: K) =>
+        roomGameKey === expectedGameKey
+          ? { ok: true as const, state: stateFor(expectedGameKey), latestSeq: 0, protocolEntries: [] }
+          : { ok: false as const, error: 'Invalid MatchRoom response', status: 502 },
       stream: unused,
       finalization: unused,
       disposeFinalized: unused,
@@ -191,9 +192,9 @@ function applicationForArchivedGame(
     finishCompletedMatch: unused,
     matchRoom: {
       create: unused,
-      readMatch: unused,
+      readControl: unused,
       submitCommand: unused,
-      listFacts: unused,
+      readProtocol: unused,
       stream: unused,
       finalization: unused,
       disposeFinalized: unused,
@@ -221,9 +222,9 @@ function applicationForInvalidCreation() {
     finishCompletedMatch: unused,
     matchRoom: {
       create: unused,
-      readMatch: unused,
+      readControl: unused,
       submitCommand: unused,
-      listFacts: unused,
+      readProtocol: unused,
       stream: unused,
       finalization: unused,
       disposeFinalized: unused,
@@ -245,7 +246,6 @@ describe('application orchestration', () => {
       expect(protocol.ok).toBe(true)
       if (!protocol.ok) throw new Error('Expected protocol')
       expect(protocol.state.gameKey).toBe(gameKey)
-      expect(protocol.controlProjection?.gameKey).toBe(gameKey)
     }
   })
 
@@ -285,13 +285,12 @@ describe('application orchestration', () => {
       'free-pyramid',
     )
     expect(result.ok && result.controlState).toBe('between-frames')
-    const protocol = await applicationForActiveGame('free-pyramid', 'free-pyramid', preFirstFrame).readMatchProtocol(
+    await applicationForActiveGame('free-pyramid', 'free-pyramid', preFirstFrame).readMatchProtocol(
       matchId,
       'UTC',
       'en',
       'free-pyramid',
     )
-    expect(protocol.ok && protocol.controlProjection).toBeUndefined()
   })
 
   test('hides archived protocol when the archived state key does not match the expected game', async () => {
@@ -325,31 +324,14 @@ describe('application orchestration', () => {
       status: 500,
     })
 
-    const terminalSnapshot: MatchStateFor<'free-pyramid'> = {
-      ...v.parse(MatchStateSchema, {
-        matchId,
-        gameKey: 'free-pyramid',
-        targets: { frameTargetPointsBySeat: { A: 8, B: 8 }, matchTargetFrames: 1 },
-        status: 'finished',
-        currentFrameIndex: 1,
-        framesWonBySeat: { A: 1, B: 0 },
-        frames: [{ frameIndex: 1, pointsBySeat: { A: 8, B: 3 }, breakerSeat: 'A', winnerSeat: 'A' }],
-        latestSeq: 9,
-      }),
-      gameKey: 'free-pyramid',
-    }
-    const archive: ProtocolArchiveRecord = {
-      sourceLatestSeq: 9,
-      protocolVersion: 1,
-      rows: [],
-      state: terminalSnapshot,
-    }
-    let reads = 0
-    const protocolApplication = applicationForArchivedGame('free-pyramid', 'free-pyramid', terminalSnapshot, async () => {
-      reads += 1
-      if (reads === 1) return archive
-      throw error()
-    })
+    const protocolApplication = applicationForArchivedGame(
+      'free-pyramid',
+      'free-pyramid',
+      stateFor('free-pyramid', 'finished'),
+      async () => {
+        throw error()
+      },
+    )
     expect(await protocolApplication.readMatchProtocol(matchId, 'UTC', 'en', 'free-pyramid')).toEqual({
       ok: false,
       error: expectedError,
@@ -368,9 +350,9 @@ describe('application orchestration', () => {
         roomRequest = request
         return { ok: true as const, matchId }
       },
-      readMatch: unused,
+      readControl: unused,
       submitCommand: unused,
-      listFacts: unused,
+      readProtocol: unused,
       stream: unused,
       finalization: unused,
       disposeFinalized: unused,
@@ -464,12 +446,12 @@ describe('application orchestration', () => {
     const calls: unknown[][] = []
     const room = {
       create: unused,
-      readMatch: unused,
+      readControl: unused,
       async submitCommand(matchId: string, commandId: string, command: ControlCommand) {
         calls.push([matchId, commandId, command])
-        return { ok: true as const, outcome: { _tag: 'accepted' as const, accepted: [{ seq: 3, factId }] } }
+        return { ok: true as const, outcome: { _tag: 'accepted' as const, acceptedSeq: 3 } }
       },
-      listFacts: unused,
+      readProtocol: unused,
       stream: unused,
       finalization: unused,
       disposeFinalized: unused,
@@ -507,7 +489,7 @@ describe('application orchestration', () => {
 
     expect(result).toEqual({
       ok: true,
-      outcome: { _tag: 'accepted', accepted: [{ seq: 3, factId }] },
+      outcome: { _tag: 'accepted', acceptedSeq: 3 },
     })
     expect(calls).toEqual([[matchId, commandId, command]])
   })
@@ -535,9 +517,9 @@ describe('application orchestration', () => {
       finishCompletedMatch: unused,
       matchRoom: {
         create: unused,
-        readMatch: unused,
+        readControl: unused,
         submitCommand: async () => ({ ok: false, error: 'invalid-command-body', status: 400 }),
-        listFacts: unused,
+        readProtocol: unused,
         stream: unused,
         finalization: unused,
         disposeFinalized: unused,
@@ -575,9 +557,9 @@ describe('application orchestration', () => {
       finishCompletedMatch: unused,
       matchRoom: {
         create: unused,
-        readMatch: unused,
+        readControl: unused,
         submitCommand: async () => ({ ok: true, outcome: rejectedOutcome }),
-        listFacts: unused,
+        readProtocol: unused,
         stream: unused,
         finalization: unused,
         disposeFinalized: unused,
@@ -613,11 +595,11 @@ describe('application orchestration', () => {
       finishCompletedMatch: unused,
       matchRoom: {
         create: unused,
-        readMatch: unused,
+        readControl: unused,
         submitCommand: async () => {
           throw new Error('post-commit apply failure')
         },
-        listFacts: unused,
+        readProtocol: unused,
         stream: unused,
         finalization: unused,
         disposeFinalized: unused,
@@ -642,9 +624,9 @@ describe('application orchestration', () => {
     })
     const room = {
       create: unused,
-      readMatch: unused,
+      readControl: unused,
       submitCommand: unused,
-      listFacts: unused,
+      readProtocol: unused,
       stream: unused,
       finalization: unused,
       disposeFinalized: unused,
@@ -700,7 +682,6 @@ describe('application orchestration', () => {
     })
     const protocol = await application.readMatchProtocol(matchId, 'UTC', 'en', 'free-pyramid')
     expect(protocol.ok && protocol.state.gameKey).toBe('free-pyramid')
-    expect(protocol.ok && protocol.controlProjection).toBeUndefined()
     expect(
       await application.submitMatchCommand(
         matchId,
@@ -713,7 +694,7 @@ describe('application orchestration', () => {
         'free-pyramid',
       ),
     ).toEqual({ ok: false, error: 'Match is finished', status: 409 })
-    expect((await application.streamMatchFacts(matchId)).status).toBe(410)
+    expect((await application.streamMatchUpdates(matchId)).status).toBe(410)
   })
 
   test('drives finalizing room cleanup synchronously without opening a stream', async () => {
@@ -741,9 +722,9 @@ describe('application orchestration', () => {
       },
       matchRoom: {
         create: unused,
-        readMatch: unused,
+        readControl: unused,
         submitCommand: unused,
-        listFacts: unused,
+        readProtocol: unused,
         stream: unused,
         finalization: unused,
         disposeFinalized: async (id) => {
@@ -753,7 +734,7 @@ describe('application orchestration', () => {
       },
     })
 
-    expect((await application.streamMatchFacts(matchId)).status).toBe(410)
+    expect((await application.streamMatchUpdates(matchId)).status).toBe(410)
     expect(lifecycle).toEqual([`dispose:${matchId}`, `finish:${matchId}`])
   })
 
@@ -800,35 +781,29 @@ describe('application orchestration', () => {
         },
         matchRoom: {
           create: unused,
-          readMatch: unused,
+          readControl: unused,
           submitCommand: async () => {
             commandCalls += 1
             return {
               ok: true as const,
-              outcome: { _tag: 'accepted' as const, accepted: [{ seq: 9, factId }] },
+              outcome: { _tag: 'accepted' as const, acceptedSeq: 3 },
               finalizing: true as const,
             }
           },
-          listFacts: unused,
+          readProtocol: unused,
           stream: unused,
           finalization: async () =>
             roomStorageExists
               ? {
                   ok: true as const,
                   data: {
+                    matchId,
+                    gameKey: 'free-pyramid' as const,
+                    createdAt: v.parse(UnixEpochMillisecondsSchema, 1_700_000_000_000),
                     sourceLatestSeq: 9,
                     endedAt,
-                    facts: [],
-                    projection: {
-                      state: stateFor('free-pyramid', 'finished'),
-                      controlProjection: undefined,
-                      controlSections: {
-                        neutral: [],
-                        primary: { A: [], B: [] },
-                        secondary: { A: [], B: [] },
-                        tertiary: { A: [], B: [] },
-                      },
-                    },
+                    protocolEntries: [],
+                    finalState: { ...stateFor('free-pyramid', 'finished'), status: 'finished' as const },
                   },
                 }
               : { ok: false as const, error: 'Unknown match', status: 400 },

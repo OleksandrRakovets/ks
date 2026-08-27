@@ -1,5 +1,6 @@
 import type { ProtocolRow, ReadMatchControlResult, ReadMatchProtocolResult } from '@ks/application'
 import {
+  AcceptedCommandStreamUpdateSchema,
   type BySeatNumber,
   CommandIdSchema,
   type ControlCommandPreset,
@@ -7,9 +8,8 @@ import {
   type MatchId,
   MatchIdSchema,
   type MatchState,
+  MatchStreamReadySchema,
   newCommandId,
-  StreamFactSchema,
-  StreamReadySchema,
 } from '@ks/core'
 import { type RegisteredGameKey, registry } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
@@ -37,12 +37,9 @@ type ProtocolSuccess<K extends RegisteredGameKey> = Extract<ReadMatchProtocolRes
 export type ControlRouteData<K extends RegisteredGameKey> = ControlSuccess<K> & { gameTitle: string }
 export type ProtocolRouteData<K extends RegisteredGameKey> = ProtocolSuccess<K> & { gameTitle: string }
 
-export function protocolFrameScore<K extends RegisteredGameKey>(
-  state: ProtocolRouteData<K>['state'],
-  controlProjection: ProtocolRouteData<K>['controlProjection'],
-): BySeatNumber {
+export function protocolFrameScore<K extends RegisteredGameKey>(state: ProtocolRouteData<K>['state']): BySeatNumber {
   const snapshotFrame = state.frames[state.currentFrameIndex - 1]
-  return controlProjection?.score ?? snapshotFrame?.pointsBySeat ?? { A: 0, B: 0 }
+  return snapshotFrame?.pointsBySeat ?? { A: 0, B: 0 }
 }
 
 export type ControlActionData =
@@ -50,8 +47,8 @@ export type ControlActionData =
   | {
       ok: false
       errorKey:
-        | typeof keys.match.control.invalidFactPayload
-        | typeof keys.match.control.factRejectedByRules
+        | typeof keys.match.control.invalidCommandPayload
+        | typeof keys.match.control.commandRejectedByRules
         | typeof keys.match.control.unknownMatch
         | typeof keys.match.control.matchLocked
     }
@@ -59,8 +56,8 @@ export type ControlActionData =
 type ControlActionErrorKey = Extract<ControlActionData, { ok: false }>['errorKey']
 
 const SubmittedControlCommandSchema = v.pipe(v.string(), v.parseJson(), ControlCommandSchema)
-const StreamReadyEventSchema = v.pipe(v.string(), v.parseJson(), StreamReadySchema)
-const StreamFactEventSchema = v.pipe(v.string(), v.parseJson(), StreamFactSchema)
+const StreamReadyEventSchema = v.pipe(v.string(), v.parseJson(), MatchStreamReadySchema)
+const StreamUpdateEventSchema = v.pipe(v.string(), v.parseJson(), AcceptedCommandStreamUpdateSchema)
 
 function matchIdFromParams(params: RouteArgs['params']): MatchId {
   const matchId = v.safeParse(MatchIdSchema, params.matchId)
@@ -93,8 +90,8 @@ export async function loadMatchProtocol<K extends RegisteredGameKey>(
 function commandErrorKey(error: string): ControlActionErrorKey {
   if (error === 'unknown-match' || error === 'Unknown match') return keys.match.control.unknownMatch
   if (error === 'match-locked') return keys.match.control.matchLocked
-  if (error === 'invalid-command-body' || error === 'command-id-conflict') return keys.match.control.invalidFactPayload
-  return keys.match.control.invalidFactPayload
+  if (error === 'invalid-command-body' || error === 'command-id-conflict') return keys.match.control.invalidCommandPayload
+  return keys.match.control.invalidCommandPayload
 }
 
 export async function commandMatchAction<K extends RegisteredGameKey>(
@@ -106,7 +103,7 @@ export async function commandMatchAction<K extends RegisteredGameKey>(
   const command = v.safeParse(SubmittedControlCommandSchema, form.get('command'))
   const commandId = v.safeParse(CommandIdSchema, form.get('commandId'))
   if (!command.success || !commandId.success) {
-    return { ok: false, errorKey: keys.match.control.invalidFactPayload }
+    return { ok: false, errorKey: keys.match.control.invalidCommandPayload }
   }
 
   const result = await requireApplication(args.context).submitMatchCommand(
@@ -121,14 +118,11 @@ export async function commandMatchAction<K extends RegisteredGameKey>(
     if (result.status >= 500) throw new Response(result.error, { status: result.status })
     return { ok: false, errorKey: commandErrorKey(result.error) }
   }
-  if (result.outcome._tag === 'rejected') return { ok: false, errorKey: keys.match.control.factRejectedByRules }
+  if (result.outcome._tag === 'rejected') return { ok: false, errorKey: keys.match.control.commandRejectedByRules }
 
   return {
     ok: true,
-    acceptedSeqMax: result.outcome.accepted.reduce<number | null>(
-      (max, entry) => (max == null ? entry.seq : Math.max(max, entry.seq)),
-      null,
-    ),
+    acceptedSeqMax: result.outcome.acceptedSeq,
   }
 }
 
@@ -151,7 +145,7 @@ export type ControlLiveEvent =
   | { type: 'submit-finished' }
   | { type: 'accepted'; seq: number }
   | { type: 'ready'; seq: number }
-  | { type: 'fact'; seq: number }
+  | { type: 'update'; seq: number }
   | { type: 'match-ended'; seq: number }
   | { type: 'error' }
 
@@ -186,6 +180,7 @@ export function transitionControlLive(state: ControlLiveState, event: ControlLiv
     }
   }
   if (event.type === 'error') return { state, revalidate: true, close: false }
+  if (event.type === 'ready') return { state, revalidate: false, close: false }
   if (event.seq <= state.latestSeq) return { state, revalidate: false, close: false }
   return {
     state: { ...state, latestSeq: event.seq },
@@ -214,12 +209,12 @@ export function subscribeControlLive(args: {
   }
   const onEvent = (event: Event) => {
     if (!(event instanceof MessageEvent)) return
-    const parsed = v.safeParse(StreamFactEventSchema, event.data)
+    const parsed = v.safeParse(StreamUpdateEventSchema, event.data)
     if (!parsed.success) return
     args.applyEvent(
-      parsed.output.type === 'match.ended'
-        ? { type: 'match-ended', seq: parsed.output.seq }
-        : { type: 'fact', seq: parsed.output.seq },
+      parsed.output.terminal
+        ? { type: 'match-ended', seq: parsed.output.acceptedSeq }
+        : { type: 'update', seq: parsed.output.acceptedSeq },
       source,
     )
   }
@@ -302,17 +297,15 @@ export function useProtocolLiveRevalidation(state: MatchState, latestSeq: number
     const onReady = (event: Event) => {
       if (!(event instanceof MessageEvent)) return
       const parsed = v.safeParse(StreamReadyEventSchema, event.data)
-      if (parsed.success && parsed.output.latestSeq > latestSeqRef.current) {
-        latestSeqRef.current = parsed.output.latestSeq
-        revalidateRef.current()
-      }
+      // ready confirms the highest update already delivered; it never advances the cursor.
+      if (parsed.success && parsed.output.latestSeq !== latestSeqRef.current) revalidateRef.current()
     }
     const onEvent = (event: Event) => {
       if (!(event instanceof MessageEvent)) return
-      const parsed = v.safeParse(StreamFactEventSchema, event.data)
-      if (!parsed.success || parsed.output.seq <= latestSeqRef.current) return
-      latestSeqRef.current = parsed.output.seq
-      if (parsed.output.type === 'match.ended') stream.close()
+      const parsed = v.safeParse(StreamUpdateEventSchema, event.data)
+      if (!parsed.success || parsed.output.acceptedSeq <= latestSeqRef.current) return
+      latestSeqRef.current = parsed.output.acceptedSeq
+      if (parsed.output.terminal) stream.close()
       revalidateRef.current()
     }
     const onError = () => revalidateRef.current()

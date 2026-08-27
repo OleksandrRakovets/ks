@@ -1,15 +1,10 @@
-import { buildMatchConfig, CreateMatchRequestSchema, draftSparringMatchCreation, restoreSparringMatch } from '@ks/competition'
+import { buildMatchConfig, CreateMatchRequestSchema, createSparringMatch } from '@ks/competition'
 import {
-  type CommandId,
   type ControlCommand,
-  type MatchConfig,
-  type MatchFactContent,
   MatchIdSchema,
   newCommandId,
-  newFactId,
   PlayerRefSchema,
-  type StoredMatchFact,
-  StoredMatchFactSchema,
+  type StoredProtocolEntry,
   UnixEpochMillisecondsSchema,
 } from '@ks/core'
 import { applyD1Migrations, env, reset } from 'cloudflare:test'
@@ -49,30 +44,12 @@ function catalogInput(id = matchId, timestamp = createdAt): ActiveMatchCatalogIn
   return { matchId: id, gameKey: 'free-pyramid', seatAPlayerRef, seatBPlayerRef, createdAt: timestamp }
 }
 
-function storedFact(
-  draft: MatchFactContent,
-  config: MatchConfig,
-  seq: number,
-  commandId: CommandId,
-  acceptedAt: number,
-): StoredMatchFact {
-  return v.parse(StoredMatchFactSchema, {
-    factId: newFactId(),
-    matchId: config.matchId,
-    causedByCommandId: draft.type === 'match.created' ? null : commandId,
-    acceptedAt,
-    seq,
-    type: draft.type,
-    payload: draft.payload,
-  })
-}
-
 function terminalArchiveInput(id = matchId): CompletedMatchArchiveInput {
   const config = buildMatchConfig(id, createRequest)
-  const creation = draftSparringMatchCreation(config)
-  const session = restoreSparringMatch([[creation]])
-  const acceptedAt = 2_000
-  const facts: StoredMatchFact[] = [storedFact(creation, config, 1, newCommandId(), acceptedAt)]
+  const session = createSparringMatch(config)
+  const acceptedAt = v.parse(UnixEpochMillisecondsSchema, 2_000)
+  const protocolEntries: StoredProtocolEntry[] = []
+  let acceptedSeq = 0
   for (const command of [
     { source: 'match', commandType: 'frame.prepare', command: {} },
     { source: 'match', commandType: 'frame.commence', command: { seat: 'A' } },
@@ -82,14 +59,32 @@ function terminalArchiveInput(id = matchId): CompletedMatchArchiveInput {
     const decision = session.execute(command)
     if (decision._tag !== 'accepted') throw new Error(`Fixture command rejected: ${command.commandType}`)
     const commandId = newCommandId()
-    for (const draft of decision.facts) facts.push(storedFact(draft, config, facts.length + 1, commandId, acceptedAt))
+    acceptedSeq += 1
+    decision.protocolEntries.forEach((entry, entryIndex) =>
+      protocolEntries.push({
+        acceptedSeq,
+        entryIndex,
+        causedByCommandId: commandId,
+        acceptedAt,
+        frameIndex: entry.frameIndex,
+        source: entry.source,
+        entryType: entry.entryType,
+        seat: entry.seat,
+        scoreAfter: entry.scoreAfter,
+        bodyJson: JSON.stringify(entry.body),
+      }),
+    )
   }
+  const finalState = session.project().state
+  if (finalState.status !== 'finished') throw new Error('Fixture did not finish')
   return {
     matchId: id,
-    sourceLatestSeq: facts.length,
-    endedAt: v.parse(UnixEpochMillisecondsSchema, acceptedAt),
-    facts,
-    projection: session.project(),
+    gameKey: 'free-pyramid',
+    createdAt,
+    sourceLatestSeq: acceptedSeq,
+    endedAt: acceptedAt,
+    protocolEntries,
+    finalState: { ...finalState, status: 'finished' as const },
   }
 }
 
@@ -125,7 +120,7 @@ describe('real D1 match lifecycle', () => {
     expect(await getProtocolArchive(db, matchId)).toMatchObject({
       sourceLatestSeq: archive.sourceLatestSeq,
       protocolVersion: 1,
-      state: archive.projection.state,
+      state: archive.finalState,
     })
     await archiveCompletedMatch(db, archive)
     await expect(archiveCompletedMatch(db, { ...archive, sourceLatestSeq: archive.sourceLatestSeq + 1 })).rejects.toThrow(
@@ -140,19 +135,16 @@ describe('real D1 match lifecycle', () => {
   test.each([
     ['invalid envelope', (input: CompletedMatchArchiveInput) => ({ ...input, sourceLatestSeq: input.sourceLatestSeq + 1 })],
     [
-      'semantic replay mismatch',
+      'Protocol ownership mismatch',
       (input: CompletedMatchArchiveInput) => {
-        const facts = [...input.facts]
-        const index = facts.findIndex((fact) => fact.type === 'game.command')
-        const fact = facts[index]!
-        if (fact.type !== 'game.command') throw new Error('Expected game command fixture fact')
-        facts[index] = { ...fact, payload: { ...fact.payload, command: { seat: 'B', pottedBallCount: 99 } } }
-        return { ...input, facts }
+        const protocolEntries = [...input.protocolEntries]
+        protocolEntries[0] = { ...protocolEntries[0]!, entryIndex: 2 }
+        return { ...input, protocolEntries }
       },
     ],
     [
-      'terminal projection mismatch',
-      (input: CompletedMatchArchiveInput) => ({ ...input, projection: terminalArchiveInput(otherMatchId).projection }),
+      'terminal state mismatch',
+      (input: CompletedMatchArchiveInput) => ({ ...input, finalState: terminalArchiveInput(otherMatchId).finalState }),
     ],
   ])('rejects %s without changing the match row or archive', async (_label, corrupt) => {
     const db = createApplicationDatabaseClient(env.DB)
@@ -207,7 +199,7 @@ describe('real D1 match lifecycle', () => {
 
   test('rejects a persisted zero source sequence', async () => {
     const db = createApplicationDatabaseClient(env.DB)
-    const state = terminalArchiveInput().projection.state
+    const state = terminalArchiveInput().finalState
     await seedArchive('[]', JSON.stringify(state), 1, 0)
     await expect(getProtocolArchive(db, matchId)).rejects.toThrow(`Protocol archive storage corruption for match ${matchId}`)
   })

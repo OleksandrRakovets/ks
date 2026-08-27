@@ -9,7 +9,6 @@ export type GuestPlayerId = Brand<string, 'GuestPlayerId'>
 export type VerifiedPlayerId = Brand<string, 'VerifiedPlayerId'>
 export type PlayerRef = Brand<string, 'PlayerRef'>
 export type MatchId = Brand<string, 'MatchId'>
-export type FactId = Brand<string, 'FactId'>
 export type CommandId = Brand<string, 'CommandId'>
 
 function toBrand<B extends string>(value: string): Brand<string, B> {
@@ -33,7 +32,6 @@ export const PlayerRefSchema = v.pipe(
   v.transform((value) => toBrand<'PlayerRef'>(value)),
 )
 export const MatchIdSchema = ulidBrandedSchema<'MatchId'>()
-export const FactIdSchema = ulidBrandedSchema<'FactId'>()
 export const CommandIdSchema = ulidBrandedSchema<'CommandId'>()
 
 export function newGuestPlayerId(): GuestPlayerId {
@@ -46,10 +44,6 @@ export function newVerifiedPlayerId(): VerifiedPlayerId {
 
 export function newMatchId(): MatchId {
   return v.parse(MatchIdSchema, ulid())
-}
-
-export function newFactId(): FactId {
-  return v.parse(FactIdSchema, ulid())
 }
 
 export function newCommandId(): CommandId {

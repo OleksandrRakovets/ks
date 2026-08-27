@@ -8,7 +8,7 @@ import {
 } from '@ks/core'
 import * as v from 'valibot'
 
-import type { CommandReceiptOutcome } from './storage/command-receipt'
+import type { CommandReceiptOutcome } from './storage/command-outcome'
 
 const ControlSecretSchema = v.pipe(v.string(), v.minLength(16))
 

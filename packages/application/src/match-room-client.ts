@@ -1,22 +1,16 @@
+import { type CreateMatchRequest, type MatchStateFor, SparringMatchRejectionSchema } from '@ks/competition'
 import {
-  type CreateMatchRequest,
-  type MatchStateFor,
-  SparringMatchRejectionSchema,
-  type SparringMatchRoomProjection,
-} from '@ks/competition'
-import {
-  AcceptedFactRefSchema,
   type CommandId,
   type ControlCommand,
-  type ControlCommandSections,
   ControlCommandSectionsSchema,
   type MatchId,
   MatchIdSchema,
   MatchStateSchema,
+  NonEmptyStoredProtocolEntriesSchema,
   NonEmptyStringSchema,
+  NonNegativeIntegerSchema,
   PositiveIntegerSchema,
-  type StoredMatchFact,
-  StoredMatchFactSchema,
+  StoredProtocolEntrySchema,
   type UnixEpochMilliseconds,
   UnixEpochMillisecondsSchema,
 } from '@ks/core'
@@ -31,46 +25,63 @@ export type MatchRoomCreateRequest = CreateMatchRequest & {
   controlSecret: string
   createdAt: UnixEpochMilliseconds
 }
-export type MatchRoomFinalizationData = {
-  sourceLatestSeq: number
-  endedAt: UnixEpochMilliseconds
-  facts: StoredMatchFact[]
-  projection: SparringMatchRoomProjection
+export type MatchRoomFinalizationData = v.InferOutput<typeof CompletedMatchTransferSchema>
+export type MatchRoomReadResult<K extends RegisteredGameKey = RegisteredGameKey> =
+  | {
+      ok: true
+      latestSeq: number
+      state: MatchStateFor<K>
+      controlProjection?: ControlProjectionFor<K>
+      controlSections: v.InferOutput<typeof ControlCommandSectionsSchema>
+    }
+  | ReadMatchFailure
+export interface MatchRoomClient {
+  create(request: MatchRoomCreateRequest): Promise<{ ok: true; matchId: MatchId } | Failure>
+  readControl<K extends RegisteredGameKey>(matchId: MatchId, expectedGameKey: K): Promise<MatchRoomReadResult<K>>
+  readProtocol<K extends RegisteredGameKey>(
+    matchId: MatchId,
+    expectedGameKey: K,
+  ): Promise<
+    | {
+        ok: true
+        latestSeq: number
+        state: MatchStateFor<K>
+        protocolEntries: v.InferOutput<typeof StoredProtocolEntrySchema>[]
+      }
+    | Failure
+  >
+  submitCommand(
+    matchId: MatchId,
+    commandId: CommandId,
+    command: ControlCommand,
+  ): Promise<{ ok: true; outcome: CommandReceiptOutcome; finalizing?: true } | Failure>
+  stream(matchId: MatchId, since?: number): Promise<Response>
+  finalization(matchId: MatchId): Promise<{ ok: true; data: MatchRoomFinalizationData } | Failure>
+  disposeFinalized(matchId: MatchId): Promise<{ ok: true } | Failure>
 }
-type MatchRoomFailure = { ok: false; error: string; status: number }
-type MatchRoomCreateResult = { ok: true; matchId: MatchId } | MatchRoomFailure
-type MatchRoomCommandResult =
-  | { ok: true; outcome: CommandReceiptOutcome; finalizing?: true }
-  | { ok: false; error: string; status: number }
-type MatchRoomReadSuccess<K extends RegisteredGameKey> = {
-  ok: true
-  state: MatchStateFor<K>
-  latestSeq: number
-  controlProjection: ControlProjectionFor<K> | undefined
-  controlSections: ControlCommandSections
-}
-export type MatchRoomReadResult<K extends RegisteredGameKey = RegisteredGameKey> = MatchRoomReadSuccess<K> | ReadMatchFailure
-type MatchRoomFinalizationResult = { ok: true; data: MatchRoomFinalizationData } | MatchRoomFailure
-type StructuredRpcResult = {
+type Failure = { ok: false; error: string; status: number }
+/** Untrusted structural result returned by the private MatchRoom RPC stub before boundary validation. */
+interface StructuredRpcResult {
   readonly ok?: unknown
   readonly matchId?: unknown
   readonly state?: unknown
   readonly latestSeq?: unknown
   readonly controlProjection?: unknown
   readonly controlSections?: unknown
+  readonly protocolEntries?: unknown
   readonly outcome?: unknown
   readonly finalizing?: unknown
-  readonly facts?: unknown
   readonly data?: unknown
   readonly error?: unknown
   readonly status?: unknown
 }
+/** Structural subset of the external Durable Object stub consumed by application. */
 type MatchRoomStub = {
   create(request: MatchRoomCreateRequest): Promise<StructuredRpcResult>
-  readMatch(args: { matchId: MatchId }): Promise<StructuredRpcResult>
+  readControl(args: { matchId: MatchId }): Promise<StructuredRpcResult>
+  readProtocol(args: { matchId: MatchId }): Promise<StructuredRpcResult>
   submitCommand(args: { matchId: MatchId; commandId: CommandId; command: ControlCommand }): Promise<StructuredRpcResult>
   stream(args: { matchId: MatchId; since?: number }): Promise<Response>
-  listFacts(args: { matchId: MatchId }): Promise<StructuredRpcResult>
   finalization(args: { matchId: MatchId }): Promise<StructuredRpcResult>
   disposeFinalized(args: { matchId: MatchId }): Promise<StructuredRpcResult>
 }
@@ -83,150 +94,118 @@ const FailureSchema = v.object({
 const StateSchema = v.intersect([MatchStateSchema, v.object({ gameKey: RegisteredGameKeySchema })])
 const ActiveStateSchema = v.intersect([StateSchema, v.object({ status: v.literal('active') })])
 const FinishedStateSchema = v.intersect([StateSchema, v.object({ status: v.literal('finished') })])
-const CreateResultSchema = v.variant('ok', [v.object({ ok: v.literal(true), matchId: MatchIdSchema }), FailureSchema])
-const CommandOutcomeSchema = v.variant('_tag', [
-  v.object({ _tag: v.literal('accepted'), accepted: v.pipe(v.array(AcceptedFactRefSchema), v.minLength(1)) }),
-  v.object({ _tag: v.literal('rejected'), reason: SparringMatchRejectionSchema }),
-])
-const CommandResultSchema = v.variant('ok', [
-  v.object({ ok: v.literal(true), outcome: CommandOutcomeSchema, finalizing: v.optional(v.literal(true)) }),
-  FailureSchema,
-])
-const ControlProjectionInputSchema = v.object({
+const ProjectionSchema = v.object({
   gameKey: v.string(),
   projection: v.literal('control'),
   score: v.object({ A: v.number(), B: v.number() }),
   details: v.optional(v.unknown()),
 })
-const ReadMatchResultSchema = v.variant('ok', [
+const OutcomeSchema = v.variant('_tag', [
+  v.object({ _tag: v.literal('accepted'), acceptedSeq: PositiveIntegerSchema }),
+  v.object({ _tag: v.literal('rejected'), reason: SparringMatchRejectionSchema }),
+])
+const ControlResultSchema = v.variant('ok', [
   v.object({
     ok: v.literal(true),
+    latestSeq: NonNegativeIntegerSchema,
     state: ActiveStateSchema,
-    latestSeq: PositiveIntegerSchema,
-    controlProjection: v.optional(ControlProjectionInputSchema),
+    controlProjection: v.optional(ProjectionSchema),
     controlSections: ControlCommandSectionsSchema,
   }),
   FailureSchema,
 ])
-const FactsResultSchema = v.variant('ok', [
-  v.object({ ok: v.literal(true), facts: v.pipe(v.array(StoredMatchFactSchema), v.minLength(1)) }),
-  FailureSchema,
-])
-const FinalizationResultSchema = v.variant('ok', [
+const ProtocolResultSchema = v.variant('ok', [
   v.object({
     ok: v.literal(true),
-    data: v.object({
-      sourceLatestSeq: PositiveIntegerSchema,
-      endedAt: UnixEpochMillisecondsSchema,
-      facts: v.pipe(v.array(StoredMatchFactSchema), v.minLength(1)),
-      projection: v.object({
-        state: FinishedStateSchema,
-        controlProjection: v.optional(ControlProjectionInputSchema),
-        controlSections: ControlCommandSectionsSchema,
-      }),
-    }),
+    latestSeq: NonNegativeIntegerSchema,
+    state: ActiveStateSchema,
+    protocolEntries: v.array(StoredProtocolEntrySchema),
   }),
   FailureSchema,
 ])
-const DisposeResultSchema = v.variant('ok', [v.object({ ok: v.literal(true) }), FailureSchema])
-const invalidResponse: MatchRoomFailure = { ok: false, error: 'Invalid MatchRoom response', status: 502 }
+export const CompletedMatchTransferSchema = v.object({
+  matchId: MatchIdSchema,
+  gameKey: RegisteredGameKeySchema,
+  createdAt: UnixEpochMillisecondsSchema,
+  sourceLatestSeq: PositiveIntegerSchema,
+  endedAt: UnixEpochMillisecondsSchema,
+  protocolEntries: NonEmptyStoredProtocolEntriesSchema,
+  finalState: FinishedStateSchema,
+})
+const invalid: Failure = { ok: false, error: 'Invalid MatchRoom response', status: 502 }
 
-function projectionExpected(state: v.InferOutput<typeof StateSchema>): boolean {
-  const latestFrame = state.frames.at(-1)
-  if (!latestFrame) {
-    if (state.currentFrameIndex !== 0) throw new Error('Control projection lifecycle mismatch')
-    return false
-  }
-  if (latestFrame.frameIndex !== state.currentFrameIndex) throw new Error('Control projection lifecycle mismatch')
-  return state.status === 'active' && latestFrame.winnerSeat === undefined
-}
-
-function parseProjection(
-  state: v.InferOutput<typeof StateSchema>,
-  input: v.InferOutput<typeof ControlProjectionInputSchema> | undefined,
-): ControlProjectionFor<RegisteredGameKey> | undefined {
-  const present = input !== undefined
-  if (present !== projectionExpected(state)) throw new Error('Control projection lifecycle mismatch')
-  return input ? parseGameControl(state.gameKey, input) : undefined
-}
-
-function parseResult<TSchema extends v.BaseSchema<unknown, unknown, v.BaseIssue<unknown>>>(
-  schema: TSchema,
+function parse<T extends v.BaseSchema<unknown, unknown, v.BaseIssue<unknown>>>(
+  schema: T,
   input: StructuredRpcResult,
-): v.InferOutput<TSchema> | MatchRoomFailure {
-  const parsed = v.safeParse(schema, input)
-  return parsed.success ? parsed.output : invalidResponse
+): v.InferOutput<T> | Failure {
+  const result = v.safeParse(schema, input)
+  return result.success ? result.output : invalid
 }
 
-export type MatchRoomClient = ReturnType<typeof createMatchRoomClient>
-
-/**
- * Creates the application-side trust boundary for MatchRoom RPC.
- * Structured responses are parsed and cross-checked against each request; malformed representations become a stable 502
- * failure, while transport exceptions and opaque stream responses pass through unchanged.
- */
-export function createMatchRoomClient(namespace: { getByName(name: string): MatchRoomStub }) {
+export function createMatchRoomClient(namespace: { getByName(name: string): MatchRoomStub }): MatchRoomClient {
   return {
-    create: async (request: MatchRoomCreateRequest): Promise<MatchRoomCreateResult> => {
-      const result = parseResult(CreateResultSchema, await namespace.getByName(request.matchId).create(request))
-      return result.ok && result.matchId !== request.matchId ? invalidResponse : result
+    create: async (request: MatchRoomCreateRequest) => {
+      const result = parse(
+        v.variant('ok', [v.object({ ok: v.literal(true), matchId: MatchIdSchema }), FailureSchema]),
+        await namespace.getByName(request.matchId).create(request),
+      )
+      return result.ok && result.matchId !== request.matchId ? invalid : result
     },
-    /**
-     * Reads the room's current match state, sequence cursor, and controls, validating that all game-specific values match
-     * the caller's expected game key. Malformed or mismatched RPC representations become a stable 502 failure.
-     */
-    readMatch: async <K extends RegisteredGameKey>(matchId: MatchId, expectedGameKey: K): Promise<MatchRoomReadResult<K>> => {
-      const result = parseResult(ReadMatchResultSchema, await namespace.getByName(matchId).readMatch({ matchId }))
+    readControl: async <K extends RegisteredGameKey>(matchId: MatchId, expectedGameKey: K) => {
+      const result = parse(ControlResultSchema, await namespace.getByName(matchId).readControl({ matchId }))
       if (!result.ok) return result
-      if (result.state.matchId !== matchId || result.state.gameKey !== expectedGameKey) return invalidResponse
+      if (result.state.matchId !== matchId || result.state.gameKey !== expectedGameKey) return invalid
       try {
-        const controlProjection = parseProjection(result.state, result.controlProjection)
-        if (controlProjection !== undefined && controlProjection.gameKey !== expectedGameKey) return invalidResponse
-        // SAFETY: Runtime checks above establish the state and parsed control projection are both keyed by K.
-        return { ...result, controlProjection } as MatchRoomReadSuccess<K>
+        const controlProjection = result.controlProjection
+          ? parseGameControl(expectedGameKey, result.controlProjection)
+          : undefined
+        // SAFETY: the runtime game-key equality above correlates the parsed state with K.
+        const state = result.state as MatchStateFor<K>
+        return controlProjection === undefined
+          ? { ok: true as const, latestSeq: result.latestSeq, state, controlSections: result.controlSections }
+          : {
+              ok: true as const,
+              latestSeq: result.latestSeq,
+              state,
+              controlSections: result.controlSections,
+              // SAFETY: parseGameControl parsed this projection using expectedGameKey K.
+              controlProjection: controlProjection as ControlProjectionFor<K>,
+            }
       } catch {
-        return invalidResponse
+        return invalid
       }
     },
-    submitCommand: async (matchId: MatchId, commandId: CommandId, command: ControlCommand): Promise<MatchRoomCommandResult> => {
-      const result = parseResult(
-        CommandResultSchema,
+    readProtocol: async <K extends RegisteredGameKey>(matchId: MatchId, expectedGameKey: K) => {
+      const result = parse(ProtocolResultSchema, await namespace.getByName(matchId).readProtocol({ matchId }))
+      if (!result.ok) return result
+      if (result.state.matchId !== matchId || result.state.gameKey !== expectedGameKey) return invalid
+      // SAFETY: the runtime game-key equality above correlates the parsed state with K.
+      return { ...result, state: result.state as MatchStateFor<K> }
+    },
+    submitCommand: async (matchId: MatchId, commandId: CommandId, command: ControlCommand) => {
+      const result = parse(
+        v.variant('ok', [
+          v.object({ ok: v.literal(true), outcome: OutcomeSchema, finalizing: v.optional(v.literal(true)) }),
+          FailureSchema,
+        ]),
         await namespace.getByName(matchId).submitCommand({ matchId, commandId, command }),
       )
-      if (!result.ok) return result
-      if (result.finalizing) return { ok: true, outcome: result.outcome, finalizing: true }
-      return { ok: true, outcome: result.outcome }
+      if (!result.ok || result.finalizing === undefined) return result.ok ? { ok: true, outcome: result.outcome } : result
+      return { ok: true, outcome: result.outcome, finalizing: true }
     },
     stream: async (matchId: MatchId, since?: number) =>
-      since === undefined
-        ? await namespace.getByName(matchId).stream({ matchId })
-        : await namespace.getByName(matchId).stream({ matchId, since }),
-    listFacts: async (matchId: MatchId) => {
-      const result = parseResult(FactsResultSchema, await namespace.getByName(matchId).listFacts({ matchId }))
-      if (result.ok && result.facts.some((fact) => fact.matchId !== matchId)) return invalidResponse
-      return result
-    },
+      namespace.getByName(matchId).stream(since === undefined ? { matchId } : { matchId, since }),
     finalization: async (matchId: MatchId) => {
-      const result = parseResult(FinalizationResultSchema, await namespace.getByName(matchId).finalization({ matchId }))
-      if (!result.ok) return result
-      if (result.data.projection.state.matchId !== matchId || result.data.facts.some((fact) => fact.matchId !== matchId))
-        return invalidResponse
-      try {
-        const controlProjection = parseProjection(result.data.projection.state, result.data.projection.controlProjection)
-        // SAFETY: StateSchema and parseGameControl correlate the finalization state and projection through one game key.
-        const parsedFinalization = {
-          ...result,
-          data: {
-            ...result.data,
-            projection: { ...result.data.projection, controlProjection },
-          },
-        } as MatchRoomFinalizationResult
-        return parsedFinalization
-      } catch {
-        return invalidResponse
-      }
+      const result = parse(
+        v.variant('ok', [v.object({ ok: v.literal(true), data: CompletedMatchTransferSchema }), FailureSchema]),
+        await namespace.getByName(matchId).finalization({ matchId }),
+      )
+      return result.ok && result.data.matchId !== matchId ? invalid : result
     },
     disposeFinalized: async (matchId: MatchId) =>
-      parseResult(DisposeResultSchema, await namespace.getByName(matchId).disposeFinalized({ matchId })),
+      parse(
+        v.variant('ok', [v.object({ ok: v.literal(true) }), FailureSchema]),
+        await namespace.getByName(matchId).disposeFinalized({ matchId }),
+      ),
   }
 }

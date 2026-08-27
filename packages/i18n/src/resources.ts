@@ -59,8 +59,8 @@ export const resources = {
           awardFrame: 'Зарахувати фрейм',
           prepareNextFrame: 'Підготувати наступний фрейм',
           endMatch: 'Завершити матч',
-          invalidFactPayload: 'Некоректні дані факту',
-          factRejectedByRules: 'Факт відхилено правилами матчу',
+          invalidCommandPayload: 'Некоректні дані команди',
+          commandRejectedByRules: 'Команду відхилено правилами матчу',
           targetReached: 'Ціль досягнута',
           commands: {
             match: {
@@ -322,8 +322,8 @@ export const resources = {
           awardFrame: 'Award frame',
           prepareNextFrame: 'Prepare next frame',
           endMatch: 'End match',
-          invalidFactPayload: 'Invalid fact payload',
-          factRejectedByRules: 'Fact rejected by match rules',
+          invalidCommandPayload: 'Invalid command payload',
+          commandRejectedByRules: 'Command rejected by match rules',
           targetReached: 'Target reached',
           commands: {
             match: {

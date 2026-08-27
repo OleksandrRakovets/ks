@@ -77,6 +77,7 @@ export function projectStrilaProtocolEntries(args: {
       v.parse(StrilaProtocolEntrySchema, {
         source: 'system',
         entryType: 'system-note',
+        seat: command.seat,
         body: { systemType: 'respotted-black-declared' },
       }),
     )

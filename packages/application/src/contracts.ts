@@ -1,6 +1,5 @@
 import { MatchCreationDefinitionSchema, type MatchStateFor, type SparringMatchRejection } from '@ks/competition'
 import type {
-  AcceptedFactRef,
   CommandId,
   ControlCommand,
   ControlCommandSections,
@@ -17,7 +16,7 @@ import type { ProtocolRow } from './protocol'
 export type { HydratedMatchParticipant, HydratedMatchParticipants } from '@ks/core'
 
 export type CommandReceiptOutcome =
-  | { readonly _tag: 'accepted'; readonly accepted: readonly AcceptedFactRef[] }
+  | { readonly _tag: 'accepted'; readonly acceptedSeq: number }
   | { readonly _tag: 'rejected'; readonly reason: SparringMatchRejection }
 
 export const DisplayNameSchema = v.pipe(
@@ -80,7 +79,6 @@ export type ReadMatchProtocolResult<K extends RegisteredGameKey> =
       ok: true
       state: MatchStateFor<K>
       latestSeq: number
-      controlProjection?: ControlProjectionFor<K>
       participants: HydratedMatchParticipants
       protocolRows: ProtocolRow[]
     }
@@ -106,5 +104,5 @@ export type Application = {
     locale: SupportedLocale,
     expectedGameKey: K,
   ): Promise<ReadMatchProtocolResult<K>>
-  streamMatchFacts(matchId: MatchId, since?: number): Promise<Response>
+  streamMatchUpdates(matchId: MatchId, since?: number): Promise<Response>
 }

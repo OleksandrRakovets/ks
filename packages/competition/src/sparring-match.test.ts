@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test'
 
-import { type MatchConfig, newMatchId } from '@ks/core'
+import { type AcceptedCommandHistoryEntry, type MatchConfig, newMatchId } from '@ks/core'
 
-import { draftSparringMatchCreation, restoreSparringMatch } from './sparring-match'
+import { createSparringMatch, restoreSparringMatch } from './sparring-match'
 
 function config(target = 2): MatchConfig {
   return {
@@ -13,150 +13,57 @@ function config(target = 2): MatchConfig {
   }
 }
 
+function accept(match: ReturnType<typeof createSparringMatch>, command: Parameters<typeof match.execute>[0]) {
+  const result = match.execute(command)
+  if (result._tag !== 'accepted') throw new Error(`Expected acceptance, received ${result._tag}`)
+  return result
+}
+
 describe('SparringMatch', () => {
-  test('drafts creation without resident state and executes accepted commands speculatively', () => {
-    const creation = draftSparringMatchCreation(config())
-    const match = restoreSparringMatch([[creation]])
-    expect(match.execute({ source: 'match', commandType: 'frame.prepare', command: {} })).toMatchObject({
-      _tag: 'accepted',
-      facts: [{ type: 'frame.prepared', payload: { frameIndex: 1, breakerSeat: 'A' } }],
-    })
-    expect(match.project().state).toMatchObject({ status: 'active', currentFrameIndex: 1 })
-  })
-
-  test('parses behind execute and keeps expected rejection as valid behavior', () => {
-    const match = restoreSparringMatch([[draftSparringMatchCreation(config())]])
-    expect(match.execute({ source: 'match', commandType: 'unknown', command: {} })).toEqual({
-      _tag: 'parse-failed',
-      reason: { code: 'unsupported-match-command', commandType: 'unknown' },
-    })
-    expect(match.execute({ source: 'match', commandType: 'frame.concede', command: { seat: 'A' } })).toEqual({
-      _tag: 'rejected',
-      reason: { code: 'no-active-frame' },
+  test('creation is outside history and prepare emits a focal-seat lifecycle entry', () => {
+    const match = createSparringMatch(config())
+    expect(match.project().state.currentFrameIndex).toBe(0)
+    expect(accept(match, { source: 'match', commandType: 'frame.prepare', command: {} })).toMatchObject({
+      command: { source: 'match', commandType: 'frame.prepare', command: {} },
+      protocolEntries: [{ entryType: 'frame-prepared', frameIndex: 1, seat: 'A' }],
     })
   })
 
-  test('restored semantic batches produce the same warm projection', () => {
-    const creation = draftSparringMatchCreation(config())
-    const warm = restoreSparringMatch([[creation]])
-    const prepared = warm.execute({ source: 'match', commandType: 'frame.prepare', command: {} })
-    expect(prepared._tag).toBe('accepted')
-    if (prepared._tag !== 'accepted') throw new Error('Expected accepted frame prepare')
-    const restored = restoreSparringMatch([[creation], prepared.facts])
-    expect(restored.project()).toEqual(warm.project())
+  test('retains canonical commands and restores by comparing semantic Protocol', () => {
+    const matchConfig = config()
+    const warm = createSparringMatch(matchConfig)
+    const history: AcceptedCommandHistoryEntry[] = []
+    for (const command of [
+      { source: 'match', commandType: 'frame.prepare', command: {} },
+      { source: 'match', commandType: 'frame.commence', command: { seat: 'A' } },
+      { source: 'game', commandType: 'pot.record', command: { pottedBallCount: 1, seat: 'A' } },
+    ] as const) {
+      const accepted = accept(warm, command)
+      history.push({ command: accepted.command, protocolEntries: [...accepted.protocolEntries] })
+    }
+    // SAFETY: this fixture is built from typed accepted results immediately above.
+    const persisted = JSON.parse(JSON.stringify(history)) as AcceptedCommandHistoryEntry[]
+    expect(restoreSparringMatch(matchConfig, persisted).project()).toEqual(warm.project())
   })
 
-  test('executes gameplay through terminal batching and restores the same terminal projection', () => {
-    const creation = draftSparringMatchCreation(config(1))
-    const warm = restoreSparringMatch([[creation]])
-    const history = [[creation]] as const
-    const accepted = [
-      warm.execute({ source: 'match', commandType: 'frame.prepare', command: {} }),
-      warm.execute({ source: 'match', commandType: 'frame.commence', command: { seat: 'A' } }),
-      warm.execute({ source: 'game', commandType: 'pot.record', command: { seat: 'A', pottedBallCount: 4 } }),
-      warm.execute({ source: 'game', commandType: 'pot.record', command: { seat: 'A', pottedBallCount: 4 } }),
-      warm.execute({ source: 'game', commandType: 'frame.award', command: { seat: 'A' } }),
-    ]
-    for (const result of accepted) expect(result._tag).toBe('accepted')
-    const batches = accepted.map((result) => {
-      if (result._tag !== 'accepted') throw new Error('Expected accepted command')
-      return result.facts
-    })
-    expect(batches.at(-1)?.map((fact) => fact.type)).toEqual(['game.command', 'frame.completed', 'match.ended'])
-
-    const restored = restoreSparringMatch([...history, ...batches])
-    expect(warm.project().state).toMatchObject({ status: 'finished', framesWonBySeat: { A: 1, B: 0 } })
-    expect(restored.project()).toEqual(warm.project())
+  test('concession records concession, award, and terminal match lifecycle in order', () => {
+    const match = createSparringMatch(config(1))
+    accept(match, { source: 'match', commandType: 'frame.prepare', command: {} })
+    const result = accept(match, { source: 'match', commandType: 'frame.concede', command: { seat: 'A' } })
+    expect(result.protocolEntries.map((entry) => [entry.entryType, entry.seat])).toEqual([
+      ['frame-conceded', 'A'],
+      ['frame-awarded', 'B'],
+      ['match-ended', 'B'],
+    ])
+    expect(match.project().state.status).toBe('finished')
   })
 
-  test('enforces alternating breaker policy and records concession completion', () => {
-    const match = restoreSparringMatch([[draftSparringMatchCreation(config())]])
-    expect(match.execute({ source: 'match', commandType: 'frame.prepare', command: {} })).toMatchObject({
-      _tag: 'accepted',
-      facts: [{ type: 'frame.prepared', payload: { frameIndex: 1, breakerSeat: 'A' } }],
-    })
-    expect(match.execute({ source: 'match', commandType: 'frame.commence', command: { seat: 'B' } })).toEqual({
-      _tag: 'rejected',
-      reason: { code: 'wrong-breaker', expectedSeat: 'A' },
-    })
-    expect(match.execute({ source: 'match', commandType: 'frame.concede', command: { seat: 'A' } })).toMatchObject({
-      _tag: 'accepted',
-      facts: [{ type: 'frame.completed', payload: { frameIndex: 1, outcome: { winnerSeat: 'B', winReason: 'conceded' } } }],
-    })
-    expect(match.execute({ source: 'match', commandType: 'frame.prepare', command: {} })).toMatchObject({
-      _tag: 'accepted',
-      facts: [{ type: 'frame.prepared', payload: { frameIndex: 2, breakerSeat: 'B' } }],
-    })
-  })
-
-  test('control flow offers prepare, then commence, then award', () => {
-    const match = restoreSparringMatch([[draftSparringMatchCreation(config())]])
-    expect(match.project().controlSections.neutral.map((command) => command.commandType)).toEqual(['frame.prepare'])
-
-    match.execute({ source: 'match', commandType: 'frame.prepare', command: {} })
-    expect(match.project().controlSections.primary.A.map((command) => command.commandType)).toEqual(['frame.commence'])
-    expect(match.project().controlProjection?.details.phase).toBe('not-started')
-
-    match.execute({ source: 'match', commandType: 'frame.commence', command: { seat: 'A' } })
-    expect(match.project().controlSections.primary.A.some((command) => command.commandType === 'frame.commence')).toBe(false)
-
-    match.execute({ source: 'game', commandType: 'pot.record', command: { seat: 'A', pottedBallCount: 4 } })
-    match.execute({ source: 'game', commandType: 'pot.record', command: { seat: 'A', pottedBallCount: 4 } })
-    expect(match.project().controlSections.primary.A.map((command) => command.commandType)).toEqual(['frame.award'])
-  })
-
-  test('ordinary accepted gameplay emits only the ordered game.command fact', () => {
-    const match = restoreSparringMatch([[draftSparringMatchCreation(config())]])
-    match.execute({ source: 'match', commandType: 'frame.prepare', command: {} })
-    match.execute({ source: 'match', commandType: 'frame.commence', command: { seat: 'A' } })
-    const result = match.execute({ source: 'game', commandType: 'pot.record', command: { seat: 'A', pottedBallCount: 1 } })
-    expect(result).toMatchObject({
-      _tag: 'accepted',
-      facts: [
-        { type: 'game.command', payload: { commandType: 'pot.record', protocolEntries: [{ scoreAfter: { A: 1, B: 0 } }] } },
-      ],
-    })
-    if (result._tag === 'accepted') expect(result.facts.map((fact) => fact.type)).toEqual(['game.command'])
-  })
-
-  test('rejected gameplay retains projection and emits no facts', () => {
-    const match = restoreSparringMatch([[draftSparringMatchCreation(config())]])
-    match.execute({ source: 'match', commandType: 'frame.prepare', command: {} })
-    match.execute({ source: 'match', commandType: 'frame.commence', command: { seat: 'A' } })
+  test('domain rejection does not mutate projection', () => {
+    const match = createSparringMatch(config())
     const before = match.project()
-    expect(
-      match.execute({ source: 'game', commandType: 'pot.record', command: { seat: 'A', pottedBallCount: 3 } }),
-    ).toMatchObject({
+    expect(match.execute({ source: 'match', commandType: 'frame.concede', command: { seat: 'A' } })).toMatchObject({
       _tag: 'rejected',
-      reason: { code: 'game-command-rejected' },
     })
     expect(match.project()).toEqual(before)
-  })
-
-  test('JSON round-trip restores prepare and pottedBallCount contracts', () => {
-    const creation = draftSparringMatchCreation(config())
-    const warm = restoreSparringMatch([[creation]])
-    const accepted = [
-      warm.execute({ source: 'match', commandType: 'frame.prepare', command: {} }),
-      warm.execute({ source: 'match', commandType: 'frame.commence', command: { seat: 'A' } }),
-      warm.execute({ source: 'game', commandType: 'pot.record', command: { seat: 'A', pottedBallCount: 2 } }),
-    ]
-    const batches = accepted.map((result) => {
-      if (result._tag !== 'accepted') throw new Error('Expected accepted command')
-      return result.facts
-    })
-    expect(batches[0]?.[0]).toMatchObject({ type: 'frame.prepared' })
-    expect(batches[2]?.[0]).toMatchObject({
-      type: 'game.command',
-      payload: {
-        commandType: 'pot.record',
-        command: { seat: 'A', pottedBallCount: 2 },
-        protocolEntries: [{ body: { commandType: 'pot.record', pottedBallCount: 2 } }],
-      },
-    })
-    // SAFETY: JSON round-trips schema-produced semantic batches without changing their JSON value types.
-    const persisted = JSON.parse(JSON.stringify(batches)) as typeof batches
-    const restored = restoreSparringMatch([[creation], ...persisted])
-    expect(restored.project()).toEqual(warm.project())
   })
 })

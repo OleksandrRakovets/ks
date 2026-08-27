@@ -1,6 +1,6 @@
 export * from './brand'
 export * from './control'
-export * from './facts'
+export * from './protocol'
 export * from './ids'
 export * from './match'
 export * from './time'
