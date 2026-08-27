@@ -37,7 +37,10 @@ export function BurgerMenu() {
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <button aria-label={t(keys.nav.menu)} className="flex h-14 items-center justify-center px-4 text-green">
+        <button
+          aria-label={t(keys.nav.menu)}
+          className="flex h-14 items-center justify-center px-4 text-green"
+        >
           <HamburgerIcon />
         </button>
       </SheetTrigger>
@@ -47,16 +50,24 @@ export function BurgerMenu() {
           <SheetTitle className="sr-only">{t(keys.appTitle)}</SheetTitle>
           <BrandWordmark className="h-12" title={t(keys.appTitle)} />
           <SheetClose asChild>
-            <button aria-label={t(keys.nav.close)} className="flex h-full w-14 justify-center px-4 pt-4 text-text-ghost">
+            <button
+              aria-label={t(keys.nav.close)}
+              className="flex h-full w-14 justify-center px-4 pt-4 text-text-ghost"
+            >
               <CloseIcon />
             </button>
           </SheetClose>
         </SheetHeader>
 
         <nav className="flex flex-col gap-1 px-4 py-4">
-          <p className="text-xs font-semibold tracking-widest text-text-ghost uppercase">{t(keys.nav.sparring)}</p>
+          <p className="text-xs font-semibold tracking-widest text-text-ghost uppercase">
+            {t(keys.nav.sparring)}
+          </p>
           <SheetClose asChild>
-            <Link to="/sparring/" className="py-2.5 text-sm font-medium text-text-hi underline-offset-4 hover:underline">
+            <Link
+              to="/sparring/"
+              className="py-2.5 text-sm font-medium text-text-hi underline-offset-4 hover:underline"
+            >
               {t(keys.nav.newMatch)}
             </Link>
           </SheetClose>
@@ -71,7 +82,9 @@ export function BurgerMenu() {
         </nav>
 
         <div className="px-4 pt-4">
-          <p className="mb-3 text-xs font-semibold tracking-widest text-text-ghost uppercase">{t(keys.theme.section)}</p>
+          <p className="mb-3 text-xs font-semibold tracking-widest text-text-ghost uppercase">
+            {t(keys.theme.section)}
+          </p>
           <div className="flex gap-3">
             {THEME_OPTIONS.map(({ value, labelKey }) => (
               <Button

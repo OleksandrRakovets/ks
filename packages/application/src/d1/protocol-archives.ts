@@ -1,5 +1,11 @@
 import { parseProtocolEntryContent } from '@ks/competition'
-import { type MatchId, MatchIdSchema, MatchStateSchema, NonEmptyProtocolEntries, PositiveIntegerSchema } from '@ks/core'
+import {
+  type MatchId,
+  MatchIdSchema,
+  MatchStateSchema,
+  NonEmptyProtocolEntries,
+  PositiveIntegerSchema,
+} from '@ks/core'
 import { isRegisteredGameKey } from '@ks/gameplay/definitions'
 import { eq } from 'drizzle-orm'
 import * as v from 'valibot'
@@ -26,7 +32,10 @@ const ProtocolArchiveStorageRowSchema = v.pipe(
   v.check((value) => value.state.matchId === value.matchId, 'Archive match ID does not match state'),
 )
 
-export async function getProtocolArchive(db: ApplicationDatabase, matchId: MatchId): Promise<ProtocolArchiveRecord | null> {
+export async function getProtocolArchive(
+  db: ApplicationDatabase,
+  matchId: MatchId,
+): Promise<ProtocolArchiveRecord | null> {
   const row = await db
     .select({
       matchId: matchProtocolArchives.matchId,

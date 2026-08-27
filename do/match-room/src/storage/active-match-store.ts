@@ -22,7 +22,11 @@ import { and, asc, eq, isNotNull, lte } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/durable-sqlite'
 import * as v from 'valibot'
 
-import { type CommandReceiptOutcome, decodeStoredCommandOutcome, type StoredCommandOutcome } from './command-outcome'
+import {
+  type CommandReceiptOutcome,
+  decodeStoredCommandOutcome,
+  type StoredCommandOutcome,
+} from './command-outcome'
 import * as schema from './schema'
 
 /**
@@ -44,14 +48,19 @@ const ActiveMatchRecordSchema = v.pipe(
     finalStateJson: v.nullable(v.pipe(v.string(), v.parseJson(), MatchStateSchema)),
     endedAt: v.nullable(UnixEpochMillisecondsSchema),
   }),
-  v.transform(({ configJson, finalStateJson, ...row }) => ({ ...row, config: configJson, finalState: finalStateJson })),
+  v.transform(({ configJson, finalStateJson, ...row }) => ({
+    ...row,
+    config: configJson,
+    finalState: finalStateJson,
+  })),
   v.check(
     (row) =>
       row.matchId === row.config.matchId &&
       (row.status === 'active'
         ? row.finalState === null && row.endedAt === null
         : row.finalState?.status === 'finished' && row.endedAt !== null) &&
-      (row.finalState === null || (row.finalState.matchId === row.matchId && row.finalState.gameKey === row.config.gameKey)),
+      (row.finalState === null ||
+        (row.finalState.matchId === row.matchId && row.finalState.gameKey === row.config.gameKey)),
   ),
 )
 
@@ -104,7 +113,12 @@ export class ActiveMatchStore {
   }
 
   commandOutcome(commandId: CommandId): StoredCommandOutcome | null {
-    const row = this.db.select().from(schema.commands).where(eq(schema.commands.commandId, commandId)).limit(1).all()[0]
+    const row = this.db
+      .select()
+      .from(schema.commands)
+      .where(eq(schema.commands.commandId, commandId))
+      .limit(1)
+      .all()[0]
     return row ? decodeStoredCommandOutcome(row, commandId) : null
   }
 
@@ -140,7 +154,9 @@ export class ActiveMatchStore {
           !owned.length ||
           owned.some(
             (entry, index) =>
-              entry.entryIndex !== index || entry.causedByCommandId !== row.commandId || entry.acceptedAt !== row.acceptedAt,
+              entry.entryIndex !== index ||
+              entry.causedByCommandId !== row.commandId ||
+              entry.acceptedAt !== row.acceptedAt,
           )
         )
           throw new Error('MatchRoom protocol_entries storage corruption')
@@ -265,7 +281,10 @@ export class ActiveMatchStore {
           endedAt: terminal ? acceptedAt : null,
         })
         .where(
-          and(eq(schema.activeMatches.matchId, args.match.matchId), eq(schema.activeMatches.latestSeq, args.match.latestSeq)),
+          and(
+            eq(schema.activeMatches.matchId, args.match.matchId),
+            eq(schema.activeMatches.latestSeq, args.match.latestSeq),
+          ),
         )
         .run()
       if (result.rowsWritten !== 1) throw new Error('Active match cursor mismatch')

@@ -16,7 +16,13 @@ type HeaderHandle = { headerConfig?: (data: UIMatch['loaderData']) => HeaderConf
 function BackArrowIcon() {
   return (
     <svg width="10" height="18" viewBox="0 0 7 12" fill="none" aria-hidden>
-      <path d="M6 1L1 6l5 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d="M6 1L1 6l5 5"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   )
 }
@@ -37,7 +43,11 @@ export function AppHeader() {
     <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center justify-between border-b border-divider bg-deep ">
       <div className="w-12">
         {config.backTo ? (
-          <Link to={config.backTo} aria-label={t(keys.nav.back)} className="flex h-14 items-center px-4 text-green">
+          <Link
+            to={config.backTo}
+            aria-label={t(keys.nav.back)}
+            className="flex h-14 items-center px-4 text-green"
+          >
             <BackArrowIcon />
           </Link>
         ) : null}

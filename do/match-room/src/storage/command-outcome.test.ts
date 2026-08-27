@@ -8,7 +8,10 @@ describe('command row codec', () => {
   test('decodes accepted and rejected outcomes', () => {
     const id = newCommandId()
     expect(
-      decodeStoredCommandOutcome({ requestJson: '{}', outcome: 'accepted', acceptedSeq: 2, rejectionJson: null }, id).outcome,
+      decodeStoredCommandOutcome(
+        { requestJson: '{}', outcome: 'accepted', acceptedSeq: 2, rejectionJson: null },
+        id,
+      ).outcome,
     ).toEqual({ _tag: 'accepted', acceptedSeq: 2 })
     expect(
       decodeStoredCommandOutcome(
@@ -26,7 +29,10 @@ describe('command row codec', () => {
   test('rejects inconsistent rows', () => {
     const id = newCommandId()
     expect(() =>
-      decodeStoredCommandOutcome({ requestJson: '{}', outcome: 'accepted', acceptedSeq: null, rejectionJson: null }, id),
+      decodeStoredCommandOutcome(
+        { requestJson: '{}', outcome: 'accepted', acceptedSeq: null, rejectionJson: null },
+        id,
+      ),
     ).toThrow('MatchRoom commands storage corruption')
   })
 })

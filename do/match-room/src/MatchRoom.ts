@@ -1,4 +1,9 @@
-import { buildMatchConfig, createSparringMatch, restoreSparringMatch, type SparringMatch } from '@ks/competition'
+import {
+  buildMatchConfig,
+  createSparringMatch,
+  restoreSparringMatch,
+  type SparringMatch,
+} from '@ks/competition'
 import { type MatchConfig, type MatchState, type ProtocolEntry } from '@ks/core'
 import { DurableObject } from 'cloudflare:workers'
 import { migrate } from 'drizzle-orm/durable-sqlite/migrator'
@@ -108,7 +113,8 @@ export class MatchRoom extends DurableObject<Env> {
     if (!body.success) return { ok: false, error: 'invalid-command-body', status: 400 }
     return this.ctx.blockConcurrencyWhile(async () => {
       const match = this.store.match()
-      if (!match || match.matchId !== body.output.matchId) return { ok: false, error: 'unknown-match', status: 400 }
+      if (!match || match.matchId !== body.output.matchId)
+        return { ok: false, error: 'unknown-match', status: 400 }
       const requestJson = JSON.stringify(body.output.command)
       const prior = this.store.commandOutcome(body.output.command.commandId)
       if (prior)
@@ -180,7 +186,8 @@ export class MatchRoom extends DurableObject<Env> {
     const parsed = v.safeParse(MatchIdBodySchema, args)
     if (!parsed.success) return { ok: false, error: 'Invalid finalize body', status: 400 }
     const match = this.store.match()
-    if (!match || match.matchId !== parsed.output.matchId) return { ok: false, error: 'Unknown match', status: 400 }
+    if (!match || match.matchId !== parsed.output.matchId)
+      return { ok: false, error: 'Unknown match', status: 400 }
     if (match.status !== 'finalizing' || !match.finalState || match.endedAt === null)
       return { ok: false, error: 'Match is active', status: 409 }
     const entries = this.store.protocolEntriesThrough(match.latestSeq)
@@ -231,7 +238,8 @@ export class MatchRoom extends DurableObject<Env> {
     const parsed = v.safeParse(MatchIdBodySchema, args)
     if (!parsed.success) return { ok: false, error: `Invalid ${kind} body`, status: 400 }
     const match = this.store.match()
-    if (!match || match.matchId !== parsed.output.matchId) return { ok: false, error: 'Unknown match', status: 400 }
+    if (!match || match.matchId !== parsed.output.matchId)
+      return { ok: false, error: 'Unknown match', status: 400 }
     if (match.status === 'finalizing') return { ok: false, error: 'Match is finalizing', status: 409 }
     return match
   }
@@ -254,7 +262,9 @@ export class MatchRoom extends DurableObject<Env> {
   private validateTerminal(match: ActiveMatchRecord, entries: ProtocolEntry[]): void {
     const terminal = entries.filter((entry) => entry.entryType === 'match-ended')
     const tail = entries.at(-1)
-    const winner = [...(match.finalState?.frames ?? [])].reverse().find((frame) => frame.winnerSeat)?.winnerSeat
+    const winner = [...(match.finalState?.frames ?? [])]
+      .reverse()
+      .find((frame) => frame.winnerSeat)?.winnerSeat
     if (
       !tail ||
       terminal.length !== 1 ||

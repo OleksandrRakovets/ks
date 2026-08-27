@@ -35,7 +35,7 @@ test('restoration rejects Protocol semantics divergent from canonical execution'
 
 test('restoration rejects a noncanonical or incompatible stored command', () => {
   const record = prepared()
-  expect(() => restoreSparringMatch(config, [{ ...record, command: { ...record.command, command: { extra: true } } }])).toThrow(
-    SparringMatchHistoryError,
-  )
+  expect(() =>
+    restoreSparringMatch(config, [{ ...record, command: { ...record.command, command: { extra: true } } }]),
+  ).toThrow(SparringMatchHistoryError)
 })

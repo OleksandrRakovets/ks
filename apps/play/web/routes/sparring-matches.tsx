@@ -14,7 +14,13 @@ type LoaderData = {
   matches: MatchListEntry[]
 }
 
-export async function loader({ request, context }: { request: Request; context: AppLoadContext }): Promise<LoaderData> {
+export async function loader({
+  request,
+  context,
+}: {
+  request: Request
+  context: AppLoadContext
+}): Promise<LoaderData> {
   const application = requireApplication(context)
   const locale = localeFromCookie(request.headers.get('cookie'))
 
@@ -37,7 +43,9 @@ export default function SparringMatchesRoute() {
         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h1 className="text-3xl font-semibold tracking-tight">{t(keys.match.sparring.recentMatches)}</h1>
-            <p className="mt-1 text-sm text-muted-foreground">{t(keys.match.sparring.recentMatchesSubtitle)}</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {t(keys.match.sparring.recentMatchesSubtitle)}
+            </p>
           </div>
           <Button asChild variant="outline">
             <Link to="/sparring/">{t(keys.match.sparring.newMatch)}</Link>

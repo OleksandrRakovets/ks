@@ -94,11 +94,15 @@ export function FrameTargetFields(props: { playerNames: { A: string; B: string }
   return (
     <section className="grid gap-3 sm:grid-cols-2" aria-label={t(keys.match.sparring.frameTargetPoints)}>
       <div className="grid gap-2">
-        <Label htmlFor="targetA">{t(keys.match.sparring.playerTargetPoints, { name: props.playerNames.A })}</Label>
+        <Label htmlFor="targetA">
+          {t(keys.match.sparring.playerTargetPoints, { name: props.playerNames.A })}
+        </Label>
         <NumberInput id="targetA" name="targetA" inputMode="numeric" min={1} defaultValue={props.defaults.A} />
       </div>
       <div className="grid gap-2">
-        <Label htmlFor="targetB">{t(keys.match.sparring.playerTargetPoints, { name: props.playerNames.B })}</Label>
+        <Label htmlFor="targetB">
+          {t(keys.match.sparring.playerTargetPoints, { name: props.playerNames.B })}
+        </Label>
         <NumberInput id="targetB" name="targetB" inputMode="numeric" min={1} defaultValue={props.defaults.B} />
       </div>
     </section>
@@ -127,7 +131,9 @@ export function RackRolloverField(props: { profile: MatchCreateProfile }) {
               <span className="font-medium">{t(keys.match.sparring.rackRolloverBalls, { count: value })}</span>
             </span>
             <span className="text-sm text-muted-foreground">
-              {value === 14 ? t(keys.match.sparring.rackRolloverPreferred) : t(keys.match.sparring.rackRolloverNewer)}
+              {value === 14
+                ? t(keys.match.sparring.rackRolloverPreferred)
+                : t(keys.match.sparring.rackRolloverNewer)}
             </span>
           </label>
         ))}

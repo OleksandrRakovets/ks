@@ -12,7 +12,10 @@ function splitGuestDisplayName(displayName: string): PlayerName {
   return { firstName: parts[0] ?? '', lastName: parts.slice(1).join(' ') }
 }
 
-export async function getOrCreateGuestPlayerRef(db: ApplicationDatabase, displayName: string): Promise<PlayerRef> {
+export async function getOrCreateGuestPlayerRef(
+  db: ApplicationDatabase,
+  displayName: string,
+): Promise<PlayerRef> {
   const { firstName, lastName } = splitGuestDisplayName(displayName)
   const existing = await db
     .select({ guestPlayerId: guestPlayers.guestPlayerId })

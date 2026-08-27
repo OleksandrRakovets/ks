@@ -7,7 +7,10 @@ export function zeroScore(): BySeatNumber {
 }
 
 export function totalScore(racks: readonly LongFreePyramidRack[]): BySeatNumber {
-  return racks.reduce((sum, rack) => ({ A: sum.A + rack.scoreBySeat.A, B: sum.B + rack.scoreBySeat.B }), zeroScore())
+  return racks.reduce(
+    (sum, rack) => ({ A: sum.A + rack.scoreBySeat.A, B: sum.B + rack.scoreBySeat.B }),
+    zeroScore(),
+  )
 }
 
 export function currentRack(racks: readonly LongFreePyramidRack[]): LongFreePyramidRack {
@@ -37,7 +40,10 @@ export function applyPotToRacks(
   return [...racks.slice(0, -1), addRackScore(rack, seat, pottedBallCount)]
 }
 
-export function applyFoulToRacks(racks: readonly LongFreePyramidRack[], awardedSeat: Seat): LongFreePyramidRack[] {
+export function applyFoulToRacks(
+  racks: readonly LongFreePyramidRack[],
+  awardedSeat: Seat,
+): LongFreePyramidRack[] {
   return applyPotToRacks(racks, awardedSeat, 1)
 }
 

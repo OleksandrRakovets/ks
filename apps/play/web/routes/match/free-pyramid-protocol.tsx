@@ -20,7 +20,10 @@ export const handle = {
   headerConfig: (data: ProtocolRouteData<'free-pyramid'>) => ({
     titleKey: keys.match.sparring.protocolHeaderTitle,
     titleParams: { gameTitle: data.gameTitle },
-    backTo: data.state.status === 'active' ? matchControlUrl('free-pyramid', data.state.matchId) : '/sparring/matches/',
+    backTo:
+      data.state.status === 'active'
+        ? matchControlUrl('free-pyramid', data.state.matchId)
+        : '/sparring/matches/',
   }),
 }
 

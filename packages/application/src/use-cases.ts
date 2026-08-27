@@ -100,8 +100,20 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
       { seat: 'A', playerRef: seatAPlayerRef },
       { seat: 'B', playerRef: seatBPlayerRef },
     ]
-    const request: MatchRoomCreateRequest = { ...requestInput, participants, matchId, controlSecret, createdAt }
-    await dependencies.beginMatchCreation({ matchId, gameKey: request.gameKey, seatAPlayerRef, seatBPlayerRef, createdAt })
+    const request: MatchRoomCreateRequest = {
+      ...requestInput,
+      participants,
+      matchId,
+      controlSecret,
+      createdAt,
+    }
+    await dependencies.beginMatchCreation({
+      matchId,
+      gameKey: request.gameKey,
+      seatAPlayerRef,
+      seatBPlayerRef,
+      createdAt,
+    })
     const result = await dependencies.matchRoom.create(request)
     if (!result.ok) return result
     await dependencies.activateMatch(matchId)
@@ -136,7 +148,8 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     expectedGameKey: K,
   ): Promise<ReadKeyedMatchResult<K>> {
     const record = await dependencies.getMatchRecord(matchId)
-    if (!record || record.gameKey !== expectedGameKey) return { ok: false, error: 'Unknown match', status: 404 }
+    if (!record || record.gameKey !== expectedGameKey)
+      return { ok: false, error: 'Unknown match', status: 404 }
     if (record.status === 'finalizing') await disposeAndFinishRoom(matchId)
     if (record.status === 'finalizing' || record.status === 'finished') {
       return await readArchivedMatch(record, locale, expectedGameKey)
@@ -152,7 +165,8 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
       const updatedRecord = await dependencies.getMatchRecord(matchId)
       if (updatedRecord && updatedRecord.status !== 'active') {
         if (updatedRecord.status === 'finalizing') await disposeAndFinishRoom(matchId)
-        if (updatedRecord.gameKey !== expectedGameKey) return { ok: false, error: 'Unknown match', status: 404 }
+        if (updatedRecord.gameKey !== expectedGameKey)
+          return { ok: false, error: 'Unknown match', status: 404 }
         return await readArchivedMatch(updatedRecord, locale, expectedGameKey)
       }
       const status = roomResult.error === 'Unknown match' ? 404 : roomResult.status === 409 ? 409 : 502
@@ -191,7 +205,8 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     expectedGameKey: K,
   ): Promise<SubmitMatchCommandResult> {
     const record = await dependencies.getMatchRecord(matchId)
-    if (!record || record.gameKey !== expectedGameKey) return { ok: false, error: 'Unknown match', status: 404 }
+    if (!record || record.gameKey !== expectedGameKey)
+      return { ok: false, error: 'Unknown match', status: 404 }
     if (record.status === 'finalizing') await disposeAndFinishRoom(matchId)
     if (record.status === 'finalizing' || record.status === 'finished') {
       return { ok: false, error: 'Match is finished', status: 409 }
@@ -214,7 +229,8 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     expectedGameKey: K,
   ): Promise<ReadMatchProtocolResult<K>> {
     const record = await dependencies.getMatchRecord(matchId)
-    if (!record || record.gameKey !== expectedGameKey) return { ok: false, error: 'Unknown match', status: 404 }
+    if (!record || record.gameKey !== expectedGameKey)
+      return { ok: false, error: 'Unknown match', status: 404 }
     const participants = await hydrateParticipants(record, locale)
     const seatNames = { A: participants.A.displayName, B: participants.B.displayName }
     if (record.status === 'active') {
@@ -312,7 +328,8 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
       if (record.status === 'finalizing' || record.status === 'finished') {
         return Response.json({ ok: false, error: 'Match is finished' }, { status: 410 })
       }
-      if (record.status !== 'active') return Response.json({ ok: false, error: 'Unknown match' }, { status: 404 })
+      if (record.status !== 'active')
+        return Response.json({ ok: false, error: 'Unknown match' }, { status: 404 })
       const response = await dependencies.matchRoom.stream(matchId, since)
       if (response.status !== 409) return response
       await archiveAndFinishRoom(matchId)

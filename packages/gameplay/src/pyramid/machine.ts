@@ -38,7 +38,12 @@ function setSeat(score: BySeatNumber, seat: Seat, value: number): BySeatNumber {
   return seat === 'A' ? { A: value, B: score.B } : { A: score.A, B: value }
 }
 
-function applyShot(score: BySeatNumber, seat: Seat, pottedBallCount: number, allowNegative: boolean): BySeatNumber {
+function applyShot(
+  score: BySeatNumber,
+  seat: Seat,
+  pottedBallCount: number,
+  allowNegative: boolean,
+): BySeatNumber {
   return setSeat(score, seat, clamp(score[seat] + pottedBallCount, allowNegative))
 }
 
@@ -217,7 +222,10 @@ export const PyramidSparringFrameMachine = setup({
 
 export type PyramidSparringFrameSnapshot = SnapshotFrom<typeof PyramidSparringFrameMachine>
 
-export function createInitialSnapshot(rules: PyramidRules, targetPointsBySeat: BySeatNumber): PyramidSparringFrameSnapshot {
+export function createInitialSnapshot(
+  rules: PyramidRules,
+  targetPointsBySeat: BySeatNumber,
+): PyramidSparringFrameSnapshot {
   const [snapshot] = initialTransition(PyramidSparringFrameMachine, { targetPointsBySeat, rules })
   return snapshot
 }
@@ -230,7 +238,10 @@ export function getPhase(snapshot: PyramidSparringFrameSnapshot): PyramidPhase {
   return v.parse(PyramidPhaseSchema, snapshot.value)
 }
 
-export function sendEvent(snapshot: PyramidSparringFrameSnapshot, event: PyramidCommand): PyramidSparringFrameSnapshot {
+export function sendEvent(
+  snapshot: PyramidSparringFrameSnapshot,
+  event: PyramidCommand,
+): PyramidSparringFrameSnapshot {
   if (!snapshot.can(event)) {
     throw new Error(`Invalid Pyramid event ${event.type} in phase ${getPhase(snapshot)}`)
   }

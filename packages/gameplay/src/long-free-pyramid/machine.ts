@@ -101,7 +101,11 @@ export const LongFreePyramidSparringFrameMachine = setup({
     },
     isOpenPlayPotReachingTarget: ({ context, event }) => {
       const e = potEvent(event)
-      if (!isValidPottedBallCount(e.pottedBallCount) || e.pottedBallCount > ballsOnTableFromRacks(context.racks)) return false
+      if (
+        !isValidPottedBallCount(e.pottedBallCount) ||
+        e.pottedBallCount > ballsOnTableFromRacks(context.racks)
+      )
+        return false
       const racks = applyPotToRacks(context.racks, e.seat, e.pottedBallCount)
       const score = totalScore(racks)
       return targetReachedBySeat(score, context.targetPoints, e.seat)
@@ -276,12 +280,16 @@ export const LongFreePyramidSparringFrameMachine = setup({
 
 export type LongFreePyramidSparringFrameSnapshot = SnapshotFrom<typeof LongFreePyramidSparringFrameMachine>
 
-export function createInitialSnapshot(input: LongFreePyramidMachineInput): LongFreePyramidSparringFrameSnapshot {
+export function createInitialSnapshot(
+  input: LongFreePyramidMachineInput,
+): LongFreePyramidSparringFrameSnapshot {
   const [snapshot] = initialTransition(LongFreePyramidSparringFrameMachine, input)
   return snapshot
 }
 
-export function getLongFreePyramidSparringFramePhase(snapshot: LongFreePyramidSparringFrameSnapshot): LongFreePyramidPhase {
+export function getLongFreePyramidSparringFramePhase(
+  snapshot: LongFreePyramidSparringFrameSnapshot,
+): LongFreePyramidPhase {
   return getPhase(snapshot)
 }
 

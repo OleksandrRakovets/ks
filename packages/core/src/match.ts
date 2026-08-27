@@ -1,7 +1,12 @@
 import * as v from 'valibot'
 
 import { MatchIdSchema, PlayerRefSchema } from './ids'
-import { IntegerSchema, NonNegativeIntegerSchema, PositiveIntegerSchema, SizedStringSchema } from './valicombos'
+import {
+  IntegerSchema,
+  NonNegativeIntegerSchema,
+  PositiveIntegerSchema,
+  SizedStringSchema,
+} from './valicombos'
 
 export const SeatSchema = v.picklist(['A', 'B'])
 export type Seat = v.InferOutput<typeof SeatSchema>

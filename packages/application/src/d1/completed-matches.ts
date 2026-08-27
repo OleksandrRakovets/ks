@@ -17,20 +17,24 @@ export class CompletedMatchArchiveError extends Error {
 }
 
 function validateCompletedMatchTransfer(input: CompletedMatchArchiveInput): MatchState {
-  const entries = [...input.protocolEntries].sort((a, b) => a.acceptedSeq - b.acceptedSeq || a.entryIndex - b.entryIndex)
+  const entries = [...input.protocolEntries].sort(
+    (a, b) => a.acceptedSeq - b.acceptedSeq || a.entryIndex - b.entryIndex,
+  )
   let sequence = 1
   let index = 0
   let commandId = ''
   let acceptedAt = 0
   for (const entry of entries) {
     if (entry.acceptedSeq !== sequence) {
-      if (entry.acceptedSeq !== sequence + 1) throw new CompletedMatchArchiveError('Protocol sequence is not contiguous')
+      if (entry.acceptedSeq !== sequence + 1)
+        throw new CompletedMatchArchiveError('Protocol sequence is not contiguous')
       sequence += 1
       index = 0
       commandId = ''
       acceptedAt = 0
     }
-    if (entry.entryIndex !== index++) throw new CompletedMatchArchiveError('Protocol entry index is not contiguous')
+    if (entry.entryIndex !== index++)
+      throw new CompletedMatchArchiveError('Protocol entry index is not contiguous')
     if (commandId && (entry.causedByCommandId !== commandId || entry.acceptedAt !== acceptedAt))
       throw new CompletedMatchArchiveError('Protocol command ownership is inconsistent')
     commandId ||= entry.causedByCommandId
@@ -71,7 +75,13 @@ function validateCompletedMatchTransfer(input: CompletedMatchArchiveInput): Matc
 }
 
 function semanticArchiveEqual(
-  left: { sourceLatestSeq: number; protocolVersion: number; rowsJson: string; stateJson: string; createdAt: number },
+  left: {
+    sourceLatestSeq: number
+    protocolVersion: number
+    rowsJson: string
+    stateJson: string
+    createdAt: number
+  },
   right: typeof left,
 ): boolean {
   if (
@@ -102,7 +112,14 @@ function semanticArchiveEqual(
   )
 }
 
-type StructuralValue = undefined | null | boolean | number | string | readonly StructuralValue[] | StructuralObject
+type StructuralValue =
+  | undefined
+  | null
+  | boolean
+  | number
+  | string
+  | readonly StructuralValue[]
+  | StructuralObject
 type StructuralObject = { readonly [key: string]: StructuralValue }
 
 function structuralEqual(left: StructuralValue, right: StructuralValue): boolean {
@@ -127,7 +144,10 @@ function structuralEqual(left: StructuralValue, right: StructuralValue): boolean
   )
 }
 
-export async function archiveCompletedMatch(db: ApplicationDatabase, input: CompletedMatchArchiveInput): Promise<void> {
+export async function archiveCompletedMatch(
+  db: ApplicationDatabase,
+  input: CompletedMatchArchiveInput,
+): Promise<void> {
   const state = validateCompletedMatchTransfer(input)
   const archive = {
     matchId: input.matchId,
@@ -171,7 +191,12 @@ export async function archiveCompletedMatch(db: ApplicationDatabase, input: Comp
     .onConflictDoNothing({ target: matchProtocolArchives.matchId })
     .returning()
   const persistedArchive =
-    inserted[0] ?? (await db.select().from(matchProtocolArchives).where(eq(matchProtocolArchives.matchId, input.matchId)).get())
+    inserted[0] ??
+    (await db
+      .select()
+      .from(matchProtocolArchives)
+      .where(eq(matchProtocolArchives.matchId, input.matchId))
+      .get())
   if (!persistedArchive || !semanticArchiveEqual(persistedArchive, archive))
     throw new CompletedMatchArchiveError('Completed match archive conflicts with existing data')
 
@@ -193,7 +218,8 @@ export async function archiveCompletedMatch(db: ApplicationDatabase, input: Comp
       .where(eq(matches.matchId, input.matchId))
       .get())
   if (
-    (persistedMatch?.status !== StoredMatchStatus.finalizing && persistedMatch?.status !== StoredMatchStatus.finished) ||
+    (persistedMatch?.status !== StoredMatchStatus.finalizing &&
+      persistedMatch?.status !== StoredMatchStatus.finished) ||
     persistedMatch.endedAt !== input.endedAt
   )
     throw new CompletedMatchArchiveError('Completed match lifecycle conflicts with existing data')
@@ -204,7 +230,10 @@ export async function finishCompletedMatch(db: ApplicationDatabase, matchId: Mat
     .update(matches)
     .set({ status: StoredMatchStatus.finished })
     .where(
-      and(eq(matches.matchId, matchId), inArray(matches.status, [StoredMatchStatus.finalizing, StoredMatchStatus.finished])),
+      and(
+        eq(matches.matchId, matchId),
+        inArray(matches.status, [StoredMatchStatus.finalizing, StoredMatchStatus.finished]),
+      ),
     )
     .returning({ status: matches.status })
   if (result.length !== 1 || result[0]?.status !== StoredMatchStatus.finished)

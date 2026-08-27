@@ -5,7 +5,9 @@ import { ballsOnTableFromRacks, currentRack, removedByRack, totalScore } from '.
 import { type LongFreePyramidControlView, type LongFreePyramidProjectionDetails } from '../definitions'
 import { getPhase, type LongFreePyramidSparringFrameSnapshot } from '../machine'
 
-export function deriveLongFreePyramidControlView(snapshot: LongFreePyramidSparringFrameSnapshot): LongFreePyramidControlView {
+export function deriveLongFreePyramidControlView(
+  snapshot: LongFreePyramidSparringFrameSnapshot,
+): LongFreePyramidControlView {
   const phase = getPhase(snapshot)
   const ballsOnTable = ballsOnTableFromRacks(snapshot.context.racks)
   const rack = currentRack(snapshot.context.racks)

@@ -77,7 +77,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
     <html lang={locale} className={htmlClass}>
       <head>
         <meta charSet="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
+        />
         <link rel="icon" type="image/x-icon" href="/favicon.ico" />
         <link rel="icon" type="image/png" sizes="32x32" href={`${iconPath}/favicon-32x32.png`} />
         <link rel="apple-touch-icon" sizes="180x180" href={`${iconPath}/apple-touch-icon.png`} />
@@ -107,7 +110,9 @@ export function ErrorBoundary() {
     return (
       <main className="flex min-h-dvh flex-1 items-center justify-center bg-background px-6 text-foreground">
         <div className="w-full max-w-lg rounded-2xl border border-border bg-card p-8 text-center">
-          <p className="text-sm tracking-[0.2em] text-muted-foreground uppercase">{t(keys.app.notFound.eyebrow)}</p>
+          <p className="text-sm tracking-[0.2em] text-muted-foreground uppercase">
+            {t(keys.app.notFound.eyebrow)}
+          </p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">{t(keys.app.notFound.title)}</h1>
           <p className="mt-3 text-sm text-muted-foreground">{t(keys.app.notFound.description)}</p>
         </div>

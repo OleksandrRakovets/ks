@@ -4,7 +4,10 @@ import { createRequestHandler, RouterContextProvider } from 'react-router'
 import { cloudflareContext, type CloudflareLoadContext } from '../web/server/context'
 import type { Env } from './env'
 
-const requestHandler = createRequestHandler(() => import('virtual:react-router/server-build'), import.meta.env.MODE)
+const requestHandler = createRequestHandler(
+  () => import('virtual:react-router/server-build'),
+  import.meta.env.MODE,
+)
 
 export default {
   async fetch(request: Request, env: Env) {

@@ -4,7 +4,12 @@ import { MatchCommand } from './command'
 import { CommandIdSchema } from './ids'
 import { BySeatNumberSchema, GameKeySchema, SeatSchema } from './match'
 import { UnixEpochMillisecondsSchema } from './time'
-import { NonNegativeIntegerSchema, PositiveIntegerSchema, SizedStringSchema, UnknownObjectSchema } from './valicombos'
+import {
+  NonNegativeIntegerSchema,
+  PositiveIntegerSchema,
+  SizedStringSchema,
+  UnknownObjectSchema,
+} from './valicombos'
 
 export const ProtocolEntrySource = v.picklist(['player', 'system'])
 export type ProtocolEntrySource = v.InferOutput<typeof ProtocolEntrySource>

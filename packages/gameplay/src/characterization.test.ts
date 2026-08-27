@@ -38,7 +38,10 @@ describe('gameplay characterization', () => {
   })
 
   test('every accepted long free pyramid command produces protocol entries', () => {
-    const session = createGameplaySession('free-pyramid-long', { targetPointsBySeat: { A: 2, B: 30 }, rackRollover: 14 })
+    const session = createGameplaySession('free-pyramid-long', {
+      targetPointsBySeat: { A: 2, B: 30 },
+      rackRollover: 14,
+    })
     expectAccepted(session.execute({ type: 'frame.commence', seat: 'A' }))
     expectAccepted(session.execute({ type: 'pot.record', seat: 'A', pottedBallCount: 1 }))
     expectAccepted(session.execute({ type: 'foul.commit', seat: 'A' }))
@@ -75,7 +78,10 @@ describe('gameplay characterization', () => {
     expectAccepted(opponentPlus.execute({ type: 'frame.commence', seat: 'A' }))
     const freeFoul = expectAccepted(opponentPlus.execute({ type: 'foul.commit', seat: 'A' }))
     expect(opponentPlus.getScore()).toEqual({ A: 0, B: 1 })
-    expect(freeFoul.gameProtocolEntries[0]?.body).toEqual({ commandType: 'foul.commit', penalty: 'opponent-plus-one' })
+    expect(freeFoul.gameProtocolEntries[0]?.body).toEqual({
+      commandType: 'foul.commit',
+      penalty: 'opponent-plus-one',
+    })
 
     const combined = createGameplaySession('combined-pyramid', { targetPointsBySeat: { A: 8, B: 8 } })
     expectAccepted(combined.execute({ type: 'frame.commence', seat: 'A' }))
@@ -86,7 +92,10 @@ describe('gameplay characterization', () => {
     expectAccepted(owed.execute({ type: 'frame.commence', seat: 'A' }))
     const oldFoul = expectAccepted(owed.execute({ type: 'foul.commit', seat: 'A' }))
     expect(owed.getScore()).toEqual({ A: -1, B: 0 })
-    expect(oldFoul.gameProtocolEntries[0]?.body).toEqual({ commandType: 'foul.commit', penalty: 'offender-minus-one' })
+    expect(oldFoul.gameProtocolEntries[0]?.body).toEqual({
+      commandType: 'foul.commit',
+      penalty: 'offender-minus-one',
+    })
   })
 
   test('winner-determined players may continue legal scoring until award', () => {
@@ -99,7 +108,10 @@ describe('gameplay characterization', () => {
     const awarded = expectAccepted(pyramid.execute({ type: 'frame.award', seat: 'A' }))
     expect(awarded.outcome).toEqual({ winnerSeat: 'A', winReason: 'target-reached', score: { A: 2, B: 0 } })
 
-    const long = createGameplaySession('free-pyramid-long', { targetPointsBySeat: { A: 1, B: 30 }, rackRollover: 14 })
+    const long = createGameplaySession('free-pyramid-long', {
+      targetPointsBySeat: { A: 1, B: 30 },
+      rackRollover: 14,
+    })
     expectAccepted(long.execute({ type: 'frame.commence', seat: 'A' }))
     expectAccepted(long.execute({ type: 'pot.record', seat: 'A', pottedBallCount: 1 }))
     expect(long.deriveControl().details.phase).toBe('winner-determined')
@@ -115,7 +127,10 @@ describe('gameplay characterization', () => {
   })
 
   test('long free pyramid table counts and rack rollover remain correct', () => {
-    const session = createGameplaySession('free-pyramid-long', { targetPointsBySeat: { A: 30, B: 30 }, rackRollover: 14 })
+    const session = createGameplaySession('free-pyramid-long', {
+      targetPointsBySeat: { A: 30, B: 30 },
+      rackRollover: 14,
+    })
     expectAccepted(session.execute({ type: 'frame.commence', seat: 'A' }))
     for (const pottedBallCount of [4, 4, 4, 2] as const) {
       expectAccepted(session.execute({ type: 'pot.record', seat: 'A', pottedBallCount }))

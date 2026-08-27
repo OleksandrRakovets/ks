@@ -27,7 +27,8 @@ const scenarios = [
   },
   {
     gameKey: 'free-pyramid-long',
-    create: () => createGameplaySession('free-pyramid-long', { targetPointsBySeat: { A: 1, B: 1 }, rackRollover: 14 }),
+    create: () =>
+      createGameplaySession('free-pyramid-long', { targetPointsBySeat: { A: 1, B: 1 }, rackRollover: 14 }),
     controlSchema: LongFreePyramidControlViewSchema,
     score: () => ({ type: 'pot.record' as const, seat: 'A' as const, pottedBallCount: 1 as const }),
   },

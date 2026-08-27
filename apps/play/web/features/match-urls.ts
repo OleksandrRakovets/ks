@@ -9,6 +9,10 @@ export function matchProtocolUrl(gameKey: RegisteredGameKey, matchId: MatchId): 
   return `/match/${gameKey}/${matchId}/protocol/`
 }
 
-export function matchUrlForStatus(gameKey: RegisteredGameKey, matchId: MatchId, status: 'active' | 'finished'): string {
+export function matchUrlForStatus(
+  gameKey: RegisteredGameKey,
+  matchId: MatchId,
+  status: 'active' | 'finished',
+): string {
   return status === 'active' ? matchControlUrl(gameKey, matchId) : matchProtocolUrl(gameKey, matchId)
 }

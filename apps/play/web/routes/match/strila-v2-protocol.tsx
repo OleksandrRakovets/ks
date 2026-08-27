@@ -20,7 +20,8 @@ export const handle = {
   headerConfig: (data: ProtocolRouteData<'strila-v2'>) => ({
     titleKey: keys.match.sparring.protocolHeaderTitle,
     titleParams: { gameTitle: data.gameTitle },
-    backTo: data.state.status === 'active' ? matchControlUrl('strila-v2', data.state.matchId) : '/sparring/matches/',
+    backTo:
+      data.state.status === 'active' ? matchControlUrl('strila-v2', data.state.matchId) : '/sparring/matches/',
   }),
 }
 

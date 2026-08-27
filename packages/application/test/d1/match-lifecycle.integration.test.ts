@@ -53,11 +53,16 @@ function terminalArchiveInput(id = matchId): CompletedMatchArchiveInput {
   for (const command of [
     { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } },
     { commandId: newCommandId(), source: 'match', command: { type: 'frame.commence', seat: 'A' } },
-    { commandId: newCommandId(), source: 'game', command: { type: 'pot.record', seat: 'A', pottedBallCount: 2 } },
+    {
+      commandId: newCommandId(),
+      source: 'game',
+      command: { type: 'pot.record', seat: 'A', pottedBallCount: 2 },
+    },
     { commandId: newCommandId(), source: 'game', command: { type: 'frame.award', seat: 'A' } },
   ] satisfies MatchCommand[]) {
     const decision = session.execute(command)
-    if (decision._tag !== 'accepted') throw new Error(`Fixture command rejected: ${String(command.command.type)}`)
+    if (decision._tag !== 'accepted')
+      throw new Error(`Fixture command rejected: ${String(command.command.type)}`)
     acceptedSeq += 1
     decision.protocolEntryContents.forEach((entry, entryIndex) =>
       protocolEntries.push({
@@ -100,7 +105,9 @@ describe('real D1 match lifecycle', () => {
 
     await beginMatchCreation(db, catalogInput(otherMatchId, v.parse(UnixEpochMillisecondsSchema, 3_000)))
     await activateMatch(db, otherMatchId)
-    await env.DB.prepare('UPDATE matches SET status = ? WHERE match_id = ?').bind('finished', otherMatchId).run()
+    await env.DB.prepare('UPDATE matches SET status = ? WHERE match_id = ?')
+      .bind('finished', otherMatchId)
+      .run()
     await beginMatchCreation(db, catalogInput(newestMatchId, v.parse(UnixEpochMillisecondsSchema, 4_000)))
     await activateMatch(db, newestMatchId)
     await beginMatchCreation(db, catalogInput(creatingMatchId, v.parse(UnixEpochMillisecondsSchema, 5_000)))
@@ -117,9 +124,9 @@ describe('real D1 match lifecycle', () => {
       state: archive.finalState,
     })
     await archiveCompletedMatch(db, archive)
-    await expect(archiveCompletedMatch(db, { ...archive, sourceLatestSeq: archive.sourceLatestSeq + 1 })).rejects.toThrow(
-      CompletedMatchArchiveError,
-    )
+    await expect(
+      archiveCompletedMatch(db, { ...archive, sourceLatestSeq: archive.sourceLatestSeq + 1 }),
+    ).rejects.toThrow(CompletedMatchArchiveError)
     expect(await getMatchRow(db, matchId)).toMatchObject({ status: 'finalizing' })
 
     await finishCompletedMatch(db, matchId)
@@ -127,7 +134,10 @@ describe('real D1 match lifecycle', () => {
   })
 
   test.each([
-    ['invalid envelope', (input: CompletedMatchArchiveInput) => ({ ...input, sourceLatestSeq: input.sourceLatestSeq + 1 })],
+    [
+      'invalid envelope',
+      (input: CompletedMatchArchiveInput) => ({ ...input, sourceLatestSeq: input.sourceLatestSeq + 1 }),
+    ],
     [
       'Protocol ownership mismatch',
       (input: CompletedMatchArchiveInput) => {
@@ -138,13 +148,18 @@ describe('real D1 match lifecycle', () => {
     ],
     [
       'terminal state mismatch',
-      (input: CompletedMatchArchiveInput) => ({ ...input, finalState: terminalArchiveInput(otherMatchId).finalState }),
+      (input: CompletedMatchArchiveInput) => ({
+        ...input,
+        finalState: terminalArchiveInput(otherMatchId).finalState,
+      }),
     ],
   ])('rejects %s without changing the match row or archive', async (_label, corrupt) => {
     const db = createApplicationDatabaseClient(env.DB)
     await beginMatchCreation(db, catalogInput())
     await activateMatch(db, matchId)
-    await expect(archiveCompletedMatch(db, corrupt(terminalArchiveInput()))).rejects.toThrow(CompletedMatchArchiveError)
+    await expect(archiveCompletedMatch(db, corrupt(terminalArchiveInput()))).rejects.toThrow(
+      CompletedMatchArchiveError,
+    )
     expect(await getMatchRow(db, matchId)).toMatchObject({ status: 'active' })
     expect(await getProtocolArchive(db, matchId)).toBeNull()
   })
@@ -162,8 +177,11 @@ describe('real D1 match lifecycle', () => {
     await expect(archiveCompletedMatch(db, archive)).rejects.toThrow(CompletedMatchArchiveError)
     expect(await getMatchRow(db, matchId)).toMatchObject({ status: 'active' })
     expect(
-      (await env.DB.prepare('SELECT state_json FROM match_protocol_archives WHERE match_id = ?').bind(matchId).first())
-        ?.state_json,
+      (
+        await env.DB.prepare('SELECT state_json FROM match_protocol_archives WHERE match_id = ?')
+          .bind(matchId)
+          .first()
+      )?.state_json,
     ).toBe('{}')
   })
 
@@ -178,11 +196,16 @@ describe('real D1 match lifecycle', () => {
       {
         ...terminalArchiveInput(),
         endedAt: conflictingTimestamp,
-        protocolEntries: first.protocolEntries.map((entry) => ({ ...entry, acceptedAt: conflictingTimestamp })),
+        protocolEntries: first.protocolEntries.map((entry) => ({
+          ...entry,
+          acceptedAt: conflictingTimestamp,
+        })),
       },
     ]
 
-    const results = await Promise.allSettled(candidates.map(async (candidate) => await archiveCompletedMatch(db, candidate)))
+    const results = await Promise.allSettled(
+      candidates.map(async (candidate) => await archiveCompletedMatch(db, candidate)),
+    )
 
     expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1)
     expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1)
@@ -232,11 +255,18 @@ describe('real D1 match lifecycle', () => {
     const db = createApplicationDatabaseClient(env.DB)
     const state = terminalArchiveInput().finalState
     await seedArchive('[]', JSON.stringify(state), 1, 0)
-    await expect(getProtocolArchive(db, matchId)).rejects.toThrow(`Protocol archive storage corruption for match ${matchId}`)
+    await expect(getProtocolArchive(db, matchId)).rejects.toThrow(
+      `Protocol archive storage corruption for match ${matchId}`,
+    )
   })
 })
 
-async function seedArchive(rowsJson: string, stateJson: string, protocolVersion: number, sourceLatestSeq = 4): Promise<void> {
+async function seedArchive(
+  rowsJson: string,
+  stateJson: string,
+  protocolVersion: number,
+  sourceLatestSeq = 4,
+): Promise<void> {
   await env.DB.prepare(
     'INSERT INTO match_protocol_archives (match_id, source_latest_seq, protocol_version, rows_json, state_json, created_at) VALUES (?, ?, ?, ?, ?, ?)',
   )

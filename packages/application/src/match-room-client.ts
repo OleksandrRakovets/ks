@@ -19,7 +19,11 @@ import {
   type UnixEpochMilliseconds,
   UnixEpochMillisecondsSchema,
 } from '@ks/core'
-import { type ControlProjectionFor, type RegisteredGameKey, RegisteredGameKeySchema } from '@ks/gameplay/definitions'
+import {
+  type ControlProjectionFor,
+  type RegisteredGameKey,
+  RegisteredGameKeySchema,
+} from '@ks/gameplay/definitions'
 import { parseGameControl } from '@ks/gameplay/server'
 import * as v from 'valibot'
 
@@ -42,7 +46,10 @@ export type MatchRoomReadResult<K extends RegisteredGameKey = RegisteredGameKey>
   | ReadMatchFailure
 export interface MatchRoomClient {
   create(request: MatchRoomCreateRequest): Promise<{ ok: true; matchId: MatchId } | Failure>
-  readControl<K extends RegisteredGameKey>(matchId: MatchId, expectedGameKey: K): Promise<MatchRoomReadResult<K>>
+  readControl<K extends RegisteredGameKey>(
+    matchId: MatchId,
+    expectedGameKey: K,
+  ): Promise<MatchRoomReadResult<K>>
   readProtocol<K extends RegisteredGameKey>(
     matchId: MatchId,
     expectedGameKey: K,
@@ -217,7 +224,8 @@ export function createMatchRoomClient(namespace: { getByName(name: string): Matc
         ]),
         await namespace.getByName(matchId).submitCommand({ matchId, command }),
       )
-      if (!result.ok || result.finalizing === undefined) return result.ok ? { ok: true, outcome: result.outcome } : result
+      if (!result.ok || result.finalizing === undefined)
+        return result.ok ? { ok: true, outcome: result.outcome } : result
       return { ok: true, outcome: result.outcome, finalizing: true }
     },
     stream: async (matchId: MatchId, since?: number) =>

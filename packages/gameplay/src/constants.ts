@@ -1,4 +1,10 @@
-import { type BySeatNumber, BySeatNumberSchema, Control, emptyControlSections, NonEmptyStringSchema } from '@ks/core'
+import {
+  type BySeatNumber,
+  BySeatNumberSchema,
+  Control,
+  emptyControlSections,
+  NonEmptyStringSchema,
+} from '@ks/core'
 import * as v from 'valibot'
 
 type LocalizedGameTitle = {

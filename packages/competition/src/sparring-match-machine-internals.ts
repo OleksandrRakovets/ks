@@ -69,7 +69,11 @@ function winsAfterOutcome(framesWonBySeat: BySeatNumber, outcome: FrameOutcome):
   }
 }
 
-function isMatchTargetReached(framesWonBySeat: BySeatNumber, matchTargetFrames: number, winnerSeat: Seat): boolean {
+function isMatchTargetReached(
+  framesWonBySeat: BySeatNumber,
+  matchTargetFrames: number,
+  winnerSeat: Seat,
+): boolean {
   return framesWonBySeat[winnerSeat] >= matchTargetFrames
 }
 
@@ -229,7 +233,10 @@ export function projectLifecycleState(snapshot: SparringMatchSnapshot): Sparring
   }
 }
 
-export function sendLifecycleEvent(snapshot: SparringMatchSnapshot, event: SparringMatchLifecycleEvent): SparringMatchSnapshot {
+export function sendLifecycleEvent(
+  snapshot: SparringMatchSnapshot,
+  event: SparringMatchLifecycleEvent,
+): SparringMatchSnapshot {
   const phase = getPhase(snapshot)
   if (!snapshot.can(event)) {
     throw new Error(`Invalid sparring lifecycle event ${event.type} in phase ${phase}`)

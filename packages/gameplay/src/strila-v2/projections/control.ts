@@ -3,7 +3,12 @@ import invariant from 'tiny-invariant'
 import * as v from 'valibot'
 
 import { deriveGameControlSections, type GameControl } from '../../constants'
-import { StrilaBallStatusesSchema, type StrilaControlDetails, type StrilaControlView, StrilaMeta } from '../definitions'
+import {
+  StrilaBallStatusesSchema,
+  type StrilaControlDetails,
+  type StrilaControlView,
+  StrilaMeta,
+} from '../definitions'
 import { getPhase, type StrilaSparringFrameSnapshot } from '../machine'
 import { computeStrilaObjectBalls } from './computeds'
 
@@ -17,7 +22,8 @@ function seatControls(
 function deriveBallStatuses(snapshot: StrilaSparringFrameSnapshot): StrilaControlDetails['ballStatuses'] {
   const objectBalls = new Set(computeStrilaObjectBalls(snapshot.context.coloredBallsOnTable))
   const onTableColored = new Set(snapshot.context.coloredBallsOnTable)
-  const cueStatus: 'object' | 'on-table' = getPhase(snapshot) === 'respotted-black.opening' ? 'on-table' : 'object'
+  const cueStatus: 'object' | 'on-table' =
+    getPhase(snapshot) === 'respotted-black.opening' ? 'on-table' : 'object'
   const ballStatuses = v.parse(StrilaBallStatusesSchema, {
     0: cueStatus,
     1: 'potted',
@@ -48,7 +54,9 @@ function deriveBallStatuses(snapshot: StrilaSparringFrameSnapshot): StrilaContro
   return ballStatuses
 }
 
-function messages(entries: Array<{ type: 'hint' | 'warning'; code: 'cue-ball-and-colored-is-foul' | 'black-pot-wins' }>) {
+function messages(
+  entries: Array<{ type: 'hint' | 'warning'; code: 'cue-ball-and-colored-is-foul' | 'black-pot-wins' }>,
+) {
   const seen = new Set<string>()
   return entries.filter((entry) => {
     if (seen.has(entry.code)) return false
@@ -99,7 +107,10 @@ export function deriveStrilaControlView(snapshot: StrilaSparringFrameSnapshot): 
         situationSummary: 'Log pots or a foul.',
       })
     case 'foul-committed.penalty-selection': {
-      invariant(snapshot.context.foulOffender !== null, 'Foul offender is required while selecting a foul penalty')
+      invariant(
+        snapshot.context.foulOffender !== null,
+        'Foul offender is required while selecting a foul penalty',
+      )
       const chooser = opponentOf(snapshot.context.foulOffender)
       return view(snapshot, {
         controls: [

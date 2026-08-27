@@ -10,7 +10,11 @@ import {
 } from '../gameplay-session'
 import type { ControlProjectionFor } from '../registry'
 import type { PyramidCommand } from './definitions'
-import { createInitialSnapshot, PyramidSparringFrameMachine, type PyramidSparringFrameSnapshot } from './machine'
+import {
+  createInitialSnapshot,
+  PyramidSparringFrameMachine,
+  type PyramidSparringFrameSnapshot,
+} from './machine'
 import { derivePyramidControlView } from './projections/control'
 import { projectPyramidProtocolEntries } from './protocol'
 import { type PyramidGameKey, type PyramidRulesFor, PyramidRuleSpecificsByGameKey } from './rules'
@@ -63,13 +67,27 @@ export function createPyramidGameplaySession<K extends PyramidGameKey>(
   gameKey: K,
   args: GameplaySessionCreateArgsFor<K>,
 ): GameplaySession<K>
-export function createPyramidGameplaySession(...creation: PyramidGameplaySessionCreation): AnyPyramidGameplaySession {
+export function createPyramidGameplaySession(
+  ...creation: PyramidGameplaySessionCreation
+): AnyPyramidGameplaySession {
   switch (creation[0]) {
     case 'free-pyramid':
-      return new PyramidGameplaySession(creation[0], creation[1], PyramidRuleSpecificsByGameKey['free-pyramid'])
+      return new PyramidGameplaySession(
+        creation[0],
+        creation[1],
+        PyramidRuleSpecificsByGameKey['free-pyramid'],
+      )
     case 'combined-pyramid':
-      return new PyramidGameplaySession(creation[0], creation[1], PyramidRuleSpecificsByGameKey['combined-pyramid'])
+      return new PyramidGameplaySession(
+        creation[0],
+        creation[1],
+        PyramidRuleSpecificsByGameKey['combined-pyramid'],
+      )
     case 'combined-pyramid-old':
-      return new PyramidGameplaySession(creation[0], creation[1], PyramidRuleSpecificsByGameKey['combined-pyramid-old'])
+      return new PyramidGameplaySession(
+        creation[0],
+        creation[1],
+        PyramidRuleSpecificsByGameKey['combined-pyramid-old'],
+      )
   }
 }

@@ -1,6 +1,14 @@
 import { Badge, Button, Input, Label, Separator, Textarea } from '@/components/ui'
 
-function Section({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
+function Section({
+  title,
+  description,
+  children,
+}: {
+  title: string
+  description?: string
+  children: React.ReactNode
+}) {
   return (
     <section className="border-b border-divider py-6">
       <div className="mb-4">
@@ -120,7 +128,11 @@ export default function PreviewUiRoute() {
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="operator-note">Operator note</Label>
-              <Textarea id="operator-note" defaultValue="Table 2 stream is delayed by 8 seconds." className={'min-h-20'} />
+              <Textarea
+                id="operator-note"
+                defaultValue="Table 2 stream is delayed by 8 seconds."
+                className={'min-h-20'}
+              />
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="ghost">Reset</Button>

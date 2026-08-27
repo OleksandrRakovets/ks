@@ -6,7 +6,10 @@ import { PyramidProtocolEntry } from './pyramid/protocol'
 import type { RegisteredGameKey } from './registry'
 import { StrilaProtocolEntry } from './strila-v2/definitions'
 
-export function parseGameProtocolEntry(gameKey: RegisteredGameKey, input: GameProtocolEntry): GameProtocolEntry {
+export function parseGameProtocolEntry(
+  gameKey: RegisteredGameKey,
+  input: GameProtocolEntry,
+): GameProtocolEntry {
   switch (gameKey) {
     case 'strila-v2':
       return v.parse(StrilaProtocolEntry, input)

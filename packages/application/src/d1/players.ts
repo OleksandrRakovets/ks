@@ -19,7 +19,10 @@ type LocalizedPlayerRow = {
   lastNameEn: string
 }
 
-async function loadPlayerRow(db: ApplicationDatabase, playerRef: PlayerRef): Promise<LocalizedPlayerRow | null> {
+async function loadPlayerRow(
+  db: ApplicationDatabase,
+  playerRef: PlayerRef,
+): Promise<LocalizedPlayerRow | null> {
   if (playerRef.startsWith('gp_')) {
     // SAFETY: PlayerRefSchema guarantees gp_<GuestPlayerId>; the suffix is the stored guest player ID.
     const guestPlayerId = playerRef.slice(3) as GuestPlayerId
@@ -63,7 +66,12 @@ export async function hydrateParticipant(
   locale: SupportedLocale,
 ): Promise<HydratedMatchParticipant> {
   const row = await loadPlayerRow(db, playerRef)
-  if (!row) return v.parse(HydratedMatchParticipantSchema, { playerRef, displayName: playerRef, shortDisplayName: playerRef })
+  if (!row)
+    return v.parse(HydratedMatchParticipantSchema, {
+      playerRef,
+      displayName: playerRef,
+      shortDisplayName: playerRef,
+    })
 
   const firstName = locale === 'en' ? row.firstNameEn : row.firstNameUk
   const lastName = locale === 'en' ? row.lastNameEn : row.lastNameUk

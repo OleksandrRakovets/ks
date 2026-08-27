@@ -14,7 +14,11 @@ import {
   type Seat,
   SeatSchema,
 } from '@ks/core'
-import { type ControlProjectionFor, type RegisteredGameKey, RegisteredGameKeySchema } from '@ks/gameplay/definitions'
+import {
+  type ControlProjectionFor,
+  type RegisteredGameKey,
+  RegisteredGameKeySchema,
+} from '@ks/gameplay/definitions'
 import type { GameCommandFor } from '@ks/gameplay/definitions'
 import { GameCommandRejectionSchema, type GameplaySession, parseGameCommand } from '@ks/gameplay/server'
 import { createGameplaySession } from '@ks/gameplay/server'
@@ -80,7 +84,10 @@ export class SparringMatchHistoryError extends Error {
   }
 }
 
-type CorrelatedGameplay<K extends RegisteredGameKey> = { readonly key: K; readonly session: GameplaySession<K> }
+type CorrelatedGameplay<K extends RegisteredGameKey> = {
+  readonly key: K
+  readonly session: GameplaySession<K>
+}
 type AnyCorrelatedGameplay = { [K in RegisteredGameKey]: CorrelatedGameplay<K> }[RegisteredGameKey]
 const MatchLifecycleCommand = v.variant('type', [
   v.strictObject({ type: v.literal('frame.prepare') }),
@@ -93,7 +100,10 @@ function gameKeyOf(value: string): RegisteredGameKey {
   return v.parse(RegisteredGameKeySchema, value)
 }
 
-function wrapGameplay<K extends RegisteredGameKey>(key: K, session: GameplaySession<K>): CorrelatedGameplay<K> {
+function wrapGameplay<K extends RegisteredGameKey>(
+  key: K,
+  session: GameplaySession<K>,
+): CorrelatedGameplay<K> {
   return { key, session }
 }
 
@@ -106,7 +116,8 @@ function createGameplay(key: RegisteredGameKey, config: MatchConfig): AnyCorrela
       return wrapGameplay(key, createGameplaySession(key, { targetPointsBySeat }))
     case 'free-pyramid-long':
       const rackRollover = config.gameConfiguration?.rackRollover
-      if (rackRollover !== 14 && rackRollover !== 15) throw new Error('Long free pyramid requires rack rollover')
+      if (rackRollover !== 14 && rackRollover !== 15)
+        throw new Error('Long free pyramid requires rack rollover')
       return wrapGameplay(key, createGameplaySession(key, { targetPointsBySeat, rackRollover }))
     case 'combined-pyramid':
       return wrapGameplay(key, createGameplaySession(key, { targetPointsBySeat }))
@@ -115,7 +126,10 @@ function createGameplay(key: RegisteredGameKey, config: MatchConfig): AnyCorrela
   }
 }
 
-function requireGameplay<K extends RegisteredGameKey>(key: K, gameplay: AnyCorrelatedGameplay | null): CorrelatedGameplay<K> {
+function requireGameplay<K extends RegisteredGameKey>(
+  key: K,
+  gameplay: AnyCorrelatedGameplay | null,
+): CorrelatedGameplay<K> {
   if (!gameplay || gameplay.key !== key) throw new Error(`Missing gameplay session for ${key}`)
   // SAFETY: the runtime key check correlates the discriminated gameplay session with K.
   return gameplay as CorrelatedGameplay<K>
@@ -129,7 +143,14 @@ function contentEqual(left: NonEmptyProtocolEntryContents, right: NonEmptyProtoc
   return structuralEqual(leftContent, rightContent)
 }
 
-type StructuralValue = undefined | null | boolean | number | string | readonly StructuralValue[] | StructuralObject
+type StructuralValue =
+  | undefined
+  | null
+  | boolean
+  | number
+  | string
+  | readonly StructuralValue[]
+  | StructuralObject
 type StructuralObject = { readonly [key: string]: StructuralValue }
 
 function structuralEqual(left: StructuralValue, right: StructuralValue): boolean {
@@ -232,7 +253,12 @@ class ResidentSparringMatch implements SparringMatch {
     }
     const matchSections = emptyControlSections()
     if (lifecycle.phase === 'between-frames')
-      matchSections.neutral.push({ source: 'match', type: 'frame.prepare', fixedInput: {}, prominence: 'secondary' })
+      matchSections.neutral.push({
+        source: 'match',
+        type: 'frame.prepare',
+        fixedInput: {},
+        prominence: 'secondary',
+      })
     if (lifecycle.phase === 'frame-in-progress' && this.gameplay) {
       if (this.gameplay.session.canCommence(lifecycle.activeFrame.breakerSeat)) {
         const seat = lifecycle.activeFrame.breakerSeat
@@ -257,14 +283,20 @@ class ResidentSparringMatch implements SparringMatch {
     } as SparringMatchRoomProjection
   }
 
-  private applyMatchCommand(command: MatchLifecycleCommand, acceptedCommand: MatchCommand): MatchCommandResult {
+  private applyMatchCommand(
+    command: MatchLifecycleCommand,
+    acceptedCommand: MatchCommand,
+  ): MatchCommandResult {
     const lifecycle = projectLifecycleState(this.snapshot)
     if (lifecycle.phase === 'match-over') return { _tag: 'rejected', reason: { code: 'match-already-over' } }
     if (command.type === 'frame.prepare') {
-      if (lifecycle.phase !== 'between-frames') return { _tag: 'rejected', reason: { code: 'frame-already-active' } }
+      if (lifecycle.phase !== 'between-frames')
+        return { _tag: 'rejected', reason: { code: 'frame-already-active' } }
       const frameIndex = lifecycle.nextFrameIndex
       const breakerSeat =
-        frameIndex % 2 === 1 ? lifecycle.config.firstBreakerSeat : opponentOf(lifecycle.config.firstBreakerSeat)
+        frameIndex % 2 === 1
+          ? lifecycle.config.firstBreakerSeat
+          : opponentOf(lifecycle.config.firstBreakerSeat)
       this.snapshot = sendLifecycleEvent(this.snapshot, { type: 'frame.prepared', frameIndex, breakerSeat })
       this.gameplay = createGameplay(gameKeyOf(lifecycle.config.gameKey), lifecycle.config)
       return {
@@ -306,7 +338,10 @@ class ResidentSparringMatch implements SparringMatch {
       ])
     }
     if (command.seat !== lifecycle.activeFrame.breakerSeat) {
-      return { _tag: 'rejected', reason: { code: 'wrong-breaker', expectedSeat: lifecycle.activeFrame.breakerSeat } }
+      return {
+        _tag: 'rejected',
+        reason: { code: 'wrong-breaker', expectedSeat: lifecycle.activeFrame.breakerSeat },
+      }
     }
     const gameKey = gameKeyOf(lifecycle.config.gameKey)
     return this.applyGameCommand(gameKey, command, acceptedCommand)
@@ -372,7 +407,10 @@ class ResidentSparringMatch implements SparringMatch {
   restore(record: AcceptedCommandHistoryEntry): void {
     const result = this.execute(record.command)
     if (result._tag === 'parse-failed') throw new SparringMatchHistoryError('Malformed stored Match Command')
-    if (result._tag !== 'accepted' || !contentEqual(result.protocolEntryContents, nonempty([...record.protocolEntryContents])))
+    if (
+      result._tag !== 'accepted' ||
+      !contentEqual(result.protocolEntryContents, nonempty([...record.protocolEntryContents]))
+    )
       throw new SparringMatchHistoryError('Stored Protocol does not match canonical execution')
   }
 }
@@ -390,7 +428,10 @@ export function createSparringMatch(config: MatchConfig): SparringMatch {
  * Restores disposable resident state from envelope-validated semantic command batches.
  * @throws SparringMatchHistoryError when accepted history is impossible or incompatible with current rules.
  */
-export function restoreSparringMatch(config: MatchConfig, history: readonly AcceptedCommandHistoryEntry[]): SparringMatch {
+export function restoreSparringMatch(
+  config: MatchConfig,
+  history: readonly AcceptedCommandHistoryEntry[],
+): SparringMatch {
   // SAFETY: createSparringMatch always constructs the private implementation in this module.
   const resident = createSparringMatch(config) as ResidentSparringMatch
   try {

@@ -19,15 +19,24 @@ type StrilaSparringFrameMachineInput = {
   targetPointsBySeat?: BySeatNumber
 }
 
-const FoulSnapshotValueSchema = v.object({ 'foul-committed': v.picklist(['penalty-selection', 'ball-in-hand']) })
+const FoulSnapshotValueSchema = v.object({
+  'foul-committed': v.picklist(['penalty-selection', 'ball-in-hand']),
+})
 const RespottedBlackSnapshotValueSchema = v.object({ 'respotted-black': v.picklist(['opening', 'play']) })
-const StrilaSnapshotValueSchema = v.union([StrilaPhaseSchema, FoulSnapshotValueSchema, RespottedBlackSnapshotValueSchema])
+const StrilaSnapshotValueSchema = v.union([
+  StrilaPhaseSchema,
+  FoulSnapshotValueSchema,
+  RespottedBlackSnapshotValueSchema,
+])
 
 function pointsForPottedBalls(pottedBalls: StrilaBall[]): number {
   return pottedBalls.reduce<number>((sum, ball) => sum + (ball === StrilaMeta.cueBall ? 1 : 2), 0)
 }
 
-function removePottedColoredBalls(onTable: StrilaColoredBall[], pottedBalls: StrilaBall[]): StrilaColoredBall[] {
+function removePottedColoredBalls(
+  onTable: StrilaColoredBall[],
+  pottedBalls: StrilaBall[],
+): StrilaColoredBall[] {
   const potted = new Set(pottedBalls.filter((b) => b !== StrilaMeta.cueBall))
   return onTable.filter((b) => !potted.has(b))
 }
@@ -56,7 +65,10 @@ function potEvent(event: StrilaCommand): PotEvent {
 }
 
 function foulResponseEvent(event: StrilaCommand): PotEvent | FoulCommitEvent {
-  invariant(event.type === 'pot.record' || event.type === 'foul.commit', `Expected foul response event, received ${event.type}`)
+  invariant(
+    event.type === 'pot.record' || event.type === 'foul.commit',
+    `Expected foul response event, received ${event.type}`,
+  )
   return event
 }
 
@@ -85,7 +97,10 @@ function availableStrilaBalls(context: StrilaContext): readonly StrilaBall[] {
 }
 
 function isAvailablePot(context: StrilaContext, event: StrilaCommand): boolean {
-  return event.type !== 'pot.record' || event.pottedBalls.every((ball) => availableStrilaBalls(context).includes(ball))
+  return (
+    event.type !== 'pot.record' ||
+    event.pottedBalls.every((ball) => availableStrilaBalls(context).includes(ball))
+  )
 }
 
 export const StrilaSparringFrameMachine = setup({
@@ -465,12 +480,16 @@ export function getPhase(snapshot: StrilaSparringFrameSnapshot): StrilaPhase {
   if (foul.success) return v.parse(StrilaPhaseSchema, `foul-committed.${foul.output['foul-committed']}`)
 
   const respottedBlack = v.safeParse(RespottedBlackSnapshotValueSchema, value)
-  if (respottedBlack.success) return v.parse(StrilaPhaseSchema, `respotted-black.${respottedBlack.output['respotted-black']}`)
+  if (respottedBlack.success)
+    return v.parse(StrilaPhaseSchema, `respotted-black.${respottedBlack.output['respotted-black']}`)
 
   throw new Error(`Unknown Strila phase: ${JSON.stringify(value)}`)
 }
 
-export function sendEvent(snapshot: StrilaSparringFrameSnapshot, event: StrilaCommand): StrilaSparringFrameSnapshot {
+export function sendEvent(
+  snapshot: StrilaSparringFrameSnapshot,
+  event: StrilaCommand,
+): StrilaSparringFrameSnapshot {
   if (!snapshot.can(event)) {
     throw new Error(`Invalid Strila event ${event.type} in phase ${getPhase(snapshot)}`)
   }

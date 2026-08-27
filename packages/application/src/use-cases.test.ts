@@ -15,7 +15,11 @@ import { createGameplaySession } from '@ks/gameplay/server'
 import * as v from 'valibot'
 
 import type { MatchRoomCreateRequest, MatchRoomReadResult } from './match-room-client'
-import { ProtocolArchiveCorruptionError, type ProtocolArchiveRecord, UnsupportedProtocolArchiveVersionError } from './protocol'
+import {
+  ProtocolArchiveCorruptionError,
+  type ProtocolArchiveRecord,
+  UnsupportedProtocolArchiveVersionError,
+} from './protocol'
 import { createApplicationWithDependencies } from './use-cases'
 
 const matchId = v.parse(MatchIdSchema, '01ARZ3NDEKTSV4RRFFQ69G5FAV')
@@ -23,7 +27,10 @@ const controlSecret = 'control-secret-1234567890'
 const playerRefA = v.parse(PlayerRefSchema, 'gp_01ARZ3NDEKTSV4RRFFQ69G5FAA')
 const playerRefB = v.parse(PlayerRefSchema, 'gp_01ARZ3NDEKTSV4RRFFQ69G5FAB')
 
-function stateFor<K extends RegisteredGameKey>(gameKey: K, status: 'active' | 'finished' = 'active'): MatchStateFor<K> {
+function stateFor<K extends RegisteredGameKey>(
+  gameKey: K,
+  status: 'active' | 'finished' = 'active',
+): MatchStateFor<K> {
   return {
     matchId,
     gameKey,
@@ -123,7 +130,11 @@ function applicationForActiveGame(
     newControlSecret: unused,
     now: unused,
     getOrCreateGuestPlayerRef: unused,
-    hydrateParticipant: async (playerRef) => ({ playerRef, displayName: playerRef, shortDisplayName: playerRef }),
+    hydrateParticipant: async (playerRef) => ({
+      playerRef,
+      displayName: playerRef,
+      shortDisplayName: playerRef,
+    }),
     listMatchRecords: unused,
     getMatchRecord: async () => ({
       matchId,
@@ -169,7 +180,11 @@ function applicationForArchivedGame(
     newControlSecret: unused,
     now: unused,
     getOrCreateGuestPlayerRef: unused,
-    hydrateParticipant: async (playerRef) => ({ playerRef, displayName: playerRef, shortDisplayName: playerRef }),
+    hydrateParticipant: async (playerRef) => ({
+      playerRef,
+      displayName: playerRef,
+      shortDisplayName: playerRef,
+    }),
     listMatchRecords: unused,
     getMatchRecord: async () => ({
       matchId,
@@ -279,11 +294,11 @@ describe('application orchestration', () => {
       state: { ...valid.state, currentFrameIndex: 0, frames: [] },
       controlProjection: undefined,
     })
-    const result = await applicationForActiveGame('free-pyramid', 'free-pyramid', preFirstFrame).readMatchControl(
-      matchId,
-      'en',
+    const result = await applicationForActiveGame(
       'free-pyramid',
-    )
+      'free-pyramid',
+      preFirstFrame,
+    ).readMatchControl(matchId, 'en', 'free-pyramid')
     expect(result.ok && result.controlState).toBe('between-frames')
     await applicationForActiveGame('free-pyramid', 'free-pyramid', preFirstFrame).readMatchProtocol(
       matchId,
@@ -309,35 +324,38 @@ describe('application orchestration', () => {
       () => new UnsupportedProtocolArchiveVersionError(matchId, 2),
       'Unsupported protocol archive version',
     ],
-  ])('converts %s into declared failures for completed states and protocol rows', async (_label, error, expectedError) => {
-    const controlApplication = applicationForArchivedGame(
-      'free-pyramid',
-      'free-pyramid',
-      stateFor('free-pyramid', 'finished'),
-      async () => {
-        throw error()
-      },
-    )
-    expect(await controlApplication.readMatchControl(matchId, 'en', 'free-pyramid')).toEqual({
-      ok: false,
-      error: expectedError,
-      status: 500,
-    })
+  ])(
+    'converts %s into declared failures for completed states and protocol rows',
+    async (_label, error, expectedError) => {
+      const controlApplication = applicationForArchivedGame(
+        'free-pyramid',
+        'free-pyramid',
+        stateFor('free-pyramid', 'finished'),
+        async () => {
+          throw error()
+        },
+      )
+      expect(await controlApplication.readMatchControl(matchId, 'en', 'free-pyramid')).toEqual({
+        ok: false,
+        error: expectedError,
+        status: 500,
+      })
 
-    const protocolApplication = applicationForArchivedGame(
-      'free-pyramid',
-      'free-pyramid',
-      stateFor('free-pyramid', 'finished'),
-      async () => {
-        throw error()
-      },
-    )
-    expect(await protocolApplication.readMatchProtocol(matchId, 'UTC', 'en', 'free-pyramid')).toEqual({
-      ok: false,
-      error: expectedError,
-      status: 500,
-    })
-  })
+      const protocolApplication = applicationForArchivedGame(
+        'free-pyramid',
+        'free-pyramid',
+        stateFor('free-pyramid', 'finished'),
+        async () => {
+          throw error()
+        },
+      )
+      expect(await protocolApplication.readMatchProtocol(matchId, 'UTC', 'en', 'free-pyramid')).toEqual({
+        ok: false,
+        error: expectedError,
+        status: 500,
+      })
+    },
+  )
 
   test('creates both guest players before creating the room with generated credentials', async () => {
     const createdAt = v.parse(UnixEpochMillisecondsSchema, 1_700_000_000_000)
@@ -442,7 +460,11 @@ describe('application orchestration', () => {
   })
 
   test('submits commands to the selected room without a control secret', async () => {
-    const command: MatchCommand = { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } }
+    const command: MatchCommand = {
+      commandId: newCommandId(),
+      source: 'match',
+      command: { type: 'frame.prepare' },
+    }
     const calls: unknown[][] = []
     const room = {
       create: unused,
@@ -494,7 +516,11 @@ describe('application orchestration', () => {
   })
 
   test('passes through malformed invalid-command-body without synthesizing an outcome', async () => {
-    const command: MatchCommand = { commandId: newCommandId(), source: 'game', command: { type: 'pot.record' } }
+    const command: MatchCommand = {
+      commandId: newCommandId(),
+      source: 'game',
+      command: { type: 'pot.record' },
+    }
     const application = createApplicationWithDependencies({
       newMatchId: unused,
       newControlSecret: unused,
@@ -533,7 +559,11 @@ describe('application orchestration', () => {
   })
 
   test('passes through valid unavailable rejected receipt as declared outcome', async () => {
-    const command: MatchCommand = { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } }
+    const command: MatchCommand = {
+      commandId: newCommandId(),
+      source: 'match',
+      command: { type: 'frame.prepare' },
+    }
     const rejectedOutcome = { _tag: 'rejected' as const, reason: { code: 'frame-already-active' as const } }
     const application = createApplicationWithDependencies({
       newMatchId: unused,
@@ -572,7 +602,11 @@ describe('application orchestration', () => {
   })
 
   test('lets a thrown MatchRoom defect reject rather than synthesizing an outcome', async () => {
-    const command: MatchCommand = { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } }
+    const command: MatchCommand = {
+      commandId: newCommandId(),
+      source: 'match',
+      command: { type: 'frame.prepare' },
+    }
     const application = createApplicationWithDependencies({
       newMatchId: unused,
       newControlSecret: unused,
@@ -605,7 +639,9 @@ describe('application orchestration', () => {
       },
     })
 
-    await expect(application.submitMatchCommand(matchId, command, 'free-pyramid')).rejects.toThrow('post-commit apply failure')
+    await expect(application.submitMatchCommand(matchId, command, 'free-pyramid')).rejects.toThrow(
+      'post-commit apply failure',
+    )
   })
 
   test('reads a finished match entirely from its D1 archive', async () => {

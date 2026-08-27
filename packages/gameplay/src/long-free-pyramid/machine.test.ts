@@ -15,7 +15,10 @@ import {
 
 const DEFAULT_TARGET: BySeatNumber = { A: 30, B: 30 }
 
-function start(rackRollover: 14 | 15 = 14, target: BySeatNumber = DEFAULT_TARGET): LongFreePyramidSparringFrameSnapshot {
+function start(
+  rackRollover: 14 | 15 = 14,
+  target: BySeatNumber = DEFAULT_TARGET,
+): LongFreePyramidSparringFrameSnapshot {
   return createInitialSnapshot({ targetPointsBySeat: target, rackRollover })
 }
 
@@ -40,8 +43,12 @@ describe('LongFreePyramidSparringFrameMachine: configuration', () => {
   })
 
   test('accepts rackRollover 14 and 15', () => {
-    expect(createInitialSnapshot({ targetPointsBySeat: DEFAULT_TARGET, rackRollover: 14 }).context.rackRollover).toBe(14)
-    expect(createInitialSnapshot({ targetPointsBySeat: DEFAULT_TARGET, rackRollover: 15 }).context.rackRollover).toBe(15)
+    expect(
+      createInitialSnapshot({ targetPointsBySeat: DEFAULT_TARGET, rackRollover: 14 }).context.rackRollover,
+    ).toBe(14)
+    expect(
+      createInitialSnapshot({ targetPointsBySeat: DEFAULT_TARGET, rackRollover: 15 }).context.rackRollover,
+    ).toBe(15)
   })
 })
 

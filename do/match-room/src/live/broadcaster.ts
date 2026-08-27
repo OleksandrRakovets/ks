@@ -2,7 +2,10 @@ import type { MatchStreamUpdate } from '@ks/core'
 
 const encoder = new TextEncoder()
 
-type Client = { controller: ReadableStreamDefaultController<Uint8Array>; pingTimer: ReturnType<typeof setInterval> }
+type Client = {
+  controller: ReadableStreamDefaultController<Uint8Array>
+  pingTimer: ReturnType<typeof setInterval>
+}
 
 export class Broadcaster {
   private clients = new Set<Client>()
@@ -11,7 +14,8 @@ export class Broadcaster {
     let client: Client | null = null
     const stream = new ReadableStream<Uint8Array>({
       start: (controller) => {
-        for (const update of backlog) controller.enqueue(encoder.encode(`event: ev\ndata: ${JSON.stringify(update)}\n\n`))
+        for (const update of backlog)
+          controller.enqueue(encoder.encode(`event: ev\ndata: ${JSON.stringify(update)}\n\n`))
         controller.enqueue(encoder.encode(`event: ready\ndata: ${JSON.stringify({ latestSeq: ready })}\n\n`))
         client = {
           controller,
@@ -28,7 +32,11 @@ export class Broadcaster {
       cancel: () => this.remove(client),
     })
     return new Response(stream, {
-      headers: { 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-cache', connection: 'keep-alive' },
+      headers: {
+        'content-type': 'text/event-stream; charset=utf-8',
+        'cache-control': 'no-cache',
+        connection: 'keep-alive',
+      },
     })
   }
 

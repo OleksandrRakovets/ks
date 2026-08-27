@@ -95,7 +95,8 @@ export const resources = {
           },
           messages: {
             'cue-ball-and-colored-is-foul': 'Забиття битка разом із кольоровою кулею вважається фолом.',
-            'black-pot-wins': 'Забита чорна куля приносить перемогу. Будь-яка інша забита куля вважається фолом.',
+            'black-pot-wins':
+              'Забита чорна куля приносить перемогу. Будь-яка інша забита куля вважається фолом.',
             'rack-started': 'Початок піраміди {{rackNumber}}',
           },
           perGameContainer: 'Керування грою',
@@ -445,7 +446,8 @@ export const resources = {
             'automatic-foul': {
               'third-consecutive-cue-ball-pot': 'System: automatic foul (third cue-ball pot)',
               'illegal-ball-in-hand-pot': 'System: automatic foul (illegal ball-in-hand pot)',
-              'respotted-black-opening-illegal-pot': 'System: automatic foul (illegal respotted-black opening pot)',
+              'respotted-black-opening-illegal-pot':
+                'System: automatic foul (illegal respotted-black opening pot)',
               default: 'System: automatic foul',
             },
             'winner-determined': {
@@ -493,7 +495,8 @@ export const resources = {
           frameTargetPoints: 'Frame target points',
           playerTargetPoints: '{{name}} target points',
           rackRollover: 'Rack rollover',
-          longFreePyramidFrameHelp: 'Long Free Pyramid is tracked as one app frame; physical racks roll over inside it.',
+          longFreePyramidFrameHelp:
+            'Long Free Pyramid is tracked as one app frame; physical racks roll over inside it.',
           rackRolloverBalls: '{{count}} balls',
           rackRolloverPreferred: 'Preferred club rule',
           rackRolloverNewer: 'Newer club rule',

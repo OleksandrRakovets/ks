@@ -53,7 +53,9 @@ for (const file of listSourceFiles(join(ROOT, 'packages/core'))) {
   const imports = collectImports(readFileSync(file, 'utf8'))
   for (const specifier of imports) {
     if (specifier.startsWith('@ks/competition') || specifier.startsWith('@ks/gameplay')) {
-      failures.push(`${relative(ROOT, file)} imports ${specifier} (core must not depend on competition/gameplay)`)
+      failures.push(
+        `${relative(ROOT, file)} imports ${specifier} (core must not depend on competition/gameplay)`,
+      )
     }
   }
 }

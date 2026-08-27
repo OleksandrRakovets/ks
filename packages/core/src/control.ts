@@ -4,7 +4,12 @@ import { SeatSchema } from './match'
 import { NonEmptyStringSchema, UnknownObjectSchema } from './valicombos'
 
 const ControlProminence = v.picklist(['primary', 'secondary', 'tertiary'])
-const ControlEffect = v.picklist(['opponent-plus-one', 'offender-minus-one', 'plus-one-point', 'no-points-awarded'])
+const ControlEffect = v.picklist([
+  'opponent-plus-one',
+  'offender-minus-one',
+  'plus-one-point',
+  'no-points-awarded',
+])
 
 /**
  * A renderable interaction permitted by the current match projection, not submitted intent.

@@ -12,7 +12,10 @@ export async function action({ params, request }: { params: { preference?: strin
     throw new Response('Unknown UI preference', { status: 404 })
   }
 
-  const cookie = preferenceKind === 'locale' ? await localeCookieFromRequest(request) : await themeCookieFromRequest(request)
+  const cookie =
+    preferenceKind === 'locale'
+      ? await localeCookieFromRequest(request)
+      : await themeCookieFromRequest(request)
   return data({ ok: true }, { headers: { 'Set-Cookie': cookie } })
 }
 

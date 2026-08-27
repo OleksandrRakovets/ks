@@ -5,7 +5,9 @@ import { ServerRouter } from 'react-router'
 
 import type { AppLoadContext } from './server/context'
 
-type RenderError = Parameters<NonNullable<NonNullable<Parameters<typeof renderToReadableStream>[1]>['onError']>>[0]
+type RenderError = Parameters<
+  NonNullable<NonNullable<Parameters<typeof renderToReadableStream>[1]>['onError']>
+>[0]
 
 export default async function handleRequest(
   request: Request,

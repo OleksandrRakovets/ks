@@ -73,7 +73,10 @@ export function derivePyramidControlView<K extends PyramidGameKey>(
   }
 
   if (phase === 'winner-determined') {
-    invariant(snapshot.context.winner !== null, 'Winner is required before awarding a determined pyramid frame')
+    invariant(
+      snapshot.context.winner !== null,
+      'Winner is required before awarding a determined pyramid frame',
+    )
     const controls = [
       {
         source: 'game',

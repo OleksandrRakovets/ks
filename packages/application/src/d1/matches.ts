@@ -15,8 +15,17 @@ export async function listMatchRows(db: ApplicationDatabase) {
       seatBPlayerRef: matches.seatBPlayerRef,
     })
     .from(matches)
-    .where(inArray(matches.status, [StoredMatchStatus.active, StoredMatchStatus.finalizing, StoredMatchStatus.finished]))
-    .orderBy(sql`CASE WHEN ${matches.status} = ${StoredMatchStatus.finished} THEN 1 ELSE 0 END`, sql`${matches.createdAt} DESC`)
+    .where(
+      inArray(matches.status, [
+        StoredMatchStatus.active,
+        StoredMatchStatus.finalizing,
+        StoredMatchStatus.finished,
+      ]),
+    )
+    .orderBy(
+      sql`CASE WHEN ${matches.status} = ${StoredMatchStatus.finished} THEN 1 ELSE 0 END`,
+      sql`${matches.createdAt} DESC`,
+    )
 }
 
 export async function getMatchRow(db: ApplicationDatabase, matchId: MatchId) {

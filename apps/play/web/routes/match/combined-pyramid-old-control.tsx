@@ -37,7 +37,9 @@ export default function CombinedPyramidOldControlRoute() {
   const markLocalSubmit = useControlLiveRevalidation(data.state, data.latestSeq, fetcher)
   const snapshotFrame = data.state.frames[data.state.currentFrameIndex - 1]
   const frameScore =
-    data.controlState === 'frame-active' ? data.controlProjection.score : (snapshotFrame?.pointsBySeat ?? { A: 0, B: 0 })
+    data.controlState === 'frame-active'
+      ? data.controlProjection.score
+      : (snapshotFrame?.pointsBySeat ?? { A: 0, B: 0 })
   function submitCommand(command: MatchCommand) {
     markLocalSubmit()
     fetcher.submit(matchCommandForm(command), { method: 'post' })
@@ -71,7 +73,9 @@ export default function CombinedPyramidOldControlRoute() {
           onSubmit={submitCommand}
         />
       )}
-      {fetcher.data?.ok === false ? <p className="px-4 py-2 text-base text-destructive">{t(fetcher.data.errorKey)}</p> : null}
+      {fetcher.data?.ok === false ? (
+        <p className="px-4 py-2 text-base text-destructive">{t(fetcher.data.errorKey)}</p>
+      ) : null}
       <nav className="sticky bottom-0 z-10 mt-auto flex h-14 border-t border-border bg-background">
         <span className="-mt-px flex flex-1 items-center justify-center border-t-2 border-primary text-center text-base font-medium text-foreground">
           {t(keys.match.sparring.tabControl)}

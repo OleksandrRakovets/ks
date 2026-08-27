@@ -110,7 +110,10 @@ export function LongFreePyramidControlRenderer(props: MatchControlRendererProps<
 
   return (
     <div className="grid">
-      <section aria-label={t(keys.match.control.longFreePyramid.rackStatus)} className="border-b border-divider px-4 py-3">
+      <section
+        aria-label={t(keys.match.control.longFreePyramid.rackStatus)}
+        className="border-b border-divider px-4 py-3"
+      >
         <div className="grid gap-1 text-base">
           <div className="flex items-center justify-between gap-3">
             <span className="font-medium">
@@ -139,7 +142,9 @@ export function LongFreePyramidControlRenderer(props: MatchControlRendererProps<
         </div>
       </section>
 
-      {hasNeutral ? <NeutralControlRows controls={controlSections.neutral} onSubmit={props.onSubmitCommand} /> : null}
+      {hasNeutral ? (
+        <NeutralControlRows controls={controlSections.neutral} onSubmit={props.onSubmitCommand} />
+      ) : null}
       {hasScoringCommands ? <ControlRows controls={scoringCommands} onSubmit={props.onSubmitCommand} /> : null}
       {hasTertiary ? (
         <div className="grid">
@@ -150,7 +155,9 @@ export function LongFreePyramidControlRenderer(props: MatchControlRendererProps<
           >
             {showTertiary ? t(keys.match.control.showLess) : t(keys.match.control.showMore)}
           </button>
-          {showTertiary ? <ControlRows controls={controlSections.tertiary} onSubmit={props.onSubmitCommand} /> : null}
+          {showTertiary ? (
+            <ControlRows controls={controlSections.tertiary} onSubmit={props.onSubmitCommand} />
+          ) : null}
         </div>
       ) : null}
     </div>

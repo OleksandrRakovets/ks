@@ -1,7 +1,17 @@
-import { BySeatNumberSchema, ControlSections, NonEmptyStringSchema, PositiveIntegerSchema, SeatSchema } from '@ks/core'
+import {
+  BySeatNumberSchema,
+  ControlSections,
+  NonEmptyStringSchema,
+  PositiveIntegerSchema,
+  SeatSchema,
+} from '@ks/core'
 import * as v from 'valibot'
 
-import { FoulCommitCommandSchema, FrameAwardCommandSchema, FrameCommenceCommandSchema } from '../command-schemas'
+import {
+  FoulCommitCommandSchema,
+  FrameAwardCommandSchema,
+  FrameCommenceCommandSchema,
+} from '../command-schemas'
 import { GameControlProjectionSchema } from '../constants'
 import { type PyramidGameKey, PyramidRulesSchema } from './rules'
 
@@ -38,7 +48,11 @@ const PyramidControlDetailsSchema = v.object({
 })
 
 function controlViewSchema<K extends PyramidGameKey>(gameKey: K) {
-  return v.object({ ...GameControlProjectionSchema.entries, gameKey: v.literal(gameKey), details: PyramidControlDetailsSchema })
+  return v.object({
+    ...GameControlProjectionSchema.entries,
+    gameKey: v.literal(gameKey),
+    details: PyramidControlDetailsSchema,
+  })
 }
 
 export const FreePyramidControlViewSchema = controlViewSchema('free-pyramid')
@@ -52,4 +66,6 @@ export type CombinedPyramidOldControlView = v.InferOutput<typeof CombinedPyramid
 
 export type AnyPyramidControlView = Omit<FreePyramidControlView, 'gameKey'> & { gameKey: PyramidGameKey }
 
-export type PyramidControlViewFor<K extends PyramidGameKey> = Omit<FreePyramidControlView, 'gameKey'> & { gameKey: K }
+export type PyramidControlViewFor<K extends PyramidGameKey> = Omit<FreePyramidControlView, 'gameKey'> & {
+  gameKey: K
+}

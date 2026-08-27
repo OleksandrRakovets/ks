@@ -40,7 +40,10 @@ test('projects presentation and limits selectable pots to balls remaining', () =
       },
     ],
   })
-  expect(control.details.controlSections.secondary.A.map((entry) => entry.fixedInput)).toEqual([{ pottedBallCount: 2 }, {}])
+  expect(control.details.controlSections.secondary.A.map((entry) => entry.fixedInput)).toEqual([
+    { pottedBallCount: 2 },
+    {},
+  ])
 
   control.details.rackHistory[0]!.scoreBySeat.A = 99
   expect(deriveLongFreePyramidControlView(snapshot).details.rackHistory[0]!.scoreBySeat.A).toBe(14)

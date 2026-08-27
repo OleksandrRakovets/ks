@@ -40,7 +40,11 @@ describe('commandMatchAction adaptation', () => {
     form.set('command', JSON.stringify({ commandId, source: 'match', command: { type: 'frame.prepare' } }))
 
     const result = await commandMatchAction(
-      { params: { matchId }, request: new Request('http://localhost', { method: 'POST', body: form }), context },
+      {
+        params: { matchId },
+        request: new Request('http://localhost', { method: 'POST', body: form }),
+        context,
+      },
       'free-pyramid',
     )
     expect(result).toEqual({ ok: true, acceptedSeqMax: 5 })
@@ -57,7 +61,11 @@ describe('commandMatchAction adaptation', () => {
     form.set('command', JSON.stringify({ commandId, source: 'match', command: { type: 'frame.prepare' } }))
 
     const result = await commandMatchAction(
-      { params: { matchId }, request: new Request('http://localhost', { method: 'POST', body: form }), context },
+      {
+        params: { matchId },
+        request: new Request('http://localhost', { method: 'POST', body: form }),
+        context,
+      },
       'free-pyramid',
     )
     expect(result).toEqual({ ok: false, errorKey: keys.match.control.commandRejectedByRules })
@@ -102,7 +110,11 @@ describe('control live transitions', () => {
   })
 
   test('stream errors revalidate without closing', () => {
-    expect(transitionControlLive(initial, { type: 'error' })).toEqual({ state: initial, revalidate: true, close: false })
+    expect(transitionControlLive(initial, { type: 'error' })).toEqual({
+      state: initial,
+      revalidate: true,
+      close: false,
+    })
   })
 })
 

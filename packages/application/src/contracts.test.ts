@@ -21,7 +21,9 @@ describe('application match creation input', () => {
   })
 
   test('rejects empty and 128-character normalized creation names', () => {
-    expect(v.safeParse(CreateMatchInputSchema, { ...baseInput, playerNames: { A: ' ', B: 'Bob' } }).success).toBe(false)
+    expect(
+      v.safeParse(CreateMatchInputSchema, { ...baseInput, playerNames: { A: ' ', B: 'Bob' } }).success,
+    ).toBe(false)
     expect(
       v.safeParse(CreateMatchInputSchema, {
         ...baseInput,

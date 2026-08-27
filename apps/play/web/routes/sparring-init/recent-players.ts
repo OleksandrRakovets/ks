@@ -39,7 +39,10 @@ function readRecentPlayers(): RecentPlayer[] {
 
 function writeRecentPlayers(players: RecentPlayer[]) {
   try {
-    localStorage.setItem(RECENT_PLAYERS_KEY, JSON.stringify({ version: 1, players } satisfies RecentPlayersStore))
+    localStorage.setItem(
+      RECENT_PLAYERS_KEY,
+      JSON.stringify({ version: 1, players } satisfies RecentPlayersStore),
+    )
   } catch {
     // Recent suggestions are best-effort browser-local UX only.
   }
@@ -56,7 +59,9 @@ export function rememberRecentPlayers(names: string[]) {
     byName.set(normalizeRecentKey(name), { name, lastUsedAt: now })
   }
 
-  writeRecentPlayers([...byName.values()].sort((a, b) => b.lastUsedAt - a.lastUsedAt).slice(0, MAX_RECENT_PLAYERS))
+  writeRecentPlayers(
+    [...byName.values()].sort((a, b) => b.lastUsedAt - a.lastUsedAt).slice(0, MAX_RECENT_PLAYERS),
+  )
 }
 
 export function useRecentPlayers() {

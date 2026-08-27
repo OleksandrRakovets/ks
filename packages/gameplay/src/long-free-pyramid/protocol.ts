@@ -18,7 +18,10 @@ export const LongFreePyramidProtocolEntry = v.object({
 })
 export type LongFreePyramidProtocolEntry = v.InferOutput<typeof LongFreePyramidProtocolEntry>
 
-function scoreChanged(previous: LongFreePyramidSparringFrameSnapshot, next: LongFreePyramidSparringFrameSnapshot): boolean {
+function scoreChanged(
+  previous: LongFreePyramidSparringFrameSnapshot,
+  next: LongFreePyramidSparringFrameSnapshot,
+): boolean {
   const previousScore = totalScore(previous.context.racks)
   const nextScore = totalScore(next.context.racks)
   return previousScore.A !== nextScore.A || previousScore.B !== nextScore.B

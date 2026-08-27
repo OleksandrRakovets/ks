@@ -44,7 +44,9 @@ function localized(firstName: string, lastName: string): LocalizedPlayerRow {
 describe('D1 participant hydration boundary', () => {
   test('parses D1 names and permits the longest creation-safe generated short form', async () => {
     const lastName = 'x'.repeat(125)
-    await expect(hydrateParticipant(databaseReturning(localized('A', lastName)), playerRef, 'en')).resolves.toEqual({
+    await expect(
+      hydrateParticipant(databaseReturning(localized('A', lastName)), playerRef, 'en'),
+    ).resolves.toEqual({
       playerRef,
       displayName: `A ${lastName}`,
       shortDisplayName: `A. ${lastName}`,

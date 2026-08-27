@@ -1,7 +1,10 @@
 import * as v from 'valibot'
 
 import type { GameMeta } from './constants'
-import { LongFreePyramidCommandSchema, LongFreePyramidControlViewSchema } from './long-free-pyramid/definitions'
+import {
+  LongFreePyramidCommandSchema,
+  LongFreePyramidControlViewSchema,
+} from './long-free-pyramid/definitions'
 import {
   CombinedPyramidControlViewSchema,
   CombinedPyramidOldControlViewSchema,
@@ -79,7 +82,9 @@ const registeredGameKeys = Object.keys(registry) as [keyof typeof registry, ...(
 export const RegisteredGameKeySchema = v.picklist(registeredGameKeys)
 export type RegisteredGameKey = v.InferOutput<typeof RegisteredGameKeySchema>
 
-export type ControlProjectionFor<K extends RegisteredGameKey> = v.InferOutput<(typeof registry)[K]['controlSchema']>
+export type ControlProjectionFor<K extends RegisteredGameKey> = v.InferOutput<
+  (typeof registry)[K]['controlSchema']
+>
 export type GameCommandFor<K extends RegisteredGameKey> = v.InferOutput<(typeof registry)[K]['commandSchema']>
 
 export function isRegisteredGameKey(value: string): value is RegisteredGameKey {

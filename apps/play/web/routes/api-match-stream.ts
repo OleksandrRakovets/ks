@@ -9,6 +9,10 @@ export async function loader({ params, request, context }: Route.LoaderArgs) {
   if (!matchId.success) throw new Response('Invalid matchId', { status: 400 })
 
   const since = new URL(request.url).searchParams.get('since')
-  const parsedSince = since && since.length > 0 ? v.safeParse(NonNegativeIntegerSchema, Number(since)) : undefined
-  return requireApplication(context).streamMatchUpdates(matchId.output, parsedSince?.success ? parsedSince.output : undefined)
+  const parsedSince =
+    since && since.length > 0 ? v.safeParse(NonNegativeIntegerSchema, Number(since)) : undefined
+  return requireApplication(context).streamMatchUpdates(
+    matchId.output,
+    parsedSince?.success ? parsedSince.output : undefined,
+  )
 }

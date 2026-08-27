@@ -82,7 +82,9 @@ describe('parseGameCommand', () => {
   })
 
   test('regular pyramid validates positive integer counts', () => {
-    expect(parseGameCommand('free-pyramid', { type: 'pot.record', seat: 'A', pottedBallCount: 99 })._tag).toBe('parsed')
+    expect(parseGameCommand('free-pyramid', { type: 'pot.record', seat: 'A', pottedBallCount: 99 })._tag).toBe(
+      'parsed',
+    )
     for (const pottedBallCount of [0, -1, 1.5]) {
       expect(parseGameCommand('free-pyramid', { type: 'pot.record', seat: 'A', pottedBallCount })._tag).toBe(
         'game-command-parse-failure',
@@ -92,12 +94,14 @@ describe('parseGameCommand', () => {
 
   test('long free pyramid accepts only pottedBallCount 1 through 4', () => {
     for (const pottedBallCount of [1, 2, 3, 4]) {
-      expect(parseGameCommand('free-pyramid-long', { type: 'pot.record', seat: 'A', pottedBallCount })._tag).toBe('parsed')
+      expect(
+        parseGameCommand('free-pyramid-long', { type: 'pot.record', seat: 'A', pottedBallCount })._tag,
+      ).toBe('parsed')
     }
     for (const pottedBallCount of [0, 5, -1, 1.5]) {
-      expect(parseGameCommand('free-pyramid-long', { type: 'pot.record', seat: 'A', pottedBallCount })._tag).toBe(
-        'game-command-parse-failure',
-      )
+      expect(
+        parseGameCommand('free-pyramid-long', { type: 'pot.record', seat: 'A', pottedBallCount })._tag,
+      ).toBe('game-command-parse-failure')
     }
   })
 })

@@ -27,7 +27,8 @@ class StrilaGameplaySession implements GameplaySession<'strila-v2'> {
     const [candidate] = transition(StrilaSparringFrameMachine, previous, command)
     const projected = projectStrilaProtocolEntries({ previous, command, next: candidate })
     const output = candidate.status === 'done' ? candidate.output : undefined
-    if (output !== undefined && !v.is(FrameOutcomeSchema, output)) throw new Error('Strila machine produced an invalid outcome')
+    if (output !== undefined && !v.is(FrameOutcomeSchema, output))
+      throw new Error('Strila machine produced an invalid outcome')
     const outcome = output
     const result = outcome
       ? { _tag: 'accepted' as const, gameProtocolEntries: projected, outcome }
@@ -47,6 +48,8 @@ class StrilaGameplaySession implements GameplaySession<'strila-v2'> {
   }
 }
 
-export function createStrilaGameplaySession(args: GameplaySessionCreateArgsFor<'strila-v2'>): GameplaySession<'strila-v2'> {
+export function createStrilaGameplaySession(
+  args: GameplaySessionCreateArgsFor<'strila-v2'>,
+): GameplaySession<'strila-v2'> {
   return new StrilaGameplaySession(args)
 }

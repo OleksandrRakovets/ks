@@ -24,8 +24,14 @@ export const matches = sqliteTable(
   },
   (table) => [
     check('matches_distinct_players', sql`${table.seatAPlayerRef} != ${table.seatBPlayerRef}`),
-    check('matches_seat_a_player_ref_format', sql`${table.seatAPlayerRef} GLOB 'gp_*' OR ${table.seatAPlayerRef} GLOB 'vp_*'`),
-    check('matches_seat_b_player_ref_format', sql`${table.seatBPlayerRef} GLOB 'gp_*' OR ${table.seatBPlayerRef} GLOB 'vp_*'`),
+    check(
+      'matches_seat_a_player_ref_format',
+      sql`${table.seatAPlayerRef} GLOB 'gp_*' OR ${table.seatAPlayerRef} GLOB 'vp_*'`,
+    ),
+    check(
+      'matches_seat_b_player_ref_format',
+      sql`${table.seatBPlayerRef} GLOB 'gp_*' OR ${table.seatBPlayerRef} GLOB 'vp_*'`,
+    ),
   ],
 )
 

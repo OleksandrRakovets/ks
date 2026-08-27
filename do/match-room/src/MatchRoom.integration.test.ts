@@ -18,7 +18,12 @@ const request = v.parse(CreateMatchRequestSchema, {
 })
 
 function body(matchId: ReturnType<typeof newMatchId>): CreateBody {
-  return { ...request, matchId, controlSecret, createdAt: v.parse(UnixEpochMillisecondsSchema, 1_700_000_000_000) }
+  return {
+    ...request,
+    matchId,
+    controlSecret,
+    createdAt: v.parse(UnixEpochMillisecondsSchema, 1_700_000_000_000),
+  }
 }
 
 describe('MatchRoom accepted command history', () => {
@@ -26,7 +31,11 @@ describe('MatchRoom accepted command history', () => {
     const matchId = newMatchId()
     let stub = env.MATCH_ROOM.getByName(matchId)
     expect(await stub.create(body(matchId))).toEqual({ ok: true, matchId })
-    expect(await stub.readControl({ matchId })).toMatchObject({ ok: true, latestSeq: 0, state: { currentFrameIndex: 0 } })
+    expect(await stub.readControl({ matchId })).toMatchObject({
+      ok: true,
+      latestSeq: 0,
+      state: { currentFrameIndex: 0 },
+    })
 
     const commandId = newCommandId()
     const command = { commandId, source: 'match' as const, command: { type: 'frame.prepare' } }
@@ -38,12 +47,18 @@ describe('MatchRoom accepted command history', () => {
     expect(protocol).toMatchObject({
       ok: true,
       latestSeq: 1,
-      protocolEntries: [{ acceptedSeq: 1, entryIndex: 0, causedByCommandId: commandId, entryType: 'frame-prepared' }],
+      protocolEntries: [
+        { acceptedSeq: 1, entryIndex: 0, causedByCommandId: commandId, entryType: 'frame-prepared' },
+      ],
     })
 
     await evictDurableObject(stub)
     stub = env.MATCH_ROOM.getByName(matchId)
-    expect(await stub.readControl({ matchId })).toMatchObject({ ok: true, latestSeq: 1, state: { currentFrameIndex: 1 } })
+    expect(await stub.readControl({ matchId })).toMatchObject({
+      ok: true,
+      latestSeq: 1,
+      state: { currentFrameIndex: 1 },
+    })
   })
 
   test('does not advance sequence for a durable rejected outcome', async () => {
@@ -51,7 +66,11 @@ describe('MatchRoom accepted command history', () => {
     const stub = env.MATCH_ROOM.getByName(matchId)
     await stub.create(body(matchId))
     const commandId = newCommandId()
-    const command = { commandId, source: 'match' as const, command: { type: 'frame.concede', seat: 'A' as const } }
+    const command = {
+      commandId,
+      source: 'match' as const,
+      command: { type: 'frame.concede', seat: 'A' as const },
+    }
     const rejected = await stub.submitCommand({ matchId, command })
     expect(rejected).toMatchObject({ ok: true, outcome: { _tag: 'rejected' } })
     expect(await stub.submitCommand({ matchId, command })).toEqual(rejected)
@@ -80,7 +99,10 @@ describe('MatchRoom accepted command history', () => {
     await evictDurableObject(stub)
     stub = env.MATCH_ROOM.getByName(matchId)
     const transfer = await stub.finalization({ matchId })
-    expect(transfer).toMatchObject({ ok: true, data: { matchId, sourceLatestSeq: 3, finalState: { status: 'finished' } } })
+    expect(transfer).toMatchObject({
+      ok: true,
+      data: { matchId, sourceLatestSeq: 3, finalState: { status: 'finished' } },
+    })
     expect(transfer).toHaveProperty('data.protocolEntries.0.acceptedSeq', 1)
 
     const stream = await stub.stream({ matchId, since: 2 })
@@ -90,6 +112,9 @@ describe('MatchRoom accepted command history', () => {
 
     expect(await stub.disposeFinalized({ matchId })).toEqual({ ok: true })
     expect(await stub.disposeFinalized({ matchId })).toEqual({ ok: true })
-    expect(await stub.disposeFinalized({ matchId: otherMatchId })).toMatchObject({ ok: false, error: 'Unknown match' })
+    expect(await stub.disposeFinalized({ matchId: otherMatchId })).toMatchObject({
+      ok: false,
+      error: 'Unknown match',
+    })
   })
 })

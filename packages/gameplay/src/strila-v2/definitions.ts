@@ -1,7 +1,17 @@
-import { BySeatNumberSchema, ControlSections, GameProtocolEntry, NonEmptyStringSchema, SeatSchema } from '@ks/core'
+import {
+  BySeatNumberSchema,
+  ControlSections,
+  GameProtocolEntry,
+  NonEmptyStringSchema,
+  SeatSchema,
+} from '@ks/core'
 import * as v from 'valibot'
 
-import { FoulCommitCommandSchema, FrameAwardCommandSchema, FrameCommenceCommandSchema } from '../command-schemas'
+import {
+  FoulCommitCommandSchema,
+  FrameAwardCommandSchema,
+  FrameCommenceCommandSchema,
+} from '../command-schemas'
 import { GameControlProjectionSchema } from '../constants'
 
 const CueBallSchema = v.literal(0)

@@ -115,11 +115,43 @@
       // size: full (38px) = object balls; sm (32px) = secondary balls ~16% smaller
       // dimBg: color when potted/disabled
       const BALLS = [
-        { id: 'white', label: 'Cue', bg: '#F0EDE6', border: '#C0BDB5', dimBg: '#4a4845', pts: 0, size: 'full' },
+        {
+          id: 'white',
+          label: 'Cue',
+          bg: '#F0EDE6',
+          border: '#C0BDB5',
+          dimBg: '#4a4845',
+          pts: 0,
+          size: 'full',
+        },
         { id: 'red', label: 'Red', bg: '#C8102E', border: '#9E0E24', dimBg: '#3d1018', pts: 1, size: 'full' },
-        { id: 'yellow', label: 'Yellow', bg: '#F5C518', border: '#C9A00E', dimBg: '#3d3008', pts: 2, size: 'full' },
-        { id: 'green', label: 'Green', bg: '#00A550', border: '#008040', dimBg: '#0a2e18', pts: 3, size: 'sm' },
-        { id: 'brown', label: 'Brown', bg: '#7B4F2E', border: '#5C3A1E', dimBg: '#2a1a0e', pts: 4, size: 'sm' },
+        {
+          id: 'yellow',
+          label: 'Yellow',
+          bg: '#F5C518',
+          border: '#C9A00E',
+          dimBg: '#3d3008',
+          pts: 2,
+          size: 'full',
+        },
+        {
+          id: 'green',
+          label: 'Green',
+          bg: '#00A550',
+          border: '#008040',
+          dimBg: '#0a2e18',
+          pts: 3,
+          size: 'sm',
+        },
+        {
+          id: 'brown',
+          label: 'Brown',
+          bg: '#7B4F2E',
+          border: '#5C3A1E',
+          dimBg: '#2a1a0e',
+          pts: 4,
+          size: 'sm',
+        },
         { id: 'blue', label: 'Blue', bg: '#005EB8', border: '#004A92', dimBg: '#091e38', pts: 5, size: 'sm' },
         { id: 'pink', label: 'Pink', bg: '#E8729A', border: '#C85580', dimBg: '#38182a', pts: 6, size: 'sm' },
         { id: 'black', label: 'Black', bg: '#2a2a2a', border: '#555', dimBg: '#1a1a1a', pts: 7, size: 'sm' },
@@ -208,14 +240,25 @@
                   <circle cx="7.5" cy="9.5" r="1.4" fill={c} />
                 </svg>
                 <svg width="24" height="12" viewBox="0 0 24 12">
-                  <rect x="0.5" y="0.5" width="20" height="11" rx="3.5" stroke={c} strokeOpacity="0.35" fill="none" />
+                  <rect
+                    x="0.5"
+                    y="0.5"
+                    width="20"
+                    height="11"
+                    rx="3.5"
+                    stroke={c}
+                    strokeOpacity="0.35"
+                    fill="none"
+                  />
                   <rect x="2" y="2" width="17" height="8" rx="2" fill={c} />
                   <path d="M22 4v4c.7-.3 1.2-1 1.2-2s-.5-1.7-1.2-2z" fill={c} fillOpacity="0.4" />
                 </svg>
               </div>
             </div>
             {/* Content */}
-            <div style={{ height: 418, display: 'flex', flexDirection: 'column', paddingTop: 54 }}>{children}</div>
+            <div style={{ height: 418, display: 'flex', flexDirection: 'column', paddingTop: 54 }}>
+              {children}
+            </div>
             {/* Home indicator */}
             <div
               style={{
@@ -247,7 +290,13 @@
               {/* Player A */}
               <div style={{ flex: 1, textAlign: 'center', padding: '0 8px' }}>
                 <div
-                  style={{ fontSize: 14, fontWeight: 600, color: 'var(--t-primary)', lineHeight: 1.3, wordBreak: 'break-word' }}
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 600,
+                    color: 'var(--t-primary)',
+                    lineHeight: 1.3,
+                    wordBreak: 'break-word',
+                  }}
                 >
                   Костянтин Кулик
                 </div>
@@ -268,7 +317,15 @@
                 >
                   {scoreA}
                 </span>
-                <span style={{ fontSize: 36, fontWeight: 200, color: 'var(--c-border)', margin: '0 5px', lineHeight: 1 }}>
+                <span
+                  style={{
+                    fontSize: 36,
+                    fontWeight: 200,
+                    color: 'var(--c-border)',
+                    margin: '0 5px',
+                    lineHeight: 1,
+                  }}
+                >
                   :
                 </span>
                 <span
@@ -288,7 +345,13 @@
               {/* Player B */}
               <div style={{ flex: 1, textAlign: 'center', padding: '0 8px' }}>
                 <div
-                  style={{ fontSize: 14, fontWeight: 600, color: 'var(--t-primary)', lineHeight: 1.3, wordBreak: 'break-word' }}
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 600,
+                    color: 'var(--t-primary)',
+                    lineHeight: 1.3,
+                    wordBreak: 'break-word',
+                  }}
                 >
                   Владислав Косогов
                 </div>
@@ -388,7 +451,13 @@
                 fill="none"
                 style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.18s' }}
               >
-                <path d="M1 1l5 5 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                <path
+                  d="M1 1l5 5 5-5"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
               </svg>
             </button>
             {open && <div style={{ paddingBottom: 12 }}>{children}</div>}
@@ -555,7 +624,14 @@
                       e.action
                     )}
                   </div>
-                  <div style={{ fontSize: 12, color: 'var(--t-muted)', marginTop: 1, fontVariantNumeric: 'tabular-nums' }}>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: 'var(--t-muted)',
+                      marginTop: 1,
+                      fontVariantNumeric: 'tabular-nums',
+                    }}
+                  >
                     {e.score}
                   </div>
                 </div>
@@ -633,20 +709,45 @@
               }}
             >
               <button
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--a-green)', padding: '6px 2px' }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: 'var(--a-green)',
+                  padding: '6px 2px',
+                }}
               >
                 <svg width="7" height="12" viewBox="0 0 7 12" fill="none">
-                  <path d="M6 1L1 6l5 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                  <path
+                    d="M6 1L1 6l5 5"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
               </button>
-              <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--t-primary)', letterSpacing: '0.01em' }}>
+              <span
+                style={{ fontSize: 14, fontWeight: 600, color: 'var(--t-primary)', letterSpacing: '0.01em' }}
+              >
                 Спаринг: Стріла
               </span>
               <button
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--a-green)', padding: '6px 2px' }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: 'var(--a-green)',
+                  padding: '6px 2px',
+                }}
               >
                 <svg width="16" height="12" viewBox="0 0 16 12" fill="none">
-                  <path d="M0 1h16M0 6h16M0 11h16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                  <path
+                    d="M0 1h16M0 6h16M0 11h16"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                  />
                 </svg>
               </button>
             </div>
@@ -732,19 +833,49 @@
       const PALETTE = [
         { name: 'Deep', dark: 'oklch(11% 0.022 158)', light: 'oklch(96% 0.008 158)', desc: 'Page BG, chrome' },
         { name: 'Base', dark: 'oklch(16% 0.026 158)', light: 'oklch(99% 0.004 158)', desc: 'Main surface' },
-        { name: 'Raised', dark: 'oklch(20% 0.026 158)', light: 'oklch(93% 0.010 158)', desc: 'Panels, buttons' },
-        { name: 'Overlay', dark: 'oklch(25% 0.022 158)', light: 'oklch(88% 0.014 158)', desc: 'Hover / selected' },
+        {
+          name: 'Raised',
+          dark: 'oklch(20% 0.026 158)',
+          light: 'oklch(93% 0.010 158)',
+          desc: 'Panels, buttons',
+        },
+        {
+          name: 'Overlay',
+          dark: 'oklch(25% 0.022 158)',
+          light: 'oklch(88% 0.014 158)',
+          desc: 'Hover / selected',
+        },
         { name: 'Border', dark: 'oklch(28% 0.018 158)', light: 'oklch(80% 0.014 158)', desc: 'Dividers' },
-        { name: 'Text primary', dark: 'oklch(95% 0.006 155)', light: 'oklch(13% 0.022 158)', desc: 'Labels, headings' },
-        { name: 'Text secondary', dark: 'oklch(63% 0.010 155)', light: 'oklch(36% 0.016 158)', desc: 'Supporting copy' },
-        { name: 'Text muted', dark: 'oklch(40% 0.008 155)', light: 'oklch(54% 0.012 158)', desc: 'Timestamps, hints' },
+        {
+          name: 'Text primary',
+          dark: 'oklch(95% 0.006 155)',
+          light: 'oklch(13% 0.022 158)',
+          desc: 'Labels, headings',
+        },
+        {
+          name: 'Text secondary',
+          dark: 'oklch(63% 0.010 155)',
+          light: 'oklch(36% 0.016 158)',
+          desc: 'Supporting copy',
+        },
+        {
+          name: 'Text muted',
+          dark: 'oklch(40% 0.008 155)',
+          light: 'oklch(54% 0.012 158)',
+          desc: 'Timestamps, hints',
+        },
         {
           name: 'Baize Green',
           dark: 'oklch(60% 0.160 152)',
           light: 'oklch(38% 0.180 152)',
           desc: 'Primary actions, active tab',
         },
-        { name: 'Amber', dark: 'oklch(78% 0.160 72)', light: 'oklch(58% 0.210 64)', desc: 'Scores, active callout' },
+        {
+          name: 'Amber',
+          dark: 'oklch(78% 0.160 72)',
+          light: 'oklch(58% 0.210 64)',
+          desc: 'Scores, active callout',
+        },
         { name: 'Red', dark: 'oklch(60% 0.200 25)', light: 'oklch(44% 0.210 25)', desc: 'Foul, destructive' },
       ]
 
@@ -761,7 +892,9 @@
         return (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
             {/* Dark swatch */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, flexShrink: 0 }}>
+            <div
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, flexShrink: 0 }}
+            >
               <div
                 style={{
                   width: 26,
@@ -774,7 +907,9 @@
               <span style={{ fontSize: 9, color: 'var(--t-muted)', letterSpacing: '0.04em' }}>D</span>
             </div>
             {/* Light swatch */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, flexShrink: 0 }}>
+            <div
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, flexShrink: 0 }}
+            >
               <div
                 style={{
                   width: 26,
@@ -835,14 +970,15 @@
             <div style={{ marginBottom: 32 }}>
               <SectionHead>Aesthetic Rationale</SectionHead>
               <p style={{ fontSize: 13, color: 'var(--t-secondary)', lineHeight: 1.75, marginBottom: 10 }}>
-                <strong style={{ color: 'var(--t-primary)' }}>Club Terminal</strong> — the visual language of a serious local
-                billiards club, not a consumer app. Dark baize-green surfaces recall the felt under the lights. Giant tabular
-                score numerals borrow from analog scoreboards. Amber callout marks the active player with zero ambiguity from
-                across the room.
+                <strong style={{ color: 'var(--t-primary)' }}>Club Terminal</strong> — the visual language of a
+                serious local billiards club, not a consumer app. Dark baize-green surfaces recall the felt
+                under the lights. Giant tabular score numerals borrow from analog scoreboards. Amber callout
+                marks the active player with zero ambiguity from across the room.
               </p>
               <p style={{ fontSize: 13, color: 'var(--t-secondary)', lineHeight: 1.75 }}>
-                Ruled lines replace card soup — less chrome, more information density. No Google Fonts, no shadows, no
-                gradients. Everything is system-font weight and OKLCH color, so it maps directly to Tailwind v4{' '}
+                Ruled lines replace card soup — less chrome, more information density. No Google Fonts, no
+                shadows, no gradients. Everything is system-font weight and OKLCH color, so it maps directly to
+                Tailwind v4{' '}
                 <code
                   style={{
                     fontFamily: 'ui-monospace,monospace',
@@ -881,10 +1017,20 @@
                 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif
               </div>
               {TYPE_SCALE.map((t) => (
-                <div key={t.name} style={{ display: 'flex', alignItems: 'flex-end', gap: 12, marginBottom: 16 }}>
+                <div
+                  key={t.name}
+                  style={{ display: 'flex', alignItems: 'flex-end', gap: 12, marginBottom: 16 }}
+                >
                   <div style={{ width: 56, flexShrink: 0 }}>
                     <div style={{ fontSize: 11, color: 'var(--t-muted)' }}>{t.name}</div>
-                    <div style={{ fontSize: 9, color: 'var(--t-muted)', fontFamily: 'ui-monospace,monospace', marginTop: 1 }}>
+                    <div
+                      style={{
+                        fontSize: 9,
+                        color: 'var(--t-muted)',
+                        fontFamily: 'ui-monospace,monospace',
+                        marginTop: 1,
+                      }}
+                    >
                       {t.sz}/{t.wt}
                     </div>
                     {t.note && (
@@ -976,7 +1122,14 @@
               >
                 List rows (no cards — ruled only)
               </div>
-              <div style={{ border: '1px solid var(--c-border)', borderRadius: 4, overflow: 'hidden', marginBottom: 20 }}>
+              <div
+                style={{
+                  border: '1px solid var(--c-border)',
+                  borderRadius: 4,
+                  overflow: 'hidden',
+                  marginBottom: 20,
+                }}
+              >
                 {['Стріла', 'Вільна піраміда', 'Комбінована піраміда'].map((item, i) => (
                   <div
                     key={item}
@@ -999,7 +1152,14 @@
                       {item}
                     </div>
                     {i === 0 && (
-                      <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--a-green)', letterSpacing: '0.1em' }}>
+                      <span
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 700,
+                          color: 'var(--a-green)',
+                          letterSpacing: '0.1em',
+                        }}
+                      >
                         LIVE
                       </span>
                     )}
@@ -1242,7 +1402,10 @@
           document.documentElement.style.setProperty('--f-score', tweaks.scoreSize + 'px')
           document.documentElement.style.setProperty('--radius-btn', tweaks.btnRadius + 'px')
           document.documentElement.style.setProperty('--a-green', `oklch(60% 0.16 ${tweaks.accentHue})`)
-          document.documentElement.style.setProperty('--a-green-dim', `oklch(60% 0.16 ${tweaks.accentHue} / 0.18)`)
+          document.documentElement.style.setProperty(
+            '--a-green-dim',
+            `oklch(60% 0.16 ${tweaks.accentHue} / 0.18)`,
+          )
           // apply theme
           const resolvedTheme =
             tweaks.theme === 'auto'
@@ -1268,7 +1431,15 @@
         const wide = window.innerWidth > 500
 
         return (
-          <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', background: 'var(--c-deep)', display: 'flex' }}>
+          <div
+            style={{
+              width: '100vw',
+              height: '100vh',
+              overflow: 'hidden',
+              background: 'var(--c-deep)',
+              display: 'flex',
+            }}
+          >
             {/* Prototype — fixed 430px column, or full width on narrow */}
             <div
               style={{

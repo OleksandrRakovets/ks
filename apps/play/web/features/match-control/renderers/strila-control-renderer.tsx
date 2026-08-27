@@ -70,8 +70,12 @@ function ControlRows({
   return (
     <section className="border-b border-divider px-4 py-2">
       <div className="grid grid-cols-2 gap-6">
-        <div className="grid gap-3.5">{controls.A.map((cmd, index) => renderButton(cmd, `A-${cmd.type}-${index}`, index))}</div>
-        <div className="grid gap-3.5">{controls.B.map((cmd, index) => renderButton(cmd, `B-${cmd.type}-${index}`, index))}</div>
+        <div className="grid gap-3.5">
+          {controls.A.map((cmd, index) => renderButton(cmd, `A-${cmd.type}-${index}`, index))}
+        </div>
+        <div className="grid gap-3.5">
+          {controls.B.map((cmd, index) => renderButton(cmd, `B-${cmd.type}-${index}`, index))}
+        </div>
       </div>
     </section>
   )
@@ -123,7 +127,11 @@ export function StrilaControlRenderer(props: MatchControlRendererProps<StrilaCon
       <div
         aria-label={t(keys.match.control.strila.ballGrid)}
         className="mx-auto grid gap-1.5 border-b border-divider px-4 py-2"
-        style={{ gridTemplateColumns: 'repeat(8, minmax(0, 1fr))', justifyContent: 'center', width: 'min(100%, 528px)' }}
+        style={{
+          gridTemplateColumns: 'repeat(8, minmax(0, 1fr))',
+          justifyContent: 'center',
+          width: 'min(100%, 528px)',
+        }}
       >
         {StrilaMeta.allBalls.map((ball) => {
           const colors = BALL_COLORS[ball]
@@ -142,7 +150,9 @@ export function StrilaControlRenderer(props: MatchControlRendererProps<StrilaCon
                 title={ballLabel}
                 onClick={() => {
                   if (!details.isPotCommandAvailable || isPotted) return
-                  setSelectedBalls((prev) => (prev.includes(ball) ? prev.filter((b) => b !== ball) : [...prev, ball]))
+                  setSelectedBalls((prev) =>
+                    prev.includes(ball) ? prev.filter((b) => b !== ball) : [...prev, ball],
+                  )
                 }}
                 style={{
                   width: 'min(100%, 56px)',
@@ -167,10 +177,20 @@ export function StrilaControlRenderer(props: MatchControlRendererProps<StrilaCon
 
       {hasNeutral && <NeutralControlRows controls={controlSections.neutral} onSubmit={submitCommand} />}
 
-      {hasPrimary && <ControlRows controls={controlSections.primary} selectedBalls={selectedBalls} onSubmit={submitCommand} />}
+      {hasPrimary && (
+        <ControlRows
+          controls={controlSections.primary}
+          selectedBalls={selectedBalls}
+          onSubmit={submitCommand}
+        />
+      )}
 
       {hasSecondary && (
-        <ControlRows controls={controlSections.secondary} selectedBalls={selectedBalls} onSubmit={submitCommand} />
+        <ControlRows
+          controls={controlSections.secondary}
+          selectedBalls={selectedBalls}
+          onSubmit={submitCommand}
+        />
       )}
 
       {details.messages.map((message) => (
@@ -192,7 +212,11 @@ export function StrilaControlRenderer(props: MatchControlRendererProps<StrilaCon
             {showTertiary ? t(keys.match.control.showLess) : t(keys.match.control.showMore)}
           </button>
           {showTertiary && (
-            <ControlRows controls={controlSections.tertiary} selectedBalls={selectedBalls} onSubmit={submitCommand} />
+            <ControlRows
+              controls={controlSections.tertiary}
+              selectedBalls={selectedBalls}
+              onSubmit={submitCommand}
+            />
           )}
         </div>
       )}

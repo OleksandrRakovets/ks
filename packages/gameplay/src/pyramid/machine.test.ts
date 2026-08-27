@@ -12,7 +12,10 @@ const COMBINED_OLD_RULES = PyramidRuleSpecificsByGameKey['combined-pyramid-old']
 
 const DEFAULT_TARGET: BySeatNumber = { A: 8, B: 8 }
 
-function start(rules: PyramidRules = FREE_RULES, target: BySeatNumber = DEFAULT_TARGET): PyramidSparringFrameSnapshot {
+function start(
+  rules: PyramidRules = FREE_RULES,
+  target: BySeatNumber = DEFAULT_TARGET,
+): PyramidSparringFrameSnapshot {
   return createInitialSnapshot(rules, target)
 }
 

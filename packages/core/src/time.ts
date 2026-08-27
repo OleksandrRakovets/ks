@@ -10,7 +10,10 @@ function toUnixEpochMilliseconds(value: number): UnixEpochMilliseconds {
   return value as UnixEpochMilliseconds
 }
 
-export const UnixEpochMillisecondsSchema = v.pipe(NonNegativeIntegerSchema, v.transform(toUnixEpochMilliseconds))
+export const UnixEpochMillisecondsSchema = v.pipe(
+  NonNegativeIntegerSchema,
+  v.transform(toUnixEpochMilliseconds),
+)
 
 export function nowUnixEpochMilliseconds(): UnixEpochMilliseconds {
   return v.parse(UnixEpochMillisecondsSchema, Date.now())

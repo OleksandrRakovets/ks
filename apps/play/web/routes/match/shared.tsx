@@ -36,7 +36,9 @@ type ProtocolSuccess<K extends RegisteredGameKey> = Extract<ReadMatchProtocolRes
 export type ControlRouteData<K extends RegisteredGameKey> = ControlSuccess<K> & { gameTitle: string }
 export type ProtocolRouteData<K extends RegisteredGameKey> = ProtocolSuccess<K> & { gameTitle: string }
 
-export function protocolFrameScore<K extends RegisteredGameKey>(state: ProtocolRouteData<K>['state']): BySeatNumber {
+export function protocolFrameScore<K extends RegisteredGameKey>(
+  state: ProtocolRouteData<K>['state'],
+): BySeatNumber {
   const snapshotFrame = state.frames[state.currentFrameIndex - 1]
   return snapshotFrame?.pointsBySeat ?? { A: 0, B: 0 }
 }
@@ -81,7 +83,12 @@ export async function loadMatchProtocol<K extends RegisteredGameKey>(
 ): Promise<ProtocolRouteData<K>> {
   const matchId = matchIdFromParams(args.params)
   const locale = localeFromCookie(args.request.headers.get('cookie'))
-  const result = await requireApplication(args.context).readMatchProtocol(matchId, 'UTC', locale, expectedGameKey)
+  const result = await requireApplication(args.context).readMatchProtocol(
+    matchId,
+    'UTC',
+    locale,
+    expectedGameKey,
+  )
   if (!result.ok) throw new Response(result.error, { status: result.status })
   return { ...result, gameTitle: registry[expectedGameKey].meta.title[locale] }
 }
@@ -89,7 +96,8 @@ export async function loadMatchProtocol<K extends RegisteredGameKey>(
 function commandErrorKey(error: string): ControlActionErrorKey {
   if (error === 'unknown-match' || error === 'Unknown match') return keys.match.control.unknownMatch
   if (error === 'match-locked') return keys.match.control.matchLocked
-  if (error === 'invalid-command-body' || error === 'command-id-conflict') return keys.match.control.invalidCommandPayload
+  if (error === 'invalid-command-body' || error === 'command-id-conflict')
+    return keys.match.control.invalidCommandPayload
   return keys.match.control.invalidCommandPayload
 }
 
@@ -104,14 +112,19 @@ export async function commandMatchAction<K extends RegisteredGameKey>(
     return { ok: false, errorKey: keys.match.control.invalidCommandPayload }
   }
 
-  const result = await requireApplication(args.context).submitMatchCommand(matchId, command.output, expectedGameKey)
+  const result = await requireApplication(args.context).submitMatchCommand(
+    matchId,
+    command.output,
+    expectedGameKey,
+  )
   if (!result.ok) {
     if (result.status === 404) throw new Response(result.error, { status: 404 })
     if (result.status === 409) return { ok: false, errorKey: keys.match.control.matchLocked }
     if (result.status >= 500) throw new Response(result.error, { status: result.status })
     return { ok: false, errorKey: commandErrorKey(result.error) }
   }
-  if (result.outcome._tag === 'rejected') return { ok: false, errorKey: keys.match.control.commandRejectedByRules }
+  if (result.outcome._tag === 'rejected')
+    return { ok: false, errorKey: keys.match.control.commandRejectedByRules }
 
   return {
     ok: true,
@@ -147,7 +160,10 @@ export type ControlLiveTransition = {
   close: boolean
 }
 
-export function transitionControlLive(state: ControlLiveState, event: ControlLiveEvent): ControlLiveTransition {
+export function transitionControlLive(
+  state: ControlLiveState,
+  event: ControlLiveEvent,
+): ControlLiveTransition {
   if (event.type === 'snapshot') {
     return { state: { ...state, latestSeq: event.latestSeq }, revalidate: false, close: false }
   }
@@ -352,7 +368,11 @@ export function BetweenFrameControls(props: {
             type="button"
             size="control"
             variant={
-              control.prominence === 'primary' ? 'default' : control.prominence === 'secondary' ? 'secondary' : 'outline'
+              control.prominence === 'primary'
+                ? 'default'
+                : control.prominence === 'secondary'
+                  ? 'secondary'
+                  : 'outline'
             }
             disabled={props.submitting}
             onClick={() => props.onSubmit(matchCommandFromControl(control))}
@@ -401,13 +421,18 @@ export function ProtocolPanel(props: { rows: ProtocolRow[]; emptyLabel: string }
   return (
     <div className="grid gap-2">
       {props.rows.map((row) => (
-        <div key={row.key} className="flex items-baseline justify-between gap-3 border-b border-border/60 pb-2 text-sm">
+        <div
+          key={row.key}
+          className="flex items-baseline justify-between gap-3 border-b border-border/60 pb-2 text-sm"
+        >
           <span className="flex min-w-0 flex-col">
             <span className="flex min-w-0 items-baseline gap-2">
               {row.message.actor ? <span className="shrink-0 font-medium">{row.message.actor}</span> : null}
               <span>{protocolLabel(t, row)}</span>
             </span>
-            {row.score ? <span className="text-xs text-muted-foreground">{`${row.score.A}:${row.score.B}`}</span> : null}
+            {row.score ? (
+              <span className="text-xs text-muted-foreground">{`${row.score.A}:${row.score.B}`}</span>
+            ) : null}
           </span>
           <span className="text-xs text-muted-foreground tabular-nums">
             <time dateTime={new Date(row.acceptedAt).toISOString()}>{row.timeLabel}</time>

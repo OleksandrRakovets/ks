@@ -76,7 +76,9 @@ describe('machine-sparring: foul handling', () => {
     snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
     snap = sendEvent(snap, { type: 'foul.commit', seat: 'A' })
 
-    expect(() => sendEvent(snap, { type: 'penalty.select', seat: 'A', choice: 'ball-in-hand' })).toThrow('Invalid Strila event')
+    expect(() => sendEvent(snap, { type: 'penalty.select', seat: 'A', choice: 'ball-in-hand' })).toThrow(
+      'Invalid Strila event',
+    )
     expect(() => sendEvent(snap, { type: 'penalty.select', seat: 'B', choice: 'ball-in-hand' })).not.toThrow()
   })
 
@@ -307,6 +309,8 @@ describe('machine-sparring: ball validation', () => {
     snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
     snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [1] })
 
-    expect(() => sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [1] })).toThrow('Invalid Strila event')
+    expect(() => sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [1] })).toThrow(
+      'Invalid Strila event',
+    )
   })
 })

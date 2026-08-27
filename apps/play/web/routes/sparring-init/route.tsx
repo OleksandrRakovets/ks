@@ -13,7 +13,13 @@ import { matchControlUrl } from '../../features/match-urls'
 import type { AppLoadContext } from '../../server/context'
 import { requireApplication } from '../../server/context'
 import { localeFromCookie } from '../../server/locale'
-import { FirstBreakerField, FrameTargetFields, MatchTargetFramesField, PlayerNameFields, RackRolloverField } from './fields'
+import {
+  FirstBreakerField,
+  FrameTargetFields,
+  MatchTargetFramesField,
+  PlayerNameFields,
+  RackRolloverField,
+} from './fields'
 import { createProfileForGame, type MatchCreateProfile } from './profile'
 import { recentPlayerSuggestions, rememberRecentPlayers, useRecentPlayers } from './recent-players'
 import { parsePositiveInt, parseRackRollover, safeNormalizeDisplayName } from './validation'
@@ -34,7 +40,13 @@ type ActionData = {
     | typeof keys.match.sparring.errorRackRolloverRequired
 }
 
-export async function loader({ params, request }: { params: { gameKey?: string }; request: Request }): Promise<LoaderData> {
+export async function loader({
+  params,
+  request,
+}: {
+  params: { gameKey?: string }
+  request: Request
+}): Promise<LoaderData> {
   const gameKey = params.gameKey
   if (!gameKey || !isRegisteredGameKey(gameKey)) {
     throw new Response('Unknown gameKey', { status: 404 })
@@ -138,8 +150,14 @@ export default function SparringInitRoute() {
   const normalizedSeatBName = safeNormalizeDisplayName(seatBName)
   const canShowSettings =
     normalizedSeatAName != null && normalizedSeatBName != null && normalizedSeatAName !== normalizedSeatBName
-  const suggestionsA = useMemo(() => recentPlayerSuggestions(recentPlayers, seatBName), [recentPlayers, seatBName])
-  const suggestionsB = useMemo(() => recentPlayerSuggestions(recentPlayers, seatAName), [recentPlayers, seatAName])
+  const suggestionsA = useMemo(
+    () => recentPlayerSuggestions(recentPlayers, seatBName),
+    [recentPlayers, seatBName],
+  )
+  const suggestionsB = useMemo(
+    () => recentPlayerSuggestions(recentPlayers, seatAName),
+    [recentPlayers, seatAName],
+  )
 
   function handleSubmit() {
     if (!canShowSettings || firstBreakerSeat === null) return
@@ -194,7 +212,9 @@ export default function SparringInitRoute() {
             </div>
           ) : null}
 
-          {actionData?.ok === false ? <p className="text-sm text-destructive">{t(actionData.errorKey)}</p> : null}
+          {actionData?.ok === false ? (
+            <p className="text-sm text-destructive">{t(actionData.errorKey)}</p>
+          ) : null}
 
           <Button
             type="submit"

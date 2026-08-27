@@ -13,7 +13,10 @@ export type ActiveMatchCatalogInput = {
   createdAt: UnixEpochMilliseconds
 }
 
-export async function beginMatchCreation(db: ApplicationDatabase, input: ActiveMatchCatalogInput): Promise<void> {
+export async function beginMatchCreation(
+  db: ApplicationDatabase,
+  input: ActiveMatchCatalogInput,
+): Promise<void> {
   await db
     .insert(matches)
     .values({

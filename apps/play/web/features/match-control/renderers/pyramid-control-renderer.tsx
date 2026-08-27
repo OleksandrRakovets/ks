@@ -71,7 +71,10 @@ function ControlRows(props: {
   )
 }
 
-function CombinedControlRows(props: { sections: ControlSection[]; onSubmit: (command: MatchCommand) => void }) {
+function CombinedControlRows(props: {
+  sections: ControlSection[]
+  onSubmit: (command: MatchCommand) => void
+}) {
   const controls = props.sections.reduce<SeatControls>(
     (merged, section) => ({
       A: [...merged.A, ...section.controls.A],
@@ -105,7 +108,10 @@ function NeutralControlRows(props: { controls: Control[]; onSubmit: (command: Ma
   )
 }
 
-function PyramidControlRenderer(props: { controlSections: ControlSections; onSubmitCommand: (command: MatchCommand) => void }) {
+function PyramidControlRenderer(props: {
+  controlSections: ControlSections
+  onSubmitCommand: (command: MatchCommand) => void
+}) {
   const [showTertiary, setShowTertiary] = useState(false)
   const { t } = useTranslation()
   const controlSections = props.controlSections
@@ -121,9 +127,13 @@ function PyramidControlRenderer(props: { controlSections: ControlSections; onSub
 
   return (
     <div className="grid">
-      {hasNeutral && <NeutralControlRows controls={controlSections.neutral} onSubmit={props.onSubmitCommand} />}
+      {hasNeutral && (
+        <NeutralControlRows controls={controlSections.neutral} onSubmit={props.onSubmitCommand} />
+      )}
 
-      {visibleSections.length > 0 && <CombinedControlRows sections={visibleSections} onSubmit={props.onSubmitCommand} />}
+      {visibleSections.length > 0 && (
+        <CombinedControlRows sections={visibleSections} onSubmit={props.onSubmitCommand} />
+      )}
 
       {hasTertiary && (
         <div className="grid">
@@ -134,7 +144,9 @@ function PyramidControlRenderer(props: { controlSections: ControlSections; onSub
           >
             {showTertiary ? t(keys.match.control.showLess) : t(keys.match.control.showMore)}
           </button>
-          {showTertiary && <ControlRows controls={controlSections.tertiary} onSubmit={props.onSubmitCommand} />}
+          {showTertiary && (
+            <ControlRows controls={controlSections.tertiary} onSubmit={props.onSubmitCommand} />
+          )}
         </div>
       )}
     </div>
@@ -142,13 +154,21 @@ function PyramidControlRenderer(props: { controlSections: ControlSections; onSub
 }
 
 export function FreePyramidControlRenderer(props: MatchControlRendererProps<FreePyramidControlView>) {
-  return <PyramidControlRenderer controlSections={props.controlSections} onSubmitCommand={props.onSubmitCommand} />
+  return (
+    <PyramidControlRenderer controlSections={props.controlSections} onSubmitCommand={props.onSubmitCommand} />
+  )
 }
 
 export function CombinedPyramidControlRenderer(props: MatchControlRendererProps<CombinedPyramidControlView>) {
-  return <PyramidControlRenderer controlSections={props.controlSections} onSubmitCommand={props.onSubmitCommand} />
+  return (
+    <PyramidControlRenderer controlSections={props.controlSections} onSubmitCommand={props.onSubmitCommand} />
+  )
 }
 
-export function CombinedPyramidOldControlRenderer(props: MatchControlRendererProps<CombinedPyramidOldControlView>) {
-  return <PyramidControlRenderer controlSections={props.controlSections} onSubmitCommand={props.onSubmitCommand} />
+export function CombinedPyramidOldControlRenderer(
+  props: MatchControlRendererProps<CombinedPyramidOldControlView>,
+) {
+  return (
+    <PyramidControlRenderer controlSections={props.controlSections} onSubmitCommand={props.onSubmitCommand} />
+  )
 }

@@ -1,6 +1,12 @@
 import { describe, expect, test } from 'bun:test'
 
-import { type AcceptedCommandHistoryEntry, type MatchCommand, type MatchConfig, newCommandId, newMatchId } from '@ks/core'
+import {
+  type AcceptedCommandHistoryEntry,
+  type MatchCommand,
+  type MatchConfig,
+  newCommandId,
+  newMatchId,
+} from '@ks/core'
 
 import { createSparringMatch, restoreSparringMatch } from './sparring-match'
 
@@ -23,7 +29,9 @@ describe('SparringMatch', () => {
   test('creation is outside history and prepare emits a focal-seat lifecycle entry', () => {
     const match = createSparringMatch(config())
     expect(match.project().state.currentFrameIndex).toBe(0)
-    expect(accept(match, { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } })).toMatchObject({
+    expect(
+      accept(match, { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } }),
+    ).toMatchObject({
       command: { source: 'match', command: { type: 'frame.prepare' } },
       protocolEntryContents: [{ entryType: 'frame-prepared', frameIndex: 1, seat: 'A' }],
     })
@@ -36,7 +44,11 @@ describe('SparringMatch', () => {
     for (const submitted of [
       { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } },
       { commandId: newCommandId(), source: 'match', command: { type: 'frame.commence', seat: 'A' } },
-      { commandId: newCommandId(), source: 'game', command: { type: 'pot.record', pottedBallCount: 1, seat: 'A' } },
+      {
+        commandId: newCommandId(),
+        source: 'game',
+        command: { type: 'pot.record', pottedBallCount: 1, seat: 'A' },
+      },
     ] satisfies MatchCommand[]) {
       const accepted = accept(warm, submitted)
       history.push({ command: accepted.command, protocolEntryContents: [...accepted.protocolEntryContents] })

@@ -1,5 +1,9 @@
 import { buildMatchConfig, type CreateMatchRequest } from '@ks/competition'
-import { getSparringMatchPhase, SparringMatchMachine, type SparringMatchSnapshot } from '@ks/competition/sparring-match-machine'
+import {
+  getSparringMatchPhase,
+  SparringMatchMachine,
+  type SparringMatchSnapshot,
+} from '@ks/competition/sparring-match-machine'
 import { formatPlayerRef, newMatchId } from '@ks/core'
 import {
   getLongFreePyramidSparringFramePhase,
@@ -172,7 +176,11 @@ function renderStrilaFrame(snap: StrilaSparringFrameSnapshot) {
   }
   if (phase === 'winner-determined') {
     controls.append(
-      btn(`Award frame to ${ctx.winner}`, () => frameActor.send({ type: 'frame.award', seat: ctx.winner! }), 'primary'),
+      btn(
+        `Award frame to ${ctx.winner}`,
+        () => frameActor.send({ type: 'frame.award', seat: ctx.winner! }),
+        'primary',
+      ),
     )
   }
   controls.append(
@@ -206,7 +214,13 @@ function renderPyramidFrame(snap: PyramidSparringFrameSnapshot) {
   if (phase === 'winner-determined') {
     const winner = snap.context.winner
     if (winner)
-      controls.append(btn(`Award frame to ${winner}`, () => frameActor.send({ type: 'frame.award', seat: winner }), 'primary'))
+      controls.append(
+        btn(
+          `Award frame to ${winner}`,
+          () => frameActor.send({ type: 'frame.award', seat: winner }),
+          'primary',
+        ),
+      )
   }
   controls.append(
     btn('Pot A (+1)', () => frameActor.send({ type: 'pot.record', seat: 'A', pottedBallCount: 1 })),
@@ -239,7 +253,13 @@ function renderLongFreePyramidFrame(snap: LongFreePyramidSparringFrameSnapshot) 
   if (phase === 'winner-determined') {
     const winner = snap.context.winner
     if (winner)
-      controls.append(btn(`Award frame to ${winner}`, () => frameActor.send({ type: 'frame.award', seat: winner }), 'primary'))
+      controls.append(
+        btn(
+          `Award frame to ${winner}`,
+          () => frameActor.send({ type: 'frame.award', seat: winner }),
+          'primary',
+        ),
+      )
   }
   controls.append(
     btn('Pot A (+1)', () => frameActor.send({ type: 'pot.record', seat: 'A', pottedBallCount: 1 })),

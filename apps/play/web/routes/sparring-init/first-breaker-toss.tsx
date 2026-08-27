@@ -77,7 +77,9 @@ export function FirstBreakerField(props: {
   return (
     <fieldset className="grid gap-3 rounded-lg border border-border p-3">
       <legend className="px-1 text-sm font-medium">{t(keys.match.sparring.firstBreaker.title)}</legend>
-      {props.firstBreakerSeat ? <input type="hidden" name="firstBreakerSeat" value={props.firstBreakerSeat} /> : null}
+      {props.firstBreakerSeat ? (
+        <input type="hidden" name="firstBreakerSeat" value={props.firstBreakerSeat} />
+      ) : null}
 
       <div className="grid gap-4 sm:grid-cols-[auto_1fr] sm:items-center">
         <div

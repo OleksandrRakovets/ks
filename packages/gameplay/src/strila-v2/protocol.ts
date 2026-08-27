@@ -56,7 +56,10 @@ function isThirdConsecutiveCueBallPot(previous: StrilaSparringFrameSnapshot, com
   )
 }
 
-function isRespottedBlackOpeningIllegalPot(previous: StrilaSparringFrameSnapshot, command: StrilaCommand): boolean {
+function isRespottedBlackOpeningIllegalPot(
+  previous: StrilaSparringFrameSnapshot,
+  command: StrilaCommand,
+): boolean {
   return (
     getPhase(previous) === 'respotted-black.opening' &&
     command.type === 'pot.record' &&
