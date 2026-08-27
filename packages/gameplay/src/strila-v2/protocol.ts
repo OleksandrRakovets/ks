@@ -1,7 +1,7 @@
 import invariant from 'tiny-invariant'
 import * as v from 'valibot'
 
-import { type StrilaCommand, type StrilaProtocolEntry, StrilaProtocolEntrySchema } from './definitions'
+import { type StrilaCommand, StrilaProtocolEntry } from './definitions'
 import { getPhase, type StrilaSparringFrameSnapshot } from './machine'
 
 function isMixedBallInHandPot(previous: StrilaSparringFrameSnapshot, command: StrilaCommand): boolean {
@@ -36,7 +36,8 @@ function playerEntry(
     }
   })()
 
-  return v.parse(StrilaProtocolEntrySchema, {
+  return v.parse(StrilaProtocolEntry, {
+    gameKey: 'strila-v2',
     source: 'player',
     entryType: 'player-command',
     seat: command.seat,
@@ -67,14 +68,15 @@ export function projectStrilaProtocolEntries(args: {
   previous: StrilaSparringFrameSnapshot
   command: StrilaCommand
   next: StrilaSparringFrameSnapshot
-}): StrilaProtocolEntry[] {
+}): [StrilaProtocolEntry, ...StrilaProtocolEntry[]] {
   const { previous, command, next } = args
 
-  const entries: StrilaProtocolEntry[] = [playerEntry(previous, command, next)]
+  const entries: [StrilaProtocolEntry, ...StrilaProtocolEntry[]] = [playerEntry(previous, command, next)]
 
   if (getPhase(previous) !== 'respotted-black.opening' && getPhase(next) === 'respotted-black.opening') {
     entries.push(
-      v.parse(StrilaProtocolEntrySchema, {
+      v.parse(StrilaProtocolEntry, {
+        gameKey: 'strila-v2',
         source: 'system',
         entryType: 'system-note',
         seat: command.seat,
@@ -85,7 +87,8 @@ export function projectStrilaProtocolEntries(args: {
 
   if (isThirdConsecutiveCueBallPot(previous, command)) {
     entries.push(
-      v.parse(StrilaProtocolEntrySchema, {
+      v.parse(StrilaProtocolEntry, {
+        gameKey: 'strila-v2',
         source: 'system',
         entryType: 'system-note',
         seat: command.seat,
@@ -96,7 +99,8 @@ export function projectStrilaProtocolEntries(args: {
 
   if (isMixedBallInHandPot(previous, command)) {
     entries.push(
-      v.parse(StrilaProtocolEntrySchema, {
+      v.parse(StrilaProtocolEntry, {
+        gameKey: 'strila-v2',
         source: 'system',
         entryType: 'system-note',
         seat: command.seat,
@@ -107,7 +111,8 @@ export function projectStrilaProtocolEntries(args: {
 
   if (isRespottedBlackOpeningIllegalPot(previous, command)) {
     entries.push(
-      v.parse(StrilaProtocolEntrySchema, {
+      v.parse(StrilaProtocolEntry, {
+        gameKey: 'strila-v2',
         source: 'system',
         entryType: 'system-note',
         seat: command.seat,
@@ -123,7 +128,8 @@ export function projectStrilaProtocolEntries(args: {
       'Winner determination reason is required when protocol records winner determination',
     )
     entries.push(
-      v.parse(StrilaProtocolEntrySchema, {
+      v.parse(StrilaProtocolEntry, {
+        gameKey: 'strila-v2',
         source: 'system',
         entryType: 'system-note',
         seat: next.context.winner,

@@ -25,7 +25,7 @@ describe('SparringMatch', () => {
     expect(match.project().state.currentFrameIndex).toBe(0)
     expect(accept(match, { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } })).toMatchObject({
       command: { source: 'match', command: { type: 'frame.prepare' } },
-      protocolEntries: [{ entryType: 'frame-prepared', frameIndex: 1, seat: 'A' }],
+      protocolEntryContents: [{ entryType: 'frame-prepared', frameIndex: 1, seat: 'A' }],
     })
   })
 
@@ -39,7 +39,7 @@ describe('SparringMatch', () => {
       { commandId: newCommandId(), source: 'game', command: { type: 'pot.record', pottedBallCount: 1, seat: 'A' } },
     ] satisfies MatchCommand[]) {
       const accepted = accept(warm, submitted)
-      history.push({ command: accepted.command, protocolEntries: [...accepted.protocolEntries] })
+      history.push({ command: accepted.command, protocolEntryContents: [...accepted.protocolEntryContents] })
     }
     // SAFETY: this fixture is built from typed accepted results immediately above.
     const persisted = JSON.parse(JSON.stringify(history)) as AcceptedCommandHistoryEntry[]
@@ -54,7 +54,7 @@ describe('SparringMatch', () => {
       source: 'match',
       command: { type: 'frame.concede', seat: 'A' },
     })
-    expect(result.protocolEntries.map((entry) => [entry.entryType, entry.seat])).toEqual([
+    expect(result.protocolEntryContents.map((entry) => [entry.entryType, entry.seat])).toEqual([
       ['frame-conceded', 'A'],
       ['frame-awarded', 'B'],
       ['match-ended', 'B'],

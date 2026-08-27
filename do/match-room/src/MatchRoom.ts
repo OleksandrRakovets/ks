@@ -1,5 +1,5 @@
 import { buildMatchConfig, createSparringMatch, restoreSparringMatch, type SparringMatch } from '@ks/competition'
-import { type MatchConfig, type MatchState, type StoredProtocolEntry } from '@ks/core'
+import { type MatchConfig, type MatchState, type ProtocolEntry } from '@ks/core'
 import { DurableObject } from 'cloudflare:workers'
 import { migrate } from 'drizzle-orm/durable-sqlite/migrator'
 import * as v from 'valibot'
@@ -86,7 +86,7 @@ export class MatchRoom extends DurableObject<Env> {
 
   async readProtocol(
     args: MatchIdBody,
-  ): Promise<{ ok: true; latestSeq: number; state: MatchState; protocolEntries: StoredProtocolEntry[] } | Failure> {
+  ): Promise<{ ok: true; latestSeq: number; state: MatchState; protocolEntries: ProtocolEntry[] } | Failure> {
     await this.ready
     const parsed = v.safeParse(MatchIdBodySchema, args)
     if (!parsed.success) return { ok: false, error: 'Invalid protocol body', status: 400 }
@@ -137,7 +137,7 @@ export class MatchRoom extends DurableObject<Env> {
           commandId: body.output.command.commandId,
           requestJson,
           command: result.command,
-          entries: result.protocolEntries,
+          entryContents: result.protocolEntryContents,
           finalState,
         })
         this.resident = { latestSeq: committed.outcome.acceptedSeq, match: resident.match }
@@ -170,7 +170,7 @@ export class MatchRoom extends DurableObject<Env> {
           createdAt: number
           sourceLatestSeq: number
           endedAt: number
-          protocolEntries: StoredProtocolEntry[]
+          protocolEntries: ProtocolEntry[]
           finalState: MatchState
         }
       }
@@ -214,16 +214,7 @@ export class MatchRoom extends DurableObject<Env> {
         return { ok: false, error: 'Match is active', status: 409 }
       const entries = this.store.protocolEntriesThrough(match.latestSeq)
       this.validateTerminal(match, entries)
-      const terminalEntries = entries
-        .filter((entry) => entry.acceptedSeq === match.latestSeq)
-        .map((entry) => ({
-          frameIndex: entry.frameIndex,
-          source: entry.source,
-          entryType: entry.entryType,
-          seat: entry.seat,
-          scoreAfter: entry.scoreAfter,
-          body: JSON.parse(entry.bodyJson),
-        }))
+      const terminalEntries = entries.filter((entry) => entry.acceptedSeq === match.latestSeq)
       if (!terminalEntries[0]) throw new Error('Missing terminal Protocol entries')
       this.live.broadcast({
         type: 'command-accepted',
@@ -263,7 +254,7 @@ export class MatchRoom extends DurableObject<Env> {
       : { ok: true, outcome }
   }
 
-  private validateTerminal(match: ActiveMatchRecord, entries: StoredProtocolEntry[]): void {
+  private validateTerminal(match: ActiveMatchRecord, entries: ProtocolEntry[]): void {
     const terminal = entries.filter((entry) => entry.entryType === 'match-ended')
     const tail = entries.at(-1)
     const winner = [...(match.finalState?.frames ?? [])].reverse().find((frame) => frame.winnerSeat)?.winnerSeat

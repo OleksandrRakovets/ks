@@ -1,9 +1,9 @@
-import { type MatchId, type MatchState, MatchStateSchema } from '@ks/core'
+import { type MatchId, type MatchState, MatchStateSchema, NonEmptyProtocolEntries } from '@ks/core'
 import { and, eq, inArray } from 'drizzle-orm'
 import * as v from 'valibot'
 
 import type { MatchRoomFinalizationData } from '../match-room-client'
-import { prepareProtocolRowsForArchive, PROTOCOL_ARCHIVE_VERSION, ProtocolArchiveRowsSchema } from '../protocol'
+import { PROTOCOL_ARCHIVE_VERSION } from '../protocol'
 import { matches, matchProtocolArchives, StoredMatchStatus } from './schema'
 import type { ApplicationDatabase } from './types'
 
@@ -80,8 +80,8 @@ function semanticArchiveEqual(
     left.createdAt !== right.createdAt
   )
     return false
-  const leftRows = v.safeParse(v.pipe(v.string(), v.parseJson(), ProtocolArchiveRowsSchema), left.rowsJson)
-  const rightRows = v.safeParse(v.pipe(v.string(), v.parseJson(), ProtocolArchiveRowsSchema), right.rowsJson)
+  const leftRows = v.safeParse(v.pipe(v.string(), v.parseJson(), NonEmptyProtocolEntries), left.rowsJson)
+  const rightRows = v.safeParse(v.pipe(v.string(), v.parseJson(), NonEmptyProtocolEntries), right.rowsJson)
   const leftState = v.safeParse(v.pipe(v.string(), v.parseJson(), MatchStateSchema), left.stateJson)
   const rightState = v.safeParse(v.pipe(v.string(), v.parseJson(), MatchStateSchema), right.stateJson)
   // SAFETY: both schemas validate JSON-compatible structural values.
@@ -133,7 +133,11 @@ export async function archiveCompletedMatch(db: ApplicationDatabase, input: Comp
     matchId: input.matchId,
     sourceLatestSeq: input.sourceLatestSeq,
     protocolVersion: PROTOCOL_ARCHIVE_VERSION,
-    rowsJson: JSON.stringify(prepareProtocolRowsForArchive(input.protocolEntries)),
+    rowsJson: JSON.stringify(
+      [...input.protocolEntries].sort(
+        (left, right) => left.acceptedSeq - right.acceptedSeq || left.entryIndex - right.entryIndex,
+      ),
+    ),
     stateJson: JSON.stringify(state),
     createdAt: input.endedAt,
   }

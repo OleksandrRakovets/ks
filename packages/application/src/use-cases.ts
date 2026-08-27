@@ -26,7 +26,6 @@ import type {
 import { CreateMatchInputSchema } from './contracts'
 import type { MatchRoomClient, MatchRoomCreateRequest, MatchRoomFinalizationData } from './match-room-client'
 import {
-  deriveProtocolRows,
   ProtocolArchiveCorruptionError,
   type ProtocolArchiveRecord,
   renderProtocolRows,
@@ -232,7 +231,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
         state: room.state,
         latestSeq: room.latestSeq,
         participants,
-        protocolRows: deriveProtocolRows(room.protocolEntries, seatNames, timeZone, locale).reverse(),
+        protocolRows: renderProtocolRows(room.protocolEntries, seatNames, timeZone, locale).reverse(),
       }
     } else {
       if (record.status === 'finalizing') await disposeAndFinishRoom(matchId)
@@ -251,7 +250,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
         state: { ...archive.state, gameKey: expectedGameKey },
         latestSeq: archive.sourceLatestSeq,
         participants,
-        protocolRows: renderProtocolRows(archive.rows, seatNames, timeZone, locale),
+        protocolRows: renderProtocolRows(archive.entries, seatNames, timeZone, locale),
       }
     }
   }

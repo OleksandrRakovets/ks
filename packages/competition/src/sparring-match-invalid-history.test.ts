@@ -18,7 +18,7 @@ function prepared(): AcceptedCommandHistoryEntry {
     command: { type: 'frame.prepare' },
   })
   if (result._tag !== 'accepted') throw new Error('Expected acceptance')
-  return { command: result.command, protocolEntries: [...result.protocolEntries] }
+  return { command: result.command, protocolEntryContents: [...result.protocolEntryContents] }
 }
 
 test('restoration rejects Protocol semantics divergent from canonical execution', () => {
@@ -27,7 +27,7 @@ test('restoration rejects Protocol semantics divergent from canonical execution'
     restoreSparringMatch(config, [
       {
         ...record,
-        protocolEntries: record.protocolEntries.map((entry) => ({ ...entry, seat: 'B' })),
+        protocolEntryContents: record.protocolEntryContents.map((entry) => ({ ...entry, seat: 'B' })),
       },
     ]),
   ).toThrow(SparringMatchHistoryError)

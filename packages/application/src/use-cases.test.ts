@@ -183,7 +183,7 @@ function applicationForArchivedGame(
       (async () => ({
         sourceLatestSeq: 2,
         protocolVersion: 1,
-        rows: [],
+        entries: [],
         state: archivedState,
       })),
     beginMatchCreation: unused,
@@ -649,7 +649,7 @@ describe('application orchestration', () => {
       getProtocolArchive: async () => ({
         sourceLatestSeq: 9,
         protocolVersion: 1,
-        rows: [],
+        entries: [],
         state: archivedState,
       }),
       beginMatchCreation: unused,

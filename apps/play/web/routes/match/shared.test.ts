@@ -138,7 +138,20 @@ function updateJson(_matchId: ReturnType<typeof newMatchId>, acceptedSeq: number
     type: 'command-accepted',
     acceptedSeq,
     terminal,
-    entries: [{ frameIndex: 1, source: 'system', entryType: terminal ? 'match-ended' : 'frame-prepared', seat: 'A', body: {} }],
+    entries: [
+      {
+        acceptedSeq,
+        entryIndex: 0,
+        causedByCommandId: newCommandId(),
+        acceptedAt: 1,
+        gameKey: 'strila-v2',
+        frameIndex: 1,
+        source: 'system',
+        entryType: terminal ? 'match-ended' : 'frame-prepared',
+        seat: 'A',
+        body: {},
+      },
+    ],
   })
 }
 

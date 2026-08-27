@@ -1,4 +1,4 @@
-import { FrameOutcomeSchema, ProtocolEntrySchema, type Seat } from '@ks/core'
+import { FrameOutcomeSchema, type Seat } from '@ks/core'
 import * as v from 'valibot'
 import { transition } from 'xstate'
 
@@ -7,7 +7,6 @@ import {
   type GameCommandExecution,
   type GameplaySession,
   type GameplaySessionCreateArgsFor,
-  type NonEmptyProtocolEntries,
 } from '../gameplay-session'
 import type { ControlProjectionFor } from '../registry'
 import type { PyramidCommand } from './definitions'
@@ -31,19 +30,14 @@ class PyramidGameplaySession<K extends PyramidGameKey> implements GameplaySessio
     const previous = this.#snapshot
     if (!previous.can(command)) return commandNotAvailable()
     const [candidate] = transition(PyramidSparringFrameMachine, previous, command)
-    // Validate semantic output before retaining the candidate, despite both producers being internally typed.
     const projected = projectPyramidProtocolEntries({ previous, command, next: candidate, rules: this.#rules })
-    if (!v.is(v.array(ProtocolEntrySchema), projected))
-      throw new Error('Accepted Pyramid command produced invalid protocol entries')
-    if (!projected[0]) throw new Error('Accepted Pyramid command produced no protocol entries')
-    const protocolEntries: NonEmptyProtocolEntries = [projected[0], ...projected.slice(1)]
     const output = candidate.status === 'done' ? candidate.output : undefined
     if (output !== undefined && !v.is(FrameOutcomeSchema, output))
       throw new Error('Pyramid machine produced an invalid outcome')
     const outcome = output
     const result = outcome
-      ? { _tag: 'accepted' as const, protocolEntries, outcome }
-      : { _tag: 'accepted' as const, protocolEntries }
+      ? { _tag: 'accepted' as const, protocolEntries: projected, outcome }
+      : { _tag: 'accepted' as const, protocolEntries: projected }
     this.#snapshot = candidate
     return result
   }

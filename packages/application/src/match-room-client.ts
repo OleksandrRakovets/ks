@@ -1,15 +1,21 @@
-import { type CreateMatchRequest, type MatchStateFor, SparringMatchRejectionSchema } from '@ks/competition'
+import {
+  type CreateMatchRequest,
+  type MatchStateFor,
+  parseProtocolEntryContent,
+  SparringMatchRejectionSchema,
+} from '@ks/competition'
 import {
   ControlSections,
   type MatchCommand,
   type MatchId,
   MatchIdSchema,
   MatchStateSchema,
-  NonEmptyStoredProtocolEntriesSchema,
+  NonEmptyProtocolEntries,
   NonEmptyStringSchema,
   NonNegativeIntegerSchema,
   PositiveIntegerSchema,
-  StoredProtocolEntrySchema,
+  ProtocolEntries,
+  ProtocolEntry,
   type UnixEpochMilliseconds,
   UnixEpochMillisecondsSchema,
 } from '@ks/core'
@@ -24,7 +30,7 @@ export type MatchRoomCreateRequest = CreateMatchRequest & {
   controlSecret: string
   createdAt: UnixEpochMilliseconds
 }
-export type MatchRoomFinalizationData = v.InferOutput<typeof CompletedMatchTransferSchema>
+export type MatchRoomFinalizationData = v.InferOutput<typeof CompletedMatchTransfer>
 export type MatchRoomReadResult<K extends RegisteredGameKey = RegisteredGameKey> =
   | {
       ok: true
@@ -45,7 +51,7 @@ export interface MatchRoomClient {
         ok: true
         latestSeq: number
         state: MatchStateFor<K>
-        protocolEntries: v.InferOutput<typeof StoredProtocolEntrySchema>[]
+        protocolEntries: ProtocolEntries
       }
     | Failure
   >
@@ -117,19 +123,20 @@ const ProtocolResultSchema = v.variant('ok', [
     ok: v.literal(true),
     latestSeq: NonNegativeIntegerSchema,
     state: ActiveStateSchema,
-    protocolEntries: v.array(StoredProtocolEntrySchema),
+    protocolEntries: ProtocolEntries,
   }),
   FailureSchema,
 ])
-export const CompletedMatchTransferSchema = v.object({
+export const CompletedMatchTransfer = v.object({
   matchId: MatchIdSchema,
   gameKey: RegisteredGameKeySchema,
   createdAt: UnixEpochMillisecondsSchema,
   sourceLatestSeq: PositiveIntegerSchema,
   endedAt: UnixEpochMillisecondsSchema,
-  protocolEntries: NonEmptyStoredProtocolEntriesSchema,
+  protocolEntries: NonEmptyProtocolEntries,
   finalState: FinishedStateSchema,
 })
+export type CompletedMatchTransfer = v.InferOutput<typeof CompletedMatchTransfer>
 const invalid: Failure = { ok: false, error: 'Invalid MatchRoom response', status: 502 }
 
 function parse<T extends v.BaseSchema<unknown, unknown, v.BaseIssue<unknown>>>(
@@ -138,6 +145,20 @@ function parse<T extends v.BaseSchema<unknown, unknown, v.BaseIssue<unknown>>>(
 ): v.InferOutput<T> | Failure {
   const result = v.safeParse(schema, input)
   return result.success ? result.output : invalid
+}
+
+function validateProtocolEntries(gameKey: RegisteredGameKey, entries: ProtocolEntry[]): ProtocolEntry[] {
+  return entries.map((entry) => {
+    const { acceptedSeq, entryIndex, causedByCommandId, acceptedAt, ...content } = entry
+    if (content.gameKey !== gameKey) throw new Error('Protocol game key mismatch')
+    return {
+      acceptedSeq,
+      entryIndex,
+      causedByCommandId,
+      acceptedAt,
+      ...parseProtocolEntryContent(content),
+    }
+  })
 }
 
 export function createMatchRoomClient(namespace: { getByName(name: string): MatchRoomStub }): MatchRoomClient {
@@ -177,8 +198,16 @@ export function createMatchRoomClient(namespace: { getByName(name: string): Matc
       const result = parse(ProtocolResultSchema, await namespace.getByName(matchId).readProtocol({ matchId }))
       if (!result.ok) return result
       if (result.state.matchId !== matchId || result.state.gameKey !== expectedGameKey) return invalid
-      // SAFETY: the runtime game-key equality above correlates the parsed state with K.
-      return { ...result, state: result.state as MatchStateFor<K> }
+      try {
+        return {
+          ...result,
+          // SAFETY: the runtime game-key equality above correlates the parsed state with K.
+          state: result.state as MatchStateFor<K>,
+          protocolEntries: validateProtocolEntries(expectedGameKey, result.protocolEntries),
+        }
+      } catch {
+        return invalid
+      }
     },
     submitCommand: async (matchId: MatchId, command: MatchCommand) => {
       const result = parse(
@@ -195,10 +224,21 @@ export function createMatchRoomClient(namespace: { getByName(name: string): Matc
       namespace.getByName(matchId).stream(since === undefined ? { matchId } : { matchId, since }),
     finalization: async (matchId: MatchId) => {
       const result = parse(
-        v.variant('ok', [v.object({ ok: v.literal(true), data: CompletedMatchTransferSchema }), FailureSchema]),
+        v.variant('ok', [v.object({ ok: v.literal(true), data: CompletedMatchTransfer }), FailureSchema]),
         await namespace.getByName(matchId).finalization({ matchId }),
       )
-      return result.ok && result.data.matchId !== matchId ? invalid : result
+      if (!result.ok || result.data.matchId !== matchId) return result.ok ? invalid : result
+      try {
+        return {
+          ok: true,
+          data: {
+            ...result.data,
+            protocolEntries: validateProtocolEntries(result.data.gameKey, result.data.protocolEntries),
+          },
+        }
+      } catch {
+        return invalid
+      }
     },
     disposeFinalized: async (matchId: MatchId) =>
       parse(

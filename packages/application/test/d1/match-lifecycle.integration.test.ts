@@ -4,7 +4,7 @@ import {
   MatchIdSchema,
   newCommandId,
   PlayerRefSchema,
-  type StoredProtocolEntry,
+  type ProtocolEntry,
   UnixEpochMillisecondsSchema,
 } from '@ks/core'
 import { applyD1Migrations, env, reset } from 'cloudflare:test'
@@ -48,7 +48,7 @@ function terminalArchiveInput(id = matchId): CompletedMatchArchiveInput {
   const config = buildMatchConfig(id, createRequest)
   const session = createSparringMatch(config)
   const acceptedAt = v.parse(UnixEpochMillisecondsSchema, 2_000)
-  const protocolEntries: StoredProtocolEntry[] = []
+  const protocolEntries: ProtocolEntry[] = []
   let acceptedSeq = 0
   for (const command of [
     { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } },
@@ -59,18 +59,13 @@ function terminalArchiveInput(id = matchId): CompletedMatchArchiveInput {
     const decision = session.execute(command)
     if (decision._tag !== 'accepted') throw new Error(`Fixture command rejected: ${String(command.command.type)}`)
     acceptedSeq += 1
-    decision.protocolEntries.forEach((entry, entryIndex) =>
+    decision.protocolEntryContents.forEach((entry, entryIndex) =>
       protocolEntries.push({
+        ...entry,
         acceptedSeq,
         entryIndex,
         causedByCommandId: command.commandId,
         acceptedAt,
-        frameIndex: entry.frameIndex,
-        source: entry.source,
-        entryType: entry.entryType,
-        seat: entry.seat,
-        scoreAfter: entry.scoreAfter,
-        bodyJson: JSON.stringify(entry.body),
       }),
     )
   }
@@ -206,8 +201,22 @@ describe('real D1 match lifecycle', () => {
       framesWonBySeat: { A: 1, B: 0 },
       frames: [{ frameIndex: 1, pointsBySeat: { A: 8, B: 2 }, breakerSeat: 'A', winnerSeat: 'A' }],
     }
-    await seedArchive(JSON.stringify([]), JSON.stringify(state), 1)
-    expect(await getProtocolArchive(db, matchId)).toMatchObject({ protocolVersion: 1, rows: [], state })
+    const entries = [
+      {
+        acceptedSeq: 1,
+        entryIndex: 0,
+        causedByCommandId: newCommandId(),
+        acceptedAt: 2_000,
+        gameKey: 'historical-game',
+        frameIndex: 1,
+        source: 'system',
+        entryType: 'match-ended',
+        seat: 'A',
+        body: {},
+      },
+    ]
+    await seedArchive(JSON.stringify(entries), JSON.stringify(state), 1)
+    expect(await getProtocolArchive(db, matchId)).toMatchObject({ protocolVersion: 1, entries, state })
   })
 
   test.each([

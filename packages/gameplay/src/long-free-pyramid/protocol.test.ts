@@ -15,6 +15,7 @@ test('projects the exact ordered entry and total scoreAfter across rack state', 
 
   expect(projectLongFreePyramidProtocolEntries({ previous, command, next })).toEqual([
     {
+      gameKey: 'free-pyramid-long',
       source: 'player',
       entryType: 'player-command',
       seat: 'B',

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { ProtocolEntrySchema } from '@ks/core'
+import { GameProtocolEntry } from '@ks/core'
 import * as v from 'valibot'
 
 import type { GameCommandExecution } from './gameplay-session'
@@ -11,7 +11,7 @@ function expectAccepted(result: GameCommandExecution): Extract<GameCommandExecut
   expect(result._tag).toBe('accepted')
   if (result._tag !== 'accepted') throw new Error('Expected accepted gameplay command')
   expect(result.protocolEntries.length).toBeGreaterThan(0)
-  expect(result.protocolEntries.every((entry) => v.is(ProtocolEntrySchema, entry))).toBe(true)
+  expect(result.protocolEntries.every((entry) => v.is(GameProtocolEntry, entry))).toBe(true)
   return result
 }
 

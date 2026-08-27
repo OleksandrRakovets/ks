@@ -1,4 +1,4 @@
-import type { CommandId, MatchId, UnixEpochMilliseconds } from '@ks/core'
+import type { CommandId, GameKey, MatchId, UnixEpochMilliseconds } from '@ks/core'
 import { sql } from 'drizzle-orm'
 import { check, foreignKey, integer, primaryKey, sqliteTable, text, unique } from 'drizzle-orm/sqlite-core'
 
@@ -53,7 +53,8 @@ export const protocolEntries = sqliteTable(
     entryIndex: integer('entry_index').notNull(),
     causedByCommandId: text('caused_by_command_id').$type<CommandId>().notNull(),
     acceptedAt: integer('accepted_at').$type<UnixEpochMilliseconds>().notNull(),
-    frameIndex: integer('frame_index'),
+    gameKey: text('game_key').$type<GameKey>().notNull(),
+    frameIndex: integer('frame_index').notNull(),
     source: text('source').$type<'player' | 'system'>().notNull(),
     entryType: text('entry_type').notNull(),
     seat: text('seat').$type<'A' | 'B'>().notNull(),

@@ -1,4 +1,4 @@
-import type { BySeatNumber, FrameOutcome, ProtocolEntry, Seat } from '@ks/core'
+import type { BySeatNumber, FrameOutcome, GameProtocolEntry, Seat } from '@ks/core'
 import * as v from 'valibot'
 
 import type { ControlProjectionFor, GameCommandFor, RegisteredGameKey } from './registry'
@@ -6,10 +6,12 @@ import type { ControlProjectionFor, GameCommandFor, RegisteredGameKey } from './
 export const GameCommandRejectionSchema = v.object({ code: v.literal('command-not-available') })
 export type GameCommandRejection = v.InferOutput<typeof GameCommandRejectionSchema>
 
-export type NonEmptyProtocolEntries = readonly [ProtocolEntry, ...ProtocolEntry[]]
-
 export type GameCommandExecution =
-  | { readonly _tag: 'accepted'; readonly protocolEntries: NonEmptyProtocolEntries; readonly outcome?: FrameOutcome }
+  | {
+      readonly _tag: 'accepted'
+      readonly protocolEntries: readonly [GameProtocolEntry, ...GameProtocolEntry[]]
+      readonly outcome?: FrameOutcome
+    }
   | { readonly _tag: 'rejected'; readonly reason: GameCommandRejection }
 
 type GameplaySessionCreateArgsByKey = {

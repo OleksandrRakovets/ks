@@ -1,16 +1,11 @@
 import {
   type BySeatNumber,
-  BySeatNumberSchema,
   type MatchId,
   type MatchState,
-  PositiveIntegerSchema,
-  ProtocolEntrySourceSchema,
+  type NonEmptyProtocolEntries,
+  ProtocolEntry,
   type Seat,
-  SeatSchema,
-  type StoredProtocolEntry,
   type UnixEpochMilliseconds,
-  UnixEpochMillisecondsSchema,
-  UnknownObjectSchema,
 } from '@ks/core'
 import * as v from 'valibot'
 
@@ -30,33 +25,12 @@ export class ProtocolArchiveCorruptionError extends Error {
   }
 }
 
-const ArchiveBodySchema = UnknownObjectSchema
-
-const ProtocolArchiveRowSchema = v.object({
-  rowNo: PositiveIntegerSchema,
-  acceptedAt: UnixEpochMillisecondsSchema,
-  frameIndex: v.optional(PositiveIntegerSchema),
-  source: ProtocolEntrySourceSchema,
-  entryType: v.pipe(v.string(), v.minLength(1)),
-  seat: SeatSchema,
-  scoreAfter: v.optional(BySeatNumberSchema),
-  body: ArchiveBodySchema,
-})
-export type ProtocolArchiveRow = v.InferOutput<typeof ProtocolArchiveRowSchema>
-
-export const ProtocolArchiveRowsSchema = v.array(ProtocolArchiveRowSchema)
-
 export type ProtocolArchiveRecord = {
   sourceLatestSeq: number
   protocolVersion: typeof PROTOCOL_ARCHIVE_VERSION
-  rows: ProtocolArchiveRow[]
+  entries: NonEmptyProtocolEntries
   state: MatchState
 }
-
-export const ProtocolArchiveSchema = v.object({
-  protocolVersion: v.literal(PROTOCOL_ARCHIVE_VERSION),
-  rows: ProtocolArchiveRowsSchema,
-})
 
 type SeatNames = { A: string; B: string }
 
@@ -73,7 +47,6 @@ export type ProtocolRow = {
   timeLabel: string
 }
 
-type ProtocolArchiveRowDraft = Omit<ProtocolArchiveRow, 'rowNo'>
 const ProtocolBallSchema = v.picklist([0, 1, 2, 3, 4, 5, 6, 7])
 type ProtocolBall = v.InferOutput<typeof ProtocolBallSchema>
 const PottedBallsSchema = v.pipe(v.array(ProtocolBallSchema), v.minLength(1))
@@ -89,7 +62,7 @@ const ProtocolMessageBodySchema = v.object({
 })
 
 function entryMessage(
-  entry: Pick<ProtocolArchiveRow, 'body' | 'entryType' | 'seat'>,
+  entry: Pick<ProtocolEntry, 'body' | 'entryType' | 'seat' | 'frameIndex'>,
   seatNames: SeatNames,
 ): ProtocolRow['message'] {
   const seatLabel = (seat: Seat) => seatNames[seat]
@@ -148,9 +121,9 @@ function entryMessage(
       return {
         key: 'match.protocol.system.frame-prepared.breaker',
         actor: seatLabel(entry.seat),
-        params: { frameIndex: String(body.frameIndex) },
+        params: { frameIndex: String(entry.frameIndex) },
       }
-    case 'frame-completed':
+    case 'frame-awarded':
       return { key: 'match.protocol.system.frame-completed', actor }
     case 'frame-conceded':
       return { key: 'match.protocol.system.frame-conceded', actor }
@@ -189,37 +162,19 @@ function entryMessage(
   return { key: 'match.protocol.unknown', params: { value: commandType ?? systemType ?? entry.entryType } }
 }
 
-function rowFromProtocolEntry(entry: StoredProtocolEntry): ProtocolArchiveRowDraft {
-  return {
-    acceptedAt: entry.acceptedAt,
-    frameIndex: entry.frameIndex,
-    source: entry.source,
-    entryType: entry.entryType,
-    seat: entry.seat,
-    scoreAfter: entry.scoreAfter,
-    body: v.parse(ArchiveBodySchema, JSON.parse(entry.bodyJson)),
-  }
-}
-
-export function prepareProtocolRowsForArchive(entries: StoredProtocolEntry[]): ProtocolArchiveRow[] {
-  return [...entries]
-    .sort((a, b) => a.acceptedSeq - b.acceptedSeq || a.entryIndex - b.entryIndex)
-    .map((entry, index) => ({ ...rowFromProtocolEntry(entry), rowNo: index + 1 }))
-}
-
 export function renderProtocolRows(
-  rows: ProtocolArchiveRow[],
+  entries: ProtocolEntry[],
   seatNames: SeatNames,
   timeZone: string,
   locale = 'en',
 ): ProtocolRow[] {
-  return rows.map((row) => {
+  return entries.map((entry) => {
     return {
-      key: `protocol-${row.rowNo}`,
-      message: entryMessage(row, seatNames),
-      score: row.scoreAfter,
-      acceptedAt: row.acceptedAt,
-      timeLabel: new Date(row.acceptedAt).toLocaleTimeString(locale, {
+      key: `protocol-${entry.acceptedSeq}-${entry.entryIndex}`,
+      message: entryMessage(entry, seatNames),
+      score: entry.scoreAfter,
+      acceptedAt: entry.acceptedAt,
+      timeLabel: new Date(entry.acceptedAt).toLocaleTimeString(locale, {
         hour: '2-digit',
         minute: '2-digit',
         hour12: false,
@@ -227,13 +182,4 @@ export function renderProtocolRows(
       }),
     }
   })
-}
-
-export function deriveProtocolRows(
-  entries: StoredProtocolEntry[],
-  seatNames: SeatNames,
-  timeZone: string,
-  locale = 'en',
-): ProtocolRow[] {
-  return renderProtocolRows(prepareProtocolRowsForArchive(entries), seatNames, timeZone, locale)
 }

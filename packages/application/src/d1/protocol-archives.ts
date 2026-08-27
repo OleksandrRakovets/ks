@@ -1,4 +1,6 @@
-import { type MatchId, MatchIdSchema, MatchStateSchema, PositiveIntegerSchema } from '@ks/core'
+import { parseProtocolEntryContent } from '@ks/competition'
+import { type MatchId, MatchIdSchema, MatchStateSchema, NonEmptyProtocolEntries, PositiveIntegerSchema } from '@ks/core'
+import { isRegisteredGameKey } from '@ks/gameplay/definitions'
 import { eq } from 'drizzle-orm'
 import * as v from 'valibot'
 
@@ -6,7 +8,6 @@ import {
   PROTOCOL_ARCHIVE_VERSION,
   ProtocolArchiveCorruptionError,
   type ProtocolArchiveRecord,
-  ProtocolArchiveRowsSchema,
   UnsupportedProtocolArchiveVersionError,
 } from '../protocol'
 import { matchProtocolArchives } from './schema'
@@ -17,10 +18,10 @@ const ProtocolArchiveStorageRowSchema = v.pipe(
     matchId: MatchIdSchema,
     sourceLatestSeq: PositiveIntegerSchema,
     protocolVersion: v.literal(PROTOCOL_ARCHIVE_VERSION),
-    rowsJson: v.pipe(v.string(), v.parseJson(), ProtocolArchiveRowsSchema),
+    rowsJson: v.pipe(v.string(), v.parseJson(), NonEmptyProtocolEntries),
     stateJson: v.pipe(v.string(), v.parseJson(), MatchStateSchema),
   }),
-  v.transform(({ rowsJson, stateJson, ...row }) => ({ ...row, rows: rowsJson, state: stateJson })),
+  v.transform(({ rowsJson, stateJson, ...row }) => ({ ...row, entries: rowsJson, state: stateJson })),
   v.check((value) => value.state.status === 'finished', 'Archive state is not finished'),
   v.check((value) => value.state.matchId === value.matchId, 'Archive match ID does not match state'),
 )
@@ -40,8 +41,24 @@ export async function getProtocolArchive(db: ApplicationDatabase, matchId: Match
   if (!row) return null
   try {
     const parsed = v.parse(ProtocolArchiveStorageRowSchema, row)
-    const { matchId: _matchId, ...archive } = parsed
-    return archive
+    const { matchId: _matchId, entries, ...archive } = parsed
+    const gameKey = archive.state.gameKey
+    return {
+      ...archive,
+      entries: isRegisteredGameKey(gameKey)
+        ? entries.map((entry) => {
+            const { acceptedSeq, entryIndex, causedByCommandId, acceptedAt, ...content } = entry
+            if (content.gameKey !== gameKey) throw new Error('Protocol archive game key mismatch')
+            return {
+              acceptedSeq,
+              entryIndex,
+              causedByCommandId,
+              acceptedAt,
+              ...parseProtocolEntryContent(content),
+            }
+          })
+        : entries,
+    }
   } catch {
     if (row.protocolVersion !== PROTOCOL_ARCHIVE_VERSION) {
       throw new UnsupportedProtocolArchiveVersionError(matchId, row.protocolVersion)

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { FrameOutcomeSchema, ProtocolEntrySchema } from '@ks/core'
+import { FrameOutcomeSchema, GameProtocolEntry } from '@ks/core'
 import * as v from 'valibot'
 
 import { LongFreePyramidControlViewSchema } from './long-free-pyramid/definitions'
@@ -61,7 +61,7 @@ describe('GameplaySession', () => {
       expect(commenced._tag).toBe('accepted')
       if (commenced._tag === 'accepted') {
         expect(commenced.protocolEntries.length).toBeGreaterThan(0)
-        expect(commenced.protocolEntries.every((entry) => v.is(ProtocolEntrySchema, entry))).toBe(true)
+        expect(commenced.protocolEntries.every((entry) => v.is(GameProtocolEntry, entry))).toBe(true)
       }
 
       const scoreBeforeRejection = session.getScore()

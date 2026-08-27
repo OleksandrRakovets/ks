@@ -2,44 +2,56 @@ import * as v from 'valibot'
 
 import { MatchCommand } from './command'
 import { CommandIdSchema } from './ids'
-import { BySeatNumberSchema, SeatSchema } from './match'
+import { BySeatNumberSchema, GameKeySchema, SeatSchema } from './match'
 import { UnixEpochMillisecondsSchema } from './time'
 import { NonNegativeIntegerSchema, PositiveIntegerSchema, SizedStringSchema, UnknownObjectSchema } from './valicombos'
 
-export const ProtocolEntrySourceSchema = v.picklist(['player', 'system'])
+export const ProtocolEntrySource = v.picklist(['player', 'system'])
+export type ProtocolEntrySource = v.InferOutput<typeof ProtocolEntrySource>
 
-/** Canonical semantic Protocol value produced by one accepted command. */
-export const ProtocolEntrySchema = v.object({
-  frameIndex: v.optional(PositiveIntegerSchema),
-  source: ProtocolEntrySourceSchema,
+/**
+ * Game-owned Protocol content for the gameplay session's current frame.
+ * Each game extends this structure with its exact body schema and parses entries when projecting accepted transitions.
+ */
+export const GameProtocolEntry = v.object({
+  gameKey: GameKeySchema,
+  source: ProtocolEntrySource,
   entryType: SizedStringSchema(1, 64),
   seat: SeatSchema,
   scoreAfter: v.optional(BySeatNumberSchema),
   body: UnknownObjectSchema,
 })
-export type ProtocolEntry = v.InferOutput<typeof ProtocolEntrySchema>
-export const NonEmptyProtocolEntriesSchema = v.pipe(v.array(ProtocolEntrySchema), v.minLength(1))
-export type NonEmptyProtocolEntries = v.InferOutput<typeof NonEmptyProtocolEntriesSchema>
+export type GameProtocolEntry = v.InferOutput<typeof GameProtocolEntry>
 
-/** Persistence representation; bodyJson must decode to the canonical body selected by entryType. */
-export const StoredProtocolEntrySchema = v.object({
+/** Complete Protocol meaning before MatchRoom attaches acceptance metadata. */
+export const ProtocolEntryContent = v.object({
+  frameIndex: PositiveIntegerSchema,
+  ...GameProtocolEntry.entries,
+})
+export type ProtocolEntryContent = v.InferOutput<typeof ProtocolEntryContent>
+
+export const NonEmptyProtocolEntryContents = v.pipe(v.array(ProtocolEntryContent), v.minLength(1))
+export type NonEmptyProtocolEntryContents = v.InferOutput<typeof NonEmptyProtocolEntryContents>
+
+/** Authoritative Protocol Entry with acceptance, causation, and ordering metadata. */
+export const ProtocolEntry = v.object({
   acceptedSeq: PositiveIntegerSchema,
   entryIndex: NonNegativeIntegerSchema,
   causedByCommandId: CommandIdSchema,
   acceptedAt: UnixEpochMillisecondsSchema,
-  frameIndex: v.optional(PositiveIntegerSchema),
-  source: ProtocolEntrySourceSchema,
-  entryType: SizedStringSchema(1, 64),
-  seat: SeatSchema,
-  scoreAfter: v.optional(BySeatNumberSchema),
-  bodyJson: v.string(),
+  ...ProtocolEntryContent.entries,
 })
-export type StoredProtocolEntry = v.InferOutput<typeof StoredProtocolEntrySchema>
-export const NonEmptyStoredProtocolEntriesSchema = v.pipe(v.array(StoredProtocolEntrySchema), v.minLength(1))
+export type ProtocolEntry = v.InferOutput<typeof ProtocolEntry>
 
-/** Durable replay input and its expected canonical semantic output. */
-export const AcceptedCommandHistoryEntrySchema = v.object({
+export const ProtocolEntries = v.array(ProtocolEntry)
+export type ProtocolEntries = v.InferOutput<typeof ProtocolEntries>
+
+export const NonEmptyProtocolEntries = v.pipe(ProtocolEntries, v.minLength(1))
+export type NonEmptyProtocolEntries = v.InferOutput<typeof NonEmptyProtocolEntries>
+
+/** Durable replay input and its expected Protocol content. */
+export const AcceptedCommandHistoryEntry = v.object({
   command: MatchCommand,
-  protocolEntries: NonEmptyProtocolEntriesSchema,
+  protocolEntryContents: NonEmptyProtocolEntryContents,
 })
-export type AcceptedCommandHistoryEntry = v.InferOutput<typeof AcceptedCommandHistoryEntrySchema>
+export type AcceptedCommandHistoryEntry = v.InferOutput<typeof AcceptedCommandHistoryEntry>

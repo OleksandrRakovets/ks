@@ -1,4 +1,4 @@
-import { type SparringMatchRejection, SparringMatchRejectionSchema } from '@ks/competition'
+import type { SparringMatchRejection } from '@ks/competition'
 import {
   type AcceptedCommandHistoryEntry,
   type AcceptedCommandStreamUpdate,
@@ -9,15 +9,13 @@ import {
   MatchIdSchema,
   type MatchState,
   MatchStateSchema,
-  type NonEmptyProtocolEntries,
+  type NonEmptyProtocolEntryContents,
   NonNegativeIntegerSchema,
   nowUnixEpochMilliseconds,
-  type ProtocolEntry,
-  ProtocolEntrySchema,
-  type StoredProtocolEntry,
-  StoredProtocolEntrySchema,
+  ProtocolEntry,
   type UnixEpochMilliseconds,
   UnixEpochMillisecondsSchema,
+  UnknownObjectSchema,
 } from '@ks/core'
 import { RegisteredGameKeySchema } from '@ks/gameplay/definitions'
 import { and, asc, eq, isNotNull, lte } from 'drizzle-orm'
@@ -61,29 +59,27 @@ export type ActiveMatchInitialization = {
   readonly createdAt: UnixEpochMilliseconds
 }
 
-function decodeEntry(row: typeof schema.protocolEntries.$inferSelect): StoredProtocolEntry {
-  return v.parse(StoredProtocolEntrySchema, {
+const StoredProtocolEntryRow = v.pipe(
+  v.object({
+    ...v.omit(ProtocolEntry, ['body']).entries,
+    bodyJson: v.pipe(v.string(), v.parseJson(), UnknownObjectSchema),
+  }),
+  v.transform(({ bodyJson, ...entry }) => ({ ...entry, body: bodyJson })),
+)
+
+function decodeEntry(row: typeof schema.protocolEntries.$inferSelect): ProtocolEntry {
+  return v.parse(StoredProtocolEntryRow, {
     acceptedSeq: row.acceptedSeq,
     entryIndex: row.entryIndex,
     causedByCommandId: row.causedByCommandId,
     acceptedAt: row.acceptedAt,
-    frameIndex: row.frameIndex ?? undefined,
+    gameKey: row.gameKey,
+    frameIndex: row.frameIndex,
     source: row.source,
     entryType: row.entryType,
     seat: row.seat,
     scoreAfter: row.scoreA === null || row.scoreB === null ? undefined : { A: row.scoreA, B: row.scoreB },
     bodyJson: row.bodyJson,
-  })
-}
-
-function storedToSemanticEntry(entry: StoredProtocolEntry): ProtocolEntry {
-  return v.parse(ProtocolEntrySchema, {
-    frameIndex: entry.frameIndex,
-    source: entry.source,
-    entryType: entry.entryType,
-    seat: entry.seat,
-    scoreAfter: entry.scoreAfter,
-    body: JSON.parse(entry.bodyJson),
   })
 }
 
@@ -108,7 +104,7 @@ export class ActiveMatchStore {
     return row ? decodeStoredCommandOutcome(row, commandId) : null
   }
 
-  protocolEntriesThrough(latestSeq: number): StoredProtocolEntry[] {
+  protocolEntriesThrough(latestSeq: number): ProtocolEntry[] {
     try {
       return this.db
         .select()
@@ -147,7 +143,19 @@ export class ActiveMatchStore {
         expected += 1
         const command = v.safeParse(v.pipe(v.string(), v.parseJson(), MatchCommand), row.requestJson)
         if (!command.success) throw new Error('MatchRoom commands storage corruption')
-        return { command: command.output, protocolEntries: owned.map(storedToSemanticEntry) }
+        return {
+          command: command.output,
+          protocolEntryContents: owned.map((entry) => {
+            const {
+              acceptedSeq: _acceptedSeq,
+              entryIndex: _entryIndex,
+              causedByCommandId: _commandId,
+              acceptedAt: _acceptedAt,
+              ...content
+            } = entry
+            return content
+          }),
+        }
       })
       .concat(
         expected - 1 === match.latestSeq
@@ -162,7 +170,7 @@ export class ActiveMatchStore {
     const entries = this.protocolEntriesThrough(through).filter((entry) => entry.acceptedSeq > since)
     const updates: AcceptedCommandStreamUpdate[] = []
     for (let seq = since + 1; seq <= through; seq += 1) {
-      const batch = entries.filter((entry) => entry.acceptedSeq === seq).map(storedToSemanticEntry)
+      const batch = entries.filter((entry) => entry.acceptedSeq === seq)
       if (!batch[0]) throw new Error('MatchRoom protocol_entries storage corruption')
       updates.push({ type: 'command-accepted', acceptedSeq: seq, entries: [batch[0], ...batch.slice(1)], terminal: false })
     }
@@ -182,7 +190,6 @@ export class ActiveMatchStore {
     requestJson: string
     reason: SparringMatchRejection
   }): Extract<CommandReceiptOutcome, { _tag: 'rejected' }> {
-    const reason = v.parse(SparringMatchRejectionSchema, args.reason)
     this.db
       .insert(schema.commands)
       .values({
@@ -190,10 +197,10 @@ export class ActiveMatchStore {
         matchId: args.matchId,
         requestJson: args.requestJson,
         outcome: 'rejected',
-        rejectionJson: JSON.stringify(reason),
+        rejectionJson: JSON.stringify(args.reason),
       })
       .run()
-    return { _tag: 'rejected', reason }
+    return { _tag: 'rejected', reason: args.reason }
   }
 
   commitAccepted(args: {
@@ -201,34 +208,44 @@ export class ActiveMatchStore {
     commandId: CommandId
     requestJson: string
     command: MatchCommand
-    entries: NonEmptyProtocolEntries
+    entryContents: NonEmptyProtocolEntryContents
     finalState: MatchState | null
   }): { outcome: Extract<CommandReceiptOutcome, { _tag: 'accepted' }>; update: AcceptedCommandStreamUpdate } {
     const acceptedSeq = args.match.latestSeq + 1
     const acceptedAt = nowUnixEpochMilliseconds()
     const terminal = args.finalState !== null
-    const finalState = terminal ? v.parse(MatchStateSchema, args.finalState) : null
+    const finalState = args.finalState
+    const entries = args.entryContents.map((content, entryIndex) =>
+      v.parse(ProtocolEntry, {
+        ...content,
+        acceptedSeq,
+        entryIndex,
+        causedByCommandId: args.commandId,
+        acceptedAt,
+      }),
+    )
     return this.db.transaction((tx) => {
       tx.insert(schema.commands)
         .values({
           commandId: args.commandId,
           matchId: args.match.matchId,
-          requestJson: JSON.stringify(v.parse(MatchCommand, args.command)),
+          requestJson: JSON.stringify(args.command),
           outcome: 'accepted',
           acceptedSeq,
           acceptedAt,
           rejectionJson: null,
         })
         .run()
-      args.entries.forEach((entry, entryIndex) =>
+      entries.forEach((entry) =>
         tx
           .insert(schema.protocolEntries)
           .values({
-            acceptedSeq,
-            entryIndex,
-            causedByCommandId: args.commandId,
-            acceptedAt,
-            frameIndex: entry.frameIndex ?? null,
+            acceptedSeq: entry.acceptedSeq,
+            entryIndex: entry.entryIndex,
+            causedByCommandId: entry.causedByCommandId,
+            acceptedAt: entry.acceptedAt,
+            gameKey: entry.gameKey,
+            frameIndex: entry.frameIndex,
             source: entry.source,
             entryType: entry.entryType,
             seat: entry.seat,
@@ -253,7 +270,7 @@ export class ActiveMatchStore {
       if (result.rowsWritten !== 1) throw new Error('Active match cursor mismatch')
       return {
         outcome: { _tag: 'accepted', acceptedSeq },
-        update: { type: 'command-accepted', acceptedSeq, entries: [...args.entries], terminal },
+        update: { type: 'command-accepted', acceptedSeq, entries, terminal },
       }
     })
   }

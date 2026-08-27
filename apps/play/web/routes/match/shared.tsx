@@ -1,6 +1,6 @@
 import type { ProtocolRow, ReadMatchControlResult, ReadMatchProtocolResult } from '@ks/application'
 import {
-  AcceptedCommandStreamUpdateSchema,
+  AcceptedCommandStreamUpdate,
   type BySeatNumber,
   type Control,
   MatchCommand,
@@ -56,7 +56,7 @@ type ControlActionErrorKey = Extract<ControlActionData, { ok: false }>['errorKey
 
 const SubmittedMatchCommand = v.pipe(v.string(), v.parseJson(), MatchCommand)
 const StreamReadyEventSchema = v.pipe(v.string(), v.parseJson(), MatchStreamReadySchema)
-const StreamUpdateEventSchema = v.pipe(v.string(), v.parseJson(), AcceptedCommandStreamUpdateSchema)
+const StreamUpdateEventSchema = v.pipe(v.string(), v.parseJson(), AcceptedCommandStreamUpdate)
 
 function matchIdFromParams(params: RouteArgs['params']): MatchId {
   const matchId = v.safeParse(MatchIdSchema, params.matchId)

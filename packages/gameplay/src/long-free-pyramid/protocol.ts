@@ -1,4 +1,4 @@
-import { PositiveIntegerSchema, ProtocolEntrySchema } from '@ks/core'
+import { GameProtocolEntry, PositiveIntegerSchema } from '@ks/core'
 import * as v from 'valibot'
 
 import { totalScore } from './calculations'
@@ -6,16 +6,17 @@ import type { LongFreePyramidCommand } from './definitions'
 import type { LongFreePyramidSparringFrameSnapshot } from './machine'
 
 const LongFreePyramidProtocolEntryBodySchema = v.variant('commandType', [
-  v.object({ commandType: v.literal('frame.commence') }),
-  v.object({ commandType: v.literal('pot.record'), pottedBallCount: PositiveIntegerSchema }),
-  v.object({ commandType: v.literal('foul.commit'), penalty: v.literal('opponent-plus-one') }),
-  v.object({ commandType: v.literal('frame.award') }),
+  v.strictObject({ commandType: v.literal('frame.commence') }),
+  v.strictObject({ commandType: v.literal('pot.record'), pottedBallCount: PositiveIntegerSchema }),
+  v.strictObject({ commandType: v.literal('foul.commit'), penalty: v.literal('opponent-plus-one') }),
+  v.strictObject({ commandType: v.literal('frame.award') }),
 ])
 
-const LongFreePyramidProtocolEntrySchema = v.object({
-  ...ProtocolEntrySchema.entries,
+export const LongFreePyramidProtocolEntry = v.object({
+  ...GameProtocolEntry.entries,
   body: LongFreePyramidProtocolEntryBodySchema,
 })
+export type LongFreePyramidProtocolEntry = v.InferOutput<typeof LongFreePyramidProtocolEntry>
 
 function scoreChanged(previous: LongFreePyramidSparringFrameSnapshot, next: LongFreePyramidSparringFrameSnapshot): boolean {
   const previousScore = totalScore(previous.context.racks)
@@ -30,7 +31,8 @@ function protocolEntry(args: {
   next: LongFreePyramidSparringFrameSnapshot
 }) {
   const nextScore = totalScore(args.next.context.racks)
-  return v.parse(LongFreePyramidProtocolEntrySchema, {
+  return v.parse(LongFreePyramidProtocolEntry, {
+    gameKey: 'free-pyramid-long',
     source: 'player',
     entryType: 'player-command',
     seat: args.seat,
@@ -43,7 +45,7 @@ export function projectLongFreePyramidProtocolEntries(args: {
   previous: LongFreePyramidSparringFrameSnapshot
   command: LongFreePyramidCommand
   next: LongFreePyramidSparringFrameSnapshot
-}) {
+}): [LongFreePyramidProtocolEntry] {
   const { previous, command, next } = args
 
   switch (command.type) {

@@ -12,6 +12,7 @@ test('projects the exact ordered entry and scoreAfter for a foul', () => {
 
   expect(projectPyramidProtocolEntries({ previous, command, next, rules })).toEqual([
     {
+      gameKey: 'free-pyramid',
       source: 'player',
       entryType: 'player-command',
       seat: 'A',
@@ -29,6 +30,7 @@ test('projects pot.record with pottedBallCount and one score point per ball', ()
 
   expect(projectPyramidProtocolEntries({ previous, command, next, rules })).toEqual([
     {
+      gameKey: 'free-pyramid',
       source: 'player',
       entryType: 'player-command',
       seat: 'A',

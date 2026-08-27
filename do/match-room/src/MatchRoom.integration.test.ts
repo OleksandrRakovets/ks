@@ -81,8 +81,7 @@ describe('MatchRoom accepted command history', () => {
     stub = env.MATCH_ROOM.getByName(matchId)
     const transfer = await stub.finalization({ matchId })
     expect(transfer).toMatchObject({ ok: true, data: { matchId, sourceLatestSeq: 3, finalState: { status: 'finished' } } })
-    if (!transfer.ok) throw new Error('Expected finalization transfer')
-    expect(transfer.data.protocolEntries[0]).toMatchObject({ acceptedSeq: 1 })
+    expect(transfer).toHaveProperty('data.protocolEntries.0.acceptedSeq', 1)
 
     const stream = await stub.stream({ matchId, since: 2 })
     const first = new TextDecoder().decode((await stream.body!.getReader().read()).value)
