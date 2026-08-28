@@ -1,5 +1,5 @@
 import { restoreSparringMatch, type SparringMatch } from '@ks/competition'
-import { type MatchConfig, type MatchState, type ProtocolEntry } from '@ks/core'
+import { type MatchConfig, type MatchState, type MatchStreamUpdate, type ProtocolEntry } from '@ks/core'
 import { DurableObject } from 'cloudflare:workers'
 import * as v from 'valibot'
 
@@ -25,20 +25,18 @@ type Failure = { ok: false; error: string; status: number }
 export class MatchRoom extends DurableObject<Env> {
   private readonly store: MatchStorage
   private readonly live = new Broadcaster()
-  private readonly ready: Promise<void>
   private resident: ResidentRoom | null = null
   private storageDeleted = false
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
     this.store = new MatchStorage(ctx.storage)
-    this.ready = ctx.blockConcurrencyWhile(async () => {
+    ctx.blockConcurrencyWhile(async () => {
       this.store.migrate()
     })
   }
 
   async create(args: CreateBody): Promise<{ ok: true; matchId: MatchConfig['matchId'] } | Failure> {
-    await this.ready
     const parsed = v.safeParse(CreateBodySchema, args)
     if (!parsed.success) return { ok: false, error: 'Invalid create body', status: 400 }
     if (this.ctx.id.name !== parsed.output.matchId)
@@ -59,7 +57,6 @@ export class MatchRoom extends DurableObject<Env> {
       }
     | Failure
   > {
-    await this.ready
     const match = this.activeMatch(args, 'control')
     if ('ok' in match) return match
     const projection = this.loadResident(match).match.project()
@@ -69,7 +66,6 @@ export class MatchRoom extends DurableObject<Env> {
   async readProtocol(
     args: MatchIdBody,
   ): Promise<{ ok: true; latestSeq: number; state: MatchState; protocolEntries: ProtocolEntry[] } | Failure> {
-    await this.ready
     const parsed = v.safeParse(MatchIdBodySchema, args)
     if (!parsed.success) return { ok: false, error: 'Invalid protocol body', status: 400 }
     return this.ctx.blockConcurrencyWhile(async () => {
@@ -86,7 +82,6 @@ export class MatchRoom extends DurableObject<Env> {
   }
 
   async submitCommand(args: SubmitCommandBody): Promise<SubmitCommandResult> {
-    await this.ready
     const body = v.safeParse(SubmitCommandBodySchema, args)
     if (!body.success) return { ok: false, error: 'invalid-command-body', status: 400 }
     return this.ctx.blockConcurrencyWhile(async () => {
@@ -131,14 +126,13 @@ export class MatchRoom extends DurableObject<Env> {
   }
 
   async stream(args: StreamBody): Promise<Response> {
-    await this.ready
     const parsed = v.safeParse(StreamBodySchema, args)
     if (!parsed.success) return Response.json({ ok: false, error: 'Invalid stream body' }, { status: 400 })
     const match = this.store.match()
     if (!match || match.matchId !== parsed.output.matchId)
       return Response.json({ ok: false, error: 'Unknown match' }, { status: 400 })
     const publicSeq = match.status === 'finalizing' ? match.latestSeq - 1 : match.latestSeq
-    return this.live.stream(publicSeq, this.store.liveUpdatesAfter(parsed.output.since ?? 0, publicSeq))
+    return this.live.stream(publicSeq, liveUpdatesAfter(parsed.output.since ?? 0, publicSeq))
   }
 
   async finalization(args: MatchIdBody): Promise<
@@ -156,7 +150,6 @@ export class MatchRoom extends DurableObject<Env> {
       }
     | Failure
   > {
-    await this.ready
     const parsed = v.safeParse(MatchIdBodySchema, args)
     if (!parsed.success) return { ok: false, error: 'Invalid finalize body', status: 400 }
     const match = this.store.match()
@@ -168,7 +161,6 @@ export class MatchRoom extends DurableObject<Env> {
   }
 
   async disposeFinalized(args: MatchIdBody): Promise<{ ok: true } | Failure> {
-    await this.ready
     const parsed = v.safeParse(MatchIdBodySchema, args)
     if (!parsed.success) return { ok: false, error: 'Invalid dispose body', status: 400 }
     if (!this.env.MATCH_ROOM.idFromName(parsed.output.matchId).equals(this.ctx.id))
@@ -218,4 +210,11 @@ export class MatchRoom extends DurableObject<Env> {
       ? { ok: true, outcome: receipt, finalizing: true }
       : { ok: true, outcome: receipt }
   }
+}
+
+function liveUpdatesAfter(since: number, through: number): MatchStreamUpdate[] {
+  const updates: MatchStreamUpdate[] = []
+  for (let seq = since + 1; seq <= through; seq += 1)
+    updates.push({ type: 'command-accepted', acceptedSeq: seq, terminal: false })
+  return updates
 }

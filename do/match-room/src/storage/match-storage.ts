@@ -99,6 +99,8 @@ export class MatchStorage {
       .orderBy(asc(schema.commands.acceptedSeq))
       .all()
     const entries = this.#protocolEntriesThrough(match.latestSeq)
+    if (entries.some((entry) => entry.gameKey !== match.config.gameKey))
+      throw new Error('MatchRoom protocol_entries storage corruption')
     let expected = 1
     const history = commands.map((row) => {
       if (row.outcome !== 'accepted' || row.acceptedSeq !== expected || row.acceptedAt === null)
@@ -147,14 +149,6 @@ export class MatchStorage {
     } catch {
       throw new Error('MatchRoom protocol_entries storage corruption')
     }
-  }
-
-  liveUpdatesAfter(since: number, through: number): MatchStreamUpdate[] {
-    const updates: MatchStreamUpdate[] = []
-    for (let seq = since + 1; seq <= through; seq += 1) {
-      updates.push({ type: 'command-accepted', acceptedSeq: seq, terminal: false })
-    }
-    return updates
   }
 
   commitCreation(initialization: ActiveMatchInitialization): void {
@@ -306,7 +300,9 @@ const ActiveMatchRecord = v.pipe(
         ? row.finalState === null && row.endedAt === null
         : row.finalState?.status === 'finished' && row.endedAt !== null) &&
       (row.finalState === null ||
-        (row.finalState.matchId === row.matchId && row.finalState.gameKey === row.config.gameKey)),
+        (row.finalState.matchId === row.matchId &&
+          row.finalState.gameKey === row.config.gameKey &&
+          isDeepStrictEqual(row.finalState.targets, row.config.targets))),
   ),
 )
 
@@ -341,6 +337,8 @@ const StoredProtocolEntryRow = v.pipe(
 )
 
 function decodeEntry(row: typeof schema.protocolEntries.$inferSelect): ProtocolEntry {
+  if ((row.scoreA === null) !== (row.scoreB === null))
+    throw new Error('MatchRoom protocol_entries storage corruption')
   return v.parse(StoredProtocolEntryRow, {
     acceptedSeq: row.acceptedSeq,
     entryIndex: row.entryIndex,
@@ -351,7 +349,7 @@ function decodeEntry(row: typeof schema.protocolEntries.$inferSelect): ProtocolE
     source: row.source,
     entryType: row.entryType,
     seat: row.seat,
-    scoreAfter: row.scoreA === null || row.scoreB === null ? undefined : { A: row.scoreA, B: row.scoreB },
+    scoreAfter: row.scoreA === null ? undefined : { A: row.scoreA, B: row.scoreB },
     bodyJson: row.bodyJson,
   })
 }
