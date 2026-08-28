@@ -1,15 +1,11 @@
-import {
-  buildMatchConfig,
-  createSparringMatch,
-  restoreSparringMatch,
-  type SparringMatch,
-} from '@ks/competition'
+import { restoreSparringMatch, type SparringMatch } from '@ks/competition'
 import { type MatchConfig, type MatchState, type ProtocolEntry } from '@ks/core'
 import { DurableObject } from 'cloudflare:workers'
 import * as v from 'valibot'
 
 import type { Env } from './env'
 import { Broadcaster } from './live/broadcaster'
+import { initializeMatch } from './match/initialize-match'
 import {
   type CreateBody,
   CreateBodySchema,
@@ -45,27 +41,12 @@ export class MatchRoom extends DurableObject<Env> {
     await this.ready
     const parsed = v.safeParse(CreateBodySchema, args)
     if (!parsed.success) return { ok: false, error: 'Invalid create body', status: 400 }
-    return this.ctx.blockConcurrencyWhile(async () => {
-      const config = buildMatchConfig(parsed.output.matchId, parsed.output)
-      const existing = this.store.match()
-      if (existing) {
-        if (
-          existing.matchId !== config.matchId ||
-          existing.controlSecret !== parsed.output.controlSecret ||
-          JSON.stringify(existing.config) !== JSON.stringify(config) ||
-          existing.createdAt !== parsed.output.createdAt
-        )
-          return { ok: false, error: 'Match already exists', status: 409 }
-      } else {
-        this.store.commitCreation({
-          config,
-          controlSecret: parsed.output.controlSecret,
-          createdAt: parsed.output.createdAt,
-        })
-        this.resident = { latestSeq: 0, match: createSparringMatch(config) }
-      }
-      return { ok: true, matchId: config.matchId }
-    })
+    if (this.ctx.id.name !== parsed.output.matchId)
+      throw new Error('MatchRoom routed identity does not match initialization Match')
+    const result = initializeMatch(this.store, parsed.output)
+    return result._tag === 'initialized'
+      ? { ok: true, matchId: result.matchId }
+      : { ok: false, error: 'Match already exists', status: 409 }
   }
 
   async readControl(args: MatchIdBody): Promise<

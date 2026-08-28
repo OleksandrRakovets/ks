@@ -1,9 +1,10 @@
 import { CreateMatchRequestSchema } from '@ks/competition'
 import { newCommandId, newMatchId, PlayerRef, UnixEpochMilliseconds } from '@ks/core'
-import { env, evictDurableObject } from 'cloudflare:test'
+import { env, evictDurableObject, runInDurableObject } from 'cloudflare:test'
 import * as v from 'valibot'
 import { describe, expect, test } from 'vitest'
 
+import type { MatchRoom } from './MatchRoom'
 import type { CreateBody } from './rpc-contract'
 
 const controlSecret = 'control-secret-1234567890'
@@ -27,6 +28,23 @@ function body(matchId: ReturnType<typeof newMatchId>): CreateBody {
 }
 
 describe('MatchRoom accepted command history', () => {
+  test('requires routed identity and initializes idempotently without resident seeding', async () => {
+    const matchId = newMatchId()
+    const stub = env.MATCH_ROOM.getByName(matchId)
+    expect(await stub.create(body(matchId))).toEqual({ ok: true, matchId })
+    expect(await stub.create(body(matchId))).toEqual({ ok: true, matchId })
+    expect(await stub.readControl({ matchId })).toMatchObject({ ok: true, latestSeq: 0 })
+
+    const unnamed = env.MATCH_ROOM.get(env.MATCH_ROOM.newUniqueId())
+    await runInDurableObject(unnamed, async (room) => {
+      // SAFETY: The stub belongs to the MATCH_ROOM namespace, whose configured class is MatchRoom.
+      const matchRoom = room as MatchRoom
+      await expect(matchRoom.create(body(newMatchId()))).rejects.toThrow(
+        'MatchRoom routed identity does not match initialization Match',
+      )
+    })
+  })
+
   test('starts at sequence zero and restores canonical accepted commands after eviction', async () => {
     const matchId = newMatchId()
     let stub = env.MATCH_ROOM.getByName(matchId)

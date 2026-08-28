@@ -21,13 +21,15 @@ const request = v.parse(CreateMatchRequestSchema, {
 describe('match creation helpers', () => {
   test('builds validated match config without storage dependencies', () => {
     const matchId = newMatchId()
+    const config = buildMatchConfig(matchId, request)
 
-    expect(buildMatchConfig(matchId, request)).toEqual({
+    expect(config).toEqual({
       matchId,
       gameKey: 'strila-v2',
       targets: request.targets,
       firstBreakerSeat: 'A',
     })
+    expect(config).not.toHaveProperty('gameConfiguration')
   })
 
   test('requires and preserves long free pyramid game configuration', () => {

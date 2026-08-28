@@ -43,11 +43,13 @@ export type CreateMatchRequest = v.InferOutput<typeof CreateMatchRequestSchema>
 export type MatchStateFor<K extends GameKey> = Omit<MatchState, 'gameKey'> & { gameKey: K }
 
 export function buildMatchConfig(matchId: MatchId, input: CreateMatchRequest): MatchConfig {
-  return {
+  const config: MatchConfig = {
     matchId,
     gameKey: input.gameKey,
     targets: input.targets,
     firstBreakerSeat: input.firstBreakerSeat,
-    gameConfiguration: input.gameConfiguration,
   }
+  // Omit absent optional values so MatchConfig remains structurally equal after JSON persistence round-trips.
+  if (input.gameConfiguration !== undefined) config.gameConfiguration = input.gameConfiguration
+  return config
 }
