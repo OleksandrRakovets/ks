@@ -77,6 +77,11 @@ describe('MatchRoom accepted command history', () => {
       latestSeq: 1,
       state: { currentFrameIndex: 1 },
     })
+    expect(await stub.readProtocol({ matchId })).toMatchObject({
+      ok: true,
+      latestSeq: 1,
+      protocolEntries: [{ causedByCommandId: commandId }],
+    })
   })
 
   test('does not advance sequence for a durable rejected outcome', async () => {

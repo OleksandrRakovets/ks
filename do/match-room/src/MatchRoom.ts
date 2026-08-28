@@ -1,10 +1,11 @@
-import { restoreSparringMatch, type SparringMatch } from '@ks/competition'
+import type { SparringMatch } from '@ks/competition'
 import { type MatchConfig, type MatchState, type MatchStreamUpdate, type ProtocolEntry } from '@ks/core'
 import { DurableObject } from 'cloudflare:workers'
 import * as v from 'valibot'
 
 import type { Env } from './env'
 import { Broadcaster } from './live/broadcaster'
+import { ActiveMatch } from './match/active-match'
 import { initializeMatch } from './match/initialize-match'
 import {
   type CreateBody,
@@ -19,20 +20,21 @@ import {
 } from './rpc-contract'
 import { type ActiveMatchRecord, type CommandReceipt, MatchStorage } from './storage/match-storage'
 
-type ResidentRoom = { readonly latestSeq: number; readonly match: SparringMatch }
 type Failure = { ok: false; error: string; status: number }
 
 export class MatchRoom extends DurableObject<Env> {
-  private readonly store: MatchStorage
-  private readonly live = new Broadcaster()
-  private resident: ResidentRoom | null = null
+  private readonly storage: MatchStorage
+  private readonly broadcaster: Broadcaster
+  private readonly activeMatch: ActiveMatch
   private storageDeleted = false
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
-    this.store = new MatchStorage(ctx.storage)
+    this.storage = new MatchStorage(ctx.storage)
+    this.broadcaster = new Broadcaster()
+    this.activeMatch = new ActiveMatch(this.storage, this.broadcaster)
     ctx.blockConcurrencyWhile(async () => {
-      this.store.migrate()
+      this.storage.migrate()
     })
   }
 
@@ -41,7 +43,7 @@ export class MatchRoom extends DurableObject<Env> {
     if (!parsed.success) return { ok: false, error: 'Invalid create body', status: 400 }
     if (this.ctx.id.name !== parsed.output.matchId)
       throw new Error('MatchRoom routed identity does not match initialization Match')
-    const result = initializeMatch(this.store, parsed.output)
+    const result = initializeMatch(this.storage, parsed.output)
     return result._tag === 'initialized'
       ? { ok: true, matchId: result.matchId }
       : { ok: false, error: 'Match already exists', status: 409 }
@@ -57,10 +59,13 @@ export class MatchRoom extends DurableObject<Env> {
       }
     | Failure
   > {
-    const match = this.activeMatch(args, 'control')
-    if ('ok' in match) return match
-    const projection = this.loadResident(match).match.project()
-    return { ok: true, latestSeq: match.latestSeq, ...projection }
+    const parsed = v.safeParse(MatchIdBodySchema, args)
+    if (!parsed.success) return { ok: false, error: 'Invalid control body', status: 400 }
+    if (parsed.output.matchId !== this.ctx.id.name) return { ok: false, error: 'Unknown match', status: 400 }
+    const result = this.activeMatch.getControls()
+    if (result._tag === 'missing') return { ok: false, error: 'Unknown match', status: 400 }
+    if (result._tag === 'finalizing') return { ok: false, error: 'Match is finalizing', status: 409 }
+    return { ok: true, latestSeq: result.latestSeq, ...result.projection }
   }
 
   async readProtocol(
@@ -68,39 +73,38 @@ export class MatchRoom extends DurableObject<Env> {
   ): Promise<{ ok: true; latestSeq: number; state: MatchState; protocolEntries: ProtocolEntry[] } | Failure> {
     const parsed = v.safeParse(MatchIdBodySchema, args)
     if (!parsed.success) return { ok: false, error: 'Invalid protocol body', status: 400 }
-    return this.ctx.blockConcurrencyWhile(async () => {
-      const match = this.activeMatch(parsed.output, 'protocol')
-      if ('ok' in match) return match
-      const protocol = this.store.readProtocol()
-      return {
-        ok: true,
-        latestSeq: protocol.latestSeq,
-        state: this.loadResident(match).match.project().state,
-        protocolEntries: protocol.protocolEntries,
-      }
-    })
+    if (parsed.output.matchId !== this.ctx.id.name) return { ok: false, error: 'Unknown match', status: 400 }
+    const result = this.activeMatch.getProtocol()
+    if (result._tag === 'missing') return { ok: false, error: 'Unknown match', status: 400 }
+    if (result._tag === 'finalizing') return { ok: false, error: 'Match is finalizing', status: 409 }
+    return {
+      ok: true,
+      latestSeq: result.latestSeq,
+      state: result.state,
+      protocolEntries: result.protocolEntries,
+    }
   }
 
   async submitCommand(args: SubmitCommandBody): Promise<SubmitCommandResult> {
     const body = v.safeParse(SubmitCommandBodySchema, args)
     if (!body.success) return { ok: false, error: 'invalid-command-body', status: 400 }
     return this.ctx.blockConcurrencyWhile(async () => {
-      const match = this.store.match()
+      const match = this.storage.match()
       if (!match || match.matchId !== body.output.matchId)
         return { ok: false, error: 'unknown-match', status: 400 }
-      const prior = this.store.findCommandReceipt(body.output.command)
+      const prior = this.storage.findCommandReceipt(body.output.command)
       if (prior)
         return prior._tag === 'retry'
           ? this.success(prior.receipt, match.status)
           : { ok: false, error: 'command-id-conflict', status: 409 }
       if (match.status === 'finalizing') return { ok: false, error: 'match-locked', status: 409 }
-      const resident = this.loadResident(match)
+      const resident = this.activeMatch.loadResident(match)
       try {
         const result = resident.match.execute(body.output.command)
         if (result._tag === 'parse-failed') return { ok: false, error: 'invalid-command-body', status: 400 }
         if (result._tag === 'rejected')
           return this.success(
-            this.store.commitRejectedCommand({
+            this.storage.commitRejectedCommand({
               matchId: match.matchId,
               command: body.output.command,
               reason: result.reason,
@@ -109,17 +113,17 @@ export class MatchRoom extends DurableObject<Env> {
           )
         const projection = resident.match.project()
         const finalState = projection.state.status === 'finished' ? projection.state : null
-        const committed = this.store.commitAcceptedCommand({
+        const committed = this.storage.commitAcceptedCommand({
           match,
           command: result.command,
           entryContents: result.protocolEntryContents,
           finalState,
         })
-        this.resident = { latestSeq: committed.receipt.acceptedSeq, match: resident.match }
-        if (!committed.update.terminal) this.live.broadcast(committed.update)
+        this.activeMatch.advanceResidentCursor(committed.receipt.acceptedSeq)
+        if (!committed.update.terminal) this.activeMatch.broadcast(committed.update)
         return this.success(committed.receipt, committed.update.terminal ? 'finalizing' : 'active')
       } catch (error) {
-        this.resident = null
+        this.activeMatch.clearResident()
         throw error
       }
     })
@@ -128,11 +132,11 @@ export class MatchRoom extends DurableObject<Env> {
   async stream(args: StreamBody): Promise<Response> {
     const parsed = v.safeParse(StreamBodySchema, args)
     if (!parsed.success) return Response.json({ ok: false, error: 'Invalid stream body' }, { status: 400 })
-    const match = this.store.match()
+    const match = this.storage.match()
     if (!match || match.matchId !== parsed.output.matchId)
       return Response.json({ ok: false, error: 'Unknown match' }, { status: 400 })
     const publicSeq = match.status === 'finalizing' ? match.latestSeq - 1 : match.latestSeq
-    return this.live.stream(publicSeq, liveUpdatesAfter(parsed.output.since ?? 0, publicSeq))
+    return this.broadcaster.stream(publicSeq, liveUpdatesAfter(parsed.output.since ?? 0, publicSeq))
   }
 
   async finalization(args: MatchIdBody): Promise<
@@ -152,12 +156,12 @@ export class MatchRoom extends DurableObject<Env> {
   > {
     const parsed = v.safeParse(MatchIdBodySchema, args)
     if (!parsed.success) return { ok: false, error: 'Invalid finalize body', status: 400 }
-    const match = this.store.match()
+    const match = this.storage.match()
     if (!match || match.matchId !== parsed.output.matchId)
       return { ok: false, error: 'Unknown match', status: 400 }
     if (match.status !== 'finalizing' || !match.finalState || match.endedAt === null)
       return { ok: false, error: 'Match is active', status: 409 }
-    return { ok: true, data: this.store.readFinalizingTransfer() }
+    return { ok: true, data: this.storage.readFinalizingTransfer() }
   }
 
   async disposeFinalized(args: MatchIdBody): Promise<{ ok: true } | Failure> {
@@ -167,39 +171,23 @@ export class MatchRoom extends DurableObject<Env> {
       return { ok: false, error: 'Unknown match', status: 400 }
     return this.ctx.blockConcurrencyWhile(async () => {
       if (this.storageDeleted) return { ok: true }
-      const match = this.store.match()
+      const match = this.storage.match()
       if (!match) return { ok: true }
       if (match.matchId !== parsed.output.matchId) return { ok: false, error: 'Unknown match', status: 400 }
       if (match.status !== 'finalizing' || !match.finalState || match.endedAt === null)
         return { ok: false, error: 'Match is active', status: 409 }
-      this.store.readFinalizingTransfer()
-      this.live.broadcast({
+      this.storage.readFinalizingTransfer()
+      this.broadcaster.broadcast({
         type: 'command-accepted',
         acceptedSeq: match.latestSeq,
         terminal: true,
       })
-      this.live.closeAll()
+      this.broadcaster.closeAll()
       await this.ctx.storage.deleteAll()
       this.storageDeleted = true
-      this.resident = null
+      this.activeMatch.clearResident()
       return { ok: true }
     })
-  }
-
-  private activeMatch(args: MatchIdBody, kind: string): ActiveMatchRecord | Failure {
-    const parsed = v.safeParse(MatchIdBodySchema, args)
-    if (!parsed.success) return { ok: false, error: `Invalid ${kind} body`, status: 400 }
-    const match = this.store.match()
-    if (!match || match.matchId !== parsed.output.matchId)
-      return { ok: false, error: 'Unknown match', status: 400 }
-    if (match.status === 'finalizing') return { ok: false, error: 'Match is finalizing', status: 409 }
-    return match
-  }
-
-  private loadResident(match: ActiveMatchRecord): ResidentRoom {
-    if (this.resident?.latestSeq === match.latestSeq) return this.resident
-    const resident = restoreSparringMatch(match.config, this.store.readAcceptedCommandHistory())
-    return (this.resident = { latestSeq: match.latestSeq, match: resident })
   }
 
   private success(
