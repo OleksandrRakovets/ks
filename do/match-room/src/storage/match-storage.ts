@@ -53,7 +53,9 @@ export class MatchStorage {
   }
 
   match(): ActiveMatchRecord | null {
-    const row = this.#db.select().from(schema.activeMatches).limit(1).all()[0]
+    const rows = this.#db.select().from(schema.activeMatches).limit(2).all()
+    if (rows.length > 1) throw new Error('MatchRoom contains multiple Match rows')
+    const row = rows[0]
     if (!row) return null
     try {
       return v.parse(ActiveMatchRecord, row)

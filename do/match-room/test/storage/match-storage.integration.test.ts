@@ -94,3 +94,71 @@ test('reconstructs typed history, Protocol, and the finalizing transfer from its
     expect(() => storage.readProtocol()).toThrow('MatchRoom protocol_entries storage corruption')
   })
 })
+
+test('rejects multiple Match rows as corrupt authority', async () => {
+  const matchId = newMatchId()
+  const otherMatchId = newMatchId()
+  const stub = env.MATCH_ROOM.getByName(matchId)
+  await stub.initialize({ ...request, matchId, controlSecret, createdAt })
+  await runInDurableObject(stub, (_room, state) => {
+    const otherConfig = buildMatchConfig(otherMatchId, request)
+    state.storage.sql.exec(
+      `INSERT INTO active_matches
+        (match_id, control_secret, config_json, latest_seq, status, created_at, final_state_json, ended_at)
+       VALUES (?, ?, ?, 0, 'active', ?, NULL, NULL)`,
+      otherMatchId,
+      controlSecret,
+      JSON.stringify(otherConfig),
+      createdAt,
+    )
+    expect(() => new MatchStorage(state.storage).match()).toThrow('multiple Match rows')
+  })
+})
+
+test('rejects lifecycle and terminal bundle corruption', async () => {
+  const matchId = newMatchId()
+  const stub = env.MATCH_ROOM.getByName(matchId)
+  await stub.initialize({ ...request, matchId, controlSecret, createdAt })
+  await stub.submitCommand({
+    commandId: newCommandId(),
+    source: 'match',
+    command: { type: 'frame.prepare' },
+  })
+  await stub.submitCommand({
+    commandId: newCommandId(),
+    source: 'match',
+    command: { type: 'frame.commence', seat: 'A' },
+  })
+  await stub.submitCommand({
+    commandId: newCommandId(),
+    source: 'match',
+    command: { type: 'frame.concede', seat: 'B' },
+  })
+
+  await runInDurableObject(stub, (_room, state) => {
+    const storage = new MatchStorage(state.storage)
+    const terminal = state.storage.sql
+      .exec<{ accepted_at: number }>(
+        `SELECT accepted_at FROM protocol_entries WHERE entry_type = 'match-ended'`,
+      )
+      .one()
+    state.storage.sql.exec(
+      `UPDATE protocol_entries SET accepted_at = ? WHERE entry_type = 'match-ended'`,
+      terminal.accepted_at + 1,
+    )
+    expect(() => storage.readFinalizingTransfer()).toThrow('protocol_entries storage corruption')
+    state.storage.sql.exec(
+      `UPDATE protocol_entries SET accepted_at = ? WHERE entry_type = 'match-ended'`,
+      terminal.accepted_at,
+    )
+
+    const finalState = state.storage.sql
+      .exec<{ final_state_json: string }>('SELECT final_state_json FROM active_matches')
+      .one().final_state_json
+    state.storage.sql.exec(
+      `UPDATE active_matches SET final_state_json = ?`,
+      JSON.stringify({ ...JSON.parse(finalState), status: 'active' }),
+    )
+    expect(() => storage.match()).toThrow('active_matches storage corruption')
+  })
+})

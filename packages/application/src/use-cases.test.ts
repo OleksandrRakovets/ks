@@ -45,8 +45,17 @@ function selectedClient(overrides: Partial<MatchRoomClient> = {}): MatchRoomClie
   }
 }
 
-function application(room: MatchRoomClient, events: string[] = []) {
-  let status: 'active' | 'finished' = 'active'
+type Dependencies = Parameters<typeof createApplicationWithDependencies>[0]
+
+function application(
+  room: MatchRoomClient,
+  events: string[] = [],
+  options: {
+    initialStatus?: 'active' | 'finalizing' | 'finished'
+    overrides?: Partial<Dependencies>
+  } = {},
+) {
+  let status = options.initialStatus ?? ('active' as const)
   return createApplicationWithDependencies({
     newMatchId: () => matchId,
     newControlSecret: () => 'control-secret-1234567890',
@@ -88,6 +97,7 @@ function application(room: MatchRoomClient, events: string[] = []) {
       expect(selectedMatchId).toBe(matchId)
       return room
     },
+    ...options.overrides,
   })
 }
 
@@ -227,5 +237,100 @@ describe('trusted MatchRoom orchestration', () => {
         'free-pyramid',
       ),
     ).rejects.toBe(defect)
+  })
+
+  test('does not dispose when archival fails before or after persistence and converges on retry', async () => {
+    const events: string[] = []
+    let archiveAttempts = 0
+    const room = selectedClient({
+      submitCommand: async () => ({ _tag: 'accepted', acceptedSeq: 1, finalizesMatch: true }),
+      prepareArchive: async () => transfer,
+      dispose: async () => {
+        events.push('dispose')
+      },
+    })
+    const app = application(room, events, {
+      overrides: {
+        archiveCompletedMatch: async () => {
+          archiveAttempts += 1
+          events.push(archiveAttempts === 1 ? 'archive-persisted-response-lost' : 'archive-retry')
+          if (archiveAttempts === 1) throw new Error('lost archive response')
+        },
+      },
+    })
+    const command = { commandId: newCommandId(), source: 'match' as const, command: { type: 'frame.prepare' } }
+    await expect(app.submitMatchCommand(matchId, command, 'free-pyramid')).rejects.toThrow(
+      'lost archive response',
+    )
+    expect(events).toEqual(['archive-persisted-response-lost'])
+    await expect(app.submitMatchCommand(matchId, command, 'free-pyramid')).resolves.toMatchObject({ ok: true })
+    expect(events).toEqual(['archive-persisted-response-lost', 'archive-retry', 'dispose', 'finish'])
+  })
+
+  test('retries after disposal fails before deletion or loses its response after deletion', async () => {
+    for (const failure of ['before deletion', 'lost response'] as const) {
+      const events: string[] = []
+      let disposeAttempts = 0
+      const room = selectedClient({
+        stream: async () => ({ _tag: 'finalizing' }),
+        prepareArchive: async () => transfer,
+        dispose: async () => {
+          disposeAttempts += 1
+          events.push(`dispose-${disposeAttempts}`)
+          if (disposeAttempts === 1) throw new Error(failure)
+        },
+      })
+      const app = application(room, events)
+      await expect(app.streamMatchUpdates(matchId)).rejects.toThrow(failure)
+      expect(events).toEqual(['archive', 'dispose-1'])
+      expect((await app.streamMatchUpdates(matchId)).status).toBe(410)
+      expect(events).toEqual(['archive', 'dispose-1', 'archive', 'dispose-2', 'finish'])
+    }
+  })
+
+  test('retries D1 finish after successful room disposal', async () => {
+    const events: string[] = []
+    let finishAttempts = 0
+    const room = selectedClient({
+      dispose: async () => {
+        events.push('dispose')
+      },
+    })
+    const app = application(room, events, {
+      initialStatus: 'finalizing',
+      overrides: {
+        finishCompletedMatch: async () => {
+          finishAttempts += 1
+          events.push(`finish-${finishAttempts}`)
+          if (finishAttempts === 1) throw new Error('finish failed')
+        },
+      },
+    })
+    await expect(app.streamMatchUpdates(matchId)).rejects.toThrow('finish failed')
+    expect((await app.streamMatchUpdates(matchId)).status).toBe(410)
+    expect(events).toEqual(['dispose', 'finish-1', 'dispose', 'finish-2'])
+  })
+
+  test('does not dispose or finish when D1 rejects identity, lifecycle, or archive consistency', async () => {
+    for (const conflict of ['identity', 'lifecycle', 'archive'] as const) {
+      const events: string[] = []
+      const room = selectedClient({
+        stream: async () => ({ _tag: 'finalizing' }),
+        prepareArchive: async () => transfer,
+        dispose: async () => {
+          events.push('dispose')
+        },
+      })
+      const app = application(room, events, {
+        overrides: {
+          archiveCompletedMatch: async () => {
+            events.push(conflict)
+            throw new Error(`${conflict} conflict`)
+          },
+        },
+      })
+      await expect(app.streamMatchUpdates(matchId)).rejects.toThrow(`${conflict} conflict`)
+      expect(events).toEqual([conflict])
+    }
   })
 })
