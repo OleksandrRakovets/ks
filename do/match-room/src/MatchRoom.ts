@@ -94,11 +94,12 @@ export class MatchRoom extends DurableObject<Env> {
     return this.ctx.blockConcurrencyWhile(async () => {
       const match = this.activeMatch(parsed.output, 'protocol')
       if ('ok' in match) return match
+      const protocol = this.store.readProtocol()
       return {
         ok: true,
-        latestSeq: match.latestSeq,
+        latestSeq: protocol.latestSeq,
         state: this.loadResident(match).match.project().state,
-        protocolEntries: this.store.protocolEntriesThrough(match.latestSeq),
+        protocolEntries: protocol.protocolEntries,
       }
     })
   }
@@ -182,20 +183,7 @@ export class MatchRoom extends DurableObject<Env> {
       return { ok: false, error: 'Unknown match', status: 400 }
     if (match.status !== 'finalizing' || !match.finalState || match.endedAt === null)
       return { ok: false, error: 'Match is active', status: 409 }
-    const entries = this.store.protocolEntriesThrough(match.latestSeq)
-    this.validateTerminal(match, entries)
-    return {
-      ok: true,
-      data: {
-        matchId: match.matchId,
-        gameKey: match.config.gameKey,
-        createdAt: match.createdAt,
-        sourceLatestSeq: match.latestSeq,
-        endedAt: match.endedAt,
-        protocolEntries: entries,
-        finalState: match.finalState,
-      },
-    }
+    return { ok: true, data: this.store.readFinalizingTransfer() }
   }
 
   async disposeFinalized(args: MatchIdBody): Promise<{ ok: true } | Failure> {
@@ -211,8 +199,7 @@ export class MatchRoom extends DurableObject<Env> {
       if (match.matchId !== parsed.output.matchId) return { ok: false, error: 'Unknown match', status: 400 }
       if (match.status !== 'finalizing' || !match.finalState || match.endedAt === null)
         return { ok: false, error: 'Match is active', status: 409 }
-      const entries = this.store.protocolEntriesThrough(match.latestSeq)
-      this.validateTerminal(match, entries)
+      this.store.readFinalizingTransfer()
       this.live.broadcast({
         type: 'command-accepted',
         acceptedSeq: match.latestSeq,
@@ -238,7 +225,7 @@ export class MatchRoom extends DurableObject<Env> {
 
   private loadResident(match: ActiveMatchRecord): ResidentRoom {
     if (this.resident?.latestSeq === match.latestSeq) return this.resident
-    const resident = restoreSparringMatch(match.config, this.store.history(match))
+    const resident = restoreSparringMatch(match.config, this.store.readAcceptedCommandHistory())
     return (this.resident = { latestSeq: match.latestSeq, match: resident })
   }
 
@@ -249,22 +236,5 @@ export class MatchRoom extends DurableObject<Env> {
     return status === 'finalizing' && receipt._tag === 'accepted'
       ? { ok: true, outcome: receipt, finalizing: true }
       : { ok: true, outcome: receipt }
-  }
-
-  private validateTerminal(match: ActiveMatchRecord, entries: ProtocolEntry[]): void {
-    const terminal = entries.filter((entry) => entry.entryType === 'match-ended')
-    const tail = entries.at(-1)
-    const winner = [...(match.finalState?.frames ?? [])]
-      .reverse()
-      .find((frame) => frame.winnerSeat)?.winnerSeat
-    if (
-      !tail ||
-      terminal.length !== 1 ||
-      tail !== terminal[0] ||
-      tail.acceptedSeq !== match.latestSeq ||
-      tail.acceptedAt !== match.endedAt ||
-      tail.seat !== winner
-    )
-      throw new Error('MatchRoom terminal storage corruption')
   }
 }

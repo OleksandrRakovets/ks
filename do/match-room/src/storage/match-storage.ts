@@ -1,3 +1,5 @@
+import { isDeepStrictEqual } from 'node:util'
+
 import { type SparringMatchRejection, SparringMatchRejectionSchema } from '@ks/competition'
 import {
   type AcceptedCommandHistoryEntry,
@@ -52,12 +54,88 @@ export class MatchStorage {
       .limit(1)
       .all()[0]
     if (!row) return null
-    return jsonValuesEqual(decodeCommand(row), command)
+    return isDeepStrictEqual(decodeCommand(row), command)
       ? { _tag: 'retry', receipt: decodeCommandReceipt(row) }
       : { _tag: 'command-id-conflict' }
   }
 
-  protocolEntriesThrough(latestSeq: number): ProtocolEntry[] {
+  readProtocol(): MatchProtocol {
+    const match = this.#requireMatch()
+    return { latestSeq: match.latestSeq, protocolEntries: this.#readAcceptedData(match).entries }
+  }
+
+  readAcceptedCommandHistory(): AcceptedCommandHistoryEntry[] {
+    return this.#readAcceptedData(this.#requireMatch()).history
+  }
+
+  readFinalizingTransfer(): FinalizingTransfer {
+    const match = this.#requireMatch()
+    if (match.status !== 'finalizing' || !match.finalState || match.endedAt === null)
+      throw new Error('MatchRoom finalizing transfer requested for active Match')
+    const entries = this.#readAcceptedData(match).entries
+    validateTerminal(match, entries)
+    return {
+      matchId: match.matchId,
+      gameKey: match.config.gameKey,
+      createdAt: match.createdAt,
+      sourceLatestSeq: match.latestSeq,
+      endedAt: match.endedAt,
+      protocolEntries: entries,
+      finalState: match.finalState,
+    }
+  }
+
+  #requireMatch(): ActiveMatchRecord {
+    const match = this.match()
+    if (!match) throw new Error('MatchRoom Match storage missing')
+    return match
+  }
+
+  #readAcceptedData(match: ActiveMatchRecord) {
+    const commands = this.#db
+      .select()
+      .from(schema.commands)
+      .where(isNotNull(schema.commands.acceptedSeq))
+      .orderBy(asc(schema.commands.acceptedSeq))
+      .all()
+    const entries = this.#protocolEntriesThrough(match.latestSeq)
+    let expected = 1
+    const history = commands.map((row) => {
+      if (row.outcome !== 'accepted' || row.acceptedSeq !== expected || row.acceptedAt === null)
+        throw new Error('MatchRoom commands storage corruption')
+      const owned = entries.filter((entry) => entry.acceptedSeq === expected)
+      if (
+        !owned.length ||
+        owned.some(
+          (entry, index) =>
+            entry.entryIndex !== index ||
+            entry.causedByCommandId !== row.commandId ||
+            entry.acceptedAt !== row.acceptedAt,
+        )
+      )
+        throw new Error('MatchRoom protocol_entries storage corruption')
+      expected += 1
+      const command = v.safeParse(v.pipe(v.string(), v.parseJson(), MatchCommand), row.requestJson)
+      if (!command.success) throw new Error('MatchRoom commands storage corruption')
+      return {
+        command: command.output,
+        protocolEntryContents: owned.map((entry) => {
+          const {
+            acceptedSeq: _acceptedSeq,
+            entryIndex: _entryIndex,
+            causedByCommandId: _commandId,
+            acceptedAt: _acceptedAt,
+            ...content
+          } = entry
+          return content
+        }),
+      }
+    })
+    if (expected - 1 !== match.latestSeq) throw new Error('Active match command tail sequence mismatch')
+    return { entries, history }
+  }
+
+  #protocolEntriesThrough(latestSeq: number): ProtocolEntry[] {
     try {
       return this.#db
         .select()
@@ -69,56 +147,6 @@ export class MatchStorage {
     } catch {
       throw new Error('MatchRoom protocol_entries storage corruption')
     }
-  }
-
-  history(match: ActiveMatchRecord): AcceptedCommandHistoryEntry[] {
-    const commands = this.#db
-      .select()
-      .from(schema.commands)
-      .where(isNotNull(schema.commands.acceptedSeq))
-      .orderBy(asc(schema.commands.acceptedSeq))
-      .all()
-    const entries = this.protocolEntriesThrough(match.latestSeq)
-    let expected = 1
-    return commands
-      .map((row) => {
-        if (row.outcome !== 'accepted' || row.acceptedSeq !== expected || row.acceptedAt === null)
-          throw new Error('MatchRoom commands storage corruption')
-        const owned = entries.filter((entry) => entry.acceptedSeq === expected)
-        if (
-          !owned.length ||
-          owned.some(
-            (entry, index) =>
-              entry.entryIndex !== index ||
-              entry.causedByCommandId !== row.commandId ||
-              entry.acceptedAt !== row.acceptedAt,
-          )
-        )
-          throw new Error('MatchRoom protocol_entries storage corruption')
-        expected += 1
-        const command = v.safeParse(v.pipe(v.string(), v.parseJson(), MatchCommand), row.requestJson)
-        if (!command.success) throw new Error('MatchRoom commands storage corruption')
-        return {
-          command: command.output,
-          protocolEntryContents: owned.map((entry) => {
-            const {
-              acceptedSeq: _acceptedSeq,
-              entryIndex: _entryIndex,
-              causedByCommandId: _commandId,
-              acceptedAt: _acceptedAt,
-              ...content
-            } = entry
-            return content
-          }),
-        }
-      })
-      .concat(
-        expected - 1 === match.latestSeq
-          ? []
-          : (() => {
-              throw new Error('Active match command tail sequence mismatch')
-            })(),
-      )
   }
 
   liveUpdatesAfter(since: number, through: number): MatchStreamUpdate[] {
@@ -289,6 +317,21 @@ export type ActiveMatchInitialization = {
   readonly createdAt: UnixEpochMilliseconds
 }
 
+export type MatchProtocol = {
+  readonly latestSeq: number
+  readonly protocolEntries: ProtocolEntry[]
+}
+
+export type FinalizingTransfer = {
+  readonly matchId: MatchId
+  readonly gameKey: MatchConfig['gameKey']
+  readonly createdAt: UnixEpochMilliseconds
+  readonly sourceLatestSeq: number
+  readonly endedAt: UnixEpochMilliseconds
+  readonly protocolEntries: ProtocolEntry[]
+  readonly finalState: MatchState
+}
+
 const StoredProtocolEntryRow = v.pipe(
   v.object({
     ...v.omit(ProtocolEntry, ['body']).entries,
@@ -313,26 +356,6 @@ function decodeEntry(row: typeof schema.protocolEntries.$inferSelect): ProtocolE
   })
 }
 
-function jsonValuesEqual(left: unknown, right: unknown): boolean {
-  if (Object.is(left, right)) return true
-  if (Array.isArray(left) || Array.isArray(right))
-    return (
-      Array.isArray(left) &&
-      Array.isArray(right) &&
-      left.length === right.length &&
-      left.every((value, index) => jsonValuesEqual(value, right[index]))
-    )
-  if (left === null || right === null || typeof left !== 'object' || typeof right !== 'object') return false
-  const leftEntries = Object.entries(left)
-  const rightRecord = right as Record<string, unknown>
-  return (
-    leftEntries.length === Object.keys(rightRecord).length &&
-    leftEntries.every(
-      ([key, value]) => Object.hasOwn(rightRecord, key) && jsonValuesEqual(value, rightRecord[key]),
-    )
-  )
-}
-
 function decodeCommandReceipt(row: typeof schema.commands.$inferSelect): CommandReceipt {
   try {
     return v.parse(
@@ -352,4 +375,19 @@ function decodeCommand(row: typeof schema.commands.$inferSelect): MatchCommand {
   } catch {
     throw new Error(`MatchRoom commands storage corruption for command ${row.commandId}`)
   }
+}
+
+function validateTerminal(match: ActiveMatchRecord, entries: ProtocolEntry[]): void {
+  const terminal = entries.filter((entry) => entry.entryType === 'match-ended')
+  const tail = entries.at(-1)
+  const winner = [...(match.finalState?.frames ?? [])].reverse().find((frame) => frame.winnerSeat)?.winnerSeat
+  if (
+    !tail ||
+    terminal.length !== 1 ||
+    tail !== terminal[0] ||
+    tail.acceptedSeq !== match.latestSeq ||
+    tail.acceptedAt !== match.endedAt ||
+    tail.seat !== winner
+  )
+    throw new Error('MatchRoom terminal storage corruption')
 }
