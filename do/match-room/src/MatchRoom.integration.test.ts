@@ -133,6 +133,56 @@ describe('MatchRoom accepted command history', () => {
     })
   })
 
+  test('orders replay before live delivery and releases cancelled streams', async () => {
+    const matchId = newMatchId()
+    const stub = env.MATCH_ROOM.getByName(matchId)
+    await stub.create(body(matchId))
+    await stub.submitCommand({
+      matchId,
+      command: { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } },
+    })
+
+    const stream = await stub.stream({ matchId, since: 0 })
+    const reader = stream.body!.getReader()
+    const decoder = new TextDecoder()
+    let received = ''
+    while (!received.includes('"acceptedSeq":1') || !received.includes('"latestSeq":1'))
+      received += decoder.decode((await reader.read()).value)
+    expect(received.indexOf('"acceptedSeq":1')).toBeLessThan(received.indexOf('"latestSeq":1'))
+
+    await stub.submitCommand({
+      matchId,
+      command: { commandId: newCommandId(), source: 'match', command: { type: 'frame.commence', seat: 'A' } },
+    })
+    while (!received.includes('"acceptedSeq":2')) received += decoder.decode((await reader.read()).value)
+    await reader.cancel()
+  })
+
+  test('withholds terminal delivery from existing streams until disposal', async () => {
+    const matchId = newMatchId()
+    const stub = env.MATCH_ROOM.getByName(matchId)
+    await stub.create(body(matchId))
+    await stub.submitCommand({
+      matchId,
+      command: { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } },
+    })
+    await stub.submitCommand({
+      matchId,
+      command: { commandId: newCommandId(), source: 'match', command: { type: 'frame.commence', seat: 'A' } },
+    })
+    const stream = await stub.stream({ matchId, since: 2 })
+    const reader = stream.body!.getReader()
+    expect(new TextDecoder().decode((await reader.read()).value)).toContain('"latestSeq":2')
+
+    await stub.submitCommand({
+      matchId,
+      command: { commandId: newCommandId(), source: 'match', command: { type: 'frame.concede', seat: 'B' } },
+    })
+    await stub.disposeFinalized({ matchId })
+    expect(new TextDecoder().decode((await reader.read()).value)).toContain('"terminal":true')
+    expect((await reader.read()).done).toBe(true)
+  })
+
   test('persists terminal transfer, withholds it live, and disposes without replay', async () => {
     const matchId = newMatchId()
     const otherMatchId = newMatchId()
@@ -171,9 +221,8 @@ describe('MatchRoom accepted command history', () => {
     expect(transfer).toHaveProperty('data.protocolEntries.0.acceptedSeq', 1)
 
     const stream = await stub.stream({ matchId, since: 2 })
-    const first = new TextDecoder().decode((await stream.body!.getReader().read()).value)
-    expect(first).toContain('"latestSeq":2')
-    expect(first).not.toContain('match-ended')
+    expect(stream.status).toBe(409)
+    expect(await stream.json()).toEqual({ ok: false, error: 'Match is finalizing' })
 
     expect(await stub.disposeFinalized({ matchId })).toEqual({ ok: true })
     expect(await stub.disposeFinalized({ matchId })).toEqual({ ok: true })

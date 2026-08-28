@@ -1,5 +1,5 @@
 import { restoreSparringMatch, type SparringMatch, type SparringMatchRoomProjection } from '@ks/competition'
-import type { MatchCommand, ProtocolEntry } from '@ks/core'
+import type { MatchCommand, MatchStreamUpdate, ProtocolEntry } from '@ks/core'
 
 import { Broadcaster } from '../live/broadcaster'
 import { type ActiveMatchRecord, type CommandReceipt, MatchStorage } from '../storage/match-storage'
@@ -80,6 +80,16 @@ export class ActiveMatch {
     }
   }
 
+  stream(since = 0): ActiveStreamResult {
+    const match = this.#storage.match()
+    if (!match) return { _tag: 'missing' }
+    if (match.status === 'finalizing') return { _tag: 'finalizing' }
+    const backlog: MatchStreamUpdate[] = []
+    for (let acceptedSeq = since + 1; acceptedSeq <= match.latestSeq; acceptedSeq += 1)
+      backlog.push({ type: 'command-accepted', acceptedSeq, terminal: false })
+    return { _tag: 'active', response: this.#broadcaster.stream(match.latestSeq, backlog) }
+  }
+
   clearResident(): void {
     this.#resident = null
   }
@@ -128,3 +138,8 @@ export type ActiveCommandResult =
       readonly finalizing: boolean
     }
   | { readonly _tag: 'rejected'; readonly receipt: Extract<CommandReceipt, { _tag: 'rejected' }> }
+
+export type ActiveStreamResult =
+  | { readonly _tag: 'missing' }
+  | { readonly _tag: 'finalizing' }
+  | { readonly _tag: 'active'; readonly response: Response }

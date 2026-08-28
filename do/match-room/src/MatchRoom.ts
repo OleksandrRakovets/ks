@@ -1,5 +1,5 @@
 import type { SparringMatch } from '@ks/competition'
-import { type MatchConfig, type MatchState, type MatchStreamUpdate, type ProtocolEntry } from '@ks/core'
+import { type MatchConfig, type MatchState, type ProtocolEntry } from '@ks/core'
 import { DurableObject } from 'cloudflare:workers'
 import * as v from 'valibot'
 
@@ -102,11 +102,13 @@ export class MatchRoom extends DurableObject<Env> {
   async stream(args: StreamBody): Promise<Response> {
     const parsed = v.safeParse(StreamBodySchema, args)
     if (!parsed.success) return Response.json({ ok: false, error: 'Invalid stream body' }, { status: 400 })
-    const match = this.#storage.match()
-    if (!match || match.matchId !== parsed.output.matchId)
+    if (parsed.output.matchId !== this.ctx.id.name)
       return Response.json({ ok: false, error: 'Unknown match' }, { status: 400 })
-    const publicSeq = match.status === 'finalizing' ? match.latestSeq - 1 : match.latestSeq
-    return this.#broadcaster.stream(publicSeq, liveUpdatesAfter(parsed.output.since ?? 0, publicSeq))
+    const result = this.#activeMatch.stream(parsed.output.since)
+    if (result._tag === 'missing') return Response.json({ ok: false, error: 'Unknown match' }, { status: 400 })
+    if (result._tag === 'finalizing')
+      return Response.json({ ok: false, error: 'Match is finalizing' }, { status: 409 })
+    return result.response
   }
 
   async finalization(args: MatchIdBody): Promise<
@@ -159,11 +161,4 @@ export class MatchRoom extends DurableObject<Env> {
       return { ok: true }
     })
   }
-}
-
-function liveUpdatesAfter(since: number, through: number): MatchStreamUpdate[] {
-  const updates: MatchStreamUpdate[] = []
-  for (let seq = since + 1; seq <= through; seq += 1)
-    updates.push({ type: 'command-accepted', acceptedSeq: seq, terminal: false })
-  return updates
 }
