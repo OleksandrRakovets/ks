@@ -36,6 +36,22 @@ export class MatchStorage {
     migrate(this.#db, migrationsBundle)
   }
 
+  commitCreation(initialization: ActiveMatchInitialization): void {
+    const { config, ...values } = initialization
+    this.#db
+      .insert(schema.activeMatches)
+      .values({
+        ...values,
+        matchId: config.matchId,
+        configJson: JSON.stringify(config),
+        latestSeq: 0,
+        status: 'active',
+        finalStateJson: null,
+        endedAt: null,
+      })
+      .run()
+  }
+
   match(): ActiveMatchRecord | null {
     const row = this.#db.select().from(schema.activeMatches).limit(1).all()[0]
     if (!row) return null
@@ -57,6 +73,97 @@ export class MatchStorage {
     return isDeepStrictEqual(decodeCommand(row), command)
       ? { _tag: 'retry', receipt: decodeCommandReceipt(row) }
       : { _tag: 'command-id-conflict' }
+  }
+
+  commitRejectedCommand(args: {
+    matchId: MatchId
+    command: MatchCommand
+    reason: SparringMatchRejection
+  }): Extract<CommandReceipt, { _tag: 'rejected' }> {
+    this.#db
+      .insert(schema.commands)
+      .values({
+        commandId: args.command.commandId,
+        matchId: args.matchId,
+        requestJson: JSON.stringify(args.command),
+        outcome: 'rejected',
+        rejectionJson: JSON.stringify(args.reason),
+      })
+      .run()
+    return { _tag: 'rejected', reason: args.reason }
+  }
+
+  commitAcceptedCommand(args: {
+    match: ActiveMatchRecord
+    command: MatchCommand
+    entryContents: NonEmptyProtocolEntryContents
+    finalState: MatchState | null
+  }): { receipt: Extract<CommandReceipt, { _tag: 'accepted' }>; update: MatchStreamUpdate } {
+    const acceptedSeq = args.match.latestSeq + 1
+    const acceptedAt = nowUnixEpochMilliseconds()
+    const terminal = args.finalState !== null
+    const finalState = args.finalState
+    const entries = args.entryContents.map((content, entryIndex) =>
+      v.parse(ProtocolEntry, {
+        ...content,
+        acceptedSeq,
+        entryIndex,
+        causedByCommandId: args.command.commandId,
+        acceptedAt,
+      }),
+    )
+    return this.#db.transaction((tx) => {
+      tx.insert(schema.commands)
+        .values({
+          commandId: args.command.commandId,
+          matchId: args.match.matchId,
+          requestJson: JSON.stringify(args.command),
+          outcome: 'accepted',
+          acceptedSeq,
+          acceptedAt,
+          rejectionJson: null,
+        })
+        .run()
+      entries.forEach((entry) =>
+        tx
+          .insert(schema.protocolEntries)
+          .values({
+            acceptedSeq: entry.acceptedSeq,
+            entryIndex: entry.entryIndex,
+            causedByCommandId: entry.causedByCommandId,
+            acceptedAt: entry.acceptedAt,
+            gameKey: entry.gameKey,
+            frameIndex: entry.frameIndex,
+            source: entry.source,
+            entryType: entry.entryType,
+            seat: entry.seat,
+            scoreA: entry.scoreAfter?.A ?? null,
+            scoreB: entry.scoreAfter?.B ?? null,
+            bodyJson: JSON.stringify(entry.body),
+          })
+          .run(),
+      )
+      const result = tx
+        .update(schema.activeMatches)
+        .set({
+          latestSeq: acceptedSeq,
+          status: terminal ? 'finalizing' : 'active',
+          finalStateJson: finalState ? JSON.stringify(finalState) : null,
+          endedAt: terminal ? acceptedAt : null,
+        })
+        .where(
+          and(
+            eq(schema.activeMatches.matchId, args.match.matchId),
+            eq(schema.activeMatches.latestSeq, args.match.latestSeq),
+          ),
+        )
+        .run()
+      if (result.rowsWritten !== 1) throw new Error('Active match cursor mismatch')
+      return {
+        receipt: { _tag: 'accepted', acceptedSeq },
+        update: { type: 'command-accepted', acceptedSeq, terminal },
+      }
+    })
   }
 
   readProtocol(): MatchProtocol {
@@ -149,113 +256,6 @@ export class MatchStorage {
     } catch {
       throw new Error('MatchRoom protocol_entries storage corruption')
     }
-  }
-
-  commitCreation(initialization: ActiveMatchInitialization): void {
-    const { config, ...values } = initialization
-    this.#db
-      .insert(schema.activeMatches)
-      .values({
-        ...values,
-        matchId: config.matchId,
-        configJson: JSON.stringify(config),
-        latestSeq: 0,
-        status: 'active',
-        finalStateJson: null,
-        endedAt: null,
-      })
-      .run()
-  }
-
-  commitRejectedCommand(args: {
-    matchId: MatchId
-    command: MatchCommand
-    reason: SparringMatchRejection
-  }): Extract<CommandReceipt, { _tag: 'rejected' }> {
-    this.#db
-      .insert(schema.commands)
-      .values({
-        commandId: args.command.commandId,
-        matchId: args.matchId,
-        requestJson: JSON.stringify(args.command),
-        outcome: 'rejected',
-        rejectionJson: JSON.stringify(args.reason),
-      })
-      .run()
-    return { _tag: 'rejected', reason: args.reason }
-  }
-
-  commitAcceptedCommand(args: {
-    match: ActiveMatchRecord
-    command: MatchCommand
-    entryContents: NonEmptyProtocolEntryContents
-    finalState: MatchState | null
-  }): { receipt: Extract<CommandReceipt, { _tag: 'accepted' }>; update: MatchStreamUpdate } {
-    const acceptedSeq = args.match.latestSeq + 1
-    const acceptedAt = nowUnixEpochMilliseconds()
-    const terminal = args.finalState !== null
-    const finalState = args.finalState
-    const entries = args.entryContents.map((content, entryIndex) =>
-      v.parse(ProtocolEntry, {
-        ...content,
-        acceptedSeq,
-        entryIndex,
-        causedByCommandId: args.command.commandId,
-        acceptedAt,
-      }),
-    )
-    return this.#db.transaction((tx) => {
-      tx.insert(schema.commands)
-        .values({
-          commandId: args.command.commandId,
-          matchId: args.match.matchId,
-          requestJson: JSON.stringify(args.command),
-          outcome: 'accepted',
-          acceptedSeq,
-          acceptedAt,
-          rejectionJson: null,
-        })
-        .run()
-      entries.forEach((entry) =>
-        tx
-          .insert(schema.protocolEntries)
-          .values({
-            acceptedSeq: entry.acceptedSeq,
-            entryIndex: entry.entryIndex,
-            causedByCommandId: entry.causedByCommandId,
-            acceptedAt: entry.acceptedAt,
-            gameKey: entry.gameKey,
-            frameIndex: entry.frameIndex,
-            source: entry.source,
-            entryType: entry.entryType,
-            seat: entry.seat,
-            scoreA: entry.scoreAfter?.A ?? null,
-            scoreB: entry.scoreAfter?.B ?? null,
-            bodyJson: JSON.stringify(entry.body),
-          })
-          .run(),
-      )
-      const result = tx
-        .update(schema.activeMatches)
-        .set({
-          latestSeq: acceptedSeq,
-          status: terminal ? 'finalizing' : 'active',
-          finalStateJson: finalState ? JSON.stringify(finalState) : null,
-          endedAt: terminal ? acceptedAt : null,
-        })
-        .where(
-          and(
-            eq(schema.activeMatches.matchId, args.match.matchId),
-            eq(schema.activeMatches.latestSeq, args.match.latestSeq),
-          ),
-        )
-        .run()
-      if (result.rowsWritten !== 1) throw new Error('Active match cursor mismatch')
-      return {
-        receipt: { _tag: 'accepted', acceptedSeq },
-        update: { type: 'command-accepted', acceptedSeq, terminal },
-      }
-    })
   }
 }
 

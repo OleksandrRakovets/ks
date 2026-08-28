@@ -14,30 +14,6 @@ export class ActiveMatch {
     this.#broadcaster = broadcaster
   }
 
-  getControls(): ActiveControlsResult {
-    const match = this.#storage.match()
-    if (!match) return { _tag: 'missing' }
-    if (match.status === 'finalizing') return { _tag: 'finalizing' }
-    return {
-      _tag: 'active',
-      latestSeq: match.latestSeq,
-      projection: this.#loadResident(match).match.project(),
-    }
-  }
-
-  getProtocol(): ActiveProtocolResult {
-    const match = this.#storage.match()
-    if (!match) return { _tag: 'missing' }
-    if (match.status === 'finalizing') return { _tag: 'finalizing' }
-    const protocol = this.#storage.readProtocol()
-    return {
-      _tag: 'active',
-      latestSeq: protocol.latestSeq,
-      state: this.#loadResident(match).match.project().state,
-      protocolEntries: protocol.protocolEntries,
-    }
-  }
-
   submitCommand(command: MatchCommand): ActiveCommandResult {
     const match = this.#storage.match()
     if (!match) return { _tag: 'missing' }
@@ -72,11 +48,38 @@ export class ActiveMatch {
         finalState,
       })
       this.#advanceResidentCursor(committed.receipt.acceptedSeq)
-      if (!committed.update.terminal) this.#broadcaster.broadcast(committed.update)
+      if (!committed.update.terminal) {
+        // Terminal is withheld during D1 archival; the browser updates after disposal broadcasts, closes, and revalidates.
+        this.#broadcaster.broadcast(committed.update)
+      }
       return { _tag: 'accepted', receipt: committed.receipt, finalizing: committed.update.terminal }
     } catch (error) {
       this.clearResident()
       throw error
+    }
+  }
+
+  getControls(): ActiveControlsResult {
+    const match = this.#storage.match()
+    if (!match) return { _tag: 'missing' }
+    if (match.status === 'finalizing') return { _tag: 'finalizing' }
+    return {
+      _tag: 'active',
+      latestSeq: match.latestSeq,
+      projection: this.#loadResident(match).match.project(),
+    }
+  }
+
+  getProtocol(): ActiveProtocolResult {
+    const match = this.#storage.match()
+    if (!match) return { _tag: 'missing' }
+    if (match.status === 'finalizing') return { _tag: 'finalizing' }
+    const protocol = this.#storage.readProtocol()
+    return {
+      _tag: 'active',
+      latestSeq: protocol.latestSeq,
+      state: this.#loadResident(match).match.project().state,
+      protocolEntries: protocol.protocolEntries,
     }
   }
 
