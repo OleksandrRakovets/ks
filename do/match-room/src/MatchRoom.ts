@@ -21,8 +21,7 @@ import {
   SubmitCommandBodySchema,
   type SubmitCommandResult,
 } from './rpc-contract'
-import type { CommandReceiptOutcome } from './storage/command-outcome'
-import { type ActiveMatchRecord, MatchStorage } from './storage/match-storage'
+import { type ActiveMatchRecord, type CommandReceipt, MatchStorage } from './storage/match-storage'
 
 type ResidentRoom = { readonly latestSeq: number; readonly match: SparringMatch }
 type Failure = { ok: false; error: string; status: number }
@@ -59,9 +58,8 @@ export class MatchRoom extends DurableObject<Env> {
           return { ok: false, error: 'Match already exists', status: 409 }
       } else {
         this.store.commitCreation({
-          matchId: config.matchId,
+          config,
           controlSecret: parsed.output.controlSecret,
-          configJson: JSON.stringify(config),
           createdAt: parsed.output.createdAt,
         })
         this.resident = { latestSeq: 0, match: createSparringMatch(config) }
@@ -113,11 +111,10 @@ export class MatchRoom extends DurableObject<Env> {
       const match = this.store.match()
       if (!match || match.matchId !== body.output.matchId)
         return { ok: false, error: 'unknown-match', status: 400 }
-      const requestJson = JSON.stringify(body.output.command)
-      const prior = this.store.commandOutcome(body.output.command.commandId)
+      const prior = this.store.findCommandReceipt(body.output.command)
       if (prior)
-        return prior.requestJson === requestJson
-          ? this.success(prior.outcome, match.status)
+        return prior._tag === 'retry'
+          ? this.success(prior.receipt, match.status)
           : { ok: false, error: 'command-id-conflict', status: 409 }
       if (match.status === 'finalizing') return { ok: false, error: 'match-locked', status: 409 }
       const resident = this.loadResident(match)
@@ -126,27 +123,24 @@ export class MatchRoom extends DurableObject<Env> {
         if (result._tag === 'parse-failed') return { ok: false, error: 'invalid-command-body', status: 400 }
         if (result._tag === 'rejected')
           return this.success(
-            this.store.commitRejected({
+            this.store.commitRejectedCommand({
               matchId: match.matchId,
-              commandId: body.output.command.commandId,
-              requestJson,
+              command: body.output.command,
               reason: result.reason,
             }),
             match.status,
           )
         const projection = resident.match.project()
         const finalState = projection.state.status === 'finished' ? projection.state : null
-        const committed = this.store.commitAccepted({
+        const committed = this.store.commitAcceptedCommand({
           match,
-          commandId: body.output.command.commandId,
-          requestJson,
           command: result.command,
           entryContents: result.protocolEntryContents,
           finalState,
         })
-        this.resident = { latestSeq: committed.outcome.acceptedSeq, match: resident.match }
+        this.resident = { latestSeq: committed.receipt.acceptedSeq, match: resident.match }
         if (!committed.update.terminal) this.live.broadcast(committed.update)
-        return this.success(committed.outcome, committed.update.terminal ? 'finalizing' : 'active')
+        return this.success(committed.receipt, committed.update.terminal ? 'finalizing' : 'active')
       } catch (error) {
         this.resident = null
         throw error
@@ -249,12 +243,12 @@ export class MatchRoom extends DurableObject<Env> {
   }
 
   private success(
-    outcome: CommandReceiptOutcome,
+    receipt: CommandReceipt,
     status: ActiveMatchRecord['status'],
   ): Extract<SubmitCommandResult, { ok: true }> {
-    return status === 'finalizing' && outcome._tag === 'accepted'
-      ? { ok: true, outcome, finalizing: true }
-      : { ok: true, outcome }
+    return status === 'finalizing' && receipt._tag === 'accepted'
+      ? { ok: true, outcome: receipt, finalizing: true }
+      : { ok: true, outcome: receipt }
   }
 
   private validateTerminal(match: ActiveMatchRecord, entries: ProtocolEntry[]): void {

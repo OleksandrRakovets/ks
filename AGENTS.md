@@ -65,3 +65,7 @@ Domain vocabulary and distinctions are defined in CONTEXT.md. Treat it as author
 ## Documentation
 
 Document supported interfaces and non-obvious invariants, authority, ordering, mutation, trust, units, or failure behavior. Do not document syntax or self-explanatory DTOs. Put JSDoc on the original declaration and add `@param`, `@returns`, or `@throws` only when they convey information beyond the type.
+
+## File Organization
+
+- Keep a module's primary export near the top, before private helper functions. Place private helpers below the primary implementation so readers encounter the public shape first.

@@ -8,6 +8,6 @@ export default defineConfig({
     }),
   ],
   test: {
-    include: ['src/MatchRoom.integration.test.ts'],
+    include: ['src/MatchRoom.integration.test.ts', 'test/storage/**/*.integration.test.ts'],
   },
 })

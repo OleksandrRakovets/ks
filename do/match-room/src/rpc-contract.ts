@@ -2,7 +2,7 @@ import { CreateMatchRequestSchema } from '@ks/competition'
 import { MatchCommand, MatchId, NonNegativeInteger, UnixEpochMilliseconds } from '@ks/core'
 import * as v from 'valibot'
 
-import type { CommandReceiptOutcome } from './storage/command-outcome'
+import type { CommandReceipt } from './storage/match-storage'
 
 const ControlSecretSchema = v.pipe(v.string(), v.minLength(16))
 
@@ -37,7 +37,7 @@ export type StreamBody = v.InferInput<typeof StreamBodySchema>
 export type SubmitCommandResult =
   | {
       readonly ok: true
-      readonly outcome: CommandReceiptOutcome
+      readonly outcome: CommandReceipt
       readonly finalizing?: true
     }
   | {

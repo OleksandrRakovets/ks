@@ -1,7 +1,6 @@
-import type { SparringMatchRejection } from '@ks/competition'
+import { type SparringMatchRejection, SparringMatchRejectionSchema } from '@ks/competition'
 import {
   type AcceptedCommandHistoryEntry,
-  type CommandId,
   MatchCommand,
   MatchConfig,
   MatchId,
@@ -10,6 +9,7 @@ import {
   type NonEmptyProtocolEntryContents,
   NonNegativeInteger,
   nowUnixEpochMilliseconds,
+  PositiveInteger,
   ProtocolEntry,
   UnixEpochMilliseconds,
   UnknownObject,
@@ -21,79 +21,7 @@ import { migrate } from 'drizzle-orm/durable-sqlite/migrator'
 import * as v from 'valibot'
 
 import migrationsBundle from '../../drizzle/migrations.js'
-import {
-  type CommandReceiptOutcome,
-  decodeStoredCommandOutcome,
-  type StoredCommandOutcome,
-} from './command-outcome'
 import * as schema from './schema'
-
-/**
- * Decodes the single persisted MatchRoom row and enforces its lifecycle invariants. Active rows have no terminal data;
- * finalizing rows carry a finished state for the same match and game, ready for transfer to D1.
- */
-const ActiveMatchRecordSchema = v.pipe(
-  v.object({
-    matchId: MatchId,
-    controlSecret: v.pipe(v.string(), v.minLength(16)),
-    configJson: v.pipe(
-      v.string(),
-      v.parseJson(),
-      v.intersect([MatchConfig, v.object({ gameKey: RegisteredGameKeySchema })]),
-    ),
-    latestSeq: NonNegativeInteger,
-    status: v.picklist(['active', 'finalizing']),
-    createdAt: UnixEpochMilliseconds,
-    finalStateJson: v.nullable(v.pipe(v.string(), v.parseJson(), MatchState)),
-    endedAt: v.nullable(UnixEpochMilliseconds),
-  }),
-  v.transform(({ configJson, finalStateJson, ...row }) => ({
-    ...row,
-    config: configJson,
-    finalState: finalStateJson,
-  })),
-  v.check(
-    (row) =>
-      row.matchId === row.config.matchId &&
-      (row.status === 'active'
-        ? row.finalState === null && row.endedAt === null
-        : row.finalState?.status === 'finished' && row.endedAt !== null) &&
-      (row.finalState === null ||
-        (row.finalState.matchId === row.matchId && row.finalState.gameKey === row.config.gameKey)),
-  ),
-)
-
-export type ActiveMatchRecord = v.InferOutput<typeof ActiveMatchRecordSchema>
-export type ActiveMatchInitialization = {
-  readonly matchId: MatchId
-  readonly controlSecret: string
-  readonly configJson: string
-  readonly createdAt: UnixEpochMilliseconds
-}
-
-const StoredProtocolEntryRow = v.pipe(
-  v.object({
-    ...v.omit(ProtocolEntry, ['body']).entries,
-    bodyJson: v.pipe(v.string(), v.parseJson(), UnknownObject),
-  }),
-  v.transform(({ bodyJson, ...entry }) => ({ ...entry, body: bodyJson })),
-)
-
-function decodeEntry(row: typeof schema.protocolEntries.$inferSelect): ProtocolEntry {
-  return v.parse(StoredProtocolEntryRow, {
-    acceptedSeq: row.acceptedSeq,
-    entryIndex: row.entryIndex,
-    causedByCommandId: row.causedByCommandId,
-    acceptedAt: row.acceptedAt,
-    gameKey: row.gameKey,
-    frameIndex: row.frameIndex,
-    source: row.source,
-    entryType: row.entryType,
-    seat: row.seat,
-    scoreAfter: row.scoreA === null || row.scoreB === null ? undefined : { A: row.scoreA, B: row.scoreB },
-    bodyJson: row.bodyJson,
-  })
-}
 
 export class MatchStorage {
   readonly #db
@@ -110,20 +38,23 @@ export class MatchStorage {
     const row = this.#db.select().from(schema.activeMatches).limit(1).all()[0]
     if (!row) return null
     try {
-      return v.parse(ActiveMatchRecordSchema, row)
+      return v.parse(ActiveMatchRecord, row)
     } catch {
       throw new Error('MatchRoom active_matches storage corruption')
     }
   }
 
-  commandOutcome(commandId: CommandId): StoredCommandOutcome | null {
+  findCommandReceipt(command: MatchCommand): CommandReceiptLookup | null {
     const row = this.#db
       .select()
       .from(schema.commands)
-      .where(eq(schema.commands.commandId, commandId))
+      .where(eq(schema.commands.commandId, command.commandId))
       .limit(1)
       .all()[0]
-    return row ? decodeStoredCommandOutcome(row, commandId) : null
+    if (!row) return null
+    return jsonValuesEqual(decodeCommand(row), command)
+      ? { _tag: 'retry', receipt: decodeCommandReceipt(row) }
+      : { _tag: 'command-id-conflict' }
   }
 
   protocolEntriesThrough(latestSeq: number): ProtocolEntry[] {
@@ -199,24 +130,32 @@ export class MatchStorage {
   }
 
   commitCreation(initialization: ActiveMatchInitialization): void {
+    const { config, ...values } = initialization
     this.#db
       .insert(schema.activeMatches)
-      .values({ ...initialization, latestSeq: 0, status: 'active', finalStateJson: null, endedAt: null })
+      .values({
+        ...values,
+        matchId: config.matchId,
+        configJson: JSON.stringify(config),
+        latestSeq: 0,
+        status: 'active',
+        finalStateJson: null,
+        endedAt: null,
+      })
       .run()
   }
 
-  commitRejected(args: {
+  commitRejectedCommand(args: {
     matchId: MatchId
-    commandId: CommandId
-    requestJson: string
+    command: MatchCommand
     reason: SparringMatchRejection
-  }): Extract<CommandReceiptOutcome, { _tag: 'rejected' }> {
+  }): Extract<CommandReceipt, { _tag: 'rejected' }> {
     this.#db
       .insert(schema.commands)
       .values({
-        commandId: args.commandId,
+        commandId: args.command.commandId,
         matchId: args.matchId,
-        requestJson: args.requestJson,
+        requestJson: JSON.stringify(args.command),
         outcome: 'rejected',
         rejectionJson: JSON.stringify(args.reason),
       })
@@ -224,14 +163,12 @@ export class MatchStorage {
     return { _tag: 'rejected', reason: args.reason }
   }
 
-  commitAccepted(args: {
+  commitAcceptedCommand(args: {
     match: ActiveMatchRecord
-    commandId: CommandId
-    requestJson: string
     command: MatchCommand
     entryContents: NonEmptyProtocolEntryContents
     finalState: MatchState | null
-  }): { outcome: Extract<CommandReceiptOutcome, { _tag: 'accepted' }>; update: MatchStreamUpdate } {
+  }): { receipt: Extract<CommandReceipt, { _tag: 'accepted' }>; update: MatchStreamUpdate } {
     const acceptedSeq = args.match.latestSeq + 1
     const acceptedAt = nowUnixEpochMilliseconds()
     const terminal = args.finalState !== null
@@ -241,14 +178,14 @@ export class MatchStorage {
         ...content,
         acceptedSeq,
         entryIndex,
-        causedByCommandId: args.commandId,
+        causedByCommandId: args.command.commandId,
         acceptedAt,
       }),
     )
     return this.#db.transaction((tx) => {
       tx.insert(schema.commands)
         .values({
-          commandId: args.commandId,
+          commandId: args.command.commandId,
           matchId: args.match.matchId,
           requestJson: JSON.stringify(args.command),
           outcome: 'accepted',
@@ -293,9 +230,126 @@ export class MatchStorage {
         .run()
       if (result.rowsWritten !== 1) throw new Error('Active match cursor mismatch')
       return {
-        outcome: { _tag: 'accepted', acceptedSeq },
+        receipt: { _tag: 'accepted', acceptedSeq },
         update: { type: 'command-accepted', acceptedSeq, terminal },
       }
     })
+  }
+}
+
+const CommandReceipt = v.variant('_tag', [
+  v.object({ _tag: v.literal('accepted'), acceptedSeq: PositiveInteger }),
+  v.object({ _tag: v.literal('rejected'), reason: SparringMatchRejectionSchema }),
+])
+
+export type CommandReceipt = v.InferOutput<typeof CommandReceipt>
+export type CommandReceiptLookup =
+  | { readonly _tag: 'retry'; readonly receipt: CommandReceipt }
+  | { readonly _tag: 'command-id-conflict' }
+
+/**
+ * Decodes the single persisted MatchRoom row and enforces its lifecycle invariants. Active rows have no terminal data;
+ * finalizing rows carry a finished state for the same match and game, ready for transfer to D1.
+ */
+const ActiveMatchRecord = v.pipe(
+  v.object({
+    matchId: MatchId,
+    controlSecret: v.pipe(v.string(), v.minLength(16)),
+    configJson: v.pipe(
+      v.string(),
+      v.parseJson(),
+      v.intersect([MatchConfig, v.object({ gameKey: RegisteredGameKeySchema })]),
+    ),
+    latestSeq: NonNegativeInteger,
+    status: v.picklist(['active', 'finalizing']),
+    createdAt: UnixEpochMilliseconds,
+    finalStateJson: v.nullable(v.pipe(v.string(), v.parseJson(), MatchState)),
+    endedAt: v.nullable(UnixEpochMilliseconds),
+  }),
+  v.transform(({ configJson, finalStateJson, ...row }) => ({
+    ...row,
+    config: configJson,
+    finalState: finalStateJson,
+  })),
+  v.check(
+    (row) =>
+      row.matchId === row.config.matchId &&
+      (row.status === 'active'
+        ? row.finalState === null && row.endedAt === null
+        : row.finalState?.status === 'finished' && row.endedAt !== null) &&
+      (row.finalState === null ||
+        (row.finalState.matchId === row.matchId && row.finalState.gameKey === row.config.gameKey)),
+  ),
+)
+
+export type ActiveMatchRecord = v.InferOutput<typeof ActiveMatchRecord>
+export type ActiveMatchInitialization = {
+  readonly config: MatchConfig
+  readonly controlSecret: string
+  readonly createdAt: UnixEpochMilliseconds
+}
+
+const StoredProtocolEntryRow = v.pipe(
+  v.object({
+    ...v.omit(ProtocolEntry, ['body']).entries,
+    bodyJson: v.pipe(v.string(), v.parseJson(), UnknownObject),
+  }),
+  v.transform(({ bodyJson, ...entry }) => ({ ...entry, body: bodyJson })),
+)
+
+function decodeEntry(row: typeof schema.protocolEntries.$inferSelect): ProtocolEntry {
+  return v.parse(StoredProtocolEntryRow, {
+    acceptedSeq: row.acceptedSeq,
+    entryIndex: row.entryIndex,
+    causedByCommandId: row.causedByCommandId,
+    acceptedAt: row.acceptedAt,
+    gameKey: row.gameKey,
+    frameIndex: row.frameIndex,
+    source: row.source,
+    entryType: row.entryType,
+    seat: row.seat,
+    scoreAfter: row.scoreA === null || row.scoreB === null ? undefined : { A: row.scoreA, B: row.scoreB },
+    bodyJson: row.bodyJson,
+  })
+}
+
+function jsonValuesEqual(left: unknown, right: unknown): boolean {
+  if (Object.is(left, right)) return true
+  if (Array.isArray(left) || Array.isArray(right))
+    return (
+      Array.isArray(left) &&
+      Array.isArray(right) &&
+      left.length === right.length &&
+      left.every((value, index) => jsonValuesEqual(value, right[index]))
+    )
+  if (left === null || right === null || typeof left !== 'object' || typeof right !== 'object') return false
+  const leftEntries = Object.entries(left)
+  const rightRecord = right as Record<string, unknown>
+  return (
+    leftEntries.length === Object.keys(rightRecord).length &&
+    leftEntries.every(
+      ([key, value]) => Object.hasOwn(rightRecord, key) && jsonValuesEqual(value, rightRecord[key]),
+    )
+  )
+}
+
+function decodeCommandReceipt(row: typeof schema.commands.$inferSelect): CommandReceipt {
+  try {
+    return v.parse(
+      CommandReceipt,
+      row.outcome === 'accepted'
+        ? { _tag: 'accepted', acceptedSeq: row.acceptedSeq }
+        : { _tag: 'rejected', reason: JSON.parse(row.rejectionJson ?? '') },
+    )
+  } catch {
+    throw new Error(`MatchRoom commands storage corruption for command ${row.commandId}`)
+  }
+}
+
+function decodeCommand(row: typeof schema.commands.$inferSelect): MatchCommand {
+  try {
+    return v.parse(v.pipe(v.string(), v.parseJson(), MatchCommand), row.requestJson)
+  } catch {
+    throw new Error(`MatchRoom commands storage corruption for command ${row.commandId}`)
   }
 }
