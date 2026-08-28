@@ -17,8 +17,10 @@ import {
 import { RegisteredGameKeySchema } from '@ks/gameplay/definitions'
 import { and, asc, eq, isNotNull, lte } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/durable-sqlite'
+import { migrate } from 'drizzle-orm/durable-sqlite/migrator'
 import * as v from 'valibot'
 
+import migrationsBundle from '../../drizzle/migrations.js'
 import {
   type CommandReceiptOutcome,
   decodeStoredCommandOutcome,
@@ -93,14 +95,19 @@ function decodeEntry(row: typeof schema.protocolEntries.$inferSelect): ProtocolE
   })
 }
 
-export class ActiveMatchStore {
-  readonly db
+export class MatchStorage {
+  readonly #db
+
   constructor(storage: DurableObjectStorage) {
-    this.db = drizzle(storage)
+    this.#db = drizzle(storage)
+  }
+
+  migrate(): void {
+    migrate(this.#db, migrationsBundle)
   }
 
   match(): ActiveMatchRecord | null {
-    const row = this.db.select().from(schema.activeMatches).limit(1).all()[0]
+    const row = this.#db.select().from(schema.activeMatches).limit(1).all()[0]
     if (!row) return null
     try {
       return v.parse(ActiveMatchRecordSchema, row)
@@ -110,7 +117,7 @@ export class ActiveMatchStore {
   }
 
   commandOutcome(commandId: CommandId): StoredCommandOutcome | null {
-    const row = this.db
+    const row = this.#db
       .select()
       .from(schema.commands)
       .where(eq(schema.commands.commandId, commandId))
@@ -121,7 +128,7 @@ export class ActiveMatchStore {
 
   protocolEntriesThrough(latestSeq: number): ProtocolEntry[] {
     try {
-      return this.db
+      return this.#db
         .select()
         .from(schema.protocolEntries)
         .where(lte(schema.protocolEntries.acceptedSeq, latestSeq))
@@ -134,7 +141,7 @@ export class ActiveMatchStore {
   }
 
   history(match: ActiveMatchRecord): AcceptedCommandHistoryEntry[] {
-    const commands = this.db
+    const commands = this.#db
       .select()
       .from(schema.commands)
       .where(isNotNull(schema.commands.acceptedSeq))
@@ -192,7 +199,7 @@ export class ActiveMatchStore {
   }
 
   commitCreation(initialization: ActiveMatchInitialization): void {
-    this.db
+    this.#db
       .insert(schema.activeMatches)
       .values({ ...initialization, latestSeq: 0, status: 'active', finalStateJson: null, endedAt: null })
       .run()
@@ -204,7 +211,7 @@ export class ActiveMatchStore {
     requestJson: string
     reason: SparringMatchRejection
   }): Extract<CommandReceiptOutcome, { _tag: 'rejected' }> {
-    this.db
+    this.#db
       .insert(schema.commands)
       .values({
         commandId: args.commandId,
@@ -238,7 +245,7 @@ export class ActiveMatchStore {
         acceptedAt,
       }),
     )
-    return this.db.transaction((tx) => {
+    return this.#db.transaction((tx) => {
       tx.insert(schema.commands)
         .values({
           commandId: args.commandId,

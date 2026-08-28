@@ -6,10 +6,8 @@ import {
 } from '@ks/competition'
 import { type MatchConfig, type MatchState, type ProtocolEntry } from '@ks/core'
 import { DurableObject } from 'cloudflare:workers'
-import { migrate } from 'drizzle-orm/durable-sqlite/migrator'
 import * as v from 'valibot'
 
-import migrationsBundle from '../drizzle/migrations.js'
 import type { Env } from './env'
 import { Broadcaster } from './live/broadcaster'
 import {
@@ -23,14 +21,14 @@ import {
   SubmitCommandBodySchema,
   type SubmitCommandResult,
 } from './rpc-contract'
-import { type ActiveMatchRecord, ActiveMatchStore } from './storage/active-match-store'
 import type { CommandReceiptOutcome } from './storage/command-outcome'
+import { type ActiveMatchRecord, MatchStorage } from './storage/match-storage'
 
 type ResidentRoom = { readonly latestSeq: number; readonly match: SparringMatch }
 type Failure = { ok: false; error: string; status: number }
 
 export class MatchRoom extends DurableObject<Env> {
-  private readonly store: ActiveMatchStore
+  private readonly store: MatchStorage
   private readonly live = new Broadcaster()
   private readonly ready: Promise<void>
   private resident: ResidentRoom | null = null
@@ -38,9 +36,9 @@ export class MatchRoom extends DurableObject<Env> {
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
-    this.store = new ActiveMatchStore(ctx.storage)
+    this.store = new MatchStorage(ctx.storage)
     this.ready = ctx.blockConcurrencyWhile(async () => {
-      migrate(this.store.db, migrationsBundle)
+      this.store.migrate()
     })
   }
 
