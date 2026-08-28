@@ -51,7 +51,7 @@ Creation is coordinated by application:
 
 ```text
 D1 matches.status: creating
-  -> MatchRoom.create persists config and match.created
+  -> MatchRoom.initialize persists config and match.created
   -> D1 matches.status: active
 ```
 
@@ -61,7 +61,7 @@ Ordinary commands verify the match row's lifecycle, then write only to MatchRoom
 
 ```text
 MatchRoom finalizing Protocol + Final Match State
-  -> application validates transfer identity and terminal consistency
+  -> application treats the transfer as canonical and checks D1 identity, lifecycle, and archive idempotency
   -> idempotently archive protocol and final match state in D1
   -> MatchRoom broadcasts match.ended, closes streams, and deletes local storage
   -> D1 matches.status: finished
