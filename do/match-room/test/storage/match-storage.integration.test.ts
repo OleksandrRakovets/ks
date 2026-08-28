@@ -60,7 +60,7 @@ test('stores canonical values and compares durable Command retries semantically'
 test('reconstructs typed history, Protocol, and the finalizing transfer from its authoritative cursor', async () => {
   const matchId = newMatchId()
   const stub = env.MATCH_ROOM.getByName(matchId)
-  await stub.create({ ...request, matchId, controlSecret, createdAt })
+  await stub.initialize({ ...request, matchId, controlSecret, createdAt })
   const commands = [
     { commandId: newCommandId(), source: 'match' as const, command: { type: 'frame.prepare' } },
     {
@@ -70,7 +70,7 @@ test('reconstructs typed history, Protocol, and the finalizing transfer from its
     },
     { commandId: newCommandId(), source: 'match' as const, command: { type: 'frame.concede', seat: 'B' } },
   ]
-  for (const command of commands) await stub.submitCommand({ matchId, command })
+  for (const command of commands) await stub.submitCommand(command)
 
   await runInDurableObject(stub, (_room, state) => {
     const storage = new MatchStorage(state.storage)

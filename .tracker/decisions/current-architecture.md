@@ -15,7 +15,7 @@ Browser
 
 Play owns HTTP and presentation adaptation. `@ks/application` owns use-case orchestration, private D1 access, active-versus-finished read routing, and cross-store finalization. MatchRoom owns serialized active-match execution, persistence, replay, and SSE fan-out.
 
-Play and MatchRoom are independently built Cloudflare Workers. MatchRoom has no public `fetch` gateway and no D1 binding; Play reaches it through an external Durable Object binding. Play imports `@ks/match-room` only for generated RPC types, while application uses a private structural stub contract.
+Play and MatchRoom are independently built Cloudflare Workers. MatchRoom has no public `fetch` gateway and no D1 binding; Play reaches it through an external Durable Object binding. Play and application import `@ks/match-room` type-only: application derives its private capability from the server class, and Play's generated binding verifies that the selected RPC stub is structurally compatible.
 
 ## Domain Boundaries
 

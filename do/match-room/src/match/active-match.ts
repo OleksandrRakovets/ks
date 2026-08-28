@@ -16,27 +16,31 @@ export class ActiveMatch {
 
   submitCommand(command: MatchCommand): ActiveCommandResult {
     const match = this.#storage.match()
-    if (!match) return { _tag: 'missing' }
+    if (!match) throw new Error('ActiveMatch storage missing')
     const prior = this.#storage.findCommandReceipt(command)
     if (prior) {
       if (prior._tag === 'command-id-conflict') return prior
       return prior.receipt._tag === 'accepted'
-        ? { _tag: 'accepted', receipt: prior.receipt, finalizing: match.status === 'finalizing' }
-        : { _tag: 'rejected', receipt: prior.receipt }
+        ? {
+            _tag: 'accepted',
+            acceptedSeq: prior.receipt.acceptedSeq,
+            finalizesMatch: match.status === 'finalizing' && prior.receipt.acceptedSeq === match.latestSeq,
+          }
+        : prior.receipt
     }
     if (match.status === 'finalizing') return { _tag: 'finalizing' }
 
     const resident = this.#loadResident(match)
     try {
       const result = resident.match.execute(command)
-      if (result._tag === 'parse-failed') return { _tag: 'invalid-command' }
+      if (result._tag === 'parse-failed') throw new Error('ActiveMatch received noncanonical Command')
       if (result._tag === 'rejected') {
         const receipt = this.#storage.commitRejectedCommand({
           matchId: match.matchId,
           command,
           reason: result.reason,
         })
-        return { _tag: 'rejected', receipt }
+        return receipt
       }
 
       const projection = resident.match.project()
@@ -52,7 +56,11 @@ export class ActiveMatch {
         // Terminal is withheld during D1 archival; the browser updates after disposal broadcasts, closes, and revalidates.
         this.#broadcaster.broadcast(committed.update)
       }
-      return { _tag: 'accepted', receipt: committed.receipt, finalizing: committed.update.terminal }
+      return {
+        _tag: 'accepted',
+        acceptedSeq: committed.receipt.acceptedSeq,
+        finalizesMatch: committed.update.terminal,
+      }
     } catch (error) {
       this.clearResident()
       throw error
@@ -61,18 +69,18 @@ export class ActiveMatch {
 
   getControls(): ActiveControlsResult {
     const match = this.#storage.match()
-    if (!match) return { _tag: 'missing' }
+    if (!match) throw new Error('ActiveMatch storage missing')
     if (match.status === 'finalizing') return { _tag: 'finalizing' }
     return {
       _tag: 'active',
       latestSeq: match.latestSeq,
-      projection: this.#loadResident(match).match.project(),
+      ...this.#loadResident(match).match.project(),
     }
   }
 
   getProtocol(): ActiveProtocolResult {
     const match = this.#storage.match()
-    if (!match) return { _tag: 'missing' }
+    if (!match) throw new Error('ActiveMatch storage missing')
     if (match.status === 'finalizing') return { _tag: 'finalizing' }
     const protocol = this.#storage.readProtocol()
     return {
@@ -85,7 +93,7 @@ export class ActiveMatch {
 
   stream(since = 0): ActiveStreamResult {
     const match = this.#storage.match()
-    if (!match) return { _tag: 'missing' }
+    if (!match) throw new Error('ActiveMatch storage missing')
     if (match.status === 'finalizing') return { _tag: 'finalizing' }
     const backlog: MatchStreamUpdate[] = []
     for (let acceptedSeq = since + 1; acceptedSeq <= match.latestSeq; acceptedSeq += 1)
@@ -112,16 +120,10 @@ export class ActiveMatch {
 type ResidentMatch = { readonly latestSeq: number; readonly match: SparringMatch }
 
 export type ActiveControlsResult =
-  | { readonly _tag: 'missing' }
   | { readonly _tag: 'finalizing' }
-  | {
-      readonly _tag: 'active'
-      readonly latestSeq: number
-      readonly projection: SparringMatchRoomProjection
-    }
+  | ({ readonly _tag: 'active'; readonly latestSeq: number } & SparringMatchRoomProjection)
 
 export type ActiveProtocolResult =
-  | { readonly _tag: 'missing' }
   | { readonly _tag: 'finalizing' }
   | {
       readonly _tag: 'active'
@@ -131,18 +133,15 @@ export type ActiveProtocolResult =
     }
 
 export type ActiveCommandResult =
-  | { readonly _tag: 'missing' }
   | { readonly _tag: 'finalizing' }
-  | { readonly _tag: 'invalid-command' }
   | { readonly _tag: 'command-id-conflict' }
   | {
       readonly _tag: 'accepted'
-      readonly receipt: Extract<CommandReceipt, { _tag: 'accepted' }>
-      readonly finalizing: boolean
+      readonly acceptedSeq: number
+      readonly finalizesMatch: boolean
     }
-  | { readonly _tag: 'rejected'; readonly receipt: Extract<CommandReceipt, { _tag: 'rejected' }> }
+  | Extract<CommandReceipt, { _tag: 'rejected' }>
 
 export type ActiveStreamResult =
-  | { readonly _tag: 'missing' }
   | { readonly _tag: 'finalizing' }
   | { readonly _tag: 'active'; readonly response: Response }

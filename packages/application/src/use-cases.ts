@@ -24,7 +24,11 @@ import type {
   SubmitMatchCommandResult,
 } from './contracts'
 import { CreateMatchInputSchema } from './contracts'
-import type { MatchRoomClient, MatchRoomCreateRequest, MatchRoomFinalizationData } from './match-room-client'
+import type {
+  MatchRoomClient,
+  MatchRoomCompletionTransfer,
+  MatchRoomInitializationInput,
+} from './match-room-client'
 import {
   ProtocolArchiveCorruptionError,
   type ProtocolArchiveRecord,
@@ -59,9 +63,9 @@ type ApplicationDependencies = {
     createdAt: UnixEpochMilliseconds
   }): Promise<void>
   activateMatch(matchId: MatchId): Promise<void>
-  archiveCompletedMatch(input: MatchRoomFinalizationData & { matchId: MatchId }): Promise<void>
+  archiveCompletedMatch(input: MatchRoomCompletionTransfer): Promise<void>
   finishCompletedMatch(matchId: MatchId): Promise<void>
-  matchRoom: MatchRoomClient
+  matchRoomClient(matchId: MatchId): MatchRoomClient
 }
 
 type ReadKeyedMatchSuccess<K extends RegisteredGameKey> = {
@@ -100,7 +104,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
       { seat: 'A', playerRef: seatAPlayerRef },
       { seat: 'B', playerRef: seatBPlayerRef },
     ]
-    const request: MatchRoomCreateRequest = {
+    const request: MatchRoomInitializationInput = {
       ...requestInput,
       participants,
       matchId,
@@ -114,8 +118,9 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
       seatBPlayerRef,
       createdAt,
     })
-    const result = await dependencies.matchRoom.create(request)
-    if (!result.ok) return result
+    const result = await dependencies.matchRoomClient(matchId).initialize(request)
+    if (result._tag === 'initialization-conflict')
+      return { ok: false, error: 'Match already exists', status: 409 }
     await dependencies.activateMatch(matchId)
     return { ok: true, matchId }
   }
@@ -156,26 +161,17 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     }
     if (record.status !== 'active') return { ok: false, error: 'Unknown match', status: 404 }
 
-    const roomResult = await dependencies.matchRoom.readControl(matchId, expectedGameKey)
-    if (!roomResult.ok) {
-      if (roomResult.error === 'Match is finalizing') {
-        await archiveAndFinishRoom(matchId)
-        return await readArchivedMatch(record, locale, expectedGameKey)
-      }
-      const updatedRecord = await dependencies.getMatchRecord(matchId)
-      if (updatedRecord && updatedRecord.status !== 'active') {
-        if (updatedRecord.status === 'finalizing') await disposeAndFinishRoom(matchId)
-        if (updatedRecord.gameKey !== expectedGameKey)
-          return { ok: false, error: 'Unknown match', status: 404 }
-        return await readArchivedMatch(updatedRecord, locale, expectedGameKey)
-      }
-      const status = roomResult.error === 'Unknown match' ? 404 : roomResult.status === 409 ? 409 : 502
-      return { ok: false, error: roomResult.error, status }
+    const roomResult = await dependencies.matchRoomClient(matchId).getControls()
+    if (roomResult._tag === 'finalizing') {
+      await archiveAndFinishRoom(matchId)
+      return await readArchivedMatch(record, locale, expectedGameKey)
     }
+    if (roomResult.state.matchId !== matchId || roomResult.state.gameKey !== expectedGameKey)
+      throw new Error('MatchRoom active identity conflicts with D1')
 
     const result: ReadKeyedMatchSuccess<K> = {
       ok: true,
-      state: roomResult.state,
+      state: { ...roomResult.state, gameKey: expectedGameKey },
       latestSeq: roomResult.latestSeq,
       participants: await hydrateParticipants(record, locale),
       controlSections: roomResult.controlSections,
@@ -212,14 +208,19 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
       return { ok: false, error: 'Match is finished', status: 409 }
     }
     if (record.status !== 'active') return { ok: false, error: 'Unknown match', status: 404 }
-    const result = await dependencies.matchRoom.submitCommand(matchId, command)
-    if (result.ok && result.outcome._tag === 'accepted' && result.finalizing) {
+    const result = await dependencies.matchRoomClient(matchId).submitCommand(command)
+    if (result._tag === 'accepted' && result.finalizesMatch) {
       await archiveAndFinishRoom(matchId)
-      return { ok: true, outcome: result.outcome }
+      return { ok: true, outcome: { _tag: 'accepted', acceptedSeq: result.acceptedSeq } }
     }
-    if (!result.ok && result.error === 'match-locked') await archiveAndFinishRoom(matchId)
-    if (result.ok) return { ok: true, outcome: result.outcome }
-    return result
+    if (result._tag === 'finalizing') {
+      await archiveAndFinishRoom(matchId)
+      return { ok: false, error: 'match-locked', status: 409 }
+    }
+    if (result._tag === 'command-id-conflict') return { ok: false, error: 'command-id-conflict', status: 409 }
+    return result._tag === 'accepted'
+      ? { ok: true, outcome: { _tag: 'accepted', acceptedSeq: result.acceptedSeq } }
+      : { ok: true, outcome: result }
   }
 
   async function readMatchProtocol<K extends RegisteredGameKey>(
@@ -234,17 +235,17 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     const participants = await hydrateParticipants(record, locale)
     const seatNames = { A: participants.A.displayName, B: participants.B.displayName }
     if (record.status === 'active') {
-      const room = await dependencies.matchRoom.readProtocol(matchId, expectedGameKey)
-      if (!room.ok) {
-        if (room.error === 'Match is finalizing') {
-          await archiveAndFinishRoom(matchId)
-          return readMatchProtocol(matchId, timeZone, locale, expectedGameKey)
-        }
-        return room
+      const room = await dependencies.matchRoomClient(matchId).getProtocol()
+      if (room._tag === 'finalizing') {
+        await archiveAndFinishRoom(matchId)
+        return readMatchProtocol(matchId, timeZone, locale, expectedGameKey)
       }
+      if (room.state.matchId !== matchId || room.state.gameKey !== expectedGameKey)
+        throw new Error('MatchRoom active identity conflicts with D1')
       return {
         ok: true,
-        state: room.state,
+        // SAFETY: runtime identity correlation above establishes expectedGameKey K.
+        state: room.state as MatchStateFor<K>,
         latestSeq: room.latestSeq,
         participants,
         protocolRows: renderProtocolRows(room.protocolEntries, seatNames, timeZone, locale).reverse(),
@@ -272,15 +273,13 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
   }
 
   async function archiveAndFinishRoom(matchId: MatchId): Promise<void> {
-    const result = await dependencies.matchRoom.finalization(matchId)
-    if (!result.ok) throw new Error(result.error)
-    await dependencies.archiveCompletedMatch(result.data)
+    const transfer = await dependencies.matchRoomClient(matchId).prepareArchive()
+    await dependencies.archiveCompletedMatch(transfer)
     await disposeAndFinishRoom(matchId)
   }
 
   async function disposeAndFinishRoom(matchId: MatchId): Promise<void> {
-    const result = await dependencies.matchRoom.disposeFinalized(matchId)
-    if (!result.ok) throw new Error(result.error)
+    await dependencies.matchRoomClient(matchId).dispose()
     await dependencies.finishCompletedMatch(matchId)
   }
 
@@ -330,8 +329,8 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
       }
       if (record.status !== 'active')
         return Response.json({ ok: false, error: 'Unknown match' }, { status: 404 })
-      const response = await dependencies.matchRoom.stream(matchId, since)
-      if (response.status !== 409) return response
+      const stream = await dependencies.matchRoomClient(matchId).stream(since)
+      if (stream._tag === 'active') return stream.response
       await archiveAndFinishRoom(matchId)
       return Response.json({ ok: false, error: 'Match is finished' }, { status: 410 })
     },

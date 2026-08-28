@@ -2,76 +2,16 @@ import { type MatchId, MatchState, NonEmptyProtocolEntries } from '@ks/core'
 import { and, eq, inArray } from 'drizzle-orm'
 import * as v from 'valibot'
 
-import type { MatchRoomFinalizationData } from '../match-room-client'
+import type { MatchRoomCompletionTransfer } from '../match-room-client'
 import { PROTOCOL_ARCHIVE_VERSION } from '../protocol'
 import { matches, matchProtocolArchives, StoredMatchStatus } from './schema'
 import type { ApplicationDatabase } from './types'
-
-export type CompletedMatchArchiveInput = MatchRoomFinalizationData
 
 export class CompletedMatchArchiveError extends Error {
   constructor(message: string) {
     super(message)
     this.name = 'CompletedMatchArchiveError'
   }
-}
-
-function validateCompletedMatchTransfer(input: CompletedMatchArchiveInput): MatchState {
-  const entries = [...input.protocolEntries].sort(
-    (a, b) => a.acceptedSeq - b.acceptedSeq || a.entryIndex - b.entryIndex,
-  )
-  let sequence = 1
-  let index = 0
-  let commandId = ''
-  let acceptedAt = 0
-  for (const entry of entries) {
-    if (entry.acceptedSeq !== sequence) {
-      if (entry.acceptedSeq !== sequence + 1)
-        throw new CompletedMatchArchiveError('Protocol sequence is not contiguous')
-      sequence += 1
-      index = 0
-      commandId = ''
-      acceptedAt = 0
-    }
-    if (entry.entryIndex !== index++)
-      throw new CompletedMatchArchiveError('Protocol entry index is not contiguous')
-    if (commandId && (entry.causedByCommandId !== commandId || entry.acceptedAt !== acceptedAt))
-      throw new CompletedMatchArchiveError('Protocol command ownership is inconsistent')
-    commandId ||= entry.causedByCommandId
-    acceptedAt ||= entry.acceptedAt
-  }
-  const terminal = entries.filter((entry) => entry.entryType === 'match-ended')
-  const tail = entries.at(-1)
-  const frames = input.finalState.frames
-  const wins = {
-    A: frames.filter((frame) => frame.winnerSeat === 'A').length,
-    B: frames.filter((frame) => frame.winnerSeat === 'B').length,
-  }
-  const winner =
-    wins.A === input.finalState.targets.matchTargetFrames
-      ? 'A'
-      : wins.B === input.finalState.targets.matchTargetFrames
-        ? 'B'
-        : null
-  if (
-    input.matchId !== input.finalState.matchId ||
-    input.gameKey !== input.finalState.gameKey ||
-    input.endedAt < input.createdAt ||
-    sequence !== input.sourceLatestSeq ||
-    input.finalState.currentFrameIndex !== frames.at(-1)?.frameIndex ||
-    frames.some((frame, frameIndex) => frame.frameIndex !== frameIndex + 1) ||
-    wins.A !== input.finalState.framesWonBySeat.A ||
-    wins.B !== input.finalState.framesWonBySeat.B ||
-    !winner ||
-    terminal.length !== 1 ||
-    tail !== terminal[0] ||
-    !tail ||
-    tail.acceptedSeq !== input.sourceLatestSeq ||
-    tail.acceptedAt !== input.endedAt ||
-    tail.seat !== winner
-  )
-    throw new CompletedMatchArchiveError('Completed match transfer is inconsistent')
-  return input.finalState
 }
 
 function semanticArchiveEqual(
@@ -146,19 +86,14 @@ function structuralEqual(left: StructuralValue, right: StructuralValue): boolean
 
 export async function archiveCompletedMatch(
   db: ApplicationDatabase,
-  input: CompletedMatchArchiveInput,
+  input: MatchRoomCompletionTransfer,
 ): Promise<void> {
-  const state = validateCompletedMatchTransfer(input)
   const archive = {
     matchId: input.matchId,
     sourceLatestSeq: input.sourceLatestSeq,
     protocolVersion: PROTOCOL_ARCHIVE_VERSION,
-    rowsJson: JSON.stringify(
-      [...input.protocolEntries].sort(
-        (left, right) => left.acceptedSeq - right.acceptedSeq || left.entryIndex - right.entryIndex,
-      ),
-    ),
-    stateJson: JSON.stringify(state),
+    rowsJson: JSON.stringify(input.protocolEntries),
+    stateJson: JSON.stringify(input.finalState),
     createdAt: input.endedAt,
   }
   const storedMatch = await db

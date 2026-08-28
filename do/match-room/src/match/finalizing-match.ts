@@ -10,17 +10,17 @@ export class FinalizingMatch {
     this.#broadcaster = broadcaster
   }
 
-  prepareArchive(): PrepareArchiveResult {
+  prepareArchive(): FinalizingTransfer {
     const match = this.#storage.match()
-    if (!match) return { _tag: 'missing' }
-    if (match.status === 'active') return { _tag: 'active' }
-    return { _tag: 'prepared', transfer: this.#storage.readFinalizingTransfer() }
+    if (!match) throw new Error('FinalizingMatch storage missing')
+    if (match.status === 'active') throw new Error('Cannot prepare archive for active Match')
+    return this.#storage.readFinalizingTransfer()
   }
 
   closeForDisposal(): CloseForDisposalResult {
     const match = this.#storage.match()
     if (!match) return { _tag: 'already-disposed' }
-    if (match.status === 'active') return { _tag: 'active' }
+    if (match.status === 'active') throw new Error('Cannot dispose active Match')
     this.#storage.readFinalizingTransfer()
     this.#broadcaster.broadcast({ type: 'command-accepted', acceptedSeq: match.latestSeq, terminal: true })
     this.#broadcaster.closeAll()
@@ -28,12 +28,4 @@ export class FinalizingMatch {
   }
 }
 
-export type PrepareArchiveResult =
-  | { readonly _tag: 'missing' }
-  | { readonly _tag: 'active' }
-  | { readonly _tag: 'prepared'; readonly transfer: FinalizingTransfer }
-
-export type CloseForDisposalResult =
-  | { readonly _tag: 'already-disposed' }
-  | { readonly _tag: 'active' }
-  | { readonly _tag: 'closed' }
+export type CloseForDisposalResult = { readonly _tag: 'already-disposed' } | { readonly _tag: 'closed' }
