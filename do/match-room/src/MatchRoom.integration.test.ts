@@ -72,6 +72,7 @@ describe('MatchRoom accepted command history', () => {
 
     await evictDurableObject(stub)
     stub = env.MATCH_ROOM.getByName(matchId)
+    expect(await stub.submitCommand({ matchId, command })).toEqual(accepted)
     expect(await stub.readControl({ matchId })).toMatchObject({
       ok: true,
       latestSeq: 1,
@@ -86,7 +87,7 @@ describe('MatchRoom accepted command history', () => {
 
   test('does not advance sequence for a durable rejected outcome', async () => {
     const matchId = newMatchId()
-    const stub = env.MATCH_ROOM.getByName(matchId)
+    let stub = env.MATCH_ROOM.getByName(matchId)
     await stub.create(body(matchId))
     const commandId = newCommandId()
     const command = {
@@ -96,8 +97,40 @@ describe('MatchRoom accepted command history', () => {
     }
     const rejected = await stub.submitCommand({ matchId, command })
     expect(rejected).toMatchObject({ ok: true, outcome: { _tag: 'rejected' } })
+    await evictDurableObject(stub)
+    stub = env.MATCH_ROOM.getByName(matchId)
     expect(await stub.submitCommand({ matchId, command })).toEqual(rejected)
+    expect(
+      await stub.submitCommand({
+        matchId,
+        command: { ...command, command: { type: 'frame.prepare' } },
+      }),
+    ).toEqual({ ok: false, error: 'command-id-conflict', status: 409 })
     expect(await stub.readProtocol({ matchId })).toMatchObject({ ok: true, latestSeq: 0, protocolEntries: [] })
+  })
+
+  test('invalidates speculative resident state when accepted persistence fails', async () => {
+    const matchId = newMatchId()
+    const stub = env.MATCH_ROOM.getByName(matchId)
+    await stub.create(body(matchId))
+    await stub.readControl({ matchId })
+    const command = { commandId: newCommandId(), source: 'match' as const, command: { type: 'frame.prepare' } }
+
+    await runInDurableObject(stub, async (room, state) => {
+      // SAFETY: The stub belongs to the MATCH_ROOM namespace, whose configured class is MatchRoom.
+      const matchRoom = room as MatchRoom
+      state.storage.sql.exec(`
+        CREATE TRIGGER fail_accepted_command
+        BEFORE INSERT ON commands WHEN NEW.outcome = 'accepted'
+        BEGIN SELECT RAISE(ABORT, 'forced persistence failure'); END
+      `)
+      await expect(matchRoom.submitCommand({ matchId, command })).rejects.toThrow()
+      state.storage.sql.exec('DROP TRIGGER fail_accepted_command')
+      expect(await matchRoom.submitCommand({ matchId, command })).toEqual({
+        ok: true,
+        outcome: { _tag: 'accepted', acceptedSeq: 1 },
+      })
+    })
   })
 
   test('persists terminal transfer, withholds it live, and disposes without replay', async () => {
@@ -113,11 +146,20 @@ describe('MatchRoom accepted command history', () => {
       matchId,
       command: { commandId: newCommandId(), source: 'match', command: { type: 'frame.commence', seat: 'A' } },
     })
-    const terminal = await stub.submitCommand({
-      matchId,
-      command: { commandId: newCommandId(), source: 'match', command: { type: 'frame.concede', seat: 'B' } },
-    })
+    const terminalCommand = {
+      commandId: newCommandId(),
+      source: 'match' as const,
+      command: { type: 'frame.concede', seat: 'B' },
+    }
+    const terminal = await stub.submitCommand({ matchId, command: terminalCommand })
     expect(terminal).toMatchObject({ ok: true, outcome: { acceptedSeq: 3 }, finalizing: true })
+    expect(await stub.submitCommand({ matchId, command: terminalCommand })).toEqual(terminal)
+    expect(
+      await stub.submitCommand({
+        matchId,
+        command: { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } },
+      }),
+    ).toEqual({ ok: false, error: 'match-locked', status: 409 })
 
     await evictDurableObject(stub)
     stub = env.MATCH_ROOM.getByName(matchId)

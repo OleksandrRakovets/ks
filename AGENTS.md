@@ -69,3 +69,4 @@ Document supported interfaces and non-obvious invariants, authority, ordering, m
 ## File Organization
 
 - Keep a module's primary export near the top, before private helper functions. Place private helpers below the primary implementation so readers encounter the public shape first.
+- Use native `#` private members for class internals rather than TypeScript's compile-time-only `private` modifier.
