@@ -34,6 +34,12 @@ describe('MatchRoom accepted command history', () => {
     expect(await stub.create(body(matchId))).toEqual({ ok: true, matchId })
     expect(await stub.create(body(matchId))).toEqual({ ok: true, matchId })
     expect(await stub.readControl({ matchId })).toMatchObject({ ok: true, latestSeq: 0 })
+    expect(await stub.finalization({ matchId })).toEqual({ ok: false, error: 'Match is active', status: 409 })
+    expect(await stub.disposeFinalized({ matchId })).toEqual({
+      ok: false,
+      error: 'Match is active',
+      status: 409,
+    })
 
     const unnamed = env.MATCH_ROOM.get(env.MATCH_ROOM.newUniqueId())
     await runInDurableObject(unnamed, async (room) => {
@@ -225,6 +231,9 @@ describe('MatchRoom accepted command history', () => {
     expect(await stream.json()).toEqual({ ok: false, error: 'Match is finalizing' })
 
     expect(await stub.disposeFinalized({ matchId })).toEqual({ ok: true })
+    expect(await stub.disposeFinalized({ matchId })).toEqual({ ok: true })
+    await evictDurableObject(stub)
+    stub = env.MATCH_ROOM.getByName(matchId)
     expect(await stub.disposeFinalized({ matchId })).toEqual({ ok: true })
     expect(await stub.disposeFinalized({ matchId: otherMatchId })).toMatchObject({
       ok: false,

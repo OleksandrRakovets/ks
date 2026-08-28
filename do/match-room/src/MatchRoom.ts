@@ -1,11 +1,18 @@
 import type { SparringMatch } from '@ks/competition'
-import { type MatchConfig, type MatchState, type ProtocolEntry } from '@ks/core'
+import {
+  type MatchConfig,
+  type MatchState,
+  nowUnixEpochMilliseconds,
+  type ProtocolEntry,
+  type UnixEpochMilliseconds,
+} from '@ks/core'
 import { DurableObject } from 'cloudflare:workers'
 import * as v from 'valibot'
 
 import type { Env } from './env'
 import { Broadcaster } from './live/broadcaster'
 import { ActiveMatch } from './match/active-match'
+import { FinalizingMatch } from './match/finalizing-match'
 import { initializeMatch } from './match/initialize-match'
 import {
   type CreateBody,
@@ -26,13 +33,15 @@ export class MatchRoom extends DurableObject<Env> {
   readonly #storage: MatchStorage
   readonly #broadcaster: Broadcaster
   readonly #activeMatch: ActiveMatch
-  #storageDeleted = false
+  readonly #finalizingMatch: FinalizingMatch
+  #disposedAt: UnixEpochMilliseconds | null = null
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
     this.#storage = new MatchStorage(ctx.storage)
     this.#broadcaster = new Broadcaster()
     this.#activeMatch = new ActiveMatch(this.#storage, this.#broadcaster)
+    this.#finalizingMatch = new FinalizingMatch(this.#storage, this.#broadcaster)
     ctx.blockConcurrencyWhile(async () => {
       this.#storage.migrate()
     })
@@ -128,12 +137,11 @@ export class MatchRoom extends DurableObject<Env> {
   > {
     const parsed = v.safeParse(MatchIdBodySchema, args)
     if (!parsed.success) return { ok: false, error: 'Invalid finalize body', status: 400 }
-    const match = this.#storage.match()
-    if (!match || match.matchId !== parsed.output.matchId)
-      return { ok: false, error: 'Unknown match', status: 400 }
-    if (match.status !== 'finalizing' || !match.finalState || match.endedAt === null)
-      return { ok: false, error: 'Match is active', status: 409 }
-    return { ok: true, data: this.#storage.readFinalizingTransfer() }
+    if (parsed.output.matchId !== this.ctx.id.name) return { ok: false, error: 'Unknown match', status: 400 }
+    const result = this.#finalizingMatch.prepareArchive()
+    if (result._tag === 'missing') return { ok: false, error: 'Unknown match', status: 400 }
+    if (result._tag === 'active') return { ok: false, error: 'Match is active', status: 409 }
+    return { ok: true, data: result.transfer }
   }
 
   async disposeFinalized(args: MatchIdBody): Promise<{ ok: true } | Failure> {
@@ -142,21 +150,11 @@ export class MatchRoom extends DurableObject<Env> {
     if (!this.env.MATCH_ROOM.idFromName(parsed.output.matchId).equals(this.ctx.id))
       return { ok: false, error: 'Unknown match', status: 400 }
     return this.ctx.blockConcurrencyWhile(async () => {
-      if (this.#storageDeleted) return { ok: true }
-      const match = this.#storage.match()
-      if (!match) return { ok: true }
-      if (match.matchId !== parsed.output.matchId) return { ok: false, error: 'Unknown match', status: 400 }
-      if (match.status !== 'finalizing' || !match.finalState || match.endedAt === null)
-        return { ok: false, error: 'Match is active', status: 409 }
-      this.#storage.readFinalizingTransfer()
-      this.#broadcaster.broadcast({
-        type: 'command-accepted',
-        acceptedSeq: match.latestSeq,
-        terminal: true,
-      })
-      this.#broadcaster.closeAll()
+      if (this.#disposedAt !== null) return { ok: true }
+      const result = this.#finalizingMatch.closeForDisposal()
+      if (result._tag === 'active') return { ok: false, error: 'Match is active', status: 409 }
       await this.ctx.storage.deleteAll()
-      this.#storageDeleted = true
+      this.#disposedAt = nowUnixEpochMilliseconds()
       this.#activeMatch.clearResident()
       return { ok: true }
     })
