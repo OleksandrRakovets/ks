@@ -17,15 +17,23 @@ export class FinalizingMatch {
     return this.#storage.readFinalizingTransfer()
   }
 
-  closeForDisposal(): CloseForDisposalResult {
+  closeForFinalization(): FinalizationResult {
     const match = this.#storage.match()
     if (!match) return { _tag: 'already-disposed' }
-    if (match.status === 'active') throw new Error('Cannot dispose active Match')
+    if (match.status === 'active') throw new Error('Cannot finalize active Match')
     this.#storage.readFinalizingTransfer()
     this.#broadcaster.broadcast({ type: 'command-accepted', acceptedSeq: match.latestSeq, terminal: true })
     this.#broadcaster.closeAll()
-    return { _tag: 'closed' }
+    return { _tag: 'finalized' }
+  }
+
+  prepareDisposal(): DisposalResult {
+    const match = this.#storage.match()
+    if (!match) return { _tag: 'already-disposed' }
+    if (match.status === 'active') throw new Error('Cannot dispose active Match')
+    return { _tag: 'ready' }
   }
 }
 
-export type CloseForDisposalResult = { readonly _tag: 'already-disposed' } | { readonly _tag: 'closed' }
+type FinalizationResult = { readonly _tag: 'already-disposed' } | { readonly _tag: 'finalized' }
+type DisposalResult = { readonly _tag: 'already-disposed' } | { readonly _tag: 'ready' }

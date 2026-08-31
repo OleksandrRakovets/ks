@@ -1,7 +1,7 @@
 import { env, evictDurableObject } from 'cloudflare:test'
 import { expect, test } from 'vitest'
 
-import { captureRpcError, finalizeRoom, initializedRoom } from '../fixtures'
+import { captureRpcError, initializedRoom, makeRoomFinalizing } from '../fixtures'
 
 test('throws before terminal acceptance', async () => {
   const { stub } = await initializedRoom()
@@ -16,7 +16,7 @@ test('throws before terminal acceptance', async () => {
 
 test('returns persisted completion without gameplay replay after eviction', async () => {
   const { matchId, stub } = await initializedRoom()
-  await finalizeRoom(stub)
+  await makeRoomFinalizing(stub)
   await evictDurableObject(stub)
   expect(await env.MATCH_ROOM.getByName(matchId).prepareArchive()).toMatchObject({
     matchId,

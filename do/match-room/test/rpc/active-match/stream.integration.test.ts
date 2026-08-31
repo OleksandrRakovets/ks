@@ -1,7 +1,7 @@
 import { newCommandId } from '@ks/core'
 import { expect, test } from 'vitest'
 
-import { finalizeRoom, initializedRoom, prepareCommand, readEvent, terminalCommand } from '../fixtures'
+import { initializedRoom, makeRoomFinalizing, prepareCommand, readEvent, terminalCommand } from '../fixtures'
 
 test('replays accepted sequences before ready and broadcasts non-terminal acceptance to every client', async () => {
   const { stub } = await initializedRoom()
@@ -27,7 +27,7 @@ test('replays accepted sequences before ready and broadcasts non-terminal accept
   await secondReader.cancel()
 })
 
-test('withholds terminal delivery, rejects new admission, then delivers and closes during disposal', async () => {
+test('withholds terminal delivery, rejects new admission, then delivers and closes during finalization', async () => {
   const { stub } = await initializedRoom()
   await stub.submitCommand(prepareCommand())
   await stub.submitCommand({
@@ -41,20 +41,20 @@ test('withholds terminal delivery, rejects new admission, then delivers and clos
   await readEvent(reader)
   await stub.submitCommand(terminalCommand())
   expect(await stub.stream()).toEqual({ _tag: 'finalizing' })
-  await stub.dispose()
+  await stub.finalize()
   expect(await readEvent(reader)).toContain('"terminal":true')
   expect((await reader.read()).done).toBe(true)
 })
 
-test('cancellation is harmless before later broadcast and disposal', async () => {
+test('cancellation is harmless before later broadcast and finalization', async () => {
   const { stub } = await initializedRoom()
   const stream = await stub.stream()
   if (stream._tag !== 'active') throw new Error('Expected active stream')
   const reader = stream.response.body!.getReader()
   await readEvent(reader)
   await reader.cancel()
-  await finalizeRoom(stub)
-  await expect(stub.dispose()).resolves.toBeUndefined()
+  await makeRoomFinalizing(stub)
+  await expect(stub.finalize()).resolves.toBeUndefined()
 })
 
 test('concurrent stream admission and acceptance delivers the sequence exactly once', async () => {

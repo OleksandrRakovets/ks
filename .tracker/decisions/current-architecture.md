@@ -67,13 +67,14 @@ Command retry equality compares decoded canonical values rather than serialized 
 MatchRoom finalizing Protocol + Final Match State
   -> application treats the transfer as canonical and checks D1 identity, lifecycle, and archive idempotency
   -> idempotently archive protocol and final match state in D1
-  -> MatchRoom broadcasts match.ended, closes streams, and deletes local storage
+  -> MatchRoom broadcasts match.ended, closes streams, and schedules delayed disposal
   -> D1 matches.status: finished
+  -> MatchRoom alarm deletes local storage after 10 minutes
 ```
 
-Failure leaves durable `finalizing` state. A later relevant application request retries the idempotent finalization steps. There is no alarm-driven retry. Public list results present `finalizing` as finished while cleanup proceeds.
+Failure before D1 reaches `finished` leaves durable `finalizing` state. A later relevant application request retries the idempotent archival and finalization steps. Public list results present D1 `finalizing` as finished while that work proceeds.
 
-Disposal is one ordered MatchRoom operation: publish the withheld terminal update, close clients, delete local storage, then clear resident state. Application marks D1 finished only after it returns. Same-instance retries use resident disposal metadata set after deletion succeeds; after eviction, migration-created empty storage is deleted again and disposal succeeds.
+Finalization publishes the withheld terminal update, closes clients, schedules one Cloudflare alarm 10 minutes in the future, and clears resident state. Application marks D1 finished only after finalization returns. Finalization retries do not extend the existing alarm, and retained `finalizing` storage continues to serve semantic finalizing results and idempotent archive transfers during the grace period. The alarm is the sole destructive path: it validates that the room is finalizing, deletes all local storage, and tolerates already-missing storage.
 
 The generated control secret is stored in MatchRoom but is not exposed or checked by the current command path.
 
@@ -89,7 +90,7 @@ Browser EventSource
 
 The browser validates events and tracks the latest sequence. MatchRoom retains stream controllers and 25-second ping timers, so connected clients keep the Durable Object active; the current SSE transport is not hibernatable.
 
-Existing streams remain connected while archival is pending. A new stream request against a Finalizing Match returns `finalizing` instead of opening another stream, allowing application to resume archival. Terminal delivery remains withheld until disposal after archive success.
+Existing streams remain connected while archival is pending. A new stream request against a Finalizing Match returns `finalizing` instead of opening another stream, allowing application to resume archival. Terminal delivery remains withheld until finalization after archive success; delayed disposal gives closed clients time to revalidate against D1's finished representation.
 
 ## Persistence Boundaries
 
@@ -99,7 +100,7 @@ Existing streams remain connected while archival is pending. A new stream reques
 - MatchRoom SQLite uses positive Accepted Command sequence for ordering, beginning at `1`; newly created matches have cursor `0`.
 - `MatchStorage` owns migration access, the Drizzle client, persisted representations, codecs, and consistency checks. Rows and serialized JSON do not cross its public seam; Accepted Command and Protocol writes remain one transaction.
 - Storage validation enforces sequence continuity, Protocol index/Command/timestamp ownership, Match identity and lifecycle, and terminal position/time/winner consistency. Protocol bodies remain generic here; MatchStorage does not execute gameplay or interpret game-specific semantics.
-- Constructor migration runs in `blockConcurrencyWhile`, so no RPC event observes an unmigrated room. Active operations remain synchronous over resident state and SQLite. Disposal blocks concurrency to order terminal publication, closure, and `deleteAll()`; introducing external asynchronous I/O requires revisiting this ordering.
+- Constructor migration runs in `blockConcurrencyWhile`, so no RPC event observes an unmigrated room. Active operations remain synchronous over resident state and SQLite. Finalization blocks concurrency while publishing the terminal update, closing streams, and scheduling cleanup. Alarm disposal separately blocks concurrency while validating lifecycle and calling `deleteAll()`.
 - Expected RPC outcomes are semantic variants, not HTTP failures. Application owns HTTP adaptation. Missing or corrupt authority and invalid lifecycle calls are defects that throw.
 - See `.tracker/db.md` for migration and inspection procedures.
 

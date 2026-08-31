@@ -40,7 +40,7 @@ function selectedClient(overrides: Partial<MatchRoomClient> = {}): MatchRoomClie
     submitCommand: unexpected,
     stream: unexpected,
     prepareArchive: unexpected,
-    dispose: unexpected,
+    finalize: unexpected,
     ...overrides,
   }
 }
@@ -139,7 +139,7 @@ describe('trusted MatchRoom orchestration', () => {
     })
   })
 
-  test('archives, disposes, and finishes after a terminal accepted Command', async () => {
+  test('archives, finalizes, and finishes after a terminal accepted Command', async () => {
     const events: string[] = []
     const room = selectedClient({
       submitCommand: async () => ({ _tag: 'accepted', acceptedSeq: 1, finalizesMatch: true }),
@@ -147,8 +147,8 @@ describe('trusted MatchRoom orchestration', () => {
         events.push('prepare')
         return transfer
       },
-      dispose: async () => {
-        events.push('dispose')
+      finalize: async () => {
+        events.push('finalize')
       },
     })
     const result = await application(room, events).submitMatchCommand(
@@ -157,7 +157,7 @@ describe('trusted MatchRoom orchestration', () => {
       'free-pyramid',
     )
     expect(result).toEqual({ ok: true, outcome: { _tag: 'accepted', acceptedSeq: 1 } })
-    expect(events).toEqual(['prepare', 'archive', 'dispose', 'finish'])
+    expect(events).toEqual(['prepare', 'archive', 'finalize', 'finish'])
   })
 
   test('resumes archival when stream admission discovers finalizing', async () => {
@@ -165,13 +165,13 @@ describe('trusted MatchRoom orchestration', () => {
     const room = selectedClient({
       stream: async () => ({ _tag: 'finalizing' }),
       prepareArchive: async () => transfer,
-      dispose: async () => {
-        events.push('dispose')
+      finalize: async () => {
+        events.push('finalize')
       },
     })
     const response = await application(room, events).streamMatchUpdates(matchId)
     expect(response.status).toBe(410)
-    expect(events).toEqual(['archive', 'dispose', 'finish'])
+    expect(events).toEqual(['archive', 'finalize', 'finish'])
   })
 
   test('resumes archival when a control read discovers finalizing', async () => {
@@ -179,15 +179,15 @@ describe('trusted MatchRoom orchestration', () => {
     const room = selectedClient({
       getControls: async () => ({ _tag: 'finalizing' }),
       prepareArchive: async () => transfer,
-      dispose: async () => {
-        events.push('dispose')
+      finalize: async () => {
+        events.push('finalize')
       },
     })
     expect(await application(room, events).readMatchControl(matchId, 'en', 'free-pyramid')).toMatchObject({
       ok: true,
       state: { status: 'finished' },
     })
-    expect(events).toEqual(['archive', 'dispose', 'finish'])
+    expect(events).toEqual(['archive', 'finalize', 'finish'])
   })
 
   test('resumes archival when a Protocol read discovers finalizing', async () => {
@@ -195,8 +195,8 @@ describe('trusted MatchRoom orchestration', () => {
     const room = selectedClient({
       getProtocol: async () => ({ _tag: 'finalizing' }),
       prepareArchive: async () => transfer,
-      dispose: async () => {
-        events.push('dispose')
+      finalize: async () => {
+        events.push('finalize')
       },
     })
     expect(
@@ -205,7 +205,7 @@ describe('trusted MatchRoom orchestration', () => {
       ok: true,
       state: { status: 'finished' },
     })
-    expect(events).toEqual(['archive', 'dispose', 'finish'])
+    expect(events).toEqual(['archive', 'finalize', 'finish'])
   })
 
   test('resumes archival when Command submission discovers finalizing', async () => {
@@ -213,8 +213,8 @@ describe('trusted MatchRoom orchestration', () => {
     const room = selectedClient({
       submitCommand: async () => ({ _tag: 'finalizing' }),
       prepareArchive: async () => transfer,
-      dispose: async () => {
-        events.push('dispose')
+      finalize: async () => {
+        events.push('finalize')
       },
     })
     expect(
@@ -224,7 +224,7 @@ describe('trusted MatchRoom orchestration', () => {
         'free-pyramid',
       ),
     ).toEqual({ ok: false, error: 'match-locked', status: 409 })
-    expect(events).toEqual(['archive', 'dispose', 'finish'])
+    expect(events).toEqual(['archive', 'finalize', 'finish'])
   })
 
   test('returns malformed nested Commands as invalid request data', async () => {
@@ -250,14 +250,14 @@ describe('trusted MatchRoom orchestration', () => {
     ).rejects.toBe(defect)
   })
 
-  test('does not dispose when archival fails before or after persistence and converges on retry', async () => {
+  test('does not finalize when archival fails before or after persistence and converges on retry', async () => {
     const events: string[] = []
     let archiveAttempts = 0
     const room = selectedClient({
       submitCommand: async () => ({ _tag: 'accepted', acceptedSeq: 1, finalizesMatch: true }),
       prepareArchive: async () => transfer,
-      dispose: async () => {
-        events.push('dispose')
+      finalize: async () => {
+        events.push('finalize')
       },
     })
     const app = application(room, events, {
@@ -275,36 +275,36 @@ describe('trusted MatchRoom orchestration', () => {
     )
     expect(events).toEqual(['archive-persisted-response-lost'])
     await expect(app.submitMatchCommand(matchId, command, 'free-pyramid')).resolves.toMatchObject({ ok: true })
-    expect(events).toEqual(['archive-persisted-response-lost', 'archive-retry', 'dispose', 'finish'])
+    expect(events).toEqual(['archive-persisted-response-lost', 'archive-retry', 'finalize', 'finish'])
   })
 
-  test('retries after disposal fails before deletion or loses its response after deletion', async () => {
-    for (const failure of ['before deletion', 'lost response'] as const) {
+  test('retries after finalization fails before scheduling or loses its response after scheduling', async () => {
+    for (const failure of ['before scheduling', 'lost response'] as const) {
       const events: string[] = []
-      let disposeAttempts = 0
+      let finalizeAttempts = 0
       const room = selectedClient({
         stream: async () => ({ _tag: 'finalizing' }),
         prepareArchive: async () => transfer,
-        dispose: async () => {
-          disposeAttempts += 1
-          events.push(`dispose-${disposeAttempts}`)
-          if (disposeAttempts === 1) throw new Error(failure)
+        finalize: async () => {
+          finalizeAttempts += 1
+          events.push(`finalize-${finalizeAttempts}`)
+          if (finalizeAttempts === 1) throw new Error(failure)
         },
       })
       const app = application(room, events)
       await expect(app.streamMatchUpdates(matchId)).rejects.toThrow(failure)
-      expect(events).toEqual(['archive', 'dispose-1'])
+      expect(events).toEqual(['archive', 'finalize-1'])
       expect((await app.streamMatchUpdates(matchId)).status).toBe(410)
-      expect(events).toEqual(['archive', 'dispose-1', 'archive', 'dispose-2', 'finish'])
+      expect(events).toEqual(['archive', 'finalize-1', 'archive', 'finalize-2', 'finish'])
     }
   })
 
-  test('retries D1 finish after successful room disposal', async () => {
+  test('retries D1 finish after successful room finalization', async () => {
     const events: string[] = []
     let finishAttempts = 0
     const room = selectedClient({
-      dispose: async () => {
-        events.push('dispose')
+      finalize: async () => {
+        events.push('finalize')
       },
     })
     const app = application(room, events, {
@@ -319,17 +319,17 @@ describe('trusted MatchRoom orchestration', () => {
     })
     await expect(app.streamMatchUpdates(matchId)).rejects.toThrow('finish failed')
     expect((await app.streamMatchUpdates(matchId)).status).toBe(410)
-    expect(events).toEqual(['dispose', 'finish-1', 'dispose', 'finish-2'])
+    expect(events).toEqual(['finalize', 'finish-1', 'finalize', 'finish-2'])
   })
 
-  test('does not dispose or finish when D1 rejects identity, lifecycle, or archive consistency', async () => {
+  test('does not finalize or finish when D1 rejects identity, lifecycle, or archive consistency', async () => {
     for (const conflict of ['identity', 'lifecycle', 'archive'] as const) {
       const events: string[] = []
       const room = selectedClient({
         stream: async () => ({ _tag: 'finalizing' }),
         prepareArchive: async () => transfer,
-        dispose: async () => {
-          events.push('dispose')
+        finalize: async () => {
+          events.push('finalize')
         },
       })
       const app = application(room, events, {

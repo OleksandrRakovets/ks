@@ -46,7 +46,7 @@ export function terminalCommand() {
   }
 }
 
-export async function finalizeRoom(stub: ReturnType<typeof env.MATCH_ROOM.getByName>) {
+export async function makeRoomFinalizing(stub: ReturnType<typeof env.MATCH_ROOM.getByName>) {
   await stub.submitCommand(prepareCommand())
   await stub.submitCommand(commenceCommand())
   const command = terminalCommand()

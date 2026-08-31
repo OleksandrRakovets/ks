@@ -1,5 +1,5 @@
 import type { MatchCommand } from '@ks/core'
-import { nowUnixEpochMilliseconds, type UnixEpochMilliseconds } from '@ks/core'
+import { nowUnixEpochMilliseconds } from '@ks/core'
 import { DurableObject } from 'cloudflare:workers'
 
 import type { Env } from './env'
@@ -9,12 +9,14 @@ import { FinalizingMatch } from './match/finalizing-match'
 import { initializeMatch, type InitializeMatchInput } from './match/initialize-match'
 import { MatchStorage } from './storage/match-storage'
 
+const FINALIZED_ROOM_RETENTION_MS = 10 * 60 * 1000
+
 export class MatchRoom extends DurableObject<Env> {
   readonly #storage: MatchStorage
   readonly #broadcaster: Broadcaster
   readonly #activeMatch: ActiveMatch
   readonly #finalizingMatch: FinalizingMatch
-  #disposedAt: UnixEpochMilliseconds | null = null
+  #disposed = false
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
@@ -53,13 +55,29 @@ export class MatchRoom extends DurableObject<Env> {
     return this.#finalizingMatch.prepareArchive()
   }
 
-  async dispose(): Promise<void> {
+  async finalize(): Promise<void> {
     await this.ctx.blockConcurrencyWhile(async () => {
-      if (this.#disposedAt !== null) return
-      this.#finalizingMatch.closeForDisposal()
-      await this.ctx.storage.deleteAll()
-      this.#disposedAt = nowUnixEpochMilliseconds()
+      if (this.#disposed) return
+      const result = this.#finalizingMatch.closeForFinalization()
+      if (result._tag === 'already-disposed') return
+      if ((await this.ctx.storage.getAlarm()) === null) {
+        await this.ctx.storage.setAlarm(nowUnixEpochMilliseconds() + FINALIZED_ROOM_RETENTION_MS)
+      }
       this.#activeMatch.clearResident()
+    })
+  }
+
+  async alarm(): Promise<void> {
+    await this.#dispose()
+  }
+
+  async #dispose(): Promise<void> {
+    await this.ctx.blockConcurrencyWhile(async () => {
+      if (this.#disposed) return
+      const result = this.#finalizingMatch.prepareDisposal()
+      if (result._tag === 'already-disposed') return
+      await this.ctx.storage.deleteAll()
+      this.#disposed = true
     })
   }
 }

@@ -53,7 +53,7 @@ export class ActiveMatch {
       })
       this.#advanceResidentCursor(committed.receipt.acceptedSeq)
       if (!committed.update.terminal) {
-        // Terminal is withheld during D1 archival; the browser updates after disposal broadcasts, closes, and revalidates.
+        // Terminal is withheld during D1 archival; the browser updates after finalization broadcasts, closes, and revalidates.
         this.#broadcaster.broadcast(committed.update)
       }
       return {

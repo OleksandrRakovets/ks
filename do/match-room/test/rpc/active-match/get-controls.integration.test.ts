@@ -1,7 +1,7 @@
 import { env, evictDurableObject } from 'cloudflare:test'
 import { expect, test } from 'vitest'
 
-import { finalizeRoom, initializedRoom, prepareCommand } from '../fixtures'
+import { initializedRoom, makeRoomFinalizing, prepareCommand } from '../fixtures'
 
 test('returns active Controls at the authoritative sequence and restores after eviction', async () => {
   const { matchId, stub } = await initializedRoom()
@@ -13,6 +13,6 @@ test('returns active Controls at the authoritative sequence and restores after e
 
 test('returns finalizing after terminal acceptance', async () => {
   const { stub } = await initializedRoom()
-  await finalizeRoom(stub)
+  await makeRoomFinalizing(stub)
   expect(await stub.getControls()).toEqual({ _tag: 'finalizing' })
 })

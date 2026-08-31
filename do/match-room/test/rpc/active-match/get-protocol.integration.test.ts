@@ -1,7 +1,7 @@
 import { env, evictDurableObject } from 'cloudflare:test'
 import { expect, test } from 'vitest'
 
-import { finalizeRoom, initializedRoom, prepareCommand } from '../fixtures'
+import { initializedRoom, makeRoomFinalizing, prepareCommand } from '../fixtures'
 
 test('returns Protocol at sequence zero and restores accepted entries after eviction', async () => {
   const { matchId, stub } = await initializedRoom()
@@ -17,6 +17,6 @@ test('returns Protocol at sequence zero and restores accepted entries after evic
 
 test('returns finalizing after terminal acceptance', async () => {
   const { stub } = await initializedRoom()
-  await finalizeRoom(stub)
+  await makeRoomFinalizing(stub)
   expect(await stub.getProtocol()).toEqual({ _tag: 'finalizing' })
 })
