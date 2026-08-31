@@ -22,10 +22,12 @@ export default defineConfig({
     port: 7529,
     strictPort: true,
     host: '0.0.0.0',
+    allowedHosts: ['.onamp.dev'],
   },
   preview: {
     port: 7529,
     strictPort: true,
     host: '0.0.0.0',
+    allowedHosts: ['.onamp.dev'],
   },
 })
