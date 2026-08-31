@@ -11,6 +11,8 @@ import { loadMatchProtocol, protocolFrameScore, ProtocolPanel, useProtocolLiveRe
 export function loader(args: Route.LoaderArgs) {
   return loadMatchProtocol(args, 'free-pyramid-long')
 }
+export const handle = { headerless: true }
+
 export default function FreePyramidLongProtocolRoute() {
   const { t } = useTranslation()
   const data = useLoaderData<typeof loader>()
