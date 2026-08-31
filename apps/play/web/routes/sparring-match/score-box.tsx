@@ -1,6 +1,7 @@
 import type { BySeatNumber } from '@ks/core'
 import { keys } from '@ks/i18n'
 import cn from 'classnames'
+import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 type Props = {
@@ -12,6 +13,7 @@ type Props = {
   frameScore: BySeatNumber
   frameIndex: number
   pottedBallCounts?: BySeatNumber
+  scoreMarkers?: { A: ReactNode; B: ReactNode }
   statusLine?: string
   alwaysShowFrameScore?: boolean
 }
@@ -25,6 +27,7 @@ export function ScoreBox({
   frameIndex,
   targetFrames,
   pottedBallCounts,
+  scoreMarkers,
   statusLine,
   alwaysShowFrameScore,
 }: Props) {
@@ -73,7 +76,8 @@ export function ScoreBox({
       </div>
 
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-x-3 px-4 py-3">
-        {pottedBallCounts ? <PottedBalls count={pottedBallCounts.A} align="right" /> : <span />}
+        {scoreMarkers?.A ??
+          (pottedBallCounts ? <PottedBalls count={pottedBallCounts.A} align="right" /> : <span />)}
         <div className={cn('grid w-52 grid-cols-[1fr_auto_1fr] items-center', { 'text-amber': isLive })}>
           <span
             className={cn('text-right text-7xl font-bold tracking-tight tabular-nums', {
@@ -91,7 +95,8 @@ export function ScoreBox({
             {numberB}
           </span>
         </div>
-        {pottedBallCounts ? <PottedBalls count={pottedBallCounts.B} align="left" /> : <span />}
+        {scoreMarkers?.B ??
+          (pottedBallCounts ? <PottedBalls count={pottedBallCounts.B} align="left" /> : <span />)}
       </div>
     </div>
   )
