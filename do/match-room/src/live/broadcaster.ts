@@ -8,7 +8,7 @@ type Client = {
 }
 
 export class Broadcaster {
-  private clients = new Set<Client>()
+  #clients = new Set<Client>()
 
   stream(ready: number, backlog: MatchStreamUpdate[]): Response {
     let client: Client | null = null
@@ -23,13 +23,13 @@ export class Broadcaster {
             try {
               controller.enqueue(encoder.encode(`: ping ${Date.now()}\n\n`))
             } catch {
-              this.remove(client)
+              this.#remove(client)
             }
           }, 25000),
         }
-        this.clients.add(client)
+        this.#clients.add(client)
       },
-      cancel: () => this.remove(client),
+      cancel: () => this.#remove(client),
     })
     return new Response(stream, {
       headers: {
@@ -42,17 +42,17 @@ export class Broadcaster {
 
   broadcast(update: MatchStreamUpdate): void {
     const bytes = encoder.encode(`event: ev\ndata: ${JSON.stringify(update)}\n\n`)
-    for (const client of this.clients) {
+    for (const client of this.#clients) {
       try {
         client.controller.enqueue(bytes)
       } catch {
-        this.remove(client)
+        this.#remove(client)
       }
     }
   }
 
   closeAll(): void {
-    for (const client of this.clients) {
+    for (const client of this.#clients) {
       clearInterval(client.pingTimer)
       try {
         client.controller.close()
@@ -60,12 +60,12 @@ export class Broadcaster {
         // The peer may already have disconnected.
       }
     }
-    this.clients.clear()
+    this.#clients.clear()
   }
 
-  private remove(client: Client | null): void {
+  #remove(client: Client | null): void {
     if (!client) return
     clearInterval(client.pingTimer)
-    this.clients.delete(client)
+    this.#clients.delete(client)
   }
 }

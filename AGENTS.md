@@ -36,9 +36,9 @@ Domain vocabulary and distinctions are defined in CONTEXT.md. Treat it as author
 
 - Domain dependency direction is `core <- gameplay <- competition` and is enforced by `check:boundaries`.
 - Routes own HTTP parsing, cookies, redirects, and presentation adaptation. They receive `Application`; SQL, Durable Object calls, and use-case orchestration stay out of routes.
-- `@ks/application` owns private D1 adapters and its private structural MatchRoom RPC client. It must not expose generic repositories.
+- `@ks/application` owns private D1 adapters and its private typed MatchRoom capability. It must not expose generic repositories.
 - MatchRoom must not import Play, application, or D1 code.
-- Validate at trust and representation boundaries: HTTP, RPC, persisted rows/JSON, browser storage, and restored machine state. Do not reparse canonical typed values.
+- Validate at external trust and representation boundaries: HTTP, persisted rows/JSON, browser storage, and restored machine state. Internal MatchRoom RPC between the owned Play and MatchRoom deployables is a trusted typed capability; do not add runtime schemas or reparse canonical values solely because a call crosses Cloudflare RPC.
 - Schemas use Valibot. Prefer built-in actions such as `v.trim()` and `v.parseJson()`. Give the inferred type the exact name as the schema (the core package already does this).
 - Use core seat contracts (`Seat`, `BySeatNumber`, `opponentOf`) rather than local equivalents.
 - Keep one `game` path; gameplay runtimes own game-specific semantics.
@@ -49,13 +49,13 @@ Domain vocabulary and distinctions are defined in CONTEXT.md. Treat it as author
 - Accepted Commands and Protocol entries, their sequence, and command outcomes are authoritative in each MatchRoom's SQLite database. Do not mirror active command history into D1.
 - D1 owns players, the `matches` table, and completed protocol archives with final match state.
 - Resident match/gameplay state is a disposable cache restored by replaying Accepted Commands and comparing regenerated Protocol entries; raw XState snapshots are not persisted.
-- The terminal Accepted Command atomically stores Final Match State and `endedAt`. Application validates and archives MatchRoom's Protocol and Final Match State transfer without gameplay replay, asks MatchRoom to broadcast/close/delete local storage, then marks the match row finished.
-- Finished reads use D1 and must not access the deleted MatchRoom.
+- The terminal Accepted Command atomically stores Final Match State and `endedAt`. Application treats MatchRoom's Protocol and Final Match State transfer as canonical, checks D1 identity/lifecycle and archive idempotency, archives it without gameplay replay, asks MatchRoom to broadcast/close streams and schedule delayed disposal, then marks the match row finished. MatchRoom's alarm deletes local storage after the grace period.
+- Finished reads use D1 and must not access the retained or deleted MatchRoom.
 
 ## Runtime Notes
 
 - Play and `ks-match-room` are independent Cloudflare Workers. Play reaches MatchRoom through an external Durable Object binding with `script_name`.
-- Play's `@ks/match-room` import is type-only; application uses a structural stub contract.
+- Play and application import `@ks/match-room` type-only. Application derives its private MatchRoom capability from the server class, while Play's generated binding verifies structural RPC compatibility without runtime response parsing.
 - Live updates currently use SSE through a React Router loader and application `Response` pass-through. MatchRoom's controllers and ping timers keep connected objects active, so this transport is not hibernatable.
 - MatchRoom must be deployed before Play when its external binding changes. The project has not yet been deployed.
 - Local Worker variables belong in `apps/play/.dev.vars`; start from `.dev.vars.example`.
@@ -64,3 +64,8 @@ Domain vocabulary and distinctions are defined in CONTEXT.md. Treat it as author
 ## Documentation
 
 Document supported interfaces and non-obvious invariants, authority, ordering, mutation, trust, units, or failure behavior. Do not document syntax or self-explanatory DTOs. Put JSDoc on the original declaration and add `@param`, `@returns`, or `@throws` only when they convey information beyond the type.
+
+## File Organization
+
+- Keep a module's primary export near the top, before private helper functions. Place private helpers below the primary implementation so readers encounter the public shape first.
+- Use native `#` private members for class internals rather than TypeScript's compile-time-only `private` modifier.

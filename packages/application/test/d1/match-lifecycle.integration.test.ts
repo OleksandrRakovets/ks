@@ -14,13 +14,13 @@ import { beforeEach, describe, expect, test } from 'vitest'
 import {
   archiveCompletedMatch,
   CompletedMatchArchiveError,
-  type CompletedMatchArchiveInput,
   finishCompletedMatch,
 } from '../../src/d1/completed-matches'
 import { activateMatch, type ActiveMatchCatalogInput, beginMatchCreation } from '../../src/d1/match-lifecycle'
 import { getMatchRow, listMatchRows } from '../../src/d1/matches'
 import { getProtocolArchive } from '../../src/d1/protocol-archives'
 import { createApplicationDatabaseClient } from '../../src/d1/types'
+import type { MatchRoomCompletionTransfer } from '../../src/match-room-client'
 
 const matchId = v.parse(MatchId, '01ARZ3NDEKTSV4RRFFQ69G5FAV')
 const otherMatchId = v.parse(MatchId, '01ARZ3NDEKTSV4RRFFQ69G5FAW')
@@ -44,7 +44,7 @@ function catalogInput(id = matchId, timestamp = createdAt): ActiveMatchCatalogIn
   return { matchId: id, gameKey: 'free-pyramid', seatAPlayerRef, seatBPlayerRef, createdAt: timestamp }
 }
 
-function terminalArchiveInput(id = matchId): CompletedMatchArchiveInput {
+function terminalArchiveInput(id = matchId): MatchRoomCompletionTransfer {
   const config = buildMatchConfig(id, createRequest)
   const session = createSparringMatch(config)
   const acceptedAt = v.parse(UnixEpochMilliseconds, 2_000)
@@ -131,37 +131,6 @@ describe('real D1 match lifecycle', () => {
 
     await finishCompletedMatch(db, matchId)
     expect(await getMatchRow(db, matchId)).toMatchObject({ status: 'finished' })
-  })
-
-  test.each([
-    [
-      'invalid envelope',
-      (input: CompletedMatchArchiveInput) => ({ ...input, sourceLatestSeq: input.sourceLatestSeq + 1 }),
-    ],
-    [
-      'Protocol ownership mismatch',
-      (input: CompletedMatchArchiveInput) => {
-        const protocolEntries = [...input.protocolEntries]
-        protocolEntries[0] = { ...protocolEntries[0]!, entryIndex: 2 }
-        return { ...input, protocolEntries }
-      },
-    ],
-    [
-      'terminal state mismatch',
-      (input: CompletedMatchArchiveInput) => ({
-        ...input,
-        finalState: terminalArchiveInput(otherMatchId).finalState,
-      }),
-    ],
-  ])('rejects %s without changing the match row or archive', async (_label, corrupt) => {
-    const db = createApplicationDatabaseClient(env.DB)
-    await beginMatchCreation(db, catalogInput())
-    await activateMatch(db, matchId)
-    await expect(archiveCompletedMatch(db, corrupt(terminalArchiveInput()))).rejects.toThrow(
-      CompletedMatchArchiveError,
-    )
-    expect(await getMatchRow(db, matchId)).toMatchObject({ status: 'active' })
-    expect(await getProtocolArchive(db, matchId)).toBeNull()
   })
 
   test('rejects conflicting persisted archive data without changing the active match row', async () => {

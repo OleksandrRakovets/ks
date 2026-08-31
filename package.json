@@ -49,7 +49,7 @@
     "machine:explore": "bun --cwd apps/machine-explorer dev",
     "test": "bun test",
     "test:integration": "turbo run test:integration --log-order=grouped",
-    "typecheck": "turbo run typecheck"
+    "typecheck": "turbo run typecheck --log-order=grouped"
   },
   "devDependencies": {
     "@oxlint/plugins": "^1.79.0",

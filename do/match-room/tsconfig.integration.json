@@ -6,5 +6,5 @@
     "exactOptionalPropertyTypes": false,
     "types": ["@cloudflare/vitest-pool-workers/types", "@cloudflare/workers-types", "node"]
   },
-  "include": ["src/MatchRoom.integration.test.ts", "worker-configuration.d.ts"]
+  "include": ["test/**/*.integration.test.ts", "worker-configuration.d.ts"]
 }

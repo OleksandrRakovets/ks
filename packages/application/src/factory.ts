@@ -8,12 +8,12 @@ import { getMatchRow, listMatchRows } from './d1/matches'
 import { hydrateParticipant } from './d1/players'
 import { getProtocolArchive } from './d1/protocol-archives'
 import { createApplicationDatabaseClient } from './d1/types'
-import { createMatchRoomClient } from './match-room-client'
+import type { MatchRoomNamespace } from './match-room-client'
 import { createApplicationWithDependencies } from './use-cases'
 
 export type ApplicationBindings = {
   DB: D1Database
-  MATCH_ROOM: Parameters<typeof createMatchRoomClient>[0]
+  MATCH_ROOM: MatchRoomNamespace
 }
 
 function newControlSecret(): string {
@@ -57,6 +57,6 @@ export function createApplication(bindings: ApplicationBindings) {
     activateMatch: async (matchId) => await activateMatch(db, matchId),
     archiveCompletedMatch: async (input) => await archiveCompletedMatch(db, input),
     finishCompletedMatch: async (matchId) => await finishCompletedMatch(db, matchId),
-    matchRoom: createMatchRoomClient(bindings.MATCH_ROOM),
+    matchRoomClient: (matchId) => bindings.MATCH_ROOM.getByName(matchId),
   })
 }
