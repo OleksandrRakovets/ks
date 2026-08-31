@@ -3,7 +3,10 @@ import { keys } from '@ks/i18n'
 import { useTranslation } from 'react-i18next'
 import { useFetcher, useLoaderData } from 'react-router'
 
-import { StrilaControlRenderer } from '../../features/match-control/renderers/strila-control-renderer'
+import {
+  StrilaControlRenderer,
+  StrilaScoreMarkers,
+} from '../../features/match-control/renderers/strila-control-renderer'
 import { MatchNavigation } from '../../features/match-navigation'
 import { ScoreBox } from '../sparring-match/score-box'
 import type { Route } from './+types/strila-v2-control'
@@ -33,6 +36,8 @@ export default function StrilaV2ControlRoute() {
     data.controlState === 'frame-active'
       ? data.controlProjection.score
       : (snapshotFrame?.pointsBySeat ?? { A: 0, B: 0 })
+  const pottedBalls =
+    data.controlState === 'frame-active' ? data.controlProjection.details.pottedBallsBySeat : null
 
   function submitCommand(command: MatchCommand) {
     markLocalSubmit()
@@ -55,6 +60,14 @@ export default function StrilaV2ControlRoute() {
         matchStatus={data.state.status}
         frameIndex={data.state.currentFrameIndex}
         targetFrames={data.state.targets.matchTargetFrames}
+        scoreMarkers={
+          pottedBalls
+            ? {
+                A: <StrilaScoreMarkers balls={pottedBalls.A} align="right" />,
+                B: <StrilaScoreMarkers balls={pottedBalls.B} align="left" />,
+              }
+            : undefined
+        }
       />
       {data.controlState === 'frame-active' ? (
         <section aria-label={t(keys.match.control.perGameContainer)} className="flex flex-col">

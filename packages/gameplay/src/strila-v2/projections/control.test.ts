@@ -26,6 +26,7 @@ test('projects exact open-play controls and selectable balls', () => {
         6: 'on-table',
         7: 'on-table',
       },
+      pottedBallsBySeat: { A: [], B: [] },
       messages: [],
     },
   })
@@ -46,4 +47,17 @@ test('projects exact open-play controls and selectable balls', () => {
   control.details.ballStatuses[1] = 'potted'
   expect(deriveStrilaControlProjection(snapshot).score.A).toBe(0)
   expect(deriveStrilaControlProjection(snapshot).details.ballStatuses[1]).toBe('object')
+})
+
+test('projects potted balls in acceptance order for each seat', () => {
+  let snapshot = sendEvent(createInitialSnapshot({ A: 20, B: 20 }), { type: 'frame.commence', seat: 'A' })
+  snapshot = sendEvent(snapshot, { type: 'pot.record', seat: 'A', pottedBalls: [0, 1] })
+  snapshot = sendEvent(snapshot, { type: 'pot.record', seat: 'B', pottedBalls: [2] })
+  snapshot = sendEvent(snapshot, { type: 'pot.record', seat: 'A', pottedBalls: [3] })
+
+  const control = deriveStrilaControlProjection(snapshot)
+  expect(control.details.pottedBallsBySeat).toEqual({ A: [0, 1, 3], B: [2] })
+
+  control.details.pottedBallsBySeat.A.push(7)
+  expect(deriveStrilaControlProjection(snapshot).details.pottedBallsBySeat.A).toEqual([0, 1, 3])
 })

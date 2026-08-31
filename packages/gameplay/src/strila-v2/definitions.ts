@@ -68,6 +68,7 @@ const ContextSchema = v.object({
   score: BySeatNumber,
   targetPoints: BySeatNumber,
   coloredBallsOnTable: v.array(ColoredBallSchema),
+  pottedBallsBySeat: v.object({ A: v.array(BallSchema), B: v.array(BallSchema) }),
   cueBallSerialPots: v.nullable(
     v.object({
       seat: Seat,
@@ -104,6 +105,7 @@ const StrilaControlProjectionDetailsSchema = v.object({
   situationSummary: v.optional(NonEmptyString),
   isPotCommandAvailable: v.boolean(),
   ballStatuses: StrilaBallStatusesSchema,
+  pottedBallsBySeat: ContextSchema.entries.pottedBallsBySeat,
   controlSections: ControlSections,
   messages: v.array(ControlMessageSchema),
 })

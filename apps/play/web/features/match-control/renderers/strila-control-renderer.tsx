@@ -21,6 +21,34 @@ const BALL_COLORS = {
   7: { bg: '#2a2a2a', border: '#555555' },
 } satisfies Record<StrilaBall, { bg: string; border: string }>
 
+const SCORE_MARKER_COLORS = {
+  0: '#f5f5f5',
+  1: '#dc2626',
+  2: '#eab308',
+  3: '#16a34a',
+  4: '#92400e',
+  5: '#2563eb',
+  6: '#db2777',
+  7: '#171717',
+} satisfies Record<StrilaBall, string>
+
+export function StrilaScoreMarkers(props: { balls: readonly StrilaBall[]; align: 'left' | 'right' }) {
+  return (
+    <div
+      className={`flex min-w-0 flex-wrap gap-1.5 ${props.align === 'right' ? 'justify-end' : 'justify-start'}`}
+    >
+      {props.balls.map((ball, index) => (
+        <span
+          key={`${ball}-${index}`}
+          aria-hidden
+          className="size-3.5 shrink-0 rounded-full"
+          style={{ backgroundColor: SCORE_MARKER_COLORS[ball] }}
+        />
+      ))}
+    </div>
+  )
+}
+
 type SeatControls = MatchControlRendererProps<StrilaControlProjection>['controlSections']['primary']
 
 function strilaCommandLabel(t: TFunction, command: Control, index: number): string {

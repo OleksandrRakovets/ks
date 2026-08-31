@@ -45,6 +45,14 @@ function addPoints(score: BySeatNumber, seat: Seat, points: number): BySeatNumbe
   return seat === 'A' ? { A: score.A + points, B: score.B } : { A: score.A, B: score.B + points }
 }
 
+function appendPottedBalls(
+  pottedBallsBySeat: StrilaContext['pottedBallsBySeat'],
+  seat: Seat,
+  balls: StrilaBall[],
+): StrilaContext['pottedBallsBySeat'] {
+  return { ...pottedBallsBySeat, [seat]: [...pottedBallsBySeat[seat], ...balls] }
+}
+
 function nextCueBallSerialPots(
   prev: StrilaContext['cueBallSerialPots'],
   seat: Seat,
@@ -174,6 +182,7 @@ export const StrilaSparringFrameMachine = setup({
       return {
         score: addPoints(context.score, e.seat, pointsForPottedBalls(e.pottedBalls)),
         coloredBallsOnTable: removePottedColoredBalls(context.coloredBallsOnTable, e.pottedBalls),
+        pottedBallsBySeat: appendPottedBalls(context.pottedBallsBySeat, e.seat, e.pottedBalls),
         cueBallSerialPots: nextCueBallSerialPots(context.cueBallSerialPots, e.seat, e.pottedBalls),
       }
     }),
@@ -182,6 +191,7 @@ export const StrilaSparringFrameMachine = setup({
       return {
         score: addPoints(context.score, e.seat, pointsForPottedBalls(e.pottedBalls)),
         coloredBallsOnTable: removePottedColoredBalls(context.coloredBallsOnTable, e.pottedBalls),
+        pottedBallsBySeat: appendPottedBalls(context.pottedBallsBySeat, e.seat, e.pottedBalls),
         cueBallSerialPots: null,
       }
     }),
@@ -190,6 +200,7 @@ export const StrilaSparringFrameMachine = setup({
       return {
         score: addPoints(context.score, e.seat, pointsForPottedBalls(e.pottedBalls)),
         coloredBallsOnTable: [],
+        pottedBallsBySeat: appendPottedBalls(context.pottedBallsBySeat, e.seat, e.pottedBalls),
         winner: e.seat,
         winnerDeterminationReason: 'respotted-black-won',
       }
@@ -253,12 +264,14 @@ export const StrilaSparringFrameMachine = setup({
       return {
         score: addPoints(context.score, e.seat, pointsForPottedBalls(e.pottedBalls)),
         coloredBallsOnTable: removePottedColoredBalls(context.coloredBallsOnTable, e.pottedBalls),
+        pottedBallsBySeat: appendPottedBalls(context.pottedBallsBySeat, e.seat, e.pottedBalls),
       }
     }),
     commence: assign(() => {
       return {
         score: { A: 0, B: 0 },
         coloredBallsOnTable: [...StrilaMeta.coloredBalls],
+        pottedBallsBySeat: { A: [], B: [] },
         cueBallSerialPots: null,
       }
     }),
@@ -270,6 +283,7 @@ export const StrilaSparringFrameMachine = setup({
     score: { A: 0, B: 0 },
     targetPoints: input?.targetPointsBySeat ?? { A: 9, B: 9 },
     coloredBallsOnTable: [...StrilaMeta.coloredBalls],
+    pottedBallsBySeat: { A: [], B: [] },
     cueBallSerialPots: null,
     foulOffender: null,
     winner: null,
