@@ -8,7 +8,9 @@ import { AppHeader } from '../components/AppHeader'
 
 export default function LayoutBase() {
   const location = useLocation()
-  const showHeader = location.pathname !== '/'
+  const showHeader =
+    location.pathname !== '/' &&
+    !/^\/match\/free-pyramid-long\/[^/]+\/(control|protocol)\/$/.test(location.pathname)
   return (
     <div className="flex min-h-dvh w-full flex-col">
       <div className="flex w-full flex-1 flex-col lg:mx-auto lg:w-4xl">

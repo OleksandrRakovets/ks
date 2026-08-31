@@ -3,6 +3,7 @@ import { keys } from '@ks/i18n'
 import { useTranslation } from 'react-i18next'
 import { Link, useFetcher, useLoaderData } from 'react-router'
 
+import { BurgerMenu } from '../../components/BurgerMenu'
 import { LongFreePyramidControlRenderer } from '../../features/match-control/renderers/long-free-pyramid-control-renderer'
 import { matchProtocolUrl } from '../../features/match-urls'
 import { ScoreBox } from '../sparring-match/score-box'
@@ -10,7 +11,6 @@ import type { Route } from './+types/free-pyramid-long-control'
 import {
   BetweenFrameControls,
   commandMatchAction,
-  type ControlRouteData,
   loadMatchControl,
   matchCommandForm,
   useControlLiveRevalidation,
@@ -22,14 +22,6 @@ export function loader(args: Route.LoaderArgs) {
 export function action(args: Route.ActionArgs) {
   return commandMatchAction(args, 'free-pyramid-long')
 }
-export const handle = {
-  headerConfig: (data: ControlRouteData<'free-pyramid-long'>) => ({
-    titleKey: keys.match.sparring.controlHeaderTitle,
-    titleParams: { gameTitle: data.gameTitle },
-    backTo: '/sparring/matches/',
-  }),
-}
-
 export default function FreePyramidLongControlRoute() {
   const { t } = useTranslation()
   const data = useLoaderData<typeof loader>()
@@ -40,6 +32,15 @@ export default function FreePyramidLongControlRoute() {
     data.controlState === 'frame-active'
       ? data.controlProjection.score
       : (snapshotFrame?.pointsBySeat ?? { A: 0, B: 0 })
+  const rack = data.controlState === 'frame-active' ? data.controlProjection.details.currentRack : null
+  const statusLine =
+    data.controlState === 'frame-active'
+      ? `${data.gameTitle} · ${t(keys.match.control.longFreePyramid.rack, {
+          rackNumber: rack?.rackNumber,
+        })} · ${t(keys.match.control.longFreePyramid.ballsOnTable, {
+          count: data.controlProjection.details.ballsOnTable,
+        })}`
+      : undefined
   function submitCommand(command: MatchCommand) {
     markLocalSubmit()
     fetcher.submit(matchCommandForm(command), { method: 'post' })
@@ -54,6 +55,10 @@ export default function FreePyramidLongControlRoute() {
         matchStatus={data.state.status}
         frameIndex={data.state.currentFrameIndex}
         targetFrames={data.state.targets.matchTargetFrames}
+        pottedBallCounts={rack?.scoreBySeat}
+        statusLine={statusLine}
+        headerless
+        alwaysShowFrameScore
       />
       {data.controlState === 'frame-active' ? (
         <section aria-label={t(keys.match.control.perGameContainer)} className="flex flex-col">
@@ -86,6 +91,9 @@ export default function FreePyramidLongControlRoute() {
         >
           {t(keys.match.sparring.tabProtocol)}
         </Link>
+        <div className="flex-1">
+          <BurgerMenu placement="navigation" />
+        </div>
       </nav>
     </main>
   )
