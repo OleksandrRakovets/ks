@@ -22,6 +22,8 @@ export function loader(args: Route.LoaderArgs) {
 export function action(args: Route.ActionArgs) {
   return commandMatchAction(args, 'free-pyramid-long')
 }
+export const handle = { headerless: true }
+
 export default function FreePyramidLongControlRoute() {
   const { t } = useTranslation()
   const data = useLoaderData<typeof loader>()
