@@ -47,6 +47,22 @@ test('detects Command ID conflicts', async () => {
   })
 })
 
+test('returns malformed nested Commands as data without poisoning the stub', async () => {
+  const { stub } = await initializedRoom()
+  expect(
+    await stub.submitCommand({
+      commandId: newCommandId(),
+      source: 'match',
+      command: { type: 'unsupported' },
+    }),
+  ).toEqual({ _tag: 'invalid-command' })
+  expect(await stub.submitCommand(prepareCommand())).toEqual({
+    _tag: 'accepted',
+    acceptedSeq: 1,
+    finalizesMatch: false,
+  })
+})
+
 test('serializes concurrent Commands into one authoritative accepted order', async () => {
   const { stub } = await initializedRoom()
   const results = await Promise.all([

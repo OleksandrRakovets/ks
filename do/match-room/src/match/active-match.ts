@@ -33,7 +33,7 @@ export class ActiveMatch {
     const resident = this.#loadResident(match)
     try {
       const result = resident.match.execute(command)
-      if (result._tag === 'parse-failed') throw new Error('ActiveMatch received noncanonical Command')
+      if (result._tag === 'parse-failed') return { _tag: 'invalid-command' }
       if (result._tag === 'rejected') {
         const receipt = this.#storage.commitRejectedCommand({
           matchId: match.matchId,
@@ -134,6 +134,7 @@ export type ActiveProtocolResult =
 
 export type ActiveCommandResult =
   | { readonly _tag: 'finalizing' }
+  | { readonly _tag: 'invalid-command' }
   | { readonly _tag: 'command-id-conflict' }
   | {
       readonly _tag: 'accepted'

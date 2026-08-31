@@ -217,6 +217,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
       await archiveAndFinishRoom(matchId)
       return { ok: false, error: 'match-locked', status: 409 }
     }
+    if (result._tag === 'invalid-command') return { ok: false, error: 'invalid-command-body', status: 400 }
     if (result._tag === 'command-id-conflict') return { ok: false, error: 'command-id-conflict', status: 409 }
     return result._tag === 'accepted'
       ? { ok: true, outcome: { _tag: 'accepted', acceptedSeq: result.acceptedSeq } }

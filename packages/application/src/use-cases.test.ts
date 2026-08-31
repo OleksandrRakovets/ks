@@ -227,6 +227,17 @@ describe('trusted MatchRoom orchestration', () => {
     expect(events).toEqual(['archive', 'dispose', 'finish'])
   })
 
+  test('returns malformed nested Commands as invalid request data', async () => {
+    const room = selectedClient({ submitCommand: async () => ({ _tag: 'invalid-command' }) })
+    expect(
+      await application(room).submitMatchCommand(
+        matchId,
+        { commandId: newCommandId(), source: 'match', command: { type: 'unsupported' } },
+        'free-pyramid',
+      ),
+    ).toEqual({ ok: false, error: 'invalid-command-body', status: 400 })
+  })
+
   test('does not synthesize transport failures for thrown MatchRoom defects', async () => {
     const defect = new Error('room defect')
     const room = selectedClient({ submitCommand: async () => await Promise.reject(defect) })

@@ -55,7 +55,7 @@ D1 matches.status: creating
   -> D1 matches.status: active
 ```
 
-Ordinary commands verify the match row's lifecycle, then write only to MatchRoom. `commandId` receipts make retries idempotent and reject reuse with a different canonical request.
+Ordinary commands verify the match row's lifecycle, then write only to MatchRoom. `commandId` receipts make retries idempotent and reject reuse with a different canonical request. A valid Command envelope whose nested match/game command is unsupported returns `invalid-command`; malformed browser input remains an expected HTTP failure rather than an RPC exception.
 
 Application selects a named room once with `getByName(matchId)`. Initialization verifies that the routed Durable Object name equals the input Match ID, persists configuration idempotently, and reports conflicting configuration as `initialization-conflict`. Later RPC methods derive identity from the selected room and do not repeat the Match ID. Resident gameplay state is created lazily by the first active operation.
 
@@ -100,7 +100,7 @@ Existing streams remain connected while archival is pending. A new stream reques
 - `MatchStorage` owns migration access, the Drizzle client, persisted representations, codecs, and consistency checks. Rows and serialized JSON do not cross its public seam; Accepted Command and Protocol writes remain one transaction.
 - Storage validation enforces sequence continuity, Protocol index/Command/timestamp ownership, Match identity and lifecycle, and terminal position/time/winner consistency. Protocol bodies remain generic here; MatchStorage does not execute gameplay or interpret game-specific semantics.
 - Constructor migration runs in `blockConcurrencyWhile`, so no RPC event observes an unmigrated room. Active operations remain synchronous over resident state and SQLite. Disposal blocks concurrency to order terminal publication, closure, and `deleteAll()`; introducing external asynchronous I/O requires revisiting this ordering.
-- Expected RPC outcomes are semantic variants, not HTTP failures. Application owns HTTP adaptation. Missing or corrupt authority, noncanonical internal Commands, and invalid lifecycle calls are defects that throw.
+- Expected RPC outcomes are semantic variants, not HTTP failures. Application owns HTTP adaptation. Missing or corrupt authority and invalid lifecycle calls are defects that throw.
 - See `.tracker/db.md` for migration and inspection procedures.
 
 ## Deployment
