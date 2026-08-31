@@ -13,7 +13,6 @@ type Props = {
   frameIndex: number
   pottedBallCounts?: BySeatNumber
   statusLine?: string
-  headerless?: boolean
   alwaysShowFrameScore?: boolean
 }
 
@@ -27,7 +26,6 @@ export function ScoreBox({
   targetFrames,
   pottedBallCounts,
   statusLine,
-  headerless,
   alwaysShowFrameScore,
 }: Props) {
   const { t } = useTranslation()
@@ -38,7 +36,7 @@ export function ScoreBox({
   const isBWinner = !isLive && numberB > numberA
 
   return (
-    <div className={cn('sticky z-10 border-b border-divider bg-background', headerless ? 'top-0' : 'top-14')}>
+    <div className="sticky top-14 z-10 border-b border-divider bg-background">
       <div className="grid grid-cols-2 gap-x-4 border-b border-divider px-4 py-2 text-lg leading-tight font-semibold">
         <span className="line-clamp-2 min-w-0">{nameA}</span>
         <span className="line-clamp-2 min-w-0 text-right">{nameB}</span>
