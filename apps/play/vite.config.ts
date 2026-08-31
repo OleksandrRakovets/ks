@@ -11,7 +11,7 @@ export default defineConfig({
   plugins: [
     cloudflare({
       viteEnvironment: { name: 'ssr' },
-      auxiliaryWorkers: [{ configPath: '../../do/match-room/wrangler.jsonc', devOnly: true }],
+      auxiliaryWorkers: [{ configPath: '../../do/match-room/wrangler.jsonc' }],
     }),
     tailwindcss(),
     reactRouter(),
