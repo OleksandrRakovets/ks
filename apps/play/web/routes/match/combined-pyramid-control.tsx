@@ -1,16 +1,15 @@
 import type { MatchCommand } from '@ks/core'
 import { keys } from '@ks/i18n'
 import { useTranslation } from 'react-i18next'
-import { Link, useFetcher, useLoaderData } from 'react-router'
+import { useFetcher, useLoaderData } from 'react-router'
 
 import { CombinedPyramidControlRenderer } from '../../features/match-control/renderers/pyramid-control-renderer'
-import { matchProtocolUrl } from '../../features/match-urls'
+import { MatchNavigation } from '../../features/match-navigation'
 import { ScoreBox } from '../sparring-match/score-box'
 import type { Route } from './+types/combined-pyramid-control'
 import {
   BetweenFrameControls,
   commandMatchAction,
-  type ControlRouteData,
   loadMatchControl,
   matchCommandForm,
   useControlLiveRevalidation,
@@ -22,14 +21,6 @@ export function loader(args: Route.LoaderArgs) {
 export function action(args: Route.ActionArgs) {
   return commandMatchAction(args, 'combined-pyramid')
 }
-export const handle = {
-  headerConfig: (data: ControlRouteData<'combined-pyramid'>) => ({
-    titleKey: keys.match.sparring.controlHeaderTitle,
-    titleParams: { gameTitle: data.gameTitle },
-    backTo: '/sparring/matches/',
-  }),
-}
-
 export default function CombinedPyramidControlRoute() {
   const { t } = useTranslation()
   const data = useLoaderData<typeof loader>()
@@ -46,6 +37,12 @@ export default function CombinedPyramidControlRoute() {
   }
   return (
     <main className="flex flex-1 flex-col bg-surface">
+      <MatchNavigation
+        active="control"
+        gameKey="combined-pyramid"
+        matchId={data.state.matchId}
+        matchStatus={data.state.status}
+      />
       <ScoreBox
         nameA={data.participants.A.displayName}
         nameB={data.participants.B.displayName}
@@ -76,17 +73,6 @@ export default function CombinedPyramidControlRoute() {
       {fetcher.data?.ok === false ? (
         <p className="px-4 py-2 text-base text-destructive">{t(fetcher.data.errorKey)}</p>
       ) : null}
-      <nav className="sticky bottom-0 z-10 mt-auto flex h-14 border-t border-border bg-background">
-        <span className="-mt-px flex flex-1 items-center justify-center border-t-2 border-primary text-center text-base font-medium text-foreground">
-          {t(keys.match.sparring.tabControl)}
-        </span>
-        <Link
-          to={matchProtocolUrl('combined-pyramid', data.state.matchId)}
-          className="-mt-px flex flex-1 items-center justify-center border-t-2 border-transparent text-center text-base font-medium text-muted-foreground hover:text-foreground"
-        >
-          {t(keys.match.sparring.tabProtocol)}
-        </Link>
-      </nav>
     </main>
   )
 }

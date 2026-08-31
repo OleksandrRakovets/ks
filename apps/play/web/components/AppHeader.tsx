@@ -1,64 +1,38 @@
-import { type I18nKey, keys } from '@ks/i18n'
+import { keys } from '@ks/i18n'
 import { useTranslation } from 'react-i18next'
-import { Link, type UIMatch, useMatches } from 'react-router'
+import { Link, useLocation } from 'react-router'
 
+import { BrandWordmark } from './BrandWordmark'
 import { BurgerMenu } from './BurgerMenu'
 
-export type HeaderConfig = {
-  title?: string
-  titleKey?: I18nKey
-  titleParams?: Record<string, string>
-  backTo?: string
-}
-
-type HeaderHandle = { headerConfig?: (data: UIMatch['loaderData']) => HeaderConfig }
-
-function BackArrowIcon() {
-  return (
-    <svg width="10" height="18" viewBox="0 0 7 12" fill="none" aria-hidden>
-      <path
-        d="M6 1L1 6l5 5"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
-
 export function AppHeader() {
-  const matches = useMatches()
   const { t } = useTranslation()
-
-  const config =
-    [...matches].reverse().reduce<HeaderConfig | null>((found, match) => {
-      if (found) return found
-      // SAFETY: Route handles in this app expose only the optional headerConfig convention declared here.
-      const handle = match.handle as HeaderHandle | undefined
-      return handle?.headerConfig?.(match.loaderData) ?? null
-    }, null) ?? {}
+  const location = useLocation()
+  const onNewMatch = location.pathname === '/sparring/' || location.pathname.startsWith('/sparring/init/')
+  const onMatches = location.pathname === '/sparring/matches/'
+  const itemClass =
+    'flex h-14 flex-1 items-center justify-center border-b-2 text-base font-medium lg:flex-none lg:px-6'
 
   return (
-    <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center justify-between border-b border-divider bg-deep ">
-      <div className="w-12">
-        {config.backTo ? (
-          <Link
-            to={config.backTo}
-            aria-label={t(keys.nav.back)}
-            className="flex h-14 items-center px-4 text-green"
-          >
-            <BackArrowIcon />
-          </Link>
-        ) : null}
+    <header className="sticky top-0 z-40 flex h-14 shrink-0 border-b border-divider bg-deep">
+      <div className="mx-5 hidden items-center lg:flex">
+        <BrandWordmark className="h-10" title={t(keys.appTitle)} />
       </div>
-
-      <div className="flex-1 truncate text-center text-base font-semibold tracking-[0.01em]">
-        {config.titleKey ? t(config.titleKey, config.titleParams) : (config.title ?? t(keys.appTitle))}
-      </div>
-
-      <div className="flex w-12 justify-end">
-        <BurgerMenu />
+      <Link
+        to="/sparring/"
+        className={`${itemClass} ${onNewMatch ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+      >
+        {t(keys.nav.newMatch)}
+      </Link>
+      <Link
+        to="/sparring/matches/"
+        className={`${itemClass} ${onMatches ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+      >
+        {t(keys.nav.allMatches)}
+      </Link>
+      <div className="hidden flex-1 lg:block" />
+      <div className="flex-1 lg:flex-none lg:px-2">
+        <BurgerMenu placement="navigation" />
       </div>
     </header>
   )

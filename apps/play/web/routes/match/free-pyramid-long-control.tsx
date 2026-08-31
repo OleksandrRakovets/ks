@@ -1,11 +1,10 @@
 import type { MatchCommand } from '@ks/core'
 import { keys } from '@ks/i18n'
 import { useTranslation } from 'react-i18next'
-import { Link, useFetcher, useLoaderData } from 'react-router'
+import { useFetcher, useLoaderData } from 'react-router'
 
-import { BurgerMenu } from '../../components/BurgerMenu'
 import { LongFreePyramidControlRenderer } from '../../features/match-control/renderers/long-free-pyramid-control-renderer'
-import { matchProtocolUrl } from '../../features/match-urls'
+import { MatchNavigation } from '../../features/match-navigation'
 import { ScoreBox } from '../sparring-match/score-box'
 import type { Route } from './+types/free-pyramid-long-control'
 import {
@@ -22,8 +21,6 @@ export function loader(args: Route.LoaderArgs) {
 export function action(args: Route.ActionArgs) {
   return commandMatchAction(args, 'free-pyramid-long')
 }
-export const handle = { headerless: true }
-
 export default function FreePyramidLongControlRoute() {
   const { t } = useTranslation()
   const data = useLoaderData<typeof loader>()
@@ -49,6 +46,12 @@ export default function FreePyramidLongControlRoute() {
   }
   return (
     <main className="flex flex-1 flex-col bg-surface">
+      <MatchNavigation
+        active="control"
+        gameKey="free-pyramid-long"
+        matchId={data.state.matchId}
+        matchStatus={data.state.status}
+      />
       <ScoreBox
         nameA={data.participants.A.displayName}
         nameB={data.participants.B.displayName}
@@ -59,7 +62,6 @@ export default function FreePyramidLongControlRoute() {
         targetFrames={data.state.targets.matchTargetFrames}
         pottedBallCounts={rack?.scoreBySeat}
         statusLine={statusLine}
-        headerless
         alwaysShowFrameScore
       />
       {data.controlState === 'frame-active' ? (
@@ -83,20 +85,6 @@ export default function FreePyramidLongControlRoute() {
       {fetcher.data?.ok === false ? (
         <p className="px-4 py-2 text-base text-destructive">{t(fetcher.data.errorKey)}</p>
       ) : null}
-      <nav className="sticky bottom-0 z-10 mt-auto flex h-14 border-t border-border bg-background">
-        <span className="-mt-px flex flex-1 items-center justify-center border-t-2 border-primary text-center text-base font-medium text-foreground">
-          {t(keys.match.sparring.tabControl)}
-        </span>
-        <Link
-          to={matchProtocolUrl('free-pyramid-long', data.state.matchId)}
-          className="-mt-px flex flex-1 items-center justify-center border-t-2 border-transparent text-center text-base font-medium text-muted-foreground hover:text-foreground"
-        >
-          {t(keys.match.sparring.tabProtocol)}
-        </Link>
-        <div className="flex-1">
-          <BurgerMenu placement="navigation" />
-        </div>
-      </nav>
     </main>
   )
 }
