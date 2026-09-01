@@ -25,6 +25,11 @@ Domain vocabulary and distinctions are defined in CONTEXT.md. Treat it as author
 
 `check:full` is the merge/deployment gate. It includes the fast gate, integration projects, and both deployable builds.
 
+## Tests
+
+- Treat new automated test coverage as opt-in. Do not create test files, test-only helpers or fixtures, or materially expand a suite unless the user explicitly requests or approves it. Requests to implement, fix, test, or verify authorize running existing checks and updating existing tests required by the change, not adding broad coverage. If one focused regression test would provide concrete value, explain why and ask first.
+- Test each behavior at the lowest layer that owns it. Higher-level tests should cover wiring, persistence, transport, or lifecycle boundaries rather than repeat lower-level rule matrices. Assert observable contracts, not source strings, implementation shape, or the existence of tests.
+
 ## Dependencies
 
 - Check all workspaces with `bun outdated --recursive`.

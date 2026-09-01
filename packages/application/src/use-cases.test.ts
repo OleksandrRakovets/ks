@@ -322,26 +322,24 @@ describe('trusted MatchRoom orchestration', () => {
     expect(events).toEqual(['finalize', 'finish-1', 'finalize', 'finish-2'])
   })
 
-  test('does not finalize or finish when D1 rejects identity, lifecycle, or archive consistency', async () => {
-    for (const conflict of ['identity', 'lifecycle', 'archive'] as const) {
-      const events: string[] = []
-      const room = selectedClient({
-        stream: async () => ({ _tag: 'finalizing' }),
-        prepareArchive: async () => transfer,
-        finalize: async () => {
-          events.push('finalize')
+  test('does not finalize or finish when D1 rejects the archive', async () => {
+    const events: string[] = []
+    const room = selectedClient({
+      stream: async () => ({ _tag: 'finalizing' }),
+      prepareArchive: async () => transfer,
+      finalize: async () => {
+        events.push('finalize')
+      },
+    })
+    const app = application(room, events, {
+      overrides: {
+        archiveCompletedMatch: async () => {
+          events.push('archive-conflict')
+          throw new Error('archive conflict')
         },
-      })
-      const app = application(room, events, {
-        overrides: {
-          archiveCompletedMatch: async () => {
-            events.push(conflict)
-            throw new Error(`${conflict} conflict`)
-          },
-        },
-      })
-      await expect(app.streamMatchUpdates(matchId)).rejects.toThrow(`${conflict} conflict`)
-      expect(events).toEqual([conflict])
-    }
+      },
+    })
+    await expect(app.streamMatchUpdates(matchId)).rejects.toThrow('archive conflict')
+    expect(events).toEqual(['archive-conflict'])
   })
 })

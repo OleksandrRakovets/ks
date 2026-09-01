@@ -8,7 +8,14 @@ test('returns active Controls at the authoritative sequence and restores after e
   expect(await stub.getControls()).toMatchObject({ _tag: 'active', latestSeq: 0 })
   await stub.submitCommand(prepareCommand())
   await evictDurableObject(stub)
-  expect(await env.MATCH_ROOM.getByName(matchId).getControls()).toMatchObject({ _tag: 'active', latestSeq: 1 })
+  expect(await env.MATCH_ROOM.getByName(matchId).getControls()).toMatchObject({
+    _tag: 'active',
+    latestSeq: 1,
+    state: {
+      currentFrameIndex: 1,
+      frames: [{ frameIndex: 1, breakerSeat: 'A', pointsBySeat: { A: 0, B: 0 } }],
+    },
+  })
 })
 
 test('returns finalizing after terminal acceptance', async () => {

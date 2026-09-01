@@ -11,7 +11,17 @@ test('returns Protocol at sequence zero and restores accepted entries after evic
   expect(await env.MATCH_ROOM.getByName(matchId).getProtocol()).toMatchObject({
     _tag: 'active',
     latestSeq: 1,
-    protocolEntries: [{ acceptedSeq: 1 }],
+    protocolEntries: [
+      {
+        acceptedSeq: 1,
+        entryIndex: 0,
+        source: 'system',
+        entryType: 'frame-prepared',
+        frameIndex: 1,
+        seat: 'A',
+        body: { targetPointsBySeat: { A: 8, B: 8 } },
+      },
+    ],
   })
 })
 

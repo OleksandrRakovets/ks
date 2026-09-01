@@ -58,6 +58,49 @@ describe('SparringMatch', () => {
     expect(restoreSparringMatch(matchConfig, persisted).project()).toEqual(warm.project())
   })
 
+  test('plays a multi-frame race through game scoring with alternating breakers', () => {
+    const match = createSparringMatch(config())
+
+    for (const breakerSeat of ['A', 'B', 'A'] as const) {
+      const prepared = accept(match, {
+        commandId: newCommandId(),
+        source: 'match',
+        command: { type: 'frame.prepare' },
+      })
+      expect(prepared.protocolEntryContents[0]).toMatchObject({
+        entryType: 'frame-prepared',
+        seat: breakerSeat,
+      })
+      accept(match, {
+        commandId: newCommandId(),
+        source: 'match',
+        command: { type: 'frame.commence', seat: breakerSeat },
+      })
+      for (let point = 0; point < 8; point += 1)
+        accept(match, {
+          commandId: newCommandId(),
+          source: 'game',
+          command: { type: 'pot.record', seat: breakerSeat, pottedBallCount: 1 },
+        })
+      accept(match, {
+        commandId: newCommandId(),
+        source: 'game',
+        command: { type: 'frame.award', seat: breakerSeat },
+      })
+    }
+
+    expect(match.project().state).toMatchObject({
+      status: 'finished',
+      currentFrameIndex: 3,
+      framesWonBySeat: { A: 2, B: 1 },
+      frames: [
+        { frameIndex: 1, breakerSeat: 'A', winnerSeat: 'A' },
+        { frameIndex: 2, breakerSeat: 'B', winnerSeat: 'B' },
+        { frameIndex: 3, breakerSeat: 'A', winnerSeat: 'A' },
+      ],
+    })
+  })
+
   test('concession records concession, award, and terminal match lifecycle in order', () => {
     const match = createSparringMatch(config(1))
     accept(match, { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } })

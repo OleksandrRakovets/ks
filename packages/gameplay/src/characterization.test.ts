@@ -26,43 +26,6 @@ describe('gameplay characterization', () => {
     ])
   })
 
-  test('every accepted pyramid-family command produces protocol entries', () => {
-    for (const gameKey of ['free-pyramid', 'combined-pyramid', 'combined-pyramid-old'] as const) {
-      const session = createGameplaySession(gameKey, { targetPointsBySeat: { A: 2, B: 8 } })
-      expectAccepted(session.execute({ type: 'frame.commence', seat: 'A' }))
-      expectAccepted(session.execute({ type: 'pot.record', seat: 'A', pottedBallCount: 1 }))
-      expectAccepted(session.execute({ type: 'foul.commit', seat: 'B' }))
-      expectAccepted(session.execute({ type: 'pot.record', seat: 'A', pottedBallCount: 1 }))
-      expectAccepted(session.execute({ type: 'frame.award', seat: 'A' }))
-    }
-  })
-
-  test('every accepted long free pyramid command produces protocol entries', () => {
-    const session = createGameplaySession('free-pyramid-long', {
-      targetPointsBySeat: { A: 2, B: 30 },
-      rackRollover: 14,
-    })
-    expectAccepted(session.execute({ type: 'frame.commence', seat: 'A' }))
-    expectAccepted(session.execute({ type: 'pot.record', seat: 'A', pottedBallCount: 1 }))
-    expectAccepted(session.execute({ type: 'foul.commit', seat: 'A' }))
-    expectAccepted(session.execute({ type: 'pot.record', seat: 'A', pottedBallCount: 1 }))
-    expectAccepted(session.execute({ type: 'frame.award', seat: 'A' }))
-  })
-
-  test('every accepted strila command produces protocol entries', () => {
-    const session = createGameplaySession('strila-v2', { targetPointsBySeat: { A: 9, B: 9 } })
-    expectAccepted(session.execute({ type: 'frame.commence', seat: 'A' }))
-    expectAccepted(session.execute({ type: 'pot.record', seat: 'A', pottedBalls: [1] }))
-    expectAccepted(session.execute({ type: 'foul.commit', seat: 'A' }))
-    expectAccepted(session.execute({ type: 'penalty.select', seat: 'B', choice: 'ball-in-hand' }))
-    expectAccepted(session.execute({ type: 'miss.record', seat: 'B' }))
-    expectAccepted(session.execute({ type: 'pot.record', seat: 'A', pottedBalls: [2] }))
-    expectAccepted(session.execute({ type: 'pot.record', seat: 'A', pottedBalls: [3] }))
-    expectAccepted(session.execute({ type: 'pot.record', seat: 'A', pottedBalls: [4] }))
-    expectAccepted(session.execute({ type: 'pot.record', seat: 'A', pottedBalls: [5] }))
-    expectAccepted(session.execute({ type: 'frame.award', seat: 'A' }))
-  })
-
   test('one strila command can produce ordered player and system protocol entries', () => {
     const session = createGameplaySession('strila-v2', { targetPointsBySeat: { A: 1, B: 9 } })
     expectAccepted(session.execute({ type: 'frame.commence', seat: 'A' }))

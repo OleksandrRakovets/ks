@@ -40,7 +40,16 @@ test('alarm disposes retained storage and is idempotent', async () => {
   await expect(runDurableObjectAlarm(stub)).resolves.toBe(true)
   await expect(runDurableObjectAlarm(stub)).resolves.toBe(false)
   await expect(stub.finalize()).resolves.toBeUndefined()
-  expect(await runInDurableObject(stub, (_room, state) => state.storage.getAlarm())).toBeNull()
+  await runInDurableObject(stub, async (_room, state) => {
+    await expect(state.storage.getAlarm()).resolves.toBeNull()
+    const tableNames = state.storage.sql
+      .exec<{ name: string }>("SELECT name FROM sqlite_master WHERE type = 'table'")
+      .toArray()
+      .map(({ name }) => name)
+    expect(tableNames).not.toContain('active_matches')
+    expect(tableNames).not.toContain('commands')
+    expect(tableNames).not.toContain('protocol_entries')
+  })
 })
 
 test('alarm rejects disposal of an active Match', async () => {

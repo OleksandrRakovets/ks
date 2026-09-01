@@ -98,7 +98,7 @@ describe('machine-sparring: foul handling', () => {
     expect(snap.context.cueBallSerialPots).toBeNull()
   })
 
-  test('foul response play-from-position awards one point to chooser and keeps seat', () => {
+  test('foul response play-from-position awards one point to chooser and returns to open play', () => {
     let snap = start()
     snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
     snap = sendEvent(snap, { type: 'foul.commit', seat: 'A' })
@@ -109,7 +109,7 @@ describe('machine-sparring: foul handling', () => {
     expect(snap.context.cueBallSerialPots).toBeNull()
   })
 
-  test('foul response pass-position awards one point to chooser and returns seat to offender', () => {
+  test('foul response pass-position awards one point to chooser and returns to open play', () => {
     let snap = start()
     snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
     snap = sendEvent(snap, { type: 'foul.commit', seat: 'A' })
