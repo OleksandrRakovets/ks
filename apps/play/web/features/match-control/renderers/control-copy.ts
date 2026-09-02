@@ -2,10 +2,10 @@ import { type Control, PositiveInteger } from '@ks/core'
 import type { TFunction } from 'i18next'
 import * as v from 'valibot'
 
-const PotRecordCountPayloadSchema = v.object({ pottedBallCount: PositiveInteger })
+const PotRecordCountPayload = v.object({ pottedBallCount: PositiveInteger })
 
 export function potRecordPottedBallCount(control: Control): number | undefined {
-  const parsed = v.safeParse(PotRecordCountPayloadSchema, control.fixedInput)
+  const parsed = v.safeParse(PotRecordCountPayload, control.fixedInput)
   return parsed.success ? parsed.output.pottedBallCount : undefined
 }
 

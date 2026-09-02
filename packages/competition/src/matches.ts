@@ -8,12 +8,12 @@ import {
   Seat,
 } from '@ks/core'
 import type { MatchState } from '@ks/core'
-import { RegisteredGameKeySchema } from '@ks/gameplay/definitions'
+import { RegisteredGameKey } from '@ks/gameplay/definitions'
 import * as v from 'valibot'
 
-export const MatchCreationDefinitionSchema = v.pipe(
+export const MatchCreationDefinition = v.pipe(
   v.object({
-    gameKey: RegisteredGameKeySchema,
+    gameKey: RegisteredGameKey,
     targets: MatchTargets,
     firstBreakerSeat: Seat,
     gameConfiguration: v.optional(GameConfiguration),
@@ -27,9 +27,9 @@ export const MatchCreationDefinitionSchema = v.pipe(
   ),
 )
 
-export const CreateMatchRequestSchema = v.pipe(
+export const CreateMatchRequest = v.pipe(
   v.intersect([
-    MatchCreationDefinitionSchema,
+    MatchCreationDefinition,
     v.object({ participants: v.tuple([MatchSeatAssignment, MatchSeatAssignment]) }),
   ]),
   v.check(
@@ -38,7 +38,7 @@ export const CreateMatchRequestSchema = v.pipe(
   ),
 )
 
-export type CreateMatchRequest = v.InferOutput<typeof CreateMatchRequestSchema>
+export type CreateMatchRequest = v.InferOutput<typeof CreateMatchRequest>
 
 export type MatchStateFor<K extends GameKey> = Omit<MatchState, 'gameKey'> & { gameKey: K }
 

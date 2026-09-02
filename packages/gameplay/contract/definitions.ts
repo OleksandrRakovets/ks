@@ -1,11 +1,10 @@
 export {
   isRegisteredGameKey,
   listGameKeys,
-  RegisteredGameKeySchema,
+  RegisteredGameKey,
   registry,
   type ControlProjectionFor,
   type GameCommandFor,
-  type RegisteredGameKey,
 } from '../src/registry'
 export { type LongFreePyramidControlProjection } from '../src/long-free-pyramid/definitions'
 export {

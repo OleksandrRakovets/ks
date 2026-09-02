@@ -13,7 +13,7 @@ import {
 import { matchProtocolArchives } from './schema'
 import type { ApplicationDatabase } from './types'
 
-const ProtocolArchiveStorageRowSchema = v.pipe(
+const ProtocolArchiveStorageRow = v.pipe(
   v.object({
     matchId: MatchId,
     sourceLatestSeq: PositiveInteger,
@@ -43,7 +43,7 @@ export async function getProtocolArchive(
     .get()
   if (!row) return null
   try {
-    const parsed = v.parse(ProtocolArchiveStorageRowSchema, row)
+    const parsed = v.parse(ProtocolArchiveStorageRow, row)
     const { matchId: _matchId, entries, ...archive } = parsed
     const gameKey = archive.state.gameKey
     return {

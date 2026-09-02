@@ -1,16 +1,16 @@
 import { Integer } from '@ks/core'
 import * as v from 'valibot'
 
-const PyramidGameKeySchema = v.picklist(['free-pyramid', 'combined-pyramid', 'combined-pyramid-old'])
-export type PyramidGameKey = v.InferOutput<typeof PyramidGameKeySchema>
+const PyramidGameKey = v.picklist(['free-pyramid', 'combined-pyramid', 'combined-pyramid-old'])
+export type PyramidGameKey = v.InferOutput<typeof PyramidGameKey>
 
-export const PyramidRulesSchema = v.object({
-  gameKey: PyramidGameKeySchema,
+export const PyramidRules = v.object({
+  gameKey: PyramidGameKey,
   allowNegative: v.boolean(),
   foulPenalty: v.picklist(['opponent-plus-one', 'offender-minus-one']),
   shotPointOptions: v.pipe(v.array(Integer), v.minLength(1), v.readonly()),
 })
-export type PyramidRules = v.InferOutput<typeof PyramidRulesSchema>
+export type PyramidRules = v.InferOutput<typeof PyramidRules>
 export type PyramidRulesFor<K extends PyramidGameKey> = PyramidRules & { readonly gameKey: K }
 
 export const PyramidRuleSpecificsByGameKey = {

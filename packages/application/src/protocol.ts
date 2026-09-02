@@ -47,10 +47,10 @@ export type ProtocolRow = {
   timeLabel: string
 }
 
-const ProtocolBallSchema = v.picklist([0, 1, 2, 3, 4, 5, 6, 7])
-type ProtocolBall = v.InferOutput<typeof ProtocolBallSchema>
-const PottedBallsSchema = v.pipe(v.array(ProtocolBallSchema), v.minLength(1))
-const ProtocolMessageBodySchema = v.object({
+const ProtocolBall = v.picklist([0, 1, 2, 3, 4, 5, 6, 7])
+type ProtocolBall = v.InferOutput<typeof ProtocolBall>
+const PottedBalls = v.pipe(v.array(ProtocolBall), v.minLength(1))
+const ProtocolMessageBody = v.object({
   commandType: v.optional(v.string()),
   systemType: v.optional(v.string()),
   pottedBalls: v.optional(v.unknown()),
@@ -67,7 +67,7 @@ function entryMessage(
 ): ProtocolRow['message'] {
   const seatLabel = (seat: Seat) => seatNames[seat]
   const actor = seatLabel(entry.seat)
-  const parsedBody = v.safeParse(ProtocolMessageBodySchema, entry.body)
+  const parsedBody = v.safeParse(ProtocolMessageBody, entry.body)
   const body = parsedBody.success ? parsedBody.output : {}
   const commandType = body.commandType ?? null
 
@@ -75,7 +75,7 @@ function entryMessage(
     case 'frame.commence':
       return { key: 'match.protocol.commands.frame.commence', actor }
     case 'pot.record': {
-      const pottedBalls = v.safeParse(PottedBallsSchema, body.pottedBalls)
+      const pottedBalls = v.safeParse(PottedBalls, body.pottedBalls)
       if (pottedBalls.success) {
         return { key: 'match.protocol.commands.pot.record.balls', actor, pottedBalls: pottedBalls.output }
       }

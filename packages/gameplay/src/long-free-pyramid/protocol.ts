@@ -5,7 +5,7 @@ import { totalScore } from './calculations'
 import type { LongFreePyramidCommand } from './definitions'
 import type { LongFreePyramidSparringFrameSnapshot } from './machine'
 
-const LongFreePyramidProtocolEntryBodySchema = v.variant('commandType', [
+const LongFreePyramidProtocolEntryBody = v.variant('commandType', [
   v.strictObject({ commandType: v.literal('frame.commence') }),
   v.strictObject({ commandType: v.literal('pot.record'), pottedBallCount: PositiveInteger }),
   v.strictObject({ commandType: v.literal('foul.commit'), penalty: v.literal('opponent-plus-one') }),
@@ -14,7 +14,7 @@ const LongFreePyramidProtocolEntryBodySchema = v.variant('commandType', [
 
 export const LongFreePyramidProtocolEntry = v.object({
   ...GameProtocolEntry.entries,
-  body: LongFreePyramidProtocolEntryBodySchema,
+  body: LongFreePyramidProtocolEntryBody,
 })
 export type LongFreePyramidProtocolEntry = v.InferOutput<typeof LongFreePyramidProtocolEntry>
 
@@ -29,7 +29,7 @@ function scoreChanged(
 
 function protocolEntry(args: {
   seat: 'A' | 'B'
-  body: v.InferOutput<typeof LongFreePyramidProtocolEntryBodySchema>
+  body: v.InferOutput<typeof LongFreePyramidProtocolEntryBody>
   previous: LongFreePyramidSparringFrameSnapshot
   next: LongFreePyramidSparringFrameSnapshot
 }) {

@@ -5,7 +5,7 @@ import type { PyramidCommand } from './definitions'
 import type { PyramidSparringFrameSnapshot } from './machine'
 import type { PyramidRules } from './rules'
 
-const PyramidProtocolEntryBodySchema = v.variant('commandType', [
+const PyramidProtocolEntryBody = v.variant('commandType', [
   v.strictObject({ commandType: v.literal('frame.commence') }),
   v.strictObject({ commandType: v.literal('pot.record'), pottedBallCount: PositiveInteger }),
   v.strictObject({
@@ -17,7 +17,7 @@ const PyramidProtocolEntryBodySchema = v.variant('commandType', [
 
 export const PyramidProtocolEntry = v.object({
   ...GameProtocolEntry.entries,
-  body: PyramidProtocolEntryBodySchema,
+  body: PyramidProtocolEntryBody,
 })
 export type PyramidProtocolEntry = v.InferOutput<typeof PyramidProtocolEntry>
 
@@ -28,7 +28,7 @@ function scoreChanged(previous: PyramidSparringFrameSnapshot, next: PyramidSparr
 function protocolEntry(args: {
   gameKey: PyramidRules['gameKey']
   seat: 'A' | 'B'
-  body: v.InferOutput<typeof PyramidProtocolEntryBodySchema>
+  body: v.InferOutput<typeof PyramidProtocolEntryBody>
   previous: PyramidSparringFrameSnapshot
   next: PyramidSparringFrameSnapshot
 }) {

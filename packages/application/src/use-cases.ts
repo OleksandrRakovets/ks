@@ -14,7 +14,6 @@ import * as v from 'valibot'
 
 import type {
   Application,
-  CreateMatchInput,
   CreateMatchResult,
   HydratedMatchParticipants,
   MatchListEntry,
@@ -23,7 +22,7 @@ import type {
   ReadMatchProtocolResult,
   SubmitMatchCommandResult,
 } from './contracts'
-import { CreateMatchInputSchema } from './contracts'
+import { CreateMatchInput } from './contracts'
 import type {
   MatchRoomClient,
   MatchRoomCompletionTransfer,
@@ -90,7 +89,7 @@ function archiveReadFailure(error: Error): ReadMatchFailure | null {
 
 export function createApplicationWithDependencies(dependencies: ApplicationDependencies): Application {
   async function createMatch(input: CreateMatchInput): Promise<CreateMatchResult> {
-    const parsed = v.safeParse(CreateMatchInputSchema, input)
+    const parsed = v.safeParse(CreateMatchInput, input)
     if (!parsed.success) return { ok: false, error: 'Invalid match creation input', status: 400 }
     const matchId = dependencies.newMatchId()
     const controlSecret = dependencies.newControlSecret()

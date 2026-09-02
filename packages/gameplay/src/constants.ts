@@ -25,10 +25,10 @@ export function deriveGameControlSections(controls: readonly GameControl[]) {
   return sections
 }
 
-export const GameControlProjectionSchema = v.object({
+export const GameControlProjection = v.object({
   gameKey: NonEmptyString,
   projection: v.literal('control'),
   score: BySeatNumber,
   details: v.optional(v.unknown()),
 })
-export type GameControlProjectionInput = v.InferOutput<typeof GameControlProjectionSchema>
+export type GameControlProjectionInput = v.InferOutput<typeof GameControlProjection>

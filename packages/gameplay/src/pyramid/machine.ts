@@ -3,7 +3,7 @@ import invariant from 'tiny-invariant'
 import * as v from 'valibot'
 import { assign, initialTransition, setup, type SnapshotFrom, transition } from 'xstate'
 
-import { type PyramidCommand, type PyramidContext, type PyramidPhase, PyramidPhaseSchema } from './definitions'
+import { type PyramidCommand, type PyramidContext, PyramidPhase } from './definitions'
 import type { PyramidRules } from './rules'
 
 type PyramidMachineInput = {
@@ -235,7 +235,7 @@ export function getPyramidSparringFramePhase(snapshot: PyramidSparringFrameSnaps
 }
 
 export function getPhase(snapshot: PyramidSparringFrameSnapshot): PyramidPhase {
-  return v.parse(PyramidPhaseSchema, snapshot.value)
+  return v.parse(PyramidPhase, snapshot.value)
 }
 
 export function sendEvent(

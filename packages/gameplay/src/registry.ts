@@ -1,17 +1,14 @@
 import * as v from 'valibot'
 
 import type { GameMeta } from './constants'
+import { LongFreePyramidCommand, LongFreePyramidControlProjection } from './long-free-pyramid/definitions'
 import {
-  LongFreePyramidCommandSchema,
-  LongFreePyramidControlProjectionSchema,
-} from './long-free-pyramid/definitions'
-import {
-  CombinedPyramidControlProjectionSchema,
-  CombinedPyramidOldControlProjectionSchema,
-  FreePyramidControlProjectionSchema,
-  PyramidCommandSchema,
+  CombinedPyramidControlProjection,
+  CombinedPyramidOldControlProjection,
+  FreePyramidControlProjection,
+  PyramidCommand,
 } from './pyramid/definitions'
-import { StrilaCommandSchema, StrilaControlProjectionSchema } from './strila-v2/definitions'
+import { StrilaCommand, StrilaControlProjection } from './strila-v2/definitions'
 
 type RegistryEntry = {
   meta: GameMeta
@@ -28,8 +25,8 @@ export const registry = {
       },
       defaultFrameTargetPointsBySeat: { A: 9, B: 9 },
     },
-    commandSchema: StrilaCommandSchema,
-    controlSchema: StrilaControlProjectionSchema,
+    commandSchema: StrilaCommand,
+    controlSchema: StrilaControlProjection,
   },
   'free-pyramid': {
     meta: {
@@ -39,8 +36,8 @@ export const registry = {
       },
       defaultFrameTargetPointsBySeat: { A: 8, B: 8 },
     },
-    commandSchema: PyramidCommandSchema,
-    controlSchema: FreePyramidControlProjectionSchema,
+    commandSchema: PyramidCommand,
+    controlSchema: FreePyramidControlProjection,
   },
   'free-pyramid-long': {
     meta: {
@@ -50,8 +47,8 @@ export const registry = {
       },
       defaultFrameTargetPointsBySeat: { A: 30, B: 30 },
     },
-    commandSchema: LongFreePyramidCommandSchema,
-    controlSchema: LongFreePyramidControlProjectionSchema,
+    commandSchema: LongFreePyramidCommand,
+    controlSchema: LongFreePyramidControlProjection,
   },
   'combined-pyramid': {
     meta: {
@@ -61,8 +58,8 @@ export const registry = {
       },
       defaultFrameTargetPointsBySeat: { A: 8, B: 8 },
     },
-    commandSchema: PyramidCommandSchema,
-    controlSchema: CombinedPyramidControlProjectionSchema,
+    commandSchema: PyramidCommand,
+    controlSchema: CombinedPyramidControlProjection,
   },
   'combined-pyramid-old': {
     meta: {
@@ -72,15 +69,15 @@ export const registry = {
       },
       defaultFrameTargetPointsBySeat: { A: 8, B: 8 },
     },
-    commandSchema: PyramidCommandSchema,
-    controlSchema: CombinedPyramidOldControlProjectionSchema,
+    commandSchema: PyramidCommand,
+    controlSchema: CombinedPyramidOldControlProjection,
   },
 } as const satisfies Record<string, RegistryEntry>
 
 // SAFETY: registry is a non-empty object, and Object.keys returns exactly its runtime string keys.
 const registeredGameKeys = Object.keys(registry) as [keyof typeof registry, ...(keyof typeof registry)[]]
-export const RegisteredGameKeySchema = v.picklist(registeredGameKeys)
-export type RegisteredGameKey = v.InferOutput<typeof RegisteredGameKeySchema>
+export const RegisteredGameKey = v.picklist(registeredGameKeys)
+export type RegisteredGameKey = v.InferOutput<typeof RegisteredGameKey>
 
 export type ControlProjectionFor<K extends RegisteredGameKey> = v.InferOutput<
   (typeof registry)[K]['controlSchema']
@@ -88,7 +85,7 @@ export type ControlProjectionFor<K extends RegisteredGameKey> = v.InferOutput<
 export type GameCommandFor<K extends RegisteredGameKey> = v.InferOutput<(typeof registry)[K]['commandSchema']>
 
 export function isRegisteredGameKey(value: string): value is RegisteredGameKey {
-  return v.is(RegisteredGameKeySchema, value)
+  return v.is(RegisteredGameKey, value)
 }
 
 export function listGameKeys(): RegisteredGameKey[] {

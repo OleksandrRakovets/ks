@@ -56,8 +56,8 @@ export type ControlActionData =
 type ControlActionErrorKey = Extract<ControlActionData, { ok: false }>['errorKey']
 
 const SubmittedMatchCommand = v.pipe(v.string(), v.parseJson(), MatchCommand)
-const StreamReadyEventSchema = v.pipe(v.string(), v.parseJson(), MatchStreamReady)
-const StreamUpdateEventSchema = v.pipe(v.string(), v.parseJson(), MatchStreamUpdate)
+const StreamReadyEvent = v.pipe(v.string(), v.parseJson(), MatchStreamReady)
+const StreamUpdateEvent = v.pipe(v.string(), v.parseJson(), MatchStreamUpdate)
 
 function matchIdFromParams(params: RouteArgs['params']): MatchId {
   const matchId = v.safeParse(MatchId, params.matchId)
@@ -211,12 +211,12 @@ export function subscribeControlLive(args: {
   const source = args.createSource(`/api/m/${args.matchId}/stream/?since=${args.since}`)
   const onReady = (event: Event) => {
     if (!(event instanceof MessageEvent)) return
-    const parsed = v.safeParse(StreamReadyEventSchema, event.data)
+    const parsed = v.safeParse(StreamReadyEvent, event.data)
     if (parsed.success) args.applyEvent({ type: 'ready', seq: parsed.output.latestSeq }, source)
   }
   const onEvent = (event: Event) => {
     if (!(event instanceof MessageEvent)) return
-    const parsed = v.safeParse(StreamUpdateEventSchema, event.data)
+    const parsed = v.safeParse(StreamUpdateEvent, event.data)
     if (!parsed.success) return
     args.applyEvent(
       parsed.output.terminal
@@ -303,13 +303,13 @@ export function useProtocolLiveRevalidation(state: MatchState, latestSeq: number
     const stream = new EventSource(`/api/m/${state.matchId}/stream/?since=${latestSeqRef.current}`)
     const onReady = (event: Event) => {
       if (!(event instanceof MessageEvent)) return
-      const parsed = v.safeParse(StreamReadyEventSchema, event.data)
+      const parsed = v.safeParse(StreamReadyEvent, event.data)
       // ready confirms the highest update already delivered; it never advances the cursor.
       if (parsed.success && parsed.output.latestSeq !== latestSeqRef.current) revalidateRef.current()
     }
     const onEvent = (event: Event) => {
       if (!(event instanceof MessageEvent)) return
-      const parsed = v.safeParse(StreamUpdateEventSchema, event.data)
+      const parsed = v.safeParse(StreamUpdateEvent, event.data)
       if (!parsed.success || parsed.output.acceptedSeq <= latestSeqRef.current) return
       latestSeqRef.current = parsed.output.acceptedSeq
       if (parsed.output.terminal) stream.close()

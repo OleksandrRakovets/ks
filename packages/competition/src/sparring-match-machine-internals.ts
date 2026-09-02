@@ -55,8 +55,8 @@ export type SparringMatchLifecycleEvent =
       readonly outcome: FrameOutcome
     }
 
-const SparringMatchPhaseSchema = v.picklist(['between-frames', 'frame-in-progress', 'match-over'])
-export type SparringMatchPhase = v.InferOutput<typeof SparringMatchPhaseSchema>
+const SparringMatchPhase = v.picklist(['between-frames', 'frame-in-progress', 'match-over'])
+export type SparringMatchPhase = v.InferOutput<typeof SparringMatchPhase>
 
 function expectedBreakerSeat(config: MatchConfig, frameIndex: number): Seat {
   return frameIndex % 2 === 1 ? config.firstBreakerSeat : opponentOf(config.firstBreakerSeat)
@@ -197,7 +197,7 @@ export function createInitialSnapshot(config: MatchConfig): SparringMatchSnapsho
 }
 
 function getPhase(snapshot: SparringMatchSnapshot): SparringMatchPhase {
-  return v.parse(SparringMatchPhaseSchema, snapshot.value)
+  return v.parse(SparringMatchPhase, snapshot.value)
 }
 
 export function deriveLifecycleState(snapshot: SparringMatchSnapshot): SparringMatchLifecycleState {

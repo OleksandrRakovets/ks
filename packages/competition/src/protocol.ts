@@ -1,5 +1,5 @@
 import { BySeatNumber, ProtocolEntryContent, UnknownObject } from '@ks/core'
-import { RegisteredGameKeySchema } from '@ks/gameplay/definitions'
+import { RegisteredGameKey } from '@ks/gameplay/definitions'
 import { parseGameProtocolEntry } from '@ks/gameplay/server'
 import * as v from 'valibot'
 
@@ -26,7 +26,7 @@ export type MatchLifecycleProtocolEntry = v.InferOutput<typeof MatchLifecyclePro
 
 /** Validates Protocol meaning against the selected game or competition lifecycle schema. */
 export function parseProtocolEntryContent(input: ProtocolEntryContent): ProtocolEntryContent {
-  const gameKey = v.parse(RegisteredGameKeySchema, input.gameKey)
+  const gameKey = v.parse(RegisteredGameKey, input.gameKey)
   const lifecycle = v.safeParse(MatchLifecycleProtocolEntry, input)
   if (lifecycle.success) return lifecycle.output
   parseGameProtocolEntry(gameKey, input)

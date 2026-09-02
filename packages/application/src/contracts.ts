@@ -1,8 +1,4 @@
-import {
-  MatchCreationDefinitionSchema,
-  type MatchStateFor,
-  type SparringMatchRejection,
-} from '@ks/competition'
+import { MatchCreationDefinition, type MatchStateFor, type SparringMatchRejection } from '@ks/competition'
 import type {
   ControlSections,
   HydratedMatchParticipants,
@@ -22,7 +18,7 @@ export type CommandReceiptOutcome =
   | { readonly _tag: 'accepted'; readonly acceptedSeq: number }
   | { readonly _tag: 'rejected'; readonly reason: SparringMatchRejection }
 
-export const DisplayNameSchema = v.pipe(
+export const DisplayName = v.pipe(
   v.string(),
   v.trim(),
   v.transform((value) => value.replace(/\s+/g, ' ')),
@@ -31,14 +27,14 @@ export const DisplayNameSchema = v.pipe(
   v.maxLength(127),
 )
 
-export const CreateMatchInputSchema = v.pipe(
+export const CreateMatchInput = v.pipe(
   v.intersect([
-    MatchCreationDefinitionSchema,
-    v.object({ playerNames: v.object({ A: DisplayNameSchema, B: DisplayNameSchema }) }),
+    MatchCreationDefinition,
+    v.object({ playerNames: v.object({ A: DisplayName, B: DisplayName }) }),
   ]),
   v.check((value) => value.playerNames.A !== value.playerNames.B, 'Players must have different display names'),
 )
-export type CreateMatchInput = v.InferInput<typeof CreateMatchInputSchema>
+export type CreateMatchInput = v.InferInput<typeof CreateMatchInput>
 
 export type CreateMatchResult = { ok: true; matchId: MatchId } | { ok: false; error: string; status: number }
 

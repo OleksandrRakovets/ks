@@ -15,8 +15,7 @@ import {
 import {
   type LongFreePyramidCommand,
   type LongFreePyramidContext,
-  type LongFreePyramidPhase,
-  LongFreePyramidPhaseSchema,
+  LongFreePyramidPhase,
   type LongFreePyramidRack,
 } from './definitions'
 
@@ -294,7 +293,7 @@ export function getLongFreePyramidSparringFramePhase(
 }
 
 export function getPhase(snapshot: LongFreePyramidSparringFrameSnapshot): LongFreePyramidPhase {
-  return v.parse(LongFreePyramidPhaseSchema, snapshot.value)
+  return v.parse(LongFreePyramidPhase, snapshot.value)
 }
 
 export function sendEvent(

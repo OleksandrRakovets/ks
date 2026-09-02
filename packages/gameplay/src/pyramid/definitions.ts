@@ -1,40 +1,36 @@
 import { BySeatNumber, ControlSections, NonEmptyString, PositiveInteger, Seat } from '@ks/core'
 import * as v from 'valibot'
 
-import {
-  FoulCommitCommandSchema,
-  FrameAwardCommandSchema,
-  FrameCommenceCommandSchema,
-} from '../command-schemas'
-import { GameControlProjectionSchema } from '../constants'
-import { type PyramidGameKey, PyramidRulesSchema } from './rules'
+import { FoulCommitCommand, FrameAwardCommand, FrameCommenceCommand } from '../command-schemas'
+import { GameControlProjection } from '../constants'
+import { type PyramidGameKey, PyramidRules } from './rules'
 
-export const PyramidCommandSchema = v.variant('type', [
-  FrameCommenceCommandSchema,
+export const PyramidCommand = v.variant('type', [
+  FrameCommenceCommand,
   v.strictObject({ type: v.literal('pot.record'), seat: Seat, pottedBallCount: PositiveInteger }),
-  FoulCommitCommandSchema,
-  FrameAwardCommandSchema,
+  FoulCommitCommand,
+  FrameAwardCommand,
 ])
-export type PyramidCommand = v.InferOutput<typeof PyramidCommandSchema>
+export type PyramidCommand = v.InferOutput<typeof PyramidCommand>
 
-export const PyramidPhaseSchema = v.picklist(['not-started', 'open-play', 'winner-determined', 'frame-over'])
-export type PyramidPhase = v.InferOutput<typeof PyramidPhaseSchema>
+export const PyramidPhase = v.picklist(['not-started', 'open-play', 'winner-determined', 'frame-over'])
+export type PyramidPhase = v.InferOutput<typeof PyramidPhase>
 
-const PyramidContextSchema = v.object({
+const PyramidContext = v.object({
   score: BySeatNumber,
   targetPoints: BySeatNumber,
-  rules: PyramidRulesSchema,
+  rules: PyramidRules,
   winner: v.nullable(Seat),
 })
-export type PyramidContext = v.InferOutput<typeof PyramidContextSchema>
+export type PyramidContext = v.InferOutput<typeof PyramidContext>
 
-const PyramidControlProjectionStateSchema = v.object({
-  phase: PyramidPhaseSchema,
+const PyramidControlProjectionState = v.object({
+  phase: PyramidPhase,
   winner: v.optional(Seat),
 })
 
-const PyramidControlProjectionDetailsSchema = v.object({
-  ...PyramidControlProjectionStateSchema.entries,
+const PyramidControlProjectionDetails = v.object({
+  ...PyramidControlProjectionState.entries,
   situationTitle: NonEmptyString,
   situationSummary: NonEmptyString,
   isPotCommandAvailable: v.boolean(),
@@ -43,22 +39,20 @@ const PyramidControlProjectionDetailsSchema = v.object({
 
 function controlProjectionSchema<K extends PyramidGameKey>(gameKey: K) {
   return v.object({
-    ...GameControlProjectionSchema.entries,
+    ...GameControlProjection.entries,
     gameKey: v.literal(gameKey),
-    details: PyramidControlProjectionDetailsSchema,
+    details: PyramidControlProjectionDetails,
   })
 }
 
-export const FreePyramidControlProjectionSchema = controlProjectionSchema('free-pyramid')
-export type FreePyramidControlProjection = v.InferOutput<typeof FreePyramidControlProjectionSchema>
+export const FreePyramidControlProjection = controlProjectionSchema('free-pyramid')
+export type FreePyramidControlProjection = v.InferOutput<typeof FreePyramidControlProjection>
 
-export const CombinedPyramidControlProjectionSchema = controlProjectionSchema('combined-pyramid')
-export type CombinedPyramidControlProjection = v.InferOutput<typeof CombinedPyramidControlProjectionSchema>
+export const CombinedPyramidControlProjection = controlProjectionSchema('combined-pyramid')
+export type CombinedPyramidControlProjection = v.InferOutput<typeof CombinedPyramidControlProjection>
 
-export const CombinedPyramidOldControlProjectionSchema = controlProjectionSchema('combined-pyramid-old')
-export type CombinedPyramidOldControlProjection = v.InferOutput<
-  typeof CombinedPyramidOldControlProjectionSchema
->
+export const CombinedPyramidOldControlProjection = controlProjectionSchema('combined-pyramid-old')
+export type CombinedPyramidOldControlProjection = v.InferOutput<typeof CombinedPyramidOldControlProjection>
 
 export type AnyPyramidControlProjection = Omit<FreePyramidControlProjection, 'gameKey'> & {
   gameKey: PyramidGameKey

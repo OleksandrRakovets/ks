@@ -1,4 +1,4 @@
-import { buildMatchConfig, CreateMatchRequestSchema, createSparringMatch } from '@ks/competition'
+import { buildMatchConfig, CreateMatchRequest, createSparringMatch } from '@ks/competition'
 import {
   type MatchCommand,
   MatchId,
@@ -30,7 +30,7 @@ const seatAPlayerRef = v.parse(PlayerRef, 'gp_01HX0000000000000000000000')
 const seatBPlayerRef = v.parse(PlayerRef, 'gp_01HX0000000000000000000001')
 const createdAt = v.parse(UnixEpochMilliseconds, 1_000)
 
-const createRequest = v.parse(CreateMatchRequestSchema, {
+const createRequest = v.parse(CreateMatchRequest, {
   gameKey: 'free-pyramid',
   targets: { frameTargetPointsBySeat: { A: 2, B: 2 }, matchTargetFrames: 1 },
   firstBreakerSeat: 'A',

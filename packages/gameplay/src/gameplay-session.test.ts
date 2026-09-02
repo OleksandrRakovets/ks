@@ -3,45 +3,45 @@ import { describe, expect, test } from 'bun:test'
 import { FrameOutcome, GameProtocolEntry } from '@ks/core'
 import * as v from 'valibot'
 
-import { LongFreePyramidControlProjectionSchema } from './long-free-pyramid/definitions'
+import { LongFreePyramidControlProjection } from './long-free-pyramid/definitions'
 import {
-  CombinedPyramidControlProjectionSchema,
-  CombinedPyramidOldControlProjectionSchema,
-  FreePyramidControlProjectionSchema,
+  CombinedPyramidControlProjection,
+  CombinedPyramidOldControlProjection,
+  FreePyramidControlProjection,
 } from './pyramid/definitions'
 import { createGameplaySession } from './session-factory'
-import { StrilaControlProjectionSchema } from './strila-v2/definitions'
+import { StrilaControlProjection } from './strila-v2/definitions'
 
 const scenarios = [
   {
     gameKey: 'strila-v2',
     create: () => createGameplaySession('strila-v2', { targetPointsBySeat: { A: 1, B: 1 } }),
-    controlSchema: StrilaControlProjectionSchema,
+    controlSchema: StrilaControlProjection,
     score: () => ({ type: 'pot.record' as const, seat: 'A' as const, pottedBalls: [0] }),
   },
   {
     gameKey: 'free-pyramid',
     create: () => createGameplaySession('free-pyramid', { targetPointsBySeat: { A: 1, B: 1 } }),
-    controlSchema: FreePyramidControlProjectionSchema,
+    controlSchema: FreePyramidControlProjection,
     score: () => ({ type: 'pot.record' as const, seat: 'A' as const, pottedBallCount: 1 }),
   },
   {
     gameKey: 'free-pyramid-long',
     create: () =>
       createGameplaySession('free-pyramid-long', { targetPointsBySeat: { A: 1, B: 1 }, rackRollover: 14 }),
-    controlSchema: LongFreePyramidControlProjectionSchema,
+    controlSchema: LongFreePyramidControlProjection,
     score: () => ({ type: 'pot.record' as const, seat: 'A' as const, pottedBallCount: 1 as const }),
   },
   {
     gameKey: 'combined-pyramid',
     create: () => createGameplaySession('combined-pyramid', { targetPointsBySeat: { A: 1, B: 1 } }),
-    controlSchema: CombinedPyramidControlProjectionSchema,
+    controlSchema: CombinedPyramidControlProjection,
     score: () => ({ type: 'pot.record' as const, seat: 'A' as const, pottedBallCount: 1 }),
   },
   {
     gameKey: 'combined-pyramid-old',
     create: () => createGameplaySession('combined-pyramid-old', { targetPointsBySeat: { A: 1, B: 1 } }),
-    controlSchema: CombinedPyramidOldControlProjectionSchema,
+    controlSchema: CombinedPyramidOldControlProjection,
     score: () => ({ type: 'pot.record' as const, seat: 'A' as const, pottedBallCount: 1 }),
   },
 ] as const

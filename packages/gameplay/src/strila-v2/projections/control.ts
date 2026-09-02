@@ -4,7 +4,7 @@ import * as v from 'valibot'
 
 import { deriveGameControlSections, type GameControl } from '../../constants'
 import {
-  StrilaBallStatusesSchema,
+  StrilaBallStatuses,
   type StrilaControlProjection,
   type StrilaControlProjectionDetails,
   StrilaMeta,
@@ -26,7 +26,7 @@ function deriveBallStatuses(
   const onTableColored = new Set(snapshot.context.coloredBallsOnTable)
   const cueStatus: 'object' | 'on-table' =
     getPhase(snapshot) === 'respotted-black.opening' ? 'on-table' : 'object'
-  const ballStatuses = v.parse(StrilaBallStatusesSchema, {
+  const ballStatuses = v.parse(StrilaBallStatuses, {
     0: cueStatus,
     1: 'potted',
     2: 'potted',

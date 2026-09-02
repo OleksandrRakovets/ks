@@ -1,10 +1,10 @@
-import { DisplayNameSchema } from '@ks/application'
+import { DisplayName } from '@ks/application'
 import * as v from 'valibot'
 
 import type { RackRolloverOption } from './profile'
 
 export function safeNormalizeDisplayName(value: string): string | null {
-  const parsed = v.safeParse(DisplayNameSchema, value)
+  const parsed = v.safeParse(DisplayName, value)
   return parsed.success ? parsed.output : null
 }
 

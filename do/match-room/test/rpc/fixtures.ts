@@ -1,9 +1,9 @@
-import { CreateMatchRequestSchema } from '@ks/competition'
+import { CreateMatchRequest } from '@ks/competition'
 import { newCommandId, newMatchId, PlayerRef, UnixEpochMilliseconds } from '@ks/core'
 import { env } from 'cloudflare:test'
 import * as v from 'valibot'
 
-export const request = v.parse(CreateMatchRequestSchema, {
+export const request = v.parse(CreateMatchRequest, {
   gameKey: 'free-pyramid',
   targets: { frameTargetPointsBySeat: { A: 8, B: 8 }, matchTargetFrames: 1 },
   firstBreakerSeat: 'A',

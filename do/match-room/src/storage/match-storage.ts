@@ -1,6 +1,6 @@
 import { isDeepStrictEqual } from 'node:util'
 
-import { type SparringMatchRejection, SparringMatchRejectionSchema } from '@ks/competition'
+import { SparringMatchRejection } from '@ks/competition'
 import {
   type AcceptedCommandHistoryEntry,
   MatchCommand,
@@ -16,7 +16,7 @@ import {
   UnixEpochMilliseconds,
   UnknownObject,
 } from '@ks/core'
-import { RegisteredGameKeySchema } from '@ks/gameplay/definitions'
+import { RegisteredGameKey } from '@ks/gameplay/definitions'
 import { and, asc, eq, isNotNull, lte } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/durable-sqlite'
 import { migrate } from 'drizzle-orm/durable-sqlite/migrator'
@@ -263,7 +263,7 @@ export class MatchStorage {
 
 const CommandReceipt = v.variant('_tag', [
   v.object({ _tag: v.literal('accepted'), acceptedSeq: PositiveInteger }),
-  v.object({ _tag: v.literal('rejected'), reason: SparringMatchRejectionSchema }),
+  v.object({ _tag: v.literal('rejected'), reason: SparringMatchRejection }),
 ])
 
 export type CommandReceipt = v.InferOutput<typeof CommandReceipt>
@@ -282,7 +282,7 @@ const ActiveMatchRecord = v.pipe(
     configJson: v.pipe(
       v.string(),
       v.parseJson(),
-      v.intersect([MatchConfig, v.object({ gameKey: RegisteredGameKeySchema })]),
+      v.intersect([MatchConfig, v.object({ gameKey: RegisteredGameKey })]),
     ),
     latestSeq: NonNegativeInteger,
     status: v.picklist(['active', 'finalizing']),

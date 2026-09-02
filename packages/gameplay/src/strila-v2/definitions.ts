@@ -1,15 +1,11 @@
 import { BySeatNumber, ControlSections, GameProtocolEntry, NonEmptyString, Seat } from '@ks/core'
 import * as v from 'valibot'
 
-import {
-  FoulCommitCommandSchema,
-  FrameAwardCommandSchema,
-  FrameCommenceCommandSchema,
-} from '../command-schemas'
-import { GameControlProjectionSchema } from '../constants'
+import { FoulCommitCommand, FrameAwardCommand, FrameCommenceCommand } from '../command-schemas'
+import { GameControlProjection } from '../constants'
 
-const CueBallSchema = v.literal(0)
-const ColoredBallSchema = v.union([
+const CueBall = v.literal(0)
+const ColoredBall = v.union([
   v.literal(1),
   v.literal(2),
   v.literal(3),
@@ -18,15 +14,15 @@ const ColoredBallSchema = v.union([
   v.literal(6),
   v.literal(7),
 ])
-export type StrilaColoredBall = v.InferOutput<typeof ColoredBallSchema>
+export type StrilaColoredBall = v.InferOutput<typeof ColoredBall>
 const COLORED_BALLS: readonly StrilaColoredBall[] = [1, 2, 3, 4, 5, 6, 7]
 
-const BallSchema = v.union([CueBallSchema, ColoredBallSchema])
-export type StrilaBall = v.InferOutput<typeof BallSchema>
+const Ball = v.union([CueBall, ColoredBall])
+export type StrilaBall = v.InferOutput<typeof Ball>
 const BALLS: readonly StrilaBall[] = [0, ...COLORED_BALLS]
 
-const PottedBallsSchema = v.pipe(
-  v.array(BallSchema),
+const PottedBalls = v.pipe(
+  v.array(Ball),
   v.minLength(1),
   v.check((balls) => new Set(balls).size === balls.length, 'Potted balls must be unique'),
 )
@@ -34,23 +30,23 @@ const PottedBallsSchema = v.pipe(
 export const StrilaMeta = {
   allBalls: BALLS,
   coloredBalls: COLORED_BALLS,
-  cueBall: CueBallSchema.literal,
+  cueBall: CueBall.literal,
   defaultTargetPoints: { A: 9, B: 9 },
 }
 
-const FoulResponseChoiceSchema = v.picklist(['play-from-position', 'pass-position', 'ball-in-hand'])
+const FoulResponseChoice = v.picklist(['play-from-position', 'pass-position', 'ball-in-hand'])
 
-export const StrilaCommandSchema = v.variant('type', [
-  FrameCommenceCommandSchema,
-  v.strictObject({ type: v.literal('pot.record'), seat: Seat, pottedBalls: PottedBallsSchema }),
+export const StrilaCommand = v.variant('type', [
+  FrameCommenceCommand,
+  v.strictObject({ type: v.literal('pot.record'), seat: Seat, pottedBalls: PottedBalls }),
   v.strictObject({ type: v.literal('miss.record'), seat: Seat }),
-  FoulCommitCommandSchema,
-  v.strictObject({ type: v.literal('penalty.select'), seat: Seat, choice: FoulResponseChoiceSchema }),
-  FrameAwardCommandSchema,
+  FoulCommitCommand,
+  v.strictObject({ type: v.literal('penalty.select'), seat: Seat, choice: FoulResponseChoice }),
+  FrameAwardCommand,
 ])
-export type StrilaCommand = v.InferOutput<typeof StrilaCommandSchema>
+export type StrilaCommand = v.InferOutput<typeof StrilaCommand>
 
-export const StrilaPhaseSchema = v.picklist([
+export const StrilaPhase = v.picklist([
   'not-started',
   'open-play',
   'foul-committed.penalty-selection',
@@ -60,14 +56,14 @@ export const StrilaPhaseSchema = v.picklist([
   'winner-determined',
   'frame-over',
 ])
-export type StrilaPhase = v.InferOutput<typeof StrilaPhaseSchema>
+export type StrilaPhase = v.InferOutput<typeof StrilaPhase>
 
-const WinnerDeterminationReasonSchema = v.picklist(['target-reached', 'respotted-black-won', 'automatic-foul'])
+const WinnerDeterminationReason = v.picklist(['target-reached', 'respotted-black-won', 'automatic-foul'])
 
-const ContextSchema = v.object({
+const StrilaContext = v.object({
   score: BySeatNumber,
   targetPoints: BySeatNumber,
-  coloredBallsOnTable: v.array(ColoredBallSchema),
+  coloredBallsOnTable: v.array(ColoredBall),
   cueBallSerialPots: v.nullable(
     v.object({
       seat: Seat,
@@ -76,70 +72,70 @@ const ContextSchema = v.object({
   ),
   foulOffender: v.nullable(Seat),
   winner: v.nullable(Seat),
-  winnerDeterminationReason: v.nullable(WinnerDeterminationReasonSchema),
+  winnerDeterminationReason: v.nullable(WinnerDeterminationReason),
 })
-export type StrilaContext = v.InferOutput<typeof ContextSchema>
+export type StrilaContext = v.InferOutput<typeof StrilaContext>
 
-const BallStatusSchema = v.picklist(['object', 'on-table', 'potted'])
-export const StrilaBallStatusesSchema = v.object({
-  0: BallStatusSchema,
-  1: BallStatusSchema,
-  2: BallStatusSchema,
-  3: BallStatusSchema,
-  4: BallStatusSchema,
-  5: BallStatusSchema,
-  6: BallStatusSchema,
-  7: BallStatusSchema,
+const BallStatus = v.picklist(['object', 'on-table', 'potted'])
+export const StrilaBallStatuses = v.object({
+  0: BallStatus,
+  1: BallStatus,
+  2: BallStatus,
+  3: BallStatus,
+  4: BallStatus,
+  5: BallStatus,
+  6: BallStatus,
+  7: BallStatus,
 })
 
-const ControlMessageSchema = v.object({
+const ControlMessage = v.object({
   type: v.picklist(['hint', 'warning']),
   code: v.picklist(['cue-ball-and-colored-is-foul', 'black-pot-wins']),
 })
 
-const StrilaControlProjectionDetailsSchema = v.object({
-  phase: StrilaPhaseSchema,
+const StrilaControlProjectionDetails = v.object({
+  phase: StrilaPhase,
   seat: v.optional(Seat),
   situationTitle: NonEmptyString,
   situationSummary: v.optional(NonEmptyString),
   isPotCommandAvailable: v.boolean(),
-  ballStatuses: StrilaBallStatusesSchema,
+  ballStatuses: StrilaBallStatuses,
   controlSections: ControlSections,
-  messages: v.array(ControlMessageSchema),
+  messages: v.array(ControlMessage),
 })
-export type StrilaControlProjectionDetails = v.InferOutput<typeof StrilaControlProjectionDetailsSchema>
+export type StrilaControlProjectionDetails = v.InferOutput<typeof StrilaControlProjectionDetails>
 
-export const StrilaControlProjectionSchema = v.object({
-  ...GameControlProjectionSchema.entries,
+export const StrilaControlProjection = v.object({
+  ...GameControlProjection.entries,
   gameKey: v.literal('strila-v2'),
-  score: ContextSchema.entries.score,
-  details: StrilaControlProjectionDetailsSchema,
+  score: StrilaContext.entries.score,
+  details: StrilaControlProjectionDetails,
 })
-export type StrilaControlProjection = v.InferOutput<typeof StrilaControlProjectionSchema>
+export type StrilaControlProjection = v.InferOutput<typeof StrilaControlProjection>
 
-const AutomaticFoulReasonSchema = v.picklist([
+const AutomaticFoulReason = v.picklist([
   'third-consecutive-cue-ball-pot',
   'illegal-ball-in-hand-pot',
   'respotted-black-opening-illegal-pot',
 ])
 
-const StrilaPlayerProtocolEntryBodySchema = v.variant('commandType', [
+const StrilaPlayerProtocolEntryBody = v.variant('commandType', [
   v.strictObject({ commandType: v.literal('frame.commence') }),
-  v.strictObject({ commandType: v.literal('pot.record'), pottedBalls: PottedBallsSchema }),
+  v.strictObject({ commandType: v.literal('pot.record'), pottedBalls: PottedBalls }),
   v.strictObject({ commandType: v.literal('miss.record') }),
   v.strictObject({ commandType: v.literal('foul.commit') }),
-  v.strictObject({ commandType: v.literal('penalty.select'), choice: FoulResponseChoiceSchema }),
+  v.strictObject({ commandType: v.literal('penalty.select'), choice: FoulResponseChoice }),
   v.strictObject({ commandType: v.literal('frame.award') }),
 ])
 
-const StrilaSystemProtocolEntryBodySchema = v.variant('systemType', [
-  v.strictObject({ systemType: v.literal('automatic-foul'), reason: AutomaticFoulReasonSchema }),
-  v.strictObject({ systemType: v.literal('winner-determined'), reason: WinnerDeterminationReasonSchema }),
+const StrilaSystemProtocolEntryBody = v.variant('systemType', [
+  v.strictObject({ systemType: v.literal('automatic-foul'), reason: AutomaticFoulReason }),
+  v.strictObject({ systemType: v.literal('winner-determined'), reason: WinnerDeterminationReason }),
   v.strictObject({ systemType: v.literal('respotted-black-declared') }),
 ])
 
 export const StrilaProtocolEntry = v.object({
   ...GameProtocolEntry.entries,
-  body: v.union([StrilaPlayerProtocolEntryBodySchema, StrilaSystemProtocolEntryBodySchema]),
+  body: v.union([StrilaPlayerProtocolEntryBody, StrilaSystemProtocolEntryBody]),
 })
 export type StrilaProtocolEntry = v.InferOutput<typeof StrilaProtocolEntry>

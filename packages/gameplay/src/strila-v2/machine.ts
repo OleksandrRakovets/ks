@@ -9,8 +9,7 @@ import {
   type StrilaCommand,
   type StrilaContext,
   StrilaMeta,
-  type StrilaPhase,
-  StrilaPhaseSchema,
+  StrilaPhase,
 } from './definitions'
 
 const RESPOTTED_BLACK: StrilaColoredBall[] = [7]
@@ -19,15 +18,11 @@ type StrilaSparringFrameMachineInput = {
   targetPointsBySeat?: BySeatNumber
 }
 
-const FoulSnapshotValueSchema = v.object({
+const FoulSnapshotValue = v.object({
   'foul-committed': v.picklist(['penalty-selection', 'ball-in-hand']),
 })
-const RespottedBlackSnapshotValueSchema = v.object({ 'respotted-black': v.picklist(['opening', 'play']) })
-const StrilaSnapshotValueSchema = v.union([
-  StrilaPhaseSchema,
-  FoulSnapshotValueSchema,
-  RespottedBlackSnapshotValueSchema,
-])
+const RespottedBlackSnapshotValue = v.object({ 'respotted-black': v.picklist(['opening', 'play']) })
+const StrilaSnapshotValue = v.union([StrilaPhase, FoulSnapshotValue, RespottedBlackSnapshotValue])
 
 function pointsForPottedBalls(pottedBalls: StrilaBall[]): number {
   return pottedBalls.reduce<number>((sum, ball) => sum + (ball === StrilaMeta.cueBall ? 1 : 2), 0)
@@ -472,16 +467,16 @@ export function getStrilaSparringFramePhase(snapshot: StrilaSparringFrameSnapsho
 }
 
 export function getPhase(snapshot: StrilaSparringFrameSnapshot): StrilaPhase {
-  const value = v.parse(StrilaSnapshotValueSchema, snapshot.value)
-  const phase = v.safeParse(StrilaPhaseSchema, value)
+  const value = v.parse(StrilaSnapshotValue, snapshot.value)
+  const phase = v.safeParse(StrilaPhase, value)
   if (phase.success) return phase.output
 
-  const foul = v.safeParse(FoulSnapshotValueSchema, value)
-  if (foul.success) return v.parse(StrilaPhaseSchema, `foul-committed.${foul.output['foul-committed']}`)
+  const foul = v.safeParse(FoulSnapshotValue, value)
+  if (foul.success) return v.parse(StrilaPhase, `foul-committed.${foul.output['foul-committed']}`)
 
-  const respottedBlack = v.safeParse(RespottedBlackSnapshotValueSchema, value)
+  const respottedBlack = v.safeParse(RespottedBlackSnapshotValue, value)
   if (respottedBlack.success)
-    return v.parse(StrilaPhaseSchema, `respotted-black.${respottedBlack.output['respotted-black']}`)
+    return v.parse(StrilaPhase, `respotted-black.${respottedBlack.output['respotted-black']}`)
 
   throw new Error(`Unknown Strila phase: ${JSON.stringify(value)}`)
 }

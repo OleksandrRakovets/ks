@@ -17,7 +17,7 @@ type RecentPlayersStore = {
   players: RecentPlayer[]
 }
 
-const RecentPlayersStoreSchema = v.object({
+const RecentPlayersStore = v.object({
   version: v.literal(1),
   players: v.array(v.object({ name: v.string(), lastUsedAt: UnixEpochMilliseconds })),
 })
@@ -30,7 +30,7 @@ function readRecentPlayers(): RecentPlayer[] {
   try {
     const raw = localStorage.getItem(RECENT_PLAYERS_KEY)
     if (!raw) return []
-    const parsed = v.safeParse(v.pipe(v.string(), v.parseJson(), RecentPlayersStoreSchema), raw)
+    const parsed = v.safeParse(v.pipe(v.string(), v.parseJson(), RecentPlayersStore), raw)
     return parsed.success ? parsed.output.players.slice(0, MAX_RECENT_PLAYERS) : []
   } catch {
     return []

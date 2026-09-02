@@ -1,7 +1,6 @@
 export type {
   Application,
   SubmitMatchCommandResult,
-  CreateMatchInput,
   CreateMatchResult,
   HydratedMatchParticipant,
   HydratedMatchParticipants,
@@ -10,6 +9,6 @@ export type {
   ReadMatchFailure,
   ReadMatchProtocolResult,
 } from './contracts'
-export { CreateMatchInputSchema, DisplayNameSchema } from './contracts'
+export { CreateMatchInput, DisplayName } from './contracts'
 export { createApplication, type ApplicationBindings } from './factory'
 export type { ProtocolRow } from './protocol'

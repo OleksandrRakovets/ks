@@ -13,13 +13,9 @@ import {
   type ProtocolEntryContent,
   Seat,
 } from '@ks/core'
-import {
-  type ControlProjectionFor,
-  type RegisteredGameKey,
-  RegisteredGameKeySchema,
-} from '@ks/gameplay/definitions'
+import { type ControlProjectionFor, RegisteredGameKey } from '@ks/gameplay/definitions'
 import type { GameCommandFor } from '@ks/gameplay/definitions'
-import { GameCommandRejectionSchema, type GameplaySession, parseGameCommand } from '@ks/gameplay/server'
+import { GameCommandRejection, type GameplaySession, parseGameCommand } from '@ks/gameplay/server'
 import { createGameplaySession } from '@ks/gameplay/server'
 import * as v from 'valibot'
 
@@ -36,14 +32,14 @@ type MatchCommandParseFailure = {
   readonly commandType: string
 }
 
-export const SparringMatchRejectionSchema = v.variant('code', [
+export const SparringMatchRejection = v.variant('code', [
   v.object({ code: v.literal('frame-already-active') }),
   v.object({ code: v.literal('no-active-frame') }),
   v.object({ code: v.literal('wrong-breaker'), expectedSeat: Seat }),
   v.object({ code: v.literal('match-already-over') }),
-  v.object({ code: v.literal('game-command-rejected'), reason: GameCommandRejectionSchema }),
+  v.object({ code: v.literal('game-command-rejected'), reason: GameCommandRejection }),
 ])
-export type SparringMatchRejection = v.InferOutput<typeof SparringMatchRejectionSchema>
+export type SparringMatchRejection = v.InferOutput<typeof SparringMatchRejection>
 
 type MatchCommandResult =
   | { readonly _tag: 'parse-failed'; readonly reason: MatchCommandParseFailure }
@@ -96,7 +92,7 @@ const MatchLifecycleCommand = v.variant('type', [
 type MatchLifecycleCommand = v.InferOutput<typeof MatchLifecycleCommand>
 
 function gameKeyOf(value: string): RegisteredGameKey {
-  return v.parse(RegisteredGameKeySchema, value)
+  return v.parse(RegisteredGameKey, value)
 }
 
 function wrapGameplay<K extends RegisteredGameKey>(

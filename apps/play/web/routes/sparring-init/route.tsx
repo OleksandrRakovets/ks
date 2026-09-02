@@ -1,4 +1,4 @@
-import { type CreateMatchInput, DisplayNameSchema } from '@ks/application'
+import { type CreateMatchInput, DisplayName } from '@ks/application'
 import { Seat } from '@ks/core'
 import { isRegisteredGameKey, registry } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
@@ -78,8 +78,8 @@ export async function action({
   const defaultFrameTargetPointsBySeat = profile.defaultFrameTargetPointsBySeat
 
   const form = await request.formData()
-  const seatAName = v.safeParse(DisplayNameSchema, String(form.get('seatAName') ?? ''))
-  const seatBName = v.safeParse(DisplayNameSchema, String(form.get('seatBName') ?? ''))
+  const seatAName = v.safeParse(DisplayName, String(form.get('seatAName') ?? ''))
+  const seatBName = v.safeParse(DisplayName, String(form.get('seatBName') ?? ''))
   const matchTargetFrames =
     profile.matchTargetFrames.mode === 'fixed'
       ? profile.matchTargetFrames.fixedValue

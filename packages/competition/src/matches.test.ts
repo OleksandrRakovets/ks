@@ -3,9 +3,9 @@ import { describe, expect, test } from 'bun:test'
 import { newMatchId } from '@ks/core'
 import * as v from 'valibot'
 
-import { buildMatchConfig, CreateMatchRequestSchema } from './matches'
+import { buildMatchConfig, CreateMatchRequest } from './matches'
 
-const request = v.parse(CreateMatchRequestSchema, {
+const request = v.parse(CreateMatchRequest, {
   gameKey: 'strila-v2',
   targets: {
     frameTargetPointsBySeat: { A: 8, B: 8 },
@@ -34,13 +34,13 @@ describe('match creation helpers', () => {
 
   test('requires and preserves long free pyramid game configuration', () => {
     expect(
-      v.safeParse(CreateMatchRequestSchema, {
+      v.safeParse(CreateMatchRequest, {
         ...request,
         gameKey: 'free-pyramid-long',
       }).success,
     ).toBe(false)
 
-    const longRequest = v.parse(CreateMatchRequestSchema, {
+    const longRequest = v.parse(CreateMatchRequest, {
       ...request,
       gameKey: 'free-pyramid-long',
       gameConfiguration: { rackRollover: 14 },
@@ -58,7 +58,7 @@ describe('match creation helpers', () => {
 
   test('rejects non-positive targets through the core target schema', () => {
     expect(
-      v.safeParse(CreateMatchRequestSchema, {
+      v.safeParse(CreateMatchRequest, {
         ...request,
         targets: { ...request.targets, frameTargetPointsBySeat: { A: 0, B: 8 } },
       }).success,

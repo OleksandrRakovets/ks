@@ -1,77 +1,71 @@
 import { BySeatNumber, ControlSections, Integer, Seat } from '@ks/core'
 import * as v from 'valibot'
 
-import {
-  FoulCommitCommandSchema,
-  FrameAwardCommandSchema,
-  FrameCommenceCommandSchema,
-} from '../command-schemas'
-import { GameControlProjectionSchema } from '../constants'
+import { FoulCommitCommand, FrameAwardCommand, FrameCommenceCommand } from '../command-schemas'
+import { GameControlProjection } from '../constants'
 
-const LongFreePyramidPottedBallCountSchema = v.picklist([1, 2, 3, 4])
+const LongFreePyramidPottedBallCount = v.picklist([1, 2, 3, 4])
 
-export const LongFreePyramidCommandSchema = v.variant('type', [
-  FrameCommenceCommandSchema,
+export const LongFreePyramidCommand = v.variant('type', [
+  FrameCommenceCommand,
   v.strictObject({
     type: v.literal('pot.record'),
     seat: Seat,
-    pottedBallCount: LongFreePyramidPottedBallCountSchema,
+    pottedBallCount: LongFreePyramidPottedBallCount,
   }),
-  FoulCommitCommandSchema,
-  FrameAwardCommandSchema,
+  FoulCommitCommand,
+  FrameAwardCommand,
 ])
-export type LongFreePyramidCommand = v.InferOutput<typeof LongFreePyramidCommandSchema>
+export type LongFreePyramidCommand = v.InferOutput<typeof LongFreePyramidCommand>
 
-const LongFreePyramidRackSchema = v.object({
+const LongFreePyramidRack = v.object({
   rackNumber: v.pipe(Integer, v.minValue(1)),
   scoreBySeat: BySeatNumber,
 })
-export type LongFreePyramidRack = v.InferOutput<typeof LongFreePyramidRackSchema>
+export type LongFreePyramidRack = v.InferOutput<typeof LongFreePyramidRack>
 
-const LongFreePyramidMessageSchema = v.object({
+const LongFreePyramidMessage = v.object({
   code: v.literal('rack-started'),
   rackNumber: v.pipe(Integer, v.minValue(1)),
 })
-export const LongFreePyramidPhaseSchema = v.picklist([
+export const LongFreePyramidPhase = v.picklist([
   'not-started',
   'open-play',
   'winner-determined',
   'awaiting-award',
   'frame-over',
 ])
-export type LongFreePyramidPhase = v.InferOutput<typeof LongFreePyramidPhaseSchema>
+export type LongFreePyramidPhase = v.InferOutput<typeof LongFreePyramidPhase>
 
-const LongFreePyramidContextSchema = v.object({
-  racks: v.pipe(v.array(LongFreePyramidRackSchema), v.minLength(1)),
+const LongFreePyramidContext = v.object({
+  racks: v.pipe(v.array(LongFreePyramidRack), v.minLength(1)),
   targetPoints: BySeatNumber,
   rackRollover: v.picklist([14, 15]),
   winner: v.nullable(Seat),
-  messages: v.array(LongFreePyramidMessageSchema),
+  messages: v.array(LongFreePyramidMessage),
 })
-export type LongFreePyramidContext = v.InferOutput<typeof LongFreePyramidContextSchema>
+export type LongFreePyramidContext = v.InferOutput<typeof LongFreePyramidContext>
 
-const LongFreePyramidControlProjectionStateSchema = v.object({
-  phase: LongFreePyramidPhaseSchema,
+const LongFreePyramidControlProjectionState = v.object({
+  phase: LongFreePyramidPhase,
   winner: v.optional(Seat),
-  rackHistory: v.pipe(v.array(LongFreePyramidRackSchema), v.minLength(1)),
-  currentRack: LongFreePyramidRackSchema,
+  rackHistory: v.pipe(v.array(LongFreePyramidRack), v.minLength(1)),
+  currentRack: LongFreePyramidRack,
   ballsRemoved: v.pipe(Integer, v.minValue(0)),
   ballsOnTable: v.pipe(Integer, v.minValue(0)),
-  messages: v.array(LongFreePyramidMessageSchema),
+  messages: v.array(LongFreePyramidMessage),
 })
-export type LongFreePyramidControlProjectionState = v.InferOutput<
-  typeof LongFreePyramidControlProjectionStateSchema
->
+export type LongFreePyramidControlProjectionState = v.InferOutput<typeof LongFreePyramidControlProjectionState>
 
-const LongFreePyramidControlProjectionDetailsSchema = v.object({
-  ...LongFreePyramidControlProjectionStateSchema.entries,
+const LongFreePyramidControlProjectionDetails = v.object({
+  ...LongFreePyramidControlProjectionState.entries,
   isPotCommandAvailable: v.boolean(),
   controlSections: ControlSections,
 })
 
-export const LongFreePyramidControlProjectionSchema = v.object({
-  ...GameControlProjectionSchema.entries,
+export const LongFreePyramidControlProjection = v.object({
+  ...GameControlProjection.entries,
   gameKey: v.literal('free-pyramid-long'),
-  details: LongFreePyramidControlProjectionDetailsSchema,
+  details: LongFreePyramidControlProjectionDetails,
 })
-export type LongFreePyramidControlProjection = v.InferOutput<typeof LongFreePyramidControlProjectionSchema>
+export type LongFreePyramidControlProjection = v.InferOutput<typeof LongFreePyramidControlProjection>
