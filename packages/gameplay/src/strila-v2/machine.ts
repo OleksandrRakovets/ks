@@ -18,10 +18,10 @@ type StrilaSparringFrameMachineInput = {
   targetPointsBySeat?: BySeatNumber
 }
 
-const FoulSnapshotValue = v.object({
+const FoulSnapshotValue = v.strictObject({
   'foul-committed': v.picklist(['penalty-selection', 'ball-in-hand']),
 })
-const RespottedBlackSnapshotValue = v.object({ 'respotted-black': v.picklist(['opening', 'play']) })
+const RespottedBlackSnapshotValue = v.strictObject({ 'respotted-black': v.picklist(['opening', 'play']) })
 const StrilaSnapshotValue = v.union([StrilaPhase, FoulSnapshotValue, RespottedBlackSnapshotValue])
 
 function pointsForPottedBalls(pottedBalls: readonly StrilaBall[]): number {
