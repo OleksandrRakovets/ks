@@ -26,60 +26,66 @@ export const DisplayName = v.pipe(
   // "I Lastname" becomes "I. Lastname" when hydrated, so creation reserves one character for the short form.
   v.maxLength(127),
 )
+export type DisplayName = v.InferOutput<typeof DisplayName>
 
 export const CreateMatchInput = v.pipe(
   v.intersect([
     MatchCreationDefinition,
-    v.object({ playerNames: v.object({ A: DisplayName, B: DisplayName }) }),
+    v.object({
+      playerNames: v.pipe(v.object({ A: DisplayName, B: DisplayName }), v.readonly()),
+    }),
   ]),
   v.check((value) => value.playerNames.A !== value.playerNames.B, 'Players must have different display names'),
+  v.readonly(),
 )
-export type CreateMatchInput = v.InferInput<typeof CreateMatchInput>
+export type CreateMatchInput = v.InferOutput<typeof CreateMatchInput>
 
-export type CreateMatchResult = { ok: true; matchId: MatchId } | { ok: false; error: string; status: number }
+export type CreateMatchResult =
+  | { readonly ok: true; readonly matchId: MatchId }
+  | { readonly ok: false; readonly error: string; readonly status: number }
 
-export type MatchListEntry = {
+export type MatchListEntry = Readonly<{
   matchId: MatchId
   gameKey: RegisteredGameKey
   gameTitle: string
   status: 'active' | 'finished'
   createdAt: UnixEpochMilliseconds
   participants: HydratedMatchParticipants
-}
+}>
 
-export type ReadMatchFailure = { ok: false; error: string; status: number }
+export type ReadMatchFailure = { readonly ok: false; readonly error: string; readonly status: number }
 
 export type ReadMatchControlResult<K extends RegisteredGameKey> =
   | {
-      ok: true
-      controlState: 'frame-active'
-      state: MatchStateFor<K>
-      latestSeq: number
-      controlProjection: ControlProjectionFor<K>
-      controlSections: ControlSections
-      participants: HydratedMatchParticipants
+      readonly ok: true
+      readonly controlState: 'frame-active'
+      readonly state: MatchStateFor<K>
+      readonly latestSeq: number
+      readonly controlProjection: ControlProjectionFor<K>
+      readonly controlSections: ControlSections
+      readonly participants: HydratedMatchParticipants
     }
   | {
-      ok: true
-      controlState: 'between-frames'
-      state: MatchStateFor<K>
-      latestSeq: number
-      controlSections: ControlSections
-      participants: HydratedMatchParticipants
+      readonly ok: true
+      readonly controlState: 'between-frames'
+      readonly state: MatchStateFor<K>
+      readonly latestSeq: number
+      readonly controlSections: ControlSections
+      readonly participants: HydratedMatchParticipants
     }
   | ReadMatchFailure
 
 export type SubmitMatchCommandResult =
-  | { ok: true; outcome: CommandReceiptOutcome }
-  | { ok: false; error: string; status: number }
+  | { readonly ok: true; readonly outcome: CommandReceiptOutcome }
+  | { readonly ok: false; readonly error: string; readonly status: number }
 
 export type ReadMatchProtocolResult<K extends RegisteredGameKey> =
   | {
-      ok: true
-      state: MatchStateFor<K>
-      latestSeq: number
-      participants: HydratedMatchParticipants
-      protocolRows: ProtocolRow[]
+      readonly ok: true
+      readonly state: MatchStateFor<K>
+      readonly latestSeq: number
+      readonly participants: HydratedMatchParticipants
+      readonly protocolRows: readonly ProtocolRow[]
     }
   | ReadMatchFailure
 

@@ -13,8 +13,8 @@ import {
   nowUnixEpochMilliseconds,
   PositiveInteger,
   ProtocolEntry,
+  StoredProtocolEntryRow,
   UnixEpochMilliseconds,
-  UnknownObject,
 } from '@ks/core'
 import { RegisteredGameKey } from '@ks/gameplay/definitions'
 import { and, asc, eq, isNotNull, lte } from 'drizzle-orm'
@@ -228,18 +228,20 @@ export class MatchStorage {
       expected += 1
       const command = v.safeParse(v.pipe(v.string(), v.parseJson(), MatchCommand), row.requestJson)
       if (!command.success) throw new Error('MatchRoom commands storage corruption')
+      const protocolEntryContents = owned.map((entry) => {
+        const {
+          acceptedSeq: _acceptedSeq,
+          entryIndex: _entryIndex,
+          causedByCommandId: _commandId,
+          acceptedAt: _acceptedAt,
+          ...content
+        } = entry
+        return content
+      })
+      if (!isNonEmpty(protocolEntryContents)) throw new Error('MatchRoom protocol_entries storage corruption')
       return {
         command: command.output,
-        protocolEntryContents: owned.map((entry) => {
-          const {
-            acceptedSeq: _acceptedSeq,
-            entryIndex: _entryIndex,
-            causedByCommandId: _commandId,
-            acceptedAt: _acceptedAt,
-            ...content
-          } = entry
-          return content
-        }),
+        protocolEntryContents,
       }
     })
     if (expected - 1 !== match.latestSeq) throw new Error('Active match command tail sequence mismatch')
@@ -261,9 +263,13 @@ export class MatchStorage {
   }
 }
 
+function isNonEmpty<T>(values: readonly T[]): values is readonly [T, ...T[]] {
+  return values.length > 0
+}
+
 const CommandReceipt = v.variant('_tag', [
-  v.object({ _tag: v.literal('accepted'), acceptedSeq: PositiveInteger }),
-  v.object({ _tag: v.literal('rejected'), reason: SparringMatchRejection }),
+  v.pipe(v.object({ _tag: v.literal('accepted'), acceptedSeq: PositiveInteger }), v.readonly()),
+  v.pipe(v.object({ _tag: v.literal('rejected'), reason: SparringMatchRejection }), v.readonly()),
 ])
 
 export type CommandReceipt = v.InferOutput<typeof CommandReceipt>
@@ -275,15 +281,19 @@ export type CommandReceiptLookup =
  * Decodes the single persisted MatchRoom row and enforces its lifecycle invariants. Active rows have no terminal data;
  * finalizing rows carry a finished state for the same match and game, ready for transfer to D1.
  */
+const ActiveMatchConfig = v.pipe(
+  v.object({
+    ...MatchConfig.entries,
+    gameKey: RegisteredGameKey,
+  }),
+  v.readonly(),
+)
+
 const ActiveMatchRecord = v.pipe(
   v.object({
     matchId: MatchId,
     controlSecret: v.pipe(v.string(), v.minLength(16)),
-    configJson: v.pipe(
-      v.string(),
-      v.parseJson(),
-      v.intersect([MatchConfig, v.object({ gameKey: RegisteredGameKey })]),
-    ),
+    configJson: v.pipe(v.string(), v.parseJson(), ActiveMatchConfig),
     latestSeq: NonNegativeInteger,
     status: v.picklist(['active', 'finalizing']),
     createdAt: UnixEpochMilliseconds,
@@ -306,6 +316,7 @@ const ActiveMatchRecord = v.pipe(
           row.finalState.gameKey === row.config.gameKey &&
           isDeepStrictEqual(row.finalState.targets, row.config.targets))),
   ),
+  v.readonly(),
 )
 
 export type ActiveMatchRecord = v.InferOutput<typeof ActiveMatchRecord>
@@ -317,7 +328,7 @@ export type ActiveMatchInitialization = {
 
 export type MatchProtocol = {
   readonly latestSeq: number
-  readonly protocolEntries: ProtocolEntry[]
+  readonly protocolEntries: readonly ProtocolEntry[]
 }
 
 export type FinalizingTransfer = {
@@ -326,17 +337,9 @@ export type FinalizingTransfer = {
   readonly createdAt: UnixEpochMilliseconds
   readonly sourceLatestSeq: number
   readonly endedAt: UnixEpochMilliseconds
-  readonly protocolEntries: ProtocolEntry[]
+  readonly protocolEntries: readonly ProtocolEntry[]
   readonly finalState: MatchState
 }
-
-const StoredProtocolEntryRow = v.pipe(
-  v.object({
-    ...v.omit(ProtocolEntry, ['body']).entries,
-    bodyJson: v.pipe(v.string(), v.parseJson(), UnknownObject),
-  }),
-  v.transform(({ bodyJson, ...entry }) => ({ ...entry, body: bodyJson })),
-)
 
 function decodeEntry(row: typeof schema.protocolEntries.$inferSelect): ProtocolEntry {
   if ((row.scoreA === null) !== (row.scoreB === null))
@@ -377,7 +380,7 @@ function decodeCommand(row: typeof schema.commands.$inferSelect): MatchCommand {
   }
 }
 
-function validateTerminal(match: ActiveMatchRecord, entries: ProtocolEntry[]): void {
+function validateTerminal(match: ActiveMatchRecord, entries: readonly ProtocolEntry[]): void {
   const terminal = entries.filter((entry) => entry.entryType === 'match-ended')
   const tail = entries.at(-1)
   const winner = [...(match.finalState?.frames ?? [])].reverse().find((frame) => frame.winnerSeat)?.winnerSeat

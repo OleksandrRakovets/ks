@@ -45,6 +45,8 @@ test('projects presentation and limits selectable pots to balls remaining', () =
     {},
   ])
 
-  control.details.rackHistory[0]!.scoreBySeat.A = 99
+  // SAFETY: deliberately bypass readonly to verify the projection does not share machine state.
+  const historicalScore = control.details.rackHistory[0]!.scoreBySeat as { A: number; B: number }
+  historicalScore.A = 99
   expect(deriveLongFreePyramidControlProjection(snapshot).details.rackHistory[0]!.scoreBySeat.A).toBe(14)
 })

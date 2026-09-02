@@ -11,9 +11,9 @@ import {
 import { StrilaCommand, StrilaControlProjection } from './strila-v2/definitions'
 
 type RegistryEntry = {
-  meta: GameMeta
-  commandSchema: v.GenericSchema
-  controlSchema: v.GenericSchema
+  readonly meta: GameMeta
+  readonly commandSchema: v.GenericSchema
+  readonly controlSchema: v.GenericSchema
 }
 
 export const registry = {
@@ -82,6 +82,7 @@ export type RegisteredGameKey = v.InferOutput<typeof RegisteredGameKey>
 export type ControlProjectionFor<K extends RegisteredGameKey> = v.InferOutput<
   (typeof registry)[K]['controlSchema']
 >
+
 export type GameCommandFor<K extends RegisteredGameKey> = v.InferOutput<(typeof registry)[K]['commandSchema']>
 
 export function isRegisteredGameKey(value: string): value is RegisteredGameKey {

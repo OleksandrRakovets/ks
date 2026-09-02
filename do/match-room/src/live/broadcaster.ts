@@ -10,7 +10,7 @@ type Client = {
 export class Broadcaster {
   #clients = new Set<Client>()
 
-  stream(ready: number, backlog: MatchStreamUpdate[]): Response {
+  stream(ready: number, backlog: readonly MatchStreamUpdate[]): Response {
     let client: Client | null = null
     const stream = new ReadableStream<Uint8Array>({
       start: (controller) => {

@@ -33,11 +33,11 @@ type MatchCommandParseFailure = {
 }
 
 export const SparringMatchRejection = v.variant('code', [
-  v.object({ code: v.literal('frame-already-active') }),
-  v.object({ code: v.literal('no-active-frame') }),
-  v.object({ code: v.literal('wrong-breaker'), expectedSeat: Seat }),
-  v.object({ code: v.literal('match-already-over') }),
-  v.object({ code: v.literal('game-command-rejected'), reason: GameCommandRejection }),
+  v.pipe(v.object({ code: v.literal('frame-already-active') }), v.readonly()),
+  v.pipe(v.object({ code: v.literal('no-active-frame') }), v.readonly()),
+  v.pipe(v.object({ code: v.literal('wrong-breaker'), expectedSeat: Seat }), v.readonly()),
+  v.pipe(v.object({ code: v.literal('match-already-over') }), v.readonly()),
+  v.pipe(v.object({ code: v.literal('game-command-rejected'), reason: GameCommandRejection }), v.readonly()),
 ])
 export type SparringMatchRejection = v.InferOutput<typeof SparringMatchRejection>
 
@@ -85,9 +85,9 @@ type CorrelatedGameplay<K extends RegisteredGameKey> = {
 }
 type AnyCorrelatedGameplay = { [K in RegisteredGameKey]: CorrelatedGameplay<K> }[RegisteredGameKey]
 const MatchLifecycleCommand = v.variant('type', [
-  v.strictObject({ type: v.literal('frame.prepare') }),
-  v.strictObject({ type: v.literal('frame.commence'), seat: Seat }),
-  v.strictObject({ type: v.literal('frame.concede'), seat: Seat }),
+  v.pipe(v.strictObject({ type: v.literal('frame.prepare') }), v.readonly()),
+  v.pipe(v.strictObject({ type: v.literal('frame.commence'), seat: Seat }), v.readonly()),
+  v.pipe(v.strictObject({ type: v.literal('frame.concede'), seat: Seat }), v.readonly()),
 ])
 type MatchLifecycleCommand = v.InferOutput<typeof MatchLifecycleCommand>
 
@@ -171,7 +171,7 @@ function structuralEqual(left: StructuralValue, right: StructuralValue): boolean
   )
 }
 
-function nonempty(contents: ProtocolEntryContent[]): NonEmptyProtocolEntryContents {
+function nonempty(contents: readonly ProtocolEntryContent[]): NonEmptyProtocolEntryContents {
   if (!contents[0]) throw new Error('Accepted command emitted no Protocol entries')
   return [contents[0], ...contents.slice(1)]
 }
@@ -404,7 +404,7 @@ class ResidentSparringMatch implements SparringMatch {
     if (result._tag === 'parse-failed') throw new SparringMatchHistoryError('Malformed stored Match Command')
     if (
       result._tag !== 'accepted' ||
-      !contentEqual(result.protocolEntryContents, nonempty([...record.protocolEntryContents]))
+      !contentEqual(result.protocolEntryContents, record.protocolEntryContents)
     )
       throw new SparringMatchHistoryError('Stored Protocol does not match canonical execution')
   }

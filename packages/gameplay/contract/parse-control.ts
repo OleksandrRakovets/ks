@@ -1,6 +1,6 @@
 import * as v from 'valibot'
 
-import { type GameControlProjectionInput } from '../src/constants'
+import { type GameControlProjection } from '../src/constants'
 import { type ControlProjectionFor, type RegisteredGameKey, registry } from '../src/registry'
 
 /**
@@ -12,7 +12,7 @@ import { type ControlProjectionFor, type RegisteredGameKey, registry } from '../
  */
 export function parseGameControl<K extends RegisteredGameKey>(
   gameKey: K,
-  input: GameControlProjectionInput,
+  input: GameControlProjection,
 ): ControlProjectionFor<K> {
   return v.parse(registry[gameKey].controlSchema, input)
 }

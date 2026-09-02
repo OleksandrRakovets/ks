@@ -27,7 +27,10 @@ test('restoration rejects Protocol semantics divergent from canonical execution'
     restoreSparringMatch(config, [
       {
         ...record,
-        protocolEntryContents: record.protocolEntryContents.map((entry) => ({ ...entry, seat: 'B' })),
+        protocolEntryContents: [
+          { ...record.protocolEntryContents[0], seat: 'B' as const },
+          ...record.protocolEntryContents.slice(1).map((entry) => ({ ...entry, seat: 'B' as const })),
+        ],
       },
     ]),
   ).toThrow(SparringMatchHistoryError)

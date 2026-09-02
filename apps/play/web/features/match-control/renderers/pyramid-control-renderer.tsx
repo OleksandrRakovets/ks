@@ -57,7 +57,7 @@ function ControlRows(props: {
     )
   }
 
-  function renderSeatControls(controls: Control[], seat: 'A' | 'B') {
+  function renderSeatControls(controls: readonly Control[], seat: 'A' | 'B') {
     return controls.map((command, index) => renderButton(command, `${seat}-${index}`))
   }
 
@@ -86,7 +86,10 @@ function CombinedControlRows(props: {
   return <ControlRows controls={controls} onSubmit={props.onSubmit} />
 }
 
-function NeutralControlRows(props: { controls: Control[]; onSubmit: (command: MatchCommand) => void }) {
+function NeutralControlRows(props: {
+  controls: readonly Control[]
+  onSubmit: (command: MatchCommand) => void
+}) {
   const { t } = useTranslation()
 
   return (

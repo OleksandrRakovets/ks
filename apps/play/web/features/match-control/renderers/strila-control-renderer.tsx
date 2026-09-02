@@ -81,7 +81,10 @@ function ControlRows({
   )
 }
 
-function NeutralControlRows(props: { controls: Control[]; onSubmit: (command: MatchCommand) => void }) {
+function NeutralControlRows(props: {
+  controls: readonly Control[]
+  onSubmit: (command: MatchCommand) => void
+}) {
   const { t } = useTranslation()
 
   return (

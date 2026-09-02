@@ -6,16 +6,26 @@ import type { LongFreePyramidCommand } from './definitions'
 import type { LongFreePyramidSparringFrameSnapshot } from './machine'
 
 const LongFreePyramidProtocolEntryBody = v.variant('commandType', [
-  v.strictObject({ commandType: v.literal('frame.commence') }),
-  v.strictObject({ commandType: v.literal('pot.record'), pottedBallCount: PositiveInteger }),
-  v.strictObject({ commandType: v.literal('foul.commit'), penalty: v.literal('opponent-plus-one') }),
-  v.strictObject({ commandType: v.literal('frame.award') }),
+  v.pipe(v.strictObject({ commandType: v.literal('frame.commence') }), v.readonly()),
+  v.pipe(
+    v.strictObject({ commandType: v.literal('pot.record'), pottedBallCount: PositiveInteger }),
+    v.readonly(),
+  ),
+  v.pipe(
+    v.strictObject({ commandType: v.literal('foul.commit'), penalty: v.literal('opponent-plus-one') }),
+    v.readonly(),
+  ),
+  v.pipe(v.strictObject({ commandType: v.literal('frame.award') }), v.readonly()),
 ])
+type LongFreePyramidProtocolEntryBody = v.InferOutput<typeof LongFreePyramidProtocolEntryBody>
 
-export const LongFreePyramidProtocolEntry = v.object({
-  ...GameProtocolEntry.entries,
-  body: LongFreePyramidProtocolEntryBody,
-})
+export const LongFreePyramidProtocolEntry = v.pipe(
+  v.object({
+    ...GameProtocolEntry.entries,
+    body: LongFreePyramidProtocolEntryBody,
+  }),
+  v.readonly(),
+)
 export type LongFreePyramidProtocolEntry = v.InferOutput<typeof LongFreePyramidProtocolEntry>
 
 function scoreChanged(
@@ -28,10 +38,10 @@ function scoreChanged(
 }
 
 function protocolEntry(args: {
-  seat: 'A' | 'B'
-  body: v.InferOutput<typeof LongFreePyramidProtocolEntryBody>
-  previous: LongFreePyramidSparringFrameSnapshot
-  next: LongFreePyramidSparringFrameSnapshot
+  readonly seat: 'A' | 'B'
+  readonly body: LongFreePyramidProtocolEntryBody
+  readonly previous: LongFreePyramidSparringFrameSnapshot
+  readonly next: LongFreePyramidSparringFrameSnapshot
 }) {
   const nextScore = totalScore(args.next.context.racks)
   return v.parse(LongFreePyramidProtocolEntry, {
@@ -45,9 +55,9 @@ function protocolEntry(args: {
 }
 
 export function createLongFreePyramidProtocolEntries(args: {
-  previous: LongFreePyramidSparringFrameSnapshot
-  command: LongFreePyramidCommand
-  next: LongFreePyramidSparringFrameSnapshot
+  readonly previous: LongFreePyramidSparringFrameSnapshot
+  readonly command: LongFreePyramidCommand
+  readonly next: LongFreePyramidSparringFrameSnapshot
 }): [LongFreePyramidProtocolEntry] {
   const { previous, command, next } = args
 

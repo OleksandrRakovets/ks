@@ -25,31 +25,37 @@ export const MatchCreationDefinition = v.pipe(
       value.gameConfiguration?.rackRollover === 15,
     'Long free pyramid requires rack rollover configuration',
   ),
+  v.readonly(),
 )
+export type MatchCreationDefinition = v.InferOutput<typeof MatchCreationDefinition>
 
 export const CreateMatchRequest = v.pipe(
   v.intersect([
     MatchCreationDefinition,
-    v.object({ participants: v.tuple([MatchSeatAssignment, MatchSeatAssignment]) }),
+    v.object({
+      participants: v.pipe(v.tuple([MatchSeatAssignment, MatchSeatAssignment]), v.readonly()),
+    }),
   ]),
   v.check(
     (value) => new Set(value.participants.map((participant) => participant.seat)).size === 2,
     'Participants must include one A and one B seat',
   ),
+  v.readonly(),
 )
 
 export type CreateMatchRequest = v.InferOutput<typeof CreateMatchRequest>
 
-export type MatchStateFor<K extends GameKey> = Omit<MatchState, 'gameKey'> & { gameKey: K }
+export type MatchStateFor<K extends GameKey> = Omit<MatchState, 'gameKey'> & { readonly gameKey: K }
 
 export function buildMatchConfig(matchId: MatchId, input: CreateMatchRequest): MatchConfig {
-  const config: MatchConfig = {
+  const config = {
     matchId,
     gameKey: input.gameKey,
     targets: input.targets,
     firstBreakerSeat: input.firstBreakerSeat,
   }
   // Omit absent optional values so MatchConfig remains structurally equal after JSON persistence round-trips.
-  if (input.gameConfiguration !== undefined) config.gameConfiguration = input.gameConfiguration
-  return config
+  return input.gameConfiguration === undefined
+    ? config
+    : { ...config, gameConfiguration: input.gameConfiguration }
 }

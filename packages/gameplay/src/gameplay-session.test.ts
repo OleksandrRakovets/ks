@@ -55,7 +55,9 @@ describe('GameplaySession', () => {
       expect(v.is(scenario.controlSchema, session.deriveControl())).toBe(true)
 
       const initial = session.getScore()
-      initial.A = 99
+      // SAFETY: deliberately bypass readonly to verify callers cannot mutate resident session state.
+      const mutableInitial = initial as { A: number; B: number }
+      mutableInitial.A = 99
       expect(session.getScore()).toEqual({ A: 0, B: 0 })
 
       const commenced = session.execute({ type: 'frame.commence', seat: 'A' })

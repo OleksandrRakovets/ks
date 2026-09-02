@@ -2,16 +2,16 @@ import { BySeatNumber, Control, emptyControlSections, NonEmptyString } from '@ks
 import * as v from 'valibot'
 
 type LocalizedGameTitle = {
-  uk: string
-  en: string
+  readonly uk: string
+  readonly en: string
 }
 
 export type GameMeta = {
-  title: LocalizedGameTitle
-  defaultFrameTargetPointsBySeat: BySeatNumber
+  readonly title: LocalizedGameTitle
+  readonly defaultFrameTargetPointsBySeat: BySeatNumber
 }
 
-export const GameControl = v.object({ ...Control.entries, source: v.literal('game') })
+export const GameControl = v.pipe(v.object({ ...Control.entries, source: v.literal('game') }), v.readonly())
 export type GameControl = v.InferOutput<typeof GameControl>
 
 export function deriveGameControlSections(controls: readonly GameControl[]) {
@@ -25,10 +25,13 @@ export function deriveGameControlSections(controls: readonly GameControl[]) {
   return sections
 }
 
-export const GameControlProjection = v.object({
-  gameKey: NonEmptyString,
-  projection: v.literal('control'),
-  score: BySeatNumber,
-  details: v.optional(v.unknown()),
-})
-export type GameControlProjectionInput = v.InferOutput<typeof GameControlProjection>
+export const GameControlProjection = v.pipe(
+  v.object({
+    gameKey: NonEmptyString,
+    projection: v.literal('control'),
+    score: BySeatNumber,
+    details: v.optional(v.unknown()),
+  }),
+  v.readonly(),
+)
+export type GameControlProjection = v.InferOutput<typeof GameControlProjection>

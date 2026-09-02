@@ -6,19 +6,29 @@ import type { PyramidSparringFrameSnapshot } from './machine'
 import type { PyramidRules } from './rules'
 
 const PyramidProtocolEntryBody = v.variant('commandType', [
-  v.strictObject({ commandType: v.literal('frame.commence') }),
-  v.strictObject({ commandType: v.literal('pot.record'), pottedBallCount: PositiveInteger }),
-  v.strictObject({
-    commandType: v.literal('foul.commit'),
-    penalty: v.picklist(['opponent-plus-one', 'offender-minus-one']),
-  }),
-  v.strictObject({ commandType: v.literal('frame.award') }),
+  v.pipe(v.strictObject({ commandType: v.literal('frame.commence') }), v.readonly()),
+  v.pipe(
+    v.strictObject({ commandType: v.literal('pot.record'), pottedBallCount: PositiveInteger }),
+    v.readonly(),
+  ),
+  v.pipe(
+    v.strictObject({
+      commandType: v.literal('foul.commit'),
+      penalty: v.picklist(['opponent-plus-one', 'offender-minus-one']),
+    }),
+    v.readonly(),
+  ),
+  v.pipe(v.strictObject({ commandType: v.literal('frame.award') }), v.readonly()),
 ])
+type PyramidProtocolEntryBody = v.InferOutput<typeof PyramidProtocolEntryBody>
 
-export const PyramidProtocolEntry = v.object({
-  ...GameProtocolEntry.entries,
-  body: PyramidProtocolEntryBody,
-})
+export const PyramidProtocolEntry = v.pipe(
+  v.object({
+    ...GameProtocolEntry.entries,
+    body: PyramidProtocolEntryBody,
+  }),
+  v.readonly(),
+)
 export type PyramidProtocolEntry = v.InferOutput<typeof PyramidProtocolEntry>
 
 function scoreChanged(previous: PyramidSparringFrameSnapshot, next: PyramidSparringFrameSnapshot): boolean {
@@ -26,11 +36,11 @@ function scoreChanged(previous: PyramidSparringFrameSnapshot, next: PyramidSparr
 }
 
 function protocolEntry(args: {
-  gameKey: PyramidRules['gameKey']
-  seat: 'A' | 'B'
-  body: v.InferOutput<typeof PyramidProtocolEntryBody>
-  previous: PyramidSparringFrameSnapshot
-  next: PyramidSparringFrameSnapshot
+  readonly gameKey: PyramidRules['gameKey']
+  readonly seat: 'A' | 'B'
+  readonly body: PyramidProtocolEntryBody
+  readonly previous: PyramidSparringFrameSnapshot
+  readonly next: PyramidSparringFrameSnapshot
 }) {
   return v.parse(PyramidProtocolEntry, {
     gameKey: args.gameKey,
@@ -43,10 +53,10 @@ function protocolEntry(args: {
 }
 
 export function createPyramidProtocolEntries(args: {
-  previous: PyramidSparringFrameSnapshot
-  command: PyramidCommand
-  next: PyramidSparringFrameSnapshot
-  rules: PyramidRules
+  readonly previous: PyramidSparringFrameSnapshot
+  readonly command: PyramidCommand
+  readonly next: PyramidSparringFrameSnapshot
+  readonly rules: PyramidRules
 }): [PyramidProtocolEntry] {
   const { previous, command, next, rules } = args
 

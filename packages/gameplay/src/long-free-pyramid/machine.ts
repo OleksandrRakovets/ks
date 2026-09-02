@@ -55,10 +55,10 @@ function isValidPottedBallCount(pottedBallCount: number): pottedBallCount is 1 |
 }
 
 function finalizeScoringUpdate(args: {
-  racks: LongFreePyramidRack[]
-  rackRollover: 14 | 15
-  phase: LongFreePyramidPhase
-  winner: Seat | null
+  readonly racks: readonly LongFreePyramidRack[]
+  readonly rackRollover: 14 | 15
+  readonly phase: LongFreePyramidPhase
+  readonly winner: Seat | null
 }): Pick<LongFreePyramidContext, 'racks' | 'messages' | 'winner'> {
   const rolled = maybeRollRacks({
     racks: args.racks,

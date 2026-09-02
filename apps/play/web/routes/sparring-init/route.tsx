@@ -109,7 +109,7 @@ export async function action({
   }
 
   const application = requireApplication(context)
-  const createInput: CreateMatchInput = {
+  const createInputBase = {
     gameKey,
     targets: {
       frameTargetPointsBySeat: {
@@ -121,7 +121,9 @@ export async function action({
     firstBreakerSeat: firstBreakerSeat.output,
     playerNames: { A: seatAName.output, B: seatBName.output },
   }
-  if (rackRollover) createInput.gameConfiguration = { rackRollover }
+  const createInput: CreateMatchInput = rackRollover
+    ? { ...createInputBase, gameConfiguration: { rackRollover } }
+    : createInputBase
   const result = await application.createMatch(createInput)
 
   if (!result.ok) {

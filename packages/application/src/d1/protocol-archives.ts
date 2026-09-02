@@ -46,21 +46,24 @@ export async function getProtocolArchive(
     const parsed = v.parse(ProtocolArchiveStorageRow, row)
     const { matchId: _matchId, entries, ...archive } = parsed
     const gameKey = archive.state.gameKey
+    const normalizedEntries = isRegisteredGameKey(gameKey)
+      ? entries.map((entry) => {
+          const { acceptedSeq, entryIndex, causedByCommandId, acceptedAt, ...content } = entry
+          if (content.gameKey !== gameKey) throw new Error('Protocol archive game key mismatch')
+          return {
+            acceptedSeq,
+            entryIndex,
+            causedByCommandId,
+            acceptedAt,
+            ...parseProtocolEntryContent(content),
+          }
+        })
+      : entries
+    const firstEntry = normalizedEntries[0]
+    if (!firstEntry) throw new Error('Protocol archive contains no entries')
     return {
       ...archive,
-      entries: isRegisteredGameKey(gameKey)
-        ? entries.map((entry) => {
-            const { acceptedSeq, entryIndex, causedByCommandId, acceptedAt, ...content } = entry
-            if (content.gameKey !== gameKey) throw new Error('Protocol archive game key mismatch')
-            return {
-              acceptedSeq,
-              entryIndex,
-              causedByCommandId,
-              acceptedAt,
-              ...parseProtocolEntryContent(content),
-            }
-          })
-        : entries,
+      entries: [firstEntry, ...normalizedEntries.slice(1)],
     }
   } catch {
     if (row.protocolVersion !== PROTOCOL_ARCHIVE_VERSION) {

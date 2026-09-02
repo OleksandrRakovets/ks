@@ -16,7 +16,7 @@ function toBrand<B extends string>(value: string): Brand<string, B> {
   return value as Brand<string, B>
 }
 
-function ulidBrandedSchema<B extends string>() {
+function ulidBranded<B extends string>() {
   return v.pipe(
     v.string(),
     v.regex(ULID_RE),
@@ -24,15 +24,15 @@ function ulidBrandedSchema<B extends string>() {
   )
 }
 
-export const GuestPlayerId = ulidBrandedSchema<'GuestPlayerId'>()
-export const VerifiedPlayerId = ulidBrandedSchema<'VerifiedPlayerId'>()
+export const GuestPlayerId = ulidBranded<'GuestPlayerId'>()
+export const VerifiedPlayerId = ulidBranded<'VerifiedPlayerId'>()
 export const PlayerRef = v.pipe(
   v.string(),
   v.regex(/^(gp|vp)_[0-9A-HJKMNP-TV-Z]{26}$/),
   v.transform((value) => toBrand<'PlayerRef'>(value)),
 )
-export const MatchId = ulidBrandedSchema<'MatchId'>()
-export const CommandId = ulidBrandedSchema<'CommandId'>()
+export const MatchId = ulidBranded<'MatchId'>()
+export const CommandId = ulidBranded<'CommandId'>()
 
 export function newGuestPlayerId(): GuestPlayerId {
   return v.parse(GuestPlayerId, ulid())

@@ -20,7 +20,7 @@ export function deriveLongFreePyramidControlProjection(
     ballsOnTable,
     messages: snapshot.context.messages.map((message) => ({ ...message })),
   }
-  const seats: Seat[] = ['A', 'B']
+  const seats: readonly Seat[] = ['A', 'B']
   const controls =
     phase === 'not-started'
       ? []

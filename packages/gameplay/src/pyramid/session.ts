@@ -57,8 +57,9 @@ class PyramidGameplaySession<K extends PyramidGameKey> implements GameplaySessio
     return this.#snapshot.can({ type: 'frame.commence', seat })
   }
   deriveControl(): ControlProjectionFor<K> {
+    const projection: unknown = derivePyramidControlProjection(this.#snapshot, this.#rules)
     // SAFETY: both the family projection and registry contract are discriminated by this session's same K.
-    return derivePyramidControlProjection(this.#snapshot, this.#rules) as ControlProjectionFor<K>
+    return projection as ControlProjectionFor<K>
   }
 }
 

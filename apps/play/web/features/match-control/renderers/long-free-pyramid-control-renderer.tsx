@@ -15,7 +15,7 @@ type LabelledLongFreePyramidCommand =
   | { kind: 'pottedBallCount'; command: Control; pottedBallCount: number }
   | { kind: 'command'; command: Control }
 
-export function labelLongFreePyramidCommands(controls: Control[]): LabelledLongFreePyramidCommand[] {
+export function labelLongFreePyramidCommands(controls: readonly Control[]): LabelledLongFreePyramidCommand[] {
   return controls.map((command) => {
     if (command.type !== 'pot.record') return { kind: 'command', command }
     const pottedBallCount = potRecordPottedBallCount(command)
@@ -68,7 +68,10 @@ function ControlRows(props: { controls: SeatControls; onSubmit: (command: MatchC
   )
 }
 
-function NeutralControlRows(props: { controls: Control[]; onSubmit: (command: MatchCommand) => void }) {
+function NeutralControlRows(props: {
+  controls: readonly Control[]
+  onSubmit: (command: MatchCommand) => void
+}) {
   const { t } = useTranslation()
 
   return (

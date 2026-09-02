@@ -48,9 +48,9 @@ export function applyFoulToRacks(
 }
 
 export function maybeRollRacks(args: {
-  racks: readonly LongFreePyramidRack[]
-  rackRollover: 14 | 15
-  phase: LongFreePyramidPhase
+  readonly racks: readonly LongFreePyramidRack[]
+  readonly rackRollover: 14 | 15
+  readonly phase: LongFreePyramidPhase
 }): Pick<LongFreePyramidContext, 'racks' | 'messages'> {
   const { racks, rackRollover, phase } = args
   if (phase === 'awaiting-award') {

@@ -12,7 +12,7 @@ export type PositiveInteger = v.InferOutput<typeof PositiveInteger>
 export const NonNegativeInteger = v.pipe(Integer, v.minValue(0))
 export type NonNegativeInteger = v.InferOutput<typeof NonNegativeInteger>
 
-export const UnknownObject = v.objectWithRest({}, v.unknown())
+export const UnknownObject = v.pipe(v.objectWithRest({}, v.unknown()), v.readonly())
 export type UnknownObject = v.InferOutput<typeof UnknownObject>
 
 export function SizedString(minLength: number, maxLength: number) {

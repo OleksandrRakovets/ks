@@ -10,8 +10,8 @@ import type { MatchCreateProfile } from './profile'
 export function PlayerNameFields(props: {
   seatAName: string
   seatBName: string
-  suggestionsA: string[]
-  suggestionsB: string[]
+  suggestionsA: readonly string[]
+  suggestionsB: readonly string[]
   onSeatANameChange: (value: string) => void
   onSeatBNameChange: (value: string) => void
 }) {
@@ -49,7 +49,7 @@ export function PlayerNameFields(props: {
   )
 }
 
-function RecentPlayerDatalist(props: { id: string; suggestions: string[] }) {
+function RecentPlayerDatalist(props: { id: string; suggestions: readonly string[] }) {
   return (
     <datalist id={props.id}>
       {props.suggestions.map((name) => (

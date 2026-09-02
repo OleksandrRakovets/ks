@@ -3,7 +3,10 @@ import * as v from 'valibot'
 
 import type { ControlProjectionFor, GameCommandFor, RegisteredGameKey } from './registry'
 
-export const GameCommandRejection = v.object({ code: v.literal('command-not-available') })
+export const GameCommandRejection = v.pipe(
+  v.object({ code: v.literal('command-not-available') }),
+  v.readonly(),
+)
 export type GameCommandRejection = v.InferOutput<typeof GameCommandRejection>
 
 export type GameCommandExecution =

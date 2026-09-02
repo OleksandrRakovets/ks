@@ -414,7 +414,7 @@ function protocolLabel(t: TFunction, row: ProtocolRow): string {
   return t(row.message.key, { ...row.message.params, balls })
 }
 
-export function ProtocolPanel(props: { rows: ProtocolRow[]; emptyLabel: string }) {
+export function ProtocolPanel(props: { rows: readonly ProtocolRow[]; emptyLabel: string }) {
   const { t } = useTranslation()
   if (props.rows.length === 0) return <p className="text-sm text-muted-foreground">{props.emptyLabel}</p>
   return (
