@@ -21,17 +21,6 @@ const BALL_COLORS = {
   7: { bg: '#2a2a2a', border: '#555555' },
 } satisfies Record<StrilaBall, { bg: string; border: string }>
 
-const SCORE_MARKER_COLORS = {
-  0: '#f5f5f5',
-  1: '#dc2626',
-  2: '#eab308',
-  3: '#16a34a',
-  4: '#92400e',
-  5: '#2563eb',
-  6: '#db2777',
-  7: '#171717',
-} satisfies Record<StrilaBall, string>
-
 export function StrilaScoreMarkers(props: { balls: readonly StrilaBall[]; align: 'left' | 'right' }) {
   return (
     <div
@@ -42,7 +31,7 @@ export function StrilaScoreMarkers(props: { balls: readonly StrilaBall[]; align:
           key={`${ball}-${index}`}
           aria-hidden
           className="size-3.5 shrink-0 rounded-full"
-          style={{ backgroundColor: SCORE_MARKER_COLORS[ball] }}
+          style={{ backgroundColor: BALL_COLORS[ball].bg }}
         />
       ))}
     </div>

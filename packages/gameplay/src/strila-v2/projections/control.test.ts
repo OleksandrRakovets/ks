@@ -50,7 +50,7 @@ test('projects exact open-play controls and selectable balls', () => {
 })
 
 test('projects potted balls in acceptance order for each seat', () => {
-  let snapshot = sendEvent(createInitialSnapshot({ A: 20, B: 20 }), { type: 'frame.commence', seat: 'A' })
+  let snapshot = sendEvent(createInitialSnapshot({ A: 9, B: 9 }), { type: 'frame.commence', seat: 'A' })
   snapshot = sendEvent(snapshot, { type: 'pot.record', seat: 'A', pottedBalls: [0, 1] })
   snapshot = sendEvent(snapshot, { type: 'pot.record', seat: 'B', pottedBalls: [2] })
   snapshot = sendEvent(snapshot, { type: 'pot.record', seat: 'A', pottedBalls: [3] })
