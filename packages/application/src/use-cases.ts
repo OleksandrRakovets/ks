@@ -126,11 +126,6 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
 
   async function listMatches(locale: SupportedLocale): Promise<MatchListEntry[]> {
     const records = await dependencies.listMatchRecords()
-    await Promise.all(
-      records.map(async (record) => {
-        if (record.status === 'finalizing') await finalizeAndFinishRoom(record.matchId)
-      }),
-    )
     return await Promise.all(
       records.map(async (record) => ({
         matchId: record.matchId,

@@ -115,6 +115,27 @@ function application(
 }
 
 describe('trusted MatchRoom orchestration', () => {
+  test('lists finalizing matches as finished without selecting a room', async () => {
+    const app = application(selectedClient(), [], {
+      overrides: {
+        listMatchRecords: async () => [
+          {
+            matchId,
+            gameKey: 'free-pyramid',
+            status: 'finalizing',
+            createdAt,
+            participantRefs: { A: playerRefA, B: playerRefB },
+          },
+        ],
+        matchRoomClient: () => {
+          throw new Error('Unexpected MatchRoom client selection')
+        },
+      },
+    })
+
+    expect(await app.listMatches('en')).toMatchObject([{ matchId, status: 'finished' }])
+  })
+
   test('selects the room once for initialization and activates D1', async () => {
     const events: string[] = []
     const room = selectedClient({
