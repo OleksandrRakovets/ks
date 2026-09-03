@@ -1,6 +1,12 @@
 import { expect, test } from 'bun:test'
 
-import { type AcceptedCommandHistoryEntry, type MatchConfig, newCommandId, newMatchId } from '@ks/core'
+import {
+  type AcceptedCommand,
+  type MatchConfig,
+  newCommandId,
+  newMatchId,
+  nowUnixEpochMilliseconds,
+} from '@ks/core'
 
 import { createSparringMatch, restoreSparringMatch, SparringMatchHistoryError } from './sparring-match'
 
@@ -11,34 +17,19 @@ const config: MatchConfig = {
   firstBreakerSeat: 'A',
 }
 
-function prepared(): AcceptedCommandHistoryEntry {
+function prepared(): AcceptedCommand {
   const result = createSparringMatch(config).execute({
     commandId: newCommandId(),
     source: 'match',
     command: { type: 'frame.prepare' },
   })
   if (result._tag !== 'accepted') throw new Error('Expected acceptance')
-  return { command: result.command, protocolEntryContents: [...result.protocolEntryContents] }
+  return { ...result.command, acceptedSeq: 1, acceptedAt: nowUnixEpochMilliseconds() }
 }
-
-test('restoration rejects Protocol semantics divergent from canonical execution', () => {
-  const record = prepared()
-  expect(() =>
-    restoreSparringMatch(config, [
-      {
-        ...record,
-        protocolEntryContents: [
-          { ...record.protocolEntryContents[0], seat: 'B' as const },
-          ...record.protocolEntryContents.slice(1).map((entry) => ({ ...entry, seat: 'B' as const })),
-        ],
-      },
-    ]),
-  ).toThrow(SparringMatchHistoryError)
-})
 
 test('restoration rejects a noncanonical or incompatible stored command', () => {
   const record = prepared()
-  expect(() =>
-    restoreSparringMatch(config, [{ ...record, command: { ...record.command, command: { extra: true } } }]),
-  ).toThrow(SparringMatchHistoryError)
+  expect(() => restoreSparringMatch(config, [{ ...record, command: { extra: true } }])).toThrow(
+    SparringMatchHistoryError,
+  )
 })

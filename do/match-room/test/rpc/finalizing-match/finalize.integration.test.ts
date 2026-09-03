@@ -33,6 +33,18 @@ test('retains finalizing storage and schedules cleanup once across retries and e
   await expect(revived.prepareArchive()).resolves.toMatchObject({ matchId })
 })
 
+test('does not replay commands after archive preparation', async () => {
+  const { matchId, stub } = await initializedRoom()
+  await makeRoomFinalizing(stub)
+  await expect(stub.prepareArchive()).resolves.toMatchObject({ matchId })
+  await runInDurableObject(stub, (_room, state) => {
+    state.storage.sql.exec(`UPDATE commands SET request_json = '{}' WHERE accepted_seq = 1`)
+  })
+  await evictDurableObject(stub)
+
+  await expect(env.MATCH_ROOM.getByName(matchId).finalize()).resolves.toBeUndefined()
+})
+
 test('alarm disposes retained storage and is idempotent', async () => {
   const { stub } = await initializedRoom()
   await makeRoomFinalizing(stub)

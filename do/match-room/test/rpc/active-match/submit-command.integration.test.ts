@@ -77,7 +77,7 @@ test('discards speculative resident state and rolls back both writes after persi
   const { stub } = await initializedRoom()
   await runInDurableObject(stub, (_room, state) => {
     state.storage.sql.exec(
-      `CREATE TRIGGER fail_protocol BEFORE INSERT ON protocol_entries BEGIN SELECT RAISE(FAIL, 'forced'); END`,
+      `CREATE TRIGGER fail_cursor BEFORE UPDATE ON active_matches BEGIN SELECT RAISE(FAIL, 'forced'); END`,
     )
   })
   await captureRpcError(async () => {
@@ -87,10 +87,7 @@ test('discards speculative resident state and rolls back both writes after persi
     expect(
       state.storage.sql.exec<{ count: number }>('SELECT count(*) AS count FROM commands').one().count,
     ).toBe(0)
-    expect(
-      state.storage.sql.exec<{ count: number }>('SELECT count(*) AS count FROM protocol_entries').one().count,
-    ).toBe(0)
-    state.storage.sql.exec('DROP TRIGGER fail_protocol')
+    state.storage.sql.exec('DROP TRIGGER fail_cursor')
   })
   expect(await stub.submitCommand(prepareCommand())).toEqual({
     _tag: 'accepted',

@@ -7,8 +7,11 @@ test('returns Protocol at sequence zero and restores accepted entries after evic
   const { matchId, stub } = await initializedRoom()
   expect(await stub.getProtocol()).toMatchObject({ _tag: 'active', latestSeq: 0, protocolEntries: [] })
   await stub.submitCommand(prepareCommand())
+  const warm = await stub.getProtocol()
   await evictDurableObject(stub)
-  expect(await env.MATCH_ROOM.getByName(matchId).getProtocol()).toMatchObject({
+  const restored = await env.MATCH_ROOM.getByName(matchId).getProtocol()
+  expect(restored).toEqual(warm)
+  expect(restored).toMatchObject({
     _tag: 'active',
     latestSeq: 1,
     protocolEntries: [

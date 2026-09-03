@@ -45,11 +45,13 @@ Competition composes match controls before game controls into one flat list. Mat
 | Store | Authority |
 | --- | --- |
 | D1 | Players, match rows and status, completed protocol archive and final match state |
-| MatchRoom SQLite | Active config, control secret, Accepted Commands and outcomes, normalized Protocol entries, monotonic sequence, terminal Final Match State, active/finalizing status |
+| MatchRoom SQLite | Active config, control secret, Accepted Commands and outcomes, monotonic sequence, terminal Final Match State, active/finalizing status |
 
-Accepted Commands are the active replay authority and are never mirrored to D1. A resident `SparringMatch` is only a disposable execution cache. Cold restoration validates ordered command rows and their Protocol rows, replays each command through the same aggregate operation, and compares canonical semantic Protocol values. Raw XState snapshots are not persisted.
+Accepted Commands are the active replay authority and are never mirrored to D1. A shared resident is only a disposable execution and Protocol cache. Cold restoration validates ordered command rows and replays each command through the same aggregate operation to derive Protocol. Raw XState snapshots are not persisted.
 
-An accepted command advances resident state before one SQLite transaction stores the command, its Protocol rows, the next sequence, and any terminal state/status. Execution or persistence defects discard the resident cache so the next operation restores from durable commands.
+Gameplay compatibility risk therefore extends through `prepareArchive`: finalizing history must remain replayable until that semantic validation gate has produced the D1 transfer. Finalize and stream closure are deliberately replay-free after archive preparation.
+
+An accepted command advances resident state before one synchronous SQLite transaction stores the Accepted Command, next sequence, and any terminal state/status. MatchRoom does not persist Protocol; the shared resident atomically publishes match state, cursor, and promoted entries. Execution, persistence, or promotion defects discard the cache so the next operation restores from durable commands.
 
 Finished match-state and Protocol reads use D1 only. Final Match State is persisted atomically with terminal acceptance and transferred with Protocol without application-side gameplay replay.
 
@@ -106,10 +108,10 @@ Existing streams remain connected while archival is pending. A new stream reques
 
 - Canonical schemas are `packages/application/src/d1/schema.ts` and `do/match-room/src/storage/schema.ts`.
 - D1 and MatchRoom SQLite have independent migration histories and application mechanisms.
-- Persisted JSON, commands, and Protocol rows are decoded and validated in their owning adapters. Malformed data fails the operation rather than yielding partial state.
+- Persisted JSON and commands are decoded and validated in their owning adapters. Derived Protocol and archive semantics are validated through archive preparation. Malformed data fails the operation rather than yielding partial state.
 - MatchRoom SQLite uses positive Accepted Command sequence for ordering, beginning at `1`; newly created matches have cursor `0`.
-- `MatchStorage` owns migration access, the Drizzle client, persisted representations, codecs, and consistency checks. Rows and serialized JSON do not cross its public seam; Accepted Command and Protocol writes remain one transaction.
-- Storage validation enforces sequence continuity, Protocol index/Command/timestamp ownership, Match identity and lifecycle, and terminal position/time/winner consistency. Protocol bodies remain generic here; MatchStorage does not execute gameplay or interpret game-specific semantics.
+- `MatchStorage` owns migration access, the Drizzle client, persisted representations, codecs, and consistency checks. Rows and serialized JSON do not cross its public seam; it persists commands and lifecycle only.
+- Storage validation enforces Accepted Command shape, sequence continuity, command identity, Match identity, timestamps, and lifecycle. MatchStorage does not import or interpret gameplay semantics. MatchResident reconstructs Protocol metadata and indices; `prepareArchive` alone validates terminal position/time/winner and final-state semantic equality.
 - Constructor migration runs in `blockConcurrencyWhile`, so no RPC event observes an unmigrated room. Active operations remain synchronous over resident state and SQLite. Finalization blocks concurrency while publishing the terminal update, closing streams, and scheduling cleanup. Alarm disposal separately blocks concurrency while validating lifecycle and calling `deleteAll()`.
 - Expected RPC outcomes are semantic variants, not HTTP failures. Application owns HTTP adaptation. Missing or corrupt authority and invalid lifecycle calls are defects that throw.
 - See `.tracker/db.md` for migration and inspection procedures.

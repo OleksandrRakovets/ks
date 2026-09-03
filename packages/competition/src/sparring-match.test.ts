@@ -1,11 +1,12 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
-  type AcceptedCommandHistoryEntry,
+  type AcceptedCommand,
   type MatchCommand,
   type MatchConfig,
   newCommandId,
   newMatchId,
+  nowUnixEpochMilliseconds,
 } from '@ks/core'
 
 import { createSparringMatch, restoreSparringMatch } from './sparring-match'
@@ -37,10 +38,10 @@ describe('SparringMatch', () => {
     })
   })
 
-  test('retains accepted commands and restores by comparing semantic Protocol', () => {
+  test('restores accepted commands and correlates newly derived Protocol', () => {
     const matchConfig = config()
     const warm = createSparringMatch(matchConfig)
-    const history: AcceptedCommandHistoryEntry[] = []
+    const history: AcceptedCommand[] = []
     for (const submitted of [
       { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } },
       { commandId: newCommandId(), source: 'match', command: { type: 'frame.commence', seat: 'A' } },
@@ -50,12 +51,18 @@ describe('SparringMatch', () => {
         command: { type: 'pot.record', pottedBallCount: 1, seat: 'A' },
       },
     ] satisfies MatchCommand[]) {
-      const accepted = accept(warm, submitted)
-      history.push({ command: accepted.command, protocolEntryContents: [...accepted.protocolEntryContents] })
+      accept(warm, submitted)
+      history.push({
+        ...submitted,
+        acceptedSeq: history.length + 1,
+        acceptedAt: nowUnixEpochMilliseconds(),
+      })
     }
     // SAFETY: this fixture is built from typed accepted results immediately above.
-    const persisted = JSON.parse(JSON.stringify(history)) as AcceptedCommandHistoryEntry[]
-    expect(restoreSparringMatch(matchConfig, persisted).project()).toEqual(warm.project())
+    const persisted = JSON.parse(JSON.stringify(history)) as AcceptedCommand[]
+    const restored = restoreSparringMatch(matchConfig, persisted)
+    expect(restored.match.project()).toEqual(warm.project())
+    expect(restored.accepted.map(({ acceptedCommand }) => acceptedCommand)).toEqual(persisted)
   })
 
   test('plays a multi-frame race through game scoring with alternating breakers', () => {

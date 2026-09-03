@@ -1,17 +1,19 @@
-import { restoreSparringMatch, type SparringMatch, type SparringMatchRoomProjection } from '@ks/competition'
+import type { SparringMatchRoomProjection } from '@ks/competition'
 import type { MatchCommand, MatchStreamUpdate, ProtocolEntry } from '@ks/core'
 
 import { Broadcaster } from '../live/broadcaster'
-import { type ActiveMatchRecord, type CommandReceipt, MatchStorage } from '../storage/match-storage'
+import { type CommandReceipt, MatchStorage } from '../storage/match-storage'
+import { MatchResident } from './match-resident'
 
 export class ActiveMatch {
   readonly #storage: MatchStorage
   readonly #broadcaster: Broadcaster
-  #resident: ResidentMatch | null = null
+  readonly #resident: MatchResident
 
-  constructor(storage: MatchStorage, broadcaster: Broadcaster) {
+  constructor(storage: MatchStorage, broadcaster: Broadcaster, resident: MatchResident) {
     this.#storage = storage
     this.#broadcaster = broadcaster
+    this.#resident = resident
   }
 
   submitCommand(command: MatchCommand): ActiveCommandResult {
@@ -30,9 +32,8 @@ export class ActiveMatch {
     }
     if (match.status === 'finalizing') return { _tag: 'finalizing' }
 
-    const resident = this.#loadResident(match)
     try {
-      const result = resident.match.execute(command)
+      const result = this.#resident.executeAndCommit(match, command)
       if (result._tag === 'parse-failed') return { _tag: 'invalid-command' }
       if (result._tag === 'rejected') {
         const receipt = this.#storage.commitRejectedCommand({
@@ -43,15 +44,7 @@ export class ActiveMatch {
         return receipt
       }
 
-      const projection = resident.match.project()
-      const finalState = projection.state.status === 'finished' ? projection.state : null
-      const committed = this.#storage.commitAcceptedCommand({
-        match,
-        command: result.command,
-        entryContents: result.protocolEntryContents,
-        finalState,
-      })
-      this.#advanceResidentCursor(committed.receipt.acceptedSeq)
+      const { committed } = result
       if (!committed.update.terminal) {
         // Terminal is withheld during D1 archival; the browser updates after finalization broadcasts, closes, and revalidates.
         this.#broadcaster.broadcast(committed.update)
@@ -62,7 +55,7 @@ export class ActiveMatch {
         finalizesMatch: committed.update.terminal,
       }
     } catch (error) {
-      this.clearResident()
+      this.#resident.clear()
       throw error
     }
   }
@@ -74,7 +67,7 @@ export class ActiveMatch {
     return {
       _tag: 'active',
       latestSeq: match.latestSeq,
-      ...this.#loadResident(match).match.project(),
+      ...this.#resident.load(match).match.project(),
     }
   }
 
@@ -82,12 +75,12 @@ export class ActiveMatch {
     const match = this.#storage.match()
     if (!match) throw new Error('ActiveMatch storage missing')
     if (match.status === 'finalizing') return { _tag: 'finalizing' }
-    const protocol = this.#storage.readProtocol()
+    const resident = this.#resident.load(match)
     return {
       _tag: 'active',
-      latestSeq: protocol.latestSeq,
-      state: this.#loadResident(match).match.project().state,
-      protocolEntries: protocol.protocolEntries,
+      latestSeq: resident.latestSeq,
+      state: resident.match.project().state,
+      protocolEntries: resident.protocolEntries,
     }
   }
 
@@ -100,24 +93,7 @@ export class ActiveMatch {
       backlog.push({ type: 'command-accepted', acceptedSeq, terminal: false })
     return { _tag: 'active', response: this.#broadcaster.stream(match.latestSeq, backlog) }
   }
-
-  clearResident(): void {
-    this.#resident = null
-  }
-
-  #loadResident(match: ActiveMatchRecord): ResidentMatch {
-    if (this.#resident?.latestSeq === match.latestSeq) return this.#resident
-    const resident = restoreSparringMatch(match.config, this.#storage.readAcceptedCommandHistory())
-    return (this.#resident = { latestSeq: match.latestSeq, match: resident })
-  }
-
-  #advanceResidentCursor(acceptedSeq: number): void {
-    if (!this.#resident) throw new Error('ActiveMatch resident missing after accepted Command')
-    this.#resident = { ...this.#resident, latestSeq: acceptedSeq }
-  }
 }
-
-type ResidentMatch = { readonly latestSeq: number; readonly match: SparringMatch }
 
 export type ActiveControlsResult =
   | { readonly _tag: 'finalizing' }

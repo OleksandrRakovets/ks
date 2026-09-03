@@ -57,7 +57,7 @@ test('stores canonical values and compares durable Command retries semantically'
   })
 })
 
-test('reconstructs typed history, Protocol, and the finalizing transfer from its authoritative cursor', async () => {
+test('reconstructs flat Accepted Commands from its authoritative cursor', async () => {
   const matchId = newMatchId()
   const stub = env.MATCH_ROOM.getByName(matchId)
   await stub.initialize({ ...request, matchId, controlSecret, createdAt })
@@ -74,24 +74,16 @@ test('reconstructs typed history, Protocol, and the finalizing transfer from its
 
   await runInDurableObject(stub, (_room, state) => {
     const storage = new MatchStorage(state.storage)
-    expect(storage.readAcceptedCommandHistory().map((entry) => entry.command)).toEqual(commands)
-    const protocol = storage.readProtocol()
-    expect(protocol.latestSeq).toBe(3)
-    expect([...new Set(protocol.protocolEntries.map((entry) => entry.acceptedSeq))]).toEqual([1, 2, 3])
-    expect(
-      protocol.protocolEntries.every(
-        (entry) => entry.causedByCommandId === commands[entry.acceptedSeq - 1]!.commandId,
-      ),
-    ).toBe(true)
-    expect(protocol.protocolEntries.at(-1)?.entryType).toBe('match-ended')
-    expect(storage.readFinalizingTransfer()).toMatchObject({
-      matchId,
-      sourceLatestSeq: 3,
-      finalState: { status: 'finished' },
-    })
-
-    state.storage.sql.exec(`UPDATE protocol_entries SET body_json = 'not-json' WHERE accepted_seq = 1`)
-    expect(() => storage.readProtocol()).toThrow('MatchRoom protocol_entries storage corruption')
+    const match = storage.match()
+    if (!match) throw new Error('Expected Match')
+    expect(storage.readAcceptedCommands(match)).toEqual(
+      commands.map((command, index) => expect.objectContaining({ ...command, acceptedSeq: index + 1 })),
+    )
+    state.storage.sql.exec(
+      `UPDATE commands SET request_json = ? WHERE accepted_seq = 1`,
+      JSON.stringify({ ...commands[0], commandId: newCommandId() }),
+    )
+    expect(() => storage.readAcceptedCommands(match)).toThrow('commands storage corruption')
   })
 })
 
@@ -115,7 +107,7 @@ test('rejects multiple Match rows as corrupt authority', async () => {
   })
 })
 
-test('rejects lifecycle and terminal bundle corruption', async () => {
+test('rejects lifecycle corruption', async () => {
   const matchId = newMatchId()
   const stub = env.MATCH_ROOM.getByName(matchId)
   await stub.initialize({ ...request, matchId, controlSecret, createdAt })
@@ -137,21 +129,6 @@ test('rejects lifecycle and terminal bundle corruption', async () => {
 
   await runInDurableObject(stub, (_room, state) => {
     const storage = new MatchStorage(state.storage)
-    const terminal = state.storage.sql
-      .exec<{ accepted_at: number }>(
-        `SELECT accepted_at FROM protocol_entries WHERE entry_type = 'match-ended'`,
-      )
-      .one()
-    state.storage.sql.exec(
-      `UPDATE protocol_entries SET accepted_at = ? WHERE entry_type = 'match-ended'`,
-      terminal.accepted_at + 1,
-    )
-    expect(() => storage.readFinalizingTransfer()).toThrow('protocol_entries storage corruption')
-    state.storage.sql.exec(
-      `UPDATE protocol_entries SET accepted_at = ? WHERE entry_type = 'match-ended'`,
-      terminal.accepted_at,
-    )
-
     const finalState = state.storage.sql
       .exec<{ final_state_json: string }>('SELECT final_state_json FROM active_matches')
       .one().final_state_json

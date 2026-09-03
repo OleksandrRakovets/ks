@@ -1,7 +1,7 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "79d5cf27-7d72-4aa0-9884-d2703b0a8ef0",
+  "id": "23b47149-03c9-4d56-bba2-c776bd16c664",
   "prevIds": ["00000000-0000-0000-0000-000000000000"],
   "ddl": [
     {
@@ -10,10 +10,6 @@
     },
     {
       "name": "commands",
-      "entityType": "tables"
-    },
-    {
-      "name": "protocol_entries",
       "entityType": "tables"
     },
     {
@@ -167,126 +163,6 @@
       "table": "commands"
     },
     {
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "accepted_seq",
-      "entityType": "columns",
-      "table": "protocol_entries"
-    },
-    {
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "entry_index",
-      "entityType": "columns",
-      "table": "protocol_entries"
-    },
-    {
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "caused_by_command_id",
-      "entityType": "columns",
-      "table": "protocol_entries"
-    },
-    {
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "accepted_at",
-      "entityType": "columns",
-      "table": "protocol_entries"
-    },
-    {
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "game_key",
-      "entityType": "columns",
-      "table": "protocol_entries"
-    },
-    {
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "frame_index",
-      "entityType": "columns",
-      "table": "protocol_entries"
-    },
-    {
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "source",
-      "entityType": "columns",
-      "table": "protocol_entries"
-    },
-    {
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "entry_type",
-      "entityType": "columns",
-      "table": "protocol_entries"
-    },
-    {
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "seat",
-      "entityType": "columns",
-      "table": "protocol_entries"
-    },
-    {
-      "type": "integer",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "score_a",
-      "entityType": "columns",
-      "table": "protocol_entries"
-    },
-    {
-      "type": "integer",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "score_b",
-      "entityType": "columns",
-      "table": "protocol_entries"
-    },
-    {
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "body_json",
-      "entityType": "columns",
-      "table": "protocol_entries"
-    },
-    {
       "columns": ["match_id"],
       "tableTo": "active_matches",
       "columnsTo": ["match_id"],
@@ -296,24 +172,6 @@
       "name": "fk_commands_match_id_active_matches_match_id_fk",
       "entityType": "fks",
       "table": "commands"
-    },
-    {
-      "columns": ["caused_by_command_id", "accepted_seq"],
-      "tableTo": "commands",
-      "columnsTo": ["command_id", "accepted_seq"],
-      "onUpdate": "NO ACTION",
-      "onDelete": "NO ACTION",
-      "nameExplicit": false,
-      "name": "fk_protocol_entries_caused_by_command_id_accepted_seq_commands_command_id_accepted_seq_fk",
-      "entityType": "fks",
-      "table": "protocol_entries"
-    },
-    {
-      "columns": ["accepted_seq", "entry_index"],
-      "nameExplicit": false,
-      "name": "protocol_entries_pk",
-      "entityType": "pks",
-      "table": "protocol_entries"
     },
     {
       "columns": ["match_id"],
@@ -337,20 +195,6 @@
       "table": "commands"
     },
     {
-      "columns": ["command_id", "accepted_seq"],
-      "nameExplicit": true,
-      "name": "commands_id_seq_unique",
-      "entityType": "uniques",
-      "table": "commands"
-    },
-    {
-      "columns": ["caused_by_command_id", "entry_index"],
-      "nameExplicit": true,
-      "name": "protocol_entries_command_index_unique",
-      "entityType": "uniques",
-      "table": "protocol_entries"
-    },
-    {
       "value": "(\"status\" = 'active' AND \"final_state_json\" IS NULL AND \"ended_at\" IS NULL) OR (\"status\" = 'finalizing' AND \"final_state_json\" IS NOT NULL AND \"ended_at\" IS NOT NULL)",
       "name": "active_matches_terminal_fields",
       "entityType": "checks",
@@ -361,12 +205,6 @@
       "name": "commands_outcome_fields",
       "entityType": "checks",
       "table": "commands"
-    },
-    {
-      "value": "\"entry_index\" >= 0",
-      "name": "protocol_entries_nonnegative_index",
-      "entityType": "checks",
-      "table": "protocol_entries"
     }
   ],
   "renames": []

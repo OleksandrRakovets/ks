@@ -7,6 +7,7 @@ import { Broadcaster } from './live/broadcaster'
 import { ActiveMatch } from './match/active-match'
 import { FinalizingMatch } from './match/finalizing-match'
 import { initializeMatch, type InitializeMatchInput } from './match/initialize-match'
+import { MatchResident } from './match/match-resident'
 import { MatchStorage } from './storage/match-storage'
 
 const FINALIZED_ROOM_RETENTION_MS = 10 * 60 * 1000
@@ -16,14 +17,16 @@ export class MatchRoom extends DurableObject<Env> {
   readonly #broadcaster: Broadcaster
   readonly #activeMatch: ActiveMatch
   readonly #finalizingMatch: FinalizingMatch
+  readonly #resident: MatchResident
   #disposed = false
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
     this.#storage = new MatchStorage(ctx.storage)
     this.#broadcaster = new Broadcaster()
-    this.#activeMatch = new ActiveMatch(this.#storage, this.#broadcaster)
-    this.#finalizingMatch = new FinalizingMatch(this.#storage, this.#broadcaster)
+    this.#resident = new MatchResident(this.#storage)
+    this.#activeMatch = new ActiveMatch(this.#storage, this.#broadcaster, this.#resident)
+    this.#finalizingMatch = new FinalizingMatch(this.#storage, this.#broadcaster, this.#resident)
     ctx.blockConcurrencyWhile(async () => {
       this.#storage.migrate()
     })
@@ -63,7 +66,7 @@ export class MatchRoom extends DurableObject<Env> {
       if ((await this.ctx.storage.getAlarm()) === null) {
         await this.ctx.storage.setAlarm(nowUnixEpochMilliseconds() + FINALIZED_ROOM_RETENTION_MS)
       }
-      this.#activeMatch.clearResident()
+      this.#resident.clear()
     })
   }
 
