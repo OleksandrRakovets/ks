@@ -1,5 +1,5 @@
-import type { Control, MatchCommand } from '@ks/core'
-import { type StrilaBall, type StrilaControlProjection, StrilaMeta } from '@ks/gameplay/definitions'
+import { type Control, groupControlsIntoSections, type MatchCommand } from '@ks/core'
+import { type StrilaBall, type StrilaGamePresentation, StrilaMeta } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
 import type { TFunction } from 'i18next'
 import { useState } from 'react'
@@ -38,7 +38,7 @@ export function StrilaScoreMarkers(props: { balls: readonly StrilaBall[]; align:
   )
 }
 
-type SeatControls = MatchControlRendererProps<StrilaControlProjection>['controlSections']['primary']
+type SeatControls = ReturnType<typeof groupControlsIntoSections>['primary']
 
 function strilaCommandLabel(t: TFunction, command: Control, index: number): string {
   if (command.type !== 'penalty.select') return controlLabel(t, command)
@@ -123,12 +123,12 @@ function NeutralControlRows(props: {
   )
 }
 
-export function StrilaControlRenderer(props: MatchControlRendererProps<StrilaControlProjection>) {
+export function StrilaControlRenderer(props: MatchControlRendererProps<StrilaGamePresentation>) {
   const [selectedBalls, setSelectedBalls] = useState<StrilaBall[]>([])
   const [showTertiary, setShowTertiary] = useState(false)
   const { t } = useTranslation()
 
-  const controlSections = props.controlSections
+  const controlSections = groupControlsIntoSections(props.controls)
   const hasNeutral = controlSections.neutral.length > 0
 
   function submitCommand(command: MatchCommand) {
@@ -136,7 +136,7 @@ export function StrilaControlRenderer(props: MatchControlRendererProps<StrilaCon
     props.onSubmitCommand(command)
   }
 
-  const details = props.projection.details
+  const details = props.game.details
   const hasPrimary = controlSections.primary.A.length > 0 || controlSections.primary.B.length > 0
   const hasSecondary = controlSections.secondary.A.length > 0 || controlSections.secondary.B.length > 0
   const hasTertiary = controlSections.tertiary.A.length > 0 || controlSections.tertiary.B.length > 0

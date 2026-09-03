@@ -1,15 +1,16 @@
 import { expect, test } from 'bun:test'
 
+import { groupControlsIntoSections } from '@ks/core'
+
 import { createInitialSnapshot, sendEvent } from '../machine'
 import { deriveStrilaControlProjection } from './control'
 
 test('projects exact open-play controls and selectable balls', () => {
   const snapshot = sendEvent(createInitialSnapshot({ A: 9, B: 9 }), { type: 'frame.commence', seat: 'A' })
-  const control = deriveStrilaControlProjection(snapshot)
+  const controlProjection = deriveStrilaControlProjection(snapshot)
 
-  expect(control).toMatchObject({
+  expect(controlProjection.game).toMatchObject({
     gameKey: 'strila-v2',
-    projection: 'control',
     score: { A: 0, B: 0 },
     details: {
       phase: 'open-play',
@@ -30,7 +31,7 @@ test('projects exact open-play controls and selectable balls', () => {
       messages: [],
     },
   })
-  expect(control.details.controlSections).toEqual({
+  expect(groupControlsIntoSections(controlProjection.controls)).toEqual({
     primary: {
       A: [{ source: 'game', type: 'pot.record', fixedInput: {}, seat: 'A', prominence: 'primary' }],
       B: [{ source: 'game', type: 'pot.record', fixedInput: {}, seat: 'B', prominence: 'primary' }],
@@ -44,13 +45,13 @@ test('projects exact open-play controls and selectable balls', () => {
   })
 
   // SAFETY: deliberately bypass readonly to verify the projection does not share machine state.
-  const score = control.score as { A: number; B: number }
+  const score = controlProjection.game.score as { A: number; B: number }
   // SAFETY: deliberately bypass readonly to verify the projection does not share machine state.
-  const ballStatuses = control.details.ballStatuses as { 1: 'object' | 'on-table' | 'potted' }
+  const ballStatuses = controlProjection.game.details.ballStatuses as { 1: 'object' | 'on-table' | 'potted' }
   score.A = 99
   ballStatuses[1] = 'potted'
-  expect(deriveStrilaControlProjection(snapshot).score.A).toBe(0)
-  expect(deriveStrilaControlProjection(snapshot).details.ballStatuses[1]).toBe('object')
+  expect(deriveStrilaControlProjection(snapshot).game.score.A).toBe(0)
+  expect(deriveStrilaControlProjection(snapshot).game.details.ballStatuses[1]).toBe('object')
 })
 
 test('projects potted balls in acceptance order for each seat', () => {
@@ -59,7 +60,7 @@ test('projects potted balls in acceptance order for each seat', () => {
   snapshot = sendEvent(snapshot, { type: 'pot.record', seat: 'B', pottedBalls: [2] })
   snapshot = sendEvent(snapshot, { type: 'pot.record', seat: 'A', pottedBalls: [3] })
 
-  const control = deriveStrilaControlProjection(snapshot)
-  expect(control.details.pottedBallsBySeat).toEqual({ A: [0, 1, 3], B: [2] })
-  expect(control.details.pottedBallsBySeat).toBe(snapshot.context.pottedBallsBySeat)
+  const controlProjection = deriveStrilaControlProjection(snapshot)
+  expect(controlProjection.game.details.pottedBallsBySeat).toEqual({ A: [0, 1, 3], B: [2] })
+  expect(controlProjection.game.details.pottedBallsBySeat).toBe(snapshot.context.pottedBallsBySeat)
 })

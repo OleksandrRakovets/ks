@@ -1,8 +1,8 @@
-import { BySeatNumber, ControlSections, GameProtocolEntry, NonEmptyString, Seat } from '@ks/core'
+import { BySeatNumber, GameProtocolEntry, NonEmptyString, Seat } from '@ks/core'
 import * as v from 'valibot'
 
 import { FoulCommitCommand, FrameAwardCommand, FrameCommenceCommand } from '../command-schemas'
-import { GameControlProjection } from '../constants'
+import { GamePresentation } from '../constants'
 
 const CueBall = v.literal(0)
 const ColoredBall = v.union([
@@ -123,7 +123,7 @@ const ControlMessage = v.pipe(
 )
 type ControlMessage = v.InferOutput<typeof ControlMessage>
 
-const StrilaControlProjectionDetails = v.pipe(
+const StrilaGamePresentationDetails = v.pipe(
   v.object({
     phase: StrilaPhase,
     seat: v.optional(Seat),
@@ -132,23 +132,22 @@ const StrilaControlProjectionDetails = v.pipe(
     isPotCommandAvailable: v.boolean(),
     ballStatuses: StrilaBallStatuses,
     pottedBallsBySeat: PottedBallsBySeat,
-    controlSections: ControlSections,
     messages: v.pipe(v.array(ControlMessage), v.readonly()),
   }),
   v.readonly(),
 )
-export type StrilaControlProjectionDetails = v.InferOutput<typeof StrilaControlProjectionDetails>
+export type StrilaGamePresentationDetails = v.InferOutput<typeof StrilaGamePresentationDetails>
 
-export const StrilaControlProjection = v.pipe(
+export const StrilaGamePresentation = v.pipe(
   v.object({
-    ...GameControlProjection.entries,
+    ...GamePresentation.entries,
     gameKey: v.literal('strila-v2'),
     score: BySeatNumber,
-    details: StrilaControlProjectionDetails,
+    details: StrilaGamePresentationDetails,
   }),
   v.readonly(),
 )
-export type StrilaControlProjection = v.InferOutput<typeof StrilaControlProjection>
+export type StrilaGamePresentation = v.InferOutput<typeof StrilaGamePresentation>
 
 const AutomaticFoulReason = v.picklist([
   'third-consecutive-cue-ball-pot',

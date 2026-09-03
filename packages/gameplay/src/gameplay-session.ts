@@ -1,7 +1,8 @@
 import type { BySeatNumber, FrameOutcome, GameProtocolEntry, Seat } from '@ks/core'
 import * as v from 'valibot'
 
-import type { ControlProjectionFor, GameCommandFor, RegisteredGameKey } from './registry'
+import type { GameControl } from './constants'
+import type { GameCommandFor, GamePresentationFor, RegisteredGameKey } from './registry'
 
 export const GameCommandRejection = v.pipe(
   v.object({ code: v.literal('command-not-available') }),
@@ -43,8 +44,8 @@ export interface GameplaySession<K extends RegisteredGameKey> {
   /** Reports machine commencement availability; competition remains authoritative for the scheduled breaker. */
   canCommence(seat: Seat): boolean
 
-  /** @returns A fresh keyed browser control projection for the current snapshot. */
-  deriveControl(): ControlProjectionFor<K>
+  /** Coherently derives game presentation and its flat controls from the same resident snapshot. */
+  deriveControls(): { readonly game: GamePresentationFor<K>; readonly controls: readonly GameControl[] }
 }
 
 export const commandNotAvailable = (): GameCommandExecution => ({

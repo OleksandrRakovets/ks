@@ -1,14 +1,13 @@
 import { type CreateMatchRequest, type MatchStateFor } from '@ks/competition'
 import {
-  type ControlSections,
-  emptyControlSections,
+  type Control,
   type HydratedMatchParticipant,
   type MatchCommand,
   type MatchId,
   type PlayerRef,
   type UnixEpochMilliseconds,
 } from '@ks/core'
-import { type ControlProjectionFor, type RegisteredGameKey, registry } from '@ks/gameplay/definitions'
+import { type GamePresentationFor, type RegisteredGameKey, registry } from '@ks/gameplay/definitions'
 import type { SupportedLocale } from '@ks/i18n'
 import * as v from 'valibot'
 
@@ -72,8 +71,8 @@ type ReadKeyedMatchSuccess<K extends RegisteredGameKey> = {
   state: MatchStateFor<K>
   latestSeq: number
   participants: HydratedMatchParticipants
-  controlProjection?: ControlProjectionFor<K>
-  controlSections?: ControlSections
+  game?: GamePresentationFor<K>
+  controls: readonly Control[]
 }
 type ReadKeyedMatchResult<K extends RegisteredGameKey> = ReadKeyedMatchSuccess<K> | ReadMatchFailure
 
@@ -168,10 +167,11 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
       state: { ...roomResult.state, gameKey: expectedGameKey },
       latestSeq: roomResult.latestSeq,
       participants: await hydrateParticipants(record, locale),
-      controlSections: roomResult.controlSections,
+      controls: roomResult.controls,
     }
-    if (roomResult.controlProjection !== undefined) {
-      result.controlProjection = roomResult.controlProjection
+    if (roomResult.game !== undefined) {
+      // SAFETY: the preceding MatchRoom state key check correlates its game presentation with expectedGameKey.
+      result.game = roomResult.game as GamePresentationFor<K>
     }
     return result
   }
@@ -183,10 +183,11 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
   ): Promise<ReadMatchControlResult<K>> {
     const match = await readKeyedMatch(matchId, locale, expectedGameKey)
     if (!match.ok) return match
-    const controlSections = match.controlSections ?? emptyControlSections()
-    return match.controlProjection
-      ? { ...match, controlState: 'frame-active', controlProjection: match.controlProjection, controlSections }
-      : { ...match, controlState: 'between-frames', controlSections }
+    const { game: _game, ...withoutGame } = match
+    if (match.state.status === 'finished') return { ...withoutGame, controlState: 'finished', controls: [] }
+    return match.game
+      ? { ...match, controlState: 'frame-active', game: match.game, controls: match.controls }
+      : { ...withoutGame, controlState: 'between-frames', controls: match.controls }
   }
 
   async function submitMatchCommand<K extends RegisteredGameKey>(
@@ -306,6 +307,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
       state: { ...state, gameKey: expectedGameKey },
       latestSeq: archive.sourceLatestSeq,
       participants: await hydrateParticipants(record, locale),
+      controls: [],
     }
   }
 

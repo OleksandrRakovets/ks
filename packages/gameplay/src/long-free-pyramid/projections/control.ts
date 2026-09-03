@@ -1,17 +1,17 @@
 import { type Seat } from '@ks/core'
 
-import { deriveGameControlSections } from '../../constants'
+import type { GameControlProjection } from '../../constants'
 import { ballsOnTableFromRacks, currentRack, removedByRack, totalScore } from '../calculations'
-import type { LongFreePyramidControlProjection, LongFreePyramidControlProjectionState } from '../definitions'
+import type { LongFreePyramidGamePresentation, LongFreePyramidGamePresentationState } from '../definitions'
 import { getPhase, type LongFreePyramidSparringFrameSnapshot } from '../machine'
 
 export function deriveLongFreePyramidControlProjection(
   snapshot: LongFreePyramidSparringFrameSnapshot,
-): LongFreePyramidControlProjection {
+): GameControlProjection<LongFreePyramidGamePresentation> {
   const phase = getPhase(snapshot)
   const ballsOnTable = ballsOnTableFromRacks(snapshot.context.racks)
   const rack = currentRack(snapshot.context.racks)
-  const details: LongFreePyramidControlProjectionState = {
+  const details: LongFreePyramidGamePresentationState = {
     phase,
     winner: snapshot.context.winner ?? undefined,
     rackHistory: snapshot.context.racks.map((entry) => ({ ...entry, scoreBySeat: { ...entry.scoreBySeat } })),
@@ -81,13 +81,14 @@ export function deriveLongFreePyramidControlProjection(
   const isPotCommandAvailable = phase === 'open-play' || phase === 'winner-determined'
 
   return {
-    gameKey: 'free-pyramid-long',
-    projection: 'control',
-    score: totalScore(snapshot.context.racks),
-    details: {
-      ...details,
-      isPotCommandAvailable: isPotCommandAvailable && ballsOnTable > 0,
-      controlSections: deriveGameControlSections(controls),
+    game: {
+      gameKey: 'free-pyramid-long',
+      score: totalScore(snapshot.context.racks),
+      details: {
+        ...details,
+        isPotCommandAvailable: isPotCommandAvailable && ballsOnTable > 0,
+      },
     },
+    controls,
   }
 }

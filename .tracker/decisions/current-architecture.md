@@ -26,11 +26,13 @@ core <- gameplay <- competition
 ```
 
 - `core` defines shared IDs, schemas, seats, Protocol values, and generic contracts.
-- `gameplay` defines registered games, frame machines, commands, and control projections.
+- `gameplay` defines registered games, frame machines, commands, and coherent derivation of separate game presentation and flat controls.
 - `competition` defines sparring lifecycle, match execution, restoration, and room projection.
 - `application` and MatchRoom consume the domain independently. Application has only a type-only dependency on MatchRoom for its private RPC capability.
 
 Game keys come from `packages/gameplay/src/registry.ts`. Each game has explicit control and protocol routes. Commands share the `game` path, while gameplay owns their semantics.
+
+Competition composes match controls before game controls into one flat list. MatchRoom returns each coherent resident projection as match state, optional correlated game presentation, and flat controls. Application preserves those shapes and lifecycle arms; Play alone groups controls into stable presentation sections for layout. MatchRoom RPC is a trusted typed capability and does not reparse these values at that seam.
 
 ### Schema Conventions
 

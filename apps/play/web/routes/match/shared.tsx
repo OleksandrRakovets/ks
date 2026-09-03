@@ -344,20 +344,12 @@ function matchControlLabel(t: TFunction, control: Control): string {
 }
 
 export function BetweenFrameControls(props: {
-  sections: ControlSuccess<RegisteredGameKey>['controlSections']
+  controls: readonly Control[]
   submitting: boolean
   onSubmit: (command: MatchCommand) => void
 }) {
   const { t } = useTranslation()
-  const controls = [
-    ...props.sections.neutral,
-    ...props.sections.primary.A,
-    ...props.sections.primary.B,
-    ...props.sections.secondary.A,
-    ...props.sections.secondary.B,
-    ...props.sections.tertiary.A,
-    ...props.sections.tertiary.B,
-  ].filter((control) => control.source === 'match')
+  const controls = props.controls.filter((control) => control.source === 'match')
   return (
     <section aria-label={t(keys.match.control.perGameContainer)} className="border-b border-divider px-4 py-3">
       <div className="mx-auto grid w-2/3 gap-3.5">

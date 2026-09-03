@@ -65,7 +65,7 @@ describe('gameplay characterization', () => {
     const pyramid = createGameplaySession('free-pyramid', { targetPointsBySeat: { A: 1, B: 8 } })
     expectAccepted(pyramid.execute({ type: 'frame.commence', seat: 'A' }))
     expectAccepted(pyramid.execute({ type: 'pot.record', seat: 'A', pottedBallCount: 1 }))
-    expect(pyramid.deriveControl().details.phase).toBe('winner-determined')
+    expect(pyramid.deriveControls().game.details.phase).toBe('winner-determined')
     expectAccepted(pyramid.execute({ type: 'pot.record', seat: 'A', pottedBallCount: 1 }))
     expect(pyramid.getScore()).toEqual({ A: 2, B: 0 })
     const awarded = expectAccepted(pyramid.execute({ type: 'frame.award', seat: 'A' }))
@@ -77,14 +77,14 @@ describe('gameplay characterization', () => {
     })
     expectAccepted(long.execute({ type: 'frame.commence', seat: 'A' }))
     expectAccepted(long.execute({ type: 'pot.record', seat: 'A', pottedBallCount: 1 }))
-    expect(long.deriveControl().details.phase).toBe('winner-determined')
+    expect(long.deriveControls().game.details.phase).toBe('winner-determined')
     expectAccepted(long.execute({ type: 'pot.record', seat: 'A', pottedBallCount: 1 }))
     expect(long.getScore()).toEqual({ A: 2, B: 0 })
 
     const strila = createGameplaySession('strila-v2', { targetPointsBySeat: { A: 1, B: 9 } })
     expectAccepted(strila.execute({ type: 'frame.commence', seat: 'A' }))
     expectAccepted(strila.execute({ type: 'pot.record', seat: 'A', pottedBalls: [1] }))
-    expect(strila.deriveControl().details.phase).toBe('winner-determined')
+    expect(strila.deriveControls().game.details.phase).toBe('winner-determined')
     expectAccepted(strila.execute({ type: 'pot.record', seat: 'A', pottedBalls: [2] }))
     expect(strila.getScore()).toEqual({ A: 4, B: 0 })
   })
@@ -99,26 +99,26 @@ describe('gameplay characterization', () => {
       expectAccepted(session.execute({ type: 'pot.record', seat: 'A', pottedBallCount }))
     }
 
-    const control = session.deriveControl()
+    const controlProjection = session.deriveControls()
     expect(session.getScore()).toEqual({ A: 14, B: 0 })
-    expect(control.details.ballsOnTable).toBe(16)
-    expect(control.details.rackHistory).toEqual([
+    expect(controlProjection.game.details.ballsOnTable).toBe(16)
+    expect(controlProjection.game.details.rackHistory).toEqual([
       { rackNumber: 1, scoreBySeat: { A: 14, B: 0 } },
       { rackNumber: 2, scoreBySeat: { A: 0, B: 0 } },
     ])
-    expect(control.details.messages).toEqual([{ code: 'rack-started', rackNumber: 2 }])
+    expect(controlProjection.game.details.messages).toEqual([{ code: 'rack-started', rackNumber: 2 }])
   })
 
   test('rejected commands retain state and produce no protocol entries', () => {
     const session = createGameplaySession('free-pyramid', { targetPointsBySeat: { A: 8, B: 8 } })
     expectAccepted(session.execute({ type: 'frame.commence', seat: 'A' }))
     const score = session.getScore()
-    const control = session.deriveControl()
+    const controlProjection = session.deriveControls()
     expect(session.execute({ type: 'pot.record', seat: 'A', pottedBallCount: 3 })).toEqual({
       _tag: 'rejected',
       reason: { code: 'command-not-available' },
     })
     expect(session.getScore()).toEqual(score)
-    expect(session.deriveControl()).toEqual(control)
+    expect(session.deriveControls()).toEqual(controlProjection)
   })
 })

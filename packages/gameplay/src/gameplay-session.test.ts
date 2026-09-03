@@ -3,45 +3,45 @@ import { describe, expect, test } from 'bun:test'
 import { FrameOutcome, GameProtocolEntry } from '@ks/core'
 import * as v from 'valibot'
 
-import { LongFreePyramidControlProjection } from './long-free-pyramid/definitions'
+import { LongFreePyramidGamePresentation } from './long-free-pyramid/definitions'
 import {
-  CombinedPyramidControlProjection,
-  CombinedPyramidOldControlProjection,
-  FreePyramidControlProjection,
+  CombinedPyramidGamePresentation,
+  CombinedPyramidOldGamePresentation,
+  FreePyramidGamePresentation,
 } from './pyramid/definitions'
 import { createGameplaySession } from './session-factory'
-import { StrilaControlProjection } from './strila-v2/definitions'
+import { StrilaGamePresentation } from './strila-v2/definitions'
 
 const scenarios = [
   {
     gameKey: 'strila-v2',
     create: () => createGameplaySession('strila-v2', { targetPointsBySeat: { A: 1, B: 1 } }),
-    controlSchema: StrilaControlProjection,
+    presentationSchema: StrilaGamePresentation,
     score: () => ({ type: 'pot.record' as const, seat: 'A' as const, pottedBalls: [0] }),
   },
   {
     gameKey: 'free-pyramid',
     create: () => createGameplaySession('free-pyramid', { targetPointsBySeat: { A: 1, B: 1 } }),
-    controlSchema: FreePyramidControlProjection,
+    presentationSchema: FreePyramidGamePresentation,
     score: () => ({ type: 'pot.record' as const, seat: 'A' as const, pottedBallCount: 1 }),
   },
   {
     gameKey: 'free-pyramid-long',
     create: () =>
       createGameplaySession('free-pyramid-long', { targetPointsBySeat: { A: 1, B: 1 }, rackRollover: 14 }),
-    controlSchema: LongFreePyramidControlProjection,
+    presentationSchema: LongFreePyramidGamePresentation,
     score: () => ({ type: 'pot.record' as const, seat: 'A' as const, pottedBallCount: 1 as const }),
   },
   {
     gameKey: 'combined-pyramid',
     create: () => createGameplaySession('combined-pyramid', { targetPointsBySeat: { A: 1, B: 1 } }),
-    controlSchema: CombinedPyramidControlProjection,
+    presentationSchema: CombinedPyramidGamePresentation,
     score: () => ({ type: 'pot.record' as const, seat: 'A' as const, pottedBallCount: 1 }),
   },
   {
     gameKey: 'combined-pyramid-old',
     create: () => createGameplaySession('combined-pyramid-old', { targetPointsBySeat: { A: 1, B: 1 } }),
-    controlSchema: CombinedPyramidOldControlProjection,
+    presentationSchema: CombinedPyramidOldGamePresentation,
     score: () => ({ type: 'pot.record' as const, seat: 'A' as const, pottedBallCount: 1 }),
   },
 ] as const
@@ -52,7 +52,7 @@ describe('GameplaySession', () => {
       const session = scenario.create()
       expect(session.gameKey).toBe(scenario.gameKey)
       expect(session.canCommence('A')).toBe(true)
-      expect(v.is(scenario.controlSchema, session.deriveControl())).toBe(true)
+      expect(v.is(scenario.presentationSchema, session.deriveControls().game)).toBe(true)
 
       const initial = session.getScore()
       // SAFETY: deliberately bypass readonly to verify callers cannot mutate resident session state.
@@ -68,13 +68,13 @@ describe('GameplaySession', () => {
       }
 
       const scoreBeforeRejection = session.getScore()
-      const controlBeforeRejection = session.deriveControl()
+      const controlsBeforeRejection = session.deriveControls()
       expect(session.execute({ type: 'frame.commence', seat: 'B' })).toEqual({
         _tag: 'rejected',
         reason: { code: 'command-not-available' },
       })
       expect(session.getScore()).toEqual(scoreBeforeRejection)
-      expect(session.deriveControl()).toEqual(controlBeforeRejection)
+      expect(session.deriveControls()).toEqual(controlsBeforeRejection)
 
       // SAFETY: each scenario creates the session and score command for the same literal game key.
       const scored = session.execute(scenario.score() as never)
@@ -83,7 +83,7 @@ describe('GameplaySession', () => {
       expect(terminal._tag).toBe('accepted')
       if (terminal._tag === 'accepted') expect(v.is(FrameOutcome, terminal.outcome)).toBe(true)
 
-      expect(session.deriveControl()).not.toBe(session.deriveControl())
+      expect(session.deriveControls()).not.toBe(session.deriveControls())
       expect(session.getScore()).not.toBe(session.getScore())
 
       const replay = scenario.create()
@@ -92,7 +92,7 @@ describe('GameplaySession', () => {
       expect(replay.execute(scenario.score() as never)).toEqual(scored)
       expect(replay.execute({ type: 'frame.award', seat: 'A' })).toEqual(terminal)
       expect(replay.getScore()).toEqual(session.getScore())
-      expect(replay.deriveControl()).toEqual(session.deriveControl())
+      expect(replay.deriveControls()).toEqual(session.deriveControls())
     })
   }
 })

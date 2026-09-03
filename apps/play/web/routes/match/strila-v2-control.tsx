@@ -33,11 +33,8 @@ export default function StrilaV2ControlRoute() {
   const markLocalSubmit = useControlLiveRevalidation(data.state, data.latestSeq, fetcher)
   const snapshotFrame = data.state.frames[data.state.currentFrameIndex - 1]
   const frameScore =
-    data.controlState === 'frame-active'
-      ? data.controlProjection.score
-      : (snapshotFrame?.pointsBySeat ?? { A: 0, B: 0 })
-  const pottedBalls =
-    data.controlState === 'frame-active' ? data.controlProjection.details.pottedBallsBySeat : null
+    data.controlState === 'frame-active' ? data.game.score : (snapshotFrame?.pointsBySeat ?? { A: 0, B: 0 })
+  const pottedBalls = data.controlState === 'frame-active' ? data.game.details.pottedBallsBySeat : null
 
   function submitCommand(command: MatchCommand) {
     markLocalSubmit()
@@ -72,21 +69,21 @@ export default function StrilaV2ControlRoute() {
       {data.controlState === 'frame-active' ? (
         <section aria-label={t(keys.match.control.perGameContainer)} className="flex flex-col">
           <StrilaControlRenderer
-            projection={data.controlProjection}
-            controlSections={data.controlSections}
+            game={data.game}
+            controls={data.controls}
             state={data.state}
             participants={data.participants}
             submitting={fetcher.state === 'submitting'}
             onSubmitCommand={submitCommand}
           />
         </section>
-      ) : (
+      ) : data.controlState === 'between-frames' ? (
         <BetweenFrameControls
-          sections={data.controlSections}
+          controls={data.controls}
           submitting={fetcher.state === 'submitting'}
           onSubmit={submitCommand}
         />
-      )}
+      ) : null}
       {fetcher.data?.ok === false ? (
         <p className="px-4 py-2 text-base text-destructive">{t(fetcher.data.errorKey)}</p>
       ) : null}

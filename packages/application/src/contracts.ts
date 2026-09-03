@@ -1,12 +1,12 @@
 import { MatchCreationDefinition, type MatchStateFor, type SparringMatchRejection } from '@ks/competition'
 import type {
-  ControlSections,
+  Control,
   HydratedMatchParticipants,
   MatchCommand,
   MatchId,
   UnixEpochMilliseconds,
 } from '@ks/core'
-import type { ControlProjectionFor, RegisteredGameKey } from '@ks/gameplay/definitions'
+import type { GamePresentationFor, RegisteredGameKey } from '@ks/gameplay/definitions'
 import type { SupportedLocale } from '@ks/i18n'
 import * as v from 'valibot'
 
@@ -56,13 +56,14 @@ export type MatchListEntry = Readonly<{
 export type ReadMatchFailure = { readonly ok: false; readonly error: string; readonly status: number }
 
 export type ReadMatchControlResult<K extends RegisteredGameKey> =
+  /** A prepared gameplay frame is frame-active even before it has commenced. */
   | {
       readonly ok: true
       readonly controlState: 'frame-active'
       readonly state: MatchStateFor<K>
       readonly latestSeq: number
-      readonly controlProjection: ControlProjectionFor<K>
-      readonly controlSections: ControlSections
+      readonly game: GamePresentationFor<K>
+      readonly controls: readonly Control[]
       readonly participants: HydratedMatchParticipants
     }
   | {
@@ -70,7 +71,17 @@ export type ReadMatchControlResult<K extends RegisteredGameKey> =
       readonly controlState: 'between-frames'
       readonly state: MatchStateFor<K>
       readonly latestSeq: number
-      readonly controlSections: ControlSections
+      readonly game?: never
+      readonly controls: readonly Control[]
+      readonly participants: HydratedMatchParticipants
+    }
+  | {
+      readonly ok: true
+      readonly controlState: 'finished'
+      readonly state: MatchStateFor<K>
+      readonly latestSeq: number
+      readonly game?: never
+      readonly controls: readonly []
       readonly participants: HydratedMatchParticipants
     }
   | ReadMatchFailure

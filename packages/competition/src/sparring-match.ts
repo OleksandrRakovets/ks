@@ -1,8 +1,6 @@
 import {
   type AcceptedCommandHistoryEntry,
   type Control,
-  type ControlSections,
-  emptyControlSections,
   type FrameOutcome,
   type FrameState,
   type MatchCommand,
@@ -13,7 +11,7 @@ import {
   type ProtocolEntryContent,
   Seat,
 } from '@ks/core'
-import { type ControlProjectionFor, RegisteredGameKey } from '@ks/gameplay/definitions'
+import { type GamePresentationFor, RegisteredGameKey } from '@ks/gameplay/definitions'
 import type { GameCommandFor } from '@ks/gameplay/definitions'
 import { GameCommandRejection, type GameplaySession, parseGameCommand } from '@ks/gameplay/server'
 import { createGameplaySession } from '@ks/gameplay/server'
@@ -50,11 +48,17 @@ type MatchCommandResult =
       readonly protocolEntryContents: NonEmptyProtocolEntryContents
     }
 
-type SparringMatchRoomProjectionFor<K extends RegisteredGameKey> = {
-  readonly state: MatchStateFor<K>
-  readonly controlProjection: ControlProjectionFor<K> | undefined
-  readonly controlSections: ControlSections
-}
+type SparringMatchRoomProjectionFor<K extends RegisteredGameKey> =
+  | {
+      readonly state: MatchStateFor<K>
+      readonly game: GamePresentationFor<K>
+      readonly controls: readonly Control[]
+    }
+  | {
+      readonly state: MatchStateFor<K>
+      readonly game: undefined
+      readonly controls: readonly Control[]
+    }
 
 export type SparringMatchRoomProjection = {
   [K in RegisteredGameKey]: SparringMatchRoomProjectionFor<K>
@@ -180,16 +184,6 @@ function concedeControl(seat: Seat): Control {
   return { source: 'match', type: 'frame.concede', fixedInput: {}, seat, prominence: 'tertiary' }
 }
 
-function mergeSections(match: ControlSections, game?: ControlSections): ControlSections {
-  const result = emptyControlSections()
-  result.neutral = [...match.neutral, ...(game?.neutral ?? [])]
-  for (const prominence of ['primary', 'secondary', 'tertiary'] as const) {
-    for (const seat of ['A', 'B'] as const)
-      result[prominence][seat] = [...match[prominence][seat], ...(game?.[prominence][seat] ?? [])]
-  }
-  return result
-}
-
 class ResidentSparringMatch implements SparringMatch {
   private snapshot: SparringMatchSnapshot
   private gameplay: AnyCorrelatedGameplay | null
@@ -226,11 +220,12 @@ class ResidentSparringMatch implements SparringMatch {
       breakerSeat: frame.breakerSeat,
       winnerSeat: frame.outcome.winnerSeat,
     }))
-    if (lifecycle.phase === 'frame-in-progress' && this.gameplay) {
+    if (lifecycle.phase === 'frame-in-progress') {
+      const gameplay = requireGameplay(gameKeyOf(lifecycle.config.gameKey), this.gameplay)
       frames.push({
         frameIndex: lifecycle.activeFrame.frameIndex,
         breakerSeat: lifecycle.activeFrame.breakerSeat,
-        pointsBySeat: this.gameplay.session.getScore(),
+        pointsBySeat: gameplay.session.getScore(),
       })
     }
     const currentFrameIndex =
@@ -246,35 +241,40 @@ class ResidentSparringMatch implements SparringMatch {
       framesWonBySeat: lifecycle.framesWonBySeat,
       frames,
     }
-    const matchSections = emptyControlSections()
+    const matchControls: Control[] = []
     if (lifecycle.phase === 'between-frames')
-      matchSections.neutral.push({
+      matchControls.push({
         source: 'match',
         type: 'frame.prepare',
         fixedInput: {},
         prominence: 'secondary',
       })
-    if (lifecycle.phase === 'frame-in-progress' && this.gameplay) {
-      if (this.gameplay.session.canCommence(lifecycle.activeFrame.breakerSeat)) {
-        const seat = lifecycle.activeFrame.breakerSeat
-        matchSections.primary[seat].push({
-          source: 'match',
-          type: 'frame.commence',
-          fixedInput: {},
-          seat,
-          prominence: 'primary',
-        })
-      } else {
-        matchSections.tertiary.A.push(concedeControl('A'))
-        matchSections.tertiary.B.push(concedeControl('B'))
-      }
+    if (lifecycle.phase !== 'frame-in-progress') {
+      // SAFETY: state retains the registered game key parsed from this lifecycle; no gameplay exists in this phase.
+      return { state, game: undefined, controls: matchControls } as SparringMatchRoomProjection
     }
-    const gameControl = this.gameplay?.session.deriveControl()
-    // SAFETY: state and any gameplay control derive from the same authoritative match game key.
+
+    const gameplay = requireGameplay(gameKeyOf(lifecycle.config.gameKey), this.gameplay)
+    if (gameplay.session.canCommence(lifecycle.activeFrame.breakerSeat)) {
+      const seat = lifecycle.activeFrame.breakerSeat
+      matchControls.push({
+        source: 'match',
+        type: 'frame.commence',
+        fixedInput: {},
+        seat,
+        prominence: 'primary',
+      })
+    } else {
+      matchControls.push(concedeControl('A'), concedeControl('B'))
+    }
+    const gameControlProjection = gameplay.session.deriveControls()
+    // Raw order is match-first, not global display order. Stable grouping preserves match-before-game per bucket.
+    const controls = [...matchControls, ...gameControlProjection.controls]
+    // SAFETY: requireGameplay's runtime key check correlates game with the state's registered game key.
     return {
       state,
-      controlProjection: gameControl,
-      controlSections: mergeSections(matchSections, gameControl?.details.controlSections),
+      game: gameControlProjection.game,
+      controls,
     } as SparringMatchRoomProjection
   }
 

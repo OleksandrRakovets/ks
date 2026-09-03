@@ -1,8 +1,8 @@
-import { BySeatNumber, ControlSections, Integer, Seat } from '@ks/core'
+import { BySeatNumber, Integer, Seat } from '@ks/core'
 import * as v from 'valibot'
 
 import { FoulCommitCommand, FrameAwardCommand, FrameCommenceCommand } from '../command-schemas'
-import { GameControlProjection } from '../constants'
+import { GamePresentation } from '../constants'
 
 const LongFreePyramidPottedBallCount = v.picklist([1, 2, 3, 4])
 
@@ -59,7 +59,7 @@ const LongFreePyramidContext = v.pipe(
 )
 export type LongFreePyramidContext = v.InferOutput<typeof LongFreePyramidContext>
 
-const LongFreePyramidControlProjectionState = v.pipe(
+const LongFreePyramidGamePresentationState = v.pipe(
   v.object({
     phase: LongFreePyramidPhase,
     winner: v.optional(Seat),
@@ -71,24 +71,23 @@ const LongFreePyramidControlProjectionState = v.pipe(
   }),
   v.readonly(),
 )
-export type LongFreePyramidControlProjectionState = v.InferOutput<typeof LongFreePyramidControlProjectionState>
+export type LongFreePyramidGamePresentationState = v.InferOutput<typeof LongFreePyramidGamePresentationState>
 
-const LongFreePyramidControlProjectionDetails = v.pipe(
+const LongFreePyramidGamePresentationDetails = v.pipe(
   v.object({
-    ...LongFreePyramidControlProjectionState.entries,
+    ...LongFreePyramidGamePresentationState.entries,
     isPotCommandAvailable: v.boolean(),
-    controlSections: ControlSections,
   }),
   v.readonly(),
 )
-type LongFreePyramidControlProjectionDetails = v.InferOutput<typeof LongFreePyramidControlProjectionDetails>
+type LongFreePyramidGamePresentationDetails = v.InferOutput<typeof LongFreePyramidGamePresentationDetails>
 
-export const LongFreePyramidControlProjection = v.pipe(
+export const LongFreePyramidGamePresentation = v.pipe(
   v.object({
-    ...GameControlProjection.entries,
+    ...GamePresentation.entries,
     gameKey: v.literal('free-pyramid-long'),
-    details: LongFreePyramidControlProjectionDetails,
+    details: LongFreePyramidGamePresentationDetails,
   }),
   v.readonly(),
 )
-export type LongFreePyramidControlProjection = v.InferOutput<typeof LongFreePyramidControlProjection>
+export type LongFreePyramidGamePresentation = v.InferOutput<typeof LongFreePyramidGamePresentation>

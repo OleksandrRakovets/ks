@@ -1,8 +1,8 @@
-import type { Control, ControlSections, MatchCommand } from '@ks/core'
+import { type Control, type ControlSections, groupControlsIntoSections, type MatchCommand } from '@ks/core'
 import type {
-  CombinedPyramidControlProjection,
-  CombinedPyramidOldControlProjection,
-  FreePyramidControlProjection,
+  CombinedPyramidGamePresentation,
+  CombinedPyramidOldGamePresentation,
+  FreePyramidGamePresentation,
 } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
 import type { TFunction } from 'i18next'
@@ -160,24 +160,33 @@ function PyramidControlRenderer(props: {
   )
 }
 
-export function FreePyramidControlRenderer(props: MatchControlRendererProps<FreePyramidControlProjection>) {
+export function FreePyramidControlRenderer(props: MatchControlRendererProps<FreePyramidGamePresentation>) {
   return (
-    <PyramidControlRenderer controlSections={props.controlSections} onSubmitCommand={props.onSubmitCommand} />
+    <PyramidControlRenderer
+      controlSections={groupControlsIntoSections(props.controls)}
+      onSubmitCommand={props.onSubmitCommand}
+    />
   )
 }
 
 export function CombinedPyramidControlRenderer(
-  props: MatchControlRendererProps<CombinedPyramidControlProjection>,
+  props: MatchControlRendererProps<CombinedPyramidGamePresentation>,
 ) {
   return (
-    <PyramidControlRenderer controlSections={props.controlSections} onSubmitCommand={props.onSubmitCommand} />
+    <PyramidControlRenderer
+      controlSections={groupControlsIntoSections(props.controls)}
+      onSubmitCommand={props.onSubmitCommand}
+    />
   )
 }
 
 export function CombinedPyramidOldControlRenderer(
-  props: MatchControlRendererProps<CombinedPyramidOldControlProjection>,
+  props: MatchControlRendererProps<CombinedPyramidOldGamePresentation>,
 ) {
   return (
-    <PyramidControlRenderer controlSections={props.controlSections} onSubmitCommand={props.onSubmitCommand} />
+    <PyramidControlRenderer
+      controlSections={groupControlsIntoSections(props.controls)}
+      onSubmitCommand={props.onSubmitCommand}
+    />
   )
 }

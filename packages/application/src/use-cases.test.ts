@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { emptyControlSections, MatchId, newCommandId, PlayerRef, UnixEpochMilliseconds } from '@ks/core'
+import { MatchId, newCommandId, PlayerRef, UnixEpochMilliseconds } from '@ks/core'
 import * as v from 'valibot'
 
 import type { MatchRoomClient, MatchRoomCompletionTransfer } from './match-room-client'
@@ -162,8 +162,8 @@ describe('trusted MatchRoom orchestration', () => {
         _tag: 'active',
         latestSeq: 0,
         state,
-        controlProjection: undefined,
-        controlSections: emptyControlSections(),
+        game: undefined,
+        controls: [],
       }),
     })
     expect(await application(room).readMatchControl(matchId, 'en', 'free-pyramid')).toMatchObject({
@@ -219,7 +219,9 @@ describe('trusted MatchRoom orchestration', () => {
     })
     expect(await application(room, events).readMatchControl(matchId, 'en', 'free-pyramid')).toMatchObject({
       ok: true,
+      controlState: 'finished',
       state: { status: 'finished' },
+      controls: [],
     })
     expect(events).toEqual(['archive', 'finalize', 'finish'])
   })

@@ -1,5 +1,5 @@
-import type { Control, MatchCommand } from '@ks/core'
-import type { LongFreePyramidControlProjection } from '@ks/gameplay/definitions'
+import { type Control, groupControlsIntoSections, type MatchCommand } from '@ks/core'
+import type { LongFreePyramidGamePresentation } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
 import type { TFunction } from 'i18next'
 import { useState } from 'react'
@@ -10,7 +10,7 @@ import { Button } from '@/components/ui'
 import { controlLabel, potRecordPottedBallCount } from './control-copy'
 import { matchCommandFromControl, type MatchControlRendererProps } from './types'
 
-type SeatControls = MatchControlRendererProps<LongFreePyramidControlProjection>['controlSections']['primary']
+type SeatControls = ReturnType<typeof groupControlsIntoSections>['primary']
 type LabelledLongFreePyramidCommand =
   | { kind: 'pottedBallCount'; command: Control; pottedBallCount: number }
   | { kind: 'command'; command: Control }
@@ -96,11 +96,11 @@ function NeutralControlRows(props: {
 }
 
 export function LongFreePyramidControlRenderer(
-  props: MatchControlRendererProps<LongFreePyramidControlProjection>,
+  props: MatchControlRendererProps<LongFreePyramidGamePresentation>,
 ) {
   const [showTertiary, setShowTertiary] = useState(false)
   const { t } = useTranslation()
-  const controlSections = props.controlSections
+  const controlSections = groupControlsIntoSections(props.controls)
   const hasNeutral = controlSections.neutral.length > 0
   const hasTertiary = controlSections.tertiary.A.length > 0 || controlSections.tertiary.B.length > 0
   const scoringCommands = {

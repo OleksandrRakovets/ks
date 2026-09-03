@@ -28,16 +28,14 @@ export default function FreePyramidLongControlRoute() {
   const markLocalSubmit = useControlLiveRevalidation(data.state, data.latestSeq, fetcher)
   const snapshotFrame = data.state.frames[data.state.currentFrameIndex - 1]
   const frameScore =
-    data.controlState === 'frame-active'
-      ? data.controlProjection.score
-      : (snapshotFrame?.pointsBySeat ?? { A: 0, B: 0 })
-  const rack = data.controlState === 'frame-active' ? data.controlProjection.details.currentRack : null
+    data.controlState === 'frame-active' ? data.game.score : (snapshotFrame?.pointsBySeat ?? { A: 0, B: 0 })
+  const rack = data.controlState === 'frame-active' ? data.game.details.currentRack : null
   const statusLine =
     data.controlState === 'frame-active'
       ? `${data.gameTitle} · ${t(keys.match.control.longFreePyramid.rack, {
           rackNumber: rack?.rackNumber,
         })} · ${t(keys.match.control.longFreePyramid.ballsOnTable, {
-          count: data.controlProjection.details.ballsOnTable,
+          count: data.game.details.ballsOnTable,
         })}`
       : undefined
   function submitCommand(command: MatchCommand) {
@@ -67,21 +65,21 @@ export default function FreePyramidLongControlRoute() {
       {data.controlState === 'frame-active' ? (
         <section aria-label={t(keys.match.control.perGameContainer)} className="flex flex-col">
           <LongFreePyramidControlRenderer
-            projection={data.controlProjection}
-            controlSections={data.controlSections}
+            game={data.game}
+            controls={data.controls}
             state={data.state}
             participants={data.participants}
             submitting={fetcher.state === 'submitting'}
             onSubmitCommand={submitCommand}
           />
         </section>
-      ) : (
+      ) : data.controlState === 'between-frames' ? (
         <BetweenFrameControls
-          sections={data.controlSections}
+          controls={data.controls}
           submitting={fetcher.state === 'submitting'}
           onSubmit={submitCommand}
         />
-      )}
+      ) : null}
       {fetcher.data?.ok === false ? (
         <p className="px-4 py-2 text-base text-destructive">{t(fetcher.data.errorKey)}</p>
       ) : null}

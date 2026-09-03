@@ -1,8 +1,7 @@
-import { emptyControlSections } from '@ks/core'
 import invariant from 'tiny-invariant'
 
-import { deriveGameControlSections, type GameControl } from '../../constants'
-import type { AnyPyramidControlProjection, PyramidControlProjectionFor } from '../definitions'
+import { type GameControl, type GameControlProjection } from '../../constants'
+import type { AnyPyramidGamePresentation, PyramidGamePresentationFor } from '../definitions'
 import { getPhase, type PyramidSparringFrameSnapshot } from '../machine'
 import type { PyramidGameKey, PyramidRulesFor } from '../rules'
 
@@ -16,23 +15,21 @@ function pyramidDetails(snapshot: PyramidSparringFrameSnapshot) {
 export function derivePyramidControlProjection<K extends PyramidGameKey>(
   snapshot: PyramidSparringFrameSnapshot,
   rules: PyramidRulesFor<K>,
-): PyramidControlProjectionFor<K> {
+): GameControlProjection<PyramidGamePresentationFor<K>> {
   const phase = getPhase(snapshot)
   const score = { ...snapshot.context.score }
   if (phase === 'not-started') {
     const projection = {
       gameKey: rules.gameKey,
-      projection: 'control',
       score,
       details: {
         ...pyramidDetails(snapshot),
         situationTitle: 'Break-off',
         situationSummary: 'Waiting for the match to open the frame.',
         isPotCommandAvailable: false,
-        controlSections: emptyControlSections(),
       },
-    } satisfies AnyPyramidControlProjection & { gameKey: K }
-    return projection
+    } satisfies AnyPyramidGamePresentation & { gameKey: K }
+    return { game: projection, controls: [] }
   }
 
   if (phase === 'open-play') {
@@ -59,17 +56,15 @@ export function derivePyramidControlProjection<K extends PyramidGameKey>(
 
     const projection = {
       gameKey: rules.gameKey,
-      projection: 'control',
       score,
       details: {
         ...pyramidDetails(snapshot),
         situationTitle: 'Open play',
         situationSummary: 'Record shot value or foul for either player.',
         isPotCommandAvailable: true,
-        controlSections: deriveGameControlSections(controls),
       },
-    } satisfies AnyPyramidControlProjection & { gameKey: K }
-    return projection
+    } satisfies AnyPyramidGamePresentation & { gameKey: K }
+    return { game: projection, controls }
   }
 
   if (phase === 'winner-determined') {
@@ -96,30 +91,26 @@ export function derivePyramidControlProjection<K extends PyramidGameKey>(
 
     const projection = {
       gameKey: rules.gameKey,
-      projection: 'control',
       score,
       details: {
         ...pyramidDetails(snapshot),
         situationTitle: 'Winner determined',
         situationSummary: 'The winner may continue scoring, or the frame can be awarded now.',
         isPotCommandAvailable: true,
-        controlSections: deriveGameControlSections(controls),
       },
-    } satisfies AnyPyramidControlProjection & { gameKey: K }
-    return projection
+    } satisfies AnyPyramidGamePresentation & { gameKey: K }
+    return { game: projection, controls }
   }
 
   const projection = {
     gameKey: rules.gameKey,
-    projection: 'control',
     score,
     details: {
       ...pyramidDetails(snapshot),
       situationTitle: 'Frame over',
       situationSummary: 'No further scoring commands are available.',
       isPotCommandAvailable: false,
-      controlSections: emptyControlSections(),
     },
-  } satisfies AnyPyramidControlProjection & { gameKey: K }
-  return projection
+  } satisfies AnyPyramidGamePresentation & { gameKey: K }
+  return { game: projection, controls: [] }
 }

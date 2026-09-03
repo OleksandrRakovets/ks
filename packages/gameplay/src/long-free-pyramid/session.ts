@@ -50,7 +50,7 @@ class LongFreePyramidGameplaySession implements GameplaySession<'free-pyramid-lo
   canCommence(seat: Seat) {
     return this.#snapshot.can({ type: 'frame.commence', seat })
   }
-  deriveControl() {
+  deriveControls() {
     return deriveLongFreePyramidControlProjection(this.#snapshot)
   }
 }

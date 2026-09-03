@@ -66,3 +66,13 @@ export function emptyControlSections(): MutableControlSections {
     tertiary: { A: [], B: [] },
   }
 }
+
+/** Groups controls for layout while preserving their input order within each bucket. Seatless controls are neutral. */
+export function groupControlsIntoSections(controls: readonly Control[]): ControlSections {
+  const sections = emptyControlSections()
+  for (const control of controls) {
+    if (control.seat) sections[control.prominence][control.seat].push(control)
+    else sections.neutral.push(control)
+  }
+  return sections
+}

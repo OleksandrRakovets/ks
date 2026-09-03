@@ -1,4 +1,4 @@
-import { BySeatNumber, Control, emptyControlSections, NonEmptyString } from '@ks/core'
+import { BySeatNumber, Control, NonEmptyString } from '@ks/core'
 import * as v from 'valibot'
 
 type LocalizedGameTitle = {
@@ -14,24 +14,17 @@ export type GameMeta = {
 export const GameControl = v.pipe(v.object({ ...Control.entries, source: v.literal('game') }), v.readonly())
 export type GameControl = v.InferOutput<typeof GameControl>
 
-export function deriveGameControlSections(controls: readonly GameControl[]) {
-  const sections = emptyControlSections()
-
-  for (const entry of controls) {
-    if (entry.seat) sections[entry.prominence][entry.seat].push(entry)
-    else sections.neutral.push(entry)
-  }
-
-  return sections
+export type GameControlProjection<Presentation> = {
+  readonly game: Presentation
+  readonly controls: readonly GameControl[]
 }
 
-export const GameControlProjection = v.pipe(
+export const GamePresentation = v.pipe(
   v.object({
     gameKey: NonEmptyString,
-    projection: v.literal('control'),
     score: BySeatNumber,
     details: v.optional(v.unknown()),
   }),
   v.readonly(),
 )
-export type GameControlProjection = v.InferOutput<typeof GameControlProjection>
+export type GamePresentation = v.InferOutput<typeof GamePresentation>

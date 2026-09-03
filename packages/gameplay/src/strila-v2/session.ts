@@ -42,7 +42,7 @@ class StrilaGameplaySession implements GameplaySession<'strila-v2'> {
   canCommence(seat: Seat) {
     return this.#snapshot.can({ type: 'frame.commence', seat })
   }
-  deriveControl() {
+  deriveControls() {
     return deriveStrilaControlProjection(this.#snapshot)
   }
 }

@@ -2,12 +2,12 @@ import { opponentOf, type Seat } from '@ks/core'
 import invariant from 'tiny-invariant'
 import * as v from 'valibot'
 
-import { deriveGameControlSections, type GameControl } from '../../constants'
+import { type GameControl, type GameControlProjection } from '../../constants'
 import {
   StrilaBallStatuses,
   type StrilaBallStatuses as StrilaBallStatusesValue,
-  type StrilaControlProjection,
-  type StrilaControlProjectionDetails,
+  type StrilaGamePresentation,
+  type StrilaGamePresentationDetails,
   StrilaMeta,
 } from '../definitions'
 import { getPhase, type StrilaSparringFrameSnapshot } from '../machine'
@@ -26,7 +26,7 @@ function seatControls(
 
 function deriveBallStatuses(
   snapshot: StrilaSparringFrameSnapshot,
-): StrilaControlProjectionDetails['ballStatuses'] {
+): StrilaGamePresentationDetails['ballStatuses'] {
   const objectBalls = new Set(computeStrilaObjectBalls(snapshot.context.coloredBallsOnTable))
   const onTableColored = new Set(snapshot.context.coloredBallsOnTable)
   const cueStatus: 'object' | 'on-table' =
@@ -87,26 +87,27 @@ function controlProjection(
       code: 'cue-ball-and-colored-is-foul' | 'black-pot-wins'
     }[]
   },
-): StrilaControlProjection {
+): GameControlProjection<StrilaGamePresentation> {
   return {
-    gameKey: 'strila-v2',
-    projection: 'control',
-    score: { ...snapshot.context.score },
-    details: {
-      phase: getPhase(snapshot),
-      seat: args.seat,
-      situationTitle: args.situationTitle,
-      situationSummary: args.situationSummary,
-      isPotCommandAvailable: args.controls.some((entry) => entry.type === 'pot.record'),
-      ballStatuses: deriveBallStatuses(snapshot),
-      pottedBallsBySeat: snapshot.context.pottedBallsBySeat,
-      controlSections: deriveGameControlSections(args.controls),
-      messages: messages(args.messages ?? []),
+    game: {
+      gameKey: 'strila-v2',
+      score: { ...snapshot.context.score },
+      details: {
+        phase: getPhase(snapshot),
+        seat: args.seat,
+        situationTitle: args.situationTitle,
+        situationSummary: args.situationSummary,
+        isPotCommandAvailable: args.controls.some((entry) => entry.type === 'pot.record'),
+        ballStatuses: deriveBallStatuses(snapshot),
+        pottedBallsBySeat: snapshot.context.pottedBallsBySeat,
+        messages: messages(args.messages ?? []),
+      },
     },
+    controls: args.controls,
   }
 }
 
-export function deriveStrilaControlProjection(snapshot: StrilaSparringFrameSnapshot): StrilaControlProjection {
+export function deriveStrilaControlProjection(snapshot: StrilaSparringFrameSnapshot) {
   switch (getPhase(snapshot)) {
     case 'not-started':
       return controlProjection(snapshot, {

@@ -2,13 +2,14 @@ import { FrameOutcome, type Seat } from '@ks/core'
 import * as v from 'valibot'
 import { transition } from 'xstate'
 
+import type { GameControl } from '../constants'
 import {
   commandNotAvailable,
   type GameCommandExecution,
   type GameplaySession,
   type GameplaySessionCreateArgsFor,
 } from '../gameplay-session'
-import type { ControlProjectionFor } from '../registry'
+import type { GamePresentationFor } from '../registry'
 import type { PyramidCommand } from './definitions'
 import {
   createInitialSnapshot,
@@ -56,10 +57,10 @@ class PyramidGameplaySession<K extends PyramidGameKey> implements GameplaySessio
   canCommence(seat: Seat) {
     return this.#snapshot.can({ type: 'frame.commence', seat })
   }
-  deriveControl(): ControlProjectionFor<K> {
+  deriveControls(): { readonly game: GamePresentationFor<K>; readonly controls: readonly GameControl[] } {
     const projection: unknown = derivePyramidControlProjection(this.#snapshot, this.#rules)
     // SAFETY: both the family projection and registry contract are discriminated by this session's same K.
-    return projection as ControlProjectionFor<K>
+    return projection as { readonly game: GamePresentationFor<K>; readonly controls: readonly GameControl[] }
   }
 }
 
