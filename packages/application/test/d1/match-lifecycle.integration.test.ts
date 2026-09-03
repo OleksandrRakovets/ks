@@ -154,6 +154,25 @@ describe('real D1 match lifecycle', () => {
     ).toBe('{}')
   })
 
+  test('rejects a matching archive when the match row has a conflicting endedAt', async () => {
+    const db = createApplicationDatabaseClient(env.DB)
+    await beginMatchCreation(db, catalogInput())
+    await activateMatch(db, matchId)
+    const archive = terminalArchiveInput()
+    await archiveCompletedMatch(db, archive)
+    const conflictingEndedAt = archive.endedAt + 1
+    await env.DB.prepare('UPDATE matches SET ended_at = ? WHERE match_id = ?')
+      .bind(conflictingEndedAt, matchId)
+      .run()
+
+    await expect(archiveCompletedMatch(db, archive)).rejects.toThrow(CompletedMatchArchiveError)
+    expect(await getMatchRow(db, matchId)).toMatchObject({ status: 'finalizing' })
+    expect(
+      (await env.DB.prepare('SELECT ended_at FROM matches WHERE match_id = ?').bind(matchId).first())
+        ?.ended_at,
+    ).toBe(conflictingEndedAt)
+  })
+
   test('allows only one of two concurrent conflicting archives to finalize the match', async () => {
     const db = createApplicationDatabaseClient(env.DB)
     await beginMatchCreation(db, catalogInput())

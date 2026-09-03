@@ -82,6 +82,8 @@ MatchRoom finalizing Protocol + Final Match State
 
 Failure before D1 reaches `finished` leaves durable `finalizing` state. A later relevant application request retries the idempotent archival and finalization steps. Public list results present D1 `finalizing` as finished while that work proceeds.
 
+MatchRoom's `finalizing` status is not durable from the application's perspective: the disposal alarm erases it after the grace period. D1's `finalizing` status is the durable completion marker that outlives room disposal, letting a request arriving after disposal still call the room's idempotent `finalize()` and mark D1 finished. Reconciliation keys off D1 first and the room second. Removing D1 `finalizing` would wedge a match if its Play request crashed between `finalize()` and `finishCompletedMatch()`.
+
 Finalization publishes the withheld terminal update, closes clients, schedules one Cloudflare alarm 10 minutes in the future, and clears resident state. Application marks D1 finished only after finalization returns. Finalization retries do not extend the existing alarm, and retained `finalizing` storage continues to serve semantic finalizing results and idempotent archive transfers during the grace period. The alarm is the sole destructive path: it validates that the room is finalizing, deletes all local storage, and tolerates already-missing storage.
 
 The generated control secret is stored in MatchRoom but is not exposed or checked by the current command path.

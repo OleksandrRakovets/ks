@@ -1,5 +1,5 @@
 import { type MatchId, MatchState, NonEmptyProtocolEntries } from '@ks/core'
-import { and, eq, inArray } from 'drizzle-orm'
+import { and, eq, inArray, isNull, or } from 'drizzle-orm'
 import * as v from 'valibot'
 
 import type { MatchRoomCompletionTransfer } from '../match-room-client'
@@ -142,6 +142,7 @@ export async function archiveCompletedMatch(
       and(
         eq(matches.matchId, input.matchId),
         inArray(matches.status, [StoredMatchStatus.active, StoredMatchStatus.finalizing]),
+        or(isNull(matches.endedAt), eq(matches.endedAt, input.endedAt)),
       ),
     )
     .returning({ status: matches.status, endedAt: matches.endedAt })

@@ -148,7 +148,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     const record = await dependencies.getMatchRecord(matchId)
     if (!record || record.gameKey !== expectedGameKey)
       return { ok: false, error: 'Unknown match', status: 404 }
-    if (record.status === 'finalizing') await finalizeAndFinishRoom(matchId)
+    await reconcilePendingFinalization(record)
     if (record.status === 'finalizing' || record.status === 'finished') {
       return await readArchivedMatch(record, locale, expectedGameKey)
     }
@@ -198,7 +198,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     const record = await dependencies.getMatchRecord(matchId)
     if (!record || record.gameKey !== expectedGameKey)
       return { ok: false, error: 'Unknown match', status: 404 }
-    if (record.status === 'finalizing') await finalizeAndFinishRoom(matchId)
+    await reconcilePendingFinalization(record)
     if (record.status === 'finalizing' || record.status === 'finished') {
       return { ok: false, error: 'Match is finished', status: 409 }
     }
@@ -247,7 +247,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
         protocolRows: renderProtocolRows(room.protocolEntries, seatNames, timeZone, locale).reverse(),
       }
     } else {
-      if (record.status === 'finalizing') await finalizeAndFinishRoom(matchId)
+      await reconcilePendingFinalization(record)
       let archive: ProtocolArchiveRecord | null
       try {
         archive = await dependencies.getProtocolArchive(matchId)
@@ -277,6 +277,10 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
   async function finalizeAndFinishRoom(matchId: MatchId): Promise<void> {
     await dependencies.matchRoomClient(matchId).finalize()
     await dependencies.finishCompletedMatch(matchId)
+  }
+
+  async function reconcilePendingFinalization(record: MatchRecord): Promise<void> {
+    if (record.status === 'finalizing') await finalizeAndFinishRoom(record.matchId)
   }
 
   async function hydrateParticipants(record: MatchRecord, locale: SupportedLocale) {
@@ -320,7 +324,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     streamMatchUpdates: async (matchId, since) => {
       const record = await dependencies.getMatchRecord(matchId)
       if (!record) return Response.json({ ok: false, error: 'Unknown match' }, { status: 404 })
-      if (record.status === 'finalizing') await finalizeAndFinishRoom(matchId)
+      await reconcilePendingFinalization(record)
       if (record.status === 'finalizing' || record.status === 'finished') {
         return Response.json({ ok: false, error: 'Match is finished' }, { status: 410 })
       }
