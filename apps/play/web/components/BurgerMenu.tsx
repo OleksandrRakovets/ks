@@ -41,11 +41,13 @@ export function BurgerMenu(props: { placement?: 'header' | 'navigation' }) {
           aria-label={t(keys.nav.menu)}
           className={
             props.placement === 'navigation'
-              ? '-mt-px flex h-14 w-full items-center justify-center gap-2 border-t-2 border-transparent text-base font-medium text-muted-foreground hover:text-foreground'
+              ? 'relative -mt-px flex h-14 w-full items-center justify-center border-t-2 border-transparent text-base font-medium text-muted-foreground hover:text-foreground'
               : 'flex h-14 items-center justify-center px-4 text-green'
           }
         >
-          <HamburgerIcon />
+          <span className={props.placement === 'navigation' ? 'absolute left-4 lg:left-2' : undefined}>
+            <HamburgerIcon />
+          </span>
           {props.placement === 'navigation' ? <span>{t(keys.nav.menu)}</span> : null}
         </button>
       </SheetTrigger>

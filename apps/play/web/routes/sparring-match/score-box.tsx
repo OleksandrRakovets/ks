@@ -39,8 +39,8 @@ export function ScoreBox({
   const isBWinner = !isLive && numberB > numberA
 
   return (
-    <div className="sticky top-14 z-10 border-b border-divider bg-background">
-      <div className="grid grid-cols-2 gap-x-4 border-b border-divider px-4 py-2 text-lg leading-tight font-semibold">
+    <div className="sticky top-14 z-10 border-b border-divider bg-surface">
+      <div className="grid grid-cols-2 gap-x-4 px-4 py-2 text-lg leading-tight font-semibold">
         <span className="line-clamp-2 min-w-0">{nameA}</span>
         <span className="line-clamp-2 min-w-0 text-right">{nameB}</span>
       </div>

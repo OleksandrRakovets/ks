@@ -42,9 +42,9 @@ type SeatControls = MatchControlRendererProps<StrilaControlProjection>['controlS
 
 function strilaCommandLabel(t: TFunction, command: Control, index: number): string {
   if (command.type !== 'penalty.select') return controlLabel(t, command)
-  if (index === 0) return t('match.control.controls.game.penalty.select.play-from-position')
-  if (index === 1) return t('match.control.controls.game.penalty.select.pass-position')
-  return t('match.control.controls.game.penalty.select.ball-in-hand')
+  if (index === 0) return t('match.control.commands.game.penalty.select.play-from-position')
+  if (index === 1) return t('match.control.commands.game.penalty.select.pass-position')
+  return t('match.control.commands.game.penalty.select.ball-in-hand')
 }
 
 function prominenceVariant(prominence: Control['prominence']): 'default' | 'secondary' | 'outline' {

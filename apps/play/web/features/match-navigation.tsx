@@ -23,7 +23,7 @@ export function MatchNavigation(props: Props) {
   const inactiveClass = `${itemClass} border-transparent text-muted-foreground hover:text-foreground`
 
   return (
-    <nav className="sticky top-0 z-40 flex h-14 shrink-0 border-b border-border bg-background">
+    <nav className="sticky top-0 z-40 flex h-14 shrink-0 bg-deep">
       <BrandWordmark className="mx-5 hidden h-10 self-center lg:block" title={t(keys.appTitle)} />
       {props.active === 'control' ? (
         <span className={activeClass}>{t(keys.match.sparring.tabControl)}</span>
