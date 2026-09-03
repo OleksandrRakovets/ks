@@ -2,6 +2,8 @@ import { index, layout, route, type RouteConfig } from '@react-router/dev/routes
 
 export default [
   route('favicon.ico', 'routes/tech/favicon.ts'),
+  route('apple-touch-icon.png', 'routes/tech/apple-touch-icon.ts'),
+  route('apple-touch-icon-precomposed.png', 'routes/tech/apple-touch-icon-precomposed.ts'),
   route('site.webmanifest', 'routes/tech/site-webmanifest.ts'),
   route('robots.txt', 'routes/tech/robots-txt.ts'),
   route('api/m/:matchId/stream/', 'routes/api-match-stream.ts'),
