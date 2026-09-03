@@ -1,8 +1,9 @@
 import { keys } from '@ks/i18n'
 import type { SupportedLocale } from '@ks/i18n'
 import { useTranslation } from 'react-i18next'
-import { Link, useFetcher } from 'react-router'
+import { Link, useFetcher, useLocation } from 'react-router'
 
+import { localizedPath, pathForLocale } from '../locale'
 import { useRootLocale, useRootTheme } from '../root'
 import type { AppTheme } from '../server/theme'
 import { BrandWordmark } from './BrandWordmark'
@@ -23,15 +24,11 @@ export function BurgerMenu(props: { placement?: 'header' | 'navigation' }) {
   const currentLocale = useRootLocale()
   const currentTheme = useRootTheme()
   const fetcher = useFetcher()
-  const { i18n, t } = useTranslation()
+  const location = useLocation()
+  const { t } = useTranslation()
 
   function changeTheme(theme: AppTheme) {
     fetcher.submit({ theme }, { method: 'post', action: '/ui-preferences/theme/' })
-  }
-
-  function changeLocale(locale: SupportedLocale) {
-    void i18n.changeLanguage(locale)
-    fetcher.submit({ locale }, { method: 'post', action: '/ui-preferences/locale/' })
   }
 
   return (
@@ -72,7 +69,7 @@ export function BurgerMenu(props: { placement?: 'header' | 'navigation' }) {
           </p>
           <SheetClose asChild>
             <Link
-              to="/sparring/"
+              to={localizedPath('/sparring/', currentLocale)}
               className="py-2.5 text-sm font-medium text-text-hi underline-offset-4 hover:underline"
             >
               {t(keys.nav.newMatch)}
@@ -80,7 +77,7 @@ export function BurgerMenu(props: { placement?: 'header' | 'navigation' }) {
           </SheetClose>
           <SheetClose asChild>
             <Link
-              to="/sparring/matches/"
+              to={localizedPath('/sparring/matches/', currentLocale)}
               className="py-2.5 text-sm font-medium text-text-hi underline-offset-4 hover:underline"
             >
               {t(keys.nav.allMatches)}
@@ -112,13 +109,13 @@ export function BurgerMenu(props: { placement?: 'header' | 'navigation' }) {
           </p>
           <div className="flex gap-3">
             {LOCALE_OPTIONS.map(({ value, labelKey }) => (
-              <Button
-                key={value}
-                size="sm"
-                variant={currentLocale === value ? 'default' : 'outline'}
-                onClick={() => changeLocale(value)}
-              >
-                {t(labelKey)}
+              <Button key={value} asChild size="sm" variant={currentLocale === value ? 'default' : 'outline'}>
+                <Link
+                  reloadDocument
+                  to={pathForLocale(location.pathname, location.search, location.hash, value)}
+                >
+                  {t(labelKey)}
+                </Link>
               </Button>
             ))}
           </div>

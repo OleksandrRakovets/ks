@@ -6,6 +6,8 @@ import { Link } from 'react-router'
 
 import { BrandWordmark } from '../components/BrandWordmark'
 import { BurgerMenu } from '../components/BurgerMenu'
+import { localizedPath } from '../locale'
+import { useRootLocale } from '../root'
 import { matchControlUrl, matchProtocolUrl } from './match-urls'
 
 type Props = {
@@ -17,6 +19,7 @@ type Props = {
 
 export function MatchNavigation(props: Props) {
   const { t } = useTranslation()
+  const locale = useRootLocale()
   const itemClass =
     'flex h-12 flex-1 items-center justify-center border-b-2 text-center text-base font-medium lg:h-14 lg:flex-none lg:px-6'
   const activeClass = `${itemClass} border-primary text-foreground`
@@ -28,7 +31,7 @@ export function MatchNavigation(props: Props) {
       {props.active === 'control' ? (
         <span className={activeClass}>{t(keys.match.sparring.tabControl)}</span>
       ) : props.matchStatus === 'active' ? (
-        <Link to={matchControlUrl(props.gameKey, props.matchId)} className={inactiveClass}>
+        <Link to={matchControlUrl(props.gameKey, props.matchId, locale)} className={inactiveClass}>
           {t(keys.match.sparring.tabControl)}
         </Link>
       ) : (
@@ -37,11 +40,11 @@ export function MatchNavigation(props: Props) {
       {props.active === 'protocol' ? (
         <span className={activeClass}>{t(keys.match.sparring.tabProtocol)}</span>
       ) : (
-        <Link to={matchProtocolUrl(props.gameKey, props.matchId)} className={inactiveClass}>
+        <Link to={matchProtocolUrl(props.gameKey, props.matchId, locale)} className={inactiveClass}>
           {t(keys.match.sparring.tabProtocol)}
         </Link>
       )}
-      <Link to="/sparring/matches/" className={`${inactiveClass} hidden lg:flex`}>
+      <Link to={localizedPath('/sparring/matches/', locale)} className={`${inactiveClass} hidden lg:flex`}>
         {t(keys.nav.allMatches)}
       </Link>
       <div className="hidden flex-1 lg:block" />

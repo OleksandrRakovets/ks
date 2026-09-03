@@ -6,23 +6,18 @@ import { Link, useLoaderData } from 'react-router'
 import { Badge, Button } from '@/components/ui'
 
 import { matchUrlForStatus } from '../features/match-urls'
+import { localeFromContext, localizedPath } from '../locale'
+import { useRootLocale } from '../root'
 import type { AppLoadContext } from '../server/context'
 import { requireApplication } from '../server/context'
-import { localeFromCookie } from '../server/locale'
 
 type LoaderData = {
   matches: MatchListEntry[]
 }
 
-export async function loader({
-  request,
-  context,
-}: {
-  request: Request
-  context: AppLoadContext
-}): Promise<LoaderData> {
+export async function loader({ context }: { context: AppLoadContext }): Promise<LoaderData> {
   const application = requireApplication(context)
-  const locale = localeFromCookie(request.headers.get('cookie'))
+  const locale = localeFromContext(context)
 
   return {
     matches: await application.listMatches(locale),
@@ -35,6 +30,7 @@ export const handle = {
 
 export default function SparringMatchesRoute() {
   const { t } = useTranslation()
+  const locale = useRootLocale()
   const { matches } = useLoaderData<typeof loader>()
 
   return (
@@ -48,7 +44,7 @@ export default function SparringMatchesRoute() {
             </p>
           </div>
           <Button asChild variant="outline">
-            <Link to="/sparring/">{t(keys.match.sparring.newMatch)}</Link>
+            <Link to={localizedPath('/sparring/', locale)}>{t(keys.match.sparring.newMatch)}</Link>
           </Button>
         </div>
 
@@ -59,7 +55,7 @@ export default function SparringMatchesRoute() {
             {matches.map((match) => (
               <Link
                 key={match.matchId}
-                to={matchUrlForStatus(match.gameKey, match.matchId, match.status)}
+                to={matchUrlForStatus(match.gameKey, match.matchId, match.status, locale)}
                 className="flex items-center justify-between gap-4 px-4 py-3 transition-colors hover:bg-muted/40"
               >
                 <div className="min-w-0 flex-1">

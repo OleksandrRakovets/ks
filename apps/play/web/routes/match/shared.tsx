@@ -19,9 +19,9 @@ import * as v from 'valibot'
 import { Button } from '@/components/ui'
 import { matchCommandFromControl } from '@/features/match-control/renderers/types'
 
+import { localeFromContext } from '../../locale'
 import type { AppLoadContext } from '../../server/context'
 import { requireApplication } from '../../server/context'
-import { localeFromCookie } from '../../server/locale'
 
 type RouteArgs = {
   params: { matchId?: string }
@@ -70,7 +70,7 @@ export async function loadMatchControl<K extends RegisteredGameKey>(
   expectedGameKey: K,
 ): Promise<ControlRouteData<K>> {
   const matchId = matchIdFromParams(args.params)
-  const locale = localeFromCookie(args.request.headers.get('cookie'))
+  const locale = localeFromContext(args.context)
   const result = await requireApplication(args.context).readMatchControl(matchId, locale, expectedGameKey)
   if (!result.ok) throw new Response(result.error, { status: result.status })
   return { ...result, gameTitle: registry[expectedGameKey].meta.title[locale] }
@@ -81,7 +81,7 @@ export async function loadMatchProtocol<K extends RegisteredGameKey>(
   expectedGameKey: K,
 ): Promise<ProtocolRouteData<K>> {
   const matchId = matchIdFromParams(args.params)
-  const locale = localeFromCookie(args.request.headers.get('cookie'))
+  const locale = localeFromContext(args.context)
   const result = await requireApplication(args.context).readMatchProtocol(
     matchId,
     'UTC',

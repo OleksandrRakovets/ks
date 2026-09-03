@@ -7,8 +7,8 @@ export default [
   route('site.webmanifest', 'routes/tech/site-webmanifest.ts'),
   route('robots.txt', 'routes/tech/robots-txt.ts'),
   route('api/m/:matchId/stream/', 'routes/api-match-stream.ts'),
-  route('ui-preferences/:preference/', 'routes/ui-preferences.ts'),
-  layout('routes/layout-base.tsx', [
+  route('ui-preferences/theme/', 'routes/ui-preferences.ts'),
+  route('en?', 'routes/layout-base.tsx', [
     index('routes/index.tsx'),
     layout('routes/layout-construction.tsx', [
       route('sparring/', 'routes/sparring.tsx'),

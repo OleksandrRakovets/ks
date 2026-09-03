@@ -10,9 +10,10 @@ import * as v from 'valibot'
 import { Button } from '@/components/ui'
 
 import { matchControlUrl } from '../../features/match-urls'
+import { localeFromContext, localizedPath } from '../../locale'
+import { useRootLocale } from '../../root'
 import type { AppLoadContext } from '../../server/context'
 import { requireApplication } from '../../server/context'
-import { localeFromCookie } from '../../server/locale'
 import {
   FirstBreakerField,
   FrameTargetFields,
@@ -42,17 +43,17 @@ type ActionData = {
 
 export async function loader({
   params,
-  request,
+  context,
 }: {
   params: { gameKey?: string }
-  request: Request
+  context: AppLoadContext
 }): Promise<LoaderData> {
   const gameKey = params.gameKey
   if (!gameKey || !isRegisteredGameKey(gameKey)) {
     throw new Response('Unknown gameKey', { status: 404 })
   }
 
-  const locale = localeFromCookie(request.headers.get('cookie'))
+  const locale = localeFromContext(context)
   return {
     gameKey,
     title: registry[gameKey].meta.title[locale],
@@ -130,7 +131,7 @@ export async function action({
     throw new Response('Could not create match', { status: result.status })
   }
 
-  return redirect(matchControlUrl(gameKey, result.matchId))
+  return redirect(matchControlUrl(gameKey, result.matchId, localeFromContext(context)))
 }
 
 export const handle = {
@@ -139,6 +140,7 @@ export const handle = {
 
 export default function SparringInitRoute() {
   const { t } = useTranslation()
+  const locale = useRootLocale()
   const { profile } = useLoaderData<typeof loader>()
   const actionData = useActionData<typeof action>()
   const navigation = useNavigation()
@@ -184,7 +186,7 @@ export default function SparringInitRoute() {
             <h1 className="text-3xl font-semibold tracking-tight">{t(keys.match.sparring.setupTitle)}</h1>
           </div>
           <Button asChild variant="outline">
-            <Link to="/sparring/">{t(keys.match.sparring.chooseAnotherGame)}</Link>
+            <Link to={localizedPath('/sparring/', locale)}>{t(keys.match.sparring.chooseAnotherGame)}</Link>
           </Button>
         </div>
 

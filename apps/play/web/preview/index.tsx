@@ -1,6 +1,8 @@
 import { Link } from 'react-router'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui'
+import { localizedPath } from '@/locale'
+import { useRootLocale } from '@/root'
 
 const previewPages = [
   {
@@ -11,6 +13,8 @@ const previewPages = [
 ] as const
 
 export default function PreviewIndexRoute() {
+  const locale = useRootLocale()
+
   return (
     <main className="min-h-dvh flex-1 bg-background px-4 py-6 text-foreground">
       <div className="mx-auto w-full space-y-4">
@@ -26,7 +30,7 @@ export default function PreviewIndexRoute() {
             <Card key={page.href}>
               <CardHeader>
                 <CardTitle className="text-lg">
-                  <Link className="underline-offset-4 hover:underline" to={page.href}>
+                  <Link className="underline-offset-4 hover:underline" to={localizedPath(page.href, locale)}>
                     {page.title}
                   </Link>
                 </CardTitle>

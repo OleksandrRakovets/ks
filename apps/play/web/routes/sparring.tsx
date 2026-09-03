@@ -4,6 +4,9 @@ import { Link } from 'react-router'
 
 import { Button, Card, CardDescription, CardHeader, CardTitle } from '@/components/ui'
 
+import { localizedPath } from '../locale'
+import { useRootLocale } from '../root'
+
 type LocalizedSparringGameText = {
   uk: string
   en: string
@@ -78,8 +81,8 @@ export const handle = {
 }
 
 export default function SparringRoute() {
-  const { i18n, t } = useTranslation()
-  const locale = i18n.resolvedLanguage === 'en' ? 'en' : 'uk'
+  const { t } = useTranslation()
+  const locale = useRootLocale()
 
   return (
     <main className="flex-1 bg-background px-4 py-6 text-foreground">
@@ -90,7 +93,9 @@ export default function SparringRoute() {
             <p className="mt-1 text-text-lo">{t(keys.match.sparring.subtitle)}</p>
           </div>
           <Button asChild variant="outline">
-            <Link to="/sparring/matches/">{t(keys.match.sparring.recentMatches)}</Link>
+            <Link to={localizedPath('/sparring/matches/', locale)}>
+              {t(keys.match.sparring.recentMatches)}
+            </Link>
           </Button>
         </div>
 
@@ -99,7 +104,10 @@ export default function SparringRoute() {
             <Card key={game.gameKey}>
               <CardHeader>
                 <CardTitle className="text-lg">
-                  <Link className="underline-offset-4 hover:underline" to={`/sparring/init/${game.gameKey}/`}>
+                  <Link
+                    className="underline-offset-4 hover:underline"
+                    to={localizedPath(`/sparring/init/${game.gameKey}/`, locale)}
+                  >
                     {game.title[locale]}
                   </Link>
                 </CardTitle>
