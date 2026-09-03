@@ -18,12 +18,12 @@ type Props = {
 export function MatchNavigation(props: Props) {
   const { t } = useTranslation()
   const itemClass =
-    'flex h-14 flex-1 items-center justify-center border-b-2 text-center text-base font-medium lg:flex-none lg:px-6'
+    'flex h-12 flex-1 items-center justify-center border-b-2 text-center text-base font-medium lg:h-14 lg:flex-none lg:px-6'
   const activeClass = `${itemClass} border-primary text-foreground`
   const inactiveClass = `${itemClass} border-transparent text-muted-foreground hover:text-foreground`
 
   return (
-    <nav className="sticky top-0 z-40 flex h-14 shrink-0 bg-deep">
+    <nav className="sticky top-0 z-40 flex h-12 shrink-0 bg-deep lg:h-14">
       <BrandWordmark className="mx-5 hidden h-10 self-center lg:block" title={t(keys.appTitle)} />
       {props.active === 'control' ? (
         <span className={activeClass}>{t(keys.match.sparring.tabControl)}</span>

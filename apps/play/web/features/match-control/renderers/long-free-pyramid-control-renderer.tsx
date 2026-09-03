@@ -119,9 +119,13 @@ export function LongFreePyramidControlRenderer(
         <div className="grid">
           <button
             type="button"
-            className="px-4 py-2 text-left text-base text-muted-foreground hover:text-foreground"
+            aria-expanded={showTertiary}
+            className="flex items-center gap-2 px-4 py-2 text-left text-base text-muted-foreground hover:text-foreground"
             onClick={() => setShowTertiary((v) => !v)}
           >
+            <span aria-hidden className={showTertiary ? undefined : 'rotate-180'}>
+              ▲
+            </span>
             {showTertiary ? t(keys.match.control.showLess) : t(keys.match.control.showMore)}
           </button>
           {showTertiary ? (

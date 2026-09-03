@@ -226,9 +226,13 @@ export function StrilaControlRenderer(props: MatchControlRendererProps<StrilaCon
         <div className="grid gap-3">
           <button
             type="button"
-            className="px-4 py-3 text-left text-base text-muted-foreground hover:text-foreground"
+            aria-expanded={showTertiary}
+            className="flex items-center gap-2 px-4 py-3 text-left text-base text-muted-foreground hover:text-foreground"
             onClick={() => setShowTertiary((v) => !v)}
           >
+            <span aria-hidden className={showTertiary ? undefined : 'rotate-180'}>
+              ▲
+            </span>
             {showTertiary ? t(keys.match.control.showLess) : t(keys.match.control.showMore)}
           </button>
           {showTertiary && (
