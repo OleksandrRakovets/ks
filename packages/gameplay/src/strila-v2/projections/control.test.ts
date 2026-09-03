@@ -61,6 +61,5 @@ test('projects potted balls in acceptance order for each seat', () => {
 
   const control = deriveStrilaControlProjection(snapshot)
   expect(control.details.pottedBallsBySeat).toEqual({ A: [0, 1, 3], B: [2] })
-  expect(control.details.pottedBallsBySeat.A).not.toBe(snapshot.context.pottedBallsBySeat.A)
-  expect(control.details.pottedBallsBySeat.B).not.toBe(snapshot.context.pottedBallsBySeat.B)
+  expect(control.details.pottedBallsBySeat).toBe(snapshot.context.pottedBallsBySeat)
 })
