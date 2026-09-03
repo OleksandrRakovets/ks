@@ -26,8 +26,7 @@ export function parseGameCommand<K extends RegisteredGameKey>(
   gameKey: K,
   input: MatchCommand['command'],
 ): ParseGameCommandResult<K> {
-  const schema = registry[gameKey].commandSchema
-  const parsed = v.safeParse(schema, input)
+  const parsed = v.safeParse(registry[gameKey].commandSchema, input)
   if (!parsed.success) {
     const discriminator = v.safeParse(v.object({ type: v.string() }), input)
     const commandType = discriminator.success ? discriminator.output.type : 'unknown'

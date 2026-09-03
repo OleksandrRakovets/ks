@@ -4,23 +4,41 @@ import { parseGameProtocolEntry } from '@ks/gameplay/server'
 import * as v from 'valibot'
 
 export const MatchLifecycleProtocolEntry = v.variant('entryType', [
-  v.object({
-    ...ProtocolEntryContent.entries,
-    entryType: v.literal('frame-prepared'),
-    body: v.object({
-      targetPointsBySeat: BySeatNumber,
-      gameConfiguration: v.optional(UnknownObject),
+  v.pipe(
+    v.object({
+      ...ProtocolEntryContent.entries,
+      entryType: v.literal('frame-prepared'),
+      body: v.pipe(
+        v.object({
+          targetPointsBySeat: BySeatNumber,
+          gameConfiguration: v.optional(UnknownObject),
+        }),
+        v.readonly(),
+      ),
     }),
-  }),
-  v.object({ ...ProtocolEntryContent.entries, entryType: v.literal('frame-conceded'), body: v.object({}) }),
-  v.object({
-    ...ProtocolEntryContent.entries,
-    entryType: v.literal('frame-awarded'),
-    body: v.object({
-      winReason: v.picklist(['target-reached', 'conceded']),
+    v.readonly(),
+  ),
+  v.pipe(
+    v.object({ ...ProtocolEntryContent.entries, entryType: v.literal('frame-conceded'), body: v.object({}) }),
+    v.readonly(),
+  ),
+  v.pipe(
+    v.object({
+      ...ProtocolEntryContent.entries,
+      entryType: v.literal('frame-awarded'),
+      body: v.pipe(
+        v.object({
+          winReason: v.picklist(['target-reached', 'conceded']),
+        }),
+        v.readonly(),
+      ),
     }),
-  }),
-  v.object({ ...ProtocolEntryContent.entries, entryType: v.literal('match-ended'), body: v.object({}) }),
+    v.readonly(),
+  ),
+  v.pipe(
+    v.object({ ...ProtocolEntryContent.entries, entryType: v.literal('match-ended'), body: v.object({}) }),
+    v.readonly(),
+  ),
 ])
 export type MatchLifecycleProtocolEntry = v.InferOutput<typeof MatchLifecycleProtocolEntry>
 

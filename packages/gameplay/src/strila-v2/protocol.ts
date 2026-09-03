@@ -68,9 +68,9 @@ function isRespottedBlackOpeningIllegalPot(
 }
 
 export function createStrilaProtocolEntries(args: {
-  previous: StrilaSparringFrameSnapshot
-  command: StrilaCommand
-  next: StrilaSparringFrameSnapshot
+  readonly previous: StrilaSparringFrameSnapshot
+  readonly command: StrilaCommand
+  readonly next: StrilaSparringFrameSnapshot
 }): [StrilaProtocolEntry, ...StrilaProtocolEntry[]] {
   const { previous, command, next } = args
 

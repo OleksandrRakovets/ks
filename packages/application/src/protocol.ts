@@ -25,27 +25,27 @@ export class ProtocolArchiveCorruptionError extends Error {
   }
 }
 
-export type ProtocolArchiveRecord = {
+export type ProtocolArchiveRecord = Readonly<{
   sourceLatestSeq: number
   protocolVersion: typeof PROTOCOL_ARCHIVE_VERSION
   entries: NonEmptyProtocolEntries
   state: MatchState
-}
+}>
 
-type SeatNames = { A: string; B: string }
+type SeatNames = Readonly<{ A: string; B: string }>
 
-export type ProtocolRow = {
+export type ProtocolRow = Readonly<{
   key: string
-  message: {
+  message: Readonly<{
     key: string
     actor?: string | undefined
-    params?: Record<string, string | number>
-    pottedBalls?: ProtocolBall[]
-  }
+    params?: Readonly<Record<string, string | number>>
+    pottedBalls?: readonly ProtocolBall[]
+  }>
   score?: BySeatNumber | undefined
   acceptedAt: UnixEpochMilliseconds
   timeLabel: string
-}
+}>
 
 const ProtocolBall = v.picklist([0, 1, 2, 3, 4, 5, 6, 7])
 type ProtocolBall = v.InferOutput<typeof ProtocolBall>
@@ -163,7 +163,7 @@ function entryMessage(
 }
 
 export function renderProtocolRows(
-  entries: ProtocolEntry[],
+  entries: readonly ProtocolEntry[],
   seatNames: SeatNames,
   timeZone: string,
   locale = 'en',

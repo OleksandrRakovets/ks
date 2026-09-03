@@ -5,12 +5,17 @@ import * as v from 'valibot'
 import { deriveGameControlSections, type GameControl } from '../../constants'
 import {
   StrilaBallStatuses,
+  type StrilaBallStatuses as StrilaBallStatusesValue,
   type StrilaControlProjection,
   type StrilaControlProjectionDetails,
   StrilaMeta,
 } from '../definitions'
 import { getPhase, type StrilaSparringFrameSnapshot } from '../machine'
 import { computeStrilaObjectBalls } from './computeds'
+
+type MutableStrilaBallStatuses = {
+  -readonly [K in keyof StrilaBallStatusesValue]: StrilaBallStatusesValue[K]
+}
 
 function seatControls(
   type: 'pot.record' | 'miss.record' | 'foul.commit',
@@ -26,7 +31,7 @@ function deriveBallStatuses(
   const onTableColored = new Set(snapshot.context.coloredBallsOnTable)
   const cueStatus: 'object' | 'on-table' =
     getPhase(snapshot) === 'respotted-black.opening' ? 'on-table' : 'object'
-  const ballStatuses = v.parse(StrilaBallStatuses, {
+  const ballStatuses: MutableStrilaBallStatuses = {
     0: cueStatus,
     1: 'potted',
     2: 'potted',
@@ -35,7 +40,7 @@ function deriveBallStatuses(
     5: 'potted',
     6: 'potted',
     7: 'potted',
-  })
+  }
 
   for (const ball of StrilaMeta.allBalls) {
     if (ball === 0) {
@@ -53,11 +58,14 @@ function deriveBallStatuses(
     ballStatuses[ball] = 'potted'
   }
 
-  return ballStatuses
+  return v.parse(StrilaBallStatuses, ballStatuses)
 }
 
 function messages(
-  entries: Array<{ type: 'hint' | 'warning'; code: 'cue-ball-and-colored-is-foul' | 'black-pot-wins' }>,
+  entries: readonly {
+    type: 'hint' | 'warning'
+    code: 'cue-ball-and-colored-is-foul' | 'black-pot-wins'
+  }[],
 ) {
   const seen = new Set<string>()
   return entries.filter((entry) => {
@@ -70,11 +78,14 @@ function messages(
 function controlProjection(
   snapshot: StrilaSparringFrameSnapshot,
   args: {
-    controls: GameControl[]
-    situationTitle: string
-    situationSummary: string
-    seat?: Seat
-    messages?: Array<{ type: 'hint' | 'warning'; code: 'cue-ball-and-colored-is-foul' | 'black-pot-wins' }>
+    readonly controls: readonly GameControl[]
+    readonly situationTitle: string
+    readonly situationSummary: string
+    readonly seat?: Seat
+    readonly messages?: readonly {
+      type: 'hint' | 'warning'
+      code: 'cue-ball-and-colored-is-foul' | 'black-pot-wins'
+    }[]
   },
 ): StrilaControlProjection {
   return {

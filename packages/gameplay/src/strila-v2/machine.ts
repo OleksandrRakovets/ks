@@ -12,25 +12,25 @@ import {
   StrilaPhase,
 } from './definitions'
 
-const RESPOTTED_BLACK: StrilaColoredBall[] = [7]
+const RESPOTTED_BLACK: readonly StrilaColoredBall[] = [7]
 
 type StrilaSparringFrameMachineInput = {
   targetPointsBySeat?: BySeatNumber
 }
 
-const FoulSnapshotValue = v.object({
+const FoulSnapshotValue = v.strictObject({
   'foul-committed': v.picklist(['penalty-selection', 'ball-in-hand']),
 })
-const RespottedBlackSnapshotValue = v.object({ 'respotted-black': v.picklist(['opening', 'play']) })
+const RespottedBlackSnapshotValue = v.strictObject({ 'respotted-black': v.picklist(['opening', 'play']) })
 const StrilaSnapshotValue = v.union([StrilaPhase, FoulSnapshotValue, RespottedBlackSnapshotValue])
 
-function pointsForPottedBalls(pottedBalls: StrilaBall[]): number {
+function pointsForPottedBalls(pottedBalls: readonly StrilaBall[]): number {
   return pottedBalls.reduce<number>((sum, ball) => sum + (ball === StrilaMeta.cueBall ? 1 : 2), 0)
 }
 
 function removePottedColoredBalls(
-  onTable: StrilaColoredBall[],
-  pottedBalls: StrilaBall[],
+  onTable: readonly StrilaColoredBall[],
+  pottedBalls: readonly StrilaBall[],
 ): StrilaColoredBall[] {
   const potted = new Set(pottedBalls.filter((b) => b !== StrilaMeta.cueBall))
   return onTable.filter((b) => !potted.has(b))
@@ -43,11 +43,11 @@ function addPoints(score: BySeatNumber, seat: Seat, points: number): BySeatNumbe
 function nextCueBallSerialPots(
   prev: StrilaContext['cueBallSerialPots'],
   seat: Seat,
-  pottedBalls: StrilaBall[],
+  pottedBalls: readonly StrilaBall[],
 ): StrilaContext['cueBallSerialPots'] {
   if (!pottedBalls.includes(StrilaMeta.cueBall)) return null
   if (prev?.seat !== seat) return { seat: seat, count: 1 }
-  return { seat: seat, count: prev.count >= 2 ? 2 : 2 }
+  return { seat, count: 2 }
 }
 
 type PotEvent = Extract<StrilaCommand, { type: 'pot.record' }>

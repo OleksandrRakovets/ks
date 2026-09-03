@@ -129,7 +129,7 @@ export type ActiveProtocolResult =
       readonly _tag: 'active'
       readonly latestSeq: number
       readonly state: SparringMatchRoomProjection['state']
-      readonly protocolEntries: ProtocolEntry[]
+      readonly protocolEntries: readonly ProtocolEntry[]
     }
 
 export type ActiveCommandResult =

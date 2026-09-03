@@ -77,7 +77,20 @@ function application(
     getProtocolArchive: async () => ({
       sourceLatestSeq: 1,
       protocolVersion: 1,
-      entries: [],
+      entries: [
+        {
+          acceptedSeq: 1,
+          entryIndex: 0,
+          causedByCommandId: newCommandId(),
+          acceptedAt: createdAt,
+          frameIndex: 1,
+          gameKey: 'free-pyramid',
+          source: 'system',
+          entryType: 'frame-prepared',
+          seat: 'A',
+          body: {},
+        },
+      ],
       state: transfer.finalState,
     }),
     beginMatchCreation: async () => {

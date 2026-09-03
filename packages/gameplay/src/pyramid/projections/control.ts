@@ -36,7 +36,7 @@ export function derivePyramidControlProjection<K extends PyramidGameKey>(
   }
 
   if (phase === 'open-play') {
-    const seats: Array<'A' | 'B'> = ['A', 'B']
+    const seats: readonly ('A' | 'B')[] = ['A', 'B']
     const controls = [
       ...seats.flatMap((seat) =>
         rules.shotPointOptions.map((pottedBallCount, index) => ({

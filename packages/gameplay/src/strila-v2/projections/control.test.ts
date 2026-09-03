@@ -42,8 +42,12 @@ test('projects exact open-play controls and selectable balls', () => {
     neutral: [],
   })
 
-  control.score.A = 99
-  control.details.ballStatuses[1] = 'potted'
+  // SAFETY: deliberately bypass readonly to verify the projection does not share machine state.
+  const score = control.score as { A: number; B: number }
+  // SAFETY: deliberately bypass readonly to verify the projection does not share machine state.
+  const ballStatuses = control.details.ballStatuses as { 1: 'object' | 'on-table' | 'potted' }
+  score.A = 99
+  ballStatuses[1] = 'potted'
   expect(deriveStrilaControlProjection(snapshot).score.A).toBe(0)
   expect(deriveStrilaControlProjection(snapshot).details.ballStatuses[1]).toBe('object')
 })

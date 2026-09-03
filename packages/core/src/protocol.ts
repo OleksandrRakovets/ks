@@ -9,49 +9,91 @@ import { NonNegativeInteger, PositiveInteger, SizedString, UnknownObject } from 
 export const ProtocolEntrySource = v.picklist(['player', 'system'])
 export type ProtocolEntrySource = v.InferOutput<typeof ProtocolEntrySource>
 
-/**
- * Game-owned Protocol content for the gameplay session's current frame.
- * Each game extends this structure with its exact body schema and creates entries from accepted transitions.
- */
-export const GameProtocolEntry = v.object({
+const GameProtocolEntryFields = v.object({
   gameKey: GameKey,
   source: ProtocolEntrySource,
   entryType: SizedString(1, 64),
   seat: Seat,
   scoreAfter: v.optional(BySeatNumber),
-  body: UnknownObject,
 })
+
+/**
+ * Game-owned Protocol content for the gameplay session's current frame.
+ * Each game extends this structure with its exact body schema and creates entries from accepted transitions.
+ */
+export const GameProtocolEntry = v.pipe(
+  v.object({
+    ...GameProtocolEntryFields.entries,
+    body: UnknownObject,
+  }),
+  v.readonly(),
+)
 export type GameProtocolEntry = v.InferOutput<typeof GameProtocolEntry>
 
-/** Complete Protocol meaning before MatchRoom attaches acceptance metadata. */
-export const ProtocolEntryContent = v.object({
+const ProtocolEntryContentFields = v.object({
   frameIndex: PositiveInteger,
-  ...GameProtocolEntry.entries,
+  ...GameProtocolEntryFields.entries,
 })
+
+/** Complete Protocol meaning before MatchRoom attaches acceptance metadata. */
+export const ProtocolEntryContent = v.pipe(
+  v.object({
+    ...ProtocolEntryContentFields.entries,
+    body: UnknownObject,
+  }),
+  v.readonly(),
+)
 export type ProtocolEntryContent = v.InferOutput<typeof ProtocolEntryContent>
 
-export const NonEmptyProtocolEntryContents = v.pipe(v.array(ProtocolEntryContent), v.minLength(1))
+export const NonEmptyProtocolEntryContents = v.pipe(
+  v.tupleWithRest([ProtocolEntryContent], ProtocolEntryContent),
+  v.readonly(),
+)
 export type NonEmptyProtocolEntryContents = v.InferOutput<typeof NonEmptyProtocolEntryContents>
 
-/** Authoritative Protocol Entry with acceptance, causation, and ordering metadata. */
-export const ProtocolEntry = v.object({
+const ProtocolEntryFields = v.object({
   acceptedSeq: PositiveInteger,
   entryIndex: NonNegativeInteger,
   causedByCommandId: CommandId,
   acceptedAt: UnixEpochMilliseconds,
-  ...ProtocolEntryContent.entries,
+  ...ProtocolEntryContentFields.entries,
 })
+
+/** Authoritative Protocol Entry with acceptance, causation, and ordering metadata. */
+export const ProtocolEntry = v.pipe(
+  v.object({
+    ...ProtocolEntryFields.entries,
+    body: UnknownObject,
+  }),
+  v.readonly(),
+)
 export type ProtocolEntry = v.InferOutput<typeof ProtocolEntry>
 
-export const ProtocolEntries = v.array(ProtocolEntry)
+export const ProtocolEntries = v.pipe(v.array(ProtocolEntry), v.readonly())
 export type ProtocolEntries = v.InferOutput<typeof ProtocolEntries>
 
-export const NonEmptyProtocolEntries = v.pipe(ProtocolEntries, v.minLength(1))
+export const NonEmptyProtocolEntries = v.pipe(v.tupleWithRest([ProtocolEntry], ProtocolEntry), v.readonly())
 export type NonEmptyProtocolEntries = v.InferOutput<typeof NonEmptyProtocolEntries>
 
+/**
+ * MatchRoom's persisted Protocol row decoder, where the Protocol body is stored as JSON text.
+ * This is a storage-adapter schema; domain code should use ProtocolEntry instead.
+ */
+export const StoredProtocolEntryRow = v.pipe(
+  v.object({
+    ...ProtocolEntryFields.entries,
+    bodyJson: v.pipe(v.string(), v.parseJson(), UnknownObject),
+  }),
+  v.transform(({ bodyJson, ...entry }) => ({ ...entry, body: bodyJson })),
+  v.readonly(),
+)
+
 /** Durable replay input and its expected Protocol content. */
-export const AcceptedCommandHistoryEntry = v.object({
-  command: MatchCommand,
-  protocolEntryContents: NonEmptyProtocolEntryContents,
-})
+export const AcceptedCommandHistoryEntry = v.pipe(
+  v.object({
+    command: MatchCommand,
+    protocolEntryContents: NonEmptyProtocolEntryContents,
+  }),
+  v.readonly(),
+)
 export type AcceptedCommandHistoryEntry = v.InferOutput<typeof AcceptedCommandHistoryEntry>
