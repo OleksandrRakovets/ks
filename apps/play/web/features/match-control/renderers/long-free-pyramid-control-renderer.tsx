@@ -26,7 +26,9 @@ export function labelLongFreePyramidCommands(controls: readonly Control[]): Labe
 
 function longFreePyramidCommandLabel(t: TFunction, labelled: LabelledLongFreePyramidCommand): string {
   if (labelled.kind === 'pottedBallCount') {
-    return t('match.control.controls.game.pot.pottedBallCount', { pottedBallCount: labelled.pottedBallCount })
+    return t('match.control.commands.game.pot.pottedBallCount', {
+      pottedBallCount: labelled.pottedBallCount,
+    })
   }
   return controlLabel(t, labelled.command)
 }
@@ -107,46 +109,8 @@ export function LongFreePyramidControlRenderer(
   }
   const hasScoringCommands = scoringCommands.A.length > 0 || scoringCommands.B.length > 0
 
-  const details = props.projection.details
-  const previousRackScores = details.rackHistory
-    .slice(0, -1)
-    .map((rack) => `${rack.scoreBySeat.A}:${rack.scoreBySeat.B}`)
-    .join(', ')
-
   return (
     <div className="grid">
-      <section
-        aria-label={t(keys.match.control.longFreePyramid.rackStatus)}
-        className="border-b border-divider px-4 py-3"
-      >
-        <div className="grid gap-1 text-base">
-          <div className="flex items-center justify-between gap-3">
-            <span className="font-medium">
-              {t(keys.match.control.longFreePyramid.rack, { rackNumber: details.currentRack.rackNumber })}
-            </span>
-            <span className="text-muted-foreground tabular-nums">
-              {t(keys.match.control.longFreePyramid.ballsOnTable, { count: details.ballsOnTable })}
-            </span>
-          </div>
-          <div className="text-sm text-muted-foreground tabular-nums">
-            {t(keys.match.control.longFreePyramid.rackScore, {
-              scoreA: details.currentRack.scoreBySeat.A,
-              scoreB: details.currentRack.scoreBySeat.B,
-            })}
-          </div>
-          {previousRackScores ? (
-            <div className="text-sm text-muted-foreground tabular-nums">
-              {t(keys.match.control.longFreePyramid.previousRacks, { scores: previousRackScores })}
-            </div>
-          ) : null}
-          {details.messages.map((message) => (
-            <p key={`${message.code}:${message.rackNumber}`} className="text-sm text-primary">
-              {t(`match.control.messages.${message.code}`, { rackNumber: message.rackNumber })}
-            </p>
-          ))}
-        </div>
-      </section>
-
       {hasNeutral ? (
         <NeutralControlRows controls={controlSections.neutral} onSubmit={props.onSubmitCommand} />
       ) : null}
@@ -155,9 +119,13 @@ export function LongFreePyramidControlRenderer(
         <div className="grid">
           <button
             type="button"
-            className="px-4 py-2 text-left text-base text-muted-foreground hover:text-foreground"
+            aria-expanded={showTertiary}
+            className="flex items-center gap-2 px-4 py-2 text-left text-base text-muted-foreground hover:text-foreground"
             onClick={() => setShowTertiary((v) => !v)}
           >
+            <span aria-hidden className={showTertiary ? undefined : 'rotate-180'}>
+              ▲
+            </span>
             {showTertiary ? t(keys.match.control.showLess) : t(keys.match.control.showMore)}
           </button>
           {showTertiary ? (

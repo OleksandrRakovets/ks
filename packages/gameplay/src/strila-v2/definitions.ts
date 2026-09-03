@@ -67,11 +67,20 @@ export type StrilaPhase = v.InferOutput<typeof StrilaPhase>
 
 const WinnerDeterminationReason = v.picklist(['target-reached', 'respotted-black-won', 'automatic-foul'])
 
+const PottedBallsBySeat = v.pipe(
+  v.object({
+    A: v.pipe(v.array(Ball), v.readonly()),
+    B: v.pipe(v.array(Ball), v.readonly()),
+  }),
+  v.readonly(),
+)
+
 const StrilaContext = v.pipe(
   v.object({
     score: BySeatNumber,
     targetPoints: BySeatNumber,
     coloredBallsOnTable: v.pipe(v.array(ColoredBall), v.readonly()),
+    pottedBallsBySeat: PottedBallsBySeat,
     cueBallSerialPots: v.nullable(
       v.pipe(
         v.object({
@@ -122,6 +131,7 @@ const StrilaControlProjectionDetails = v.pipe(
     situationSummary: v.optional(NonEmptyString),
     isPotCommandAvailable: v.boolean(),
     ballStatuses: StrilaBallStatuses,
+    pottedBallsBySeat: PottedBallsBySeat,
     controlSections: ControlSections,
     messages: v.pipe(v.array(ControlMessage), v.readonly()),
   }),

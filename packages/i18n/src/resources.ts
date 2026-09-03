@@ -132,8 +132,8 @@ export const resources = {
           undo: 'Скасувати',
           offline: 'Офлайн',
           choosePottedBall: 'Обери забиту кулю',
-          showMore: '··· Більше',
-          showLess: '▲ Сховати',
+          showMore: 'Більше',
+          showLess: 'Сховати',
         },
         scoreboard: {
           frames: 'Фрейми',
@@ -391,8 +391,8 @@ export const resources = {
           undo: 'Undo',
           offline: 'Offline',
           choosePottedBall: 'Choose potted ball',
-          showMore: '··· More',
-          showLess: '▲ Hide',
+          showMore: 'More',
+          showLess: 'Hide',
         },
         scoreboard: {
           frames: 'Frames',

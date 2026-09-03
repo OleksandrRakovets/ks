@@ -8,9 +8,11 @@ export default [
   route('ui-preferences/:preference/', 'routes/ui-preferences.ts'),
   layout('routes/layout-base.tsx', [
     index('routes/index.tsx'),
-    route('sparring/', 'routes/sparring.tsx'),
-    route('sparring/init/:gameKey/', 'routes/sparring-init/route.tsx'),
-    route('sparring/matches/', 'routes/sparring-matches.tsx'),
+    layout('routes/layout-construction.tsx', [
+      route('sparring/', 'routes/sparring.tsx'),
+      route('sparring/init/:gameKey/', 'routes/sparring-init/route.tsx'),
+      route('sparring/matches/', 'routes/sparring-matches.tsx'),
+    ]),
     route('match/strila-v2/:matchId/control/', 'routes/match/strila-v2-control.tsx'),
     route('match/strila-v2/:matchId/protocol/', 'routes/match/strila-v2-protocol.tsx'),
     route('match/free-pyramid/:matchId/control/', 'routes/match/free-pyramid-control.tsx'),

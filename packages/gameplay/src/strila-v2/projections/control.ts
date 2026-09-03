@@ -99,6 +99,7 @@ function controlProjection(
       situationSummary: args.situationSummary,
       isPotCommandAvailable: args.controls.some((entry) => entry.type === 'pot.record'),
       ballStatuses: deriveBallStatuses(snapshot),
+      pottedBallsBySeat: snapshot.context.pottedBallsBySeat,
       controlSections: deriveGameControlSections(args.controls),
       messages: messages(args.messages ?? []),
     },

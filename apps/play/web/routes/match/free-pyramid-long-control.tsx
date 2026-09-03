@@ -1,16 +1,15 @@
 import type { MatchCommand } from '@ks/core'
 import { keys } from '@ks/i18n'
 import { useTranslation } from 'react-i18next'
-import { Link, useFetcher, useLoaderData } from 'react-router'
+import { useFetcher, useLoaderData } from 'react-router'
 
 import { LongFreePyramidControlRenderer } from '../../features/match-control/renderers/long-free-pyramid-control-renderer'
-import { matchProtocolUrl } from '../../features/match-urls'
+import { MatchNavigation } from '../../features/match-navigation'
 import { ScoreBox } from '../sparring-match/score-box'
 import type { Route } from './+types/free-pyramid-long-control'
 import {
   BetweenFrameControls,
   commandMatchAction,
-  type ControlRouteData,
   loadMatchControl,
   matchCommandForm,
   useControlLiveRevalidation,
@@ -22,14 +21,6 @@ export function loader(args: Route.LoaderArgs) {
 export function action(args: Route.ActionArgs) {
   return commandMatchAction(args, 'free-pyramid-long')
 }
-export const handle = {
-  headerConfig: (data: ControlRouteData<'free-pyramid-long'>) => ({
-    titleKey: keys.match.sparring.controlHeaderTitle,
-    titleParams: { gameTitle: data.gameTitle },
-    backTo: '/sparring/matches/',
-  }),
-}
-
 export default function FreePyramidLongControlRoute() {
   const { t } = useTranslation()
   const data = useLoaderData<typeof loader>()
@@ -40,12 +31,27 @@ export default function FreePyramidLongControlRoute() {
     data.controlState === 'frame-active'
       ? data.controlProjection.score
       : (snapshotFrame?.pointsBySeat ?? { A: 0, B: 0 })
+  const rack = data.controlState === 'frame-active' ? data.controlProjection.details.currentRack : null
+  const statusLine =
+    data.controlState === 'frame-active'
+      ? `${data.gameTitle} · ${t(keys.match.control.longFreePyramid.rack, {
+          rackNumber: rack?.rackNumber,
+        })} · ${t(keys.match.control.longFreePyramid.ballsOnTable, {
+          count: data.controlProjection.details.ballsOnTable,
+        })}`
+      : undefined
   function submitCommand(command: MatchCommand) {
     markLocalSubmit()
     fetcher.submit(matchCommandForm(command), { method: 'post' })
   }
   return (
     <main className="flex flex-1 flex-col bg-surface">
+      <MatchNavigation
+        active="control"
+        gameKey="free-pyramid-long"
+        matchId={data.state.matchId}
+        matchStatus={data.state.status}
+      />
       <ScoreBox
         nameA={data.participants.A.displayName}
         nameB={data.participants.B.displayName}
@@ -54,6 +60,9 @@ export default function FreePyramidLongControlRoute() {
         matchStatus={data.state.status}
         frameIndex={data.state.currentFrameIndex}
         targetFrames={data.state.targets.matchTargetFrames}
+        pottedBallCounts={rack?.scoreBySeat}
+        statusLine={statusLine}
+        alwaysShowFrameScore
       />
       {data.controlState === 'frame-active' ? (
         <section aria-label={t(keys.match.control.perGameContainer)} className="flex flex-col">
@@ -76,17 +85,6 @@ export default function FreePyramidLongControlRoute() {
       {fetcher.data?.ok === false ? (
         <p className="px-4 py-2 text-base text-destructive">{t(fetcher.data.errorKey)}</p>
       ) : null}
-      <nav className="sticky bottom-0 z-10 mt-auto flex h-14 border-t border-border bg-background">
-        <span className="-mt-px flex flex-1 items-center justify-center border-t-2 border-primary text-center text-base font-medium text-foreground">
-          {t(keys.match.sparring.tabControl)}
-        </span>
-        <Link
-          to={matchProtocolUrl('free-pyramid-long', data.state.matchId)}
-          className="-mt-px flex flex-1 items-center justify-center border-t-2 border-transparent text-center text-base font-medium text-muted-foreground hover:text-foreground"
-        >
-          {t(keys.match.sparring.tabProtocol)}
-        </Link>
-      </nav>
     </main>
   )
 }

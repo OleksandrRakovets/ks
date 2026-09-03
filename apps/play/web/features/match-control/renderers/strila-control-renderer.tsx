@@ -21,13 +21,30 @@ const BALL_COLORS = {
   7: { bg: '#2a2a2a', border: '#555555' },
 } satisfies Record<StrilaBall, { bg: string; border: string }>
 
+export function StrilaScoreMarkers(props: { balls: readonly StrilaBall[]; align: 'left' | 'right' }) {
+  return (
+    <div
+      className={`flex min-w-0 flex-wrap gap-1.5 ${props.align === 'right' ? 'justify-end' : 'justify-start'}`}
+    >
+      {props.balls.map((ball, index) => (
+        <span
+          key={`${ball}-${index}`}
+          aria-hidden
+          className="size-3.5 shrink-0 rounded-full"
+          style={{ backgroundColor: BALL_COLORS[ball].bg }}
+        />
+      ))}
+    </div>
+  )
+}
+
 type SeatControls = MatchControlRendererProps<StrilaControlProjection>['controlSections']['primary']
 
 function strilaCommandLabel(t: TFunction, command: Control, index: number): string {
   if (command.type !== 'penalty.select') return controlLabel(t, command)
-  if (index === 0) return t('match.control.controls.game.penalty.select.play-from-position')
-  if (index === 1) return t('match.control.controls.game.penalty.select.pass-position')
-  return t('match.control.controls.game.penalty.select.ball-in-hand')
+  if (index === 0) return t('match.control.commands.game.penalty.select.play-from-position')
+  if (index === 1) return t('match.control.commands.game.penalty.select.pass-position')
+  return t('match.control.commands.game.penalty.select.ball-in-hand')
 }
 
 function prominenceVariant(prominence: Control['prominence']): 'default' | 'secondary' | 'outline' {
@@ -209,9 +226,13 @@ export function StrilaControlRenderer(props: MatchControlRendererProps<StrilaCon
         <div className="grid gap-3">
           <button
             type="button"
-            className="px-4 py-3 text-left text-base text-muted-foreground hover:text-foreground"
+            aria-expanded={showTertiary}
+            className="flex items-center gap-2 px-4 py-3 text-left text-base text-muted-foreground hover:text-foreground"
             onClick={() => setShowTertiary((v) => !v)}
           >
+            <span aria-hidden className={showTertiary ? undefined : 'rotate-180'}>
+              ▲
+            </span>
             {showTertiary ? t(keys.match.control.showLess) : t(keys.match.control.showMore)}
           </button>
           {showTertiary && (

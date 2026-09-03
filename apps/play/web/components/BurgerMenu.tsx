@@ -19,7 +19,7 @@ const LOCALE_OPTIONS: { value: SupportedLocale; labelKey: string }[] = [
   { value: 'en', labelKey: keys.language.english },
 ]
 
-export function BurgerMenu() {
+export function BurgerMenu(props: { placement?: 'header' | 'navigation' }) {
   const currentLocale = useRootLocale()
   const currentTheme = useRootTheme()
   const fetcher = useFetcher()
@@ -39,9 +39,16 @@ export function BurgerMenu() {
       <SheetTrigger asChild>
         <button
           aria-label={t(keys.nav.menu)}
-          className="flex h-14 items-center justify-center px-4 text-green"
+          className={
+            props.placement === 'navigation'
+              ? 'relative -mt-px flex h-12 w-full items-center justify-center border-t-2 border-transparent text-base font-medium text-muted-foreground hover:text-foreground lg:h-14'
+              : 'flex h-14 items-center justify-center px-4 text-green'
+          }
         >
-          <HamburgerIcon />
+          <span className={props.placement === 'navigation' ? 'absolute left-4 lg:left-2' : undefined}>
+            <HamburgerIcon />
+          </span>
+          {props.placement === 'navigation' ? <span>{t(keys.nav.menu)}</span> : null}
         </button>
       </SheetTrigger>
 
