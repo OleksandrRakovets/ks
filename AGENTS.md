@@ -48,11 +48,11 @@ Domain vocabulary and distinctions are defined in CONTEXT.md. Treat it as author
 
 ## Authority And Lifecycle
 
-- Accepted Commands and Protocol entries, their sequence, and command outcomes are authoritative in each MatchRoom's SQLite database. Do not mirror active command history into D1.
+- Accepted Commands, their sequence, and command outcomes are authoritative in each MatchRoom's SQLite database. MatchRoom derives Protocol entries from Accepted Commands; do not mirror active command history into D1.
 - D1 owns players, the `matches` table, and completed protocol archives with final match state.
-- Resident match/gameplay state is a disposable cache restored by replaying Accepted Commands and comparing regenerated Protocol entries; raw XState snapshots are not persisted.
-- The terminal Accepted Command atomically stores Final Match State and `endedAt`. Application treats MatchRoom's Protocol and Final Match State transfer as canonical, checks D1 identity/lifecycle and archive idempotency, archives it without gameplay replay, asks MatchRoom to broadcast/close streams and schedule delayed disposal, then marks the match row finished. MatchRoom's alarm deletes local storage after the grace period.
-- Finished reads use D1 and must not access the retained or deleted MatchRoom.
+- Resident match/gameplay state and derived Protocol are a disposable cache restored by replaying Accepted Commands; raw XState snapshots are not persisted.
+- The terminal Accepted Command atomically stores Final Match State and `endedAt`. Application treats MatchRoom's Protocol and Final Match State transfer as canonical, checks D1 identity/lifecycle and archive idempotency, archives it without gameplay replay, asks MatchRoom to broadcast/close streams, then marks the match row finished. Finalizing MatchRoom storage is retained.
+- Finished reads use D1 and must not access the retained MatchRoom.
 
 ## Runtime Notes
 

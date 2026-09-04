@@ -84,11 +84,6 @@ export class FinalizingMatchHandler {
     this.#resident = null
   }
 
-  dispose(): void {
-    this.#resident?.clear()
-    this.#resident = null
-  }
-
   #load(): ResidentState {
     const resident = this.#resident ?? new ResidentMatch()
     this.#resident = resident

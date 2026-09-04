@@ -1,5 +1,4 @@
 import type { MatchCommand } from '@ks/core'
-import { nowUnixEpochMilliseconds } from '@ks/core'
 import { DurableObject } from 'cloudflare:workers'
 
 import type { Env } from './env'
@@ -9,13 +8,10 @@ import { FinalizingMatchHandler } from './match/finalizing-match-handler'
 import { initializeMatch, type InitializeMatchInput } from './match/initialize-match'
 import { MatchStorage } from './storage/match-storage'
 
-const FINALIZED_ROOM_RETENTION_MS = 10 * 60 * 1000
-
 export class MatchRoom extends DurableObject<Env> {
   readonly #storage: MatchStorage
   readonly #broadcaster: Broadcaster
   #handler: MatchHandler | null = null
-  #disposed = false
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
@@ -73,40 +69,15 @@ export class MatchRoom extends DurableObject<Env> {
   }
 
   async finalize(): Promise<void> {
-    await this.ctx.blockConcurrencyWhile(async () => {
-      if (this.#disposed) return
-      const handler = this.#readHandler()
-      if (!handler) return
-      if (handler instanceof ActiveMatchHandler) throw new Error('Cannot finalize active Match')
-      handler.finalize()
-      if ((await this.ctx.storage.getAlarm()) === null)
-        await this.ctx.storage.setAlarm(nowUnixEpochMilliseconds() + FINALIZED_ROOM_RETENTION_MS)
-    })
-  }
-
-  async alarm(): Promise<void> {
-    await this.ctx.blockConcurrencyWhile(async () => {
-      if (this.#disposed) return
-      const handler = this.#readHandler()
-      if (!handler) return
-      if (handler instanceof ActiveMatchHandler) throw new Error('Cannot dispose active Match')
-      handler.dispose()
-      await this.ctx.storage.deleteAll()
-      this.#handler = null
-      this.#disposed = true
-    })
+    const handler = this.#requireHandler()
+    if (handler instanceof ActiveMatchHandler) throw new Error('Cannot finalize active Match')
+    handler.finalize()
   }
 
   #requireHandler(): MatchHandler {
-    const handler = this.#readHandler()
-    if (!handler) throw new Error('MatchRoom storage missing')
-    return handler
-  }
-
-  #readHandler(): MatchHandler | null {
     if (this.#handler) return this.#handler
     const stored = this.#storage.match()
-    if (!stored) return null
+    if (!stored) throw new Error('MatchRoom storage missing')
     this.#handler =
       stored.status === 'active'
         ? new ActiveMatchHandler(this.#storage, this.#broadcaster, stored)
