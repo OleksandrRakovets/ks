@@ -97,7 +97,9 @@ test('discards speculative resident state and rolls back both writes after persi
 })
 
 test('terminal retry remains terminal while an earlier accepted retry does not', async () => {
-  const { stub } = await initializedRoom()
+  const { matchId, stub } = await initializedRoom()
+  const rejected = commenceCommand()
+  await stub.submitCommand(rejected)
   const earlier = prepareCommand()
   await stub.submitCommand(earlier)
   await stub.submitCommand(commenceCommand())
@@ -118,4 +120,23 @@ test('terminal retry remains terminal while an earlier accepted retry does not',
     finalizesMatch: false,
   })
   expect(await stub.submitCommand(prepareCommand())).toEqual({ _tag: 'finalizing' })
+
+  await evictDurableObject(stub)
+  const restored = env.MATCH_ROOM.getByName(matchId)
+  expect(await restored.submitCommand(terminal)).toEqual({
+    _tag: 'accepted',
+    acceptedSeq: 3,
+    finalizesMatch: true,
+  })
+  expect(await restored.submitCommand(rejected)).toEqual({
+    _tag: 'rejected',
+    reason: { code: 'no-active-frame' },
+  })
+  expect(
+    await restored.submitCommand({
+      ...terminal,
+      command: { ...terminal.command, seat: terminal.command.seat === 'A' ? 'B' : 'A' },
+    }),
+  ).toEqual({ _tag: 'command-id-conflict' })
+  expect(await restored.submitCommand(prepareCommand())).toEqual({ _tag: 'finalizing' })
 })

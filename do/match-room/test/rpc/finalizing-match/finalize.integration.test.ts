@@ -45,6 +45,26 @@ test('does not replay commands after archive preparation', async () => {
   await expect(env.MATCH_ROOM.getByName(matchId).finalize()).resolves.toBeUndefined()
 })
 
+test('finalizing lightweight reads do not reconstruct corrupt command history', async () => {
+  const { matchId, stub } = await initializedRoom()
+  await makeRoomFinalizing(stub)
+  await runInDurableObject(stub, (_room, state) => {
+    state.storage.sql.exec(`UPDATE commands SET request_json = '{}' WHERE accepted_seq = 1`)
+  })
+  await evictDurableObject(stub)
+  const restored = env.MATCH_ROOM.getByName(matchId)
+
+  await expect(restored.getControls()).resolves.toEqual({ _tag: 'finalizing' })
+  await expect(restored.getProtocol()).resolves.toEqual({ _tag: 'finalizing' })
+  await expect(restored.stream()).resolves.toEqual({ _tag: 'finalizing' })
+  await expect(
+    captureRpcError(async () => {
+      await restored.prepareArchive()
+    }),
+  ).resolves.toMatchObject({ message: expect.stringContaining('commands storage corruption') })
+  await expect(restored.finalize()).resolves.toBeUndefined()
+})
+
 test('alarm disposes retained storage and is idempotent', async () => {
   const { stub } = await initializedRoom()
   await makeRoomFinalizing(stub)

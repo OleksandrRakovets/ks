@@ -49,6 +49,8 @@ Competition composes match controls before game controls into one flat list. Mat
 
 Accepted Commands are the active replay authority and are never mirrored to D1. A shared resident is only a disposable execution and Protocol cache. Cold restoration validates ordered command rows and replays each command through the same aggregate operation to derive Protocol. Raw XState snapshots are not persisted.
 
+MatchRoom owns three long-lived functional resources: MatchStorage, the storage-independent ResidentMatch, and Broadcaster. It retains at most one lifecycle phase pairing the latest stored match with its matching operations (`ActiveMatchOperations` or `FinalizingMatchOperations`). Each initialized-match call reads durable status once and replaces or refreshes that phase. After a terminal commit the retained phase remains active until the next call converges from durable status.
+
 Gameplay compatibility risk therefore extends through `prepareArchive`: finalizing history must remain replayable until that semantic validation gate has produced the D1 transfer. Finalize and stream closure are deliberately replay-free after archive preparation.
 
 An accepted command advances resident state before one synchronous SQLite transaction stores the Accepted Command, next sequence, and any terminal state/status. MatchRoom does not persist Protocol; the shared resident atomically publishes match state, cursor, and promoted entries. Execution, persistence, or promotion defects discard the cache so the next operation restores from durable commands.
@@ -88,6 +90,8 @@ MatchRoom's `finalizing` status is not durable from the application's perspectiv
 
 Finalization publishes the withheld terminal update, closes clients, schedules one Cloudflare alarm 10 minutes in the future, and clears resident state. Application marks D1 finished only after finalization returns. Finalization retries do not extend the existing alarm, and retained `finalizing` storage continues to serve semantic finalizing results and idempotent archive transfers during the grace period. The alarm is the sole destructive path: it validates that the room is finalizing, deletes all local storage, and tolerates already-missing storage.
 
+FinalizingMatchOperations owns every finalizing operation. Command retries consult durable receipts, while controls, Protocol, stream, finalize, and disposal are replay-free. Only `prepareArchive` may restore accepted history after resident eviction, because it owns the terminal semantic gate; a cache hit does not reread that history. Finalize does not depend on proof that archive preparation previously ran.
+
 The generated control secret is stored in MatchRoom but is not exposed or checked by the current command path.
 
 ## Live Updates
@@ -111,7 +115,7 @@ Existing streams remain connected while archival is pending. A new stream reques
 - Persisted JSON and commands are decoded and validated in their owning adapters. Derived Protocol and archive semantics are validated through archive preparation. Malformed data fails the operation rather than yielding partial state.
 - MatchRoom SQLite uses positive Accepted Command sequence for ordering, beginning at `1`; newly created matches have cursor `0`.
 - `MatchStorage` owns migration access, the Drizzle client, persisted representations, codecs, and consistency checks. Rows and serialized JSON do not cross its public seam; it persists commands and lifecycle only.
-- Storage validation enforces Accepted Command shape, sequence continuity, command identity, Match identity, timestamps, and lifecycle. MatchStorage does not import or interpret gameplay semantics. MatchResident reconstructs Protocol metadata and indices; `prepareArchive` alone validates terminal position/time/winner and final-state semantic equality.
+- Storage validation enforces Accepted Command shape, sequence continuity, command identity, Match identity, timestamps, and lifecycle. MatchStorage does not import or interpret gameplay semantics. ResidentMatch reconstructs Protocol metadata and indices; `prepareArchive` checks that the replayed final state agrees with the atomically persisted Final Match State.
 - Constructor migration runs in `blockConcurrencyWhile`, so no RPC event observes an unmigrated room. Active operations remain synchronous over resident state and SQLite. Finalization blocks concurrency while publishing the terminal update, closing streams, and scheduling cleanup. Alarm disposal separately blocks concurrency while validating lifecycle and calling `deleteAll()`.
 - Expected RPC outcomes are semantic variants, not HTTP failures. Application owns HTTP adaptation. Missing or corrupt authority and invalid lifecycle calls are defects that throw.
 - See `.tracker/db.md` for migration and inspection procedures.

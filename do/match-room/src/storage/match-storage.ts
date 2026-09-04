@@ -33,7 +33,7 @@ export class MatchStorage {
     migrate(this.#db, migrationsBundle)
   }
 
-  commitCreation(initialization: ActiveMatchInitialization): void {
+  commitCreation(initialization: MatchCreation): void {
     const { config, ...values } = initialization
     this.#db
       .insert(schema.activeMatches)
@@ -49,12 +49,12 @@ export class MatchStorage {
       .run()
   }
 
-  match(): ActiveMatchRecord | null {
+  match(): StoredMatch | null {
     const rows = this.#db.select().from(schema.activeMatches).limit(2).all()
     if (rows.length > 1) throw new Error('MatchRoom contains multiple Match rows')
     if (!rows[0]) return null
     try {
-      return v.parse(ActiveMatchRecord, rows[0])
+      return v.parse(StoredMatch, rows[0])
     } catch {
       throw new Error('MatchRoom active_matches storage corruption')
     }
@@ -92,7 +92,7 @@ export class MatchStorage {
   }
 
   commitAcceptedCommand(args: {
-    match: ActiveMatchRecord
+    match: StoredActiveMatch
     command: MatchCommand
     finalState: MatchState | null
   }): {
@@ -142,7 +142,7 @@ export class MatchStorage {
     })
   }
 
-  readAcceptedCommands(match: ActiveMatchRecord): AcceptedCommand[] {
+  readAcceptedCommands(match: StoredMatch): AcceptedCommand[] {
     try {
       const rows = this.#db
         .select()
@@ -188,16 +188,34 @@ const ActiveMatchConfig = v.pipe(
   v.object({ ...MatchConfig.entries, gameKey: RegisteredGameKey }),
   v.readonly(),
 )
-const ActiveMatchRecord = v.pipe(
+const StoredMatchFields = {
+  matchId: MatchId,
+  controlSecret: v.pipe(v.string(), v.minLength(16)),
+  configJson: v.pipe(v.string(), v.parseJson(), ActiveMatchConfig),
+  latestSeq: NonNegativeInteger,
+  createdAt: UnixEpochMilliseconds,
+}
+const StoredActiveMatch = v.pipe(
   v.object({
-    matchId: MatchId,
-    controlSecret: v.pipe(v.string(), v.minLength(16)),
-    configJson: v.pipe(v.string(), v.parseJson(), ActiveMatchConfig),
-    latestSeq: NonNegativeInteger,
-    status: v.picklist(['active', 'finalizing']),
-    createdAt: UnixEpochMilliseconds,
-    finalStateJson: v.nullable(v.pipe(v.string(), v.parseJson(), MatchState)),
-    endedAt: v.nullable(UnixEpochMilliseconds),
+    ...StoredMatchFields,
+    status: v.literal('active'),
+    finalStateJson: v.null(),
+    endedAt: v.null(),
+  }),
+  v.transform(({ configJson, finalStateJson, ...row }) => ({
+    ...row,
+    config: configJson,
+    finalState: finalStateJson,
+  })),
+  v.check((row) => row.matchId === row.config.matchId),
+  v.readonly(),
+)
+const StoredFinalizingMatch = v.pipe(
+  v.object({
+    ...StoredMatchFields,
+    status: v.literal('finalizing'),
+    finalStateJson: v.pipe(v.string(), v.parseJson(), MatchState),
+    endedAt: UnixEpochMilliseconds,
   }),
   v.transform(({ configJson, finalStateJson, ...row }) => ({
     ...row,
@@ -207,18 +225,18 @@ const ActiveMatchRecord = v.pipe(
   v.check(
     (row) =>
       row.matchId === row.config.matchId &&
-      (row.status === 'active'
-        ? row.finalState === null && row.endedAt === null
-        : row.finalState?.status === 'finished' && row.endedAt !== null) &&
-      (row.finalState === null ||
-        (row.finalState.matchId === row.matchId &&
-          row.finalState.gameKey === row.config.gameKey &&
-          isDeepStrictEqual(row.finalState.targets, row.config.targets))),
+      row.finalState.status === 'finished' &&
+      row.finalState.matchId === row.matchId &&
+      row.finalState.gameKey === row.config.gameKey &&
+      isDeepStrictEqual(row.finalState.targets, row.config.targets),
   ),
   v.readonly(),
 )
-export type ActiveMatchRecord = v.InferOutput<typeof ActiveMatchRecord>
-export type ActiveMatchInitialization = {
+const StoredMatch = v.variant('status', [StoredActiveMatch, StoredFinalizingMatch])
+export type StoredActiveMatch = v.InferOutput<typeof StoredActiveMatch>
+export type StoredFinalizingMatch = v.InferOutput<typeof StoredFinalizingMatch>
+export type StoredMatch = v.InferOutput<typeof StoredMatch>
+export type MatchCreation = {
   readonly config: MatchConfig
   readonly controlSecret: string
   readonly createdAt: UnixEpochMilliseconds

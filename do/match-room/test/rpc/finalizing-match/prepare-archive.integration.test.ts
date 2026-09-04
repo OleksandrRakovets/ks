@@ -4,7 +4,7 @@ import { expect, test } from 'vitest'
 import type { MatchRoom } from '../../../src/MatchRoom'
 import { captureRpcError, initializedRoom, makeRoomFinalizing } from '../fixtures'
 
-type CompletionTransfer = Awaited<ReturnType<MatchRoom['prepareArchive']>>
+type CompletedMatchTransfer = Awaited<ReturnType<MatchRoom['prepareArchive']>>
 
 test('throws before terminal acceptance', async () => {
   const { stub } = await initializedRoom()
@@ -20,9 +20,9 @@ test('throws before terminal acceptance', async () => {
 test('derives the same completion transfer after eviction', async () => {
   const { matchId, stub } = await initializedRoom()
   const terminalCommand = await makeRoomFinalizing(stub)
-  const warm: CompletionTransfer = await stub.prepareArchive()
+  const warm: CompletedMatchTransfer = await stub.prepareArchive()
   await evictDurableObject(stub)
-  const restored: CompletionTransfer = await env.MATCH_ROOM.getByName(matchId).prepareArchive()
+  const restored: CompletedMatchTransfer = await env.MATCH_ROOM.getByName(matchId).prepareArchive()
   expect(restored.matchId).toBe(matchId)
   expect(restored.sourceLatestSeq).toBe(3)
   expect(restored.finalState.status).toBe('finished')
@@ -59,5 +59,5 @@ test('rejects a schema-valid persisted final state that disagrees with replay', 
         await env.MATCH_ROOM.getByName(matchId).prepareArchive()
       })
     ).message,
-  ).toContain('terminal semantic corruption')
+  ).toContain('final state does not match accepted history')
 })
