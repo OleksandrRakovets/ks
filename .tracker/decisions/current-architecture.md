@@ -49,7 +49,7 @@ Competition composes match controls before game controls into one flat list. Mat
 
 Accepted Commands are the active replay authority and are never mirrored to D1. A shared resident is only a disposable execution and Protocol cache. Cold restoration validates ordered command rows and replays each command through the same aggregate operation to derive Protocol. Raw XState snapshots are not persisted.
 
-MatchRoom owns three long-lived functional resources: MatchStorage, the storage-independent ResidentMatch, and Broadcaster. It retains at most one lifecycle phase pairing the latest stored match with its matching operations (`ActiveMatchOperations` or `FinalizingMatchOperations`). Each initialized-match call reads durable status once and replaces or refreshes that phase. After a terminal commit the retained phase remains active until the next call converges from durable status.
+MatchRoom owns MatchStorage, Broadcaster, and exactly one stateful lifecycle operations object. ActiveMatchOperations owns the current Stored Active Match and its ResidentMatch; terminal acceptance replaces it immediately with FinalizingMatchOperations and passes the current resident forward. After eviction, MatchRoom reads durable status once to reconstruct the appropriate operations. Cold active reconstruction restores accepted history immediately, while cold finalizing reconstruction remains replay-free until archive preparation.
 
 Gameplay compatibility risk therefore extends through `prepareArchive`: finalizing history must remain replayable until that semantic validation gate has produced the D1 transfer. Finalize and stream closure are deliberately replay-free after archive preparation.
 
@@ -90,7 +90,7 @@ MatchRoom's `finalizing` status is not durable from the application's perspectiv
 
 Finalization publishes the withheld terminal update, closes clients, schedules one Cloudflare alarm 10 minutes in the future, and clears resident state. Application marks D1 finished only after finalization returns. Finalization retries do not extend the existing alarm, and retained `finalizing` storage continues to serve semantic finalizing results and idempotent archive transfers during the grace period. The alarm is the sole destructive path: it validates that the room is finalizing, deletes all local storage, and tolerates already-missing storage.
 
-FinalizingMatchOperations owns every finalizing operation. Command retries consult durable receipts, while controls, Protocol, stream, finalize, and disposal are replay-free. Only `prepareArchive` may restore accepted history after resident eviction, because it owns the terminal semantic gate; a cache hit does not reread that history. Finalize does not depend on proof that archive preparation previously ran.
+FinalizingMatchOperations owns every finalizing operation, including validation and in-memory cleanup before disposal. Command retries consult durable receipts, while controls, Protocol, stream, finalize, and disposal are replay-free. Only `prepareArchive` may restore accepted history after resident eviction, because it owns the terminal semantic gate; a warm transition reuses the active resident without rereading history. Finalize does not depend on proof that archive preparation previously ran. MatchRoom retains the visible platform boundary: it schedules the alarm after finalization and calls `deleteAll()` only after finalizing operations prepare disposal.
 
 The generated control secret is stored in MatchRoom but is not exposed or checked by the current command path.
 

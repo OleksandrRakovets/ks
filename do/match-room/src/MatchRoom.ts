@@ -7,23 +7,20 @@ import { Broadcaster } from './live/broadcaster'
 import { ActiveMatchOperations } from './match/active-match-operations'
 import { FinalizingMatchOperations } from './match/finalizing-match-operations'
 import { initializeMatch, type InitializeMatchInput } from './match/initialize-match'
-import { ResidentMatch } from './match/resident-match'
-import { MatchStorage, type StoredActiveMatch, type StoredFinalizingMatch } from './storage/match-storage'
+import { MatchStorage } from './storage/match-storage'
 
 const FINALIZED_ROOM_RETENTION_MS = 10 * 60 * 1000
 
 export class MatchRoom extends DurableObject<Env> {
   readonly #storage: MatchStorage
   readonly #broadcaster: Broadcaster
-  readonly #resident: ResidentMatch
-  #currentPhase: MatchPhase | null = null
+  #operations: MatchOperations | null = null
   #disposed = false
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
     this.#storage = new MatchStorage(ctx.storage)
     this.#broadcaster = new Broadcaster()
-    this.#resident = new ResidentMatch()
     ctx.blockConcurrencyWhile(async () => {
       this.#storage.migrate()
     })
@@ -33,105 +30,89 @@ export class MatchRoom extends DurableObject<Env> {
     if (this.ctx.id.name !== input.matchId)
       throw new Error('MatchRoom routed identity does not match initialization Match')
     const result = initializeMatch(this.#storage, input)
-    if (result._tag === 'initialized') this.#currentPhase = null
+    if (result._tag === 'initialized') this.#operations = null
     return result
   }
 
   async submitCommand(command: MatchCommand) {
-    const phase = this.#requirePhase()
-    if (phase.status === 'finalizing') return phase.operations.submitCommand(phase.stored, command)
-    return phase.operations.submitCommand(phase.stored, command)
+    const operations = this.#requireOperations()
+    if (operations instanceof FinalizingMatchOperations) return operations.submitCommand(command)
+    try {
+      const outcome = operations.submitCommand(command)
+      if (outcome.next)
+        this.#operations = new FinalizingMatchOperations(
+          this.#storage,
+          this.#broadcaster,
+          outcome.next.stored,
+          outcome.next.resident,
+        )
+      return outcome.response
+    } catch (error) {
+      this.#operations = null
+      throw error
+    }
   }
 
   async getControls() {
-    const phase = this.#requirePhase()
-    return phase.status === 'active'
-      ? phase.operations.getControls(phase.stored)
-      : phase.operations.getControls()
+    return this.#requireOperations().getControls()
   }
 
   async getProtocol() {
-    const phase = this.#requirePhase()
-    return phase.status === 'active'
-      ? phase.operations.getProtocol(phase.stored)
-      : phase.operations.getProtocol()
+    return this.#requireOperations().getProtocol()
   }
 
   async stream(since?: number) {
-    const phase = this.#requirePhase()
-    return phase.status === 'active' ? phase.operations.stream(phase.stored, since) : phase.operations.stream()
+    const operations = this.#requireOperations()
+    return operations instanceof ActiveMatchOperations ? operations.stream(since) : operations.stream()
   }
 
   async prepareArchive() {
-    const phase = this.#requirePhase()
-    if (phase.status === 'active') throw new Error('Cannot prepare archive for active Match')
-    return phase.operations.prepareArchive(phase.stored)
+    const operations = this.#requireOperations()
+    if (operations instanceof ActiveMatchOperations) throw new Error('Cannot prepare archive for active Match')
+    return operations.prepareArchive()
   }
 
   async finalize(): Promise<void> {
     await this.ctx.blockConcurrencyWhile(async () => {
       if (this.#disposed) return
-      const phase = this.#readPhase()
-      if (!phase) return
-      if (phase.status === 'active') throw new Error('Cannot finalize active Match')
-      phase.operations.closeForFinalization(phase.stored)
+      const operations = this.#readOperations()
+      if (!operations) return
+      if (operations instanceof ActiveMatchOperations) throw new Error('Cannot finalize active Match')
+      operations.finalize()
       if ((await this.ctx.storage.getAlarm()) === null)
         await this.ctx.storage.setAlarm(nowUnixEpochMilliseconds() + FINALIZED_ROOM_RETENTION_MS)
-      this.#resident.clear()
     })
   }
 
   async alarm(): Promise<void> {
     await this.ctx.blockConcurrencyWhile(async () => {
       if (this.#disposed) return
-      const phase = this.#readPhase()
-      if (!phase) return
-      if (phase.status === 'active') throw new Error('Cannot dispose active Match')
+      const operations = this.#readOperations()
+      if (!operations) return
+      if (operations instanceof ActiveMatchOperations) throw new Error('Cannot dispose active Match')
+      operations.dispose()
       await this.ctx.storage.deleteAll()
-      this.#resident.clear()
-      this.#currentPhase = null
+      this.#operations = null
       this.#disposed = true
     })
   }
 
-  #requirePhase(): MatchPhase {
-    const phase = this.#readPhase()
-    if (!phase) throw new Error('MatchRoom storage missing')
-    return phase
+  #requireOperations(): MatchOperations {
+    const operations = this.#readOperations()
+    if (!operations) throw new Error('MatchRoom storage missing')
+    return operations
   }
 
-  #readPhase(): MatchPhase | null {
+  #readOperations(): MatchOperations | null {
+    if (this.#operations) return this.#operations
     const stored = this.#storage.match()
     if (!stored) return null
-    if (stored.status === 'active') {
-      if (this.#currentPhase?.status !== 'active')
-        this.#currentPhase = {
-          status: 'active',
-          operations: new ActiveMatchOperations(this.#storage, this.#broadcaster, this.#resident),
-          stored,
-        }
-      else this.#currentPhase = { ...this.#currentPhase, stored }
-      return this.#currentPhase
-    }
-    if (this.#currentPhase?.status !== 'finalizing')
-      this.#currentPhase = {
-        status: 'finalizing',
-        operations: new FinalizingMatchOperations(this.#storage, this.#broadcaster, this.#resident),
-        stored,
-      }
-    else this.#currentPhase = { ...this.#currentPhase, stored }
-    return this.#currentPhase
+    this.#operations =
+      stored.status === 'active'
+        ? new ActiveMatchOperations(this.#storage, this.#broadcaster, stored)
+        : new FinalizingMatchOperations(this.#storage, this.#broadcaster, stored)
+    return this.#operations
   }
 }
 
-type MatchPhase =
-  | {
-      readonly status: 'active'
-      readonly operations: ActiveMatchOperations
-      readonly stored: StoredActiveMatch
-    }
-  | {
-      readonly status: 'finalizing'
-      readonly operations: FinalizingMatchOperations
-      readonly stored: StoredFinalizingMatch
-    }
+type MatchOperations = ActiveMatchOperations | FinalizingMatchOperations

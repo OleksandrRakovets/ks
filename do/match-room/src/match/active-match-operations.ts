@@ -2,52 +2,77 @@ import type { SparringMatchRoomProjection } from '@ks/competition'
 import type { MatchCommand, MatchStreamUpdate, ProtocolEntry } from '@ks/core'
 
 import { Broadcaster } from '../live/broadcaster'
-import { type CommandReceipt, MatchStorage, type StoredActiveMatch } from '../storage/match-storage'
+import {
+  type CommandReceipt,
+  MatchStorage,
+  type StoredActiveMatch,
+  type StoredFinalizingMatch,
+} from '../storage/match-storage'
 import { ResidentMatch, type ResidentState } from './resident-match'
 
 export class ActiveMatchOperations {
   readonly #storage: MatchStorage
   readonly #broadcaster: Broadcaster
   readonly #resident: ResidentMatch
+  #stored: StoredActiveMatch
+  #state: ResidentState
 
-  constructor(storage: MatchStorage, broadcaster: Broadcaster, resident: ResidentMatch) {
+  constructor(storage: MatchStorage, broadcaster: Broadcaster, stored: StoredActiveMatch) {
     this.#storage = storage
     this.#broadcaster = broadcaster
-    this.#resident = resident
+    this.#stored = stored
+    this.#resident = new ResidentMatch()
+    this.#state = this.#resident.restore(stored.config, stored.latestSeq, storage.readAcceptedCommands(stored))
   }
 
-  submitCommand(stored: StoredActiveMatch, command: MatchCommand): ActiveCommandResult {
+  submitCommand(command: MatchCommand): ActiveCommandOutcome {
     const priorReceipt = this.#storage.findCommandReceipt(command)
     if (priorReceipt) {
-      if (priorReceipt._tag === 'command-id-conflict') return priorReceipt
-      return priorReceipt.receipt._tag === 'accepted'
-        ? { _tag: 'accepted', acceptedSeq: priorReceipt.receipt.acceptedSeq, finalizesMatch: false }
-        : priorReceipt.receipt
+      if (priorReceipt._tag === 'command-id-conflict') return { response: priorReceipt }
+      return {
+        response:
+          priorReceipt.receipt._tag === 'accepted'
+            ? { _tag: 'accepted', acceptedSeq: priorReceipt.receipt.acceptedSeq, finalizesMatch: false }
+            : priorReceipt.receipt,
+      }
     }
 
-    const resident = this.#load(stored)
     try {
-      const result = resident.match.execute(command)
-      if (result._tag === 'parse-failed') return { _tag: 'invalid-command' }
+      const result = this.#state.match.execute(command)
+      if (result._tag === 'parse-failed') return { response: { _tag: 'invalid-command' } }
       if (result._tag === 'rejected')
-        return this.#storage.commitRejectedCommand({
-          matchId: stored.matchId,
-          command,
-          reason: result.reason,
-        })
+        return {
+          response: this.#storage.commitRejectedCommand({
+            matchId: this.#stored.matchId,
+            command,
+            reason: result.reason,
+          }),
+        }
 
-      const state = resident.match.project().state
+      const state = this.#state.match.project().state
       const committed = this.#storage.commitAcceptedCommand({
-        match: stored,
+        match: this.#stored,
         command: result.command,
         finalState: state.status === 'finished' ? state : null,
       })
-      this.#resident.publishAcceptance(resident, committed.acceptedCommand, result.protocolEntryContents)
+      this.#state = this.#resident.publishAcceptance(
+        this.#state,
+        committed.acceptedCommand,
+        result.protocolEntryContents,
+      )
       if (!committed.update.terminal) this.#broadcaster.broadcast(committed.update)
-      return {
+      const response: ActiveCommandResult = {
         _tag: 'accepted',
         acceptedSeq: committed.receipt.acceptedSeq,
         finalizesMatch: committed.update.terminal,
+      }
+      if (committed.stored.status === 'active') {
+        this.#stored = committed.stored
+        return { response }
+      }
+      return {
+        response,
+        next: { stored: committed.stored, resident: this.#resident },
       }
     } catch (error) {
       this.#resident.clear()
@@ -55,36 +80,36 @@ export class ActiveMatchOperations {
     }
   }
 
-  getControls(stored: StoredActiveMatch): ActiveControlsResult {
+  getControls(): ActiveControlsResult {
     return {
       _tag: 'active',
-      latestSeq: stored.latestSeq,
-      ...this.#load(stored).match.project(),
+      latestSeq: this.#stored.latestSeq,
+      ...this.#state.match.project(),
     }
   }
 
-  getProtocol(stored: StoredActiveMatch): ActiveProtocolResult {
-    const resident = this.#load(stored)
+  getProtocol(): ActiveProtocolResult {
     return {
       _tag: 'active',
-      latestSeq: resident.latestSeq,
-      state: resident.match.project().state,
-      protocolEntries: resident.protocolEntries,
+      latestSeq: this.#state.latestSeq,
+      state: this.#state.match.project().state,
+      protocolEntries: this.#state.protocolEntries,
     }
   }
 
-  stream(stored: StoredActiveMatch, since = 0): ActiveStreamResult {
+  stream(since = 0): ActiveStreamResult {
     const backlog: MatchStreamUpdate[] = []
-    for (let acceptedSeq = since + 1; acceptedSeq <= stored.latestSeq; acceptedSeq += 1)
+    for (let acceptedSeq = since + 1; acceptedSeq <= this.#stored.latestSeq; acceptedSeq += 1)
       backlog.push({ type: 'command-accepted', acceptedSeq, terminal: false })
-    return { _tag: 'active', response: this.#broadcaster.stream(stored.latestSeq, backlog) }
+    return { _tag: 'active', response: this.#broadcaster.stream(this.#stored.latestSeq, backlog) }
   }
+}
 
-  #load(stored: StoredActiveMatch): ResidentState {
-    return (
-      this.#resident.lookup(stored.latestSeq) ??
-      this.#resident.restore(stored.config, stored.latestSeq, this.#storage.readAcceptedCommands(stored))
-    )
+type ActiveCommandOutcome = {
+  readonly response: ActiveCommandResult
+  readonly next?: {
+    readonly stored: StoredFinalizingMatch
+    readonly resident: ResidentMatch
   }
 }
 

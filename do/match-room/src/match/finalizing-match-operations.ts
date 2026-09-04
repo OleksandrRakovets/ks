@@ -17,15 +17,22 @@ import { ResidentMatch, type ResidentState } from './resident-match'
 export class FinalizingMatchOperations {
   readonly #storage: MatchStorage
   readonly #broadcaster: Broadcaster
-  readonly #resident: ResidentMatch
+  readonly #stored: StoredFinalizingMatch
+  #resident: ResidentMatch | null
 
-  constructor(storage: MatchStorage, broadcaster: Broadcaster, resident: ResidentMatch) {
+  constructor(
+    storage: MatchStorage,
+    broadcaster: Broadcaster,
+    stored: StoredFinalizingMatch,
+    resident: ResidentMatch | null = null,
+  ) {
     this.#storage = storage
     this.#broadcaster = broadcaster
+    this.#stored = stored
     this.#resident = resident
   }
 
-  submitCommand(stored: StoredFinalizingMatch, command: MatchCommand): FinalizingCommandResult {
+  submitCommand(command: MatchCommand): FinalizingCommandResult {
     const prior = this.#storage.findCommandReceipt(command)
     if (!prior) return { _tag: 'finalizing' }
     if (prior._tag === 'command-id-conflict') return prior
@@ -33,7 +40,7 @@ export class FinalizingMatchOperations {
       ? {
           _tag: 'accepted',
           acceptedSeq: prior.receipt.acceptedSeq,
-          finalizesMatch: prior.receipt.acceptedSeq === stored.latestSeq,
+          finalizesMatch: prior.receipt.acceptedSeq === this.#stored.latestSeq,
         }
       : prior.receipt
   }
@@ -50,35 +57,48 @@ export class FinalizingMatchOperations {
     return { _tag: 'finalizing' }
   }
 
-  prepareArchive(stored: StoredFinalizingMatch): CompletedMatchTransfer {
-    const resident = this.#load(stored)
+  prepareArchive(): CompletedMatchTransfer {
+    const resident = this.#load()
     const projected = resident.match.project().state
-    if (!isDeepStrictEqual(projected, stored.finalState))
+    if (!isDeepStrictEqual(projected, this.#stored.finalState))
       throw new Error('MatchRoom final state does not match accepted history')
     return {
-      matchId: stored.matchId,
-      gameKey: stored.config.gameKey,
-      createdAt: stored.createdAt,
-      sourceLatestSeq: stored.latestSeq,
-      endedAt: stored.endedAt,
+      matchId: this.#stored.matchId,
+      gameKey: this.#stored.config.gameKey,
+      createdAt: this.#stored.createdAt,
+      sourceLatestSeq: this.#stored.latestSeq,
+      endedAt: this.#stored.endedAt,
       protocolEntries: resident.protocolEntries,
-      finalState: stored.finalState,
+      finalState: this.#stored.finalState,
     }
   }
 
-  closeForFinalization(stored: StoredFinalizingMatch): void {
+  finalize(): void {
     this.#broadcaster.broadcast({
       type: 'command-accepted',
-      acceptedSeq: stored.latestSeq,
+      acceptedSeq: this.#stored.latestSeq,
       terminal: true,
     })
     this.#broadcaster.closeAll()
+    this.#resident?.clear()
+    this.#resident = null
   }
 
-  #load(stored: StoredFinalizingMatch): ResidentState {
+  dispose(): void {
+    this.#resident?.clear()
+    this.#resident = null
+  }
+
+  #load(): ResidentState {
+    const resident = this.#resident ?? new ResidentMatch()
+    this.#resident = resident
     return (
-      this.#resident.lookup(stored.latestSeq) ??
-      this.#resident.restore(stored.config, stored.latestSeq, this.#storage.readAcceptedCommands(stored))
+      resident.lookup(this.#stored.latestSeq) ??
+      resident.restore(
+        this.#stored.config,
+        this.#stored.latestSeq,
+        this.#storage.readAcceptedCommands(this.#stored),
+      )
     )
   }
 }
