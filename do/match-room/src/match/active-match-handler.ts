@@ -10,7 +10,7 @@ import {
 } from '../storage/match-storage'
 import { ResidentMatch, type ResidentState } from './resident-match'
 
-export class ActiveMatchOperations {
+export class ActiveMatchHandler {
   readonly #storage: MatchStorage
   readonly #broadcaster: Broadcaster
   readonly #resident: ResidentMatch

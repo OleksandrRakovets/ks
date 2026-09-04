@@ -4,8 +4,8 @@ import { DurableObject } from 'cloudflare:workers'
 
 import type { Env } from './env'
 import { Broadcaster } from './live/broadcaster'
-import { ActiveMatchOperations } from './match/active-match-operations'
-import { FinalizingMatchOperations } from './match/finalizing-match-operations'
+import { ActiveMatchHandler } from './match/active-match-handler'
+import { FinalizingMatchHandler } from './match/finalizing-match-handler'
 import { initializeMatch, type InitializeMatchInput } from './match/initialize-match'
 import { MatchStorage } from './storage/match-storage'
 
@@ -14,7 +14,7 @@ const FINALIZED_ROOM_RETENTION_MS = 10 * 60 * 1000
 export class MatchRoom extends DurableObject<Env> {
   readonly #storage: MatchStorage
   readonly #broadcaster: Broadcaster
-  #operations: MatchOperations | null = null
+  #handler: MatchHandler | null = null
   #disposed = false
 
   constructor(ctx: DurableObjectState, env: Env) {
@@ -30,17 +30,17 @@ export class MatchRoom extends DurableObject<Env> {
     if (this.ctx.id.name !== input.matchId)
       throw new Error('MatchRoom routed identity does not match initialization Match')
     const result = initializeMatch(this.#storage, input)
-    if (result._tag === 'initialized') this.#operations = null
+    if (result._tag === 'initialized') this.#handler = null
     return result
   }
 
   async submitCommand(command: MatchCommand) {
-    const operations = this.#requireOperations()
-    if (operations instanceof FinalizingMatchOperations) return operations.submitCommand(command)
+    const handler = this.#requireHandler()
+    if (handler instanceof FinalizingMatchHandler) return handler.submitCommand(command)
     try {
-      const outcome = operations.submitCommand(command)
+      const outcome = handler.submitCommand(command)
       if (outcome.next)
-        this.#operations = new FinalizingMatchOperations(
+        this.#handler = new FinalizingMatchHandler(
           this.#storage,
           this.#broadcaster,
           outcome.next.stored,
@@ -48,37 +48,37 @@ export class MatchRoom extends DurableObject<Env> {
         )
       return outcome.response
     } catch (error) {
-      this.#operations = null
+      this.#handler = null
       throw error
     }
   }
 
   async getControls() {
-    return this.#requireOperations().getControls()
+    return this.#requireHandler().getControls()
   }
 
   async getProtocol() {
-    return this.#requireOperations().getProtocol()
+    return this.#requireHandler().getProtocol()
   }
 
   async stream(since?: number) {
-    const operations = this.#requireOperations()
-    return operations instanceof ActiveMatchOperations ? operations.stream(since) : operations.stream()
+    const handler = this.#requireHandler()
+    return handler instanceof ActiveMatchHandler ? handler.stream(since) : handler.stream()
   }
 
   async prepareArchive() {
-    const operations = this.#requireOperations()
-    if (operations instanceof ActiveMatchOperations) throw new Error('Cannot prepare archive for active Match')
-    return operations.prepareArchive()
+    const handler = this.#requireHandler()
+    if (handler instanceof ActiveMatchHandler) throw new Error('Cannot prepare archive for active Match')
+    return handler.prepareArchive()
   }
 
   async finalize(): Promise<void> {
     await this.ctx.blockConcurrencyWhile(async () => {
       if (this.#disposed) return
-      const operations = this.#readOperations()
-      if (!operations) return
-      if (operations instanceof ActiveMatchOperations) throw new Error('Cannot finalize active Match')
-      operations.finalize()
+      const handler = this.#readHandler()
+      if (!handler) return
+      if (handler instanceof ActiveMatchHandler) throw new Error('Cannot finalize active Match')
+      handler.finalize()
       if ((await this.ctx.storage.getAlarm()) === null)
         await this.ctx.storage.setAlarm(nowUnixEpochMilliseconds() + FINALIZED_ROOM_RETENTION_MS)
     })
@@ -87,32 +87,32 @@ export class MatchRoom extends DurableObject<Env> {
   async alarm(): Promise<void> {
     await this.ctx.blockConcurrencyWhile(async () => {
       if (this.#disposed) return
-      const operations = this.#readOperations()
-      if (!operations) return
-      if (operations instanceof ActiveMatchOperations) throw new Error('Cannot dispose active Match')
-      operations.dispose()
+      const handler = this.#readHandler()
+      if (!handler) return
+      if (handler instanceof ActiveMatchHandler) throw new Error('Cannot dispose active Match')
+      handler.dispose()
       await this.ctx.storage.deleteAll()
-      this.#operations = null
+      this.#handler = null
       this.#disposed = true
     })
   }
 
-  #requireOperations(): MatchOperations {
-    const operations = this.#readOperations()
-    if (!operations) throw new Error('MatchRoom storage missing')
-    return operations
+  #requireHandler(): MatchHandler {
+    const handler = this.#readHandler()
+    if (!handler) throw new Error('MatchRoom storage missing')
+    return handler
   }
 
-  #readOperations(): MatchOperations | null {
-    if (this.#operations) return this.#operations
+  #readHandler(): MatchHandler | null {
+    if (this.#handler) return this.#handler
     const stored = this.#storage.match()
     if (!stored) return null
-    this.#operations =
+    this.#handler =
       stored.status === 'active'
-        ? new ActiveMatchOperations(this.#storage, this.#broadcaster, stored)
-        : new FinalizingMatchOperations(this.#storage, this.#broadcaster, stored)
-    return this.#operations
+        ? new ActiveMatchHandler(this.#storage, this.#broadcaster, stored)
+        : new FinalizingMatchHandler(this.#storage, this.#broadcaster, stored)
+    return this.#handler
   }
 }
 
-type MatchOperations = ActiveMatchOperations | FinalizingMatchOperations
+type MatchHandler = ActiveMatchHandler | FinalizingMatchHandler

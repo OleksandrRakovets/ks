@@ -14,7 +14,7 @@ import { Broadcaster } from '../live/broadcaster'
 import { type CommandReceipt, MatchStorage, type StoredFinalizingMatch } from '../storage/match-storage'
 import { ResidentMatch, type ResidentState } from './resident-match'
 
-export class FinalizingMatchOperations {
+export class FinalizingMatchHandler {
   readonly #storage: MatchStorage
   readonly #broadcaster: Broadcaster
   readonly #stored: StoredFinalizingMatch
