@@ -117,6 +117,8 @@ export const StrilaSparringFrameMachine = setup({
   },
   guards: {
     isAvailablePot: ({ context, event }) => isAvailablePot(context, event),
+    isTargetReached: ({ context }) =>
+      context.score.A >= context.targetPoints.A || context.score.B >= context.targetPoints.B,
     isThirdCueBallPot: ({ context, event }) => {
       const e = potEvent(event)
       return (
@@ -349,9 +351,14 @@ export const StrilaSparringFrameMachine = setup({
 
     'foul-committed': {
       initial: 'penalty-selection',
-      onDone: {
-        target: 'open-play',
-      },
+      onDone: [
+        {
+          guard: 'isTargetReached',
+          target: 'winner-determined',
+          actions: 'setWinnerFromTarget',
+        },
+        { target: 'open-play' },
+      ],
       states: {
         'penalty-selection': {
           on: {

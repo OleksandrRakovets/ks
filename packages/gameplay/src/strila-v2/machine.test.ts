@@ -234,6 +234,30 @@ describe('machine-sparring: empty table', () => {
 })
 
 describe('machine-sparring: foul handling', () => {
+  test.each(['play-from-position', 'pass-position'] as const)(
+    '%s bonus reaching the target determines the chooser as winner',
+    (choice) => {
+      const target = choice === 'play-from-position' ? 9 : 6
+      let snap = sendEvent(start({ A: 9, B: target }), { type: 'frame.commence', seat: 'A' })
+      snap = sendEvent(snap, {
+        type: 'pot.record',
+        seat: 'B',
+        pottedBalls: target === 9 ? [1, 2, 3, 4] : [0, 1, 2],
+      })
+      snap = sendEvent(snap, { type: 'foul.commit', seat: 'A' })
+      snap = sendEvent(snap, { type: 'penalty.select', seat: 'B', choice })
+
+      expect(getPhase(snap)).toBe('winner-determined')
+      expect(snap.context.score).toEqual({ A: 0, B: target })
+      expect(snap.context.winner).toBe('B')
+      expect(snap.context.winnerDeterminationReason).toBe('target-reached')
+      expect(snap.context.foulOffender).toBeNull()
+      expect(snap.context.cueBallSerialPots).toBeNull()
+      snap = sendEvent(snap, { type: 'frame.award', seat: 'B' })
+      expect(snap.output).toEqual({ winnerSeat: 'B', score: { A: 0, B: target }, winReason: 'game-rules' })
+    },
+  )
+
   test('only the opponent of the foul offender may choose the penalty', () => {
     let snap = start()
     snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
