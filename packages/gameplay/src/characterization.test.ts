@@ -69,7 +69,7 @@ describe('gameplay characterization', () => {
     expectAccepted(pyramid.execute({ type: 'pot.record', seat: 'A', pottedBallCount: 1 }))
     expect(pyramid.getScore()).toEqual({ A: 2, B: 0 })
     const awarded = expectAccepted(pyramid.execute({ type: 'frame.award', seat: 'A' }))
-    expect(awarded.outcome).toEqual({ winnerSeat: 'A', winReason: 'target-reached', score: { A: 2, B: 0 } })
+    expect(awarded.outcome).toEqual({ winnerSeat: 'A', winReason: 'game-rules', score: { A: 2, B: 0 } })
 
     const long = createGameplaySession('free-pyramid-long', {
       targetPointsBySeat: { A: 1, B: 30 },

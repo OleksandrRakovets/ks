@@ -145,7 +145,14 @@ export const StrilaSparringFrameMachine = setup({
       if (!isAvailablePot(context, event)) return false
       const next = addPoints(context.score, e.seat, pointsForPottedBalls(e.pottedBalls))
       const nextBalls = removePottedColoredBalls(context.coloredBallsOnTable, e.pottedBalls)
-      return nextBalls.length === 0 && next.A === 8 && next.B === 8
+      return nextBalls.length === 0 && next.A === next.B
+    },
+    isTableClearedWithLeader: ({ context, event }) => {
+      const e = potEvent(event)
+      if (!isAvailablePot(context, event)) return false
+      const next = addPoints(context.score, e.seat, pointsForPottedBalls(e.pottedBalls))
+      const nextBalls = removePottedColoredBalls(context.coloredBallsOnTable, e.pottedBalls)
+      return nextBalls.length === 0 && next.A !== next.B
     },
     isBallInHandChoice: ({ context, event }) =>
       event.type === 'penalty.select' &&
@@ -164,7 +171,11 @@ export const StrilaSparringFrameMachine = setup({
       event.choice === 'pass-position',
     isSeatWinner: ({ context, event }) => {
       if (event.type !== 'pot.record') return false
-      return isAvailablePot(context, event) && context.winner === event.seat
+      return (
+        context.winnerDeterminationReason !== 'table-cleared' &&
+        isAvailablePot(context, event) &&
+        context.winner === event.seat
+      )
     },
     isAwardForWinner: ({ context, event }) => {
       if (event.type !== 'frame.award') return false
@@ -203,6 +214,10 @@ export const StrilaSparringFrameMachine = setup({
     setWinnerFromTarget: assign(({ context }) => ({
       winner: winnerFromTarget(context),
       winnerDeterminationReason: 'target-reached',
+    })),
+    setWinnerFromClearedTable: assign(({ context }) => ({
+      winner: context.score.A > context.score.B ? 'A' : 'B',
+      winnerDeterminationReason: 'table-cleared',
     })),
     setRespottedBlackOpening: assign({
       coloredBallsOnTable: RESPOTTED_BLACK,
@@ -303,10 +318,16 @@ export const StrilaSparringFrameMachine = setup({
             target: 'foul-committed',
             actions: 'setFoulResponse',
           },
+          // A legal target-reaching shot wins even when clearing the table leaves a tie or a higher opponent score.
           {
             guard: 'isTargetReachedAfterPot',
             target: 'winner-determined',
             actions: ['applyPot', 'setWinnerFromTarget'],
+          },
+          {
+            guard: 'isTableClearedWithLeader',
+            target: 'winner-determined',
+            actions: ['applyPot', 'setWinnerFromClearedTable'],
           },
           {
             guard: 'isRespottedBlackTrigger',
@@ -366,6 +387,11 @@ export const StrilaSparringFrameMachine = setup({
                 guard: 'isTargetReachedAfterPot',
                 target: '#strila-sparring.winner-determined',
                 actions: ['applyPotResetStreak', 'setWinnerFromTarget'],
+              },
+              {
+                guard: 'isTableClearedWithLeader',
+                target: '#strila-sparring.winner-determined',
+                actions: ['applyPotResetStreak', 'setWinnerFromClearedTable'],
               },
               {
                 guard: 'isRespottedBlackTrigger',
@@ -465,7 +491,7 @@ export const StrilaSparringFrameMachine = setup({
   output: ({ context }): FrameOutcome => ({
     winnerSeat: outputWinner(context),
     score: { ...context.score },
-    winReason: 'target-reached',
+    winReason: 'game-rules',
   }),
 })
 

@@ -271,7 +271,7 @@ export const LongFreePyramidSparringFrameMachine = setup({
     invariant(context.winner !== null, 'Winner is required for LongFreePyramid machine output')
     return {
       winnerSeat: context.winner,
-      winReason: 'target-reached' as const,
+      winReason: 'game-rules' as const,
       score: totalScore(context.racks),
     }
   },

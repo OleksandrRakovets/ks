@@ -84,7 +84,9 @@ const FrameState = v.pipe(
 )
 export type FrameState = v.InferOutput<typeof FrameState>
 
-const FrameWinReason = v.picklist(['target-reached', 'conceded'])
+/** Gameplay owns the specific winning condition; competition only distinguishes it from concession. */
+export const FrameWinReason = v.picklist(['game-rules', 'conceded'])
+export type FrameWinReason = v.InferOutput<typeof FrameWinReason>
 
 export const FrameOutcome = v.pipe(
   v.object({

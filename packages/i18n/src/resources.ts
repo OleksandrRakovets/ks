@@ -197,6 +197,7 @@ export const resources = {
             },
             'winner-determined': {
               'target-reached': 'Система: визначено переможця (ціль досягнуто)',
+              'table-cleared': 'Система: визначено переможця (на столі не залишилося кольорових куль)',
               'automatic-foul': 'Система: визначено переможця (автоматичний фол)',
               'respotted-black-won': 'Система: визначено переможця (повторно виставлена чорна)',
               'foul-forfeit': 'Система: визначено переможця (програш через фол)',
@@ -452,6 +453,7 @@ export const resources = {
             },
             'winner-determined': {
               'target-reached': 'System: winner determined (target reached)',
+              'table-cleared': 'System: winner determined (no colored balls remain)',
               'automatic-foul': 'System: winner determined (automatic foul)',
               'respotted-black-won': 'System: winner determined (respotted black)',
               'foul-forfeit': 'System: winner determined (foul forfeit)',

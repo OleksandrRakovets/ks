@@ -55,7 +55,7 @@ describe('PyramidSparringFrameMachine: basic', () => {
     snap = sendEvent(snap, { type: 'frame.award', seat: 'A' })
 
     expect(getPhase(snap)).toBe('frame-over')
-    expect(snap.output).toEqual({ winnerSeat: 'A', winReason: 'target-reached', score: { A: 2, B: 0 } })
+    expect(snap.output).toEqual({ winnerSeat: 'A', winReason: 'game-rules', score: { A: 2, B: 0 } })
     expect(v.is(FrameOutcome, snap.output)).toBe(true)
   })
 

@@ -187,29 +187,35 @@ export function deriveStrilaControlProjection(snapshot: StrilaSparringFrameSnaps
         situationTitle: 'Respotted black play',
         situationSummary: 'Record the outcome of the shot on the respotted black.',
       })
-    case 'winner-determined':
+    case 'winner-determined': {
       invariant(snapshot.context.winner !== null, 'Winner is required before awarding a determined frame')
+      const controls: GameControl[] = []
+      if (snapshot.can({ type: 'pot.record', seat: snapshot.context.winner, pottedBalls: [0] })) {
+        controls.push({
+          source: 'game',
+          type: 'pot.record',
+          seat: snapshot.context.winner,
+          fixedInput: {},
+          prominence: 'primary',
+        })
+      }
+      const canContinue = controls.length > 0
+      controls.push({
+        source: 'game',
+        type: 'frame.award',
+        seat: snapshot.context.winner,
+        fixedInput: {},
+        prominence: 'primary',
+      })
       return controlProjection(snapshot, {
-        controls: [
-          {
-            source: 'game',
-            type: 'pot.record',
-            seat: snapshot.context.winner,
-            fixedInput: {},
-            prominence: 'primary',
-          },
-          {
-            source: 'game',
-            type: 'frame.award',
-            seat: snapshot.context.winner,
-            fixedInput: {},
-            prominence: 'primary',
-          },
-        ],
+        controls,
         seat: snapshot.context.winner,
         situationTitle: 'Winner determined',
-        situationSummary: 'The break may continue, or the frame can be awarded now.',
+        situationSummary: canContinue
+          ? 'The break may continue, or the frame can be awarded now.'
+          : 'The table is cleared. The frame can be awarded now.',
       })
+    }
     case 'frame-over':
       return controlProjection(snapshot, {
         controls: [],

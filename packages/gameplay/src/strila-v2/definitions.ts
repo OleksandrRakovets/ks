@@ -65,7 +65,12 @@ export const StrilaPhase = v.picklist([
 ])
 export type StrilaPhase = v.InferOutput<typeof StrilaPhase>
 
-const WinnerDeterminationReason = v.picklist(['target-reached', 'respotted-black-won', 'automatic-foul'])
+const WinnerDeterminationReason = v.picklist([
+  'target-reached',
+  'table-cleared',
+  'respotted-black-won',
+  'automatic-foul',
+])
 
 const PottedBallsBySeat = v.pipe(
   v.object({
