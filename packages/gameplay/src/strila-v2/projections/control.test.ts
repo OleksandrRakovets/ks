@@ -64,3 +64,27 @@ test('projects potted balls in acceptance order for each seat', () => {
   expect(controlProjection.game.details.pottedBallsBySeat).toEqual({ A: [0, 1, 3], B: [2] })
   expect(controlProjection.game.details.pottedBallsBySeat).toBe(snapshot.context.pottedBallsBySeat)
 })
+
+test.each([false, true])(
+  'contrasts table-cleared and target winner controls (table cleared: %s)',
+  (cleared) => {
+    let snapshot = sendEvent(createInitialSnapshot({ A: 9, B: 9 }), { type: 'frame.commence', seat: 'A' })
+    snapshot = sendEvent(snapshot, { type: 'pot.record', seat: 'A', pottedBalls: [1, 2, 3, 4] })
+    snapshot = sendEvent(
+      snapshot,
+      cleared
+        ? { type: 'pot.record', seat: 'B', pottedBalls: [5, 6, 7] }
+        : { type: 'pot.record', seat: 'A', pottedBalls: [5] },
+    )
+    const projection = deriveStrilaControlProjection(snapshot)
+    expect(projection.game.details.isPotCommandAvailable).toBe(!cleared)
+    expect(projection.controls.map(({ type, seat }) => ({ type, seat }))).toEqual(
+      cleared
+        ? [{ type: 'frame.award', seat: 'A' }]
+        : [
+            { type: 'pot.record', seat: 'A' },
+            { type: 'frame.award', seat: 'A' },
+          ],
+    )
+  },
+)

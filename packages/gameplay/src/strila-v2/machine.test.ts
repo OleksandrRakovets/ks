@@ -1,9 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 
-import { type BySeatNumber, FrameOutcome } from '@ks/core'
+import { type BySeatNumber, FrameOutcome, type Seat } from '@ks/core'
 import * as v from 'valibot'
 
-import { StrilaMeta } from './definitions'
+import { type StrilaCommand, StrilaMeta } from './definitions'
 import { createInitialSnapshot, getPhase, sendEvent, type StrilaSparringFrameSnapshot } from './machine'
 
 function start(targetPointsBySeat?: BySeatNumber): StrilaSparringFrameSnapshot {
@@ -66,6 +66,169 @@ describe('machine-sparring: basic', () => {
 
     expect(getPhase(snap)).toBe('frame-over')
     expect(snap.output).toEqual({ winnerSeat: 'A', winReason: 'game-rules', score: { A: 10, B: 0 } })
+    expect(v.is(FrameOutcome, snap.output)).toBe(true)
+  })
+})
+
+describe('machine-sparring: empty table', () => {
+  const cases: readonly {
+    name: string
+    targets?: BySeatNumber
+    commands: readonly StrilaCommand[]
+    score: BySeatNumber
+    winner: Seat | null
+    reason: 'table-cleared' | 'target-reached' | null
+  }[] = [
+    {
+      name: 'final shooter wins 8:6',
+      commands: [
+        { type: 'pot.record', seat: 'A', pottedBalls: [1, 2, 3] },
+        { type: 'pot.record', seat: 'B', pottedBalls: [4, 5, 6] },
+        { type: 'pot.record', seat: 'A', pottedBalls: [7] },
+      ],
+      score: { A: 8, B: 6 },
+      winner: 'A',
+      reason: 'table-cleared',
+    },
+    {
+      name: 'non-shooting B wins 7:8',
+      commands: [
+        { type: 'pot.record', seat: 'B', pottedBalls: [1, 2, 3, 4] },
+        { type: 'pot.record', seat: 'A', pottedBalls: [0, 5, 6] },
+        { type: 'pot.record', seat: 'A', pottedBalls: [7] },
+      ],
+      score: { A: 7, B: 8 },
+      winner: 'B',
+      reason: 'table-cleared',
+    },
+    {
+      name: 'multiple final colors are scored together',
+      commands: [
+        { type: 'pot.record', seat: 'A', pottedBalls: [1, 2] },
+        { type: 'pot.record', seat: 'B', pottedBalls: [3, 4, 5] },
+        { type: 'pot.record', seat: 'A', pottedBalls: [6, 7] },
+      ],
+      score: { A: 8, B: 6 },
+      winner: 'A',
+      reason: 'table-cleared',
+    },
+    {
+      name: 'cue point on final shot changes a loss into a tie',
+      commands: [
+        { type: 'pot.record', seat: 'B', pottedBalls: [1, 2, 3, 4] },
+        { type: 'pot.record', seat: 'A', pottedBalls: [0, 5, 6] },
+        { type: 'pot.record', seat: 'A', pottedBalls: [0, 7] },
+      ],
+      score: { A: 8, B: 8 },
+      winner: null,
+      reason: null,
+    },
+    {
+      name: '9:9 below both targets triggers respotted black',
+      targets: { A: 12, B: 12 },
+      commands: [
+        { type: 'pot.record', seat: 'A', pottedBalls: [0, 1, 2, 3] },
+        { type: 'pot.record', seat: 'B', pottedBalls: [0, 4, 5, 6] },
+        { type: 'pot.record', seat: 'B', pottedBalls: [0] },
+        { type: 'foul.commit', seat: 'A' },
+        { type: 'penalty.select', seat: 'B', choice: 'play-from-position' },
+        { type: 'pot.record', seat: 'A', pottedBalls: [7] },
+      ],
+      score: { A: 9, B: 9 },
+      winner: null,
+      reason: null,
+    },
+    {
+      name: 'target wins before a higher opponent score',
+      targets: { A: 6, B: 9 },
+      commands: [
+        { type: 'pot.record', seat: 'A', pottedBalls: [1, 2] },
+        { type: 'pot.record', seat: 'B', pottedBalls: [3, 4, 5, 6] },
+        { type: 'pot.record', seat: 'A', pottedBalls: [7] },
+      ],
+      score: { A: 6, B: 8 },
+      winner: 'A',
+      reason: 'target-reached',
+    },
+    {
+      name: 'target wins before an empty-table tie',
+      targets: { A: 8, B: 9 },
+      commands: [
+        { type: 'pot.record', seat: 'A', pottedBalls: [1, 2, 3] },
+        { type: 'pot.record', seat: 'B', pottedBalls: [0, 4, 5, 6] },
+        { type: 'pot.record', seat: 'B', pottedBalls: [0] },
+        { type: 'pot.record', seat: 'A', pottedBalls: [7] },
+      ],
+      score: { A: 8, B: 8 },
+      winner: 'A',
+      reason: 'target-reached',
+    },
+  ]
+
+  for (const scenario of cases) {
+    test(scenario.name, () => {
+      let snap = sendEvent(start(scenario.targets), { type: 'frame.commence', seat: 'A' })
+      for (const command of scenario.commands) snap = sendEvent(snap, command)
+      expect(snap.context.score).toEqual(scenario.score)
+      expect(snap.context.winner).toBe(scenario.winner)
+      expect(snap.context.winnerDeterminationReason).toBe(scenario.reason)
+      expect(getPhase(snap)).toBe(scenario.winner === null ? 'respotted-black.opening' : 'winner-determined')
+      expect(snap.context.coloredBallsOnTable).toEqual(scenario.winner === null ? [7] : [])
+    })
+  }
+
+  test.each([false, true])('post-foul color-only final pot resolves the table (tie: %s)', (tie) => {
+    let snap = sendEvent(start(), { type: 'frame.commence', seat: 'A' })
+    snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [1, 2, 3] })
+    snap = sendEvent(snap, { type: 'pot.record', seat: 'B', pottedBalls: [4, 5, 6] })
+    if (tie) {
+      snap = sendEvent(snap, { type: 'pot.record', seat: 'B', pottedBalls: [0] })
+      snap = sendEvent(snap, { type: 'pot.record', seat: 'B', pottedBalls: [0] })
+    }
+    snap = sendEvent(snap, { type: 'foul.commit', seat: 'B' })
+    snap = sendEvent(snap, { type: 'penalty.select', seat: 'A', choice: 'ball-in-hand' })
+    snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [7] })
+    expect(snap.context.score).toEqual({ A: 8, B: tie ? 8 : 6 })
+    expect(getPhase(snap)).toBe(tie ? 'respotted-black.opening' : 'winner-determined')
+    expect(snap.context.winner).toBe(tie ? null : 'A')
+    expect(snap.context.coloredBallsOnTable).toEqual(tie ? [7] : [])
+  })
+
+  test.each(['third-cue', 'ball-in-hand'] as const)(
+    '%s foul takes precedence over a final scoring shot',
+    (kind) => {
+      let snap = sendEvent(start(), { type: 'frame.commence', seat: 'A' })
+      snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [1, 2, 3] })
+      snap = sendEvent(snap, { type: 'pot.record', seat: 'B', pottedBalls: [4, 5, 6] })
+      if (kind === 'third-cue') {
+        snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [0] })
+        snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [0] })
+      } else {
+        snap = sendEvent(snap, { type: 'foul.commit', seat: 'B' })
+        snap = sendEvent(snap, { type: 'penalty.select', seat: 'A', choice: 'ball-in-hand' })
+      }
+      const before = snap.context
+      snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [0, 7] })
+      expect(getPhase(snap)).toBe('foul-committed.penalty-selection')
+      expect(snap.context.score).toEqual(before.score)
+      expect(snap.context.pottedBallsBySeat).toEqual(before.pottedBallsBySeat)
+      expect(snap.context.coloredBallsOnTable).toEqual([7])
+      expect(snap.context.winner).toBeNull()
+      expect(snap.context.foulOffender).toBe('A')
+    },
+  )
+
+  test('table-cleared winner can only award, preserving the below-target score', () => {
+    let snap = sendEvent(start(), { type: 'frame.commence', seat: 'A' })
+    snap = sendEvent(snap, { type: 'pot.record', seat: 'B', pottedBalls: [1, 2, 3, 4] })
+    snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [5, 6, 7] })
+    expect(() => sendEvent(snap, { type: 'pot.record', seat: 'B', pottedBalls: [0] })).toThrow(
+      'Invalid Strila event',
+    )
+    expect(() => sendEvent(snap, { type: 'frame.award', seat: 'A' })).toThrow('Invalid Strila event')
+    snap = sendEvent(snap, { type: 'frame.award', seat: 'B' })
+    expect(getPhase(snap)).toBe('frame-over')
+    expect(snap.output).toEqual({ winnerSeat: 'B', score: { A: 6, B: 8 }, winReason: 'game-rules' })
     expect(v.is(FrameOutcome, snap.output)).toBe(true)
   })
 })
@@ -168,6 +331,8 @@ describe('machine-sparring: respotted black', () => {
     expect(getPhase(snap)).toBe('winner-determined')
     expect(snap.context.winner).toBe('A')
     expect(snap.context.winnerDeterminationReason).toBe('respotted-black-won')
+    snap = sendEvent(snap, { type: 'frame.award', seat: 'A' })
+    expect(snap.output).toEqual({ winnerSeat: 'A', score: { A: 10, B: 8 }, winReason: 'game-rules' })
   })
 
   test('opening non-black pot determines opponent as winner (automatic foul)', () => {
@@ -227,6 +392,8 @@ describe('machine-sparring: respotted black', () => {
     expect(getPhase(snap)).toBe('winner-determined')
     expect(snap.context.winner).toBe('A')
     expect(snap.context.winnerDeterminationReason).toBe('automatic-foul')
+    snap = sendEvent(snap, { type: 'frame.award', seat: 'A' })
+    expect(snap.output).toEqual({ winnerSeat: 'A', score: { A: 8, B: 8 }, winReason: 'game-rules' })
   })
 
   test('foul in respotted-black.opening determines opponent as winner', () => {
