@@ -1,7 +1,7 @@
 import type { D1Database } from '@cloudflare/workers-types'
 import { newMatchId, nowUnixEpochMilliseconds } from '@ks/core'
 
-import { archiveCompletedMatch, finishCompletedMatch } from './d1/completed-matches'
+import { archiveCompletedMatch, markMatchFinished } from './d1/completed-matches'
 import { getOrCreateGuestPlayerRef } from './d1/guest-players'
 import { activateMatch, beginMatchCreation } from './d1/match-lifecycle'
 import { getMatchRow, listMatchRows } from './d1/matches'
@@ -56,7 +56,7 @@ export function createApplication(bindings: ApplicationBindings) {
     beginMatchCreation: async (input) => await beginMatchCreation(db, input),
     activateMatch: async (matchId) => await activateMatch(db, matchId),
     archiveCompletedMatch: async (input) => await archiveCompletedMatch(db, input),
-    finishCompletedMatch: async (matchId, endedAt) => await finishCompletedMatch(db, matchId, endedAt),
+    markMatchFinished: async (matchId, endedAt) => await markMatchFinished(db, matchId, endedAt),
     matchRoomClient: (matchId) => bindings.MATCH_ROOM.getByName(matchId),
   })
 }

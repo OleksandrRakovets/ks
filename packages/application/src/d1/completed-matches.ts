@@ -7,10 +7,10 @@ import { PROTOCOL_ARCHIVE_VERSION } from '../protocol'
 import { matches, matchProtocolArchives, StoredMatchStatus } from './schema'
 import type { ApplicationDatabase } from './types'
 
-export class CompletedMatchArchiveError extends Error {
+export class MatchCompletionError extends Error {
   constructor(message: string) {
     super(message)
-    this.name = 'CompletedMatchArchiveError'
+    this.name = 'MatchCompletionError'
   }
 }
 
@@ -113,9 +113,9 @@ export async function archiveCompletedMatch(
     storedMatch.gameKey !== input.gameKey ||
     storedMatch.createdAt !== input.createdAt
   )
-    throw new CompletedMatchArchiveError('Completed match identity conflicts with D1')
+    throw new MatchCompletionError('Completed match identity conflicts with D1')
   if (storedMatch.status !== StoredMatchStatus.active && storedMatch.status !== StoredMatchStatus.finished)
-    throw new CompletedMatchArchiveError('Completed match is not ready to archive')
+    throw new MatchCompletionError('Completed match is not ready to archive')
   const inserted = await db
     .insert(matchProtocolArchives)
     .values(archive)
@@ -129,10 +129,10 @@ export async function archiveCompletedMatch(
       .where(eq(matchProtocolArchives.matchId, input.matchId))
       .get())
   if (!persistedArchive || !semanticArchiveEqual(persistedArchive, archive))
-    throw new CompletedMatchArchiveError('Completed match archive conflicts with existing data')
+    throw new MatchCompletionError('Completed match archive conflicts with existing data')
 }
 
-export async function finishCompletedMatch(
+export async function markMatchFinished(
   db: ApplicationDatabase,
   matchId: MatchId,
   endedAt: UnixEpochMilliseconds,
@@ -149,5 +149,5 @@ export async function finishCompletedMatch(
     )
     .returning({ status: matches.status, endedAt: matches.endedAt })
   if (result.length !== 1 || result[0]?.status !== StoredMatchStatus.finished || result[0].endedAt !== endedAt)
-    throw new CompletedMatchArchiveError('Completed match is not ready to finish')
+    throw new MatchCompletionError('Completed match is not ready to finish')
 }

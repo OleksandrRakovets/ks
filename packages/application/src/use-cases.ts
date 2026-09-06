@@ -62,7 +62,7 @@ type ApplicationDependencies = {
   }): Promise<void>
   activateMatch(matchId: MatchId): Promise<void>
   archiveCompletedMatch(input: MatchRoomCompletionTransfer): Promise<void>
-  finishCompletedMatch(matchId: MatchId, endedAt: UnixEpochMilliseconds): Promise<void>
+  markMatchFinished(matchId: MatchId, endedAt: UnixEpochMilliseconds): Promise<void>
   matchRoomClient(matchId: MatchId): MatchRoomClient
 }
 
@@ -269,7 +269,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     const transfer = await dependencies.matchRoomClient(matchId).prepareArchive()
     await dependencies.archiveCompletedMatch(transfer)
     await dependencies.matchRoomClient(matchId).finalize()
-    await dependencies.finishCompletedMatch(matchId, transfer.endedAt)
+    await dependencies.markMatchFinished(matchId, transfer.endedAt)
   }
 
   async function hydrateParticipants(record: MatchRecord, locale: SupportedLocale) {

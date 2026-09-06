@@ -102,7 +102,7 @@ function application(
     archiveCompletedMatch: async () => {
       events.push('archive')
     },
-    finishCompletedMatch: async () => {
+    markMatchFinished: async () => {
       events.push('finish')
       status = 'finished'
     },
@@ -326,7 +326,7 @@ describe('trusted MatchRoom orchestration', () => {
     })
     const app = application(room, events, {
       overrides: {
-        finishCompletedMatch: async () => {
+        markMatchFinished: async () => {
           finishAttempts += 1
           events.push(`finish-${finishAttempts}`)
           if (finishAttempts === 1) throw new Error('finish failed')

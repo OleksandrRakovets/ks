@@ -11,11 +11,7 @@ import { applyD1Migrations, env, reset } from 'cloudflare:test'
 import * as v from 'valibot'
 import { beforeEach, describe, expect, test } from 'vitest'
 
-import {
-  archiveCompletedMatch,
-  CompletedMatchArchiveError,
-  finishCompletedMatch,
-} from '../../src/d1/completed-matches'
+import { archiveCompletedMatch, markMatchFinished, MatchCompletionError } from '../../src/d1/completed-matches'
 import { activateMatch, type ActiveMatchCatalogInput, beginMatchCreation } from '../../src/d1/match-lifecycle'
 import { getMatchRow, listMatchRows } from '../../src/d1/matches'
 import { getProtocolArchive } from '../../src/d1/protocol-archives'
@@ -126,10 +122,10 @@ describe('real D1 match lifecycle', () => {
     await archiveCompletedMatch(db, archive)
     await expect(
       archiveCompletedMatch(db, { ...archive, sourceLatestSeq: archive.sourceLatestSeq + 1 }),
-    ).rejects.toThrow(CompletedMatchArchiveError)
+    ).rejects.toThrow(MatchCompletionError)
     expect(await getMatchRow(db, matchId)).toMatchObject({ status: 'active' })
 
-    await finishCompletedMatch(db, matchId, archive.endedAt)
+    await markMatchFinished(db, matchId, archive.endedAt)
     expect(await getMatchRow(db, matchId)).toMatchObject({ status: 'finished' })
     expect(
       (await env.DB.prepare('SELECT ended_at FROM matches WHERE match_id = ?').bind(matchId).first())
@@ -147,7 +143,7 @@ describe('real D1 match lifecycle', () => {
     )
       .bind(matchId, archive.sourceLatestSeq, 1, '[]', '{}', archive.endedAt)
       .run()
-    await expect(archiveCompletedMatch(db, archive)).rejects.toThrow(CompletedMatchArchiveError)
+    await expect(archiveCompletedMatch(db, archive)).rejects.toThrow(MatchCompletionError)
     expect(await getMatchRow(db, matchId)).toMatchObject({ status: 'active' })
     expect(
       (
@@ -169,9 +165,7 @@ describe('real D1 match lifecycle', () => {
       .bind(conflictingEndedAt, matchId)
       .run()
 
-    await expect(finishCompletedMatch(db, matchId, archive.endedAt)).rejects.toThrow(
-      CompletedMatchArchiveError,
-    )
+    await expect(markMatchFinished(db, matchId, archive.endedAt)).rejects.toThrow(MatchCompletionError)
     expect(await getMatchRow(db, matchId)).toMatchObject({ status: 'active' })
     expect(
       (await env.DB.prepare('SELECT ended_at FROM matches WHERE match_id = ?').bind(matchId).first())
@@ -179,7 +173,7 @@ describe('real D1 match lifecycle', () => {
     ).toBe(conflictingEndedAt)
   })
 
-  test('allows only one of two concurrent conflicting archives to be stored', async () => {
+  test('concurrent conflicting archive attempts converge on one immutable archive', async () => {
     const db = createApplicationDatabaseClient(env.DB)
     await beginMatchCreation(db, catalogInput())
     await activateMatch(db, matchId)
@@ -204,7 +198,14 @@ describe('real D1 match lifecycle', () => {
     expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1)
     expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1)
     expect(await getMatchRow(db, matchId)).toMatchObject({ status: 'active' })
-    expect(await getProtocolArchive(db, matchId)).not.toBeNull()
+    expect(
+      candidates.map((candidate) => ({
+        sourceLatestSeq: candidate.sourceLatestSeq,
+        protocolVersion: 1,
+        entries: candidate.protocolEntries,
+        state: candidate.finalState,
+      })),
+    ).toContainEqual(await getProtocolArchive(db, matchId))
   })
 
   test('reads a locally seeded historical game key archive', async () => {
