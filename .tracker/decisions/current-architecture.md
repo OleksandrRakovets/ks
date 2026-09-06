@@ -44,7 +44,7 @@ Competition composes match controls before game controls into one flat list. Mat
 
 | Store | Authority |
 | --- | --- |
-| D1 | Players, match rows and status, completed protocol archive and final match state |
+| D1 | Players, creating/active/finished match rows, completed protocol archive and final match state |
 | MatchRoom SQLite | Active config, control secret, Accepted Commands and outcomes, monotonic sequence, terminal Final Match State, active/finalizing status |
 
 Accepted Commands are the active replay authority and are never mirrored to D1. Resident match state and derived Protocol are disposable caches; cold restoration validates and replays ordered commands through the same aggregate operation. Raw XState snapshots are not persisted.
@@ -78,14 +78,10 @@ MatchRoom finalizing Protocol + Final Match State
   -> application treats the transfer as canonical and checks D1 identity, lifecycle, and archive idempotency
   -> idempotently archive protocol and final match state in D1
   -> MatchRoom broadcasts match.ended and closes streams
-  -> D1 matches.status: finished
+  -> D1 matches.status: active -> finished, storing endedAt
 ```
 
-Failure before D1 reaches `finished` leaves durable `finalizing` state. A later relevant application request retries the idempotent archival and finalization steps. Public list results present D1 `finalizing` as finished while that work proceeds.
-
-MatchRoom retains its finalizing storage after completion. D1's `finalizing` status is the application's durable marker that archival succeeded but room finalization or the D1 finished transition may still need retrying. Reconciliation keys off D1 first and the room second.
-
-Finalization publishes the withheld terminal update, closes clients, and clears resident state without replaying history. Application marks D1 finished only after finalization returns. Retained `finalizing` storage continues to serve idempotent archive transfers; cleanup is deferred until observed costs justify a separate retention mechanism.
+Until the final step succeeds, D1 remains active and the retained MatchRoom reports `finalizing`; a later relevant application request then retries the idempotent transfer, archival, and finalization steps. Finalization publishes the withheld terminal update, closes clients, and clears resident state without replaying history. Finished reads use D1 and do not access MatchRoom. Cleanup of retained finalizing storage is deferred until observed costs justify a separate retention mechanism.
 
 The generated control secret is stored in MatchRoom but is not exposed or checked by the current command path.
 

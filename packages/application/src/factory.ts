@@ -56,7 +56,7 @@ export function createApplication(bindings: ApplicationBindings) {
     beginMatchCreation: async (input) => await beginMatchCreation(db, input),
     activateMatch: async (matchId) => await activateMatch(db, matchId),
     archiveCompletedMatch: async (input) => await archiveCompletedMatch(db, input),
-    finishCompletedMatch: async (matchId) => await finishCompletedMatch(db, matchId),
+    finishCompletedMatch: async (matchId, endedAt) => await finishCompletedMatch(db, matchId, endedAt),
     matchRoomClient: (matchId) => bindings.MATCH_ROOM.getByName(matchId),
   })
 }

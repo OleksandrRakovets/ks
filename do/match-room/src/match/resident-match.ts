@@ -31,7 +31,7 @@ export class ResidentMatch {
     }
   }
 
-  publishAcceptance(
+  advance(
     prior: ResidentState,
     acceptedCommand: AcceptedCommand,
     contents: NonEmptyProtocolEntryContents,

@@ -29,12 +29,15 @@ export class ActiveMatchHandler {
     const priorReceipt = this.#storage.findCommandReceipt(command)
     if (priorReceipt) {
       if (priorReceipt._tag === 'command-id-conflict') return { response: priorReceipt }
-      return {
-        response:
-          priorReceipt.receipt._tag === 'accepted'
-            ? { _tag: 'accepted', acceptedSeq: priorReceipt.receipt.acceptedSeq, finalizesMatch: false }
-            : priorReceipt.receipt,
-      }
+      if (priorReceipt.receipt._tag === 'accepted')
+        return {
+          response: {
+            _tag: 'accepted',
+            acceptedSeq: priorReceipt.receipt.acceptedSeq,
+            finalizesMatch: false,
+          },
+        }
+      return { response: priorReceipt.receipt }
     }
 
     try {
@@ -55,25 +58,22 @@ export class ActiveMatchHandler {
         command: result.command,
         finalState: state.status === 'finished' ? state : null,
       })
-      this.#state = this.#resident.publishAcceptance(
+      this.#state = this.#resident.advance(
         this.#state,
         committed.acceptedCommand,
         result.protocolEntryContents,
       )
+      // Terminal delivery waits until application has archived the completed Match in D1.
       if (!committed.update.terminal) this.#broadcaster.broadcast(committed.update)
       const response: ActiveCommandResult = {
         _tag: 'accepted',
         acceptedSeq: committed.receipt.acceptedSeq,
         finalizesMatch: committed.update.terminal,
       }
-      if (committed.stored.status === 'active') {
-        this.#stored = committed.stored
-        return { response }
-      }
-      return {
-        response,
-        next: { stored: committed.stored, resident: this.#resident },
-      }
+      if (committed.stored.status === 'finalizing')
+        return { response, next: { stored: committed.stored, resident: this.#resident } }
+      this.#stored = committed.stored
+      return { response }
     } catch (error) {
       this.#resident.clear()
       throw error

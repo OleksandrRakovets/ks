@@ -117,7 +117,7 @@ describe('real D1 match lifecycle', () => {
 
     const archive = terminalArchiveInput()
     await archiveCompletedMatch(db, archive)
-    expect(await getMatchRow(db, matchId)).toMatchObject({ status: 'finalizing' })
+    expect(await getMatchRow(db, matchId)).toMatchObject({ status: 'active' })
     expect(await getProtocolArchive(db, matchId)).toMatchObject({
       sourceLatestSeq: archive.sourceLatestSeq,
       protocolVersion: 1,
@@ -127,10 +127,14 @@ describe('real D1 match lifecycle', () => {
     await expect(
       archiveCompletedMatch(db, { ...archive, sourceLatestSeq: archive.sourceLatestSeq + 1 }),
     ).rejects.toThrow(CompletedMatchArchiveError)
-    expect(await getMatchRow(db, matchId)).toMatchObject({ status: 'finalizing' })
+    expect(await getMatchRow(db, matchId)).toMatchObject({ status: 'active' })
 
-    await finishCompletedMatch(db, matchId)
+    await finishCompletedMatch(db, matchId, archive.endedAt)
     expect(await getMatchRow(db, matchId)).toMatchObject({ status: 'finished' })
+    expect(
+      (await env.DB.prepare('SELECT ended_at FROM matches WHERE match_id = ?').bind(matchId).first())
+        ?.ended_at,
+    ).toBe(archive.endedAt)
   })
 
   test('rejects conflicting persisted archive data without changing the active match row', async () => {
@@ -154,7 +158,7 @@ describe('real D1 match lifecycle', () => {
     ).toBe('{}')
   })
 
-  test('rejects a matching archive when the match row has a conflicting endedAt', async () => {
+  test('rejects finishing a matching archive when the match row has a conflicting endedAt', async () => {
     const db = createApplicationDatabaseClient(env.DB)
     await beginMatchCreation(db, catalogInput())
     await activateMatch(db, matchId)
@@ -165,15 +169,17 @@ describe('real D1 match lifecycle', () => {
       .bind(conflictingEndedAt, matchId)
       .run()
 
-    await expect(archiveCompletedMatch(db, archive)).rejects.toThrow(CompletedMatchArchiveError)
-    expect(await getMatchRow(db, matchId)).toMatchObject({ status: 'finalizing' })
+    await expect(finishCompletedMatch(db, matchId, archive.endedAt)).rejects.toThrow(
+      CompletedMatchArchiveError,
+    )
+    expect(await getMatchRow(db, matchId)).toMatchObject({ status: 'active' })
     expect(
       (await env.DB.prepare('SELECT ended_at FROM matches WHERE match_id = ?').bind(matchId).first())
         ?.ended_at,
     ).toBe(conflictingEndedAt)
   })
 
-  test('allows only one of two concurrent conflicting archives to finalize the match', async () => {
+  test('allows only one of two concurrent conflicting archives to be stored', async () => {
     const db = createApplicationDatabaseClient(env.DB)
     await beginMatchCreation(db, catalogInput())
     await activateMatch(db, matchId)
@@ -197,7 +203,7 @@ describe('real D1 match lifecycle', () => {
 
     expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1)
     expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1)
-    expect(await getMatchRow(db, matchId)).toMatchObject({ status: 'finalizing' })
+    expect(await getMatchRow(db, matchId)).toMatchObject({ status: 'active' })
     expect(await getProtocolArchive(db, matchId)).not.toBeNull()
   })
 

@@ -36,13 +36,12 @@ export class FinalizingMatchHandler {
     const prior = this.#storage.findCommandReceipt(command)
     if (!prior) return { _tag: 'finalizing' }
     if (prior._tag === 'command-id-conflict') return prior
-    return prior.receipt._tag === 'accepted'
-      ? {
-          _tag: 'accepted',
-          acceptedSeq: prior.receipt.acceptedSeq,
-          finalizesMatch: prior.receipt.acceptedSeq === this.#stored.latestSeq,
-        }
-      : prior.receipt
+    if (prior.receipt._tag === 'rejected') return prior.receipt
+    return {
+      _tag: 'accepted',
+      acceptedSeq: prior.receipt.acceptedSeq,
+      finalizesMatch: prior.receipt.acceptedSeq === this.#stored.latestSeq,
+    }
   }
 
   getControls(): FinalizingResult {

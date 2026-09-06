@@ -34,7 +34,7 @@ import {
   UnsupportedProtocolArchiveVersionError,
 } from './protocol'
 
-type CatalogMatchStatus = 'creating' | 'active' | 'finalizing' | 'finished'
+type CatalogMatchStatus = 'creating' | 'active' | 'finished'
 
 type MatchRecord = {
   matchId: MatchId
@@ -62,7 +62,7 @@ type ApplicationDependencies = {
   }): Promise<void>
   activateMatch(matchId: MatchId): Promise<void>
   archiveCompletedMatch(input: MatchRoomCompletionTransfer): Promise<void>
-  finishCompletedMatch(matchId: MatchId): Promise<void>
+  finishCompletedMatch(matchId: MatchId, endedAt: UnixEpochMilliseconds): Promise<void>
   matchRoomClient(matchId: MatchId): MatchRoomClient
 }
 
@@ -148,8 +148,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     const record = await dependencies.getMatchRecord(matchId)
     if (!record || record.gameKey !== expectedGameKey)
       return { ok: false, error: 'Unknown match', status: 404 }
-    await reconcilePendingFinalization(record)
-    if (record.status === 'finalizing' || record.status === 'finished') {
+    if (record.status === 'finished') {
       return await readArchivedMatch(record, locale, expectedGameKey)
     }
     if (record.status !== 'active') return { ok: false, error: 'Unknown match', status: 404 }
@@ -198,8 +197,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     const record = await dependencies.getMatchRecord(matchId)
     if (!record || record.gameKey !== expectedGameKey)
       return { ok: false, error: 'Unknown match', status: 404 }
-    await reconcilePendingFinalization(record)
-    if (record.status === 'finalizing' || record.status === 'finished') {
+    if (record.status === 'finished') {
       return { ok: false, error: 'Match is finished', status: 409 }
     }
     if (record.status !== 'active') return { ok: false, error: 'Unknown match', status: 404 }
@@ -247,7 +245,6 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
         protocolRows: renderProtocolRows(room.protocolEntries, seatNames, timeZone, locale).reverse(),
       }
     } else {
-      await reconcilePendingFinalization(record)
       let archive: ProtocolArchiveRecord | null
       try {
         archive = await dependencies.getProtocolArchive(matchId)
@@ -271,16 +268,8 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
   async function archiveAndFinishRoom(matchId: MatchId): Promise<void> {
     const transfer = await dependencies.matchRoomClient(matchId).prepareArchive()
     await dependencies.archiveCompletedMatch(transfer)
-    await finalizeAndFinishRoom(matchId)
-  }
-
-  async function finalizeAndFinishRoom(matchId: MatchId): Promise<void> {
     await dependencies.matchRoomClient(matchId).finalize()
-    await dependencies.finishCompletedMatch(matchId)
-  }
-
-  async function reconcilePendingFinalization(record: MatchRecord): Promise<void> {
-    if (record.status === 'finalizing') await finalizeAndFinishRoom(record.matchId)
+    await dependencies.finishCompletedMatch(matchId, transfer.endedAt)
   }
 
   async function hydrateParticipants(record: MatchRecord, locale: SupportedLocale) {
@@ -324,8 +313,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     streamMatchUpdates: async (matchId, since) => {
       const record = await dependencies.getMatchRecord(matchId)
       if (!record) return Response.json({ ok: false, error: 'Unknown match' }, { status: 404 })
-      await reconcilePendingFinalization(record)
-      if (record.status === 'finalizing' || record.status === 'finished') {
+      if (record.status === 'finished') {
         return Response.json({ ok: false, error: 'Match is finished' }, { status: 410 })
       }
       if (record.status !== 'active')

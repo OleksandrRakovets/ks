@@ -25,9 +25,7 @@ export class MatchRoom extends DurableObject<Env> {
   async initialize(input: InitializeMatchInput) {
     if (this.ctx.id.name !== input.matchId)
       throw new Error('MatchRoom routed identity does not match initialization Match')
-    const result = initializeMatch(this.#storage, input)
-    if (result._tag === 'initialized') this.#handler = null
-    return result
+    return initializeMatch(this.#storage, input)
   }
 
   async submitCommand(command: MatchCommand) {
