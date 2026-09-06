@@ -14,15 +14,19 @@ export class ActiveMatchHandler {
   readonly #storage: MatchStorage
   readonly #broadcaster: Broadcaster
   readonly #resident: ResidentMatch
-  #stored: StoredActiveMatch
+  #storedMatch: StoredActiveMatch
   #state: ResidentState
 
-  constructor(storage: MatchStorage, broadcaster: Broadcaster, stored: StoredActiveMatch) {
+  constructor(storage: MatchStorage, broadcaster: Broadcaster, storedMatch: StoredActiveMatch) {
     this.#storage = storage
     this.#broadcaster = broadcaster
-    this.#stored = stored
+    this.#storedMatch = storedMatch
     this.#resident = new ResidentMatch()
-    this.#state = this.#resident.restore(stored.config, stored.latestSeq, storage.readAcceptedCommands(stored))
+    this.#state = this.#resident.restore(
+      storedMatch.config,
+      storedMatch.latestSeq,
+      storage.readAcceptedCommands(storedMatch),
+    )
   }
 
   submitCommand(command: MatchCommand): ActiveCommandOutcome {
@@ -46,7 +50,7 @@ export class ActiveMatchHandler {
       if (result._tag === 'rejected')
         return {
           response: this.#storage.commitRejectedCommand({
-            matchId: this.#stored.matchId,
+            matchId: this.#storedMatch.matchId,
             command,
             reason: result.reason,
           }),
@@ -54,7 +58,7 @@ export class ActiveMatchHandler {
 
       const state = this.#state.match.project().state
       const committed = this.#storage.commitAcceptedCommand({
-        match: this.#stored,
+        match: this.#storedMatch,
         command: result.command,
         finalState: state.status === 'finished' ? state : null,
       })
@@ -64,15 +68,15 @@ export class ActiveMatchHandler {
         result.protocolEntryContents,
       )
       // Terminal delivery waits until application has archived the completed Match in D1.
-      if (!committed.update.terminal) this.#broadcaster.broadcast(committed.update)
+      if (!committed.streamUpdate.terminal) this.#broadcaster.broadcast(committed.streamUpdate)
       const response: ActiveCommandResult = {
         _tag: 'accepted',
         acceptedSeq: committed.receipt.acceptedSeq,
-        finalizesMatch: committed.update.terminal,
+        finalizesMatch: committed.streamUpdate.terminal,
       }
-      if (committed.stored.status === 'finalizing')
-        return { response, next: { stored: committed.stored, resident: this.#resident } }
-      this.#stored = committed.stored
+      if (committed.storedMatch.status === 'finalizing')
+        return { response, next: { storedMatch: committed.storedMatch, resident: this.#resident } }
+      this.#storedMatch = committed.storedMatch
       return { response }
     } catch (error) {
       this.#resident.clear()
@@ -83,7 +87,7 @@ export class ActiveMatchHandler {
   getControls(): ActiveControlsResult {
     return {
       _tag: 'active',
-      latestSeq: this.#stored.latestSeq,
+      latestSeq: this.#storedMatch.latestSeq,
       ...this.#state.match.project(),
     }
   }
@@ -99,16 +103,16 @@ export class ActiveMatchHandler {
 
   stream(since = 0): ActiveStreamResult {
     const backlog: MatchStreamUpdate[] = []
-    for (let acceptedSeq = since + 1; acceptedSeq <= this.#stored.latestSeq; acceptedSeq += 1)
+    for (let acceptedSeq = since + 1; acceptedSeq <= this.#storedMatch.latestSeq; acceptedSeq += 1)
       backlog.push({ type: 'command-accepted', acceptedSeq, terminal: false })
-    return { _tag: 'active', response: this.#broadcaster.stream(this.#stored.latestSeq, backlog) }
+    return { _tag: 'active', response: this.#broadcaster.stream(this.#storedMatch.latestSeq, backlog) }
   }
 }
 
 type ActiveCommandOutcome = {
   readonly response: ActiveCommandResult
   readonly next?: {
-    readonly stored: StoredFinalizingMatch
+    readonly storedMatch: StoredFinalizingMatch
     readonly resident: ResidentMatch
   }
 }

@@ -4,7 +4,6 @@ import {
   type MatchConfig,
   type NonEmptyProtocolEntryContents,
   ProtocolEntry,
-  type ProtocolEntry as ProtocolEntryValue,
 } from '@ks/core'
 import * as v from 'valibot'
 
@@ -20,7 +19,7 @@ export class ResidentMatch {
     try {
       const restored = restoreSparringMatch(config, commands)
       const protocolEntries = restored.accepted.flatMap(({ acceptedCommand, protocolEntryContents }) =>
-        promote(acceptedCommand, protocolEntryContents),
+        this.#promote(acceptedCommand, protocolEntryContents),
       )
       const state = { latestSeq, match: restored.match, protocolEntries }
       this.#cache = state
@@ -38,7 +37,7 @@ export class ResidentMatch {
   ): ResidentState {
     if (this.#cache !== prior || acceptedCommand.acceptedSeq !== prior.latestSeq + 1)
       throw new Error('MatchRoom resident cursor mismatch')
-    const promoted = promote(acceptedCommand, contents)
+    const promoted = this.#promote(acceptedCommand, contents)
     const state = {
       latestSeq: acceptedCommand.acceptedSeq,
       match: prior.match,
@@ -51,22 +50,22 @@ export class ResidentMatch {
   clear(): void {
     this.#cache = null
   }
+
+  #promote(command: AcceptedCommand, contents: NonEmptyProtocolEntryContents): ProtocolEntry[] {
+    return contents.map((content, entryIndex) =>
+      v.parse(ProtocolEntry, {
+        ...content,
+        acceptedSeq: command.acceptedSeq,
+        acceptedAt: command.acceptedAt,
+        causedByCommandId: command.commandId,
+        entryIndex,
+      }),
+    )
+  }
 }
 
 export type ResidentState = {
   readonly latestSeq: number
   readonly match: SparringMatch
-  readonly protocolEntries: readonly ProtocolEntryValue[]
-}
-
-function promote(command: AcceptedCommand, contents: NonEmptyProtocolEntryContents): ProtocolEntryValue[] {
-  return contents.map((content, entryIndex) =>
-    v.parse(ProtocolEntry, {
-      ...content,
-      acceptedSeq: command.acceptedSeq,
-      acceptedAt: command.acceptedAt,
-      causedByCommandId: command.commandId,
-      entryIndex,
-    }),
-  )
+  readonly protocolEntries: readonly ProtocolEntry[]
 }

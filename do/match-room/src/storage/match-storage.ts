@@ -98,8 +98,8 @@ export class MatchStorage {
   }): {
     acceptedCommand: AcceptedCommand
     receipt: Extract<CommandReceipt, { _tag: 'accepted' }>
-    update: MatchStreamUpdate
-    stored: StoredMatch
+    streamUpdate: MatchStreamUpdate
+    storedMatch: StoredMatch
   } {
     const acceptedCommand = v.parse(AcceptedCommand, {
       ...args.command,
@@ -138,8 +138,8 @@ export class MatchStorage {
       return {
         acceptedCommand,
         receipt: { _tag: 'accepted', acceptedSeq: acceptedCommand.acceptedSeq },
-        update: { type: 'command-accepted', acceptedSeq: acceptedCommand.acceptedSeq, terminal },
-        stored:
+        streamUpdate: { type: 'command-accepted', acceptedSeq: acceptedCommand.acceptedSeq, terminal },
+        storedMatch:
           args.finalState === null
             ? { ...args.match, latestSeq: acceptedCommand.acceptedSeq }
             : {

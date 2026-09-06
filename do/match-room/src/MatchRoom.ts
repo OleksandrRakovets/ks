@@ -11,7 +11,7 @@ import { MatchStorage } from './storage/match-storage'
 export class MatchRoom extends DurableObject<Env> {
   readonly #storage: MatchStorage
   readonly #broadcaster: Broadcaster
-  #handler: MatchHandler | null = null
+  #handler: ActiveMatchHandler | FinalizingMatchHandler | null = null
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
@@ -37,7 +37,7 @@ export class MatchRoom extends DurableObject<Env> {
         this.#handler = new FinalizingMatchHandler(
           this.#storage,
           this.#broadcaster,
-          outcome.next.stored,
+          outcome.next.storedMatch,
           outcome.next.resident,
         )
       return outcome.response
@@ -72,16 +72,14 @@ export class MatchRoom extends DurableObject<Env> {
     handler.finalize()
   }
 
-  #requireHandler(): MatchHandler {
+  #requireHandler(): ActiveMatchHandler | FinalizingMatchHandler {
     if (this.#handler) return this.#handler
-    const stored = this.#storage.match()
-    if (!stored) throw new Error('MatchRoom storage missing')
+    const storedMatch = this.#storage.match()
+    if (!storedMatch) throw new Error('MatchRoom storage missing')
     this.#handler =
-      stored.status === 'active'
-        ? new ActiveMatchHandler(this.#storage, this.#broadcaster, stored)
-        : new FinalizingMatchHandler(this.#storage, this.#broadcaster, stored)
+      storedMatch.status === 'active'
+        ? new ActiveMatchHandler(this.#storage, this.#broadcaster, storedMatch)
+        : new FinalizingMatchHandler(this.#storage, this.#broadcaster, storedMatch)
     return this.#handler
   }
 }
-
-type MatchHandler = ActiveMatchHandler | FinalizingMatchHandler

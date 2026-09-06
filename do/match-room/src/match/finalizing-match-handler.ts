@@ -17,18 +17,18 @@ import { ResidentMatch, type ResidentState } from './resident-match'
 export class FinalizingMatchHandler {
   readonly #storage: MatchStorage
   readonly #broadcaster: Broadcaster
-  readonly #stored: StoredFinalizingMatch
+  readonly #storedMatch: StoredFinalizingMatch
   #resident: ResidentMatch | null
 
   constructor(
     storage: MatchStorage,
     broadcaster: Broadcaster,
-    stored: StoredFinalizingMatch,
+    storedMatch: StoredFinalizingMatch,
     resident: ResidentMatch | null = null,
   ) {
     this.#storage = storage
     this.#broadcaster = broadcaster
-    this.#stored = stored
+    this.#storedMatch = storedMatch
     this.#resident = resident
   }
 
@@ -40,7 +40,7 @@ export class FinalizingMatchHandler {
     return {
       _tag: 'accepted',
       acceptedSeq: prior.receipt.acceptedSeq,
-      finalizesMatch: prior.receipt.acceptedSeq === this.#stored.latestSeq,
+      finalizesMatch: prior.receipt.acceptedSeq === this.#storedMatch.latestSeq,
     }
   }
 
@@ -59,23 +59,23 @@ export class FinalizingMatchHandler {
   prepareArchive(): CompletedMatchTransfer {
     const resident = this.#load()
     const projected = resident.match.project().state
-    if (!isDeepStrictEqual(projected, this.#stored.finalState))
+    if (!isDeepStrictEqual(projected, this.#storedMatch.finalState))
       throw new Error('MatchRoom final state does not match accepted history')
     return {
-      matchId: this.#stored.matchId,
-      gameKey: this.#stored.config.gameKey,
-      createdAt: this.#stored.createdAt,
-      sourceLatestSeq: this.#stored.latestSeq,
-      endedAt: this.#stored.endedAt,
+      matchId: this.#storedMatch.matchId,
+      gameKey: this.#storedMatch.config.gameKey,
+      createdAt: this.#storedMatch.createdAt,
+      sourceLatestSeq: this.#storedMatch.latestSeq,
+      endedAt: this.#storedMatch.endedAt,
       protocolEntries: resident.protocolEntries,
-      finalState: this.#stored.finalState,
+      finalState: this.#storedMatch.finalState,
     }
   }
 
   finalize(): void {
     this.#broadcaster.broadcast({
       type: 'command-accepted',
-      acceptedSeq: this.#stored.latestSeq,
+      acceptedSeq: this.#storedMatch.latestSeq,
       terminal: true,
     })
     this.#broadcaster.closeAll()
@@ -87,11 +87,11 @@ export class FinalizingMatchHandler {
     const resident = this.#resident ?? new ResidentMatch()
     this.#resident = resident
     return (
-      resident.lookup(this.#stored.latestSeq) ??
+      resident.lookup(this.#storedMatch.latestSeq) ??
       resident.restore(
-        this.#stored.config,
-        this.#stored.latestSeq,
-        this.#storage.readAcceptedCommands(this.#stored),
+        this.#storedMatch.config,
+        this.#storedMatch.latestSeq,
+        this.#storage.readAcceptedCommands(this.#storedMatch),
       )
     )
   }
