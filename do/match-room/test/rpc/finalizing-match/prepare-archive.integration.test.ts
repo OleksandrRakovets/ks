@@ -6,7 +6,7 @@ import { captureRpcError, initializedRoom, makeRoomFinalizing } from '../fixture
 
 type CompletedMatchTransfer = Awaited<ReturnType<MatchRoom['prepareArchive']>>
 
-test('throws before terminal acceptance', async () => {
+test('throws before a match-completing acceptance', async () => {
   const { stub } = await initializedRoom()
   expect(
     (
@@ -19,22 +19,22 @@ test('throws before terminal acceptance', async () => {
 
 test('derives the same completion transfer after eviction', async () => {
   const { matchId, stub } = await initializedRoom()
-  const terminalCommand = await makeRoomFinalizing(stub)
+  const completingCommand = await makeRoomFinalizing(stub)
   const warm: CompletedMatchTransfer = await stub.prepareArchive()
   await evictDurableObject(stub)
   const restored: CompletedMatchTransfer = await env.MATCH_ROOM.getByName(matchId).prepareArchive()
   expect(restored.matchId).toBe(matchId)
   expect(restored.sourceLatestSeq).toBe(3)
   expect(restored.finalState.status).toBe('finished')
-  const terminalEntries = restored.protocolEntries.filter((entry) => entry.acceptedSeq === 3)
-  expect(terminalEntries).toHaveLength(3)
+  const completionEntries = restored.protocolEntries.filter((entry) => entry.acceptedSeq === 3)
+  expect(completionEntries).toHaveLength(3)
   expect(
-    terminalEntries.every(
+    completionEntries.every(
       (entry) =>
-        entry.causedByCommandId === terminalCommand.commandId && entry.acceptedAt === restored.endedAt,
+        entry.causedByCommandId === completingCommand.commandId && entry.acceptedAt === restored.endedAt,
     ),
   ).toBe(true)
-  expect(terminalEntries.map((entry) => entry.entryIndex)).toEqual([0, 1, 2])
+  expect(completionEntries.map((entry) => entry.entryIndex)).toEqual([0, 1, 2])
   expect(restored).toEqual(warm)
 })
 

@@ -18,7 +18,7 @@ test('returns active Controls at the authoritative sequence and restores after e
   })
 })
 
-test('returns finalizing after terminal acceptance', async () => {
+test('returns finalizing after a match-completing acceptance', async () => {
   const { stub } = await initializedRoom()
   await makeRoomFinalizing(stub)
   expect(await stub.getControls()).toEqual({ _tag: 'finalizing' })

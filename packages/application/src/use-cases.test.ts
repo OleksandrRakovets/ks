@@ -152,10 +152,10 @@ describe('trusted MatchRoom orchestration', () => {
     })
   })
 
-  test('archives, finalizes, and finishes after a terminal accepted Command', async () => {
+  test('archives, finalizes, and finishes after a match-completing Accepted Command', async () => {
     const events: string[] = []
     const room = selectedClient({
-      submitCommand: async () => ({ _tag: 'accepted', acceptedSeq: 1, finalizesMatch: true }),
+      submitCommand: async () => ({ _tag: 'accepted', acceptedSeq: 1, completesMatch: true }),
       prepareArchive: async () => {
         events.push('prepare')
         return transfer
@@ -269,7 +269,7 @@ describe('trusted MatchRoom orchestration', () => {
     const events: string[] = []
     let archiveAttempts = 0
     const room = selectedClient({
-      submitCommand: async () => ({ _tag: 'accepted', acceptedSeq: 1, finalizesMatch: true }),
+      submitCommand: async () => ({ _tag: 'accepted', acceptedSeq: 1, completesMatch: true }),
       prepareArchive: async () => transfer,
       finalize: async () => {
         events.push('finalize')

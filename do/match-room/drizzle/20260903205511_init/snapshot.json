@@ -196,7 +196,7 @@
     },
     {
       "value": "(\"status\" = 'active' AND \"final_state_json\" IS NULL AND \"ended_at\" IS NULL) OR (\"status\" = 'finalizing' AND \"final_state_json\" IS NOT NULL AND \"ended_at\" IS NOT NULL)",
-      "name": "active_matches_terminal_fields",
+      "name": "active_matches_finalizing_fields",
       "entityType": "checks",
       "table": "active_matches"
     },

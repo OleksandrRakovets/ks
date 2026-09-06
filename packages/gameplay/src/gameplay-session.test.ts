@@ -79,9 +79,9 @@ describe('GameplaySession', () => {
       // SAFETY: each scenario creates the session and score command for the same literal game key.
       const scored = session.execute(scenario.score() as never)
       expect(scored._tag).toBe('accepted')
-      const terminal = session.execute({ type: 'frame.award', seat: 'A' })
-      expect(terminal._tag).toBe('accepted')
-      if (terminal._tag === 'accepted') expect(v.is(FrameOutcome, terminal.outcome)).toBe(true)
+      const frameCompletion = session.execute({ type: 'frame.award', seat: 'A' })
+      expect(frameCompletion._tag).toBe('accepted')
+      if (frameCompletion._tag === 'accepted') expect(v.is(FrameOutcome, frameCompletion.outcome)).toBe(true)
 
       expect(session.deriveControls()).not.toBe(session.deriveControls())
       expect(session.getScore()).not.toBe(session.getScore())
@@ -90,7 +90,7 @@ describe('GameplaySession', () => {
       expect(replay.execute({ type: 'frame.commence', seat: 'A' })).toEqual(commenced)
       // SAFETY: each scenario creates the replay session and score command for the same literal game key.
       expect(replay.execute(scenario.score() as never)).toEqual(scored)
-      expect(replay.execute({ type: 'frame.award', seat: 'A' })).toEqual(terminal)
+      expect(replay.execute({ type: 'frame.award', seat: 'A' })).toEqual(frameCompletion)
       expect(replay.getScore()).toEqual(session.getScore())
       expect(replay.deriveControls()).toEqual(session.deriveControls())
     })

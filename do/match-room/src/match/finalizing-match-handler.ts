@@ -40,7 +40,7 @@ export class FinalizingMatchHandler {
     return {
       _tag: 'accepted',
       acceptedSeq: prior.receipt.acceptedSeq,
-      finalizesMatch: prior.receipt.acceptedSeq === this.#storedMatch.latestSeq,
+      completesMatch: prior.receipt.acceptedSeq === this.#storedMatch.latestSeq,
     }
   }
 
@@ -76,7 +76,7 @@ export class FinalizingMatchHandler {
     this.#broadcaster.broadcast({
       type: 'command-accepted',
       acceptedSeq: this.#storedMatch.latestSeq,
-      terminal: true,
+      completesMatch: true,
     })
     this.#broadcaster.closeAll()
     this.#resident?.clear()
@@ -104,7 +104,7 @@ export type FinalizingCommandResult =
   | {
       readonly _tag: 'accepted'
       readonly acceptedSeq: number
-      readonly finalizesMatch: boolean
+      readonly completesMatch: boolean
     }
   | Extract<CommandReceipt, { _tag: 'rejected' }>
 

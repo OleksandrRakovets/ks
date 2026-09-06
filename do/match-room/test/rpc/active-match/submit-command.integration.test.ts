@@ -6,8 +6,8 @@ import {
   captureRpcError,
   commenceCommand,
   initializedRoom,
+  matchCompletingCommand,
   prepareCommand,
-  terminalCommand,
 } from '../fixtures'
 
 test('persists accepted and rejected outcomes and retries them after eviction', async () => {
@@ -18,7 +18,7 @@ test('persists accepted and rejected outcomes and retries them after eviction', 
   expect(await stub.submitCommand(accepted)).toEqual({
     _tag: 'accepted',
     acceptedSeq: 1,
-    finalizesMatch: false,
+    completesMatch: false,
   })
   await evictDurableObject(stub)
   const restored = env.MATCH_ROOM.getByName(matchId)
@@ -29,7 +29,7 @@ test('persists accepted and rejected outcomes and retries them after eviction', 
   expect(await restored.submitCommand(accepted)).toEqual({
     _tag: 'accepted',
     acceptedSeq: 1,
-    finalizesMatch: false,
+    completesMatch: false,
   })
 })
 
@@ -59,7 +59,7 @@ test('returns malformed nested Commands as data without poisoning the stub', asy
   expect(await stub.submitCommand(prepareCommand())).toEqual({
     _tag: 'accepted',
     acceptedSeq: 1,
-    finalizesMatch: false,
+    completesMatch: false,
   })
 })
 
@@ -69,7 +69,7 @@ test('serializes concurrent Commands into one authoritative accepted order', asy
     stub.submitCommand(prepareCommand()),
     stub.submitCommand(prepareCommand()),
   ])
-  expect(results).toContainEqual({ _tag: 'accepted', acceptedSeq: 1, finalizesMatch: false })
+  expect(results).toContainEqual({ _tag: 'accepted', acceptedSeq: 1, completesMatch: false })
   expect(results).toContainEqual({ _tag: 'rejected', reason: { code: 'frame-already-active' } })
 })
 
@@ -92,41 +92,41 @@ test('discards speculative resident state and rolls back both writes after persi
   expect(await stub.submitCommand(prepareCommand())).toEqual({
     _tag: 'accepted',
     acceptedSeq: 1,
-    finalizesMatch: false,
+    completesMatch: false,
   })
 })
 
-test('terminal retry remains terminal while an earlier accepted retry does not', async () => {
+test('a match-completing retry still reports completesMatch while an earlier accepted retry does not', async () => {
   const { matchId, stub } = await initializedRoom()
   const rejected = commenceCommand()
   await stub.submitCommand(rejected)
   const earlier = prepareCommand()
   await stub.submitCommand(earlier)
   await stub.submitCommand(commenceCommand())
-  const terminal = terminalCommand()
-  expect(await stub.submitCommand(terminal)).toEqual({
+  const completingCommand = matchCompletingCommand()
+  expect(await stub.submitCommand(completingCommand)).toEqual({
     _tag: 'accepted',
     acceptedSeq: 3,
-    finalizesMatch: true,
+    completesMatch: true,
   })
-  expect(await stub.submitCommand(terminal)).toEqual({
+  expect(await stub.submitCommand(completingCommand)).toEqual({
     _tag: 'accepted',
     acceptedSeq: 3,
-    finalizesMatch: true,
+    completesMatch: true,
   })
   expect(await stub.submitCommand(earlier)).toEqual({
     _tag: 'accepted',
     acceptedSeq: 1,
-    finalizesMatch: false,
+    completesMatch: false,
   })
   expect(await stub.submitCommand(prepareCommand())).toEqual({ _tag: 'finalizing' })
 
   await evictDurableObject(stub)
   const restored = env.MATCH_ROOM.getByName(matchId)
-  expect(await restored.submitCommand(terminal)).toEqual({
+  expect(await restored.submitCommand(completingCommand)).toEqual({
     _tag: 'accepted',
     acceptedSeq: 3,
-    finalizesMatch: true,
+    completesMatch: true,
   })
   expect(await restored.submitCommand(rejected)).toEqual({
     _tag: 'rejected',
@@ -134,8 +134,11 @@ test('terminal retry remains terminal while an earlier accepted retry does not',
   })
   expect(
     await restored.submitCommand({
-      ...terminal,
-      command: { ...terminal.command, seat: terminal.command.seat === 'A' ? 'B' : 'A' },
+      ...completingCommand,
+      command: {
+        ...completingCommand.command,
+        seat: completingCommand.command.seat === 'A' ? 'B' : 'A',
+      },
     }),
   ).toEqual({ _tag: 'command-id-conflict' })
   expect(await restored.submitCommand(prepareCommand())).toEqual({ _tag: 'finalizing' })

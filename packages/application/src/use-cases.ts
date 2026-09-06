@@ -202,7 +202,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     }
     if (record.status !== 'active') return { ok: false, error: 'Unknown match', status: 404 }
     const result = await dependencies.matchRoomClient(matchId).submitCommand(command)
-    if (result._tag === 'accepted' && result.finalizesMatch) {
+    if (result._tag === 'accepted' && result.completesMatch) {
       await archiveAndFinishRoom(matchId)
       return { ok: true, outcome: { _tag: 'accepted', acceptedSeq: result.acceptedSeq } }
     }

@@ -38,7 +38,7 @@ export class ActiveMatchHandler {
           response: {
             _tag: 'accepted',
             acceptedSeq: priorReceipt.receipt.acceptedSeq,
-            finalizesMatch: false,
+            completesMatch: false,
           },
         }
       return { response: priorReceipt.receipt }
@@ -67,12 +67,12 @@ export class ActiveMatchHandler {
         committed.acceptedCommand,
         result.protocolEntryContents,
       )
-      // Terminal delivery waits until application has archived the completed Match in D1.
-      if (!committed.streamUpdate.terminal) this.#broadcaster.broadcast(committed.streamUpdate)
+      // Delivery of the match-completing acceptance waits until application has archived the Match in D1.
+      if (!committed.streamUpdate.completesMatch) this.#broadcaster.broadcast(committed.streamUpdate)
       const response: ActiveCommandResult = {
         _tag: 'accepted',
         acceptedSeq: committed.receipt.acceptedSeq,
-        finalizesMatch: committed.streamUpdate.terminal,
+        completesMatch: committed.streamUpdate.completesMatch,
       }
       if (committed.storedMatch.status === 'finalizing')
         return { response, next: { storedMatch: committed.storedMatch, resident: this.#resident } }
@@ -104,7 +104,7 @@ export class ActiveMatchHandler {
   stream(since = 0): ActiveStreamResult {
     const backlog: MatchStreamUpdate[] = []
     for (let acceptedSeq = since + 1; acceptedSeq <= this.#storedMatch.latestSeq; acceptedSeq += 1)
-      backlog.push({ type: 'command-accepted', acceptedSeq, terminal: false })
+      backlog.push({ type: 'command-accepted', acceptedSeq, completesMatch: false })
     return { _tag: 'active', response: this.#broadcaster.stream(this.#storedMatch.latestSeq, backlog) }
   }
 }
@@ -135,7 +135,7 @@ export type ActiveCommandResult =
   | {
       readonly _tag: 'accepted'
       readonly acceptedSeq: number
-      readonly finalizesMatch: boolean
+      readonly completesMatch: boolean
     }
   | Extract<CommandReceipt, { _tag: 'rejected' }>
 

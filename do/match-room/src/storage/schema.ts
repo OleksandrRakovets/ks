@@ -16,7 +16,7 @@ export const activeMatches = sqliteTable(
   },
   (table) => [
     check(
-      'active_matches_terminal_fields',
+      'active_matches_finalizing_fields',
       sql`(${table.status} = 'active' AND ${table.finalStateJson} IS NULL AND ${table.endedAt} IS NULL) OR (${table.status} = 'finalizing' AND ${table.finalStateJson} IS NOT NULL AND ${table.endedAt} IS NOT NULL)`,
     ),
   ],

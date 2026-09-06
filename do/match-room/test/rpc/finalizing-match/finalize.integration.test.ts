@@ -3,7 +3,7 @@ import { expect, test } from 'vitest'
 
 import { captureRpcError, initializedRoom, makeRoomFinalizing } from '../fixtures'
 
-test('throws before terminal acceptance', async () => {
+test('throws before a match-completing acceptance', async () => {
   const { stub } = await initializedRoom()
   expect(
     (

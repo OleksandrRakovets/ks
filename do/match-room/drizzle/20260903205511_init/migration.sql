@@ -7,7 +7,7 @@ CREATE TABLE `active_matches` (
 	`created_at` integer NOT NULL,
 	`final_state_json` text,
 	`ended_at` integer,
-	CONSTRAINT "active_matches_terminal_fields" CHECK(("status" = 'active' AND "final_state_json" IS NULL AND "ended_at" IS NULL) OR ("status" = 'finalizing' AND "final_state_json" IS NOT NULL AND "ended_at" IS NOT NULL))
+	CONSTRAINT "active_matches_finalizing_fields" CHECK(("status" = 'active' AND "final_state_json" IS NULL AND "ended_at" IS NULL) OR ("status" = 'finalizing' AND "final_state_json" IS NOT NULL AND "ended_at" IS NOT NULL))
 );
 --> statement-breakpoint
 CREATE TABLE `commands` (

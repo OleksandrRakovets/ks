@@ -51,9 +51,9 @@ Accepted Commands are the active replay authority and are never mirrored to D1. 
 
 Active restoration replays Accepted Commands after eviction. Finalizing paths remain replay-free except when `prepareArchive` derives Protocol and verifies the replayed Final Match State, so gameplay compatibility must be preserved through archive preparation.
 
-An accepted command advances gameplay before one synchronous SQLite transaction stores the Accepted Command, next sequence, and any terminal state/status. Resident state and derived Protocol advance only after that commit; defects discard the cache so the next operation restores from durable commands.
+An accepted command advances gameplay before one synchronous SQLite transaction stores the Accepted Command and next sequence. When it completes the Match, that transaction also stores Final Match State and the `finalizing` status. Resident state and derived Protocol advance only after the commit; defects discard the cache so the next operation restores from durable commands.
 
-Finished match-state and Protocol reads use D1 only. Final Match State is persisted atomically with terminal acceptance and transferred with Protocol without application-side gameplay replay.
+Finished match-state and Protocol reads use D1 only. Final Match State is persisted atomically with the match-completing acceptance and transferred with Protocol without application-side gameplay replay.
 
 ## Match Lifecycle
 
