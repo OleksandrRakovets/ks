@@ -1,9 +1,15 @@
 import { newCommandId } from '@ks/core'
 import { expect, test } from 'vitest'
 
-import { initializedRoom, makeRoomFinalizing, prepareCommand, readEvent, terminalCommand } from '../fixtures'
+import {
+  initializedRoom,
+  makeRoomFinalizing,
+  matchCompletingCommand,
+  prepareCommand,
+  readEvent,
+} from '../fixtures'
 
-test('replays accepted sequences before ready and broadcasts non-terminal acceptance to every client', async () => {
+test('replays accepted sequences before ready and broadcasts non-finalizing acceptance to every client', async () => {
   const { stub } = await initializedRoom()
   await stub.submitCommand(prepareCommand())
   const first = await stub.stream(0)
@@ -27,7 +33,7 @@ test('replays accepted sequences before ready and broadcasts non-terminal accept
   await secondReader.cancel()
 })
 
-test('withholds terminal delivery, rejects new admission, then delivers and closes during finalization', async () => {
+test('withholds match-completing delivery, rejects new admission, then delivers and closes during finalization', async () => {
   const { stub } = await initializedRoom()
   await stub.submitCommand(prepareCommand())
   await stub.submitCommand({
@@ -39,10 +45,10 @@ test('withholds terminal delivery, rejects new admission, then delivers and clos
   if (stream._tag !== 'active') throw new Error('Expected active stream')
   const reader = stream.response.body!.getReader()
   await readEvent(reader)
-  await stub.submitCommand(terminalCommand())
+  await stub.submitCommand(matchCompletingCommand())
   expect(await stub.stream()).toEqual({ _tag: 'finalizing' })
   await stub.finalize()
-  expect(await readEvent(reader)).toContain('"terminal":true')
+  expect(await readEvent(reader)).toContain('"completesMatch":true')
   expect((await reader.read()).done).toBe(true)
 })
 

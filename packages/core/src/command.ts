@@ -1,7 +1,8 @@
 import * as v from 'valibot'
 
 import { CommandId } from './ids'
-import { UnknownObject } from './valicombos'
+import { UnixEpochMilliseconds } from './time'
+import { PositiveInteger, UnknownObject } from './valicombos'
 
 /**
  * Complete identified intent submitted for match evaluation.
@@ -18,3 +19,14 @@ export const MatchCommand = v.pipe(
   v.readonly(),
 )
 export type MatchCommand = v.InferOutput<typeof MatchCommand>
+
+/** A Match Command promoted with metadata assigned by its authoritative MatchRoom transaction. */
+export const AcceptedCommand = v.pipe(
+  v.object({
+    ...MatchCommand.entries,
+    acceptedSeq: PositiveInteger,
+    acceptedAt: UnixEpochMilliseconds,
+  }),
+  v.readonly(),
+)
+export type AcceptedCommand = v.InferOutput<typeof AcceptedCommand>

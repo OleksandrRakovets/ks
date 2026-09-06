@@ -38,7 +38,7 @@ export function commenceCommand() {
   }
 }
 
-export function terminalCommand() {
+export function matchCompletingCommand() {
   return {
     commandId: newCommandId(),
     source: 'match' as const,
@@ -49,7 +49,7 @@ export function terminalCommand() {
 export async function makeRoomFinalizing(stub: ReturnType<typeof env.MATCH_ROOM.getByName>) {
   await stub.submitCommand(prepareCommand())
   await stub.submitCommand(commenceCommand())
-  const command = terminalCommand()
+  const command = matchCompletingCommand()
   await stub.submitCommand(command)
   return command
 }

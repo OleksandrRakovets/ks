@@ -15,13 +15,7 @@ export async function listMatchRows(db: ApplicationDatabase) {
       seatBPlayerRef: matches.seatBPlayerRef,
     })
     .from(matches)
-    .where(
-      inArray(matches.status, [
-        StoredMatchStatus.active,
-        StoredMatchStatus.finalizing,
-        StoredMatchStatus.finished,
-      ]),
-    )
+    .where(inArray(matches.status, [StoredMatchStatus.active, StoredMatchStatus.finished]))
     .orderBy(
       sql`CASE WHEN ${matches.status} = ${StoredMatchStatus.finished} THEN 1 ELSE 0 END`,
       sql`${matches.createdAt} DESC`,

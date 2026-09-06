@@ -44,14 +44,16 @@ Competition composes match controls before game controls into one flat list. Mat
 
 | Store | Authority |
 | --- | --- |
-| D1 | Players, match rows and status, completed protocol archive and final match state |
-| MatchRoom SQLite | Active config, control secret, Accepted Commands and outcomes, normalized Protocol entries, monotonic sequence, terminal Final Match State, active/finalizing status |
+| D1 | Players, creating/active/finished match rows, completed protocol archive and final match state |
+| MatchRoom SQLite | Active config, control secret, Accepted Commands and outcomes, monotonic sequence, terminal Final Match State, active/finalizing status |
 
-Accepted Commands are the active replay authority and are never mirrored to D1. A resident `SparringMatch` is only a disposable execution cache. Cold restoration validates ordered command rows and their Protocol rows, replays each command through the same aggregate operation, and compares canonical semantic Protocol values. Raw XState snapshots are not persisted.
+Accepted Commands are the active replay authority and are never mirrored to D1. Resident match state and derived Protocol are disposable caches; cold restoration validates and replays ordered commands through the same aggregate operation. Raw XState snapshots are not persisted.
 
-An accepted command advances resident state before one SQLite transaction stores the command, its Protocol rows, the next sequence, and any terminal state/status. Execution or persistence defects discard the resident cache so the next operation restores from durable commands.
+Active restoration replays Accepted Commands after eviction. Finalizing paths remain replay-free except when `prepareArchive` derives Protocol and verifies the replayed Final Match State, so gameplay compatibility must be preserved through archive preparation.
 
-Finished match-state and Protocol reads use D1 only. Final Match State is persisted atomically with terminal acceptance and transferred with Protocol without application-side gameplay replay.
+An accepted command advances gameplay before one synchronous SQLite transaction stores the Accepted Command and next sequence. When it completes the Match, that transaction also stores Final Match State and the `finalizing` status. Resident state and derived Protocol advance only after the commit; defects discard the cache so the next operation restores from durable commands.
+
+Finished match-state and Protocol reads use D1 only. Final Match State is persisted atomically with the match-completing acceptance and transferred with Protocol without application-side gameplay replay.
 
 ## Match Lifecycle
 
@@ -75,16 +77,11 @@ Command retry equality compares decoded canonical values rather than serialized 
 MatchRoom finalizing Protocol + Final Match State
   -> application treats the transfer as canonical and checks D1 identity, lifecycle, and archive idempotency
   -> idempotently archive protocol and final match state in D1
-  -> MatchRoom broadcasts match.ended, closes streams, and schedules delayed disposal
-  -> D1 matches.status: finished
-  -> MatchRoom alarm deletes local storage after 10 minutes
+  -> MatchRoom broadcasts match.ended and closes streams
+  -> D1 matches.status: active -> finished, storing endedAt
 ```
 
-Failure before D1 reaches `finished` leaves durable `finalizing` state. A later relevant application request retries the idempotent archival and finalization steps. Public list results present D1 `finalizing` as finished while that work proceeds.
-
-MatchRoom's `finalizing` status is not durable from the application's perspective: the disposal alarm erases it after the grace period. D1's `finalizing` status is the durable completion marker that outlives room disposal, letting a request arriving after disposal still call the room's idempotent `finalize()` and mark D1 finished. Reconciliation keys off D1 first and the room second. Removing D1 `finalizing` would wedge a match if its Play request crashed between `finalize()` and `finishCompletedMatch()`.
-
-Finalization publishes the withheld terminal update, closes clients, schedules one Cloudflare alarm 10 minutes in the future, and clears resident state. Application marks D1 finished only after finalization returns. Finalization retries do not extend the existing alarm, and retained `finalizing` storage continues to serve semantic finalizing results and idempotent archive transfers during the grace period. The alarm is the sole destructive path: it validates that the room is finalizing, deletes all local storage, and tolerates already-missing storage.
+Until the final step succeeds, D1 remains active and the retained MatchRoom reports `finalizing`; a later relevant application request then retries the idempotent transfer, archival, and finalization steps. Finalization publishes the withheld terminal update, closes clients, and clears resident state without replaying history. Finished reads use D1 and do not access MatchRoom. Cleanup of retained finalizing storage is deferred until observed costs justify a separate retention mechanism.
 
 The generated control secret is stored in MatchRoom but is not exposed or checked by the current command path.
 
@@ -100,17 +97,16 @@ Browser EventSource
 
 The browser validates events and tracks the latest sequence. MatchRoom retains stream controllers and 25-second ping timers, so connected clients keep the Durable Object active; the current SSE transport is not hibernatable.
 
-Existing streams remain connected while archival is pending. A new stream request against a Finalizing Match returns `finalizing` instead of opening another stream, allowing application to resume archival. Terminal delivery remains withheld until finalization after archive success; delayed disposal gives closed clients time to revalidate against D1's finished representation.
+Existing streams remain connected while archival is pending. A new stream request against a Finalizing Match returns `finalizing` instead of opening another stream, allowing application to resume archival. Terminal delivery remains withheld until finalization after archive success, when closed clients revalidate against D1's finished representation.
 
 ## Persistence Boundaries
 
 - Canonical schemas are `packages/application/src/d1/schema.ts` and `do/match-room/src/storage/schema.ts`.
 - D1 and MatchRoom SQLite have independent migration histories and application mechanisms.
-- Persisted JSON, commands, and Protocol rows are decoded and validated in their owning adapters. Malformed data fails the operation rather than yielding partial state.
+- Persisted rows and JSON are decoded and validated at the storage boundary. Malformed data fails the operation rather than yielding partial state.
 - MatchRoom SQLite uses positive Accepted Command sequence for ordering, beginning at `1`; newly created matches have cursor `0`.
-- `MatchStorage` owns migration access, the Drizzle client, persisted representations, codecs, and consistency checks. Rows and serialized JSON do not cross its public seam; Accepted Command and Protocol writes remain one transaction.
-- Storage validation enforces sequence continuity, Protocol index/Command/timestamp ownership, Match identity and lifecycle, and terminal position/time/winner consistency. Protocol bodies remain generic here; MatchStorage does not execute gameplay or interpret game-specific semantics.
-- Constructor migration runs in `blockConcurrencyWhile`, so no RPC event observes an unmigrated room. Active operations remain synchronous over resident state and SQLite. Finalization blocks concurrency while publishing the terminal update, closing streams, and scheduling cleanup. Alarm disposal separately blocks concurrency while validating lifecycle and calling `deleteAll()`.
+- `MatchStorage` owns persisted representations and consistency checks without interpreting gameplay semantics. It exposes decoded matches and Accepted Commands, while the match layer derives Protocol.
+- Constructor migration runs in `blockConcurrencyWhile`, so no RPC event observes an unmigrated room.
 - Expected RPC outcomes are semantic variants, not HTTP failures. Application owns HTTP adaptation. Missing or corrupt authority and invalid lifecycle calls are defects that throw.
 - See `.tracker/db.md` for migration and inspection procedures.
 

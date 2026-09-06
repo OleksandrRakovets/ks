@@ -92,7 +92,7 @@ describe('PyramidSparringFrameMachine: basic', () => {
     expect(snap.context.score).toEqual({ A: 2, B: 0 })
   })
 
-  test('post-terminal commands throw', () => {
+  test('commands after frame completion throw', () => {
     let snap = start(FREE_RULES, { A: 2, B: 8 })
     snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
     snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBallCount: 2 })

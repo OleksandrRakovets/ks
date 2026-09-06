@@ -145,11 +145,15 @@ class FakeEventSource {
   }
 }
 
-function updateJson(_matchId: ReturnType<typeof newMatchId>, acceptedSeq: number, terminal: boolean): string {
+function updateJson(
+  _matchId: ReturnType<typeof newMatchId>,
+  acceptedSeq: number,
+  completesMatch: boolean,
+): string {
   return JSON.stringify({
     type: 'command-accepted',
     acceptedSeq,
-    terminal,
+    completesMatch,
   })
 }
 

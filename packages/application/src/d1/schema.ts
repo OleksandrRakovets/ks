@@ -6,7 +6,6 @@ import { check, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 export const StoredMatchStatus = {
   creating: 'creating',
   active: 'active',
-  finalizing: 'finalizing',
   finished: 'finished',
 } as const
 export type StoredMatchStatus = (typeof StoredMatchStatus)[keyof typeof StoredMatchStatus]

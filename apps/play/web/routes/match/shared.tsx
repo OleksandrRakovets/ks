@@ -219,7 +219,7 @@ export function subscribeControlLive(args: {
     const parsed = v.safeParse(StreamUpdateEvent, event.data)
     if (!parsed.success) return
     args.applyEvent(
-      parsed.output.terminal
+      parsed.output.completesMatch
         ? { type: 'match-ended', seq: parsed.output.acceptedSeq }
         : { type: 'update', seq: parsed.output.acceptedSeq },
       source,
@@ -312,7 +312,7 @@ export function useProtocolLiveRevalidation(state: MatchState, latestSeq: number
       const parsed = v.safeParse(StreamUpdateEvent, event.data)
       if (!parsed.success || parsed.output.acceptedSeq <= latestSeqRef.current) return
       latestSeqRef.current = parsed.output.acceptedSeq
-      if (parsed.output.terminal) stream.close()
+      if (parsed.output.completesMatch) stream.close()
       revalidateRef.current()
     }
     const onError = () => revalidateRef.current()

@@ -244,7 +244,7 @@ describe('LongFreePyramidSparringFrameMachine: winner flow', () => {
     expect(getPhase(snap)).toBe('winner-determined')
   })
 
-  test('post-terminal commands throw', () => {
+  test('commands after frame completion throw', () => {
     let snap = start(15, { A: 4, B: 4 })
     snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
     snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBallCount: 4 })

@@ -51,7 +51,7 @@ function application(
   room: MatchRoomClient,
   events: string[] = [],
   options: {
-    initialStatus?: 'active' | 'finalizing' | 'finished'
+    initialStatus?: 'active' | 'finished'
     overrides?: Partial<Dependencies>
   } = {},
 ) {
@@ -102,7 +102,7 @@ function application(
     archiveCompletedMatch: async () => {
       events.push('archive')
     },
-    finishCompletedMatch: async () => {
+    markMatchFinished: async () => {
       events.push('finish')
       status = 'finished'
     },
@@ -115,27 +115,6 @@ function application(
 }
 
 describe('trusted MatchRoom orchestration', () => {
-  test('lists finalizing matches as finished without selecting a room', async () => {
-    const app = application(selectedClient(), [], {
-      overrides: {
-        listMatchRecords: async () => [
-          {
-            matchId,
-            gameKey: 'free-pyramid',
-            status: 'finalizing',
-            createdAt,
-            participantRefs: { A: playerRefA, B: playerRefB },
-          },
-        ],
-        matchRoomClient: () => {
-          throw new Error('Unexpected MatchRoom client selection')
-        },
-      },
-    })
-
-    expect(await app.listMatches('en')).toMatchObject([{ matchId, status: 'finished' }])
-  })
-
   test('selects the room once for initialization and activates D1', async () => {
     const events: string[] = []
     const room = selectedClient({
@@ -173,10 +152,10 @@ describe('trusted MatchRoom orchestration', () => {
     })
   })
 
-  test('archives, finalizes, and finishes after a terminal accepted Command', async () => {
+  test('archives, finalizes, and finishes after a match-completing Accepted Command', async () => {
     const events: string[] = []
     const room = selectedClient({
-      submitCommand: async () => ({ _tag: 'accepted', acceptedSeq: 1, finalizesMatch: true }),
+      submitCommand: async () => ({ _tag: 'accepted', acceptedSeq: 1, completesMatch: true }),
       prepareArchive: async () => {
         events.push('prepare')
         return transfer
@@ -290,7 +269,7 @@ describe('trusted MatchRoom orchestration', () => {
     const events: string[] = []
     let archiveAttempts = 0
     const room = selectedClient({
-      submitCommand: async () => ({ _tag: 'accepted', acceptedSeq: 1, finalizesMatch: true }),
+      submitCommand: async () => ({ _tag: 'accepted', acceptedSeq: 1, completesMatch: true }),
       prepareArchive: async () => transfer,
       finalize: async () => {
         events.push('finalize')
@@ -314,8 +293,8 @@ describe('trusted MatchRoom orchestration', () => {
     expect(events).toEqual(['archive-persisted-response-lost', 'archive-retry', 'finalize', 'finish'])
   })
 
-  test('retries after finalization fails before scheduling or loses its response after scheduling', async () => {
-    for (const failure of ['before scheduling', 'lost response'] as const) {
+  test('retries after finalization fails or loses its response', async () => {
+    for (const failure of ['finalization failed', 'lost response'] as const) {
       const events: string[] = []
       let finalizeAttempts = 0
       const room = selectedClient({
@@ -339,14 +318,15 @@ describe('trusted MatchRoom orchestration', () => {
     const events: string[] = []
     let finishAttempts = 0
     const room = selectedClient({
+      stream: async () => ({ _tag: 'finalizing' }),
+      prepareArchive: async () => transfer,
       finalize: async () => {
         events.push('finalize')
       },
     })
     const app = application(room, events, {
-      initialStatus: 'finalizing',
       overrides: {
-        finishCompletedMatch: async () => {
+        markMatchFinished: async () => {
           finishAttempts += 1
           events.push(`finish-${finishAttempts}`)
           if (finishAttempts === 1) throw new Error('finish failed')
@@ -355,7 +335,7 @@ describe('trusted MatchRoom orchestration', () => {
     })
     await expect(app.streamMatchUpdates(matchId)).rejects.toThrow('finish failed')
     expect((await app.streamMatchUpdates(matchId)).status).toBe(410)
-    expect(events).toEqual(['finalize', 'finish-1', 'finalize', 'finish-2'])
+    expect(events).toEqual(['archive', 'finalize', 'finish-1', 'archive', 'finalize', 'finish-2'])
   })
 
   test('does not finalize or finish when D1 rejects the archive', async () => {

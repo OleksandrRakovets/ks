@@ -1,5 +1,5 @@
 import {
-  type AcceptedCommandHistoryEntry,
+  type AcceptedCommand,
   type Control,
   type FrameOutcome,
   type FrameState,
@@ -132,47 +132,6 @@ function requireGameplay<K extends RegisteredGameKey>(
   if (!gameplay || gameplay.key !== key) throw new Error(`Missing gameplay session for ${key}`)
   // SAFETY: the runtime key check correlates the discriminated gameplay session with K.
   return gameplay as CorrelatedGameplay<K>
-}
-
-function contentEqual(left: NonEmptyProtocolEntryContents, right: NonEmptyProtocolEntryContents): boolean {
-  // SAFETY: Protocol values have already crossed their schema boundaries.
-  const leftContent = left as StructuralValue
-  // SAFETY: Protocol values have already crossed their schema boundaries.
-  const rightContent = right as StructuralValue
-  return structuralEqual(leftContent, rightContent)
-}
-
-type StructuralValue =
-  | undefined
-  | null
-  | boolean
-  | number
-  | string
-  | readonly StructuralValue[]
-  | StructuralObject
-type StructuralObject = { readonly [key: string]: StructuralValue }
-
-function structuralEqual(left: StructuralValue, right: StructuralValue): boolean {
-  if (Object.is(left, right)) return true
-  if (left === null || right === null || Object(left) !== left || Object(right) !== right) return false
-  if (Array.isArray(left) || Array.isArray(right)) {
-    return (
-      Array.isArray(left) &&
-      Array.isArray(right) &&
-      left.length === right.length &&
-      left.every((value, index) => structuralEqual(value, right[index]))
-    )
-  }
-  // SAFETY: null, primitive, and array values were excluded above, leaving structural objects.
-  const leftRecord = left as StructuralObject
-  // SAFETY: null, primitive, and array values were excluded above, leaving structural objects.
-  const rightRecord = right as StructuralObject
-  const keys = Object.keys(leftRecord).filter((key) => leftRecord[key] !== undefined)
-  const rightKeys = Object.keys(rightRecord).filter((key) => rightRecord[key] !== undefined)
-  return (
-    keys.length === rightKeys.length &&
-    keys.every((key) => Object.hasOwn(rightRecord, key) && structuralEqual(leftRecord[key], rightRecord[key]))
-  )
 }
 
 function nonempty(contents: readonly ProtocolEntryContent[]): NonEmptyProtocolEntryContents {
@@ -399,14 +358,12 @@ class ResidentSparringMatch implements SparringMatch {
     return { _tag: 'accepted', command: acceptedCommand, protocolEntryContents: nonempty(entryContents) }
   }
 
-  restore(record: AcceptedCommandHistoryEntry): void {
-    const result = this.execute(record.command)
+  restore(command: AcceptedCommand): NonEmptyProtocolEntryContents {
+    const result = this.execute(command)
     if (result._tag === 'parse-failed') throw new SparringMatchHistoryError('Malformed stored Match Command')
-    if (
-      result._tag !== 'accepted' ||
-      !contentEqual(result.protocolEntryContents, record.protocolEntryContents)
-    )
-      throw new SparringMatchHistoryError('Stored Protocol does not match canonical execution')
+    if (result._tag !== 'accepted')
+      throw new SparringMatchHistoryError('Stored accepted Command is not executable')
+    return result.protocolEntryContents
   }
 }
 
@@ -425,15 +382,26 @@ export function createSparringMatch(config: MatchConfig): SparringMatch {
  */
 export function restoreSparringMatch(
   config: MatchConfig,
-  history: readonly AcceptedCommandHistoryEntry[],
-): SparringMatch {
+  history: readonly AcceptedCommand[],
+): RestoredSparringMatch {
   // SAFETY: createSparringMatch always constructs the private implementation in this module.
   const resident = createSparringMatch(config) as ResidentSparringMatch
   try {
-    for (const record of history) resident.restore(record)
-    return resident
+    const accepted = history.map((acceptedCommand) => ({
+      acceptedCommand,
+      protocolEntryContents: resident.restore(acceptedCommand),
+    }))
+    return { match: resident, accepted }
   } catch (error) {
     if (error instanceof SparringMatchHistoryError) throw error
     throw new SparringMatchHistoryError(error instanceof Error ? error.message : 'History restoration failed')
   }
+}
+
+export type RestoredSparringMatch = {
+  readonly match: SparringMatch
+  readonly accepted: readonly {
+    readonly acceptedCommand: AcceptedCommand
+    readonly protocolEntryContents: NonEmptyProtocolEntryContents
+  }[]
 }
