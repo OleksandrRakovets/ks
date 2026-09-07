@@ -14,7 +14,7 @@ import type { ProtocolRow } from './protocol'
 
 export type { HydratedMatchParticipant, HydratedMatchParticipants } from '@ks/core'
 
-export type CommandReceiptOutcome =
+type CommandReceiptOutcome =
   | { readonly _tag: 'accepted'; readonly acceptedSeq: number }
   | { readonly _tag: 'rejected'; readonly reason: SparringMatchRejection }
 

@@ -62,7 +62,8 @@
   "packageManager": "bun@1.4.2",
   "knip": {
     "ignore": [
-      "d1/drizzle.config.ts"
+      "d1/drizzle.config.ts",
+      "tools/**"
     ],
     "ignoreDependencies": [
       "@react-router/node",

@@ -3,7 +3,7 @@ import { newCommandId, newMatchId, PlayerRef, UnixEpochMilliseconds } from '@ks/
 import { env } from 'cloudflare:test'
 import * as v from 'valibot'
 
-export const request = v.parse(CreateMatchRequest, {
+const request = v.parse(CreateMatchRequest, {
   gameKey: 'free-pyramid',
   targets: { frameTargetPointsBySeat: { A: 8, B: 8 }, matchTargetFrames: 1 },
   firstBreakerSeat: 'A',
@@ -12,8 +12,8 @@ export const request = v.parse(CreateMatchRequest, {
     { seat: 'B', playerRef: v.parse(PlayerRef, 'gp_01ARZ3NDEKTSV4RRFFQ69G5FAB') },
   ],
 })
-export const controlSecret = 'control-secret-1234567890'
-export const createdAt = v.parse(UnixEpochMilliseconds, 1_700_000_000_000)
+const controlSecret = 'control-secret-1234567890'
+const createdAt = v.parse(UnixEpochMilliseconds, 1_700_000_000_000)
 
 export function initialization(matchId: ReturnType<typeof newMatchId>) {
   return { ...request, matchId, controlSecret, createdAt }

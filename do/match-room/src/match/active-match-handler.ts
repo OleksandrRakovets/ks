@@ -129,7 +129,7 @@ export type ActiveProtocolResult = {
   readonly protocolEntries: readonly ProtocolEntry[]
 }
 
-export type ActiveCommandResult =
+type ActiveCommandResult =
   | { readonly _tag: 'invalid-command' }
   | { readonly _tag: 'command-id-conflict' }
   | {
