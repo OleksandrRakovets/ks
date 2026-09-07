@@ -4,7 +4,7 @@
     "noEmit": true,
     "strictNullChecks": true,
     "exactOptionalPropertyTypes": false,
-    "types": ["@cloudflare/vitest-pool-workers/types", "@cloudflare/workers-types", "node"]
+    "types": ["@cloudflare/vitest-plugin/types", "@cloudflare/workers-types", "node"]
   },
   "include": ["test/**/*.integration.test.ts", "worker-configuration.d.ts"]
 }
