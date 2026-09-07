@@ -5,7 +5,7 @@ import { defineConfig } from 'vite'
 
 export default defineConfig({
   resolve: {
-    dedupe: ['react', 'react-dom', 'react/compiler-runtime'],
+    dedupe: ['react', 'react-dom'],
     tsconfigPaths: true,
   },
   plugins: [
