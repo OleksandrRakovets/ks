@@ -2,195 +2,173 @@
 
 ## Status and Scope
 
-Deferred specification. The implemented architecture still proxies SSE through React Router and keeps each connected MatchRoom active. This document is the only remaining migration plan and owns two sequential behavior changes:
+Approved implementation plan. Deliver the two slices sequentially:
 
-1. move the existing SSE gateway from Play to the MatchRoom Worker without changing its wire behavior;
-2. replace SSE with a versioned, framework-neutral WebSocket protocol using Cloudflare's Durable Object Hibernation API.
+1. move the existing SSE gateway out of React Router and application response pass-through into Play's Worker entry point;
+2. replace SSE with a versioned WebSocket protocol using Cloudflare's Durable Object Hibernation API.
 
-Commands remain on the Play → application → MatchRoom RPC path. Neither slice changes scoring semantics, active/finished persistence ownership, terminal archival order, authorization policy, or the public score-page model. Finish and verify the gateway move before changing transport.
+Commands remain on the Play → application → MatchRoom RPC path. Neither slice changes scoring semantics, persistence authority, completion ordering, public-read policy, or score-page models. MatchRoom remains a separately deployed, non-public Worker because it owns the externally bound Durable Object class; it has `workers_dev: false` and no route or Custom Domain.
 
-## Slice 7: Direct MatchRoom SSE Gateway
+## Slice 7: Play Worker SSE Gateway
 
-### Current and target paths
+### Request path
 
 ```text
-Current: browser -> Play RR loader -> Application Response pass-through -> MatchRoom.stream
-Target:  browser -> path-specific MatchRoom Worker route -> selected MatchRoom DO
+Current: browser -> React Router loader -> Application Response pass-through -> MatchRoom.stream
+Target:  browser -> Play Worker entry gateway -> selected MatchRoom DO
 ```
 
-The MatchRoom Worker gains one public same-origin live route, conceptually:
+Use this same-origin endpoint in both slices so the resource remains explicitly scoped to Sparring Matches and other Match forms can gain independent live contracts later:
 
 ```text
-GET /api/live/matches/:matchId?v=1&since=:latestProcessedSeq
+GET /api/sparring-match/:matchId/live/?since=:latestProcessedSeq
 Accept: text/event-stream
 ```
 
-Its Cloudflare route must be more specific than Play's catch-all route. All unrelated public requests are rejected. Local multi-Worker development must exercise the same ownership rather than silently falling back to a React Router route.
+Put the Play-owned gateway in `apps/play/workers/sparring-match-live.ts`, with a primary `handleSparringMatchLiveRequest` export called by the Worker entry point before React Router. The gateway validates the method, exact path shape, normalized `MatchId`, and non-negative cursor. It asks a narrow `Application` operation for live admission; application owns the D1 lookup and returns a transport-neutral admitted, unknown, or finished result. Only an active D1 Match is admitted.
 
-The Worker gateway validates method, protocol version, normalized `MatchId`, non-negative cursor, the current public-read policy, and active D1 match status before selecting a named object. Add a narrow server-only `@ks/application/match-live/admission` operation so the D1 query remains application-owned; the MatchRoom Worker is another adapter of that use case. Keep this subpath isolated from general application composition so it does not pull gameplay or React Router code into the Worker bundle. The D1 binding and read belong to the host Worker admission edge, never to the `MatchRoom` class. This guard prevents a finished request from recreating a deleted object's SQLite database.
+```ts
+export type SparringMatchLiveAdmission =
+  | { readonly _tag: 'admitted' }
+  | { readonly _tag: 'unknown' }
+  | { readonly _tag: 'finished' }
 
-Forward the accepted request to the selected DO without buffering the response so browser cancellation reaches the stream owner. Preserve the existing SSE contract in this slice:
+// Add this operation to the existing Application contract.
+admitSparringMatchLive(matchId: MatchId): Promise<SparringMatchLiveAdmission>
+```
+
+Missing rows map to `unknown`, active maps to `admitted`, and finished maps to `finished`. A `creating` row is an invariant violation and the application operation throws: match creation writes the D1 row, initializes MatchRoom, and marks the row active before the POST action returns the ID for redirect. Play maps `unknown` to `404` and `finished` to `410`; unexpected defects become `500`. The operation does not select MatchRoom or return an HTTP `Response`.
+
+After admission, the gateway selects `env.MATCH_ROOM.getByName(matchId)` and forwards a canonical request through `stub.fetch()`. MatchRoom's `fetch` verifies that the routed URL identity equals `ctx.id.name`, then delegates to the active handler. Missing MatchRoom storage after active D1 admission is an invariant violation and fails with `500`; finalizing storage returns `410` without opening a stream. The gateway returns the response unchanged so cancellation reaches the stream owner.
+
+Preserve the current SSE wire behavior:
 
 - `ready` contains `{ latestSeq }`;
-- `ev` contains one validated `StoredFact`;
-- replay is ordered by integer `seq` and followed by live facts;
-- `match.ended` is broadcast only during disposal after the D1 archive exists;
-- ping/cancellation behavior is unchanged.
+- `ev` contains one validated `MatchStreamUpdate`;
+- replay contains one `command-accepted` update per sequence greater than `since`, in ascending order, followed by `ready`;
+- the update with `completesMatch: true` remains withheld until D1 archival succeeds;
+- ping and cancellation behavior remain unchanged.
 
-After production-equivalent and local routing tests pass:
+During the transitional SSE slice, these updates are invalidation notifications, not state deltas. A reconnecting page supplies the latest sequence represented by its current loader data. It receives notifications for any later Accepted Commands and then revalidates authoritative state. If iOS unloads the tab, reopening the page first runs the loader for a complete current snapshot and opens a new connection from that snapshot's `latestSeq`; no browser cursor persistence is required. A command accepted between that loader read and connection establishment is covered by replay. Slice 8 replaces this replay with the single-message WebSocket catch-up described below.
+
+After the direct gateway works through the browser:
 
 - remove `apps/play/web/routes/api-match-stream.ts` and its route entry;
-- remove `Application.streamMatchFacts` and the application `Response` pass-through;
-- remove the private application stream adapter;
-- point the existing browser `EventSource` at the direct gateway;
+- remove `Application.streamMatchUpdates` and its `Response`-returning orchestration;
+- retain only the transport-neutral application admission operation;
 - retain MatchRoom's SSE broadcaster until Slice 8.
+
+Local development continues to use the existing Vite auxiliary MatchRoom Worker. The browser connects only to Play's port `7529`; Play reaches the same locally simulated MatchRoom namespace through its external Durable Object binding. No local CORS, second port, service-binding proxy, or production pathname routing is required.
 
 ### Slice 7 verification
 
-- Gateway rejects wrong methods, malformed IDs/cursors/versions, inactive matches, and unrelated paths.
-- Browser-to-DO replay, live delivery, terminal event, cancellation, and headers work through the public route without buffering.
-- Play no longer handles live requests and `@ks/application` exposes no `Response`-returning operation.
-- Finished live requests do not select or recreate a deleted MatchRoom.
-- Both Workers still build independently; the DO class remains free of Play/application imports, and a bundle audit shows the host pulled only the narrow application admission subpath.
+- The entry gateway rejects wrong methods, malformed paths/IDs/cursors, unknown Matches, and finished Matches.
+- A `creating` D1 row fails as an invariant violation rather than appearing to be an unknown Match.
+- Replay, live delivery, terminal delivery, cancellation, and SSE headers work browser → Play → MatchRoom DO without buffering.
+- A finalizing room opens no stream and causes the browser to revalidate; ordinary application reads or commands perform any required idempotent completion recovery.
+- React Router no longer handles live requests and application exposes no `Response`-returning operation.
+- MatchRoom imports no Play, application, or D1 code.
+- Both Workers build independently; `ks-match-room` has no public route or `workers.dev` endpoint.
 
 ## Slice 8: Hibernatable WebSockets
 
-### Public Route and Connection
+### Connection
 
-Reuse the direct MatchRoom live route, now requiring a WebSocket upgrade:
+Reuse the gateway path, now requiring contract version 1, diagnostic page kind, and a WebSocket upgrade:
 
 ```text
-GET /api/live/matches/:matchId?v=1&since=:latestProcessedSeq
+GET /api/sparring-match/:matchId/live/?contract=1&view=:control|protocol
 Upgrade: websocket
 ```
 
-The gateway additionally validates the upgrade headers before calling `stub.fetch(request)`. Finished and finalizing matches do not open a socket or instantiate a finished object's DO; application reads or commands drive required finalizing cleanup.
+The Play gateway validates the HTTP representation—including contract version and page kind—and D1 admission before forwarding the canonical request to the selected object. MatchRoom validates the upgrade and its routed identity before creating a `WebSocketPair`. Missing storage after admission fails as an invariant violation; finalizing storage returns `410` without accepting a socket. Because the application has not been deployed, SSE and WebSocket do not need a compatibility overlap or fallback.
 
-There are no application-level client-to-server messages. Browser code sends score commands through Play; protocol ping/pong is left to Cloudflare. Unexpected client messages are closed as policy violations.
+There are no application-level client-to-server messages. Commands continue through Play's ordinary HTTP actions. Cloudflare automatically answers incoming WebSocket protocol ping frames without invoking `webSocketMessage` or waking a hibernated object. Browser JavaScript cannot originate protocol ping frames, and the application does not add a heartbeat merely to keep the Durable Object resident: dropped connections recover by reconnecting and comparing the server cursor with current loader data. If production evidence later shows an intermediary needs an application heartbeat, use `setWebSocketAutoResponse()` so `ping`/`pong` messages do not wake MatchRoom. Any other application message closes that socket with policy-violation code `1008`.
 
-### Shared Wire Contract
+An eligible MatchRoom currently hibernates after approximately 10 seconds without an incoming request or event. A score command wakes it, runs the constructor, commits and broadcasts, and then starts a new idle period. The timing is a Cloudflare runtime policy rather than an application guarantee; correctness must not depend on ten seconds. Cloudflare does not charge Durable Object duration during the brief eligible idle window before hibernation.
 
-Put browser-safe Valibot schemas and inferred types in:
+### Shared wire contract
 
-```text
-packages/application/src/match-live/protocol.ts
-package export: @ks/application/match-live
-```
-
-Both MatchRoom and Play import this contract. It may import `MatchIdSchema`, `StoredFactSchema`, and integer schemas from `@ks/core`; it must not import D1, Drizzle, Cloudflare, React, or server-only application modules. Adding these explicit browser-safe package exports must not expose the application's private D1 or RPC adapters.
+Extend the browser-safe wire contract already owned by `@ks/core` alongside `MatchStreamUpdate`:
 
 ```ts
-export const MatchLiveProtocolVersionSchema = v.literal(1)
+export const SparringMatchLiveContractVersion = v.literal(1)
 
-export const MatchLiveConnectSchema = v.object({
-  version: MatchLiveProtocolVersionSchema,
-  matchId: MatchIdSchema,
-  since: NonNegativeIntegerSchema,
-})
+export const SparringMatchLiveUpdateMessage = v.pipe(
+  v.object({
+    contractVersion: SparringMatchLiveContractVersion,
+    type: v.literal('update'),
+    update: MatchStreamUpdate,
+  }),
+  v.readonly(),
+)
 
-export const MatchLiveFactMessageSchema = v.object({
-  version: MatchLiveProtocolVersionSchema,
-  type: v.literal('fact'),
-  fact: StoredFactSchema,
-})
+export const SparringMatchLiveCaughtUpMessage = v.pipe(
+  v.object({
+    contractVersion: SparringMatchLiveContractVersion,
+    type: v.literal('caught-up'),
+    matchId: MatchId,
+    latestSeq: NonNegativeInteger,
+  }),
+  v.readonly(),
+)
 
-export const MatchLiveCaughtUpMessageSchema = v.object({
-  version: MatchLiveProtocolVersionSchema,
-  type: v.literal('caught-up'),
-  matchId: MatchIdSchema,
-  latestSeq: NonNegativeIntegerSchema,
-})
+export const SparringMatchLiveServerMessage = v.variant('type', [
+  SparringMatchLiveUpdateMessage,
+  SparringMatchLiveCaughtUpMessage,
+])
 
-export const MatchLiveServerMessageSchema = v.variant('type', [MatchLiveFactMessageSchema, MatchLiveCaughtUpMessageSchema])
-
-export type MatchLiveConnect = v.InferOutput<typeof MatchLiveConnectSchema>
-export type MatchLiveServerMessage = v.InferOutput<typeof MatchLiveServerMessageSchema>
-
-export const MATCH_LIVE_ENDED_CLOSE_CODE = 4000
-export const MATCH_LIVE_ENDED_CLOSE_REASON = 'match-ended'
+export const SPARRING_MATCH_LIVE_COMPLETED_CLOSE_CODE = 4000
+export const SPARRING_MATCH_LIVE_COMPLETED_CLOSE_REASON = 'match-completed'
 ```
 
-On connection, send facts with `seq > since` in ascending order, followed by `caught-up`. Accepting the socket, reading replay, and establishing live delivery must have no replay/live race. Thereafter send committed facts in sequence order. `match.ended` remains an ordinary domain fact; do not duplicate it as another message type. Because archival precedes its broadcast, receipt means the completed D1 representation is available.
+Each schema's inferred output type has the same name as the schema. The contract imports no application, D1, Drizzle, Cloudflare, React, or gameplay code. MatchRoom and Play consume it from `@ks/core`; MatchRoom never imports `@ks/application`.
 
-After the application has archived the finalized facts in D1, it asks MatchRoom to dispose. MatchRoom broadcasts `match.ended`, closes every socket with the exported terminal code/reason, and deletes its storage. The application then transitions the D1 match row from finalizing to finished. A client stops reconnecting after either processing that fact or observing the terminal close code.
+On connection, accept the socket, read the current `latestSeq`, and send exactly one `caught-up` message. Do not replay individual updates: `MatchStreamUpdate` is only an invalidation notification and contains no state delta to apply. Establishing the socket and reading the synchronous SQLite cursor occur in one event turn with no `await`. A command committed before that point is represented by `caught-up.latestSeq`; a command committed afterward is broadcast as a live update, so there is no connection race. Broadcast each non-terminal live update only after its Accepted Command transaction commits.
 
-Once deployed, protocol version 1 is stable for open pages. Changes must remain additive or introduce a separately negotiated version; never silently change an existing message's meaning. Retaining old hashed browser assets across later deployments remains a separate deployment-policy decision, not part of this transport implementation.
+The completing update remains withheld until application has archived the completed Match in D1. Application then calls `MatchRoom.finalize()`, which broadcasts that ordinary update, closes every socket with the exported completion code/reason, and clears resident state. Application finally marks D1 finished. MatchRoom's finalizing SQLite storage is retained; this transport never deletes it or schedules disposal.
 
-### Framework-Neutral Browser Client
+### Browser client
 
-Put parsing, sequencing, and reconnection logic in a browser-safe module:
+Put framework-neutral parsing, sequencing, and reconnection in `apps/play/web/live/sparring-match-live-client.ts`. Keep its public surface to a subscribe function returning `stop()`, with observer callbacks for updates, caught-up state, and connection-state changes. A small React hook owns revalidation and local-command suppression; route components own no WebSocket parsing or retry state.
 
-```text
-packages/application/src/match-live/client.ts
-package export: @ks/application/match-live/client
-```
+The client:
 
-Its public interface should be no larger than:
+- derives `ws:` or `wss:` from `window.location` and uses the relative same-origin gateway path;
+- JSON-decodes and validates every frame with `SparringMatchLiveServerMessage`;
+- treats `caught-up.latestSeq` as the baseline for subsequent live sequence checks and requests one revalidation when it is newer than current loader data;
+- reconnects with bounded exponential backoff and jitter, without sending a browser cursor;
+- ignores duplicate live sequences and treats a live sequence gap as a reconnect plus revalidation rather than applying anything out of order;
+- tracks the highest server sequence requiring a fresh snapshot and permits at most one loader revalidation at a time; when that request settles, it revalidates again only if returned loader data is still behind the target;
+- revalidates on transport failure or the completing update;
+- stops after the completing update or completion close code;
+- stops with a protocol error rather than retrying malformed or incompatible messages forever.
 
-```ts
-export type MatchLiveConnectionState =
-  | { status: 'connecting' }
-  | { status: 'live' }
-  | { status: 'retrying'; attempt: number }
-  | { status: 'ended' }
-  | { status: 'stopped'; reason: 'manual' | 'protocol-error' }
+The React hook uses `useEffect` to start one subscription while an active Sparring Match page is mounted and returns `subscription.stop` as cleanup. This is React's intended synchronization boundary for a network connection. Setup and cleanup must be symmetrical and safe under Strict Mode's development-only setup → cleanup → setup cycle: `stop()` closes the current socket, cancels pending reconnect timers, and makes late events no-ops. Depend only on stable scalar identity/lifecycle values; keep current sequence and callback values behind the framework-neutral subscription interface rather than reconnecting on every render.
 
-export interface MatchLiveObserver {
-  onFact(fact: StoredFact): void
-  onCaughtUp(latestSeq: number): void
-  onConnectionStateChange(state: MatchLiveConnectionState): void
-}
+Do not add Context or `useSyncExternalStore` for this slice. The socket does not own rendered match data; React Router loaders remain authoritative and socket messages only request revalidation. `useSyncExternalStore` becomes appropriate only if multiple components must render a shared external connection snapshot such as connection status. It would not replace the effect that owns creation and disposal of a route-scoped socket.
 
-export interface MatchLiveSubscription {
-  stop(): void
-}
+### MatchRoom broadcaster
 
-export interface SubscribeToMatchLiveOptions {
-  endpoint: string
-  matchId: MatchId
-  getLatestSeq(): number
-  observer: MatchLiveObserver
-}
+Replace the SSE broadcaster with a hibernatable broadcaster private to MatchRoom. It uses `ctx.acceptWebSocket()`, `ctx.getWebSockets()`, and a serialized attachment containing contract version, a server-generated random connection ID, and validated `control` or `protocol` page kind. The browser includes its page kind in the connection query solely as diagnostic metadata; it grants no authority. The broadcaster holds no JavaScript client registry, `ReadableStream` controller, interval, or application heartbeat.
 
-export function subscribeToMatchLive(options: SubscribeToMatchLiveOptions): MatchLiveSubscription
-```
+Add narrow structured lifecycle logs with `console.info` for accepted and closed connections and `console.error` for socket errors. Include event name, Match ID, connection ID, page kind, contract version and, for closure, code/reason/clean state. Do not log IP addresses, headers, control secrets, or full URLs. This introduces no logging abstraction: the events provide the minimum correlation needed to diagnose reconnects and distinguish control-page from protocol-page clients. Ping/pong does not execute these handlers, and logging after a connection event does not prevent subsequent hibernation.
 
-The implementation JSON-decodes and validates every frame with `MatchLiveServerMessageSchema`, ignores duplicate sequences, reconnects from `getLatestSeq()`, and treats a sequence gap as a reconnect rather than applying data out of order. It uses bounded backoff, stops on terminal completion, and stops with `protocol-error` rather than retrying malformed or incompatible messages forever.
+`broadcast` and `closeAll` enumerate `ctx.getWebSockets()`. MatchRoom implements `webSocketMessage`, `webSocketClose`, and `webSocketError`; reconstruction discovers attached sockets through the runtime and does not restore them into an in-memory collection. Correct completion does not depend on whether the client or server close arrives first.
 
-Play owns only a small React hook, for example `apps/play/web/live/use-match-live.ts`. It imports `subscribeToMatchLive`, updates its latest-sequence ref in `onFact`, and calls the React Router revalidator from `onFact`, `onCaughtUp`, or terminal/disconnect state as appropriate. No WebSocket parsing or retry state belongs in route components.
+### Slice 8 verification
 
-### MatchRoom Broadcaster
+Update the existing browser live tests and MatchRoom integration tests to cover:
 
-Keep Cloudflare socket bookkeeping private to `do/match-room/src/live/Broadcaster.ts`. Its internal interface is:
+- schema decoding and malformed/contract-version-mismatch handling;
+- single-message catch-up, duplicate suppression, gap recovery, and the loader/connection race;
+- reconnect with bounded backoff and no update replay;
+- completing-update delivery after archive success, terminal revalidation, socket closure, and no reconnect;
+- no completing update when archival fails;
+- invariant failure for missing storage after admission and refusal to open sockets for retained finalizing storage;
+- continued broadcast through `ctx.getWebSockets()` after MatchRoom reconstruction;
+- correlated connection lifecycle logs with no sensitive request data;
+- independent Play and MatchRoom builds and a browser bundle free of server-only modules;
+- removal of the SSE route, controllers, ping timers, and in-memory client registry.
 
-```ts
-type MatchLiveAttachment = {
-  version: 1
-  matchId: MatchId
-}
-
-interface MatchLiveBroadcaster {
-  accept(socket: WebSocket, attachment: MatchLiveAttachment): void
-  send(socket: WebSocket, message: MatchLiveServerMessage): void
-  broadcast(message: MatchLiveServerMessage): void
-  closeAll(code: number, reason: string): void
-}
-```
-
-`accept` uses `ctx.acceptWebSocket()` and the socket's `serializeAttachment`; `broadcast` and `closeAll` use `ctx.getWebSockets()`. MatchRoom implements the hibernation event handlers (`webSocketMessage`, `webSocketClose`, and `webSocketError`) without introducing an in-memory client registry. There is no `setInterval` or application ping. Attachment data contains only the protocol version and match identity needed after reconstruction.
-
-MatchRoom owns replay queries and ordering: it accepts the socket, reads local facts after the cursor, sends replay plus `caught-up`, and broadcasts ordinary facts only after the accepted-fact transaction commits. The terminal fact is held until the application archives it and requests disposal. Reconstructing the DO during hibernation must not lose subscribers or require an alarm.
-
-The current browser already closes `EventSource` after processing `match.ended`. Preserve that cooperative behavior: the WebSocket client transitions to `ended` and closes locally when it processes the terminal fact, while the server also closes every socket before deleting storage. Correct cleanup must not depend on which close reaches the other side first.
-
-### Required Verification
-
-- Schema round-trip and malformed/version-mismatch tests.
-- Replay ordering, duplicate suppression, gap recovery, and caught-up semantics.
-- Client reconnect uses the latest processed sequence and bounded backoff.
-- `match.ended` is delivered once, causes terminal state, closes all sockets, and prevents reconnection/DO recreation.
-- Archive failure sends no terminal fact and leaves sockets/storage available for retry.
-- Reconstructing MatchRoom finds sockets through `ctx.getWebSockets()` and continues broadcasting.
-- Play's browser build of the two match-live subpaths contains no D1, Drizzle, Cloudflare, or server-only application module.
-- No SSE route, `ReadableStream` client controller, ping interval, or in-memory client registry remains.
-- After a handler returns, MatchRoom retains no JavaScript-only client state that prevents hibernation.
+The full gate is `bun run check:full`. Local workerd may exercise hibernation handlers without proving actual eviction; production hibernation eligibility is established by using only the Hibernation API and retaining no JavaScript-only client state after handlers return.
