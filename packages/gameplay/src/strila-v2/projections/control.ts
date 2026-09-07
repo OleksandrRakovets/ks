@@ -64,7 +64,7 @@ function deriveBallStatuses(
 function messages(
   entries: readonly {
     type: 'hint' | 'warning'
-    code: 'cue-ball-and-colored-is-foul' | 'black-pot-wins'
+    code: 'cue-ball-and-colored-is-foul' | 'manual-foul-cue-ball-response' | 'black-pot-wins'
   }[],
 ) {
   const seen = new Set<string>()
@@ -84,7 +84,7 @@ function controlProjection(
     readonly seat?: Seat
     readonly messages?: readonly {
       type: 'hint' | 'warning'
-      code: 'cue-ball-and-colored-is-foul' | 'black-pot-wins'
+      code: 'cue-ball-and-colored-is-foul' | 'manual-foul-cue-ball-response' | 'black-pot-wins'
     }[]
   },
 ): GameControlProjection<StrilaGamePresentation> {
@@ -162,6 +162,7 @@ export function deriveStrilaControlProjection(snapshot: StrilaSparringFrameSnaps
         seat: chooser,
         situationTitle: 'Select penalty',
         situationSummary: 'Opponent committed a foul. Choose the response.',
+        messages: [{ type: 'warning', code: 'manual-foul-cue-ball-response' }],
       })
     }
     case 'foul-committed.ball-in-hand':

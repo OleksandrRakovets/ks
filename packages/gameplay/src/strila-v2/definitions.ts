@@ -122,7 +122,7 @@ export type StrilaBallStatuses = v.InferOutput<typeof StrilaBallStatuses>
 const ControlMessage = v.pipe(
   v.object({
     type: v.picklist(['hint', 'warning']),
-    code: v.picklist(['cue-ball-and-colored-is-foul', 'black-pot-wins']),
+    code: v.picklist(['cue-ball-and-colored-is-foul', 'manual-foul-cue-ball-response', 'black-pot-wins']),
   }),
   v.readonly(),
 )

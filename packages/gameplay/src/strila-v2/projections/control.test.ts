@@ -76,6 +76,24 @@ test('projects open-play miss controls only while a cue-ball streak exists', () 
   )
 })
 
+test('projects all manual foul responses with the cue-ball warning', () => {
+  let snapshot = sendEvent(createInitialSnapshot({ A: 9, B: 9 }), {
+    type: 'frame.commence',
+    seat: 'A',
+  })
+  snapshot = sendEvent(snapshot, { type: 'foul.commit', seat: 'A' })
+
+  const projection = deriveStrilaControlProjection(snapshot)
+  expect(projection.controls.map(({ type, seat, fixedInput }) => ({ type, seat, fixedInput }))).toEqual([
+    { type: 'penalty.select', seat: 'B', fixedInput: { choice: 'play-from-position' } },
+    { type: 'penalty.select', seat: 'B', fixedInput: { choice: 'pass-position' } },
+    { type: 'penalty.select', seat: 'B', fixedInput: { choice: 'ball-in-hand' } },
+  ])
+  expect(projection.game.details.messages).toEqual([
+    { type: 'warning', code: 'manual-foul-cue-ball-response' },
+  ])
+})
+
 test.each(['foul-committed.ball-in-hand', 'respotted-black.opening'] as const)(
   'retains miss controls in special phase %s',
   (phase) => {

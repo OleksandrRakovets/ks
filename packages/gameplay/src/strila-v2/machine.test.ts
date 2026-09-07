@@ -209,12 +209,15 @@ describe('machine-sparring: empty table', () => {
       }
       const before = snap.context
       snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [0, 7] })
-      expect(getPhase(snap)).toBe('foul-committed.penalty-selection')
+      expect(getPhase(snap)).toBe('foul-committed.ball-in-hand')
       expect(snap.context.score).toEqual(before.score)
       expect(snap.context.pottedBallsBySeat).toEqual(before.pottedBallsBySeat)
       expect(snap.context.coloredBallsOnTable).toEqual([7])
       expect(snap.context.winner).toBeNull()
-      expect(snap.context.foulOffender).toBe('A')
+      expect(snap.context.foulOffender).toBeNull()
+      expect(() =>
+        sendEvent(snap, { type: 'penalty.select', seat: 'B', choice: 'play-from-position' }),
+      ).toThrow('Invalid Strila event')
     },
   )
 
@@ -246,7 +249,7 @@ describe('machine-sparring: foul handling', () => {
 
     const beforeThird = snap.context
     snap = sendEvent(snap, { type: 'pot.record', seat: 'B', pottedBalls: [0] })
-    expect(getPhase(snap)).toBe('foul-committed.penalty-selection')
+    expect(getPhase(snap)).toBe('foul-committed.ball-in-hand')
     expect(snap.context.score).toEqual(beforeThird.score)
     expect(snap.context.pottedBallsBySeat).toEqual(beforeThird.pottedBallsBySeat)
     expect(snap.context.cueBallSerialPots).toBeNull()
@@ -369,7 +372,7 @@ describe('machine-sparring: foul handling', () => {
     expect(snap.context.cueBallSerialPots).toBeNull()
   })
 
-  test('opponent-foul ball-in-hand cue ball and colored ball together becomes a foul', () => {
+  test('opponent-foul ball-in-hand cue ball and colored ball together remains ball in hand', () => {
     let snap = start()
     snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
     snap = sendEvent(snap, { type: 'foul.commit', seat: 'A' })
@@ -380,8 +383,13 @@ describe('machine-sparring: foul handling', () => {
 
     expect(snap.context.score).toEqual({ A: 0, B: 0 })
     expect(snap.context.coloredBallsOnTable).toEqual(before.context.coloredBallsOnTable)
-    expect(getPhase(snap)).toBe('foul-committed.penalty-selection')
-    expect(snap.context.foulOffender).toBe('B')
+    expect(snap.context.pottedBallsBySeat).toEqual(before.context.pottedBallsBySeat)
+    expect(snap.context.cueBallSerialPots).toBeNull()
+    expect(getPhase(snap)).toBe('foul-committed.ball-in-hand')
+    expect(snap.context.foulOffender).toBeNull()
+    expect(() => sendEvent(snap, { type: 'penalty.select', seat: 'A', choice: 'play-from-position' })).toThrow(
+      'Invalid Strila event',
+    )
   })
 
   test('third consecutive cue ball pot becomes an automatic foul', () => {
@@ -395,8 +403,10 @@ describe('machine-sparring: foul handling', () => {
 
     expect(snap.context.score).toEqual(before.context.score)
     expect(snap.context.coloredBallsOnTable).toEqual(before.context.coloredBallsOnTable)
-    expect(getPhase(snap)).toBe('foul-committed.penalty-selection')
-    expect(snap.context.foulOffender).toBe('A')
+    expect(snap.context.pottedBallsBySeat).toEqual(before.context.pottedBallsBySeat)
+    expect(snap.context.cueBallSerialPots).toBeNull()
+    expect(getPhase(snap)).toBe('foul-committed.ball-in-hand')
+    expect(snap.context.foulOffender).toBeNull()
   })
 })
 

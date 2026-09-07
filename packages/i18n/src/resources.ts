@@ -95,6 +95,8 @@ export const resources = {
           },
           messages: {
             'cue-ball-and-colored-is-foul': 'Забиття битка разом із кольоровою кулею вважається фолом.',
+            'manual-foul-cue-ball-response':
+              'Якщо під час фолу биток було забито або він вилетів за межі столу, дозволяється лише куля з руки. Бонусне очко за фол не може бути нараховане.',
             'black-pot-wins':
               'Забита чорна куля приносить перемогу. Будь-яка інша забита куля вважається фолом.',
             'rack-started': 'Початок піраміди {{rackNumber}}',
@@ -356,6 +358,8 @@ export const resources = {
           },
           messages: {
             'cue-ball-and-colored-is-foul': 'Cue ball and colored balls together count as a foul.',
+            'manual-foul-cue-ball-response':
+              'If the cue ball was pocketed or left the table during the foul, only ball in hand is legal. No foul bonus point may be awarded.',
             'black-pot-wins': 'A black pot wins. Any other potted result is treated as a foul.',
             'rack-started': 'Starting rack {{rackNumber}}',
           },

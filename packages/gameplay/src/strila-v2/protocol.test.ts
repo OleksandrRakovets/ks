@@ -79,3 +79,39 @@ test('table-cleared Protocol attributes the pot to the shooter and the win to th
     },
   ])
 })
+
+test.each([
+  ['third-consecutive-cue-ball-pot', [0] as const],
+  ['illegal-ball-in-hand-pot', [0, 3] as const],
+] as const)('retains the %s automatic foul Protocol entry', (reason, pottedBalls) => {
+  let previous = sendEvent(createInitialSnapshot({ A: 9, B: 9 }), {
+    type: 'frame.commence',
+    seat: 'A',
+  })
+  if (reason === 'third-consecutive-cue-ball-pot') {
+    previous = sendEvent(previous, { type: 'pot.record', seat: 'A', pottedBalls: [0] })
+    previous = sendEvent(previous, { type: 'pot.record', seat: 'A', pottedBalls: [0] })
+  } else {
+    previous = sendEvent(previous, { type: 'foul.commit', seat: 'B' })
+    previous = sendEvent(previous, { type: 'penalty.select', seat: 'A', choice: 'ball-in-hand' })
+  }
+  const command: StrilaCommand = { type: 'pot.record', seat: 'A', pottedBalls }
+  const next = sendEvent(previous, command)
+
+  expect(createStrilaProtocolEntries({ previous, command, next })).toEqual([
+    {
+      gameKey: 'strila-v2',
+      source: 'player',
+      entryType: 'player-command',
+      seat: 'A',
+      body: { commandType: 'pot.record', pottedBalls },
+    },
+    {
+      gameKey: 'strila-v2',
+      source: 'system',
+      entryType: 'system-note',
+      seat: 'A',
+      body: { systemType: 'automatic-foul', reason },
+    },
+  ])
+})

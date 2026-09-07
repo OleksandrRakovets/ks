@@ -308,8 +308,8 @@ export const StrilaSparringFrameMachine = setup({
         'pot.record': [
           {
             guard: 'isThirdCueBallPot',
-            target: 'foul-committed',
-            actions: 'setFoulResponse',
+            target: 'foul-committed.ball-in-hand',
+            actions: ['clearCueBallStreak', 'applyBallInHand'],
           },
           // A legal target-reaching shot wins even when clearing the table leaves a tie or a higher opponent score.
           {
@@ -382,8 +382,8 @@ export const StrilaSparringFrameMachine = setup({
             'pot.record': [
               {
                 guard: 'isIllegalBallInHandPot',
-                target: 'penalty-selection',
-                actions: 'setFoulResponse',
+                target: 'ball-in-hand',
+                actions: ['clearCueBallStreak', 'applyBallInHand'],
               },
               {
                 guard: 'isTargetReachedAfterPot',
