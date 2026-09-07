@@ -219,7 +219,7 @@ export function deriveStrilaControlProjection(snapshot: StrilaSparringFrameSnaps
         situationTitle: 'Winner determined',
         situationSummary: canContinue
           ? 'The break may continue, or the frame can be awarded now.'
-          : 'The table is cleared. The frame can be awarded now.',
+          : 'The frame can be awarded now.',
       })
     }
     case 'frame-over':

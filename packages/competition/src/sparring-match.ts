@@ -223,7 +223,7 @@ class ResidentSparringMatch implements SparringMatch {
         seat,
         prominence: 'primary',
       })
-    } else {
+    } else if (gameplay.session.canConcede()) {
       matchControls.push(concedeControl('A'), concedeControl('B'))
     }
     const gameControlProjection = gameplay.session.deriveControls()
@@ -274,6 +274,11 @@ class ResidentSparringMatch implements SparringMatch {
     if (lifecycle.phase !== 'frame-in-progress' || !this.gameplay)
       return { _tag: 'rejected', reason: { code: 'no-active-frame' } }
     if (command.type === 'frame.concede') {
+      if (!this.gameplay.session.canConcede())
+        return {
+          _tag: 'rejected',
+          reason: { code: 'game-command-rejected', reason: { code: 'command-not-available' } },
+        }
       const outcome: FrameOutcome = {
         winnerSeat: opponentOf(command.seat),
         score: this.gameplay.session.getScore(),

@@ -152,3 +152,35 @@ test.each([false, true])(
     )
   },
 )
+
+test('projects only award after a bonus determines the winner', () => {
+  let snapshot = sendEvent(createInitialSnapshot({ A: 1, B: 9 }), { type: 'frame.commence', seat: 'A' })
+  snapshot = sendEvent(snapshot, { type: 'foul.commit', seat: 'B' })
+  snapshot = sendEvent(snapshot, {
+    type: 'penalty.select',
+    seat: 'A',
+    choice: 'play-from-position',
+  })
+
+  const projection = deriveStrilaControlProjection(snapshot)
+  expect(projection.controls.map(({ type, seat }) => ({ type, seat }))).toEqual([
+    { type: 'frame.award', seat: 'A' },
+  ])
+  expect(projection.game.details.situationSummary).toBe('The frame can be awarded now.')
+})
+
+test('projects only award after a respotted-black pot determines the winner', () => {
+  let snapshot = sendEvent(createInitialSnapshot({ A: 9, B: 9 }), { type: 'frame.commence', seat: 'A' })
+  snapshot = sendEvent(snapshot, { type: 'pot.record', seat: 'A', pottedBalls: [1, 2] })
+  snapshot = sendEvent(snapshot, { type: 'pot.record', seat: 'B', pottedBalls: [3, 4, 5, 6] })
+  snapshot = sendEvent(snapshot, { type: 'foul.commit', seat: 'B' })
+  snapshot = sendEvent(snapshot, { type: 'penalty.select', seat: 'A', choice: 'play-from-position' })
+  snapshot = sendEvent(snapshot, { type: 'pot.record', seat: 'A', pottedBalls: [0, 7] })
+  snapshot = sendEvent(snapshot, { type: 'pot.record', seat: 'A', pottedBalls: [7] })
+
+  const projection = deriveStrilaControlProjection(snapshot)
+  expect(projection.controls.map(({ type, seat }) => ({ type, seat }))).toEqual([
+    { type: 'frame.award', seat: 'A' },
+  ])
+  expect(projection.game.details.situationSummary).toBe('The frame can be awarded now.')
+})

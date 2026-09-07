@@ -546,6 +546,24 @@ describe('machine-sparring: continued break after winner', () => {
     snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [6] })
     expect(getPhase(snap)).toBe('winner-determined')
     expect(snap.context.score.A).toBe(12)
+
+    snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [7] })
+    expect(snap.context.score.A).toBe(14)
+    expect(() => sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [0] })).toThrow(
+      'Invalid Strila event pot.record in phase winner-determined',
+    )
+  })
+
+  test('bonus target win does not permit continued scoring', () => {
+    let snap = start({ A: 1, B: 9 })
+    snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
+    snap = sendEvent(snap, { type: 'foul.commit', seat: 'B' })
+    snap = sendEvent(snap, { type: 'penalty.select', seat: 'A', choice: 'play-from-position' })
+
+    expect(getPhase(snap)).toBe('winner-determined')
+    expect(() => sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [1] })).toThrow(
+      'Invalid Strila event pot.record in phase winner-determined',
+    )
   })
 
   test('loser pot in winner-determined throws', () => {

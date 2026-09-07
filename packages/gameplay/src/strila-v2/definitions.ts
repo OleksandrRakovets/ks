@@ -98,6 +98,7 @@ const StrilaContext = v.pipe(
     foulOffender: v.nullable(Seat),
     winner: v.nullable(Seat),
     winnerDeterminationReason: v.nullable(WinnerDeterminationReason),
+    continuationAllowed: v.boolean(),
   }),
   v.readonly(),
 )

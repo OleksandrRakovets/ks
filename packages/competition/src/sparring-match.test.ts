@@ -244,6 +244,42 @@ describe('SparringMatch', () => {
     expect(match.project().state.status).toBe('finished')
   })
 
+  test('gameplay-determined winner removes concession controls and rejects either concession', () => {
+    const match = createSparringMatch({
+      ...config(1),
+      gameKey: 'strila-v2',
+      targets: { frameTargetPointsBySeat: { A: 1, B: 9 }, matchTargetFrames: 1 },
+    })
+    accept(match, { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } })
+    accept(match, {
+      commandId: newCommandId(),
+      source: 'match',
+      command: { type: 'frame.commence', seat: 'A' },
+    })
+    expect(match.project().controls.filter(({ type }) => type === 'frame.concede')).toHaveLength(2)
+    accept(match, {
+      commandId: newCommandId(),
+      source: 'game',
+      command: { type: 'pot.record', seat: 'A', pottedBalls: [1] },
+    })
+
+    const determined = match.project()
+    expect(determined.controls.filter(({ type }) => type === 'frame.concede')).toEqual([])
+    for (const seat of ['A', 'B'] as const) {
+      expect(
+        match.execute({
+          commandId: newCommandId(),
+          source: 'match',
+          command: { type: 'frame.concede', seat },
+        }),
+      ).toEqual({
+        _tag: 'rejected',
+        reason: { code: 'game-command-rejected', reason: { code: 'command-not-available' } },
+      })
+      expect(match.project()).toEqual(determined)
+    }
+  })
+
   test('domain rejection does not mutate projection', () => {
     const match = createSparringMatch(config())
     const before = match.project()

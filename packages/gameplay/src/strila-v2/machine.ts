@@ -174,7 +174,8 @@ export const StrilaSparringFrameMachine = setup({
     isSeatWinner: ({ context, event }) => {
       if (event.type !== 'pot.record') return false
       return (
-        context.winnerDeterminationReason !== 'table-cleared' &&
+        context.continuationAllowed &&
+        context.coloredBallsOnTable.length > 0 &&
         isAvailablePot(context, event) &&
         context.winner === event.seat
       )
@@ -208,6 +209,7 @@ export const StrilaSparringFrameMachine = setup({
       winner: winnerFromTarget(context),
       winnerDeterminationReason: 'target-reached',
     })),
+    allowContinuation: assign(() => ({ continuationAllowed: true })),
     setWinnerFromClearedTable: assign(({ context }) => ({
       winner: context.score.A > context.score.B ? 'A' : 'B',
       winnerDeterminationReason: 'table-cleared',
@@ -291,6 +293,7 @@ export const StrilaSparringFrameMachine = setup({
     foulOffender: null,
     winner: null,
     winnerDeterminationReason: null,
+    continuationAllowed: false,
   }),
 
   states: {
@@ -315,7 +318,7 @@ export const StrilaSparringFrameMachine = setup({
           {
             guard: 'isTargetReachedAfterPot',
             target: 'winner-determined',
-            actions: ['applyPot', 'setWinnerFromTarget'],
+            actions: ['applyPot', 'setWinnerFromTarget', 'allowContinuation'],
           },
           {
             guard: 'isTableClearedWithLeader',
@@ -388,7 +391,7 @@ export const StrilaSparringFrameMachine = setup({
               {
                 guard: 'isTargetReachedAfterPot',
                 target: '#strila-sparring.winner-determined',
-                actions: ['applyPot', 'setWinnerFromTarget'],
+                actions: ['applyPot', 'setWinnerFromTarget', 'allowContinuation'],
               },
               {
                 guard: 'isTableClearedWithLeader',
