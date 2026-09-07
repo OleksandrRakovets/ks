@@ -1,10 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly NODE_VERSION="26.5.0"
-readonly NODE_SHA256="9f619528f1db5ddc41dccf54211066fb42228d69a156733c69cb9d6cc92e358c"
-readonly BUN_VERSION="1.3.14"
-readonly BUN_SHA256="951ee2aee855f08595aeec6225226a298d3fea83a3dcd6465c09cbccdf7e848f"
+readonly NODE_MAJOR="26"
 
 repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 local_bin="${HOME}/.local/bin"
@@ -18,17 +15,30 @@ fi
 mkdir -p "$local_bin" "$local_share"
 
 install_node() {
-  local install_dir="${local_share}/node-v${NODE_VERSION}"
+  local current
+  if [[ -x "${local_bin}/node" ]]; then
+    current="$("${local_bin}/node" --version)"
+    if [[ "${current}" == "v${NODE_MAJOR}."* ]]; then
+      echo "Node ${current} already installed."
+      return
+    fi
+    echo "Node ${current} installed, wanted v${NODE_MAJOR}.x — upgrading..."
+  fi
+
+  # Latest patch of the pinned major; no SHA pin (HTTPS is the integrity check).
+  local version install_dir
+  version="$(curl --fail --location --silent --show-error https://nodejs.org/dist/index.json \
+    | NODE_MAJOR="${NODE_MAJOR}" python3 -c 'import json,os,sys; print(next(e["version"].removeprefix("v") for e in json.load(sys.stdin) if e["version"].startswith("v" + os.environ["NODE_MAJOR"] + ".") and "-" not in e["version"]))')"
+  install_dir="${local_share}/node-v${version}"
 
   if [[ ! -x "${install_dir}/bin/node" ]]; then
-    echo "Installing Node.js v${NODE_VERSION}..."
+    echo "Installing Node.js v${version}..."
     local temp_dir archive
     temp_dir="$(mktemp -d)"
     archive="${temp_dir}/node.tar.xz"
     curl --fail --location --silent --show-error \
-      "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz" \
+      "https://nodejs.org/dist/v${version}/node-v${version}-linux-x64.tar.xz" \
       --output "$archive"
-    echo "${NODE_SHA256}  ${archive}" | sha256sum --check --status
     mkdir -p "$install_dir"
     tar -xJf "$archive" --strip-components=1 -C "$install_dir"
     rm -rf "$temp_dir"
@@ -40,31 +50,43 @@ install_node() {
 }
 
 install_bun() {
-  local declared_version install_dir
-  declared_version="$(python3 -c 'import json; print(json.load(open("package.json"))["packageManager"].removeprefix("bun@"))')"
-  if [[ "$declared_version" != "$BUN_VERSION" ]]; then
-    echo "Update .agents/setup for packageManager bun@${declared_version}; it currently pins bun@${BUN_VERSION}." >&2
+  # Only the major.minor of packageManager is enforced; patch floats (rolling).
+  # Installs via the official script (see bun.sh/docs/installation) with
+  # BUN_INSTALL pinned to a versioned dir. HOME is faked so the script never
+  # touches real shell rc files (we manage PATH via local_bin symlinks).
+  local declared_minor
+  declared_minor="$(python3 -c 'import json; print(".".join(json.load(open("package.json"))["packageManager"].removeprefix("bun@").split(".")[:2]))')"
+
+  local current
+  if [[ -x "${local_bin}/bun" ]]; then
+    current="$("${local_bin}/bun" --version)"
+    if [[ "${current%.*}" == "${declared_minor}" ]]; then
+      echo "Bun ${current} already installed (wanted ${declared_minor}.x)."
+      return
+    fi
+    echo "Bun ${current} installed, wanted ${declared_minor}.x — upgrading..."
+  fi
+
+  # Resolve latest release tag first so a minor bump fails before downloading.
+  local tag version install_dir fake_home
+  tag="$(curl --fail --location --silent --show-error --output /dev/null --write-out '%{url_effective}' https://github.com/oven-sh/bun/releases/latest)"
+  version="${tag##*/bun-v}"
+  if [[ "${version%.*}" != "${declared_minor}" ]]; then
+    echo "Latest Bun is ${version}, but package.json wants ${declared_minor}.x — update packageManager." >&2
     exit 1
   fi
 
-  install_dir="${local_share}/bun-v${BUN_VERSION}"
-  if [[ ! -x "${install_dir}/bun" ]]; then
-    echo "Installing Bun v${BUN_VERSION}..."
-    local temp_dir archive
-    temp_dir="$(mktemp -d)"
-    archive="${temp_dir}/bun.zip"
-    curl --fail --location --silent --show-error \
-      "https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/bun-linux-x64.zip" \
-      --output "$archive"
-    echo "${BUN_SHA256}  ${archive}" | sha256sum --check --status
-    unzip -q "$archive" -d "$temp_dir"
-    mkdir -p "$install_dir"
-    install -m 0755 "${temp_dir}/bun-linux-x64/bun" "${install_dir}/bun"
-    rm -rf "$temp_dir"
+  install_dir="${local_share}/bun-v${version}"
+  if [[ ! -x "${install_dir}/bin/bun" ]]; then
+    echo "Installing Bun v${version}..."
+    fake_home="$(mktemp -d)"
+    curl --fail --location --silent --show-error https://bun.com/install \
+      | HOME="${fake_home}" BUN_INSTALL="${install_dir}" bash -s "bun-v${version}"
+    rm -rf "${fake_home}"
   fi
 
-  ln -sfn "${install_dir}/bun" "${local_bin}/bun"
-  ln -sfn "${install_dir}/bun" "${local_bin}/bunx"
+  ln -sfn "${install_dir}/bin/bun" "${local_bin}/bun"
+  ln -sfn "${install_dir}/bin/bun" "${local_bin}/bunx"
 }
 
 cd "$repo_root"
