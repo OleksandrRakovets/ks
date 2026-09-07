@@ -35,11 +35,12 @@ export function BurgerMenu(props: { placement?: 'header' | 'navigation' }) {
     <Sheet>
       <SheetTrigger asChild>
         <button
+          type="button"
           aria-label={t(keys.nav.menu)}
           className={
             props.placement === 'navigation'
-              ? 'relative -mt-px flex h-12 w-full items-center justify-center border-t-2 border-transparent text-base font-medium text-muted-foreground hover:text-foreground lg:h-14'
-              : 'flex h-14 items-center justify-center px-4 text-green'
+              ? 'relative -mt-px flex h-12 w-full items-center justify-center border-t-2 border-transparent text-base font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset lg:h-14'
+              : 'flex h-14 items-center justify-center px-4 text-green outline-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset'
           }
         >
           <span className={props.placement === 'navigation' ? 'absolute left-4 lg:left-2' : undefined}>
@@ -55,8 +56,9 @@ export function BurgerMenu(props: { placement?: 'header' | 'navigation' }) {
           <BrandWordmark className="h-12" title={t(keys.appTitle)} />
           <SheetClose asChild>
             <button
+              type="button"
               aria-label={t(keys.nav.close)}
-              className="flex h-full w-14 justify-center px-4 pt-4 text-text-ghost"
+              className="grid size-14 shrink-0 place-items-center self-start text-text-ghost outline-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset"
             >
               <CloseIcon />
             </button>
