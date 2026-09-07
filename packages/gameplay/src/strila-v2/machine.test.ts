@@ -234,6 +234,68 @@ describe('machine-sparring: empty table', () => {
 })
 
 describe('machine-sparring: foul handling', () => {
+  test('first two post-foul cue-ball pots build a new streak and the third is an automatic foul', () => {
+    let snap = sendEvent(start(), { type: 'frame.commence', seat: 'A' })
+    snap = sendEvent(snap, { type: 'foul.commit', seat: 'A' })
+    snap = sendEvent(snap, { type: 'penalty.select', seat: 'B', choice: 'ball-in-hand' })
+
+    snap = sendEvent(snap, { type: 'pot.record', seat: 'B', pottedBalls: [0] })
+    expect(snap.context.cueBallSerialPots).toEqual({ seat: 'B', count: 1 })
+    snap = sendEvent(snap, { type: 'pot.record', seat: 'B', pottedBalls: [0] })
+    expect(snap.context.cueBallSerialPots).toEqual({ seat: 'B', count: 2 })
+
+    const beforeThird = snap.context
+    snap = sendEvent(snap, { type: 'pot.record', seat: 'B', pottedBalls: [0] })
+    expect(getPhase(snap)).toBe('foul-committed.penalty-selection')
+    expect(snap.context.score).toEqual(beforeThird.score)
+    expect(snap.context.pottedBallsBySeat).toEqual(beforeThird.pottedBallsBySeat)
+    expect(snap.context.cueBallSerialPots).toBeNull()
+  })
+
+  test.each(['A', 'B'] as const)('a %s miss clears the streak without changing table state', (missSeat) => {
+    let snap = sendEvent(start(), { type: 'frame.commence', seat: 'A' })
+    snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [0] })
+    snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [0] })
+    expect(snap.context.cueBallSerialPots).toEqual({ seat: 'A', count: 2 })
+    const beforeMiss = snap.context
+
+    snap = sendEvent(snap, { type: 'miss.record', seat: missSeat })
+    expect(snap.context.score).toEqual(beforeMiss.score)
+    expect(snap.context.coloredBallsOnTable).toEqual(beforeMiss.coloredBallsOnTable)
+    expect(snap.context.pottedBallsBySeat).toEqual(beforeMiss.pottedBallsBySeat)
+    expect(snap.context.cueBallSerialPots).toBeNull()
+
+    snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [0] })
+    expect(snap.context.cueBallSerialPots).toEqual({ seat: 'A', count: 1 })
+  })
+
+  test('mixed pots advance the cue-ball streak while color-only pots reset it', () => {
+    let snap = sendEvent(start(), { type: 'frame.commence', seat: 'A' })
+    snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [0] })
+    snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [0, 1] })
+    expect(snap.context.cueBallSerialPots).toEqual({ seat: 'A', count: 2 })
+
+    snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [2] })
+    expect(snap.context.cueBallSerialPots).toBeNull()
+  })
+
+  test.each(['play-from-position', 'pass-position'] as const)(
+    '%s retains the foul-entry streak reset',
+    (choice) => {
+      let snap = sendEvent(start(), { type: 'frame.commence', seat: 'A' })
+      snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [0] })
+      snap = sendEvent(snap, { type: 'foul.commit', seat: 'A' })
+      expect(snap.context.cueBallSerialPots).toBeNull()
+
+      snap = sendEvent(snap, { type: 'penalty.select', seat: 'B', choice })
+      expect(snap.context.cueBallSerialPots).toBeNull()
+      if (choice === 'pass-position') {
+        snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [0] })
+        expect(snap.context.cueBallSerialPots).toEqual({ seat: 'A', count: 1 })
+      }
+    },
+  )
+
   test.each(['play-from-position', 'pass-position'] as const)(
     '%s bonus reaching the target determines the chooser as winner',
     (choice) => {
@@ -339,6 +401,19 @@ describe('machine-sparring: foul handling', () => {
 })
 
 describe('machine-sparring: respotted black', () => {
+  test('entering respotted black clears a cue-ball streak created by the tying shot', () => {
+    let snap = sendEvent(start(), { type: 'frame.commence', seat: 'A' })
+    snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [1, 2] })
+    snap = sendEvent(snap, { type: 'pot.record', seat: 'B', pottedBalls: [3, 4, 5, 6] })
+    snap = sendEvent(snap, { type: 'foul.commit', seat: 'B' })
+    snap = sendEvent(snap, { type: 'penalty.select', seat: 'A', choice: 'play-from-position' })
+    snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [0, 7] })
+
+    expect(snap.context.score).toEqual({ A: 8, B: 8 })
+    expect(getPhase(snap)).toBe('respotted-black.opening')
+    expect(snap.context.cueBallSerialPots).toBeNull()
+  })
+
   test('entering respotted-black.opening after 8:8 tie with last ball potted', () => {
     const snap = reachRespottedBlack()
 

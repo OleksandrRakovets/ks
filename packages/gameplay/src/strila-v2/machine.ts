@@ -194,15 +194,6 @@ export const StrilaSparringFrameMachine = setup({
         cueBallSerialPots: nextCueBallSerialPots(context.cueBallSerialPots, e.seat, e.pottedBalls),
       }
     }),
-    applyPotResetStreak: assign(({ context, event }) => {
-      const e = potEvent(event)
-      return {
-        score: addPoints(context.score, e.seat, pointsForPottedBalls(e.pottedBalls)),
-        coloredBallsOnTable: removePottedColoredBalls(context.coloredBallsOnTable, e.pottedBalls),
-        pottedBallsBySeat: appendPottedBalls(context.pottedBallsBySeat, e.seat, e.pottedBalls),
-        cueBallSerialPots: null,
-      }
-    }),
     applyRespottedBlackPot: assign(({ context, event }) => {
       const e = potEvent(event)
       return {
@@ -223,10 +214,12 @@ export const StrilaSparringFrameMachine = setup({
     })),
     setRespottedBlackOpening: assign({
       coloredBallsOnTable: RESPOTTED_BLACK,
+      cueBallSerialPots: null,
     }),
     setFoulResponse: assign(({ event }) => {
       const e = foulResponseEvent(event)
       return {
+        cueBallSerialPots: null,
         foulOffender: e.seat,
       }
     }),
@@ -254,7 +247,6 @@ export const StrilaSparringFrameMachine = setup({
       const e = penaltySelectEvent(event)
       return {
         score: addPoints(context.score, e.seat, 1),
-        cueBallSerialPots: null,
         foulOffender: null,
       }
     }),
@@ -262,11 +254,10 @@ export const StrilaSparringFrameMachine = setup({
       const e = penaltySelectEvent(event)
       return {
         score: addPoints(context.score, e.seat, 1),
-        cueBallSerialPots: null,
         foulOffender: null,
       }
     }),
-    switchToOpponent: assign(() => {
+    clearCueBallStreak: assign(() => {
       return {
         cueBallSerialPots: null,
       }
@@ -346,6 +337,10 @@ export const StrilaSparringFrameMachine = setup({
           target: 'foul-committed',
           actions: 'setFoulResponse',
         },
+        'miss.record': {
+          target: 'open-play',
+          actions: 'clearCueBallStreak',
+        },
       },
     },
 
@@ -393,27 +388,27 @@ export const StrilaSparringFrameMachine = setup({
               {
                 guard: 'isTargetReachedAfterPot',
                 target: '#strila-sparring.winner-determined',
-                actions: ['applyPotResetStreak', 'setWinnerFromTarget'],
+                actions: ['applyPot', 'setWinnerFromTarget'],
               },
               {
                 guard: 'isTableClearedWithLeader',
                 target: '#strila-sparring.winner-determined',
-                actions: ['applyPotResetStreak', 'setWinnerFromClearedTable'],
+                actions: ['applyPot', 'setWinnerFromClearedTable'],
               },
               {
                 guard: 'isRespottedBlackTrigger',
                 target: '#strila-sparring.respotted-black',
-                actions: ['applyPotResetStreak', 'setRespottedBlackOpening'],
+                actions: ['applyPot', 'setRespottedBlackOpening'],
               },
               {
                 guard: 'isAvailablePot',
                 target: 'resolved',
-                actions: 'applyPotResetStreak',
+                actions: 'applyPot',
               },
             ],
             'miss.record': {
               target: 'resolved',
-              actions: 'switchToOpponent',
+              actions: 'clearCueBallStreak',
             },
             'foul.commit': {
               target: 'penalty-selection',

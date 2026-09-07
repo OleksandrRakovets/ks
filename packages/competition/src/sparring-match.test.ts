@@ -130,6 +130,61 @@ describe('SparringMatch', () => {
     expect(completed.project()).toEqual(restored.project())
   })
 
+  test('restores a Strila cue-ball streak cleared by an open-play miss', () => {
+    const matchConfig: MatchConfig = {
+      ...config(),
+      gameKey: 'strila-v2',
+      targets: { frameTargetPointsBySeat: { A: 9, B: 9 }, matchTargetFrames: 2 },
+    }
+    const resident = createSparringMatch(matchConfig)
+    const history: AcceptedCommandHistoryEntry[] = []
+    for (const submitted of [
+      { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } },
+      { commandId: newCommandId(), source: 'match', command: { type: 'frame.commence', seat: 'A' } },
+      {
+        commandId: newCommandId(),
+        source: 'game',
+        command: { type: 'pot.record', seat: 'A', pottedBalls: [0] },
+      },
+      {
+        commandId: newCommandId(),
+        source: 'game',
+        command: { type: 'pot.record', seat: 'A', pottedBalls: [0] },
+      },
+      { commandId: newCommandId(), source: 'game', command: { type: 'miss.record', seat: 'B' } },
+    ] satisfies MatchCommand[]) {
+      const accepted = accept(resident, submitted)
+      history.push({ command: accepted.command, protocolEntryContents: [...accepted.protocolEntryContents] })
+    }
+
+    const restored = restoreSparringMatch(
+      matchConfig,
+      // SAFETY: history contains only typed accepted results serialized as persisted JSON.
+      JSON.parse(JSON.stringify(history)) as AcceptedCommandHistoryEntry[],
+    )
+    expect(restored.project()).toEqual(resident.project())
+
+    const nextCuePot = {
+      commandId: newCommandId(),
+      source: 'game',
+      command: { type: 'pot.record', seat: 'A', pottedBalls: [0] },
+    } satisfies MatchCommand
+    const residentResult = accept(resident, nextCuePot)
+    const restoredResult = accept(restored, nextCuePot)
+    expect(restoredResult).toEqual(residentResult)
+    expect(restored.project()).toEqual(resident.project())
+    expect(restored.project().controls.filter(({ type }) => type === 'miss.record')).toHaveLength(2)
+    expect(restoredResult.protocolEntryContents).toContainEqual({
+      gameKey: 'strila-v2',
+      frameIndex: 1,
+      source: 'player',
+      entryType: 'player-command',
+      seat: 'A',
+      scoreAfter: { A: 3, B: 0 },
+      body: { commandType: 'pot.record', pottedBalls: [0] },
+    })
+  })
+
   test('plays a multi-frame race through game scoring with alternating breakers', () => {
     const match = createSparringMatch(config())
 

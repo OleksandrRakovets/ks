@@ -117,9 +117,14 @@ export function deriveStrilaControlProjection(snapshot: StrilaSparringFrameSnaps
       })
     case 'open-play':
       return controlProjection(snapshot, {
-        controls: [...seatControls('pot.record', 'primary'), ...seatControls('foul.commit', 'secondary')],
+        controls: [
+          ...seatControls('pot.record', 'primary'),
+          ...(snapshot.context.cueBallSerialPots === null ? [] : seatControls('miss.record', 'primary')),
+          ...seatControls('foul.commit', 'secondary'),
+        ],
         situationTitle: 'Open play',
-        situationSummary: 'Log pots or a foul.',
+        situationSummary:
+          snapshot.context.cueBallSerialPots === null ? 'Log pots or a foul.' : 'Log pots, a miss, or a foul.',
       })
     case 'foul-committed.penalty-selection': {
       invariant(

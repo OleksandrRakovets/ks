@@ -54,6 +54,52 @@ test('projects exact open-play controls and selectable balls', () => {
   expect(deriveStrilaControlProjection(snapshot).game.details.ballStatuses[1]).toBe('object')
 })
 
+test('projects open-play miss controls only while a cue-ball streak exists', () => {
+  let snapshot = sendEvent(createInitialSnapshot({ A: 9, B: 9 }), {
+    type: 'frame.commence',
+    seat: 'A',
+  })
+  expect(deriveStrilaControlProjection(snapshot).controls.some(({ type }) => type === 'miss.record')).toBe(
+    false,
+  )
+
+  snapshot = sendEvent(snapshot, { type: 'pot.record', seat: 'A', pottedBalls: [0] })
+  const projection = deriveStrilaControlProjection(snapshot)
+  expect(projection.controls.filter(({ type }) => type === 'miss.record')).toEqual([
+    { source: 'game', type: 'miss.record', fixedInput: {}, seat: 'A', prominence: 'primary' },
+    { source: 'game', type: 'miss.record', fixedInput: {}, seat: 'B', prominence: 'primary' },
+  ])
+
+  snapshot = sendEvent(snapshot, { type: 'miss.record', seat: 'B' })
+  expect(deriveStrilaControlProjection(snapshot).controls.some(({ type }) => type === 'miss.record')).toBe(
+    false,
+  )
+})
+
+test.each(['foul-committed.ball-in-hand', 'respotted-black.opening'] as const)(
+  'retains miss controls in special phase %s',
+  (phase) => {
+    let snapshot = sendEvent(createInitialSnapshot({ A: 9, B: 9 }), {
+      type: 'frame.commence',
+      seat: 'A',
+    })
+    if (phase === 'foul-committed.ball-in-hand') {
+      snapshot = sendEvent(snapshot, { type: 'foul.commit', seat: 'A' })
+      snapshot = sendEvent(snapshot, { type: 'penalty.select', seat: 'B', choice: 'ball-in-hand' })
+    } else {
+      snapshot = sendEvent(snapshot, { type: 'pot.record', seat: 'A', pottedBalls: [1, 2] })
+      snapshot = sendEvent(snapshot, { type: 'pot.record', seat: 'B', pottedBalls: [3, 4, 5, 6] })
+      snapshot = sendEvent(snapshot, { type: 'foul.commit', seat: 'B' })
+      snapshot = sendEvent(snapshot, { type: 'penalty.select', seat: 'A', choice: 'play-from-position' })
+      snapshot = sendEvent(snapshot, { type: 'pot.record', seat: 'A', pottedBalls: [0, 7] })
+    }
+
+    expect(
+      deriveStrilaControlProjection(snapshot).controls.filter(({ type }) => type === 'miss.record'),
+    ).toHaveLength(2)
+  },
+)
+
 test('projects potted balls in acceptance order for each seat', () => {
   let snapshot = sendEvent(createInitialSnapshot({ A: 9, B: 9 }), { type: 'frame.commence', seat: 'A' })
   snapshot = sendEvent(snapshot, { type: 'pot.record', seat: 'A', pottedBalls: [0, 1] })
