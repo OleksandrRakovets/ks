@@ -94,12 +94,28 @@ export const resources = {
             'no-points-awarded': 'Очки не нараховано',
           },
           messages: {
-            'cue-ball-and-colored-is-foul': 'Забиття битка разом із кольоровою кулею вважається фолом.',
+            'cue-ball-and-colored-is-foul':
+              'Забиття битка разом із кольоровою кулею призведе до фолу. Очки за такий удар не нарахуються.',
             'manual-foul-cue-ball-response':
-              'Якщо під час фолу биток було забито або він вилетів за межі столу, дозволяється лише куля з руки. Бонусне очко за фол не може бути нараховане.',
-            'black-pot-wins':
-              'Забита чорна куля приносить перемогу. Будь-яка інша забита куля вважається фолом.',
+              'Якщо під час фолу биток забито або він вилетів за межі столу, суперник має продовжити гру з руки в будь-якому місці столу. Бонусні очки за такий фол не нараховуються.',
+            'third-consecutive-cue-ball-pot':
+              'Наступне забиття битка гравцем {{player}} призведе до фолу. Очки за такий удар не нарахуються.',
+            'respotted-black-opening': 'У цій фазі першим ударом можна забити лише чорну кулю.',
+            'last-colored-ball-pot-respots-black': {
+              'colored-ball': 'Якщо {{player}} заб’є {{ball}} кулю, чорну кулю буде виставлено повторно.',
+              'cue-and-colored-ball':
+                'Якщо {{player}} заб’є биток разом із {{ball}} кулею, чорну кулю буде виставлено повторно.',
+            },
+            'last-colored-ball-pot-winner': {
+              'colored-ball': 'Якщо {{player}} заб’є {{ball}} кулю, переможцем партії стане {{winner}}.',
+              'cue-and-colored-ball':
+                'Якщо {{player}} заб’є биток разом із {{ball}} кулею, переможцем партії стане {{winner}}.',
+            },
             'rack-started': 'Початок піраміди {{rackNumber}}',
+          },
+          ruleNote: {
+            warning: 'Попередження з правил',
+            info: 'Інформація з правил',
           },
           perGameContainer: 'Керування грою',
           strila: {
@@ -114,6 +130,26 @@ export const resources = {
               5: 'Синя',
               6: 'Рожева',
               7: 'Чорна',
+            },
+            outcomeBalls: {
+              accusative: {
+                1: 'червону',
+                2: 'жовту',
+                3: 'зелену',
+                4: 'коричневу',
+                5: 'синю',
+                6: 'рожеву',
+                7: 'чорну',
+              },
+              instrumental: {
+                1: 'червоною',
+                2: 'жовтою',
+                3: 'зеленою',
+                4: 'коричневою',
+                5: 'синьою',
+                6: 'рожевою',
+                7: 'чорною',
+              },
             },
             ballStatus: {
               object: 'прицільна',
@@ -357,11 +393,29 @@ export const resources = {
             'no-points-awarded': 'No points awarded',
           },
           messages: {
-            'cue-ball-and-colored-is-foul': 'Cue ball and colored balls together count as a foul.',
+            'cue-ball-and-colored-is-foul':
+              'Potting the cue ball together with a colored ball is a foul. No points from that shot will count.',
             'manual-foul-cue-ball-response':
-              'If the cue ball was pocketed or left the table during the foul, only ball in hand is legal. No foul bonus point may be awarded.',
-            'black-pot-wins': 'A black pot wins. Any other potted result is treated as a foul.',
+              'If the cue ball was potted or left the table as a result of the foul stroke, the opponent must play from ball in hand. No foul bonus points may be awarded.',
+            'third-consecutive-cue-ball-pot':
+              'Another cue-ball pot by {{player}} will result in a foul. No points from that shot will count.',
+            'respotted-black-opening':
+              'During this phase, only the black ball may be potted on the opening shot.',
+            'last-colored-ball-pot-respots-black': {
+              'colored-ball': 'A {{ball}} pot by {{player}} will trigger respotted black.',
+              'cue-and-colored-ball':
+                'A combined cue-ball and {{ball}} pot by {{player}} will trigger respotted black.',
+            },
+            'last-colored-ball-pot-winner': {
+              'colored-ball': 'A {{ball}} pot by {{player}} will make {{winner}} the frame winner.',
+              'cue-and-colored-ball':
+                'A combined cue-ball and {{ball}} pot by {{player}} will make {{winner}} the frame winner.',
+            },
             'rack-started': 'Starting rack {{rackNumber}}',
+          },
+          ruleNote: {
+            warning: 'Rule warning',
+            info: 'Rule information',
           },
           perGameContainer: 'Per-game control container',
           strila: {
@@ -376,6 +430,26 @@ export const resources = {
               5: 'Blue',
               6: 'Pink',
               7: 'Black',
+            },
+            outcomeBalls: {
+              accusative: {
+                1: 'red',
+                2: 'yellow',
+                3: 'green',
+                4: 'brown',
+                5: 'blue',
+                6: 'pink',
+                7: 'black',
+              },
+              instrumental: {
+                1: 'red',
+                2: 'yellow',
+                3: 'green',
+                4: 'brown',
+                5: 'blue',
+                6: 'pink',
+                7: 'black',
+              },
             },
             ballStatus: {
               object: 'object',

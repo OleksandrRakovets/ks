@@ -12,6 +12,7 @@ import {
 } from '../definitions'
 import { getPhase, type StrilaSparringFrameSnapshot } from '../machine'
 import { computeStrilaObjectBalls } from './computeds'
+import { deriveStrilaRuleNotes } from './rule-notes'
 
 type MutableStrilaBallStatuses = {
   -readonly [K in keyof StrilaBallStatusesValue]: StrilaBallStatusesValue[K]
@@ -61,20 +62,6 @@ function deriveBallStatuses(
   return v.parse(StrilaBallStatuses, ballStatuses)
 }
 
-function messages(
-  entries: readonly {
-    type: 'hint' | 'warning'
-    code: 'cue-ball-and-colored-is-foul' | 'manual-foul-cue-ball-response' | 'black-pot-wins'
-  }[],
-) {
-  const seen = new Set<string>()
-  return entries.filter((entry) => {
-    if (seen.has(entry.code)) return false
-    seen.add(entry.code)
-    return true
-  })
-}
-
 function controlProjection(
   snapshot: StrilaSparringFrameSnapshot,
   args: {
@@ -82,10 +69,6 @@ function controlProjection(
     readonly situationTitle: string
     readonly situationSummary: string
     readonly seat?: Seat
-    readonly messages?: readonly {
-      type: 'hint' | 'warning'
-      code: 'cue-ball-and-colored-is-foul' | 'manual-foul-cue-ball-response' | 'black-pot-wins'
-    }[]
   },
 ): GameControlProjection<StrilaGamePresentation> {
   return {
@@ -100,7 +83,7 @@ function controlProjection(
         isPotCommandAvailable: args.controls.some((entry) => entry.type === 'pot.record'),
         ballStatuses: deriveBallStatuses(snapshot),
         pottedBallsBySeat: snapshot.context.pottedBallsBySeat,
-        messages: messages(args.messages ?? []),
+        ruleNotes: deriveStrilaRuleNotes(snapshot),
       },
     },
     controls: args.controls,
@@ -162,7 +145,6 @@ export function deriveStrilaControlProjection(snapshot: StrilaSparringFrameSnaps
         seat: chooser,
         situationTitle: 'Select penalty',
         situationSummary: 'Opponent committed a foul. Choose the response.',
-        messages: [{ type: 'warning', code: 'manual-foul-cue-ball-response' }],
       })
     }
     case 'foul-committed.ball-in-hand':
@@ -174,7 +156,6 @@ export function deriveStrilaControlProjection(snapshot: StrilaSparringFrameSnaps
         ],
         situationTitle: 'Ball in hand after foul',
         situationSummary: 'Record a legal pot, a miss, or another foul.',
-        messages: [{ type: 'warning', code: 'cue-ball-and-colored-is-foul' }],
       })
     case 'respotted-black.opening':
       return controlProjection(snapshot, {
@@ -185,7 +166,6 @@ export function deriveStrilaControlProjection(snapshot: StrilaSparringFrameSnaps
         ],
         situationTitle: 'Respotted black opening',
         situationSummary: 'Only the black wins. Other potted outcomes lose the frame.',
-        messages: [{ type: 'hint', code: 'black-pot-wins' }],
       })
     case 'respotted-black.play':
       return controlProjection(snapshot, {

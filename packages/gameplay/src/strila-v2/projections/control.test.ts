@@ -28,7 +28,7 @@ test('projects exact open-play controls and selectable balls', () => {
         7: 'on-table',
       },
       pottedBallsBySeat: { A: [], B: [] },
-      messages: [],
+      ruleNotes: [],
     },
   })
   expect(groupControlsIntoSections(controlProjection.controls)).toEqual({
@@ -76,7 +76,7 @@ test('projects open-play miss controls only while a cue-ball streak exists', () 
   )
 })
 
-test('projects all manual foul responses with the cue-ball warning', () => {
+test('projects all manual foul responses', () => {
   let snapshot = sendEvent(createInitialSnapshot({ A: 9, B: 9 }), {
     type: 'frame.commence',
     seat: 'A',
@@ -88,9 +88,6 @@ test('projects all manual foul responses with the cue-ball warning', () => {
     { type: 'penalty.select', seat: 'B', fixedInput: { choice: 'play-from-position' } },
     { type: 'penalty.select', seat: 'B', fixedInput: { choice: 'pass-position' } },
     { type: 'penalty.select', seat: 'B', fixedInput: { choice: 'ball-in-hand' } },
-  ])
-  expect(projection.game.details.messages).toEqual([
-    { type: 'warning', code: 'manual-foul-cue-ball-response' },
   ])
 })
 
