@@ -21,7 +21,7 @@ export default function Index() {
           </Link>
           <Link
             to="/sparring/matches/"
-            className="flex h-12 items-center justify-center rounded-sm border border-divider bg-raised px-4 text-sm font-semibold text-text-hi transition-colors hover:bg-overlay"
+            className="flex h-12 items-center justify-center rounded-sm border border-divider bg-raised px-4 text-sm font-semibold text-foreground transition-colors hover:bg-overlay"
           >
             {t(keys.nav.allMatches)}
           </Link>

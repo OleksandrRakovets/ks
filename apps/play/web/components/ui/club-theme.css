@@ -88,9 +88,7 @@
   --color-overlay: var(--c-overlay);
   --color-divider: var(--c-border);
 
-  --color-text-hi: var(--t-primary);
   --color-text-lo: var(--t-secondary);
-  --color-text-ghost: var(--t-muted);
 
   --color-green: var(--a-green);
   --color-green-dim: var(--a-green-dim);

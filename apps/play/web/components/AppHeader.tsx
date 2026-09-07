@@ -6,6 +6,7 @@ import { localizedPath } from '../locale'
 import { useRootLocale } from '../root'
 import { BrandWordmark } from './BrandWordmark'
 import { BurgerMenu } from './BurgerMenu'
+import { cn } from './ui/utils'
 
 export function AppHeader() {
   const { t } = useTranslation()
@@ -15,7 +16,7 @@ export function AppHeader() {
   const onNewMatch = location.pathname === sparringPath || location.pathname.startsWith(`${sparringPath}init/`)
   const onMatches = location.pathname === localizedPath('/sparring/matches/', locale)
   const itemClass =
-    'flex h-14 flex-1 items-center justify-center border-b-2 text-base font-medium lg:flex-none lg:px-6'
+    'flex h-14 flex-1 items-center justify-center border-b-2 text-base font-medium outline-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset lg:flex-none lg:px-6'
 
   return (
     <header className="sticky top-0 z-40 flex h-14 shrink-0 border-b border-divider bg-deep">
@@ -24,13 +25,21 @@ export function AppHeader() {
       </div>
       <Link
         to={sparringPath}
-        className={`${itemClass} ${onNewMatch ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+        aria-current={onNewMatch ? 'page' : undefined}
+        className={cn(itemClass, {
+          'border-primary text-foreground': onNewMatch,
+          'border-transparent text-muted-foreground hover:text-foreground': !onNewMatch,
+        })}
       >
         {t(keys.nav.newMatch)}
       </Link>
       <Link
         to={localizedPath('/sparring/matches/', locale)}
-        className={`${itemClass} ${onMatches ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+        aria-current={onMatches ? 'page' : undefined}
+        className={cn(itemClass, {
+          'border-primary text-foreground': onMatches,
+          'border-transparent text-muted-foreground hover:text-foreground': !onMatches,
+        })}
       >
         {t(keys.nav.allMatches)}
       </Link>

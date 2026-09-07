@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui'
+import { cn } from '@/components/ui/utils'
 
 function playerInitial(name: string): string {
   return name.trim().slice(0, 1).toLocaleUpperCase()
@@ -82,9 +83,10 @@ function FirstBreakerToss(props: FirstBreakerFieldProps) {
 
       <div className="grid gap-4 sm:grid-cols-[auto_1fr] sm:items-center">
         <div
-          className={`grid size-24 place-items-center rounded-full border-4 border-primary/60 bg-primary/10 text-3xl font-bold shadow-inner ${
-            isRolling ? 'animate-[spin_0.55s_linear_infinite]' : ''
-          }`}
+          className={cn(
+            'grid size-24 place-items-center rounded-full border-4 border-primary/60 bg-primary/10 text-3xl font-bold shadow-inner',
+            { 'animate-[spin_0.55s_linear_infinite]': isRolling },
+          )}
           aria-live="polite"
           aria-label={coinLabel}
         >

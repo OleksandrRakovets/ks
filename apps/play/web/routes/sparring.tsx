@@ -90,7 +90,7 @@ export default function SparringRoute() {
         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h1 className="text-3xl font-semibold tracking-tight">{t(keys.match.sparring.title)}</h1>
-            <p className="mt-1 text-text-lo">{t(keys.match.sparring.subtitle)}</p>
+            <p className="mt-1 text-muted-foreground">{t(keys.match.sparring.subtitle)}</p>
           </div>
           <Button asChild variant="outline">
             <Link to={localizedPath('/sparring/matches/', locale)}>
@@ -111,7 +111,7 @@ export default function SparringRoute() {
                     {game.title[locale]}
                   </Link>
                 </CardTitle>
-                <CardDescription className="text-text-lo">{game.description[locale]}</CardDescription>
+                <CardDescription className="text-muted-foreground">{game.description[locale]}</CardDescription>
               </CardHeader>
             </Card>
           ))}

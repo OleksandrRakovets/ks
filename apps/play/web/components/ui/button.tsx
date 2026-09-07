@@ -12,14 +12,14 @@ const buttonVariants = cva(
         default:
           'bg-primary text-primary-foreground [a]:hover:bg-primary/80 disabled:bg-green-tint disabled:text-green',
         outline:
-          'border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground disabled:!border-border disabled:text-text-ghost disabled:opacity-35 dark:border-input dark:bg-input/30 dark:hover:bg-input/50',
+          'border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground disabled:!border-border disabled:opacity-35 dark:border-input dark:bg-input/30 dark:hover:bg-input/50',
         secondary:
-          'bg-secondary text-secondary-foreground hover:bg-secondary/80 aria-expanded:bg-secondary aria-expanded:text-secondary-foreground disabled:bg-muted disabled:text-text-ghost disabled:opacity-50',
+          'bg-secondary text-secondary-foreground hover:bg-secondary/80 aria-expanded:bg-secondary aria-expanded:text-secondary-foreground disabled:bg-muted disabled:opacity-50',
         ghost:
-          'hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground disabled:text-text-ghost disabled:opacity-35 dark:hover:bg-muted/50',
+          'hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground disabled:opacity-35 dark:hover:bg-muted/50',
         destructive:
-          'bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 disabled:!bg-muted disabled:!text-text-ghost disabled:opacity-40 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40',
-        link: 'text-primary underline-offset-4 hover:underline disabled:text-text-ghost disabled:opacity-50',
+          'bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 disabled:!bg-muted disabled:opacity-40 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40',
+        link: 'text-primary underline-offset-4 hover:underline disabled:opacity-50',
       },
       size: {
         default: 'h-9 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-3 has-data-[icon=inline-start]:pl-3',
