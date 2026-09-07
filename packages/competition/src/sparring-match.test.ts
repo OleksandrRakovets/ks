@@ -73,7 +73,7 @@ describe('SparringMatch', () => {
       targets: { frameTargetPointsBySeat: { A: 9, B: 9 }, matchTargetFrames: 1 },
     }
     const match = createSparringMatch(matchConfig)
-    const history: AcceptedCommandHistoryEntry[] = []
+    const history: AcceptedCommand[] = []
     for (const submitted of [
       { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } },
       { commandId: newCommandId(), source: 'match', command: { type: 'frame.commence', seat: 'A' } },
@@ -91,13 +91,15 @@ describe('SparringMatch', () => {
       const accepted = accept(match, submitted)
       for (const entry of accepted.protocolEntryContents)
         expect(parseProtocolEntryContent(entry)).toEqual(entry)
-      history.push({ command: accepted.command, protocolEntryContents: [...accepted.protocolEntryContents] })
+      history.push({
+        ...submitted,
+        acceptedSeq: history.length + 1,
+        acceptedAt: nowUnixEpochMilliseconds(),
+      })
     }
-    // SAFETY: history contains only typed accepted results serialized as persisted JSON.
-    const restored = restoreSparringMatch(
-      matchConfig,
-      JSON.parse(JSON.stringify(history)) as AcceptedCommandHistoryEntry[],
-    )
+    // SAFETY: this fixture is built from typed accepted results immediately above.
+    const persisted = JSON.parse(JSON.stringify(history)) as AcceptedCommand[]
+    const restored = restoreSparringMatch(matchConfig, persisted).match
     expect(restored.project()).toEqual(match.project())
     expect(restored.project().state.framesWonBySeat).toEqual({ A: 0, B: 0 })
 
@@ -121,12 +123,16 @@ describe('SparringMatch', () => {
       framesWonBySeat: { A: 1, B: 0 },
       frames: [{ winnerSeat: 'A', pointsBySeat: { A: 8, B: 6 } }],
     })
-    history.push({ command: awarded.command, protocolEntryContents: [...awarded.protocolEntryContents] })
-    // SAFETY: history contains only typed accepted results serialized as persisted JSON.
+    history.push({
+      ...awarded.command,
+      acceptedSeq: history.length + 1,
+      acceptedAt: nowUnixEpochMilliseconds(),
+    })
+    // SAFETY: this fixture is built from typed accepted results immediately above.
     const completed = restoreSparringMatch(
       matchConfig,
-      JSON.parse(JSON.stringify(history)) as AcceptedCommandHistoryEntry[],
-    )
+      JSON.parse(JSON.stringify(history)) as AcceptedCommand[],
+    ).match
     expect(completed.project()).toEqual(restored.project())
   })
 
@@ -137,7 +143,7 @@ describe('SparringMatch', () => {
       targets: { frameTargetPointsBySeat: { A: 9, B: 9 }, matchTargetFrames: 2 },
     }
     const resident = createSparringMatch(matchConfig)
-    const history: AcceptedCommandHistoryEntry[] = []
+    const history: AcceptedCommand[] = []
     for (const submitted of [
       { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } },
       { commandId: newCommandId(), source: 'match', command: { type: 'frame.commence', seat: 'A' } },
@@ -153,15 +159,19 @@ describe('SparringMatch', () => {
       },
       { commandId: newCommandId(), source: 'game', command: { type: 'miss.record', seat: 'B' } },
     ] satisfies MatchCommand[]) {
-      const accepted = accept(resident, submitted)
-      history.push({ command: accepted.command, protocolEntryContents: [...accepted.protocolEntryContents] })
+      accept(resident, submitted)
+      history.push({
+        ...submitted,
+        acceptedSeq: history.length + 1,
+        acceptedAt: nowUnixEpochMilliseconds(),
+      })
     }
 
     const restored = restoreSparringMatch(
       matchConfig,
-      // SAFETY: history contains only typed accepted results serialized as persisted JSON.
-      JSON.parse(JSON.stringify(history)) as AcceptedCommandHistoryEntry[],
-    )
+      // SAFETY: this fixture is built from typed accepted results immediately above.
+      JSON.parse(JSON.stringify(history)) as AcceptedCommand[],
+    ).match
     expect(restored.project()).toEqual(resident.project())
 
     const nextCuePot = {

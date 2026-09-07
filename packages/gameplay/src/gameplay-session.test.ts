@@ -93,7 +93,7 @@ describe('GameplaySession', () => {
       expect(replay.execute({ type: 'frame.commence', seat: 'A' })).toEqual(commenced)
       // SAFETY: each scenario creates the replay session and score command for the same literal game key.
       expect(replay.execute(scenario.score() as never)).toEqual(scored)
-      expect(replay.execute({ type: 'frame.award', seat: 'A' })).toEqual(frameCompletion)
+      expect(replay.execute({ type: 'frame.award', seat: 'A' })).toEqual(terminal)
       expect(replay.getScore()).toEqual(session.getScore())
       expect(replay.deriveControls()).toEqual(session.deriveControls())
     })
