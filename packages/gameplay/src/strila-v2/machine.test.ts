@@ -501,6 +501,9 @@ describe('machine-sparring: respotted black', () => {
     expect(getPhase(snap)).toBe('winner-determined')
     expect(snap.context.winner).toBe('A')
     expect(snap.context.winnerDeterminationReason).toBe('automatic-foul')
+    expect(() => sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [7] })).toThrow(
+      'Invalid Strila event pot.record in phase winner-determined',
+    )
     snap = sendEvent(snap, { type: 'frame.award', seat: 'A' })
     expect(snap.output).toEqual({ winnerSeat: 'A', score: { A: 8, B: 8 }, winReason: 'game-rules' })
   })
