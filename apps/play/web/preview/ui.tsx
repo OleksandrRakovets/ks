@@ -1,157 +1,192 @@
-import { Badge, Button, Input, Label, Separator, Textarea } from '@/components/ui'
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+  Input,
+  Separator,
+  Textarea,
+  ToggleGroup,
+  ToggleGroupItem,
+} from './components'
 
-function Section({
-  title,
-  description,
-  children,
-}: {
-  title: string
-  description?: string
-  children: React.ReactNode
-}) {
-  return (
-    <section className="border-b border-divider py-6">
-      <div className="mb-4">
-        <h2 className="text-sm font-semibold text-foreground">{title}</h2>
-        {description && <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>}
-      </div>
-      {children}
-    </section>
-  )
+export const handle = {
+  headerConfig: () => ({ title: 'UI Preview v2', backTo: '/top-secret/preview/' }),
 }
 
-function SubSection({ label, children }: { label: string; children: React.ReactNode }) {
+const buttonVariants = ['primary', 'secondary', 'outline', 'ghost', 'destructive'] as const
+
+function Specimen({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="mb-4 last:mb-0">
-      <p className="mb-2 text-xs font-semibold tracking-widest text-muted-foreground uppercase">{label}</p>
+    <div className="flex flex-col gap-3">
+      <p className="text-xs font-semibold tracking-widest text-text-lo uppercase">{label}</p>
       {children}
     </div>
   )
-}
-
-export const handle = {
-  headerConfig: () => ({ title: 'UI Preview Lab', backTo: '/top-secret/preview/' }),
 }
 
 export default function PreviewUiRoute() {
   return (
-    <div className="min-h-dvh bg-background pb-12 text-foreground">
-      <div className="mx-auto w-full">
-        <Section title="Buttons" description="All variants × sizes.">
-          <SubSection label="Variants">
-            <div className="flex flex-wrap gap-2">
-              <Button>Default</Button>
-              <Button variant="secondary">Secondary</Button>
-              <Button variant="outline">Outline</Button>
-              <Button variant="ghost">Ghost</Button>
-              <Button variant="destructive">Destructive</Button>
-              <Button variant="link">Link</Button>
+    <main className="min-h-dvh bg-background text-foreground">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8">
+        <header className="grid gap-6 border-b border-border pb-8 lg:grid-cols-[1fr_auto] lg:items-end">
+          <div className="flex max-w-2xl flex-col gap-3">
+            <div className="flex items-center gap-2">
+              <Badge variant="live">Base UI</Badge>
+              <Badge>Preview v2</Badge>
             </div>
-          </SubSection>
-          <SubSection label="Sizes">
-            <div className="flex flex-wrap items-center gap-2">
-              <Button size="sm">SM</Button>
-              <Button size="default">Default</Button>
-              <Button size="touch">Touch</Button>
-            </div>
-          </SubSection>
-          <SubSection label="Icon sizes">
-            <div className="flex flex-wrap items-center gap-2">
-              <Button size="icon-sm" aria-label="icon-sm">
-                +
-              </Button>
-              <Button size="icon" aria-label="icon">
-                +
-              </Button>
-              <Button size="icon-lg" aria-label="icon-lg">
-                +
-              </Button>
-            </div>
-          </SubSection>
-          <SubSection label="States">
-            <div className="grid gap-3">
-              <div className="flex flex-wrap gap-2">
-                <Button>Default</Button>
-                <Button variant="secondary">Secondary</Button>
-                <Button variant="outline">Outline</Button>
-                <Button variant="ghost">Ghost</Button>
-                <Button variant="destructive">Destructive</Button>
-                <Button variant="link">Link</Button>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button disabled>Default disabled</Button>
-                <Button variant="secondary" disabled>
-                  Secondary disabled
-                </Button>
-                <Button variant="outline" disabled>
-                  Outline disabled
-                </Button>
-                <Button variant="ghost" disabled>
-                  Ghost disabled
-                </Button>
-                <Button variant="destructive" disabled>
-                  Destructive disabled
-                </Button>
-                <Button variant="link" disabled>
-                  Link disabled
-                </Button>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button size="touch" disabled>
-                  Touch disabled
-                </Button>
-                <Button variant="secondary" size="touch" disabled>
-                  Touch secondary disabled
-                </Button>
-                <Button variant="destructive" size="touch" disabled>
-                  Touch destructive disabled
-                </Button>
-              </div>
-            </div>
-          </SubSection>
-        </Section>
-
-        <Section title="Badges">
-          <div className="flex flex-wrap gap-2">
-            <Badge>Default</Badge>
-            <Badge variant="secondary">Secondary</Badge>
-            <Badge variant="outline">Outline</Badge>
-            <Badge variant="destructive">Destructive</Badge>
+            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+              Club controls, rebuilt from the primitive up.
+            </h1>
+            <p className="text-sm leading-relaxed text-text-lo sm:text-base">
+              A preview-local component set built on Base UI behavior and the existing club theme. No shared
+              Radix component is used on this page.
+            </p>
           </div>
-        </Section>
+          <dl className="grid grid-cols-2 gap-x-8 gap-y-2 text-xs">
+            <dt className="text-text-lo">Foundation</dt>
+            <dd className="font-medium">Base UI 1.8</dd>
+            <dt className="text-text-lo">Density</dt>
+            <dd className="font-medium">Touch-first</dd>
+            <dt className="text-text-lo">Theme</dt>
+            <dd className="font-medium">Club Terminal</dd>
+          </dl>
+        </header>
 
-        <Section title="Form Controls" description="Inputs in a match setup context.">
-          <div className="grid max-w-sm gap-4">
-            <div className="grid gap-1.5">
-              <Label htmlFor="match-name">Match name</Label>
-              <Input id="match-name" defaultValue="Friday Ladder Final" placeholder="Welcome to edit" />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="operator-note">Operator note</Label>
-              <Textarea
-                id="operator-note"
-                defaultValue="Table 2 stream is delayed by 8 seconds."
-                className="min-h-20"
-              />
-            </div>
-            <div className="flex justify-end gap-2">
+        <section className="grid gap-4 lg:grid-cols-2" aria-label="Component specimens">
+          <Card>
+            <CardHeader>
+              <CardTitle>Buttons</CardTitle>
+              <CardDescription>
+                Five visual priorities with one consistent focus and disabled contract.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Specimen label="Variants">
+                <div className="flex flex-wrap gap-2">
+                  {buttonVariants.map((variant) => (
+                    <Button key={variant} variant={variant}>
+                      {variant[0].toUpperCase() + variant.slice(1)}
+                    </Button>
+                  ))}
+                </div>
+              </Specimen>
+              <Separator />
+              <Specimen label="Scale">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button size="sm">Compact</Button>
+                  <Button size="md">Default</Button>
+                  <Button size="touch">Touch target</Button>
+                  <Button size="icon" aria-label="Add one point">
+                    +1
+                  </Button>
+                </div>
+              </Specimen>
+              <Separator />
+              <Specimen label="Disabled">
+                <div className="flex flex-wrap gap-2">
+                  <Button disabled>Unavailable</Button>
+                  <Button variant="outline" disabled>
+                    Unavailable
+                  </Button>
+                  <Button variant="destructive" disabled>
+                    Unavailable
+                  </Button>
+                </div>
+              </Specimen>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Match setup</CardTitle>
+              <CardDescription>
+                Fields compose labels, guidance, validation, and controls as one unit.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <FieldGroup>
+                <Field>
+                  <FieldLabel htmlFor="preview-match-name">Match name</FieldLabel>
+                  <Input id="preview-match-name" defaultValue="Friday ladder final" />
+                  <FieldDescription>Shown to players and public spectators.</FieldDescription>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="preview-note">Operator note</FieldLabel>
+                  <Textarea id="preview-note" placeholder="Add a private note…" />
+                </Field>
+                <Field data-invalid>
+                  <FieldLabel htmlFor="preview-invalid">Table number</FieldLabel>
+                  <Input id="preview-invalid" defaultValue="Court A" aria-invalid />
+                  <FieldDescription>Use a number from 1 to 24.</FieldDescription>
+                </Field>
+              </FieldGroup>
+            </CardContent>
+            <CardFooter>
               <Button variant="ghost">Reset</Button>
-              <Button>Save</Button>
-            </div>
-          </div>
-        </Section>
+              <Button>Save setup</Button>
+            </CardFooter>
+          </Card>
 
-        <Section title="Separator">
-          <div className="grid gap-3">
-            <Separator />
-            <div className="flex items-center gap-3">
-              <Separator className="flex-1" />
-              <span className="text-xs text-muted-foreground">or</span>
-              <Separator className="flex-1" />
-            </div>
-          </div>
-        </Section>
+          <Card>
+            <CardHeader>
+              <CardTitle>Choice controls</CardTitle>
+              <CardDescription>Base UI owns keyboard navigation and selection state.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Specimen label="Race target">
+                <ToggleGroup defaultValue={['5']} aria-label="Race target">
+                  <ToggleGroupItem value="3">Race to 3</ToggleGroupItem>
+                  <ToggleGroupItem value="5">Race to 5</ToggleGroupItem>
+                  <ToggleGroupItem value="7">Race to 7</ToggleGroupItem>
+                </ToggleGroup>
+              </Specimen>
+              <Separator />
+              <Specimen label="Multiple selections">
+                <ToggleGroup multiple defaultValue={['protocol']} aria-label="Public match information">
+                  <ToggleGroupItem value="score">Score</ToggleGroupItem>
+                  <ToggleGroupItem value="protocol">Protocol</ToggleGroupItem>
+                  <ToggleGroupItem value="players">Players</ToggleGroupItem>
+                </ToggleGroup>
+              </Specimen>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Status language</CardTitle>
+              <CardDescription>Compact semantic markers for match and connection state.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Specimen label="Badges">
+                <div className="flex flex-wrap gap-2">
+                  <Badge variant="live">Active match</Badge>
+                  <Badge>Frame prepared</Badge>
+                  <Badge variant="warning">Connection delayed</Badge>
+                  <Badge variant="destructive">Command rejected</Badge>
+                </div>
+              </Specimen>
+              <Separator />
+              <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-3 text-sm">
+                <Badge variant="live">Live</Badge>
+                <p className="text-text-lo">Score changes are reaching spectators.</p>
+                <Badge variant="warning">Syncing</Badge>
+                <p className="text-text-lo">The latest accepted command is being delivered.</p>
+                <Badge variant="destructive">Offline</Badge>
+                <p className="text-text-lo">Controls pause until the connection returns.</p>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
       </div>
-    </div>
+    </main>
   )
 }

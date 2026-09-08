@@ -12,6 +12,7 @@
     "typecheck": "wrangler types --config wrangler.jsonc --config ../../do/match-room/wrangler.jsonc && react-router typegen && tsc -b"
   },
   "dependencies": {
+    "@base-ui/react": "catalog:",
     "@ks/application": "workspace:*",
     "@ks/core": "workspace:*",
     "@ks/gameplay": "workspace:*",

@@ -7,8 +7,8 @@ import { useRootLocale } from '@/root'
 const previewPages = [
   {
     href: '/top-secret/preview/ui/',
-    title: 'UI Preview',
-    description: 'Package component playground and theme checks.',
+    title: 'UI Preview v2',
+    description: 'Preview-local Base UI components and club theme checks.',
   },
 ] as const
 

@@ -8,6 +8,7 @@
       "do/*"
     ],
     "catalog": {
+      "@base-ui/react": "^1.8.0",
       "@cloudflare/workers-types": "^5.20260905.1",
       "@types/node": "^26.4.1",
       "@types/react": "^19.2.18",
