@@ -90,6 +90,11 @@ export type SubmitMatchCommandResult =
   | { readonly ok: true; readonly outcome: CommandReceiptOutcome }
   | { readonly ok: false; readonly error: string; readonly status: number }
 
+export type SparringMatchLiveAdmission =
+  | { readonly _tag: 'admitted' }
+  | { readonly _tag: 'unknown' }
+  | { readonly _tag: 'finished' }
+
 export type ReadMatchProtocolResult<K extends RegisteredGameKey> =
   | {
       readonly ok: true
@@ -119,5 +124,5 @@ export type Application = {
     locale: SupportedLocale,
     expectedGameKey: K,
   ): Promise<ReadMatchProtocolResult<K>>
-  streamMatchUpdates(matchId: MatchId, since?: number): Promise<Response>
+  admitSparringMatchLive(matchId: MatchId): Promise<SparringMatchLiveAdmission>
 }

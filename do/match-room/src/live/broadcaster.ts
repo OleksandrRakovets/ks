@@ -1,71 +1,64 @@
-import type { MatchStreamUpdate } from '@ks/core'
+import {
+  type MatchId,
+  type MatchStreamUpdate,
+  SPARRING_MATCH_LIVE_COMPLETED_CLOSE_CODE,
+  SPARRING_MATCH_LIVE_COMPLETED_CLOSE_REASON,
+} from '@ks/core'
+import * as v from 'valibot'
 
-const encoder = new TextEncoder()
-
-type Client = {
-  controller: ReadableStreamDefaultController<Uint8Array>
-  pingTimer: ReturnType<typeof setInterval>
-}
+type PageKind = 'control' | 'protocol'
+const ConnectionAttachment = v.object({
+  contractVersion: v.literal(1),
+  connectionId: v.pipe(v.string(), v.uuid()),
+  pageKind: v.picklist(['control', 'protocol']),
+})
+type ConnectionAttachment = v.InferOutput<typeof ConnectionAttachment>
 
 export class Broadcaster {
-  #clients = new Set<Client>()
+  readonly #ctx: DurableObjectState
 
-  stream(ready: number, backlog: readonly MatchStreamUpdate[]): Response {
-    let client: Client | null = null
-    const stream = new ReadableStream<Uint8Array>({
-      start: (controller) => {
-        for (const update of backlog)
-          controller.enqueue(encoder.encode(`event: ev\ndata: ${JSON.stringify(update)}\n\n`))
-        controller.enqueue(encoder.encode(`event: ready\ndata: ${JSON.stringify({ latestSeq: ready })}\n\n`))
-        client = {
-          controller,
-          pingTimer: setInterval(() => {
-            try {
-              controller.enqueue(encoder.encode(`: ping ${Date.now()}\n\n`))
-            } catch {
-              this.#remove(client)
-            }
-          }, 25000),
-        }
-        this.#clients.add(client)
-      },
-      cancel: () => this.#remove(client),
-    })
-    return new Response(stream, {
-      headers: {
-        'content-type': 'text/event-stream; charset=utf-8',
-        'cache-control': 'no-cache',
-        connection: 'keep-alive',
-      },
-    })
+  constructor(ctx: DurableObjectState) {
+    this.#ctx = ctx
+  }
+
+  connect(matchId: MatchId, pageKind: PageKind, latestSeq: number): Response {
+    const pair = new WebSocketPair()
+    const client = pair[0]
+    const server = pair[1]
+    const attachment: ConnectionAttachment = {
+      contractVersion: 1,
+      connectionId: crypto.randomUUID(),
+      pageKind,
+    }
+    server.serializeAttachment(attachment)
+    this.#ctx.acceptWebSocket(server)
+    server.send(JSON.stringify({ contractVersion: 1, type: 'caught-up', matchId, latestSeq }))
+    console.info({ event: 'sparring-match-live.accepted', matchId, ...attachment })
+    return new Response(null, { status: 101, webSocket: client })
   }
 
   broadcast(update: MatchStreamUpdate): void {
-    const bytes = encoder.encode(`event: ev\ndata: ${JSON.stringify(update)}\n\n`)
-    for (const client of this.#clients) {
+    const message = JSON.stringify({ contractVersion: 1, type: 'update', update })
+    for (const socket of this.#ctx.getWebSockets()) {
       try {
-        client.controller.enqueue(bytes)
+        socket.send(message)
       } catch {
-        this.#remove(client)
+        // The peer may have disconnected before the runtime delivered its close event.
       }
     }
   }
 
   closeAll(): void {
-    for (const client of this.#clients) {
-      clearInterval(client.pingTimer)
+    for (const socket of this.#ctx.getWebSockets()) {
       try {
-        client.controller.close()
+        socket.close(SPARRING_MATCH_LIVE_COMPLETED_CLOSE_CODE, SPARRING_MATCH_LIVE_COMPLETED_CLOSE_REASON)
       } catch {
         // The peer may already have disconnected.
       }
     }
-    this.#clients.clear()
   }
+}
 
-  #remove(client: Client | null): void {
-    if (!client) return
-    clearInterval(client.pingTimer)
-    this.#clients.delete(client)
-  }
+export function connectionAttachment(socket: WebSocket): ConnectionAttachment {
+  return v.parse(ConnectionAttachment, socket.deserializeAttachment())
 }

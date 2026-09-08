@@ -13,9 +13,9 @@ Browser
                            -> per-match SQLite
 ```
 
-Play owns HTTP and presentation adaptation. `@ks/application` owns use-case orchestration, private D1 access, active-versus-finished read routing, and cross-store finalization. MatchRoom owns serialized active-match execution, persistence, replay, and SSE fan-out.
+Play owns HTTP and presentation adaptation. `@ks/application` owns use-case orchestration, private D1 access, active-versus-finished read routing, and cross-store finalization. MatchRoom owns serialized active-match execution, persistence, replay, and hibernatable WebSocket fan-out.
 
-Play and MatchRoom are independently built Cloudflare Workers. MatchRoom has no public `fetch` gateway and no D1 binding; Play reaches it through an external Durable Object binding. Play and application import `@ks/match-room` type-only: application derives its private capability from the server class, and Play's generated binding verifies that the selected RPC stub is structurally compatible.
+Play and MatchRoom are independently built Cloudflare Workers. MatchRoom has no public route or D1 binding; its `fetch` method serves only WebSocket handshakes forwarded to a selected object by Play. Play reaches it through an external Durable Object binding. Play and application import `@ks/match-room` type-only: application derives its private capability from the server class, and Play's generated binding verifies that the selected RPC stub is structurally compatible.
 
 ## Domain Boundaries
 
@@ -88,16 +88,16 @@ The generated control secret is stored in MatchRoom but is not exposed or checke
 ## Live Updates
 
 ```text
-Browser EventSource
-  -> Play /api/m/:matchId/stream/ loader
-  -> application lifecycle check and Response pass-through
-  -> MatchRoom.stream
-  -> replay atomic Accepted Command updates after cursor
+Browser WebSocket
+  -> Play /api/sparring-match/:matchId/live/ Worker gateway
+  -> application transport-neutral D1 admission
+  -> selected MatchRoom.fetch WebSocket handshake
+  -> caught-up cursor, then committed Accepted Command invalidations
 ```
 
-The browser validates events and tracks the latest sequence. MatchRoom retains stream controllers and 25-second ping timers, so connected clients keep the Durable Object active; the current SSE transport is not hibernatable.
+The browser validates the versioned shared wire contract and reconnects with bounded backoff. Loader projections remain authoritative: live messages only request revalidation. A connection receives one current cursor rather than replaying individual invalidations.
 
-Existing streams remain connected while archival is pending. A new stream request against a Finalizing Match returns `finalizing` instead of opening another stream, allowing application to resume archival. Terminal delivery remains withheld until finalization after archive success, when closed clients revalidate against D1's finished representation.
+MatchRoom uses only the Durable Object Hibernation API for connected sockets and reconstructs connection metadata from serialized attachments. A new connection against a Finalizing Match returns `410`. Terminal delivery remains withheld until finalization after archive success; MatchRoom then broadcasts the completing update and closes sockets with the shared completion code so clients revalidate against D1's finished representation.
 
 ## Persistence Boundaries
 

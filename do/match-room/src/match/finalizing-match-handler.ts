@@ -52,10 +52,6 @@ export class FinalizingMatchHandler {
     return { _tag: 'finalizing' }
   }
 
-  stream(): FinalizingResult {
-    return { _tag: 'finalizing' }
-  }
-
   prepareArchive(): CompletedMatchTransfer {
     const resident = this.#load()
     const projected = resident.match.project().state

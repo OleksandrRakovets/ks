@@ -26,8 +26,7 @@
     "react-router.config.ts",
     "domain/**/*.ts",
     "web/server/context.ts",
-    "workers/app.ts",
-    "workers/env.ts",
+    "workers/**/*.ts",
     "workers/virtual.d.ts",
     "../../do/match-room/src/**/*"
   ],

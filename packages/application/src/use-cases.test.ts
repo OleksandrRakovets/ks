@@ -38,7 +38,6 @@ function selectedClient(overrides: Partial<MatchRoomClient> = {}): MatchRoomClie
     getControls: unexpected,
     getProtocol: unexpected,
     submitCommand: unexpected,
-    stream: unexpected,
     prepareArchive: unexpected,
     finalize: unexpected,
     ...overrides,
@@ -173,18 +172,13 @@ describe('trusted MatchRoom orchestration', () => {
     expect(events).toEqual(['prepare', 'archive', 'finalize', 'finish'])
   })
 
-  test('resumes archival when stream admission discovers finalizing', async () => {
-    const events: string[] = []
-    const room = selectedClient({
-      stream: async () => ({ _tag: 'finalizing' }),
-      prepareArchive: async () => transfer,
-      finalize: async () => {
-        events.push('finalize')
-      },
+  test('admits only active Matches to their live transport', async () => {
+    expect(await application(selectedClient()).admitSparringMatchLive(matchId)).toEqual({
+      _tag: 'admitted',
     })
-    const response = await application(room, events).streamMatchUpdates(matchId)
-    expect(response.status).toBe(410)
-    expect(events).toEqual(['archive', 'finalize', 'finish'])
+    expect(
+      await application(selectedClient(), [], { initialStatus: 'finished' }).admitSparringMatchLive(matchId),
+    ).toEqual({ _tag: 'finished' })
   })
 
   test('resumes archival when a control read discovers finalizing', async () => {
@@ -291,71 +285,5 @@ describe('trusted MatchRoom orchestration', () => {
     expect(events).toEqual(['archive-persisted-response-lost'])
     await expect(app.submitMatchCommand(matchId, command, 'free-pyramid')).resolves.toMatchObject({ ok: true })
     expect(events).toEqual(['archive-persisted-response-lost', 'archive-retry', 'finalize', 'finish'])
-  })
-
-  test('retries after finalization fails or loses its response', async () => {
-    for (const failure of ['finalization failed', 'lost response'] as const) {
-      const events: string[] = []
-      let finalizeAttempts = 0
-      const room = selectedClient({
-        stream: async () => ({ _tag: 'finalizing' }),
-        prepareArchive: async () => transfer,
-        finalize: async () => {
-          finalizeAttempts += 1
-          events.push(`finalize-${finalizeAttempts}`)
-          if (finalizeAttempts === 1) throw new Error(failure)
-        },
-      })
-      const app = application(room, events)
-      await expect(app.streamMatchUpdates(matchId)).rejects.toThrow(failure)
-      expect(events).toEqual(['archive', 'finalize-1'])
-      expect((await app.streamMatchUpdates(matchId)).status).toBe(410)
-      expect(events).toEqual(['archive', 'finalize-1', 'archive', 'finalize-2', 'finish'])
-    }
-  })
-
-  test('retries D1 finish after successful room finalization', async () => {
-    const events: string[] = []
-    let finishAttempts = 0
-    const room = selectedClient({
-      stream: async () => ({ _tag: 'finalizing' }),
-      prepareArchive: async () => transfer,
-      finalize: async () => {
-        events.push('finalize')
-      },
-    })
-    const app = application(room, events, {
-      overrides: {
-        markMatchFinished: async () => {
-          finishAttempts += 1
-          events.push(`finish-${finishAttempts}`)
-          if (finishAttempts === 1) throw new Error('finish failed')
-        },
-      },
-    })
-    await expect(app.streamMatchUpdates(matchId)).rejects.toThrow('finish failed')
-    expect((await app.streamMatchUpdates(matchId)).status).toBe(410)
-    expect(events).toEqual(['archive', 'finalize', 'finish-1', 'archive', 'finalize', 'finish-2'])
-  })
-
-  test('does not finalize or finish when D1 rejects the archive', async () => {
-    const events: string[] = []
-    const room = selectedClient({
-      stream: async () => ({ _tag: 'finalizing' }),
-      prepareArchive: async () => transfer,
-      finalize: async () => {
-        events.push('finalize')
-      },
-    })
-    const app = application(room, events, {
-      overrides: {
-        archiveCompletedMatch: async () => {
-          events.push('archive-conflict')
-          throw new Error('archive conflict')
-        },
-      },
-    })
-    await expect(app.streamMatchUpdates(matchId)).rejects.toThrow('archive conflict')
-    expect(events).toEqual(['archive-conflict'])
   })
 })

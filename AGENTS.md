@@ -58,7 +58,7 @@ Domain vocabulary and distinctions are defined in CONTEXT.md. Treat it as author
 
 - Play and `ks-match-room` are independent Cloudflare Workers. Play reaches MatchRoom through an external Durable Object binding with `script_name`.
 - Play and application import `@ks/match-room` type-only. Application derives its private MatchRoom capability from the server class, while Play's generated binding verifies structural RPC compatibility without runtime response parsing.
-- Live updates currently use SSE through a React Router loader and application `Response` pass-through. MatchRoom's controllers and ping timers keep connected objects active, so this transport is not hibernatable.
+- Live updates use a versioned WebSocket contract through Play's Worker gateway and the Durable Object Hibernation API. React Router loaders remain authoritative; socket messages are invalidation notifications that request revalidation.
 - MatchRoom must be deployed before Play when its external binding changes. The project has not yet been deployed.
 - Local Worker variables belong in `apps/play/.dev.vars`; start from `.dev.vars.example`.
 - Generated `.react-router/`, `worker-configuration.d.ts`, and Drizzle migrations must not be hand-reformatted. MatchRoom's `drizzle/migrations.js` bundle is maintained manually when migrations are generated.

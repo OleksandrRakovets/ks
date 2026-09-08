@@ -3,6 +3,7 @@ import { createRequestHandler, RouterContextProvider } from 'react-router'
 
 import { cloudflareContext, type CloudflareLoadContext } from '../web/server/context'
 import type { Env } from './env'
+import { handleSparringMatchLiveRequest } from './sparring-match-live'
 
 const requestHandler = createRequestHandler(
   () => import('virtual:react-router/server-build'),
@@ -11,8 +12,11 @@ const requestHandler = createRequestHandler(
 
 export default {
   async fetch(request: Request, env: Env) {
+    const application = createApplication(env)
+    const liveResponse = await handleSparringMatchLiveRequest(request, env, application)
+    if (liveResponse) return liveResponse
     const context = new RouterContextProvider()
-    const loadContext: CloudflareLoadContext = { application: createApplication(env) }
+    const loadContext: CloudflareLoadContext = { application }
     if (env.KS_DEPLOY_ENV !== undefined) loadContext.deployEnvironment = env.KS_DEPLOY_ENV
     context.set(cloudflareContext, loadContext)
 

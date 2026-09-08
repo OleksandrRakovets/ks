@@ -1,5 +1,6 @@
 import * as v from 'valibot'
 
+import { MatchId } from './ids'
 import { NonNegativeInteger, PositiveInteger } from './valicombos'
 
 export const MatchStreamReady = v.pipe(
@@ -19,3 +20,36 @@ export const MatchStreamUpdate = v.pipe(
   v.readonly(),
 )
 export type MatchStreamUpdate = v.InferOutput<typeof MatchStreamUpdate>
+
+export const SparringMatchLiveContractVersion = v.literal(1)
+export type SparringMatchLiveContractVersion = v.InferOutput<typeof SparringMatchLiveContractVersion>
+
+export const SparringMatchLiveUpdateMessage = v.pipe(
+  v.object({
+    contractVersion: SparringMatchLiveContractVersion,
+    type: v.literal('update'),
+    update: MatchStreamUpdate,
+  }),
+  v.readonly(),
+)
+export type SparringMatchLiveUpdateMessage = v.InferOutput<typeof SparringMatchLiveUpdateMessage>
+
+export const SparringMatchLiveCaughtUpMessage = v.pipe(
+  v.object({
+    contractVersion: SparringMatchLiveContractVersion,
+    type: v.literal('caught-up'),
+    matchId: MatchId,
+    latestSeq: NonNegativeInteger,
+  }),
+  v.readonly(),
+)
+export type SparringMatchLiveCaughtUpMessage = v.InferOutput<typeof SparringMatchLiveCaughtUpMessage>
+
+export const SparringMatchLiveServerMessage = v.variant('type', [
+  SparringMatchLiveUpdateMessage,
+  SparringMatchLiveCaughtUpMessage,
+])
+export type SparringMatchLiveServerMessage = v.InferOutput<typeof SparringMatchLiveServerMessage>
+
+export const SPARRING_MATCH_LIVE_COMPLETED_CLOSE_CODE = 4000
+export const SPARRING_MATCH_LIVE_COMPLETED_CLOSE_REASON = 'match-completed'

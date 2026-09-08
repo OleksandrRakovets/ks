@@ -1,5 +1,5 @@
 import type { SparringMatchRoomProjection } from '@ks/competition'
-import type { MatchCommand, MatchStreamUpdate, ProtocolEntry } from '@ks/core'
+import type { MatchCommand, ProtocolEntry } from '@ks/core'
 
 import { Broadcaster } from '../live/broadcaster'
 import {
@@ -101,11 +101,8 @@ export class ActiveMatchHandler {
     }
   }
 
-  stream(since = 0): ActiveStreamResult {
-    const backlog: MatchStreamUpdate[] = []
-    for (let acceptedSeq = since + 1; acceptedSeq <= this.#storedMatch.latestSeq; acceptedSeq += 1)
-      backlog.push({ type: 'command-accepted', acceptedSeq, completesMatch: false })
-    return { _tag: 'active', response: this.#broadcaster.stream(this.#storedMatch.latestSeq, backlog) }
+  connect(pageKind: 'control' | 'protocol'): Response {
+    return this.#broadcaster.connect(this.#storedMatch.matchId, pageKind, this.#storedMatch.latestSeq)
   }
 }
 
@@ -138,5 +135,3 @@ type ActiveCommandResult =
       readonly completesMatch: boolean
     }
   | Extract<CommandReceipt, { _tag: 'rejected' }>
-
-export type ActiveStreamResult = { readonly _tag: 'active'; readonly response: Response }

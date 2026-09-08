@@ -49,7 +49,12 @@ test('finalizing lightweight reads do not reconstruct corrupt command history', 
 
   await expect(restored.getControls()).resolves.toEqual({ _tag: 'finalizing' })
   await expect(restored.getProtocol()).resolves.toEqual({ _tag: 'finalizing' })
-  await expect(restored.stream()).resolves.toEqual({ _tag: 'finalizing' })
+  const response = await restored.fetch(
+    new Request(`https://match-room/api/sparring-match/${matchId}/live/?contract=1&view=control`, {
+      headers: { Upgrade: 'websocket' },
+    }),
+  )
+  expect(response.status).toBe(410)
   await expect(
     captureRpcError(async () => {
       await restored.prepareArchive()
