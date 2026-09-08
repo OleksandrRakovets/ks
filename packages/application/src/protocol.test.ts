@@ -22,3 +22,18 @@ test('adapts normalized Protocol entries directly', () => {
   const row = renderProtocolRows([entry], { A: 'Alice', B: 'Bob' }, 'UTC')[0]
   expect(row).toMatchObject({ key: 'protocol-1-0', message: { actor: 'Alice', params: { frameIndex: '1' } } })
 })
+
+test('renders the dedicated table-cleared winner message', () => {
+  const row = renderProtocolRows(
+    [
+      {
+        ...entry,
+        entryType: 'system-note',
+        body: { systemType: 'winner-determined', reason: 'table-cleared' },
+      },
+    ],
+    { A: 'Alice', B: 'Bob' },
+    'UTC',
+  )[0]
+  expect(row?.message.key).toBe('match.protocol.system.winner-determined.table-cleared')
+})

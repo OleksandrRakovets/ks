@@ -94,10 +94,21 @@ export const resources = {
             'no-points-awarded': 'Очки не нараховано',
           },
           messages: {
-            'cue-ball-and-colored-is-foul': 'Забиття битка разом із кольоровою кулею вважається фолом.',
-            'black-pot-wins':
-              'Забита чорна куля приносить перемогу. Будь-яка інша забита куля вважається фолом.',
+            'cue-ball-and-colored-is-foul':
+              'Забиття битка разом із кольоровою кулею призведе до фолу. Очки за такий удар не нарахуються.',
+            'manual-foul-cue-ball-response':
+              'Якщо під час фолу биток забито або він вилетів за межі столу, суперник має продовжити гру з руки в будь-якому місці столу. Бонусні очки за такий фол не нараховуються.',
+            'third-consecutive-cue-ball-pot': 'Наступне забиття битка — фол.',
+            'respotted-black-opening': 'У цій фазі першим ударом можна забити лише чорну кулю.',
+            'last-colored-ball-frame-ball': '{{ball}} — партійна куля.',
+            'last-colored-ball-pot-respots-black':
+              'Забита {{ball}} куля призведе до повторного виставлення чорної.',
+            'last-colored-ball-pot-winner': 'Забита {{ball}} куля принесе перемогу в партії супернику.',
             'rack-started': 'Початок піраміди {{rackNumber}}',
+          },
+          ruleNote: {
+            warning: 'Попередження з правил',
+            info: 'Інформація з правил',
           },
           perGameContainer: 'Керування грою',
           strila: {
@@ -112,6 +123,17 @@ export const resources = {
               5: 'Синя',
               6: 'Рожева',
               7: 'Чорна',
+            },
+            outcomeBalls: {
+              nominative: {
+                1: 'червона',
+                2: 'жовта',
+                3: 'зелена',
+                4: 'коричнева',
+                5: 'синя',
+                6: 'рожева',
+                7: 'чорна',
+              },
             },
             ballStatus: {
               object: 'прицільна',
@@ -197,6 +219,7 @@ export const resources = {
             },
             'winner-determined': {
               'target-reached': 'Система: визначено переможця (ціль досягнуто)',
+              'table-cleared': 'Система: визначено переможця (на столі не залишилося кольорових куль)',
               'automatic-foul': 'Система: визначено переможця (автоматичний фол)',
               'respotted-black-won': 'Система: визначено переможця (повторно виставлена чорна)',
               'foul-forfeit': 'Система: визначено переможця (програш через фол)',
@@ -354,9 +377,21 @@ export const resources = {
             'no-points-awarded': 'No points awarded',
           },
           messages: {
-            'cue-ball-and-colored-is-foul': 'Cue ball and colored balls together count as a foul.',
-            'black-pot-wins': 'A black pot wins. Any other potted result is treated as a foul.',
+            'cue-ball-and-colored-is-foul':
+              'Potting the cue ball together with a colored ball is a foul. No points from that shot will count.',
+            'manual-foul-cue-ball-response':
+              'If the cue ball was potted or left the table as a result of the foul stroke, the opponent must play from ball in hand. No foul bonus points may be awarded.',
+            'third-consecutive-cue-ball-pot': 'Another cue-ball pot is a foul.',
+            'respotted-black-opening':
+              'During this phase, only the black ball may be potted on the opening shot.',
+            'last-colored-ball-frame-ball': '{{ball}} is the frame ball.',
+            'last-colored-ball-pot-respots-black': 'Potting {{ball}} triggers respotted black.',
+            'last-colored-ball-pot-winner': 'Potting {{ball}} awards the frame to the opponent.',
             'rack-started': 'Starting rack {{rackNumber}}',
+          },
+          ruleNote: {
+            warning: 'Rule warning',
+            info: 'Rule information',
           },
           perGameContainer: 'Per-game control container',
           strila: {
@@ -371,6 +406,17 @@ export const resources = {
               5: 'Blue',
               6: 'Pink',
               7: 'Black',
+            },
+            outcomeBalls: {
+              nominative: {
+                1: 'Red',
+                2: 'Yellow',
+                3: 'Green',
+                4: 'Brown',
+                5: 'Blue',
+                6: 'Pink',
+                7: 'Black',
+              },
             },
             ballStatus: {
               object: 'object',
@@ -452,6 +498,7 @@ export const resources = {
             },
             'winner-determined': {
               'target-reached': 'System: winner determined (target reached)',
+              'table-cleared': 'System: winner determined (no colored balls remain)',
               'automatic-foul': 'System: winner determined (automatic foul)',
               'respotted-black-won': 'System: winner determined (respotted black)',
               'foul-forfeit': 'System: winner determined (foul forfeit)',

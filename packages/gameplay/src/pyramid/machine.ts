@@ -215,7 +215,7 @@ export const PyramidSparringFrameMachine = setup({
 
   output: ({ context }): FrameOutcome => ({
     winnerSeat: outputWinner(context),
-    winReason: 'target-reached' as const,
+    winReason: 'game-rules' as const,
     score: { ...context.score },
   }),
 })

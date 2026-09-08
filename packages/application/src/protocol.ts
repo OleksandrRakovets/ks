@@ -144,6 +144,8 @@ function entryMessage(
       switch (body.reason) {
         case 'target-reached':
           return { key: 'match.protocol.system.winner-determined.target-reached' }
+        case 'table-cleared':
+          return { key: 'match.protocol.system.winner-determined.table-cleared' }
         case 'automatic-foul':
           return { key: 'match.protocol.system.winner-determined.automatic-foul' }
         case 'respotted-black-won':

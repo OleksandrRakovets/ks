@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui'
+import { cn } from '@/components/ui/utils'
 
 import { controlEffect, controlLabel } from './control-copy'
 import { matchCommandFromControl, type MatchControlRendererProps } from './types'
@@ -20,6 +21,91 @@ const BALL_COLORS = {
   6: { bg: '#E8729A', border: '#C85580' },
   7: { bg: '#2a2a2a', border: '#555555' },
 } satisfies Record<StrilaBall, { bg: string; border: string }>
+
+type StrilaRuleNote = StrilaGamePresentation['details']['ruleNotes'][number]
+type RuleMessageLine = { player?: string; text: string }
+
+function ruleMessageLines(
+  t: TFunction,
+  message: StrilaRuleNote,
+  participants: MatchControlRendererProps<StrilaGamePresentation>['participants'],
+): RuleMessageLine[] {
+  switch (message.code) {
+    case 'cue-ball-and-colored-is-foul':
+    case 'manual-foul-cue-ball-response':
+    case 'respotted-black-opening':
+      return [{ text: t(`match.control.messages.${message.code}`) }]
+    case 'third-consecutive-cue-ball-pot':
+      return [
+        {
+          player: participants[message.seat].displayName,
+          text: t('match.control.messages.third-consecutive-cue-ball-pot'),
+        },
+      ]
+    case 'last-colored-ball-pot-outcomes':
+      return message.outcomes.map(({ seat, result }) => ({
+        player: participants[seat].displayName,
+        text:
+          result.type === 'winner-determined' && result.winnerSeat === seat
+            ? t('match.control.messages.last-colored-ball-frame-ball', {
+                ball: t(`match.control.strila.balls.${message.ball}`),
+              })
+            : result.type === 'respotted-black'
+              ? t('match.control.messages.last-colored-ball-pot-respots-black', {
+                  ball: t(`match.control.strila.outcomeBalls.nominative.${message.ball}`),
+                })
+              : t('match.control.messages.last-colored-ball-pot-winner', {
+                  ball: t(`match.control.strila.outcomeBalls.nominative.${message.ball}`),
+                }),
+      }))
+  }
+}
+
+function OpenBookIcon() {
+  return (
+    <svg
+      aria-hidden
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="mt-0.5 size-4 shrink-0"
+    >
+      <path d="M2.5 4.75h5.25A4.25 4.25 0 0 1 12 9v10.25A4.25 4.25 0 0 0 7.75 15H2.5z" />
+      <path d="M21.5 4.75h-5.25A4.25 4.25 0 0 0 12 9v10.25A4.25 4.25 0 0 1 16.25 15h5.25z" />
+    </svg>
+  )
+}
+
+function RuleNote(props: {
+  message: StrilaRuleNote
+  participants: MatchControlRendererProps<StrilaGamePresentation>['participants']
+}) {
+  const { t } = useTranslation()
+  const warning = props.message.severity === 'warning'
+
+  return (
+    <section
+      aria-label={t(`match.control.ruleNote.${props.message.severity}`)}
+      className={cn(
+        'flex gap-2.5 rounded-sm border border-l-3 px-3 py-2 text-sm leading-snug',
+        warning ? 'border-amber/30 bg-amber-dim text-amber' : 'border-blue/30 bg-blue-dim text-blue',
+      )}
+    >
+      <OpenBookIcon />
+      <div className="grid gap-1 text-foreground">
+        {ruleMessageLines(t, props.message, props.participants).map((line, index) => (
+          <p key={index}>
+            {line.player && <strong>{line.player}: </strong>}
+            {line.text}
+          </p>
+        ))}
+      </div>
+    </section>
+  )
+}
 
 export function StrilaScoreMarkers(props: { balls: readonly StrilaBall[]; align: 'left' | 'right' }) {
   return (
@@ -195,6 +281,18 @@ export function StrilaControlRenderer(props: MatchControlRendererProps<StrilaGam
         })}
       </div>
 
+      {details.ruleNotes.length > 0 && (
+        <div className="grid gap-2 border-b border-divider px-4 py-2">
+          {details.ruleNotes.map((message, index) => (
+            <RuleNote
+              key={`${message.severity}:${message.code}:${index}`}
+              message={message}
+              participants={props.participants}
+            />
+          ))}
+        </div>
+      )}
+
       {hasNeutral && <NeutralControlRows controls={controlSections.neutral} onSubmit={submitCommand} />}
 
       {hasPrimary && (
@@ -212,15 +310,6 @@ export function StrilaControlRenderer(props: MatchControlRendererProps<StrilaGam
           onSubmit={submitCommand}
         />
       )}
-
-      {details.messages.map((message) => (
-        <p
-          key={`${message.type}:${message.code}`}
-          className={`px-4 pt-2 text-base leading-tight font-semibold ${message.type === 'warning' ? 'text-destructive' : 'text-muted-foreground'}`}
-        >
-          {t(`match.control.messages.${message.code}`)}
-        </p>
-      ))}
 
       {hasTertiary && (
         <div className="grid gap-3">

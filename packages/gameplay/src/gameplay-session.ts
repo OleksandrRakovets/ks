@@ -44,6 +44,9 @@ export interface GameplaySession<K extends RegisteredGameKey> {
   /** Reports machine commencement availability; competition remains authoritative for the scheduled breaker. */
   canCommence(seat: Seat): boolean
 
+  /** Reports whether either player may concede before gameplay has determined a winner. */
+  canConcede(): boolean
+
   /** Coherently derives game presentation and its flat controls from the same resident snapshot. */
   deriveControls(): { readonly game: GamePresentationFor<K>; readonly controls: readonly GameControl[] }
 }

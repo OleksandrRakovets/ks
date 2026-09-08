@@ -1,4 +1,4 @@
-import { BySeatNumber, ProtocolEntryContent, UnknownObject } from '@ks/core'
+import { BySeatNumber, FrameWinReason, ProtocolEntryContent, UnknownObject } from '@ks/core'
 import { RegisteredGameKey } from '@ks/gameplay/definitions'
 import { parseGameProtocolEntry } from '@ks/gameplay/server'
 import * as v from 'valibot'
@@ -28,7 +28,7 @@ export const MatchLifecycleProtocolEntry = v.variant('entryType', [
       entryType: v.literal('frame-awarded'),
       body: v.pipe(
         v.object({
-          winReason: v.picklist(['target-reached', 'conceded']),
+          winReason: FrameWinReason,
         }),
         v.readonly(),
       ),

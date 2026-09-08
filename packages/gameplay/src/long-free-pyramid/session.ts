@@ -12,6 +12,7 @@ import { totalScore } from './calculations'
 import type { LongFreePyramidCommand } from './definitions'
 import {
   createInitialSnapshot,
+  getPhase,
   LongFreePyramidSparringFrameMachine,
   type LongFreePyramidSparringFrameSnapshot,
 } from './machine'
@@ -49,6 +50,10 @@ class LongFreePyramidGameplaySession implements GameplaySession<'free-pyramid-lo
   }
   canCommence(seat: Seat) {
     return this.#snapshot.can({ type: 'frame.commence', seat })
+  }
+  canConcede() {
+    const phase = getPhase(this.#snapshot)
+    return phase !== 'winner-determined' && phase !== 'awaiting-award' && phase !== 'frame-over'
   }
   deriveControls() {
     return deriveLongFreePyramidControlProjection(this.#snapshot)

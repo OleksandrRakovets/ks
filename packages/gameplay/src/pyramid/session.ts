@@ -13,6 +13,7 @@ import type { GamePresentationFor } from '../registry'
 import type { PyramidCommand } from './definitions'
 import {
   createInitialSnapshot,
+  getPhase,
   PyramidSparringFrameMachine,
   type PyramidSparringFrameSnapshot,
 } from './machine'
@@ -56,6 +57,10 @@ class PyramidGameplaySession<K extends PyramidGameKey> implements GameplaySessio
   }
   canCommence(seat: Seat) {
     return this.#snapshot.can({ type: 'frame.commence', seat })
+  }
+  canConcede() {
+    const phase = getPhase(this.#snapshot)
+    return phase !== 'winner-determined' && phase !== 'frame-over'
   }
   deriveControls(): { readonly game: GamePresentationFor<K>; readonly controls: readonly GameControl[] } {
     const projection: unknown = derivePyramidControlProjection(this.#snapshot, this.#rules)

@@ -52,6 +52,7 @@ describe('GameplaySession', () => {
       const session = scenario.create()
       expect(session.gameKey).toBe(scenario.gameKey)
       expect(session.canCommence('A')).toBe(true)
+      expect(session.canConcede()).toBe(true)
       expect(v.is(scenario.presentationSchema, session.deriveControls().game)).toBe(true)
 
       const initial = session.getScore()
@@ -62,6 +63,7 @@ describe('GameplaySession', () => {
 
       const commenced = session.execute({ type: 'frame.commence', seat: 'A' })
       expect(commenced._tag).toBe('accepted')
+      expect(session.canConcede()).toBe(true)
       if (commenced._tag === 'accepted') {
         expect(commenced.gameProtocolEntries.length).toBeGreaterThan(0)
         expect(commenced.gameProtocolEntries.every((entry) => v.is(GameProtocolEntry, entry))).toBe(true)
@@ -79,6 +81,7 @@ describe('GameplaySession', () => {
       // SAFETY: each scenario creates the session and score command for the same literal game key.
       const scored = session.execute(scenario.score() as never)
       expect(scored._tag).toBe('accepted')
+      expect(session.canConcede()).toBe(false)
       const frameCompletion = session.execute({ type: 'frame.award', seat: 'A' })
       expect(frameCompletion._tag).toBe('accepted')
       if (frameCompletion._tag === 'accepted') expect(v.is(FrameOutcome, frameCompletion.outcome)).toBe(true)

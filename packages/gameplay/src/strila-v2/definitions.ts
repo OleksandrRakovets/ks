@@ -65,7 +65,12 @@ export const StrilaPhase = v.picklist([
 ])
 export type StrilaPhase = v.InferOutput<typeof StrilaPhase>
 
-const WinnerDeterminationReason = v.picklist(['target-reached', 'respotted-black-won', 'automatic-foul'])
+const WinnerDeterminationReason = v.picklist([
+  'target-reached',
+  'table-cleared',
+  'respotted-black-won',
+  'automatic-foul',
+])
 
 const PottedBallsBySeat = v.pipe(
   v.object({
@@ -93,6 +98,7 @@ const StrilaContext = v.pipe(
     foulOffender: v.nullable(Seat),
     winner: v.nullable(Seat),
     winnerDeterminationReason: v.nullable(WinnerDeterminationReason),
+    continuationAllowed: v.boolean(),
   }),
   v.readonly(),
 )
@@ -114,14 +120,46 @@ export const StrilaBallStatuses = v.pipe(
 )
 export type StrilaBallStatuses = v.InferOutput<typeof StrilaBallStatuses>
 
-const ControlMessage = v.pipe(
+const LastColoredBallPotOutcome = v.pipe(
   v.object({
-    type: v.picklist(['hint', 'warning']),
-    code: v.picklist(['cue-ball-and-colored-is-foul', 'black-pot-wins']),
+    seat: Seat,
+    result: v.variant('type', [
+      v.pipe(v.object({ type: v.literal('winner-determined'), winnerSeat: Seat }), v.readonly()),
+      v.pipe(v.object({ type: v.literal('respotted-black') }), v.readonly()),
+    ]),
   }),
   v.readonly(),
 )
-type ControlMessage = v.InferOutput<typeof ControlMessage>
+
+const StrilaRuleNote = v.variant('code', [
+  v.pipe(
+    v.object({ severity: v.literal('warning'), code: v.literal('cue-ball-and-colored-is-foul') }),
+    v.readonly(),
+  ),
+  v.pipe(
+    v.object({ severity: v.literal('warning'), code: v.literal('manual-foul-cue-ball-response') }),
+    v.readonly(),
+  ),
+  v.pipe(
+    v.object({
+      severity: v.literal('warning'),
+      code: v.literal('third-consecutive-cue-ball-pot'),
+      seat: Seat,
+    }),
+    v.readonly(),
+  ),
+  v.pipe(v.object({ severity: v.literal('info'), code: v.literal('respotted-black-opening') }), v.readonly()),
+  v.pipe(
+    v.object({
+      severity: v.picklist(['warning', 'info']),
+      code: v.literal('last-colored-ball-pot-outcomes'),
+      ball: ColoredBall,
+      outcomes: v.pipe(v.array(LastColoredBallPotOutcome), v.minLength(1), v.readonly()),
+    }),
+    v.readonly(),
+  ),
+])
+type StrilaRuleNote = v.InferOutput<typeof StrilaRuleNote>
 
 const StrilaGamePresentationDetails = v.pipe(
   v.object({
@@ -132,7 +170,7 @@ const StrilaGamePresentationDetails = v.pipe(
     isPotCommandAvailable: v.boolean(),
     ballStatuses: StrilaBallStatuses,
     pottedBallsBySeat: PottedBallsBySeat,
-    messages: v.pipe(v.array(ControlMessage), v.readonly()),
+    ruleNotes: v.pipe(v.array(StrilaRuleNote), v.readonly()),
   }),
   v.readonly(),
 )

@@ -375,7 +375,7 @@ function completeMatchFrame(snap: SparringMatchSnapshot, winnerSeat: 'A' | 'B') 
     frameIndex: activeFrame.frameIndex,
     outcome: {
       winnerSeat,
-      winReason: 'target-reached',
+      winReason: 'game-rules',
       score: {
         A: winnerSeat === 'A' ? matchFrameTargetA : Math.max(0, matchFrameTargetA - 1),
         B: winnerSeat === 'B' ? matchFrameTargetB : Math.max(0, matchFrameTargetB - 1),

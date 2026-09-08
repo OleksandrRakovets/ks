@@ -9,7 +9,12 @@ import {
   type GameplaySessionCreateArgsFor,
 } from '../gameplay-session'
 import type { StrilaCommand } from './definitions'
-import { createInitialSnapshot, StrilaSparringFrameMachine, type StrilaSparringFrameSnapshot } from './machine'
+import {
+  createInitialSnapshot,
+  getStrilaSparringFramePhase,
+  StrilaSparringFrameMachine,
+  type StrilaSparringFrameSnapshot,
+} from './machine'
 import { deriveStrilaControlProjection } from './projections/control'
 import { createStrilaProtocolEntries } from './protocol'
 
@@ -41,6 +46,10 @@ class StrilaGameplaySession implements GameplaySession<'strila-v2'> {
   }
   canCommence(seat: Seat) {
     return this.#snapshot.can({ type: 'frame.commence', seat })
+  }
+  canConcede() {
+    const phase = getStrilaSparringFramePhase(this.#snapshot)
+    return phase !== 'winner-determined' && phase !== 'frame-over'
   }
   deriveControls() {
     return deriveStrilaControlProjection(this.#snapshot)

@@ -12,6 +12,7 @@ import {
 } from '../definitions'
 import { getPhase, type StrilaSparringFrameSnapshot } from '../machine'
 import { computeStrilaObjectBalls } from './computeds'
+import { deriveStrilaRuleNotes } from './rule-notes'
 
 type MutableStrilaBallStatuses = {
   -readonly [K in keyof StrilaBallStatusesValue]: StrilaBallStatusesValue[K]
@@ -61,20 +62,6 @@ function deriveBallStatuses(
   return v.parse(StrilaBallStatuses, ballStatuses)
 }
 
-function messages(
-  entries: readonly {
-    type: 'hint' | 'warning'
-    code: 'cue-ball-and-colored-is-foul' | 'black-pot-wins'
-  }[],
-) {
-  const seen = new Set<string>()
-  return entries.filter((entry) => {
-    if (seen.has(entry.code)) return false
-    seen.add(entry.code)
-    return true
-  })
-}
-
 function controlProjection(
   snapshot: StrilaSparringFrameSnapshot,
   args: {
@@ -82,10 +69,6 @@ function controlProjection(
     readonly situationTitle: string
     readonly situationSummary: string
     readonly seat?: Seat
-    readonly messages?: readonly {
-      type: 'hint' | 'warning'
-      code: 'cue-ball-and-colored-is-foul' | 'black-pot-wins'
-    }[]
   },
 ): GameControlProjection<StrilaGamePresentation> {
   return {
@@ -100,7 +83,7 @@ function controlProjection(
         isPotCommandAvailable: args.controls.some((entry) => entry.type === 'pot.record'),
         ballStatuses: deriveBallStatuses(snapshot),
         pottedBallsBySeat: snapshot.context.pottedBallsBySeat,
-        messages: messages(args.messages ?? []),
+        ruleNotes: deriveStrilaRuleNotes(snapshot),
       },
     },
     controls: args.controls,
@@ -117,9 +100,14 @@ export function deriveStrilaControlProjection(snapshot: StrilaSparringFrameSnaps
       })
     case 'open-play':
       return controlProjection(snapshot, {
-        controls: [...seatControls('pot.record', 'primary'), ...seatControls('foul.commit', 'secondary')],
+        controls: [
+          ...seatControls('pot.record', 'primary'),
+          ...(snapshot.context.cueBallSerialPots === null ? [] : seatControls('miss.record', 'primary')),
+          ...seatControls('foul.commit', 'secondary'),
+        ],
         situationTitle: 'Open play',
-        situationSummary: 'Log pots or a foul.',
+        situationSummary:
+          snapshot.context.cueBallSerialPots === null ? 'Log pots or a foul.' : 'Log pots, a miss, or a foul.',
       })
     case 'foul-committed.penalty-selection': {
       invariant(
@@ -168,7 +156,6 @@ export function deriveStrilaControlProjection(snapshot: StrilaSparringFrameSnaps
         ],
         situationTitle: 'Ball in hand after foul',
         situationSummary: 'Record a legal pot, a miss, or another foul.',
-        messages: [{ type: 'warning', code: 'cue-ball-and-colored-is-foul' }],
       })
     case 'respotted-black.opening':
       return controlProjection(snapshot, {
@@ -179,7 +166,6 @@ export function deriveStrilaControlProjection(snapshot: StrilaSparringFrameSnaps
         ],
         situationTitle: 'Respotted black opening',
         situationSummary: 'Only the black wins. Other potted outcomes lose the frame.',
-        messages: [{ type: 'hint', code: 'black-pot-wins' }],
       })
     case 'respotted-black.play':
       return controlProjection(snapshot, {
@@ -187,29 +173,35 @@ export function deriveStrilaControlProjection(snapshot: StrilaSparringFrameSnaps
         situationTitle: 'Respotted black play',
         situationSummary: 'Record the outcome of the shot on the respotted black.',
       })
-    case 'winner-determined':
+    case 'winner-determined': {
       invariant(snapshot.context.winner !== null, 'Winner is required before awarding a determined frame')
+      const controls: GameControl[] = []
+      if (snapshot.can({ type: 'pot.record', seat: snapshot.context.winner, pottedBalls: [0] })) {
+        controls.push({
+          source: 'game',
+          type: 'pot.record',
+          seat: snapshot.context.winner,
+          fixedInput: {},
+          prominence: 'primary',
+        })
+      }
+      const canContinue = controls.length > 0
+      controls.push({
+        source: 'game',
+        type: 'frame.award',
+        seat: snapshot.context.winner,
+        fixedInput: {},
+        prominence: 'primary',
+      })
       return controlProjection(snapshot, {
-        controls: [
-          {
-            source: 'game',
-            type: 'pot.record',
-            seat: snapshot.context.winner,
-            fixedInput: {},
-            prominence: 'primary',
-          },
-          {
-            source: 'game',
-            type: 'frame.award',
-            seat: snapshot.context.winner,
-            fixedInput: {},
-            prominence: 'primary',
-          },
-        ],
+        controls,
         seat: snapshot.context.winner,
         situationTitle: 'Winner determined',
-        situationSummary: 'The break may continue, or the frame can be awarded now.',
+        situationSummary: canContinue
+          ? 'The break may continue, or the frame can be awarded now.'
+          : 'The frame can be awarded now.',
       })
+    }
     case 'frame-over':
       return controlProjection(snapshot, {
         controls: [],

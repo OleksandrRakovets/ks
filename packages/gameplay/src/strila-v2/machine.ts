@@ -117,6 +117,8 @@ export const StrilaSparringFrameMachine = setup({
   },
   guards: {
     isAvailablePot: ({ context, event }) => isAvailablePot(context, event),
+    isTargetReached: ({ context }) =>
+      context.score.A >= context.targetPoints.A || context.score.B >= context.targetPoints.B,
     isThirdCueBallPot: ({ context, event }) => {
       const e = potEvent(event)
       return (
@@ -145,7 +147,14 @@ export const StrilaSparringFrameMachine = setup({
       if (!isAvailablePot(context, event)) return false
       const next = addPoints(context.score, e.seat, pointsForPottedBalls(e.pottedBalls))
       const nextBalls = removePottedColoredBalls(context.coloredBallsOnTable, e.pottedBalls)
-      return nextBalls.length === 0 && next.A === 8 && next.B === 8
+      return nextBalls.length === 0 && next.A === next.B
+    },
+    isTableClearedWithLeader: ({ context, event }) => {
+      const e = potEvent(event)
+      if (!isAvailablePot(context, event)) return false
+      const next = addPoints(context.score, e.seat, pointsForPottedBalls(e.pottedBalls))
+      const nextBalls = removePottedColoredBalls(context.coloredBallsOnTable, e.pottedBalls)
+      return nextBalls.length === 0 && next.A !== next.B
     },
     isBallInHandChoice: ({ context, event }) =>
       event.type === 'penalty.select' &&
@@ -164,7 +173,12 @@ export const StrilaSparringFrameMachine = setup({
       event.choice === 'pass-position',
     isSeatWinner: ({ context, event }) => {
       if (event.type !== 'pot.record') return false
-      return isAvailablePot(context, event) && context.winner === event.seat
+      return (
+        context.continuationAllowed &&
+        context.coloredBallsOnTable.length > 0 &&
+        isAvailablePot(context, event) &&
+        context.winner === event.seat
+      )
     },
     isAwardForWinner: ({ context, event }) => {
       if (event.type !== 'frame.award') return false
@@ -181,15 +195,6 @@ export const StrilaSparringFrameMachine = setup({
         cueBallSerialPots: nextCueBallSerialPots(context.cueBallSerialPots, e.seat, e.pottedBalls),
       }
     }),
-    applyPotResetStreak: assign(({ context, event }) => {
-      const e = potEvent(event)
-      return {
-        score: addPoints(context.score, e.seat, pointsForPottedBalls(e.pottedBalls)),
-        coloredBallsOnTable: removePottedColoredBalls(context.coloredBallsOnTable, e.pottedBalls),
-        pottedBallsBySeat: appendPottedBalls(context.pottedBallsBySeat, e.seat, e.pottedBalls),
-        cueBallSerialPots: null,
-      }
-    }),
     applyRespottedBlackPot: assign(({ context, event }) => {
       const e = potEvent(event)
       return {
@@ -204,12 +209,19 @@ export const StrilaSparringFrameMachine = setup({
       winner: winnerFromTarget(context),
       winnerDeterminationReason: 'target-reached',
     })),
+    allowContinuation: assign(() => ({ continuationAllowed: true })),
+    setWinnerFromClearedTable: assign(({ context }) => ({
+      winner: context.score.A > context.score.B ? 'A' : 'B',
+      winnerDeterminationReason: 'table-cleared',
+    })),
     setRespottedBlackOpening: assign({
       coloredBallsOnTable: RESPOTTED_BLACK,
+      cueBallSerialPots: null,
     }),
     setFoulResponse: assign(({ event }) => {
       const e = foulResponseEvent(event)
       return {
+        cueBallSerialPots: null,
         foulOffender: e.seat,
       }
     }),
@@ -237,7 +249,6 @@ export const StrilaSparringFrameMachine = setup({
       const e = penaltySelectEvent(event)
       return {
         score: addPoints(context.score, e.seat, 1),
-        cueBallSerialPots: null,
         foulOffender: null,
       }
     }),
@@ -245,11 +256,10 @@ export const StrilaSparringFrameMachine = setup({
       const e = penaltySelectEvent(event)
       return {
         score: addPoints(context.score, e.seat, 1),
-        cueBallSerialPots: null,
         foulOffender: null,
       }
     }),
-    switchToOpponent: assign(() => {
+    clearCueBallStreak: assign(() => {
       return {
         cueBallSerialPots: null,
       }
@@ -283,6 +293,7 @@ export const StrilaSparringFrameMachine = setup({
     foulOffender: null,
     winner: null,
     winnerDeterminationReason: null,
+    continuationAllowed: false,
   }),
 
   states: {
@@ -300,13 +311,19 @@ export const StrilaSparringFrameMachine = setup({
         'pot.record': [
           {
             guard: 'isThirdCueBallPot',
-            target: 'foul-committed',
-            actions: 'setFoulResponse',
+            target: 'foul-committed.ball-in-hand',
+            actions: ['clearCueBallStreak', 'applyBallInHand'],
           },
+          // A legal target-reaching shot wins even when clearing the table leaves a tie or a higher opponent score.
           {
             guard: 'isTargetReachedAfterPot',
             target: 'winner-determined',
-            actions: ['applyPot', 'setWinnerFromTarget'],
+            actions: ['applyPot', 'setWinnerFromTarget', 'allowContinuation'],
+          },
+          {
+            guard: 'isTableClearedWithLeader',
+            target: 'winner-determined',
+            actions: ['applyPot', 'setWinnerFromClearedTable'],
           },
           {
             guard: 'isRespottedBlackTrigger',
@@ -323,14 +340,23 @@ export const StrilaSparringFrameMachine = setup({
           target: 'foul-committed',
           actions: 'setFoulResponse',
         },
+        'miss.record': {
+          target: 'open-play',
+          actions: 'clearCueBallStreak',
+        },
       },
     },
 
     'foul-committed': {
       initial: 'penalty-selection',
-      onDone: {
-        target: 'open-play',
-      },
+      onDone: [
+        {
+          guard: 'isTargetReached',
+          target: 'winner-determined',
+          actions: 'setWinnerFromTarget',
+        },
+        { target: 'open-play' },
+      ],
       states: {
         'penalty-selection': {
           on: {
@@ -359,28 +385,33 @@ export const StrilaSparringFrameMachine = setup({
             'pot.record': [
               {
                 guard: 'isIllegalBallInHandPot',
-                target: 'penalty-selection',
-                actions: 'setFoulResponse',
+                target: 'ball-in-hand',
+                actions: ['clearCueBallStreak', 'applyBallInHand'],
               },
               {
                 guard: 'isTargetReachedAfterPot',
                 target: '#strila-sparring.winner-determined',
-                actions: ['applyPotResetStreak', 'setWinnerFromTarget'],
+                actions: ['applyPot', 'setWinnerFromTarget', 'allowContinuation'],
+              },
+              {
+                guard: 'isTableClearedWithLeader',
+                target: '#strila-sparring.winner-determined',
+                actions: ['applyPot', 'setWinnerFromClearedTable'],
               },
               {
                 guard: 'isRespottedBlackTrigger',
                 target: '#strila-sparring.respotted-black',
-                actions: ['applyPotResetStreak', 'setRespottedBlackOpening'],
+                actions: ['applyPot', 'setRespottedBlackOpening'],
               },
               {
                 guard: 'isAvailablePot',
                 target: 'resolved',
-                actions: 'applyPotResetStreak',
+                actions: 'applyPot',
               },
             ],
             'miss.record': {
               target: 'resolved',
-              actions: 'switchToOpponent',
+              actions: 'clearCueBallStreak',
             },
             'foul.commit': {
               target: 'penalty-selection',
@@ -465,7 +496,7 @@ export const StrilaSparringFrameMachine = setup({
   output: ({ context }): FrameOutcome => ({
     winnerSeat: outputWinner(context),
     score: { ...context.score },
-    winReason: 'target-reached',
+    winReason: 'game-rules',
   }),
 })
 

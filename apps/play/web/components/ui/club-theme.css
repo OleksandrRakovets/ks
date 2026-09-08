@@ -16,6 +16,8 @@
   --c-green-tint: oklch(21% 0.055 152);
   --a-amber: oklch(78% 0.16 72);
   --a-amber-dim: oklch(78% 0.16 72 / 0.14);
+  --a-blue: oklch(72% 0.11 245);
+  --a-blue-dim: oklch(72% 0.11 245 / 0.12);
   --a-red: oklch(60% 0.2 25);
   --a-red-dim: oklch(60% 0.2 25 / 0.16);
 
@@ -41,6 +43,8 @@
   --c-green-tint: oklch(91% 0.04 152);
   --a-amber: oklch(58% 0.21 64);
   --a-amber-dim: oklch(58% 0.21 64 / 0.15);
+  --a-blue: oklch(48% 0.14 245);
+  --a-blue-dim: oklch(48% 0.14 245 / 0.1);
   --a-red: oklch(44% 0.21 25);
   --a-red-dim: oklch(44% 0.21 25 / 0.1);
 
@@ -66,6 +70,8 @@
     --c-green-tint: oklch(91% 0.04 152);
     --a-amber: oklch(58% 0.21 64);
     --a-amber-dim: oklch(58% 0.21 64 / 0.15);
+    --a-blue: oklch(48% 0.14 245);
+    --a-blue-dim: oklch(48% 0.14 245 / 0.1);
     --a-red: oklch(44% 0.21 25);
     --a-red-dim: oklch(44% 0.21 25 / 0.1);
 
@@ -91,6 +97,8 @@
   --color-green-tint: var(--c-green-tint);
   --color-amber: var(--a-amber);
   --color-amber-dim: var(--a-amber-dim);
+  --color-blue: var(--a-blue);
+  --color-blue-dim: var(--a-blue-dim);
   --color-red: var(--a-red);
   --color-red-dim: var(--a-red-dim);
 }
