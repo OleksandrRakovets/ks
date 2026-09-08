@@ -23,40 +23,46 @@ const BALL_COLORS = {
 } satisfies Record<StrilaBall, { bg: string; border: string }>
 
 type StrilaRuleNote = StrilaGamePresentation['details']['ruleNotes'][number]
+type RuleMessageLine = { player?: string; text: string }
 
 function ruleMessageLines(
   t: TFunction,
   message: StrilaRuleNote,
   participants: MatchControlRendererProps<StrilaGamePresentation>['participants'],
-): string[] {
+): RuleMessageLine[] {
   switch (message.code) {
     case 'cue-ball-and-colored-is-foul':
     case 'manual-foul-cue-ball-response':
     case 'respotted-black-opening':
-      return [t(`match.control.messages.${message.code}`)]
+      return [{ text: t(`match.control.messages.${message.code}`) }]
     case 'third-consecutive-cue-ball-pot':
       return [
-        t('match.control.messages.third-consecutive-cue-ball-pot', {
+        {
           player: participants[message.seat].displayName,
-        }),
+          text: t('match.control.messages.third-consecutive-cue-ball-pot'),
+        },
       ]
     case 'last-colored-ball-pot-outcomes':
-      return message.outcomes.map(({ seat, shot, result }) =>
-        result.type === 'respotted-black'
-          ? t(`match.control.messages.last-colored-ball-pot-respots-black.${shot}`, {
-              ball: t(
-                `match.control.strila.outcomeBalls.${shot === 'colored-ball' ? 'accusative' : 'instrumental'}.${message.ball}`,
-              ),
-              player: participants[seat].displayName,
-            })
-          : t(`match.control.messages.last-colored-ball-pot-winner.${shot}`, {
-              ball: t(
-                `match.control.strila.outcomeBalls.${shot === 'colored-ball' ? 'accusative' : 'instrumental'}.${message.ball}`,
-              ),
-              player: participants[seat].displayName,
-              winner: participants[result.winnerSeat].displayName,
-            }),
-      )
+      return message.outcomes.map(({ seat, shot, result }) => ({
+        player: participants[seat].displayName,
+        text:
+          result.type === 'winner-determined' && result.winnerSeat === seat && shot === 'colored-ball'
+            ? t('match.control.messages.last-colored-ball-frame-ball', {
+                ball: t(`match.control.strila.balls.${message.ball}`),
+              })
+            : result.type === 'respotted-black'
+              ? t(`match.control.messages.last-colored-ball-pot-respots-black.${shot}`, {
+                  ball: t(
+                    `match.control.strila.outcomeBalls.${shot === 'colored-ball' ? 'accusative' : 'instrumental'}.${message.ball}`,
+                  ),
+                })
+              : t(`match.control.messages.last-colored-ball-pot-winner.${shot}`, {
+                  ball: t(
+                    `match.control.strila.outcomeBalls.${shot === 'colored-ball' ? 'accusative' : 'instrumental'}.${message.ball}`,
+                  ),
+                  winner: participants[result.winnerSeat].displayName,
+                }),
+      }))
   }
 }
 
@@ -96,7 +102,10 @@ function RuleNote(props: {
       <OpenBookIcon />
       <div className="grid gap-1 text-foreground">
         {ruleMessageLines(t, props.message, props.participants).map((line, index) => (
-          <p key={index}>{line}</p>
+          <p key={index}>
+            {line.player && <strong>{line.player}: </strong>}
+            {line.text}
+          </p>
         ))}
       </div>
     </section>

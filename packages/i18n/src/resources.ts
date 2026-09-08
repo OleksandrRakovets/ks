@@ -99,17 +99,18 @@ export const resources = {
             'manual-foul-cue-ball-response':
               'Якщо під час фолу биток забито або він вилетів за межі столу, суперник має продовжити гру з руки в будь-якому місці столу. Бонусні очки за такий фол не нараховуються.',
             'third-consecutive-cue-ball-pot':
-              'Наступне забиття битка гравцем {{player}} призведе до фолу. Очки за такий удар не нарахуються.',
+              'Наступне забиття битка призведе до фолу. Очки за такий удар не нарахуються.',
             'respotted-black-opening': 'У цій фазі першим ударом можна забити лише чорну кулю.',
+            'last-colored-ball-frame-ball': '{{ball}} — партійна куля.',
             'last-colored-ball-pot-respots-black': {
-              'colored-ball': 'Якщо {{player}} заб’є {{ball}} кулю, чорну кулю буде виставлено повторно.',
+              'colored-ball': 'Якщо заб’є {{ball}} кулю, чорну кулю буде виставлено повторно.',
               'cue-and-colored-ball':
-                'Якщо {{player}} заб’є биток разом із {{ball}} кулею, чорну кулю буде виставлено повторно.',
+                'Якщо заб’є биток разом із {{ball}} кулею, чорну кулю буде виставлено повторно.',
             },
             'last-colored-ball-pot-winner': {
-              'colored-ball': 'Якщо {{player}} заб’є {{ball}} кулю, переможцем партії стане {{winner}}.',
+              'colored-ball': 'Якщо заб’є {{ball}} кулю, переможцем партії стане {{winner}}.',
               'cue-and-colored-ball':
-                'Якщо {{player}} заб’є биток разом із {{ball}} кулею, переможцем партії стане {{winner}}.',
+                'Якщо заб’є биток разом із {{ball}} кулею, переможцем партії стане {{winner}}.',
             },
             'rack-started': 'Початок піраміди {{rackNumber}}',
           },
@@ -398,18 +399,19 @@ export const resources = {
             'manual-foul-cue-ball-response':
               'If the cue ball was potted or left the table as a result of the foul stroke, the opponent must play from ball in hand. No foul bonus points may be awarded.',
             'third-consecutive-cue-ball-pot':
-              'Another cue-ball pot by {{player}} will result in a foul. No points from that shot will count.',
+              'Another cue-ball pot will result in a foul. No points from that shot will count.',
             'respotted-black-opening':
               'During this phase, only the black ball may be potted on the opening shot.',
+            'last-colored-ball-frame-ball': '{{ball}} is the frame ball.',
             'last-colored-ball-pot-respots-black': {
-              'colored-ball': 'A {{ball}} pot by {{player}} will trigger respotted black.',
+              'colored-ball': 'Potting the {{ball}} ball will trigger respotted black.',
               'cue-and-colored-ball':
-                'A combined cue-ball and {{ball}} pot by {{player}} will trigger respotted black.',
+                'Potting the cue ball and {{ball}} ball together will trigger respotted black.',
             },
             'last-colored-ball-pot-winner': {
-              'colored-ball': 'A {{ball}} pot by {{player}} will make {{winner}} the frame winner.',
+              'colored-ball': 'Potting the {{ball}} ball will make {{winner}} the frame winner.',
               'cue-and-colored-ball':
-                'A combined cue-ball and {{ball}} pot by {{player}} will make {{winner}} the frame winner.',
+                'Potting the cue ball and {{ball}} ball together will make {{winner}} the frame winner.',
             },
             'rack-started': 'Starting rack {{rackNumber}}',
           },
