@@ -110,7 +110,10 @@ function RuleNote(props: {
 export function StrilaScoreMarkers(props: { balls: readonly StrilaBall[]; align: 'left' | 'right' }) {
   return (
     <div
-      className={`flex min-w-0 flex-wrap gap-1.5 ${props.align === 'right' ? 'justify-end' : 'justify-start'}`}
+      className={cn(
+        'flex min-w-0 flex-wrap gap-1.5',
+        props.align === 'right' ? 'justify-end' : 'justify-start',
+      )}
     >
       {props.balls.map((ball, index) => (
         <span
@@ -165,7 +168,7 @@ function ControlRows({
         >
           {label}
         </Button>
-        {effect && <p className="text-center text-base text-text-lo">{effect}</p>}
+        {effect && <p className="text-center text-base text-muted-foreground">{effect}</p>}
       </div>
     )
   }
@@ -229,16 +232,8 @@ export function StrilaControlRenderer(props: MatchControlRendererProps<StrilaGam
 
   return (
     <div aria-label={t(keys.match.control.strila.container)} className="grid">
-      <p className="sr-only">{t(keys.match.control.choosePottedBall)}</p>
-      <div
-        aria-label={t(keys.match.control.strila.ballGrid)}
-        className="mx-auto grid gap-1.5 border-b border-divider px-4 py-2"
-        style={{
-          gridTemplateColumns: 'repeat(8, minmax(0, 1fr))',
-          justifyContent: 'center',
-          width: 'min(100%, 528px)',
-        }}
-      >
+      <fieldset className="mx-auto grid w-full max-w-[528px] min-w-0 grid-cols-8 gap-1.5 border-b border-divider px-4 py-2">
+        <legend className="sr-only">{t(keys.match.control.choosePottedBall)}</legend>
         {StrilaMeta.allBalls.map((ball) => {
           const colors = BALL_COLORS[ball]
           const status = details.ballStatuses[ball]
@@ -249,37 +244,43 @@ export function StrilaControlRenderer(props: MatchControlRendererProps<StrilaGam
           const isPotted = status === 'potted'
           const isSelected = details.isPotCommandAvailable && selectedBalls.includes(ball) && !isPotted
           return (
-            <div key={ball} className="flex items-center justify-center">
-              <button
-                type="button"
-                aria-label={ballLabel}
-                title={ballLabel}
-                onClick={() => {
-                  if (!details.isPotCommandAvailable || isPotted) return
-                  setSelectedBalls((prev) =>
-                    prev.includes(ball) ? prev.filter((b) => b !== ball) : [...prev, ball],
-                  )
-                }}
+            <button
+              key={ball}
+              type="button"
+              aria-label={ballLabel}
+              aria-pressed={isSelected}
+              title={ballLabel}
+              disabled={!details.isPotCommandAvailable || isPotted}
+              className="group flex h-14 w-full items-center justify-center outline-none disabled:cursor-not-allowed"
+              onClick={() => {
+                if (!details.isPotCommandAvailable || isPotted) return
+                setSelectedBalls((prev) =>
+                  prev.includes(ball) ? prev.filter((b) => b !== ball) : [...prev, ball],
+                )
+              }}
+            >
+              <span
+                aria-hidden
+                className="block shrink-0 rounded-full group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-ring group-focus-visible:outline-solid"
                 style={{
-                  width: 'min(100%, 56px)',
+                  width: status === 'object' ? 'min(100%, 48px)' : 'min(80%, 38px)',
                   aspectRatio: '1',
-                  borderRadius: '50%',
                   background: colors.bg,
-                  border: isSelected ? '2.5px solid var(--a-amber)' : `1.5px solid ${colors.border}`,
+                  border: `1.5px solid ${colors.border}`,
                   boxShadow: isSelected
-                    ? '0 0 0 3px var(--a-amber-dim), 0 2px 8px rgba(0,0,0,0.6)'
+                    ? '0 0 0 2px var(--background), 0 0 0 5px var(--ring), 0 3px 8px rgba(0,0,0,0.6)'
                     : isPotted
                       ? 'none'
                       : '0 2px 6px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.15)',
                   opacity: isPotted ? 0.3 : 1,
-                  transition: 'box-shadow 0.1s, border-color 0.1s, opacity 0.2s',
-                  padding: 0,
+                  transform: isSelected ? 'translateY(-1px)' : undefined,
+                  transition: 'box-shadow 0.1s, opacity 0.2s, transform 0.1s',
                 }}
               />
-            </div>
+            </button>
           )
         })}
-      </div>
+      </fieldset>
 
       {details.ruleNotes.length > 0 && (
         <div className="grid gap-2 border-b border-divider px-4 py-2">
@@ -316,10 +317,10 @@ export function StrilaControlRenderer(props: MatchControlRendererProps<StrilaGam
           <button
             type="button"
             aria-expanded={showTertiary}
-            className="flex items-center gap-2 px-4 py-3 text-left text-base text-muted-foreground hover:text-foreground"
+            className="flex items-center gap-2 px-4 py-3 text-left text-base text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset"
             onClick={() => setShowTertiary((v) => !v)}
           >
-            <span aria-hidden className={showTertiary ? undefined : 'rotate-180'}>
+            <span aria-hidden className={cn(!showTertiary && 'rotate-180')}>
               ▲
             </span>
             {showTertiary ? t(keys.match.control.showLess) : t(keys.match.control.showMore)}
