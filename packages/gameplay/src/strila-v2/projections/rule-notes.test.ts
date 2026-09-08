@@ -50,7 +50,6 @@ test('projects warning and information outcomes from last-colored-ball transitio
       outcomes: [
         {
           seat: 'A',
-          shot: 'colored-ball',
           result: { type: 'winner-determined', winnerSeat: 'B' },
         },
       ],
@@ -62,7 +61,6 @@ test('projects warning and information outcomes from last-colored-ball transitio
       outcomes: [
         {
           seat: 'B',
-          shot: 'colored-ball',
           result: { type: 'winner-determined', winnerSeat: 'B' },
         },
       ],
@@ -88,39 +86,10 @@ test('combines same-severity last-colored-ball outcomes into one note', () => {
       outcomes: [
         {
           seat: 'A',
-          shot: 'colored-ball',
           result: { type: 'winner-determined', winnerSeat: 'A' },
         },
-        { seat: 'B', shot: 'colored-ball', result: { type: 'respotted-black' } },
-        {
-          seat: 'B',
-          shot: 'cue-and-colored-ball',
-          result: { type: 'winner-determined', winnerSeat: 'B' },
-        },
+        { seat: 'B', result: { type: 'respotted-black' } },
       ],
     },
   ])
-})
-
-test('distinguishes a combined cue and last-colored-ball pot when its outcome differs', () => {
-  let snapshot = sendEvent(createInitialSnapshot({ A: 9, B: 9 }), {
-    type: 'frame.commence',
-    seat: 'A',
-  })
-  snapshot = sendEvent(snapshot, { type: 'pot.record', seat: 'B', pottedBalls: [1, 2, 3, 4] })
-  snapshot = sendEvent(snapshot, { type: 'pot.record', seat: 'A', pottedBalls: [0, 5, 6] })
-
-  expect(deriveStrilaRuleNotes(snapshot)).toContainEqual({
-    severity: 'info',
-    code: 'last-colored-ball-pot-outcomes',
-    ball: 7,
-    outcomes: [
-      { seat: 'A', shot: 'cue-and-colored-ball', result: { type: 'respotted-black' } },
-      {
-        seat: 'B',
-        shot: 'colored-ball',
-        result: { type: 'winner-determined', winnerSeat: 'B' },
-      },
-    ],
-  })
 })

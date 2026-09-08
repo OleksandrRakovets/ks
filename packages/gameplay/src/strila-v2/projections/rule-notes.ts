@@ -1,7 +1,7 @@
 import { type Seat } from '@ks/core'
 import invariant from 'tiny-invariant'
 
-import { type StrilaGamePresentationDetails, StrilaMeta } from '../definitions'
+import { type StrilaGamePresentationDetails } from '../definitions'
 import { getPhase, sendEvent, type StrilaSparringFrameSnapshot } from '../machine'
 
 export function deriveStrilaRuleNotes(
@@ -46,7 +46,6 @@ function normalizeRuleNotes(entries: StrilaGamePresentationDetails['ruleNotes'])
 
 /**
  * Projects the possible frame consequences of potting the sole remaining colored ball.
- * Combined cue-and-colored pots are included only when the machine gives them a different result.
  */
 function lastColoredBallRuleNotes(
   snapshot: StrilaSparringFrameSnapshot,
@@ -61,35 +60,27 @@ function lastColoredBallRuleNotes(
 
   const ball = snapshot.context.coloredBallsOnTable[0]
   invariant(ball !== undefined, 'A last-colored-ball projection must have a colored ball')
-  const projectedOutcome = (seat: Seat, shot: 'colored-ball' | 'cue-and-colored-ball') => {
+  const projectedOutcome = (seat: Seat) => {
     const candidate = sendEvent(snapshot, {
       type: 'pot.record',
       seat,
-      pottedBalls: shot === 'colored-ball' ? [ball] : [StrilaMeta.cueBall, ball],
+      pottedBalls: [ball],
     })
     const phase = getPhase(candidate)
     if (phase === 'respotted-black.opening') {
-      return { seat, shot, result: { type: 'respotted-black' as const } }
+      return { seat, result: { type: 'respotted-black' as const } }
     }
     if (phase !== 'winner-determined') return null
     invariant(candidate.context.winner !== null, 'A determined last-colored-ball pot must have a winner')
     return {
       seat,
-      shot,
       result: { type: 'winner-determined' as const, winnerSeat: candidate.context.winner },
     }
   }
-  const outcomes = (['A', 'B'] as const).flatMap((seat) => {
-    const coloredBall = projectedOutcome(seat, 'colored-ball')
-    invariant(coloredBall !== null, 'A last colored ball must determine the next frame phase')
-    const cueAndColoredBall = projectedOutcome(seat, 'cue-and-colored-ball')
-    const sameResult =
-      cueAndColoredBall === null ||
-      (cueAndColoredBall.result.type === coloredBall.result.type &&
-        (cueAndColoredBall.result.type !== 'winner-determined' ||
-          (coloredBall.result.type === 'winner-determined' &&
-            cueAndColoredBall.result.winnerSeat === coloredBall.result.winnerSeat)))
-    return sameResult ? [coloredBall] : [coloredBall, cueAndColoredBall]
+  const outcomes = (['A', 'B'] as const).map((seat) => {
+    const outcome = projectedOutcome(seat)
+    invariant(outcome !== null, 'A last colored ball must determine the next frame phase')
+    return outcome
   })
 
   return (['warning', 'info'] as const).flatMap((severity) => {

@@ -43,24 +43,19 @@ function ruleMessageLines(
         },
       ]
     case 'last-colored-ball-pot-outcomes':
-      return message.outcomes.map(({ seat, shot, result }) => ({
+      return message.outcomes.map(({ seat, result }) => ({
         player: participants[seat].displayName,
         text:
-          result.type === 'winner-determined' && result.winnerSeat === seat && shot === 'colored-ball'
+          result.type === 'winner-determined' && result.winnerSeat === seat
             ? t('match.control.messages.last-colored-ball-frame-ball', {
                 ball: t(`match.control.strila.balls.${message.ball}`),
               })
             : result.type === 'respotted-black'
-              ? t(`match.control.messages.last-colored-ball-pot-respots-black.${shot}`, {
-                  ball: t(
-                    `match.control.strila.outcomeBalls.${shot === 'colored-ball' ? 'accusative' : 'instrumental'}.${message.ball}`,
-                  ),
+              ? t('match.control.messages.last-colored-ball-pot-respots-black', {
+                  ball: t(`match.control.strila.outcomeBalls.nominative.${message.ball}`),
                 })
-              : t(`match.control.messages.last-colored-ball-pot-winner.${shot}`, {
-                  ball: t(
-                    `match.control.strila.outcomeBalls.${shot === 'colored-ball' ? 'accusative' : 'instrumental'}.${message.ball}`,
-                  ),
-                  winner: participants[result.winnerSeat].displayName,
+              : t('match.control.messages.last-colored-ball-pot-winner', {
+                  ball: t(`match.control.strila.outcomeBalls.nominative.${message.ball}`),
                 }),
       }))
   }

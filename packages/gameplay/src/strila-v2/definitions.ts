@@ -123,7 +123,6 @@ export type StrilaBallStatuses = v.InferOutput<typeof StrilaBallStatuses>
 const LastColoredBallPotOutcome = v.pipe(
   v.object({
     seat: Seat,
-    shot: v.picklist(['colored-ball', 'cue-and-colored-ball']),
     result: v.variant('type', [
       v.pipe(v.object({ type: v.literal('winner-determined'), winnerSeat: Seat }), v.readonly()),
       v.pipe(v.object({ type: v.literal('respotted-black') }), v.readonly()),
