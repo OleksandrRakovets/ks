@@ -100,16 +100,22 @@ exists. The count is similarly global.
 One `Page` component the three App Shell pages compose. No page reinvents its header.
 
 - Title `<h1>`, 32px/700, `letter-spacing: -0.025em`, wraps freely.
-- Optional subtitle, 17px, `--t-secondary`.
-- Optional inline action rendered as a link inside the subtitle line, not as a button floating
-  opposite the title. The current pattern breaks as soon as a title wraps, and
-  `Вільна піраміда з продовженням` wraps on every phone.
+- **No subtitle slot.** The component must not offer one. A line of prose under every heading is a
+  tic, not information: `Новий спаринг.` restates the title, and `Усі спаринги цього пристрою.` was
+  actively false, since the list is global. If a page has something to say, it says it where the
+  thing is, not under the heading.
+- Optional back link **above** the title, 17px `--t-secondary` with a chevron and a 44px target.
+  Used by child pages, currently only Setup. It goes above rather than opposite the title because
+  the title wraps — `Вільна піраміда з продовженням` takes two lines on every phone.
 - Content below at 16px horizontal padding.
 - Pages scroll normally. Only the control screen is height-constrained.
 
 Titles are owned by the page, from its own loader data. This is what replaces `headerConfig`.
 
 ## 6. Game index
+
+**Sasha owns this page's content and will tune it himself.** What follows is the structure and the
+constraints on the copy, not finished copy.
 
 The page is a curated shelf, not a rendered collection. Entries are authored in JSX and are free to
 differ in shape. Adding a game means writing its entry, not adding a row to an array.
@@ -146,7 +152,14 @@ right-aligned, then a meta line with the game and the time. The winner's name an
 match Board so the two surfaces feel like one product.
 
 Active matches come first under `Зараз грають`, with a green dot, a green-tinted border, and the
-current frame instead of a time. Finished matches follow, grouped by day.
+current frame instead of a time. Finished matches follow, grouped by day. The page has a title and
+nothing else above the list.
+
+**The time is when the match started (`createdAt`), for both the day grouping and the row label.**
+It is the only timestamp every row has, so the column never changes meaning between an active and a
+finished match, and a match that runs past midnight groups under the evening the players sat down
+rather than splitting away from it. `endedAt` is still needed, but only for the Result screen's
+closing line.
 
 **This page is blocked on a contract change.** `MatchListEntry` carries no score and no end time,
 so today it can only print names and a game title — which is exactly why it looks like a database
@@ -176,22 +189,50 @@ the matches belong to the viewer or the device.
 
 ## 8. Setup
 
-Same flow, new presentation.
+Same flow and the same fields. Presentation only.
 
-- The **game's name is the page title**. `Новий спаринг.` is the subtitle, with `Змінити гру` as an
-  inline link beside it.
-- Player names: two full-width inputs at 54px with 18px text, recent-player suggestions as chips
-  below the first.
+- The **game's name is the page title**, with `‹ Інша гра` as the back link above it.
+- Player names: two full-width inputs at 54px with 18px text. **Keep the existing `<datalist>`**
+  in `RecentPlayerDatalist`; the browser renders recent players natively as the field is typed
+  into. Do not add visible suggestion chips — they duplicate a control the platform already gives
+  us and they take a row each.
 - Settings appear only once both names are valid and differ, exactly as today.
-- `До скількох перемог` uses a stepper with 54px targets. For `free-pyramid-long` it becomes
-  `До скількох очок`, and `Переставка` appears as a two-option segmented control (`з 14` / `з 15`).
-- `Хто розбиває` is a three-option segmented control using **first names only**, so two long names
-  and `Жереб` fit one row.
-- Handicap is collapsed to a summary row — `Обидва до 9 очок` with a `Змінити` link — and expands
-  to the two number fields. It is unusual, and two number inputs are noise on the common path.
-  This is a behaviour change from today, where the fields are always visible.
-- Submit is **pinned to the bottom**, full width, 60px. Full width is what fixes
-  `Розпочати матч` not fitting: the label was only ever too long for a narrow button.
+- `До скількох перемог` is a stepper with 54px targets. Absent for `free-pyramid-long`, which is
+  fixed at one frame. The existing `longFreePyramidFrameHelp` box can go: the label on the targets
+  field says `Гра до` instead of `Партія до`, and there is no race field, which together say it.
+
+**Per-seat point targets are one field, present in every game.** `frameTargetPointsBySeat` is
+per-seat precisely so the two players can have different targets, and the real case is lopsided:
+a European champion against a rookie plays 50:15. There is therefore no separate "handicap"
+concept and no collapsed summary — equal targets are just the common default of the same field.
+
+Render it as two compact cards side by side, each with the player's **first name** at 15px above a
+26px tabular numeral input. The current `FrameTargetFields` is right in structure and only too
+heavy visually — a full `Label` and `NumberInput` stack each.
+
+Label: `Партія до` for multi-frame games, `Гра до` for `free-pyramid-long`.
+
+**Keep the coin toss.** `FirstBreakerToss` is not a breaker picker and must not be flattened into
+one. It encodes two steps: the coin decides **who chooses**, and the winner may then hand the break
+to their opponent. A three-option `A / B / Жереб` control would silently delete that rule. Restyle
+only:
+
+- Coin at 82px, amber ring, holding the player's initial; muted with `?` before the throw.
+- The two lines beside it move from 14px to 17px and 16px.
+- Drop the `fieldset`/`legend` chrome for a normal section heading.
+- After the toss, the winner's choice is two buttons labelled with first names.
+
+`Переставка` for `free-pyramid-long` becomes a two-option segmented control, keeping the existing
+`звично` / `новіше` sub-labels from the current radio descriptions.
+
+Section order: players, race length, per-seat targets, rack rollover, then the toss last — it is
+the ritual immediately before starting.
+
+Submit is **pinned to the bottom**, full width, 60px. Full width is what fixes `Розпочати матч` not
+fitting; the label was only ever too long for a narrow button.
+
+Open question: there is currently no way to skip the toss and name a breaker directly. Two friends
+who already know who breaks must throw a coin. Deliberate, or worth an escape hatch?
 
 ## 9. Result
 
@@ -253,9 +294,13 @@ them.
 
 ## 13. Review status
 
-Approved in discussion: the two shells, the constant wordmark, the module-shaped burger, one
-consistent burger for v1, page-owned titles, deleting `headerConfig`, and the game index including
-the Pyramid grouping and the corrected copy.
+Approved: the two shells, the constant wordmark, the module-shaped burger, one consistent burger
+for v1, page-owned titles, deleting `headerConfig`, the game index structure, the Matches row
+shape, the Result screen, and the rematch action.
 
-**Designed in this session and not yet reviewed: §7 Matches, §8 Setup, §9 Result.** Read those
-three against their renders before an agent starts on them.
+Revised after review: no subtitles anywhere (§5, §7), the back link replacing the top-right button
+(§5, §8), native `<datalist>` instead of suggestion chips (§8), per-seat targets as a single
+always-present field (§8), and keeping the coin toss intact (§8).
+
+Still open, listed where they arise: badge licensing and light-theme legibility (§6), the time zone
+for day grouping and the unbounded match list (§7), and whether the toss can be skipped (§8).
