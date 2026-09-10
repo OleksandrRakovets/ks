@@ -1,45 +1,52 @@
-import { Dialog } from 'radix-ui'
+import { Dialog as SheetPrimitive } from '@base-ui/react/dialog'
 import * as React from 'react'
 
 import { cn } from './utils'
 
-function Sheet({ ...props }: React.ComponentProps<typeof Dialog.Root>) {
-  return <Dialog.Root {...props} />
+function Sheet(props: SheetPrimitive.Root.Props) {
+  return <SheetPrimitive.Root data-slot="sheet" {...props} />
 }
 
-function SheetTrigger({ ...props }: React.ComponentProps<typeof Dialog.Trigger>) {
-  return <Dialog.Trigger {...props} />
+function SheetTrigger(props: SheetPrimitive.Trigger.Props) {
+  return <SheetPrimitive.Trigger data-slot="sheet-trigger" {...props} />
 }
 
-function SheetClose({ ...props }: React.ComponentProps<typeof Dialog.Close>) {
-  return <Dialog.Close {...props} />
+function SheetClose(props: SheetPrimitive.Close.Props) {
+  return <SheetPrimitive.Close data-slot="sheet-close" {...props} />
 }
 
-function SheetContent({ className, children, ...props }: React.ComponentProps<typeof Dialog.Content>) {
+function SheetContent({ className, children, ...props }: SheetPrimitive.Popup.Props) {
   return (
-    <Dialog.Portal>
-      <Dialog.Overlay className="fixed inset-0 z-50 bg-black/60 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
-      <Dialog.Content
+    <SheetPrimitive.Portal>
+      <SheetPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/55 transition-opacity duration-200 data-ending-style:opacity-0 data-starting-style:opacity-0" />
+      <SheetPrimitive.Popup
+        data-slot="sheet-content"
         className={cn(
-          'fixed inset-y-0 right-0 z-50 flex w-72 flex-col rounded-none bg-card shadow-2xl',
-          'duration-200 data-[state=closed]:animate-out data-[state=open]:animate-in',
-          'data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right',
+          'fixed inset-y-0 right-0 z-50 flex w-[min(22rem,calc(100%-2rem))] flex-col border-l border-border bg-card text-card-foreground shadow-2xl transition duration-200 ease-out outline-none data-ending-style:translate-x-8 data-ending-style:opacity-0 data-starting-style:translate-x-8 data-starting-style:opacity-0',
           className,
         )}
         {...props}
       >
         {children}
-      </Dialog.Content>
-    </Dialog.Portal>
+      </SheetPrimitive.Popup>
+    </SheetPrimitive.Portal>
   )
 }
 
-function SheetHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn('flex h-11 items-center justify-between pl-4', className)} {...props} />
+function SheetHeader({ className, ...props }: React.ComponentProps<'header'>) {
+  return (
+    <header className={cn('flex flex-col gap-1 border-b border-border p-5 pr-16', className)} {...props} />
+  )
 }
 
-function SheetTitle({ className, ...props }: React.ComponentProps<typeof Dialog.Title>) {
-  return <Dialog.Title className={cn('text-sm font-bold text-primary', className)} {...props} />
+function SheetTitle({ className, ...props }: SheetPrimitive.Title.Props) {
+  return <SheetPrimitive.Title className={cn('text-base font-semibold', className)} {...props} />
 }
 
-export { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger }
+function SheetDescription({ className, ...props }: SheetPrimitive.Description.Props) {
+  return (
+    <SheetPrimitive.Description className={cn('text-xs leading-relaxed text-text-lo', className)} {...props} />
+  )
+}
+
+export { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger }

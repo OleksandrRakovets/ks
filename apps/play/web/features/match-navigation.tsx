@@ -6,7 +6,7 @@ import { Link } from 'react-router'
 
 import { BrandWordmark } from '../components/BrandWordmark'
 import { BurgerMenu } from '../components/BurgerMenu'
-import { cn } from '../components/ui/utils'
+import { NavigationLink } from '../components/ui'
 import { localizedPath } from '../locale'
 import { useRootLocale } from '../root'
 import { matchControlUrl, matchProtocolUrl } from './match-urls'
@@ -21,39 +21,36 @@ type Props = {
 export function MatchNavigation(props: Props) {
   const { t } = useTranslation()
   const locale = useRootLocale()
-  const itemClass =
-    'flex h-12 flex-1 items-center justify-center border-b-2 text-center text-base font-medium outline-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset lg:h-14 lg:flex-none lg:px-6'
-  const activeClass = cn(itemClass, 'border-primary text-foreground')
-  const inactiveClass = cn(itemClass, 'border-transparent text-muted-foreground hover:text-foreground')
 
   return (
-    <nav className="sticky top-0 z-40 flex h-12 shrink-0 bg-deep lg:h-14">
+    <nav className="sticky top-0 z-40 flex min-h-12 shrink-0 border-b border-border bg-background/95 backdrop-blur lg:min-h-14">
       <BrandWordmark className="mx-5 hidden h-10 self-center lg:block" title={t(keys.appTitle)} />
-      {props.active === 'control' ? (
-        <span aria-current="page" className={activeClass}>
-          {t(keys.match.sparring.tabControl)}
-        </span>
-      ) : props.matchStatus === 'active' ? (
-        <Link to={matchControlUrl(props.gameKey, props.matchId, locale)} className={inactiveClass}>
-          {t(keys.match.sparring.tabControl)}
-        </Link>
-      ) : (
-        <span className={inactiveClass}>{t(keys.match.sparring.tabControl)}</span>
-      )}
-      {props.active === 'protocol' ? (
-        <span aria-current="page" className={activeClass}>
-          {t(keys.match.sparring.tabProtocol)}
-        </span>
-      ) : (
-        <Link to={matchProtocolUrl(props.gameKey, props.matchId, locale)} className={inactiveClass}>
-          {t(keys.match.sparring.tabProtocol)}
-        </Link>
-      )}
-      <Link to={localizedPath('/sparring/matches/', locale)} className={cn(inactiveClass, 'hidden lg:flex')}>
+      <NavigationLink
+        render={
+          props.matchStatus === 'active' ? (
+            <Link to={matchControlUrl(props.gameKey, props.matchId, locale)} />
+          ) : undefined
+        }
+        state={props.active === 'control' ? 'active' : props.matchStatus === 'active' ? 'default' : 'disabled'}
+        className="flex-1 justify-center lg:flex-none"
+      >
+        {t(keys.match.sparring.tabControl)}
+      </NavigationLink>
+      <NavigationLink
+        render={<Link to={matchProtocolUrl(props.gameKey, props.matchId, locale)} />}
+        state={props.active === 'protocol' ? 'active' : 'default'}
+        className="flex-1 justify-center lg:flex-none"
+      >
+        {t(keys.match.sparring.tabProtocol)}
+      </NavigationLink>
+      <NavigationLink
+        render={<Link to={localizedPath('/sparring/matches/', locale)} />}
+        className="hidden lg:flex"
+      >
         {t(keys.nav.allMatches)}
-      </Link>
+      </NavigationLink>
       <div className="hidden flex-1 lg:block" />
-      <div className="flex-1 lg:flex-none lg:px-2">
+      <div className="flex flex-1 items-center justify-center lg:flex-none">
         <BurgerMenu placement="navigation" />
       </div>
     </nav>

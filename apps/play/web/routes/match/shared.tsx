@@ -360,7 +360,7 @@ export function BetweenFrameControls(props: {
             size="control"
             variant={
               control.prominence === 'primary'
-                ? 'default'
+                ? 'primary'
                 : control.prominence === 'secondary'
                   ? 'secondary'
                   : 'outline'

@@ -43,8 +43,12 @@ export default function SparringMatchesRoute() {
               {t(keys.match.sparring.recentMatchesSubtitle)}
             </p>
           </div>
-          <Button asChild variant="outline">
-            <Link to={localizedPath('/sparring/', locale)}>{t(keys.match.sparring.newMatch)}</Link>
+          <Button
+            nativeButton={false}
+            render={<Link to={localizedPath('/sparring/', locale)} />}
+            variant="outline"
+          >
+            {t(keys.match.sparring.newMatch)}
           </Button>
         </div>
 
@@ -66,7 +70,7 @@ export default function SparringMatchesRoute() {
                 </div>
                 <div className="shrink-0">
                   {match.status === 'active' ? (
-                    <Badge>{t(keys.status.live)}</Badge>
+                    <Badge variant="live">{t(keys.status.live)}</Badge>
                   ) : (
                     <span className="text-xs text-muted-foreground">{t(keys.status.finished)}</span>
                   )}

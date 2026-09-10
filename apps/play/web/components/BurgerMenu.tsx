@@ -1,13 +1,26 @@
 import { keys } from '@ks/i18n'
 import type { SupportedLocale } from '@ks/i18n'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useFetcher, useLocation } from 'react-router'
 
 import { localizedPath, pathForLocale } from '../locale'
 import { useRootLocale, useRootTheme } from '../root'
 import type { AppTheme } from '../server/theme'
-import { BrandWordmark } from './BrandWordmark'
-import { Button, Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from './ui'
+import {
+  Button,
+  NavigationLink,
+  Separator,
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+  ToggleGroup,
+  ToggleGroupItem,
+} from './ui'
 
 const THEME_OPTIONS: { value: AppTheme; labelKey: string }[] = [
   { value: 'club-dark', labelKey: keys.theme.dark },
@@ -21,6 +34,7 @@ const LOCALE_OPTIONS: { value: SupportedLocale; labelKey: string }[] = [
 ]
 
 export function BurgerMenu(props: { placement?: 'header' | 'navigation' }) {
+  const [open, setOpen] = useState(false)
   const currentLocale = useRootLocale()
   const currentTheme = useRootTheme()
   const fetcher = useFetcher()
@@ -31,120 +45,129 @@ export function BurgerMenu(props: { placement?: 'header' | 'navigation' }) {
     location.pathname === sparringPath || location.pathname.startsWith(`${sparringPath}init/`)
   const isMatchesRoute = location.pathname === localizedPath('/sparring/matches/', currentLocale)
 
-  function changeTheme(theme: AppTheme) {
-    fetcher.submit({ theme }, { method: 'post', action: '/ui-preferences/theme/' })
+  function changeTheme(values: string[]) {
+    const theme = values[0]
+    if (isAppTheme(theme) && theme !== currentTheme) {
+      fetcher.submit({ theme }, { method: 'post', action: '/ui-preferences/theme/' })
+    }
   }
 
   return (
-    <Sheet>
-      <SheetTrigger asChild>
-        <button
-          type="button"
-          aria-label={t(keys.nav.menu)}
-          className={
-            props.placement === 'navigation'
-              ? 'relative -mt-px flex h-12 w-full items-center justify-center border-t-2 border-transparent text-base font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset lg:h-14'
-              : 'flex h-14 items-center justify-center px-4 text-green outline-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset'
-          }
-        >
-          <span className={props.placement === 'navigation' ? 'absolute left-4 lg:left-2' : undefined}>
-            <HamburgerIcon />
-          </span>
-          {props.placement === 'navigation' ? <span>{t(keys.nav.menu)}</span> : null}
-        </button>
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetTrigger
+        render={<Button variant="ghost" size="icon" aria-label={t(keys.nav.menu)} />}
+        className={props.placement === 'navigation' ? 'lg:mr-2' : undefined}
+      >
+        <HamburgerIcon />
       </SheetTrigger>
 
-      <SheetContent aria-describedby={undefined}>
-        <SheetHeader className="h-20 pl-4">
-          <SheetTitle className="sr-only">{t(keys.appTitle)}</SheetTitle>
-          <BrandWordmark className="h-12" title={t(keys.appTitle)} />
-          <SheetClose asChild>
-            <button
-              type="button"
-              aria-label={t(keys.nav.close)}
-              className="grid size-14 shrink-0 place-items-center self-start text-muted-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset"
-            >
-              <CloseIcon />
-            </button>
-          </SheetClose>
+      <SheetContent>
+        <SheetHeader>
+          <SheetTitle>{t(keys.appTitle)}</SheetTitle>
+          <SheetDescription>{t(keys.nav.menu)}</SheetDescription>
         </SheetHeader>
+        <SheetClose
+          render={<Button variant="ghost" size="icon" aria-label={t(keys.nav.close)} />}
+          className="absolute top-3 right-3"
+        >
+          <CloseIcon />
+        </SheetClose>
 
-        <nav className="flex flex-col gap-1 px-4 py-4">
-          <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">
-            {t(keys.nav.sparring)}
-          </p>
-          <SheetClose asChild>
-            <Link
-              to={sparringPath}
-              aria-current={isNewMatchRoute ? 'page' : undefined}
-              className="py-2.5 text-sm font-medium text-foreground underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset"
+        <div className="flex flex-1 flex-col overflow-y-auto p-3">
+          <nav className="flex flex-col gap-1" aria-label={t(keys.nav.sparring)}>
+            <p className="px-3 pt-2 pb-1 text-xs font-semibold tracking-widest text-text-lo uppercase">
+              {t(keys.nav.sparring)}
+            </p>
+            <NavigationLink
+              render={<Link to={sparringPath} onClick={() => setOpen(false)} />}
+              state={isNewMatchRoute ? 'active' : 'default'}
+              indicator="short"
             >
               {t(keys.nav.newMatch)}
-            </Link>
-          </SheetClose>
-          <SheetClose asChild>
-            <Link
-              to={localizedPath('/sparring/matches/', currentLocale)}
-              aria-current={isMatchesRoute ? 'page' : undefined}
-              className="py-2.5 text-sm font-medium text-foreground underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset"
+            </NavigationLink>
+            <NavigationLink
+              render={
+                <Link to={localizedPath('/sparring/matches/', currentLocale)} onClick={() => setOpen(false)} />
+              }
+              state={isMatchesRoute ? 'active' : 'default'}
+              indicator="short"
             >
               {t(keys.nav.allMatches)}
-            </Link>
-          </SheetClose>
-        </nav>
+            </NavigationLink>
+          </nav>
 
-        <div className="px-4 pt-4">
-          <p className="mb-3 text-xs font-semibold tracking-widest text-muted-foreground uppercase">
-            {t(keys.theme.section)}
-          </p>
-          <div className="flex gap-3">
-            {THEME_OPTIONS.map(({ value, labelKey }) => (
-              <Button
-                key={value}
-                size="sm"
-                variant={currentTheme === value ? 'default' : 'outline'}
-                onClick={() => changeTheme(value)}
-              >
-                {t(labelKey)}
-              </Button>
-            ))}
-          </div>
-        </div>
+          <Separator className="my-4" />
 
-        <div className="px-4 pt-4">
-          <p className="mt-5 mb-3 text-xs font-semibold tracking-widest text-muted-foreground uppercase">
-            {t(keys.language.section)}
-          </p>
-          <div className="flex gap-3">
-            {LOCALE_OPTIONS.map(({ value, labelKey }) => (
-              <Button key={value} asChild size="sm" variant={currentLocale === value ? 'default' : 'outline'}>
-                <Link
-                  reloadDocument
-                  to={pathForLocale(location.pathname, location.search, location.hash, value)}
+          <section className="flex flex-col gap-3 px-3" aria-labelledby="theme-options-label">
+            <p
+              id="theme-options-label"
+              className="text-xs font-semibold tracking-widest text-text-lo uppercase"
+            >
+              {t(keys.theme.section)}
+            </p>
+            <ToggleGroup
+              value={[currentTheme]}
+              onValueChange={changeTheme}
+              aria-labelledby="theme-options-label"
+            >
+              {THEME_OPTIONS.map(({ value, labelKey }) => (
+                <ToggleGroupItem key={value} value={value}>
+                  {t(labelKey)}
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
+          </section>
+
+          <Separator className="my-4" />
+
+          <section className="flex flex-col gap-3 px-3" aria-labelledby="locale-options-label">
+            <p
+              id="locale-options-label"
+              className="text-xs font-semibold tracking-widest text-text-lo uppercase"
+            >
+              {t(keys.language.section)}
+            </p>
+            <div className="flex gap-2">
+              {LOCALE_OPTIONS.map(({ value, labelKey }) => (
+                <Button
+                  key={value}
+                  nativeButton={false}
+                  render={
+                    <Link
+                      reloadDocument
+                      to={pathForLocale(location.pathname, location.search, location.hash, value)}
+                    />
+                  }
+                  size="sm"
+                  variant={currentLocale === value ? 'primary' : 'outline'}
                 >
                   {t(labelKey)}
-                </Link>
-              </Button>
-            ))}
-          </div>
+                </Button>
+              ))}
+            </div>
+          </section>
         </div>
       </SheetContent>
     </Sheet>
   )
 }
 
+function isAppTheme(value: string | undefined): value is AppTheme {
+  return value === 'club-dark' || value === 'club-light' || value === 'auto'
+}
+
 function HamburgerIcon() {
   return (
-    <svg width="22" height="17" viewBox="0 0 16 12" fill="none" aria-hidden>
-      <path d="M0 1h16M0 6h16M0 11h16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   )
 }
 
 function CloseIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
-      <path d="M3 3l10 10M13 3L3 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <path d="m5 5 10 10M15 5 5 15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   )
 }

@@ -26,8 +26,8 @@ function pyramidCommandLabel(t: TFunction, command: Control): string {
   return t('match.control.controls.game.pot.pottedBallCount', { pottedBallCount })
 }
 
-function buttonVariant(prominence: Control['prominence']): 'default' | 'secondary' | 'outline' {
-  if (prominence === 'primary') return 'default'
+function buttonVariant(prominence: Control['prominence']): 'primary' | 'secondary' | 'outline' {
+  if (prominence === 'primary') return 'primary'
   if (prominence === 'secondary') return 'secondary'
   return 'outline'
 }
