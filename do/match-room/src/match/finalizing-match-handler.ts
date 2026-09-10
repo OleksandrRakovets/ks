@@ -10,24 +10,24 @@ import type {
 } from '@ks/core'
 import type { RegisteredGameKey } from '@ks/gameplay/definitions'
 
-import { Broadcaster } from '../live/broadcaster'
+import { LiveConnectionHandler } from '../live/live-connection-handler'
 import { type CommandReceipt, MatchStorage, type StoredFinalizingMatch } from '../storage/match-storage'
 import { ResidentMatch, type ResidentState } from './resident-match'
 
 export class FinalizingMatchHandler {
   readonly #storage: MatchStorage
-  readonly #broadcaster: Broadcaster
+  readonly #liveConnections: LiveConnectionHandler
   readonly #storedMatch: StoredFinalizingMatch
   #resident: ResidentMatch | null
 
   constructor(
     storage: MatchStorage,
-    broadcaster: Broadcaster,
+    liveConnections: LiveConnectionHandler,
     storedMatch: StoredFinalizingMatch,
     resident: ResidentMatch | null = null,
   ) {
     this.#storage = storage
-    this.#broadcaster = broadcaster
+    this.#liveConnections = liveConnections
     this.#storedMatch = storedMatch
     this.#resident = resident
   }
@@ -69,12 +69,12 @@ export class FinalizingMatchHandler {
   }
 
   finalize(): void {
-    this.#broadcaster.broadcast({
+    this.#liveConnections.broadcast({
       type: 'command-accepted',
       acceptedSeq: this.#storedMatch.latestSeq,
       completesMatch: true,
     })
-    this.#broadcaster.closeAll()
+    this.#liveConnections.closeAll()
     this.#resident?.clear()
     this.#resident = null
   }

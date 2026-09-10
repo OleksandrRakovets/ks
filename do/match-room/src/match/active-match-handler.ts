@@ -1,7 +1,7 @@
 import type { SparringMatchRoomProjection } from '@ks/competition'
 import type { MatchCommand, ProtocolEntry } from '@ks/core'
 
-import { Broadcaster } from '../live/broadcaster'
+import { type ActiveLiveMatch, LiveConnectionHandler } from '../live/live-connection-handler'
 import {
   type CommandReceipt,
   MatchStorage,
@@ -12,14 +12,14 @@ import { ResidentMatch, type ResidentState } from './resident-match'
 
 export class ActiveMatchHandler {
   readonly #storage: MatchStorage
-  readonly #broadcaster: Broadcaster
+  readonly #liveConnections: LiveConnectionHandler
   readonly #resident: ResidentMatch
   #storedMatch: StoredActiveMatch
   #state: ResidentState
 
-  constructor(storage: MatchStorage, broadcaster: Broadcaster, storedMatch: StoredActiveMatch) {
+  constructor(storage: MatchStorage, liveConnections: LiveConnectionHandler, storedMatch: StoredActiveMatch) {
     this.#storage = storage
-    this.#broadcaster = broadcaster
+    this.#liveConnections = liveConnections
     this.#storedMatch = storedMatch
     this.#resident = new ResidentMatch()
     this.#state = this.#resident.restore(
@@ -68,7 +68,7 @@ export class ActiveMatchHandler {
         result.protocolEntryContents,
       )
       // Delivery of the match-completing acceptance waits until application has archived the Match in D1.
-      if (!committed.streamUpdate.completesMatch) this.#broadcaster.broadcast(committed.streamUpdate)
+      if (!committed.streamUpdate.completesMatch) this.#liveConnections.broadcast(committed.streamUpdate)
       const response: ActiveCommandResult = {
         _tag: 'accepted',
         acceptedSeq: committed.receipt.acceptedSeq,
@@ -101,8 +101,8 @@ export class ActiveMatchHandler {
     }
   }
 
-  connect(pageKind: 'control' | 'protocol'): Response {
-    return this.#broadcaster.connect(this.#storedMatch.matchId, pageKind, this.#storedMatch.latestSeq)
+  liveMatch(): ActiveLiveMatch {
+    return { matchId: this.#storedMatch.matchId, latestSeq: this.#storedMatch.latestSeq }
   }
 }
 

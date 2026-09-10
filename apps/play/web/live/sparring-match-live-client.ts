@@ -57,10 +57,10 @@ export function subscribeSparringMatchLive(args: {
     if (stopped) return
     args.onConnectionState('connecting')
     serverSeq = null
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    const webSocketScheme = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
     const url = new URL(
       `/api/sparring-match/${args.matchId}/live/?contract=1&view=${args.pageKind}`,
-      `${protocol}//${window.location.host}`,
+      `${webSocketScheme}//${window.location.host}`,
     )
     const current = new WebSocket(url)
     socket = current
@@ -110,7 +110,6 @@ export function subscribeSparringMatchLive(args: {
     })
   }
 
-  // Deferring avoids opening the throwaway connection from React Strict Mode's setup → cleanup probe.
-  queueMicrotask(connect)
+  connect()
   return { stop }
 }

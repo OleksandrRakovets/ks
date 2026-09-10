@@ -1,9 +1,8 @@
-import { type MatchCommand, MatchId } from '@ks/core'
+import { type MatchCommand } from '@ks/core'
 import { DurableObject } from 'cloudflare:workers'
-import * as v from 'valibot'
 
 import type { Env } from './env'
-import { Broadcaster, connectionAttachment } from './live/broadcaster'
+import { LiveConnectionHandler } from './live/live-connection-handler'
 import { ActiveMatchHandler } from './match/active-match-handler'
 import { FinalizingMatchHandler } from './match/finalizing-match-handler'
 import { initializeMatch, type InitializeMatchInput } from './match/initialize-match'
@@ -11,13 +10,13 @@ import { MatchStorage } from './storage/match-storage'
 
 export class MatchRoom extends DurableObject<Env> {
   readonly #storage: MatchStorage
-  readonly #broadcaster: Broadcaster
+  readonly #liveConnections: LiveConnectionHandler
   #handler: ActiveMatchHandler | FinalizingMatchHandler | null = null
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
     this.#storage = new MatchStorage(ctx.storage)
-    this.#broadcaster = new Broadcaster(ctx)
+    this.#liveConnections = new LiveConnectionHandler(ctx)
     ctx.blockConcurrencyWhile(async () => {
       this.#storage.migrate()
     })
@@ -37,7 +36,7 @@ export class MatchRoom extends DurableObject<Env> {
       if (outcome.next)
         this.#handler = new FinalizingMatchHandler(
           this.#storage,
-          this.#broadcaster,
+          this.#liveConnections,
           outcome.next.storedMatch,
           outcome.next.resident,
         )
@@ -58,24 +57,10 @@ export class MatchRoom extends DurableObject<Env> {
 
   /** Serves only the dedicated WebSocket handshake forwarded by Play; it is not a general HTTP API. */
   fetch(request: Request): Response {
-    const url = new URL(request.url)
-    const match = /^\/api\/sparring-match\/([^/]+)\/live\/$/.exec(url.pathname)
-    const matchId = v.safeParse(MatchId, match?.[1])
-    if (!matchId.success || matchId.output !== this.ctx.id.name)
-      return new Response('Invalid MatchRoom route', { status: 400 })
-    const pageKind = url.searchParams.get('view')
-    if (
-      request.method !== 'GET' ||
-      request.headers.get('Upgrade')?.toLowerCase() !== 'websocket' ||
-      url.searchParams.get('contract') !== '1' ||
-      (pageKind !== 'control' && pageKind !== 'protocol') ||
-      url.searchParams.size !== 2
-    )
-      return new Response('Invalid live request', { status: 400 })
     try {
       const handler = this.#requireHandler()
       return handler instanceof ActiveMatchHandler
-        ? handler.connect(pageKind)
+        ? this.#liveConnections.connect(request, handler.liveMatch())
         : new Response('Match is finalizing', { status: 410 })
     } catch {
       return new Response('Internal server error', { status: 500 })
@@ -83,29 +68,15 @@ export class MatchRoom extends DurableObject<Env> {
   }
 
   webSocketMessage(socket: WebSocket): void {
-    socket.close(1008, 'client-messages-not-supported')
+    this.#liveConnections.receiveMessage(socket)
   }
 
   webSocketClose(socket: WebSocket, code: number, reason: string, wasClean: boolean): void {
-    const attachment = connectionAttachment(socket)
-    console.info({
-      event: 'sparring-match-live.closed',
-      matchId: this.ctx.id.name,
-      ...attachment,
-      code,
-      reason,
-      wasClean,
-    })
+    this.#liveConnections.recordClose(socket, code, reason, wasClean)
   }
 
   webSocketError(socket: WebSocket, error: Error): void {
-    const attachment = connectionAttachment(socket)
-    console.error({
-      event: 'sparring-match-live.error',
-      matchId: this.ctx.id.name,
-      ...attachment,
-      error: error.message,
-    })
+    this.#liveConnections.recordError(socket, error)
   }
 
   async prepareArchive() {
@@ -126,8 +97,8 @@ export class MatchRoom extends DurableObject<Env> {
     if (!storedMatch) throw new Error('MatchRoom storage missing')
     this.#handler =
       storedMatch.status === 'active'
-        ? new ActiveMatchHandler(this.#storage, this.#broadcaster, storedMatch)
-        : new FinalizingMatchHandler(this.#storage, this.#broadcaster, storedMatch)
+        ? new ActiveMatchHandler(this.#storage, this.#liveConnections, storedMatch)
+        : new FinalizingMatchHandler(this.#storage, this.#liveConnections, storedMatch)
     return this.#handler
   }
 }

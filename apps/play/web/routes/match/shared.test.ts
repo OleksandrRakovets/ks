@@ -177,18 +177,3 @@ test('live client validates catch-up and sequences updates without replay', asyn
   subscription.stop()
   expect(socket.closeCalls).toBe(1)
 })
-
-test('live client opens no socket for the Strict Mode setup-cleanup probe', async () => {
-  FakeWebSocket.instances = []
-  const subscription = subscribeSparringMatchLive({
-    matchId: newMatchId(),
-    pageKind: 'protocol',
-    currentLatestSeq: () => 0,
-    onCaughtUp: () => {},
-    onUpdate: () => {},
-    onConnectionState: () => {},
-  })
-  subscription.stop()
-  await Promise.resolve()
-  expect(FakeWebSocket.instances).toHaveLength(0)
-})
