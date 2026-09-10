@@ -203,18 +203,29 @@ export function useControlLiveRevalidation(
   const loaderLatestSeqRef = useRef(latestSeq)
   const targetSeqRef = useRef(latestSeq)
 
-  function requestRevalidation(seq: number) {
-    targetSeqRef.current = Math.max(targetSeqRef.current, seq)
-    if (revalidatorStateRef.current === 'idle' && loaderLatestSeqRef.current < targetSeqRef.current) {
+  function drainRevalidation() {
+    if (
+      !liveStateRef.current.localSubmitInFlight &&
+      revalidatorStateRef.current === 'idle' &&
+      loaderLatestSeqRef.current < targetSeqRef.current
+    ) {
       revalidatorStateRef.current = 'loading'
       revalidateRef.current()
     }
   }
 
+  function requestRevalidation(seq: number) {
+    targetSeqRef.current = Math.max(targetSeqRef.current, seq)
+    drainRevalidation()
+  }
+
   function applyLiveEvent(event: ControlLiveEvent) {
+    if (event.type === 'update' || event.type === 'match-ended') {
+      targetSeqRef.current = Math.max(targetSeqRef.current, event.seq)
+    }
     const transition = transitionControlLive(liveStateRef.current, event)
     liveStateRef.current = transition.state
-    if (transition.revalidate) requestRevalidation(transition.state.latestSeq)
+    if (transition.revalidate || event.type === 'submit-finished') drainRevalidation()
   }
 
   useEffect(() => {
@@ -242,7 +253,7 @@ export function useControlLiveRevalidation(
     const subscription = subscribeSparringMatchLive({
       matchId: state.matchId,
       pageKind: 'control',
-      currentLatestSeq: () => liveStateRef.current.latestSeq,
+      currentLatestSeq: () => loaderLatestSeqRef.current,
       onCaughtUp: requestRevalidation,
       onUpdate: (update) =>
         applyLiveEvent(
