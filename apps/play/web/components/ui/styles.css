@@ -17,7 +17,7 @@
   --secondary: var(--c-overlay);
   --secondary-foreground: var(--t-primary);
   --muted: var(--c-raised);
-  --muted-foreground: var(--t-muted);
+  --muted-foreground: var(--t-secondary);
   --accent: var(--c-overlay);
   --accent-foreground: var(--t-primary);
   --destructive: var(--a-red);

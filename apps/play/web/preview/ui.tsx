@@ -12,8 +12,8 @@ function Section({
   return (
     <section className="border-b border-divider py-6">
       <div className="mb-4">
-        <h2 className="text-sm font-semibold text-text-hi">{title}</h2>
-        {description && <p className="mt-0.5 text-xs text-text-ghost">{description}</p>}
+        <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+        {description && <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>}
       </div>
       {children}
     </section>
@@ -23,7 +23,7 @@ function Section({
 function SubSection({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="mb-4 last:mb-0">
-      <p className="mb-2 text-xs font-semibold tracking-widest text-text-ghost uppercase">{label}</p>
+      <p className="mb-2 text-xs font-semibold tracking-widest text-muted-foreground uppercase">{label}</p>
       {children}
     </div>
   )
@@ -131,7 +131,7 @@ export default function PreviewUiRoute() {
               <Textarea
                 id="operator-note"
                 defaultValue="Table 2 stream is delayed by 8 seconds."
-                className={'min-h-20'}
+                className="min-h-20"
               />
             </div>
             <div className="flex justify-end gap-2">
@@ -146,7 +146,7 @@ export default function PreviewUiRoute() {
             <Separator />
             <div className="flex items-center gap-3">
               <Separator className="flex-1" />
-              <span className="text-xs text-text-ghost">or</span>
+              <span className="text-xs text-muted-foreground">or</span>
               <Separator className="flex-1" />
             </div>
           </div>

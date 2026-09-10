@@ -1,8 +1,9 @@
 import type { BySeatNumber } from '@ks/core'
 import { keys } from '@ks/i18n'
-import cn from 'classnames'
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
+
+import { cn } from '@/components/ui/utils'
 
 type Props = {
   nameA: string
@@ -45,7 +46,7 @@ export function ScoreBox({
         <span className="line-clamp-2 min-w-0 text-right">{nameB}</span>
       </div>
 
-      <div className={cn('flex items-center gap-x-5 border-b border-divider py-2 text-base text-text-lo', {})}>
+      <div className="flex items-center gap-x-5 border-b border-divider py-2 text-base text-muted-foreground">
         {statusLine ? (
           <span className="flex-1 text-center">{statusLine}</span>
         ) : (
@@ -55,7 +56,7 @@ export function ScoreBox({
             </span>
 
             <div
-              className={cn('grid w-18 grid-cols-[1fr_auto_1fr] items-center text-text-hi', {
+              className={cn('grid w-18 grid-cols-[1fr_auto_1fr] items-center text-foreground', {
                 hidden: !isLive,
               })}
             >

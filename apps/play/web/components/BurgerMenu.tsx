@@ -26,6 +26,10 @@ export function BurgerMenu(props: { placement?: 'header' | 'navigation' }) {
   const fetcher = useFetcher()
   const location = useLocation()
   const { t } = useTranslation()
+  const sparringPath = localizedPath('/sparring/', currentLocale)
+  const isNewMatchRoute =
+    location.pathname === sparringPath || location.pathname.startsWith(`${sparringPath}init/`)
+  const isMatchesRoute = location.pathname === localizedPath('/sparring/matches/', currentLocale)
 
   function changeTheme(theme: AppTheme) {
     fetcher.submit({ theme }, { method: 'post', action: '/ui-preferences/theme/' })
@@ -35,11 +39,12 @@ export function BurgerMenu(props: { placement?: 'header' | 'navigation' }) {
     <Sheet>
       <SheetTrigger asChild>
         <button
+          type="button"
           aria-label={t(keys.nav.menu)}
           className={
             props.placement === 'navigation'
-              ? 'relative -mt-px flex h-12 w-full items-center justify-center border-t-2 border-transparent text-base font-medium text-muted-foreground hover:text-foreground lg:h-14'
-              : 'flex h-14 items-center justify-center px-4 text-green'
+              ? 'relative -mt-px flex h-12 w-full items-center justify-center border-t-2 border-transparent text-base font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset lg:h-14'
+              : 'flex h-14 items-center justify-center px-4 text-green outline-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset'
           }
         >
           <span className={props.placement === 'navigation' ? 'absolute left-4 lg:left-2' : undefined}>
@@ -55,8 +60,9 @@ export function BurgerMenu(props: { placement?: 'header' | 'navigation' }) {
           <BrandWordmark className="h-12" title={t(keys.appTitle)} />
           <SheetClose asChild>
             <button
+              type="button"
               aria-label={t(keys.nav.close)}
-              className="flex h-full w-14 justify-center px-4 pt-4 text-text-ghost"
+              className="grid size-14 shrink-0 place-items-center self-start text-muted-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset"
             >
               <CloseIcon />
             </button>
@@ -64,13 +70,14 @@ export function BurgerMenu(props: { placement?: 'header' | 'navigation' }) {
         </SheetHeader>
 
         <nav className="flex flex-col gap-1 px-4 py-4">
-          <p className="text-xs font-semibold tracking-widest text-text-ghost uppercase">
+          <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">
             {t(keys.nav.sparring)}
           </p>
           <SheetClose asChild>
             <Link
-              to={localizedPath('/sparring/', currentLocale)}
-              className="py-2.5 text-sm font-medium text-text-hi underline-offset-4 hover:underline"
+              to={sparringPath}
+              aria-current={isNewMatchRoute ? 'page' : undefined}
+              className="py-2.5 text-sm font-medium text-foreground underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset"
             >
               {t(keys.nav.newMatch)}
             </Link>
@@ -78,7 +85,8 @@ export function BurgerMenu(props: { placement?: 'header' | 'navigation' }) {
           <SheetClose asChild>
             <Link
               to={localizedPath('/sparring/matches/', currentLocale)}
-              className="py-2.5 text-sm font-medium text-text-hi underline-offset-4 hover:underline"
+              aria-current={isMatchesRoute ? 'page' : undefined}
+              className="py-2.5 text-sm font-medium text-foreground underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset"
             >
               {t(keys.nav.allMatches)}
             </Link>
@@ -86,7 +94,7 @@ export function BurgerMenu(props: { placement?: 'header' | 'navigation' }) {
         </nav>
 
         <div className="px-4 pt-4">
-          <p className="mb-3 text-xs font-semibold tracking-widest text-text-ghost uppercase">
+          <p className="mb-3 text-xs font-semibold tracking-widest text-muted-foreground uppercase">
             {t(keys.theme.section)}
           </p>
           <div className="flex gap-3">
@@ -104,7 +112,7 @@ export function BurgerMenu(props: { placement?: 'header' | 'navigation' }) {
         </div>
 
         <div className="px-4 pt-4">
-          <p className="mt-5 mb-3 text-xs font-semibold tracking-widest text-text-ghost uppercase">
+          <p className="mt-5 mb-3 text-xs font-semibold tracking-widest text-muted-foreground uppercase">
             {t(keys.language.section)}
           </p>
           <div className="flex gap-3">
