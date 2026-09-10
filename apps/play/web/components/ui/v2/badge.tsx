@@ -29,7 +29,7 @@ function Badge({
     defaultTagName: 'span',
     render,
     props: mergeProps<'span'>({ className: cn(badgeVariants({ variant }), className) }, props),
-    state: { slot: 'preview-badge', variant },
+    state: { slot: 'badge', variant },
   })
 }
 

@@ -1,8 +1,7 @@
-import { cva, type VariantProps } from 'class-variance-authority'
-
-import { Button } from './button'
-import { Separator } from './separator'
 import {
+  Button,
+  NavigationLink,
+  Separator,
   Sheet,
   SheetClose,
   SheetContent,
@@ -10,60 +9,9 @@ import {
   SheetHeader,
   SheetTitle,
   SheetTrigger,
-} from './sheet'
-import { ToggleGroup, ToggleGroupItem } from './toggle-group'
-import { cn } from './utils'
-
-const navigationLinkVariants = cva(
-  'relative flex min-h-12 items-center rounded-sm px-3 text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/40 lg:min-h-14 lg:px-5',
-  {
-    variants: {
-      state: {
-        default: 'text-text-lo hover:bg-muted hover:text-foreground',
-        active:
-          'bg-primary/10 text-foreground after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:bg-primary',
-        disabled: 'cursor-not-allowed text-text-ghost opacity-60',
-      },
-    },
-    defaultVariants: { state: 'default' },
-  },
-)
-
-type NavigationLinkProps = {
-  children: React.ReactNode
-  className?: string
-  href?: string
-  shortIndicator?: boolean
-  state?: VariantProps<typeof navigationLinkVariants>['state']
-}
-
-function NavigationLink({
-  children,
-  className,
-  href,
-  shortIndicator = false,
-  state = 'default',
-}: NavigationLinkProps) {
-  const classes = cn(
-    navigationLinkVariants({ state }),
-    shortIndicator && state === 'active' && 'after:right-auto after:left-3 after:w-10 after:translate-x-0',
-    className,
-  )
-
-  if (state === 'disabled') {
-    return (
-      <span aria-disabled="true" className={classes}>
-        {children}
-      </span>
-    )
-  }
-
-  return (
-    <a href={href} aria-current={state === 'active' ? 'page' : undefined} className={classes}>
-      {children}
-    </a>
-  )
-}
+  ToggleGroup,
+  ToggleGroupItem,
+} from '@/components/ui/v2'
 
 function MenuIcon() {
   return (
@@ -110,20 +58,24 @@ function DrawerNavigation() {
             <SheetClose
               nativeButton={false}
               render={
-                <a href="#new-match" className={navigationLinkVariants()}>
+                <NavigationLink render={<a href="#new-match" aria-label="New match" />}>
                   New match
-                </a>
+                </NavigationLink>
               }
             />
             <SheetClose
               nativeButton={false}
               render={
-                <a href="#all-matches" className={navigationLinkVariants()}>
+                <NavigationLink render={<a href="#all-matches" aria-label="All matches" />}>
                   All matches
-                </a>
+                </NavigationLink>
               }
             />
-            <NavigationLink state="active" href="#current-match" shortIndicator>
+            <NavigationLink
+              render={<a href="#current-match" aria-label="Current match" />}
+              state="active"
+              indicator="short"
+            >
               Current match
             </NavigationLink>
             <NavigationLink state="disabled">Tournament desk</NavigationLink>
@@ -162,10 +114,17 @@ function MatchNavigation() {
       >
         Keep score
       </a>
-      <NavigationLink href="#control" state="active" className="flex-1 justify-center lg:flex-none">
+      <NavigationLink
+        render={<a href="#control" aria-label="Control" />}
+        state="active"
+        className="flex-1 justify-center lg:flex-none"
+      >
         Control
       </NavigationLink>
-      <NavigationLink href="#protocol" className="flex-1 justify-center lg:flex-none">
+      <NavigationLink
+        render={<a href="#protocol" aria-label="Protocol" />}
+        className="flex-1 justify-center lg:flex-none"
+      >
         Protocol
       </NavigationLink>
       <NavigationLink state="disabled" className="hidden lg:flex">

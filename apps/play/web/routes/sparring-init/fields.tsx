@@ -2,7 +2,7 @@ import type { BySeatNumber } from '@ks/core'
 import { keys } from '@ks/i18n'
 import { useTranslation } from 'react-i18next'
 
-import { Input, Label, NumberInput } from '@/components/ui'
+import { Input, Label, NumberInput } from '@/components/ui/v2'
 
 export { FirstBreakerField } from './first-breaker-toss'
 import type { MatchCreateProfile } from './profile'

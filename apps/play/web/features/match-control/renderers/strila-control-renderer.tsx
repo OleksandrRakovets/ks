@@ -5,8 +5,8 @@ import type { TFunction } from 'i18next'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { Button } from '@/components/ui'
-import { cn } from '@/components/ui/utils'
+import { Button } from '@/components/ui/v2'
+import { cn } from '@/components/ui/v2/utils'
 
 import { controlEffect, controlLabel } from './control-copy'
 import { matchCommandFromControl, type MatchControlRendererProps } from './types'
@@ -136,8 +136,8 @@ function strilaCommandLabel(t: TFunction, command: Control, index: number): stri
   return t('match.control.commands.game.penalty.select.ball-in-hand')
 }
 
-function prominenceVariant(prominence: Control['prominence']): 'default' | 'secondary' | 'outline' {
-  if (prominence === 'primary') return 'default'
+function prominenceVariant(prominence: Control['prominence']): 'primary' | 'secondary' | 'outline' {
+  if (prominence === 'primary') return 'primary'
   if (prominence === 'tertiary') return 'outline'
   return 'secondary'
 }

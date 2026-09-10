@@ -12,12 +12,13 @@ import {
   FieldGroup,
   FieldLabel,
   Input,
-  MatchNavigation,
   Separator,
   Textarea,
   ToggleGroup,
   ToggleGroupItem,
-} from './components'
+} from '@/components/ui/v2'
+
+import { MatchNavigation } from './components/match-navigation'
 
 export const handle = {
   headerConfig: () => ({ title: 'UI Preview v2', backTo: '/top-secret/preview/' }),

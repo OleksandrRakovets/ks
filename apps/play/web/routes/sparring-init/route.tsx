@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { Form, Link, redirect, useActionData, useLoaderData, useNavigation } from 'react-router'
 import * as v from 'valibot'
 
-import { Button } from '@/components/ui'
+import { Button } from '@/components/ui/v2'
 
 import { matchControlUrl } from '../../features/match-urls'
 import { localeFromContext, localizedPath } from '../../locale'
@@ -185,8 +185,12 @@ export default function SparringInitRoute() {
           <div>
             <h1 className="text-3xl font-semibold tracking-tight">{t(keys.match.sparring.setupTitle)}</h1>
           </div>
-          <Button asChild variant="outline">
-            <Link to={localizedPath('/sparring/', locale)}>{t(keys.match.sparring.chooseAnotherGame)}</Link>
+          <Button
+            nativeButton={false}
+            render={<Link to={localizedPath('/sparring/', locale)} />}
+            variant="outline"
+          >
+            {t(keys.match.sparring.chooseAnotherGame)}
           </Button>
         </div>
 

@@ -18,6 +18,7 @@ const buttonVariants = cva(
         sm: 'h-8 gap-1.5 px-3 text-xs',
         md: 'h-10 gap-2 px-4 text-sm',
         touch: 'h-12 gap-2 px-5 text-base',
+        control: 'h-16 gap-2 px-5 text-xl',
         icon: 'size-10 text-lg',
       },
     },
@@ -33,7 +34,7 @@ function Button({
 }: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
   return (
     <ButtonPrimitive
-      data-slot="preview-button"
+      data-slot="button"
       data-variant={variant}
       data-size={size}
       className={cn(buttonVariants({ variant, size }), className)}

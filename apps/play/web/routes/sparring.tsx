@@ -2,7 +2,7 @@ import { keys } from '@ks/i18n'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 
-import { Button, Card, CardDescription, CardHeader, CardTitle } from '@/components/ui'
+import { Button, Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/v2'
 
 import { localizedPath } from '../locale'
 import { useRootLocale } from '../root'
@@ -92,10 +92,12 @@ export default function SparringRoute() {
             <h1 className="text-3xl font-semibold tracking-tight">{t(keys.match.sparring.title)}</h1>
             <p className="mt-1 text-muted-foreground">{t(keys.match.sparring.subtitle)}</p>
           </div>
-          <Button asChild variant="outline">
-            <Link to={localizedPath('/sparring/matches/', locale)}>
-              {t(keys.match.sparring.recentMatches)}
-            </Link>
+          <Button
+            nativeButton={false}
+            render={<Link to={localizedPath('/sparring/matches/', locale)} />}
+            variant="outline"
+          >
+            {t(keys.match.sparring.recentMatches)}
           </Button>
         </div>
 

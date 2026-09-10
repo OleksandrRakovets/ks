@@ -4,15 +4,15 @@ import * as React from 'react'
 import { cn } from './utils'
 
 function Sheet(props: SheetPrimitive.Root.Props) {
-  return <SheetPrimitive.Root data-slot="preview-sheet" {...props} />
+  return <SheetPrimitive.Root data-slot="sheet" {...props} />
 }
 
 function SheetTrigger(props: SheetPrimitive.Trigger.Props) {
-  return <SheetPrimitive.Trigger data-slot="preview-sheet-trigger" {...props} />
+  return <SheetPrimitive.Trigger data-slot="sheet-trigger" {...props} />
 }
 
 function SheetClose(props: SheetPrimitive.Close.Props) {
-  return <SheetPrimitive.Close data-slot="preview-sheet-close" {...props} />
+  return <SheetPrimitive.Close data-slot="sheet-close" {...props} />
 }
 
 function SheetContent({ className, children, ...props }: SheetPrimitive.Popup.Props) {
@@ -20,7 +20,7 @@ function SheetContent({ className, children, ...props }: SheetPrimitive.Popup.Pr
     <SheetPrimitive.Portal>
       <SheetPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/55 transition-opacity duration-200 data-ending-style:opacity-0 data-starting-style:opacity-0" />
       <SheetPrimitive.Popup
-        data-slot="preview-sheet-content"
+        data-slot="sheet-content"
         className={cn(
           'fixed inset-y-0 right-0 z-50 flex w-[min(22rem,calc(100%-2rem))] flex-col border-l border-border bg-card text-card-foreground shadow-2xl transition duration-200 ease-out outline-none data-ending-style:translate-x-8 data-ending-style:opacity-0 data-starting-style:translate-x-8 data-starting-style:opacity-0',
           className,

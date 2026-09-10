@@ -3,8 +3,8 @@ import { keys } from '@ks/i18n'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { Button } from '@/components/ui'
-import { cn } from '@/components/ui/utils'
+import { Button } from '@/components/ui/v2'
+import { cn } from '@/components/ui/v2/utils'
 
 function playerInitial(name: string): string {
   return name.trim().slice(0, 1).toLocaleUpperCase()

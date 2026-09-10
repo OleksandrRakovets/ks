@@ -9,7 +9,7 @@ import type { TFunction } from 'i18next'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { Button } from '@/components/ui'
+import { Button } from '@/components/ui/v2'
 
 import { controlEffect, controlLabel, potRecordPottedBallCount } from './control-copy'
 import { matchCommandFromControl, type MatchControlRendererProps } from './types'
@@ -26,8 +26,8 @@ function pyramidCommandLabel(t: TFunction, command: Control): string {
   return t('match.control.controls.game.pot.pottedBallCount', { pottedBallCount })
 }
 
-function buttonVariant(prominence: Control['prominence']): 'default' | 'secondary' | 'outline' {
-  if (prominence === 'primary') return 'default'
+function buttonVariant(prominence: Control['prominence']): 'primary' | 'secondary' | 'outline' {
+  if (prominence === 'primary') return 'primary'
   if (prominence === 'secondary') return 'secondary'
   return 'outline'
 }

@@ -6,7 +6,7 @@ import { localizedPath } from '../locale'
 import { useRootLocale } from '../root'
 import { BrandWordmark } from './BrandWordmark'
 import { BurgerMenu } from './BurgerMenu'
-import { cn } from './ui/utils'
+import { NavigationLink } from './ui/v2'
 
 export function AppHeader() {
   const { t } = useTranslation()
@@ -15,36 +15,28 @@ export function AppHeader() {
   const sparringPath = localizedPath('/sparring/', locale)
   const onNewMatch = location.pathname === sparringPath || location.pathname.startsWith(`${sparringPath}init/`)
   const onMatches = location.pathname === localizedPath('/sparring/matches/', locale)
-  const itemClass =
-    'flex h-14 flex-1 items-center justify-center border-b-2 text-base font-medium outline-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset lg:flex-none lg:px-6'
 
   return (
-    <header className="sticky top-0 z-40 flex h-14 shrink-0 border-b border-divider bg-deep">
+    <header className="sticky top-0 z-40 flex min-h-12 shrink-0 border-b border-border bg-background/95 backdrop-blur lg:min-h-14">
       <div className="mx-5 hidden items-center lg:flex">
         <BrandWordmark className="h-10" title={t(keys.appTitle)} />
       </div>
-      <Link
-        to={sparringPath}
-        aria-current={onNewMatch ? 'page' : undefined}
-        className={cn(itemClass, {
-          'border-primary text-foreground': onNewMatch,
-          'border-transparent text-muted-foreground hover:text-foreground': !onNewMatch,
-        })}
+      <NavigationLink
+        render={<Link to={sparringPath} />}
+        state={onNewMatch ? 'active' : 'default'}
+        className="flex-1 justify-center lg:flex-none"
       >
         {t(keys.nav.newMatch)}
-      </Link>
-      <Link
-        to={localizedPath('/sparring/matches/', locale)}
-        aria-current={onMatches ? 'page' : undefined}
-        className={cn(itemClass, {
-          'border-primary text-foreground': onMatches,
-          'border-transparent text-muted-foreground hover:text-foreground': !onMatches,
-        })}
+      </NavigationLink>
+      <NavigationLink
+        render={<Link to={localizedPath('/sparring/matches/', locale)} />}
+        state={onMatches ? 'active' : 'default'}
+        className="flex-1 justify-center lg:flex-none"
       >
         {t(keys.nav.allMatches)}
-      </Link>
+      </NavigationLink>
       <div className="hidden flex-1 lg:block" />
-      <div className="flex-1 lg:flex-none lg:px-2">
+      <div className="flex flex-1 items-center justify-center lg:flex-none">
         <BurgerMenu placement="navigation" />
       </div>
     </header>

@@ -1,6 +1,6 @@
 import { Link } from 'react-router'
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/v2'
 import { localizedPath } from '@/locale'
 import { useRootLocale } from '@/root'
 
