@@ -1,0 +1,52 @@
+import { Dialog as SheetPrimitive } from '@base-ui/react/dialog'
+import * as React from 'react'
+
+import { cn } from './utils'
+
+function Sheet(props: SheetPrimitive.Root.Props) {
+  return <SheetPrimitive.Root data-slot="preview-sheet" {...props} />
+}
+
+function SheetTrigger(props: SheetPrimitive.Trigger.Props) {
+  return <SheetPrimitive.Trigger data-slot="preview-sheet-trigger" {...props} />
+}
+
+function SheetClose(props: SheetPrimitive.Close.Props) {
+  return <SheetPrimitive.Close data-slot="preview-sheet-close" {...props} />
+}
+
+function SheetContent({ className, children, ...props }: SheetPrimitive.Popup.Props) {
+  return (
+    <SheetPrimitive.Portal>
+      <SheetPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/55 transition-opacity duration-200 data-ending-style:opacity-0 data-starting-style:opacity-0" />
+      <SheetPrimitive.Popup
+        data-slot="preview-sheet-content"
+        className={cn(
+          'fixed inset-y-0 right-0 z-50 flex w-[min(22rem,calc(100%-2rem))] flex-col border-l border-border bg-card text-card-foreground shadow-2xl transition duration-200 ease-out outline-none data-ending-style:translate-x-8 data-ending-style:opacity-0 data-starting-style:translate-x-8 data-starting-style:opacity-0',
+          className,
+        )}
+        {...props}
+      >
+        {children}
+      </SheetPrimitive.Popup>
+    </SheetPrimitive.Portal>
+  )
+}
+
+function SheetHeader({ className, ...props }: React.ComponentProps<'header'>) {
+  return (
+    <header className={cn('flex flex-col gap-1 border-b border-border p-5 pr-16', className)} {...props} />
+  )
+}
+
+function SheetTitle({ className, ...props }: SheetPrimitive.Title.Props) {
+  return <SheetPrimitive.Title className={cn('text-base font-semibold', className)} {...props} />
+}
+
+function SheetDescription({ className, ...props }: SheetPrimitive.Description.Props) {
+  return (
+    <SheetPrimitive.Description className={cn('text-xs leading-relaxed text-text-lo', className)} {...props} />
+  )
+}
+
+export { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger }
