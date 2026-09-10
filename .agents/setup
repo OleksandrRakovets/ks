@@ -2,6 +2,10 @@
 set -euo pipefail
 
 readonly NODE_MAJOR="26"
+readonly ROBOTO_RELEASE_TAG="v3.016"
+readonly ROBOTO_ARCHIVE_SHA256="1653dbe12f248da8fb0b9920db7b9496cd677ed3981154f6f15285c8bd4e334f"
+readonly ROBOTO_FONT_SHA256="07f56c49cba5aa0c36f0c8295ffe2e39578e8459a743a7a619ad094b483ba857"
+readonly ROBOTO_ARCHIVE_URL="https://github.com/googlefonts/roboto-3-classic/releases/download/${ROBOTO_RELEASE_TAG}/Roboto_${ROBOTO_RELEASE_TAG}.zip"
 
 repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 local_bin="${HOME}/.local/bin"
@@ -89,7 +93,128 @@ install_bun() {
   ln -sfn "${install_dir}/bin/bun" "${local_bin}/bunx"
 }
 
+install_roboto() {
+  if [[ "$(uname -s)" != "Linux" ]]; then
+    echo "Skipping Linux Roboto installation on $(uname -s)."
+    return
+  fi
+
+  local font_dir font_file font_version_file fontconfig_dir fontconfig_file temp_dir archive extracted installed_version font_is_current
+  font_dir="${XDG_DATA_HOME:-${HOME}/.local/share}/fonts"
+  font_file="${font_dir}/Roboto-Android.ttf"
+  font_version_file="${font_dir}/.ks-roboto-version"
+  fontconfig_dir="${XDG_CONFIG_HOME:-${HOME}/.config}/fontconfig"
+  fontconfig_file="${fontconfig_dir}/fonts.conf"
+  mkdir -p "$font_dir" "$fontconfig_dir"
+
+  installed_version=''
+  if [[ -f "$font_version_file" ]]; then
+    installed_version="$(< "$font_version_file")"
+  fi
+  font_is_current=false
+  if [[ -s "$font_file" && "$installed_version" == "$ROBOTO_RELEASE_TAG" ]] &&
+    printf '%s  %s\n' "$ROBOTO_FONT_SHA256" "$font_file" | sha256sum --check --status -; then
+    font_is_current=true
+  fi
+  if [[ "$font_is_current" != true ]]; then
+    echo "Installing Android Roboto ${ROBOTO_RELEASE_TAG}..."
+    temp_dir="$(mktemp -d)"
+    trap 'rm -rf -- "${temp_dir}"' EXIT
+    archive="${temp_dir}/Roboto.zip"
+    extracted="${temp_dir}/Roboto-Android.ttf"
+    curl --fail --location --silent --show-error "$ROBOTO_ARCHIVE_URL" --output "$archive"
+    printf '%s  %s\n' "$ROBOTO_ARCHIVE_SHA256" "$archive" | sha256sum --check --status -
+    unzip -p "$archive" 'android/Roboto\[ital,wdth,wght\].ttf' > "$extracted"
+    if [[ ! -s "$extracted" ]]; then
+      echo "Roboto archive did not contain the Android variable font." >&2
+      rm -rf "$temp_dir"
+      exit 1
+    fi
+    printf '%s  %s\n' "$ROBOTO_FONT_SHA256" "$extracted" | sha256sum --check --status -
+    mv -- "$extracted" "$font_file"
+    printf '%s\n' "$ROBOTO_RELEASE_TAG" > "$font_version_file"
+    trap - EXIT
+    rm -rf "$temp_dir"
+  fi
+
+  local fontconfig_block_start='  <!-- ks-roboto-start -->'
+  if [[ ! -f "$fontconfig_file" ]]; then
+    cat > "$fontconfig_file" <<'EOF'
+<?xml version="1.0"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  <!-- ks-roboto-start -->
+  <alias>
+    <family>sans-serif</family>
+    <prefer><family>Roboto</family></prefer>
+  </alias>
+  <alias>
+    <family>system-ui</family>
+    <prefer><family>Roboto</family></prefer>
+  </alias>
+  <alias>
+    <family>ui-sans-serif</family>
+    <prefer><family>Roboto</family></prefer>
+  </alias>
+  <!-- ks-roboto-end -->
+</fontconfig>
+EOF
+  elif ! grep --fixed-strings --quiet "$fontconfig_block_start" "$fontconfig_file"; then
+    FONTCONFIG_FILE="$fontconfig_file" python3 - <<'PY'
+from pathlib import Path
+import os
+import tempfile
+
+path = Path(os.environ["FONTCONFIG_FILE"])
+text = path.read_text()
+closing = "</fontconfig>"
+block = """  <!-- ks-roboto-start -->
+  <alias>
+    <family>sans-serif</family>
+    <prefer><family>Roboto</family></prefer>
+  </alias>
+  <alias>
+    <family>system-ui</family>
+    <prefer><family>Roboto</family></prefer>
+  </alias>
+  <alias>
+    <family>ui-sans-serif</family>
+    <prefer><family>Roboto</family></prefer>
+  </alias>
+  <!-- ks-roboto-end -->
+"""
+if closing not in text:
+    raise SystemExit(f"Fontconfig file has no {closing}: {path}")
+mode = path.stat().st_mode & 0o777
+fd, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+try:
+    with os.fdopen(fd, "w", encoding="utf-8") as output:
+        output.write(text.replace(closing, block + closing, 1))
+    os.chmod(temporary, mode)
+    os.replace(temporary, path)
+except BaseException:
+    try:
+        os.unlink(temporary)
+    except FileNotFoundError:
+        pass
+    raise
+PY
+  fi
+
+  fc-cache -f "$font_dir"
+  local family resolved_font
+  for family in system-ui sans-serif ui-sans-serif; do
+    resolved_font="$(fc-match -f '%{family}|%{file}' "$family")"
+    if [[ "$resolved_font" != "Roboto|${font_file}" ]]; then
+      echo "Roboto installed, but ${family} resolves to ${resolved_font}." >&2
+      exit 1
+    fi
+  done
+  echo "Using Roboto for Linux system UI."
+}
+
 cd "$repo_root"
+install_roboto
 install_node
 install_bun
 export PATH="${local_bin}:${PATH}"
