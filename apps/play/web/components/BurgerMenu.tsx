@@ -20,7 +20,7 @@ import {
   SheetTrigger,
   ToggleGroup,
   ToggleGroupItem,
-} from './ui/v2'
+} from './ui'
 
 const THEME_OPTIONS: { value: AppTheme; labelKey: string }[] = [
   { value: 'club-dark', labelKey: keys.theme.dark },

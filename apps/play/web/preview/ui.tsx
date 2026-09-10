@@ -16,7 +16,7 @@ import {
   Textarea,
   ToggleGroup,
   ToggleGroupItem,
-} from '@/components/ui/v2'
+} from '@/components/ui'
 
 import { MatchNavigation } from './components/match-navigation'
 

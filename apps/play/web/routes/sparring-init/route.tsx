@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { Form, Link, redirect, useActionData, useLoaderData, useNavigation } from 'react-router'
 import * as v from 'valibot'
 
-import { Button } from '@/components/ui/v2'
+import { Button } from '@/components/ui'
 
 import { matchControlUrl } from '../../features/match-urls'
 import { localeFromContext, localizedPath } from '../../locale'

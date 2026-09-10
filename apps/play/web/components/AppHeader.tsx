@@ -6,7 +6,7 @@ import { localizedPath } from '../locale'
 import { useRootLocale } from '../root'
 import { BrandWordmark } from './BrandWordmark'
 import { BurgerMenu } from './BurgerMenu'
-import { NavigationLink } from './ui/v2'
+import { NavigationLink } from './ui'
 
 export function AppHeader() {
   const { t } = useTranslation()

@@ -2,7 +2,7 @@ import { keys } from '@ks/i18n'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 
-import { Button, Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/v2'
+import { Button, Card, CardDescription, CardHeader, CardTitle } from '@/components/ui'
 
 import { localizedPath } from '../locale'
 import { useRootLocale } from '../root'

@@ -5,8 +5,8 @@ import type { TFunction } from 'i18next'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { Button } from '@/components/ui/v2'
-import { cn } from '@/components/ui/v2/utils'
+import { Button } from '@/components/ui'
+import { cn } from '@/components/ui/utils'
 
 import { controlEffect, controlLabel } from './control-copy'
 import { matchCommandFromControl, type MatchControlRendererProps } from './types'

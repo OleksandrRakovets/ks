@@ -11,7 +11,7 @@ import {
   SheetTrigger,
   ToggleGroup,
   ToggleGroupItem,
-} from '@/components/ui/v2'
+} from '@/components/ui'
 
 function MenuIcon() {
   return (

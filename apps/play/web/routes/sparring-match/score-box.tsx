@@ -3,7 +3,7 @@ import { keys } from '@ks/i18n'
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { cn } from '@/components/ui/v2/utils'
+import { cn } from '@/components/ui/utils'
 
 type Props = {
   nameA: string

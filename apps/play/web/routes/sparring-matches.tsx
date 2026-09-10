@@ -3,7 +3,7 @@ import { keys } from '@ks/i18n'
 import { useTranslation } from 'react-i18next'
 import { Link, useLoaderData } from 'react-router'
 
-import { Badge, Button } from '@/components/ui/v2'
+import { Badge, Button } from '@/components/ui'
 
 import { matchUrlForStatus } from '../features/match-urls'
 import { localeFromContext, localizedPath } from '../locale'

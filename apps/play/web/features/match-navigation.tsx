@@ -6,7 +6,7 @@ import { Link } from 'react-router'
 
 import { BrandWordmark } from '../components/BrandWordmark'
 import { BurgerMenu } from '../components/BurgerMenu'
-import { NavigationLink } from '../components/ui/v2'
+import { NavigationLink } from '../components/ui'
 import { localizedPath } from '../locale'
 import { useRootLocale } from '../root'
 import { matchControlUrl, matchProtocolUrl } from './match-urls'

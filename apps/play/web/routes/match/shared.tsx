@@ -16,7 +16,7 @@ import { useTranslation } from 'react-i18next'
 import { useRevalidator } from 'react-router'
 import * as v from 'valibot'
 
-import { Button } from '@/components/ui/v2'
+import { Button } from '@/components/ui'
 import { matchCommandFromControl } from '@/features/match-control/renderers/types'
 
 import { localeFromContext } from '../../locale'

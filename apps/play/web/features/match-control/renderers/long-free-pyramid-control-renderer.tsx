@@ -5,7 +5,7 @@ import type { TFunction } from 'i18next'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { Button } from '@/components/ui/v2'
+import { Button } from '@/components/ui'
 
 import { controlLabel, potRecordPottedBallCount } from './control-copy'
 import { matchCommandFromControl, type MatchControlRendererProps } from './types'
