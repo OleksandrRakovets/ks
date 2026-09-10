@@ -1,8 +1,13 @@
 # App Shell And Pages
 
-Status: design approved except where marked. Not yet implemented.
+Status: design approved. Not yet implemented.
 Reference renders: `.tracker/app-shell-and-pages/`.
-Companion document: `.tracker/match-control-shell-spec.md`, which owns everything inside a live match.
+
+**Everything in this document can be built today.** No contract change, no new use case, no new
+data. Work that needs plumbing first is in `.tracker/app-shell-and-pages-additions-spec.md`, and
+the two are ordered so this one lands first and the additions layer on without rework.
+
+`.tracker/match-control-shell-spec.md` owns everything inside a live match.
 
 ## 1. Rebuild or port
 
@@ -146,46 +151,19 @@ theme.
 
 ## 7. Matches
 
-Rows read as scoreboards, because that is what they are. Two stacked names with their scores
-right-aligned, then a meta line with the game and the time. The winner's name and numeral take
-`--hi`/`--bone` at 600; the loser's take `--t-secondary`/`--t-muted`. This deliberately echoes the
-match Board so the two surfaces feel like one product.
+**Split across both documents.** The row redesign needs score data that `MatchListEntry` does not
+carry, so it lives in the additions document. What is buildable now is everything the shell change
+touches:
 
-Active matches come first under `Зараз грають`, with a green dot, a green-tinted border, and the
-current frame instead of a time. Finished matches follow, grouped by day. The page has a title and
-nothing else above the list.
+- The page adopts the App Shell and the `Page` frame: title `Матчі`, no subtitle, `headerConfig`
+  deleted.
+- The empty state and the existing rows get the §10 typography floor, so nothing renders below
+  16px.
+- Rows stay as they are otherwise. Do not half-build the scoreboard row against missing data.
 
-**The time is when the match started (`createdAt`), for both the day grouping and the row label.**
-It is the only timestamp every row has, so the column never changes meaning between an active and a
-finished match, and a match that runs past midnight groups under the evening the players sat down
-rather than splitting away from it. `endedAt` is still needed, but only for the Result screen's
-closing line.
-
-**This page is blocked on a contract change.** `MatchListEntry` carries no score and no end time,
-so today it can only print names and a game title — which is exactly why it looks like a database
-dump. It needs:
-
-```ts
-readonly framesWonBySeat: BySeatNumber
-readonly currentFramePointsBySeat: BySeatNumber
-readonly matchTargetFrames: number
-readonly endedAt?: UnixEpochMilliseconds
-```
-
-The route decides which score to show — frames when `matchTargetFrames > 1`, current frame points
-when it is 1, since `free-pyramid-long` is a single frame to a point target. Keeping that decision
-in the route rather than resolving it in `@ks/application` follows the documented boundary that
-routes own presentation adaptation.
-
-**Two open questions, both needing a decision before this page is built.**
-
-Day grouping needs a time zone and the app has none — `loadMatchProtocol` hardcodes `'UTC'`. Either
-plumb a zone the way `readMatchProtocol` already accepts one, or group after hydration on the
-client. Until that is settled, ship the list ordered but ungrouped; do not print a wrong local day.
-
-`listMatchRecords()` is unfiltered and unpaginated, so this page grows without bound and shows
-strangers' matches. Out of scope to fix here, but it constrains the copy: the subtitle cannot claim
-the matches belong to the viewer or the device.
+`listMatchRecords()` is unfiltered and unpaginated, so this page shows every match anyone ever
+created and grows without bound. Out of scope to fix, but it constrains the copy here and the
+burger entry in §4: neither may claim the matches belong to the viewer or the device.
 
 ## 8. Setup
 
@@ -231,25 +209,27 @@ the ritual immediately before starting.
 Submit is **pinned to the bottom**, full width, 60px. Full width is what fixes `Розпочати матч` not
 fitting; the label was only ever too long for a narrow button.
 
-Open question: there is currently no way to skip the toss and name a breaker directly. Two friends
-who already know who breaks must throw a coin. Deliberate, or worth an escape hatch?
+The toss is mandatory by design. There is no way to name a breaker directly and none should be
+added: the informal alternatives are slower than throwing here.
 
 ## 9. Result
 
-New tab replacing the redirect from a finished match to Протокол. Lives in the Match Shell, so the
-tabs read `Результат` / `Протокол` and ✕ exits to Matches.
+Replaces the redirect from a finished match to Протокол. The control route already receives
+`controlState: 'finished'` with full `state` and `participants`, so this needs **no contract
+change**: the route renders a result instead of the Action Stack, and `matchUrlForStatus` stops
+sending finished matches to Протокол.
+
+Lives in the Match Shell, so the tabs read `Результат` / `Протокол` and ✕ exits to Matches.
 
 - Winner chip in green: `{name} переміг`.
-- Both names, winner in full strength and loser in `--t-secondary`, then the match score at 62px
-  with the loser's numeral in `--t-muted`.
-- `Партії`: one row per frame — index, then the frame's points with the frame winner's numeral at 700. All of this is already in `MatchState.frames[].pointsBySeat`, so **no contract change is
-  needed**.
-- Closing line with when the match finished.
-- Pinned at the bottom, above the tabs: `Реванш тим самим складом`, linking to setup for the same
-  game with both names prefilled.
+- Both names, winner at full strength and loser in `--t-secondary`, then the match score at 62px
+  with the loser's numeral in `--t-muted`, from `state.framesWonBySeat`.
+- `Партії`: one row per frame — index, then the frame's points with the frame winner's numeral at
+  700, from `state.frames[].pointsBySeat`.
 
-The rematch action is **my proposal, not something you asked for**. It is the one thing players
-predictably want next, and the space is otherwise dead, but it is a new flow and easy to cut.
+Two elements in the reference render belong to the additions document and must be left out here:
+the closing line with the finish time, and the `Реванш` button. Without them the screen ends after
+the frame list, which is complete and correct on its own.
 
 ## 10. Typography and colour
 
@@ -280,11 +260,12 @@ At 390×844 and 1280×900:
 2. Burger identical at both widths, showing Sparring plus the two `Незабаром` modules.
 3. Game index with the Strila and Baraban cards and the four-row Pyramid group; the Комбінована gap
    is visibly a gap.
-4. Matches with an active match, two finished matches, and the empty state.
-5. Matches where one entry is `free-pyramid-long`, showing points rather than frames.
-6. Setup for Strila and for `free-pyramid-long`, the latter with the longest title in the registry,
+4. Matches under the new shell, including the empty state.
+5. Setup for Strila and for `free-pyramid-long`, the latter with the longest title in the registry,
    confirming the title wraps without colliding with anything.
-7. Setup before names are valid, and after.
+6. Setup before names are valid, and after; the toss before and after it is thrown, including
+   handing the break to the opponent.
+7. Setup with lopsided targets such as 50 and 15.
 8. Result for a completed race, and for a match decided by concede.
 9. No computed font size below 16px anywhere except the cases named in §10.
 10. `Костянтин Кулик` and `Владислав Косогов` throughout.
@@ -296,11 +277,12 @@ them.
 
 Approved: the two shells, the constant wordmark, the module-shaped burger, one consistent burger
 for v1, page-owned titles, deleting `headerConfig`, the game index structure, the Matches row
-shape, the Result screen, and the rematch action.
+shape, the Result screen, and the rematch action. The coin toss is deliberately mandatory — when
+players reach for the app, throwing here is faster than the informal alternatives.
 
 Revised after review: no subtitles anywhere (§5, §7), the back link replacing the top-right button
 (§5, §8), native `<datalist>` instead of suggestion chips (§8), per-seat targets as a single
 always-present field (§8), and keeping the coin toss intact (§8).
 
-Still open, listed where they arise: badge licensing and light-theme legibility (§6), the time zone
-for day grouping and the unbounded match list (§7), and whether the toss can be skipped (§8).
+Still open: badge licensing and light-theme legibility (§6), and the unbounded, unfiltered match
+list (§7). Everything else open moved to the additions document.

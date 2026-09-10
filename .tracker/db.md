@@ -4,10 +4,10 @@ Run commands from the repository root.
 
 ## Stores
 
-| Store | Schema | Migrations | Applied by |
-| --- | --- | --- | --- |
-| D1 `ks` | `packages/application/src/d1/schema.ts` | `d1/migrations/` | Wrangler |
-| MatchRoom per-object SQLite | `do/match-room/src/storage/schema.ts` | `do/match-room/drizzle/` | Runtime Drizzle migrator |
+| Store                       | Schema                                  | Migrations               | Applied by               |
+| --------------------------- | --------------------------------------- | ------------------------ | ------------------------ |
+| D1 `ks`                     | `packages/application/src/d1/schema.ts` | `d1/migrations/`         | Wrangler                 |
+| MatchRoom per-object SQLite | `do/match-room/src/storage/schema.ts`   | `do/match-room/drizzle/` | Runtime Drizzle migrator |
 
 These stores have independent lifecycles. MatchRoom SQLite contains active Accepted Commands, command outcomes, the cursor, lifecycle, and final state, but does not persist Protocol. Active and finalizing Protocol is derived by semantic replay. D1 contains players and match rows and is the first independent persistence of the immutable completed Protocol archive.
 
