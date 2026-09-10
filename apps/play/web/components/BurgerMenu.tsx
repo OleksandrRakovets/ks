@@ -27,8 +27,9 @@ export function BurgerMenu(props: { placement?: 'header' | 'navigation' }) {
   const location = useLocation()
   const { t } = useTranslation()
   const sparringPath = localizedPath('/sparring/', currentLocale)
-  const onNewMatch = location.pathname === sparringPath || location.pathname.startsWith(`${sparringPath}init/`)
-  const onMatches = location.pathname === localizedPath('/sparring/matches/', currentLocale)
+  const isNewMatchRoute =
+    location.pathname === sparringPath || location.pathname.startsWith(`${sparringPath}init/`)
+  const isMatchesRoute = location.pathname === localizedPath('/sparring/matches/', currentLocale)
 
   function changeTheme(theme: AppTheme) {
     fetcher.submit({ theme }, { method: 'post', action: '/ui-preferences/theme/' })
@@ -75,7 +76,7 @@ export function BurgerMenu(props: { placement?: 'header' | 'navigation' }) {
           <SheetClose asChild>
             <Link
               to={sparringPath}
-              aria-current={onNewMatch ? 'page' : undefined}
+              aria-current={isNewMatchRoute ? 'page' : undefined}
               className="py-2.5 text-sm font-medium text-foreground underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset"
             >
               {t(keys.nav.newMatch)}
@@ -84,7 +85,7 @@ export function BurgerMenu(props: { placement?: 'header' | 'navigation' }) {
           <SheetClose asChild>
             <Link
               to={localizedPath('/sparring/matches/', currentLocale)}
-              aria-current={onMatches ? 'page' : undefined}
+              aria-current={isMatchesRoute ? 'page' : undefined}
               className="py-2.5 text-sm font-medium text-foreground underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset"
             >
               {t(keys.nav.allMatches)}
