@@ -59,6 +59,7 @@ function ruleMessageLines(
                 }),
       }))
   }
+  throw new Error('Unsupported Strila rule note')
 }
 
 function OpenBookIcon() {

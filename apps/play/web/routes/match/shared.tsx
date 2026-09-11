@@ -91,9 +91,9 @@ function commandErrorKey(error: string): ControlActionErrorKey {
   return keys.match.control.invalidCommandPayload
 }
 
-export async function commandMatchAction<K extends RegisteredGameKey>(
+export async function commandMatchAction(
   args: RouteArgs,
-  expectedGameKey: K,
+  expectedGameKey: RegisteredGameKey,
 ): Promise<ControlActionData> {
   const matchId = matchIdFromParams(args.params)
   const form = await args.request.formData()
@@ -202,7 +202,7 @@ export function useControlLiveRevalidation(
       loaderLatestSeqRef.current < targetSeqRef.current
     ) {
       revalidatorStateRef.current = 'loading'
-      revalidateRef.current()
+      void revalidateRef.current()
     }
   }
 
@@ -241,7 +241,7 @@ export function useControlLiveRevalidation(
   }, [fetcher.state])
 
   useEffect(() => {
-    if (state.status !== 'active') return
+    if (state.status !== 'active') return undefined
     const subscription = subscribeSparringMatchLive({
       matchId: state.matchId,
       pageKind: 'control',
@@ -259,11 +259,11 @@ export function useControlLiveRevalidation(
           revalidatorStateRef.current === 'idle'
         ) {
           revalidatorStateRef.current = 'loading'
-          revalidateRef.current()
+          void revalidateRef.current()
         }
       },
     })
-    return subscription.stop
+    return () => subscription.stop()
   }, [state.matchId, state.status])
 
   return () => {
@@ -282,7 +282,7 @@ export function useProtocolLiveRevalidation(state: MatchState, latestSeq: number
     targetSeqRef.current = Math.max(targetSeqRef.current, seq)
     if (revalidatorStateRef.current === 'idle' && latestSeqRef.current < targetSeqRef.current) {
       revalidatorStateRef.current = 'loading'
-      revalidateRef.current()
+      void revalidateRef.current()
     }
   }
 
@@ -297,7 +297,7 @@ export function useProtocolLiveRevalidation(state: MatchState, latestSeq: number
     requestRevalidation(targetSeqRef.current)
   }, [latestSeq, revalidator.state])
   useEffect(() => {
-    if (state.status !== 'active') return
+    if (state.status !== 'active') return undefined
     const subscription = subscribeSparringMatchLive({
       matchId: state.matchId,
       pageKind: 'protocol',
@@ -310,11 +310,11 @@ export function useProtocolLiveRevalidation(state: MatchState, latestSeq: number
           revalidatorStateRef.current === 'idle'
         ) {
           revalidatorStateRef.current = 'loading'
-          revalidateRef.current()
+          void revalidateRef.current()
         }
       },
     })
-    return subscription.stop
+    return () => subscription.stop()
   }, [state.matchId, state.status])
 }
 

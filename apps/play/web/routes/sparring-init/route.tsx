@@ -79,8 +79,8 @@ export async function action({
   const defaultFrameTargetPointsBySeat = profile.defaultFrameTargetPointsBySeat
 
   const form = await request.formData()
-  const seatAName = v.safeParse(DisplayName, String(form.get('seatAName') ?? ''))
-  const seatBName = v.safeParse(DisplayName, String(form.get('seatBName') ?? ''))
+  const seatAName = v.safeParse(DisplayName, stringFormValue(form, 'seatAName'))
+  const seatBName = v.safeParse(DisplayName, stringFormValue(form, 'seatBName'))
   const matchTargetFrames =
     profile.matchTargetFrames.mode === 'fixed'
       ? profile.matchTargetFrames.fixedValue
@@ -132,6 +132,11 @@ export async function action({
   }
 
   return redirect(matchControlUrl(gameKey, result.matchId, localeFromContext(context)))
+}
+
+function stringFormValue(form: FormData, key: string): string {
+  const value = v.safeParse(v.string(), form.get(key))
+  return value.success ? value.output : ''
 }
 
 export const handle = {

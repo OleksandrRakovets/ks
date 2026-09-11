@@ -1,4 +1,4 @@
-export * from './brand'
+export type * from './brand'
 export * from './command'
 export * from './control'
 export * from './protocol'

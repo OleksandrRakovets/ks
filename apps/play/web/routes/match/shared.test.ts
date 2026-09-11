@@ -127,9 +127,15 @@ test('live client validates catch-up and sequences updates without replay', asyn
     matchId,
     pageKind: 'control',
     currentLatestSeq: () => 2,
-    onCaughtUp: (seq) => caughtUp.push(seq),
-    onUpdate: (update) => updates.push(update.acceptedSeq),
-    onConnectionState: (state) => states.push(state),
+    onCaughtUp: (seq) => {
+      caughtUp.push(seq)
+    },
+    onUpdate: (update) => {
+      updates.push(update.acceptedSeq)
+    },
+    onConnectionState: (state) => {
+      states.push(state)
+    },
   })
   await Promise.resolve()
   const socket = FakeWebSocket.instances[0]
@@ -167,9 +173,13 @@ test('live client stops and requests catch-up for a gapped completing update', (
     matchId,
     pageKind: 'control',
     currentLatestSeq: () => 2,
-    onCaughtUp: (seq) => caughtUp.push(seq),
+    onCaughtUp: (seq) => {
+      caughtUp.push(seq)
+    },
     onUpdate: () => {},
-    onConnectionState: (state) => states.push(state),
+    onConnectionState: (state) => {
+      states.push(state)
+    },
   })
   const socket = FakeWebSocket.instances[0]
   if (!socket) throw new Error('Expected live socket')

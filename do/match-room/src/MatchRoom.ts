@@ -17,7 +17,7 @@ export class MatchRoom extends DurableObject<Env> {
     super(ctx, env)
     this.#storage = new MatchStorage(ctx.storage)
     this.#liveConnections = new LiveConnectionHandler(ctx)
-    ctx.blockConcurrencyWhile(async () => {
+    void ctx.blockConcurrencyWhile(async () => {
       this.#storage.migrate()
     })
   }

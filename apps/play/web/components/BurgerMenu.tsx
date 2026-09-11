@@ -48,7 +48,7 @@ export function BurgerMenu(props: { placement?: 'header' | 'navigation' }) {
   function changeTheme(values: string[]) {
     const theme = values[0]
     if (isAppTheme(theme) && theme !== currentTheme) {
-      fetcher.submit({ theme }, { method: 'post', action: '/ui-preferences/theme/' })
+      void fetcher.submit({ theme }, { method: 'post', action: '/ui-preferences/theme/' })
     }
   }
 

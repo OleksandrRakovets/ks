@@ -73,9 +73,9 @@ test('withholds completing delivery, refuses new sockets, then delivers and clos
   await stub.submitCommand(matchCompletingCommand())
   expect((await stub.fetch(liveRequest(matchId))).status).toBe(410)
   const terminal = nextMessage(socket)
-  const closed = new Promise<CloseEvent>((resolve) =>
-    socket.addEventListener('close', (event) => resolve(event), { once: true }),
-  )
+  const closed = new Promise<CloseEvent>((resolve) => {
+    socket.addEventListener('close', (event) => resolve(event), { once: true })
+  })
   await stub.finalize()
   expect(await terminal).toMatchObject({
     type: 'update',

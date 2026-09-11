@@ -31,7 +31,7 @@ export default function FreePyramidControlRoute() {
     data.controlState === 'frame-active' ? data.game.score : (snapshotFrame?.pointsBySeat ?? { A: 0, B: 0 })
   function submitCommand(command: MatchCommand) {
     markLocalSubmit()
-    fetcher.submit(matchCommandForm(command), { method: 'post' })
+    void fetcher.submit(matchCommandForm(command), { method: 'post' })
   }
   return (
     <main className="flex flex-1 flex-col bg-surface">

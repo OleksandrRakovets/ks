@@ -40,7 +40,7 @@ export default function FreePyramidLongControlRoute() {
       : undefined
   function submitCommand(command: MatchCommand) {
     markLocalSubmit()
-    fetcher.submit(matchCommandForm(command), { method: 'post' })
+    void fetcher.submit(matchCommandForm(command), { method: 'post' })
   }
   return (
     <main className="flex flex-1 flex-col bg-surface">

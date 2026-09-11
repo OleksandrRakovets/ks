@@ -267,12 +267,10 @@ function decodeCommand(row: typeof schema.commands.$inferSelect): MatchCommand {
 
 function decodeCommandReceipt(row: typeof schema.commands.$inferSelect): CommandReceipt {
   try {
-    return v.parse(
-      CommandReceipt,
-      row.outcome === 'accepted'
-        ? { _tag: 'accepted', acceptedSeq: row.acceptedSeq }
-        : { _tag: 'rejected', reason: JSON.parse(row.rejectionJson ?? '') },
-    )
+    if (row.outcome === 'accepted')
+      return v.parse(CommandReceipt, { _tag: 'accepted', acceptedSeq: row.acceptedSeq })
+    const rejectionReason: unknown = JSON.parse(row.rejectionJson ?? '')
+    return v.parse(CommandReceipt, { _tag: 'rejected', reason: rejectionReason })
   } catch {
     throw new Error(`MatchRoom commands storage corruption for command ${row.commandId}`)
   }

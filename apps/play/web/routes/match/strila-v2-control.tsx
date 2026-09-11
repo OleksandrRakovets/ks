@@ -38,7 +38,7 @@ export default function StrilaV2ControlRoute() {
 
   function submitCommand(command: MatchCommand) {
     markLocalSubmit()
-    fetcher.submit(matchCommandForm(command), { method: 'post' })
+    void fetcher.submit(matchCommandForm(command), { method: 'post' })
   }
 
   return (

@@ -53,6 +53,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const iconVariant = data?.iconVariant ?? 'amber'
   const iconPath = iconBasePath(iconVariant)
 
+  // The DOM library declares document globally, but server rendering does not provide it at runtime.
+  // oxlint-disable-next-line typescript/no-unnecessary-condition
   if (!globalThis.document && i18n.resolvedLanguage !== locale) {
     void i18n.changeLanguage(locale)
   }

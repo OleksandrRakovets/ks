@@ -85,6 +85,7 @@ function buildFrameActor() {
         inspect: inspectorInspect,
       })
   }
+  throw new Error('Unsupported frame game')
 }
 
 const MATCH_CREATE_REQUEST: CreateMatchRequest = {
@@ -136,7 +137,7 @@ function rebuildCurrentActor() {
 }
 
 function renderFrame() {
-  const snap = frameActor.getSnapshot()
+  const snap: unknown = frameActor.getSnapshot()
   switch (frameGame) {
     case 'strila-v2':
       // SAFETY: frameGame selects the Strila actor built above.
@@ -358,13 +359,11 @@ function renderMatchControls(snap: SparringMatchSnapshot) {
     )
     return
   }
-  if (phase === 'frame-in-progress') {
-    controls.append(
-      el('div', 'Complete the active frame with a synthetic outcome.', 'frame-info'),
-      btn('Complete frame: A wins', () => completeMatchFrame(snap, 'A'), 'primary'),
-      btn('Complete frame: B wins', () => completeMatchFrame(snap, 'B'), 'primary'),
-    )
-  }
+  controls.append(
+    el('div', 'Complete the active frame with a synthetic outcome.', 'frame-info'),
+    btn('Complete frame: A wins', () => completeMatchFrame(snap, 'A'), 'primary'),
+    btn('Complete frame: B wins', () => completeMatchFrame(snap, 'B'), 'primary'),
+  )
 }
 
 function completeMatchFrame(snap: SparringMatchSnapshot, winnerSeat: 'A' | 'B') {
