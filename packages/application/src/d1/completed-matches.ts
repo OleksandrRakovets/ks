@@ -65,10 +65,10 @@ type StructuralObject = { readonly [key: string]: StructuralValue }
 function structuralEqual(left: StructuralValue, right: StructuralValue): boolean {
   if (Object.is(left, right)) return true
   if (left === null || right === null || Object(left) !== left || Object(right) !== right) return false
-  if (Array.isArray(left) || Array.isArray(right))
+  if (isStructuralArray(left) || isStructuralArray(right))
     return (
-      Array.isArray(left) &&
-      Array.isArray(right) &&
+      isStructuralArray(left) &&
+      isStructuralArray(right) &&
       left.length === right.length &&
       left.every((value, index) => structuralEqual(value, right[index]))
     )
@@ -82,6 +82,10 @@ function structuralEqual(left: StructuralValue, right: StructuralValue): boolean
     keys.length === rightKeys.length &&
     keys.every((key) => Object.hasOwn(rightObject, key) && structuralEqual(leftObject[key], rightObject[key]))
   )
+}
+
+function isStructuralArray(value: StructuralValue): value is readonly StructuralValue[] {
+  return Array.isArray(value)
 }
 
 export async function archiveCompletedMatch(

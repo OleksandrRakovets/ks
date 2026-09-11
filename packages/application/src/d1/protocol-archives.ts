@@ -59,16 +59,19 @@ export async function getProtocolArchive(
           }
         })
       : entries
-    const firstEntry = normalizedEntries[0]
-    if (!firstEntry) throw new Error('Protocol archive contains no entries')
     return {
       ...archive,
-      entries: [firstEntry, ...normalizedEntries.slice(1)],
+      // SAFETY: entries is non-empty by schema, and mapping preserves its length.
+      entries: normalizedEntries as NonEmptyProtocolEntries,
     }
   } catch {
-    if (row.protocolVersion !== PROTOCOL_ARCHIVE_VERSION) {
+    if (!isSupportedProtocolArchiveVersion(row.protocolVersion)) {
       throw new UnsupportedProtocolArchiveVersionError(matchId, row.protocolVersion)
     }
     throw new ProtocolArchiveCorruptionError(matchId)
   }
+}
+
+function isSupportedProtocolArchiveVersion(version: number): boolean {
+  return version === PROTOCOL_ARCHIVE_VERSION
 }

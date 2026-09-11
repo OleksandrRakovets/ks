@@ -5,7 +5,7 @@ import { matches, StoredMatchStatus } from './schema'
 import type { ApplicationDatabase } from './types'
 
 export async function listMatchRows(db: ApplicationDatabase) {
-  return await db
+  return db
     .select({
       matchId: matches.matchId,
       gameKey: matches.gameKey,

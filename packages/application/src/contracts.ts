@@ -113,10 +113,10 @@ export type Application = {
     locale: SupportedLocale,
     expectedGameKey: K,
   ): Promise<ReadMatchControlResult<K>>
-  submitMatchCommand<K extends RegisteredGameKey>(
+  submitMatchCommand(
     matchId: MatchId,
     command: MatchCommand,
-    expectedGameKey: K,
+    expectedGameKey: RegisteredGameKey,
   ): Promise<SubmitMatchCommandResult>
   readMatchProtocol<K extends RegisteredGameKey>(
     matchId: MatchId,

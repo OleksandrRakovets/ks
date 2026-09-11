@@ -45,18 +45,18 @@ export function createApplication(bindings: ApplicationBindings) {
     newMatchId,
     newControlSecret,
     now: nowUnixEpochMilliseconds,
-    getOrCreateGuestPlayerRef: async (displayName) => await getOrCreateGuestPlayerRef(db, displayName),
-    hydrateParticipant: async (playerRef, locale) => await hydrateParticipant(db, playerRef, locale),
+    getOrCreateGuestPlayerRef: async (displayName) => getOrCreateGuestPlayerRef(db, displayName),
+    hydrateParticipant: async (playerRef, locale) => hydrateParticipant(db, playerRef, locale),
     listMatchRecords: async () => (await listMatchRows(db)).map(matchRecordFromRow),
     getMatchRecord: async (matchId) => {
       const row = await getMatchRow(db, matchId)
       return row ? matchRecordFromRow(row) : null
     },
-    getProtocolArchive: async (matchId) => await getProtocolArchive(db, matchId),
-    beginMatchCreation: async (input) => await beginMatchCreation(db, input),
-    activateMatch: async (matchId) => await activateMatch(db, matchId),
-    archiveCompletedMatch: async (input) => await archiveCompletedMatch(db, input),
-    markMatchFinished: async (matchId, endedAt) => await markMatchFinished(db, matchId, endedAt),
+    getProtocolArchive: async (matchId) => getProtocolArchive(db, matchId),
+    beginMatchCreation: async (input) => beginMatchCreation(db, input),
+    activateMatch: async (matchId) => activateMatch(db, matchId),
+    archiveCompletedMatch: async (input) => archiveCompletedMatch(db, input),
+    markMatchFinished: async (matchId, endedAt) => markMatchFinished(db, matchId, endedAt),
     matchRoomClient: (matchId) => bindings.MATCH_ROOM.getByName(matchId),
   })
 }

@@ -72,6 +72,8 @@ function entryMessage(
   const commandType = body.commandType ?? null
 
   switch (commandType) {
+    case null:
+      break
     case 'frame.commence':
       return { key: 'match.protocol.commands.frame.commence', actor }
     case 'pot.record': {
@@ -102,6 +104,8 @@ function entryMessage(
       return { key: 'match.protocol.commands.foul.commit.default', actor }
     case 'penalty.select':
       switch (body.choice) {
+        case undefined:
+          return { key: 'match.protocol.commands.penalty.select.default', actor }
         case 'play-from-position':
           return { key: 'match.protocol.commands.penalty.select.play-from-position', actor }
         case 'pass-position':
@@ -131,6 +135,8 @@ function entryMessage(
       return { key: 'match.protocol.system.match-ended', actor }
     case 'automatic-foul':
       switch (body.reason) {
+        case undefined:
+          return { key: 'match.protocol.system.automatic-foul.default' }
         case 'third-consecutive-cue-ball-pot':
           return { key: 'match.protocol.system.automatic-foul.third-consecutive-cue-ball-pot' }
         case 'illegal-ball-in-hand-pot':
@@ -142,6 +148,8 @@ function entryMessage(
       }
     case 'winner-determined':
       switch (body.reason) {
+        case undefined:
+          return { key: 'match.protocol.system.winner-determined.default' }
         case 'target-reached':
           return { key: 'match.protocol.system.winner-determined.target-reached' }
         case 'table-cleared':
@@ -161,7 +169,7 @@ function entryMessage(
       return { key: 'match.protocol.system.respotted-black-declared' }
   }
 
-  return { key: 'match.protocol.unknown', params: { value: commandType ?? systemType ?? entry.entryType } }
+  return { key: 'match.protocol.unknown', params: { value: commandType ?? systemType } }
 }
 
 export function renderProtocolRows(

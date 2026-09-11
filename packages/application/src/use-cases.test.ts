@@ -249,14 +249,19 @@ describe('trusted MatchRoom orchestration', () => {
 
   test('does not synthesize transport failures for thrown MatchRoom defects', async () => {
     const defect = new Error('room defect')
-    const room = selectedClient({ submitCommand: async () => await Promise.reject(defect) })
-    await expect(
-      application(room).submitMatchCommand(
+    const room = selectedClient({ submitCommand: () => Promise.reject(defect) })
+    let error: Error | undefined
+    try {
+      await application(room).submitMatchCommand(
         matchId,
         { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } },
         'free-pyramid',
-      ),
-    ).rejects.toBe(defect)
+      )
+    } catch (reason) {
+      if (!(reason instanceof Error)) throw reason
+      error = reason
+    }
+    expect(error).toBe(defect)
   })
 
   test('does not finalize when archival fails before or after persistence and converges on retry', async () => {
@@ -279,11 +284,16 @@ describe('trusted MatchRoom orchestration', () => {
       },
     })
     const command = { commandId: newCommandId(), source: 'match' as const, command: { type: 'frame.prepare' } }
-    await expect(app.submitMatchCommand(matchId, command, 'free-pyramid')).rejects.toThrow(
-      'lost archive response',
-    )
+    let archiveError: Error | undefined
+    try {
+      await app.submitMatchCommand(matchId, command, 'free-pyramid')
+    } catch (reason) {
+      if (!(reason instanceof Error)) throw reason
+      archiveError = reason
+    }
+    expect(archiveError?.message).toBe('lost archive response')
     expect(events).toEqual(['archive-persisted-response-lost'])
-    await expect(app.submitMatchCommand(matchId, command, 'free-pyramid')).resolves.toMatchObject({ ok: true })
+    expect(await app.submitMatchCommand(matchId, command, 'free-pyramid')).toMatchObject({ ok: true })
     expect(events).toEqual(['archive-persisted-response-lost', 'archive-retry', 'finalize', 'finish'])
   })
 })

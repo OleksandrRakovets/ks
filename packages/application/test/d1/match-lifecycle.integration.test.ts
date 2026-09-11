@@ -57,18 +57,17 @@ function completedMatchTransfer(id = matchId): MatchRoomCompletionTransfer {
     { commandId: newCommandId(), source: 'game', command: { type: 'frame.award', seat: 'A' } },
   ] satisfies MatchCommand[]) {
     const decision = session.execute(command)
-    if (decision._tag !== 'accepted')
-      throw new Error(`Fixture command rejected: ${String(command.command.type)}`)
+    if (decision._tag !== 'accepted') throw new Error(`Fixture command rejected: ${command.command.type}`)
     acceptedSeq += 1
-    decision.protocolEntryContents.forEach((entry, entryIndex) =>
+    decision.protocolEntryContents.forEach((entry, entryIndex) => {
       protocolEntries.push({
         ...entry,
         acceptedSeq,
         entryIndex,
         causedByCommandId: command.commandId,
         acceptedAt,
-      }),
-    )
+      })
+    })
   }
   const finalState = session.project().state
   if (finalState.status !== 'finished') throw new Error('Fixture did not finish')
@@ -192,7 +191,7 @@ describe('real D1 match lifecycle', () => {
     ]
 
     const results = await Promise.allSettled(
-      candidates.map(async (candidate) => await archiveCompletedMatch(db, candidate)),
+      candidates.map(async (candidate) => archiveCompletedMatch(db, candidate)),
     )
 
     expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1)

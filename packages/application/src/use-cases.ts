@@ -125,7 +125,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
 
   async function listMatches(locale: SupportedLocale): Promise<MatchListEntry[]> {
     const records = await dependencies.listMatchRecords()
-    return await Promise.all(
+    return Promise.all(
       records.map(async (record) => ({
         matchId: record.matchId,
         gameKey: record.gameKey,
@@ -149,14 +149,14 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     if (!record || record.gameKey !== expectedGameKey)
       return { ok: false, error: 'Unknown match', status: 404 }
     if (record.status === 'finished') {
-      return await readArchivedMatch(record, locale, expectedGameKey)
+      return readArchivedMatch(record, locale, expectedGameKey)
     }
     if (record.status !== 'active') return { ok: false, error: 'Unknown match', status: 404 }
 
     const roomResult = await dependencies.matchRoomClient(matchId).getControls()
     if (roomResult._tag === 'finalizing') {
       await archiveAndFinishRoom(matchId)
-      return await readArchivedMatch(record, locale, expectedGameKey)
+      return readArchivedMatch(record, locale, expectedGameKey)
     }
     if (roomResult.state.matchId !== matchId || roomResult.state.gameKey !== expectedGameKey)
       throw new Error('MatchRoom active identity conflicts with D1')
@@ -170,7 +170,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     }
     if (roomResult.game !== undefined) {
       // SAFETY: the preceding MatchRoom state key check correlates its game presentation with expectedGameKey.
-      result.game = roomResult.game as GamePresentationFor<K>
+      result.game = roomResult.game
     }
     return result
   }
@@ -189,10 +189,10 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
       : { ...withoutGame, controlState: 'between-frames', controls: match.controls }
   }
 
-  async function submitMatchCommand<K extends RegisteredGameKey>(
+  async function submitMatchCommand(
     matchId: MatchId,
     command: MatchCommand,
-    expectedGameKey: K,
+    expectedGameKey: RegisteredGameKey,
   ): Promise<SubmitMatchCommandResult> {
     const record = await dependencies.getMatchRecord(matchId)
     if (!record || record.gameKey !== expectedGameKey)
