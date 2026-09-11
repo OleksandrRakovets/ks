@@ -1,13 +1,5 @@
 import type { ProtocolRow, ReadMatchControlResult, ReadMatchProtocolResult } from '@ks/application'
-import {
-  type BySeatNumber,
-  type Control,
-  MatchCommand,
-  MatchId,
-  type MatchState,
-  MatchStreamReady,
-  MatchStreamUpdate,
-} from '@ks/core'
+import { type BySeatNumber, type Control, MatchCommand, MatchId, type MatchState } from '@ks/core'
 import { type RegisteredGameKey, registry } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
 import type { TFunction } from 'i18next'
@@ -18,6 +10,7 @@ import * as v from 'valibot'
 
 import { Button } from '@/components/ui'
 import { matchCommandFromControl } from '@/features/match-control/renderers/types'
+import { subscribeSparringMatchLive } from '@/live/sparring-match-live-client'
 
 import { localeFromContext } from '../../locale'
 import type { AppLoadContext } from '../../server/context'
@@ -56,8 +49,6 @@ export type ControlActionData =
 type ControlActionErrorKey = Extract<ControlActionData, { ok: false }>['errorKey']
 
 const SubmittedMatchCommand = v.pipe(v.string(), v.parseJson(), MatchCommand)
-const StreamReadyEvent = v.pipe(v.string(), v.parseJson(), MatchStreamReady)
-const StreamUpdateEvent = v.pipe(v.string(), v.parseJson(), MatchStreamUpdate)
 
 function matchIdFromParams(params: RouteArgs['params']): MatchId {
   const matchId = v.safeParse(MatchId, params.matchId)
@@ -148,15 +139,12 @@ export type ControlLiveEvent =
   | { type: 'submit-started' }
   | { type: 'submit-finished' }
   | { type: 'accepted'; seq: number }
-  | { type: 'ready'; seq: number }
   | { type: 'update'; seq: number }
   | { type: 'match-ended'; seq: number }
-  | { type: 'error' }
 
 export type ControlLiveTransition = {
   state: ControlLiveState
   revalidate: boolean
-  close: boolean
 }
 
 export function transitionControlLive(
@@ -164,76 +152,30 @@ export function transitionControlLive(
   event: ControlLiveEvent,
 ): ControlLiveTransition {
   if (event.type === 'snapshot') {
-    return { state: { ...state, latestSeq: event.latestSeq }, revalidate: false, close: false }
+    return { state: { ...state, latestSeq: event.latestSeq }, revalidate: false }
   }
   if (event.type === 'submit-started') {
-    return { state: { ...state, localSubmitInFlight: true }, revalidate: false, close: false }
+    return { state: { ...state, localSubmitInFlight: true }, revalidate: false }
   }
   if (event.type === 'submit-finished') {
-    return { state: { ...state, localSubmitInFlight: false }, revalidate: false, close: false }
+    return { state: { ...state, localSubmitInFlight: false }, revalidate: false }
   }
   if (event.type === 'accepted') {
     return {
       state: { ...state, suppressUntilSeq: Math.max(state.suppressUntilSeq, event.seq) },
       revalidate: false,
-      close: false,
     }
   }
   if (event.type === 'match-ended') {
     return {
       state: { ...state, latestSeq: Math.max(state.latestSeq, event.seq) },
       revalidate: true,
-      close: true,
     }
   }
-  if (event.type === 'error') return { state, revalidate: true, close: false }
-  if (event.type === 'ready') return { state, revalidate: false, close: false }
-  if (event.seq <= state.latestSeq) return { state, revalidate: false, close: false }
+  if (event.seq <= state.latestSeq) return { state, revalidate: false }
   return {
     state: { ...state, latestSeq: event.seq },
     revalidate: !state.localSubmitInFlight && event.seq > state.suppressUntilSeq,
-    close: false,
-  }
-}
-
-export type ControlLiveSource = {
-  addEventListener(type: 'ready' | 'ev' | 'error', listener: (event: Event) => void): void
-  removeEventListener(type: 'ready' | 'ev' | 'error', listener: (event: Event) => void): void
-  close(): void
-}
-
-export function subscribeControlLive(args: {
-  matchId: MatchId
-  since: number
-  createSource: (url: string) => ControlLiveSource
-  applyEvent: (event: ControlLiveEvent, source: ControlLiveSource) => void
-}): () => void {
-  const source = args.createSource(`/api/m/${args.matchId}/stream/?since=${args.since}`)
-  const onReady = (event: Event) => {
-    if (!(event instanceof MessageEvent)) return
-    const parsed = v.safeParse(StreamReadyEvent, event.data)
-    if (parsed.success) args.applyEvent({ type: 'ready', seq: parsed.output.latestSeq }, source)
-  }
-  const onEvent = (event: Event) => {
-    if (!(event instanceof MessageEvent)) return
-    const parsed = v.safeParse(StreamUpdateEvent, event.data)
-    if (!parsed.success) return
-    args.applyEvent(
-      parsed.output.completesMatch
-        ? { type: 'match-ended', seq: parsed.output.acceptedSeq }
-        : { type: 'update', seq: parsed.output.acceptedSeq },
-      source,
-    )
-  }
-  const onError = () => args.applyEvent({ type: 'error' }, source)
-  source.addEventListener('ready', onReady)
-  source.addEventListener('ev', onEvent)
-  source.addEventListener('error', onError)
-  return () => {
-    source.removeEventListener('ready', onReady)
-    source.removeEventListener('ev', onEvent)
-    source.removeEventListener('error', onError)
-    source.close()
   }
 }
 
@@ -249,20 +191,46 @@ export function useControlLiveRevalidation(
     localSubmitInFlight: false,
   })
   const revalidateRef = useRef(revalidator.revalidate)
+  const revalidatorStateRef = useRef(revalidator.state)
+  const loaderLatestSeqRef = useRef(latestSeq)
+  const targetSeqRef = useRef(latestSeq)
 
-  function applyLiveEvent(event: ControlLiveEvent, stream?: ControlLiveSource) {
+  function drainRevalidation() {
+    if (
+      !liveStateRef.current.localSubmitInFlight &&
+      revalidatorStateRef.current === 'idle' &&
+      loaderLatestSeqRef.current < targetSeqRef.current
+    ) {
+      revalidatorStateRef.current = 'loading'
+      revalidateRef.current()
+    }
+  }
+
+  function requestRevalidation(seq: number) {
+    targetSeqRef.current = Math.max(targetSeqRef.current, seq)
+    drainRevalidation()
+  }
+
+  function applyLiveEvent(event: ControlLiveEvent) {
+    if (event.type === 'update' || event.type === 'match-ended') {
+      targetSeqRef.current = Math.max(targetSeqRef.current, event.seq)
+    }
     const transition = transitionControlLive(liveStateRef.current, event)
     liveStateRef.current = transition.state
-    if (transition.close) stream?.close()
-    if (transition.revalidate) revalidateRef.current()
+    if (transition.revalidate || event.type === 'submit-finished') drainRevalidation()
   }
 
   useEffect(() => {
     revalidateRef.current = revalidator.revalidate
   }, [revalidator.revalidate])
   useEffect(() => {
+    revalidatorStateRef.current = revalidator.state
+  }, [revalidator.state])
+  useEffect(() => {
+    loaderLatestSeqRef.current = latestSeq
     applyLiveEvent({ type: 'snapshot', latestSeq })
-  }, [latestSeq])
+    requestRevalidation(targetSeqRef.current)
+  }, [latestSeq, revalidator.state])
   useEffect(() => {
     if (fetcher.data?.ok && fetcher.data.acceptedSeqMax != null) {
       applyLiveEvent({ type: 'accepted', seq: fetcher.data.acceptedSeqMax })
@@ -274,12 +242,28 @@ export function useControlLiveRevalidation(
 
   useEffect(() => {
     if (state.status !== 'active') return
-    return subscribeControlLive({
+    const subscription = subscribeSparringMatchLive({
       matchId: state.matchId,
-      since: liveStateRef.current.latestSeq,
-      createSource: (url) => new EventSource(url),
-      applyEvent: applyLiveEvent,
+      pageKind: 'control',
+      currentLatestSeq: () => loaderLatestSeqRef.current,
+      onCaughtUp: requestRevalidation,
+      onUpdate: (update) =>
+        applyLiveEvent(
+          update.completesMatch
+            ? { type: 'match-ended', seq: update.acceptedSeq }
+            : { type: 'update', seq: update.acceptedSeq },
+        ),
+      onConnectionState: (connectionState) => {
+        if (
+          (connectionState === 'disconnected' || connectionState === 'completed') &&
+          revalidatorStateRef.current === 'idle'
+        ) {
+          revalidatorStateRef.current = 'loading'
+          revalidateRef.current()
+        }
+      },
     })
+    return subscription.stop
   }, [state.matchId, state.status])
 
   return () => {
@@ -291,40 +275,46 @@ export function useProtocolLiveRevalidation(state: MatchState, latestSeq: number
   const revalidator = useRevalidator()
   const latestSeqRef = useRef(latestSeq)
   const revalidateRef = useRef(revalidator.revalidate)
+  const revalidatorStateRef = useRef(revalidator.state)
+  const targetSeqRef = useRef(latestSeq)
+
+  function requestRevalidation(seq: number) {
+    targetSeqRef.current = Math.max(targetSeqRef.current, seq)
+    if (revalidatorStateRef.current === 'idle' && latestSeqRef.current < targetSeqRef.current) {
+      revalidatorStateRef.current = 'loading'
+      revalidateRef.current()
+    }
+  }
 
   useEffect(() => {
     revalidateRef.current = revalidator.revalidate
   }, [revalidator.revalidate])
   useEffect(() => {
+    revalidatorStateRef.current = revalidator.state
+  }, [revalidator.state])
+  useEffect(() => {
     latestSeqRef.current = latestSeq
-  }, [latestSeq])
+    requestRevalidation(targetSeqRef.current)
+  }, [latestSeq, revalidator.state])
   useEffect(() => {
     if (state.status !== 'active') return
-    const stream = new EventSource(`/api/m/${state.matchId}/stream/?since=${latestSeqRef.current}`)
-    const onReady = (event: Event) => {
-      if (!(event instanceof MessageEvent)) return
-      const parsed = v.safeParse(StreamReadyEvent, event.data)
-      // ready confirms the highest update already delivered; it never advances the cursor.
-      if (parsed.success && parsed.output.latestSeq !== latestSeqRef.current) revalidateRef.current()
-    }
-    const onEvent = (event: Event) => {
-      if (!(event instanceof MessageEvent)) return
-      const parsed = v.safeParse(StreamUpdateEvent, event.data)
-      if (!parsed.success || parsed.output.acceptedSeq <= latestSeqRef.current) return
-      latestSeqRef.current = parsed.output.acceptedSeq
-      if (parsed.output.completesMatch) stream.close()
-      revalidateRef.current()
-    }
-    const onError = () => revalidateRef.current()
-    stream.addEventListener('ready', onReady)
-    stream.addEventListener('ev', onEvent)
-    stream.addEventListener('error', onError)
-    return () => {
-      stream.removeEventListener('ready', onReady)
-      stream.removeEventListener('ev', onEvent)
-      stream.removeEventListener('error', onError)
-      stream.close()
-    }
+    const subscription = subscribeSparringMatchLive({
+      matchId: state.matchId,
+      pageKind: 'protocol',
+      currentLatestSeq: () => latestSeqRef.current,
+      onCaughtUp: requestRevalidation,
+      onUpdate: (update) => requestRevalidation(update.acceptedSeq),
+      onConnectionState: (connectionState) => {
+        if (
+          (connectionState === 'disconnected' || connectionState === 'completed') &&
+          revalidatorStateRef.current === 'idle'
+        ) {
+          revalidatorStateRef.current = 'loading'
+          revalidateRef.current()
+        }
+      },
+    })
+    return subscription.stop
   }, [state.matchId, state.status])
 }
 

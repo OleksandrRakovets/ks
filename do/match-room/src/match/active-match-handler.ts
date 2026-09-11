@@ -1,7 +1,7 @@
 import type { SparringMatchRoomProjection } from '@ks/competition'
-import type { MatchCommand, MatchStreamUpdate, ProtocolEntry } from '@ks/core'
+import type { MatchCommand, ProtocolEntry } from '@ks/core'
 
-import { Broadcaster } from '../live/broadcaster'
+import { type LiveConnectionCursor, LiveConnectionHandler } from '../live/live-connection-handler'
 import {
   type CommandReceipt,
   MatchStorage,
@@ -12,14 +12,14 @@ import { ResidentMatch, type ResidentState } from './resident-match'
 
 export class ActiveMatchHandler {
   readonly #storage: MatchStorage
-  readonly #broadcaster: Broadcaster
+  readonly #liveConnections: LiveConnectionHandler
   readonly #resident: ResidentMatch
   #storedMatch: StoredActiveMatch
   #state: ResidentState
 
-  constructor(storage: MatchStorage, broadcaster: Broadcaster, storedMatch: StoredActiveMatch) {
+  constructor(storage: MatchStorage, liveConnections: LiveConnectionHandler, storedMatch: StoredActiveMatch) {
     this.#storage = storage
-    this.#broadcaster = broadcaster
+    this.#liveConnections = liveConnections
     this.#storedMatch = storedMatch
     this.#resident = new ResidentMatch()
     this.#state = this.#resident.restore(
@@ -68,7 +68,7 @@ export class ActiveMatchHandler {
         result.protocolEntryContents,
       )
       // Delivery of the match-completing acceptance waits until application has archived the Match in D1.
-      if (!committed.streamUpdate.completesMatch) this.#broadcaster.broadcast(committed.streamUpdate)
+      if (!committed.streamUpdate.completesMatch) this.#liveConnections.broadcast(committed.streamUpdate)
       const response: ActiveCommandResult = {
         _tag: 'accepted',
         acceptedSeq: committed.receipt.acceptedSeq,
@@ -101,11 +101,8 @@ export class ActiveMatchHandler {
     }
   }
 
-  stream(since = 0): ActiveStreamResult {
-    const backlog: MatchStreamUpdate[] = []
-    for (let acceptedSeq = since + 1; acceptedSeq <= this.#storedMatch.latestSeq; acceptedSeq += 1)
-      backlog.push({ type: 'command-accepted', acceptedSeq, completesMatch: false })
-    return { _tag: 'active', response: this.#broadcaster.stream(this.#storedMatch.latestSeq, backlog) }
+  liveConnectionCursor(): LiveConnectionCursor {
+    return { matchId: this.#storedMatch.matchId, latestSeq: this.#storedMatch.latestSeq }
   }
 }
 
@@ -138,5 +135,3 @@ type ActiveCommandResult =
       readonly completesMatch: boolean
     }
   | Extract<CommandReceipt, { _tag: 'rejected' }>
-
-export type ActiveStreamResult = { readonly _tag: 'active'; readonly response: Response }

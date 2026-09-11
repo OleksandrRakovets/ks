@@ -1,8 +1,8 @@
-import type { MatchCommand } from '@ks/core'
+import { type MatchCommand } from '@ks/core'
 import { DurableObject } from 'cloudflare:workers'
 
 import type { Env } from './env'
-import { Broadcaster } from './live/broadcaster'
+import { LiveConnectionHandler } from './live/live-connection-handler'
 import { ActiveMatchHandler } from './match/active-match-handler'
 import { FinalizingMatchHandler } from './match/finalizing-match-handler'
 import { initializeMatch, type InitializeMatchInput } from './match/initialize-match'
@@ -10,13 +10,13 @@ import { MatchStorage } from './storage/match-storage'
 
 export class MatchRoom extends DurableObject<Env> {
   readonly #storage: MatchStorage
-  readonly #broadcaster: Broadcaster
+  readonly #liveConnections: LiveConnectionHandler
   #handler: ActiveMatchHandler | FinalizingMatchHandler | null = null
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
     this.#storage = new MatchStorage(ctx.storage)
-    this.#broadcaster = new Broadcaster()
+    this.#liveConnections = new LiveConnectionHandler(ctx)
     ctx.blockConcurrencyWhile(async () => {
       this.#storage.migrate()
     })
@@ -36,7 +36,7 @@ export class MatchRoom extends DurableObject<Env> {
       if (outcome.next)
         this.#handler = new FinalizingMatchHandler(
           this.#storage,
-          this.#broadcaster,
+          this.#liveConnections,
           outcome.next.storedMatch,
           outcome.next.resident,
         )
@@ -55,9 +55,29 @@ export class MatchRoom extends DurableObject<Env> {
     return this.#requireHandler().getProtocol()
   }
 
-  async stream(since?: number) {
+  /**
+   * Serves only the dedicated WebSocket handshake forwarded by Play; it is not a general HTTP API.
+   * Validation, synchronous cursor capture, and socket acceptance remain in one event turn with no await.
+   */
+  fetch(request: Request): Response {
+    const pageKind = this.#liveConnections.validateHandshake(request)
+    if (!pageKind) return new Response('Invalid live request', { status: 400 })
     const handler = this.#requireHandler()
-    return handler instanceof ActiveMatchHandler ? handler.stream(since) : handler.stream()
+    return handler instanceof ActiveMatchHandler
+      ? this.#liveConnections.connect(handler.liveConnectionCursor(), pageKind)
+      : new Response('Match is finalizing', { status: 410 })
+  }
+
+  webSocketMessage(socket: WebSocket): void {
+    this.#liveConnections.receiveMessage(socket)
+  }
+
+  webSocketClose(socket: WebSocket, code: number, reason: string, wasClean: boolean): void {
+    this.#liveConnections.recordClose(socket, code, reason, wasClean)
+  }
+
+  webSocketError(socket: WebSocket, error: Error): void {
+    this.#liveConnections.recordError(socket, error)
   }
 
   async prepareArchive() {
@@ -78,8 +98,8 @@ export class MatchRoom extends DurableObject<Env> {
     if (!storedMatch) throw new Error('MatchRoom storage missing')
     this.#handler =
       storedMatch.status === 'active'
-        ? new ActiveMatchHandler(this.#storage, this.#broadcaster, storedMatch)
-        : new FinalizingMatchHandler(this.#storage, this.#broadcaster, storedMatch)
+        ? new ActiveMatchHandler(this.#storage, this.#liveConnections, storedMatch)
+        : new FinalizingMatchHandler(this.#storage, this.#liveConnections, storedMatch)
     return this.#handler
   }
 }

@@ -54,11 +54,6 @@ export async function makeRoomFinalizing(stub: ReturnType<typeof env.MATCH_ROOM.
   return command
 }
 
-export async function readEvent(reader: ReadableStreamDefaultReader<Uint8Array>): Promise<string> {
-  const result = await reader.read()
-  return result.done ? '' : new TextDecoder().decode(result.value)
-}
-
 export async function captureRpcError(operation: () => Promise<void>): Promise<Error> {
   try {
     await operation()

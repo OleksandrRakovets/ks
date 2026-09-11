@@ -5,7 +5,7 @@ import type { MatchRoom } from '@ks/match-room'
 // Play's generated binding verifies transport compatibility; the type-only import adds no runtime dependency.
 export type MatchRoomClient = Pick<
   MatchRoom,
-  'initialize' | 'submitCommand' | 'getControls' | 'getProtocol' | 'stream' | 'prepareArchive' | 'finalize'
+  'initialize' | 'submitCommand' | 'getControls' | 'getProtocol' | 'prepareArchive' | 'finalize'
 >
 
 export type MatchRoomInitializationInput = Parameters<MatchRoomClient['initialize']>[0]

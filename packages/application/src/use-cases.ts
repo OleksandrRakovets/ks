@@ -310,18 +310,13 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     readMatchControl,
     submitMatchCommand,
     readMatchProtocol,
-    streamMatchUpdates: async (matchId, since) => {
+    admitSparringMatchLive: async (matchId) => {
       const record = await dependencies.getMatchRecord(matchId)
-      if (!record) return Response.json({ ok: false, error: 'Unknown match' }, { status: 404 })
-      if (record.status === 'finished') {
-        return Response.json({ ok: false, error: 'Match is finished' }, { status: 410 })
-      }
-      if (record.status !== 'active')
-        return Response.json({ ok: false, error: 'Unknown match' }, { status: 404 })
-      const stream = await dependencies.matchRoomClient(matchId).stream(since)
-      if (stream._tag === 'active') return stream.response
-      await archiveAndFinishRoom(matchId)
-      return Response.json({ ok: false, error: 'Match is finished' }, { status: 410 })
+      if (!record) return { _tag: 'unknown' }
+      if (record.status === 'finished') return { _tag: 'finished' }
+      if (record.status === 'creating')
+        throw new Error('Creating Match cannot be admitted to the live transport')
+      return { _tag: 'admitted' }
     },
   }
 }

@@ -5,15 +5,9 @@ import { newCommandId, newMatchId } from '@ks/core'
 import { keys } from '@ks/i18n'
 import { RouterContextProvider } from 'react-router'
 
+import { subscribeSparringMatchLive } from '../../live/sparring-match-live-client'
 import { type AppLoadContext, cloudflareContext } from '../../server/context'
-import {
-  commandMatchAction,
-  type ControlLiveEvent,
-  type ControlLiveSource,
-  type ControlLiveState,
-  subscribeControlLive,
-  transitionControlLive,
-} from './shared'
+import { commandMatchAction, type ControlLiveState, transitionControlLive } from './shared'
 
 const initial: ControlLiveState = { latestSeq: 4, suppressUntilSeq: 4, localSubmitInFlight: false }
 
@@ -73,21 +67,10 @@ describe('commandMatchAction adaptation', () => {
 })
 
 describe('control live transitions', () => {
-  test('ready confirms without advancing and ordinary newer updates revalidate', () => {
-    const ready = transitionControlLive(initial, { type: 'ready', seq: 5 })
-    expect(ready).toEqual({
-      state: initial,
-      revalidate: false,
-      close: false,
-    })
-    expect(transitionControlLive(ready.state, { type: 'update', seq: 6 }).revalidate).toBe(true)
-  })
-
   test('stale updates do nothing', () => {
     expect(transitionControlLive(initial, { type: 'update', seq: 4 })).toEqual({
       state: initial,
       revalidate: false,
-      close: false,
     })
   })
 
@@ -101,120 +84,112 @@ describe('control live transitions', () => {
     expect(transitionControlLive(echoed.state, { type: 'update', seq: 8 }).revalidate).toBe(true)
   })
 
-  test('match end closes and revalidates even when its sequence is stale', () => {
+  test('match end revalidates even when its sequence is stale', () => {
     expect(transitionControlLive(initial, { type: 'match-ended', seq: 3 })).toEqual({
       state: initial,
       revalidate: true,
-      close: true,
-    })
-  })
-
-  test('stream errors revalidate without closing', () => {
-    expect(transitionControlLive(initial, { type: 'error' })).toEqual({
-      state: initial,
-      revalidate: true,
-      close: false,
     })
   })
 })
 
-class FakeEventSource {
-  readonly listeners = new Map<string, Set<(event: Event) => void>>()
-  readonly registrations: string[] = []
-  readonly removals: string[] = []
+class FakeWebSocket extends EventTarget {
+  static instances: FakeWebSocket[] = []
+  readonly url: string
   closeCalls = 0
 
-  addEventListener(type: 'ready' | 'ev' | 'error', listener: (event: Event) => void): void {
-    this.registrations.push(type)
-    const listeners = this.listeners.get(type) ?? new Set()
-    listeners.add(listener)
-    this.listeners.set(type, listeners)
-  }
-
-  removeEventListener(type: 'ready' | 'ev' | 'error', listener: (event: Event) => void): void {
-    this.removals.push(type)
-    this.listeners.get(type)?.delete(listener)
+  constructor(url: string | URL) {
+    super()
+    this.url = String(url)
+    FakeWebSocket.instances.push(this)
   }
 
   close(): void {
     this.closeCalls += 1
   }
 
-  emit(type: 'ready' | 'ev' | 'error', event: Event): void {
-    for (const listener of this.listeners.get(type) ?? []) listener(event)
+  message(data: string): void {
+    this.dispatchEvent(new MessageEvent('message', { data }))
   }
 }
 
-function updateJson(
-  _matchId: ReturnType<typeof newMatchId>,
-  acceptedSeq: number,
-  completesMatch: boolean,
-): string {
-  return JSON.stringify({
-    type: 'command-accepted',
-    acceptedSeq,
-    completesMatch,
+test('live client validates catch-up and sequences updates without replay', async () => {
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: { location: { protocol: 'https:', host: 'play.example' } },
   })
-}
-
-test('control subscription wires, parses, applies, and cleans up the production stream', () => {
+  Object.defineProperty(globalThis, 'WebSocket', { configurable: true, value: FakeWebSocket })
+  FakeWebSocket.instances = []
   const matchId = newMatchId()
-  const source = new FakeEventSource()
-  let createdUrl: string | undefined
-  let state = initial
-  let revalidations = 0
-  const applyEvent = (event: ControlLiveEvent, eventSource: ControlLiveSource) => {
-    const transition = transitionControlLive(state, event)
-    state = transition.state
-    if (transition.close) eventSource.close()
-    if (transition.revalidate) revalidations += 1
-  }
-  const cleanup = subscribeControlLive({
+  const caughtUp: number[] = []
+  const updates: number[] = []
+  const states: string[] = []
+  const subscription = subscribeSparringMatchLive({
     matchId,
-    since: initial.latestSeq,
-    createSource: (url) => {
-      createdUrl = url
-      return source
-    },
-    applyEvent,
+    pageKind: 'control',
+    currentLatestSeq: () => 2,
+    onCaughtUp: (seq) => caughtUp.push(seq),
+    onUpdate: (update) => updates.push(update.acceptedSeq),
+    onConnectionState: (state) => states.push(state),
   })
+  await Promise.resolve()
+  const socket = FakeWebSocket.instances[0]
+  if (!socket) throw new Error('Expected live socket')
+  expect(socket.url).toBe(`wss://play.example/api/sparring-match/${matchId}/live/?contract=1&view=control`)
+  socket.dispatchEvent(new Event('open'))
+  socket.message(JSON.stringify({ contractVersion: 1, type: 'caught-up', matchId, latestSeq: 3 }))
+  socket.message(
+    JSON.stringify({
+      contractVersion: 1,
+      type: 'update',
+      update: { type: 'command-accepted', acceptedSeq: 4, completesMatch: false },
+    }),
+  )
+  socket.message(
+    JSON.stringify({
+      contractVersion: 1,
+      type: 'update',
+      update: { type: 'command-accepted', acceptedSeq: 4, completesMatch: false },
+    }),
+  )
+  expect(caughtUp).toEqual([3])
+  expect(updates).toEqual([4])
+  expect(states).toEqual(['connecting', 'connected'])
+  subscription.stop()
+  expect(socket.closeCalls).toBe(1)
+})
 
-  expect(createdUrl).toBe(`/api/m/${matchId}/stream/?since=4`)
-  expect(source.registrations).toEqual(['ready', 'ev', 'error'])
-
-  source.emit('ready', new MessageEvent('ready', { data: JSON.stringify({ latestSeq: 5 }) }))
-  expect(state.latestSeq).toBe(4)
-  expect(revalidations).toBe(0)
-
-  source.emit('ev', new MessageEvent('ev', { data: updateJson(matchId, 4, false) }))
-  expect(state.latestSeq).toBe(4)
-  expect(revalidations).toBe(0)
-
-  source.emit('ev', new MessageEvent('ev', { data: updateJson(matchId, 6, false) }))
-  expect(state.latestSeq).toBe(6)
-  expect(revalidations).toBe(1)
-
-  state = transitionControlLive(state, { type: 'accepted', seq: 8 }).state
-  source.emit('ev', new MessageEvent('ev', { data: updateJson(matchId, 8, false) }))
-  expect(state.latestSeq).toBe(8)
-  expect(revalidations).toBe(1)
-
-  source.emit('ev', new MessageEvent('ev', { data: '{invalid json' }))
-  source.emit('ready', new Event('ready'))
-  expect(state.latestSeq).toBe(8)
-  expect(revalidations).toBe(1)
-
-  source.emit('error', new Event('error'))
-  expect(revalidations).toBe(2)
-
-  source.emit('ev', new MessageEvent('ev', { data: updateJson(matchId, 9, true) }))
-  expect(state.latestSeq).toBe(9)
-  expect(revalidations).toBe(3)
-  expect(source.closeCalls).toBe(1)
-
-  cleanup()
-  expect(source.removals).toEqual(['ready', 'ev', 'error'])
-  expect(source.closeCalls).toBe(2)
-  source.emit('error', new Event('error'))
-  expect(revalidations).toBe(3)
+test('live client stops and requests catch-up for a gapped completing update', () => {
+  FakeWebSocket.instances = []
+  const matchId = newMatchId()
+  const caughtUp: number[] = []
+  const states: string[] = []
+  const subscription = subscribeSparringMatchLive({
+    matchId,
+    pageKind: 'control',
+    currentLatestSeq: () => 2,
+    onCaughtUp: (seq) => caughtUp.push(seq),
+    onUpdate: () => {},
+    onConnectionState: (state) => states.push(state),
+  })
+  const socket = FakeWebSocket.instances[0]
+  if (!socket) throw new Error('Expected live socket')
+  socket.message(
+    JSON.stringify({
+      contractVersion: 1,
+      type: 'caught-up',
+      matchId,
+      latestSeq: 2,
+    }),
+  )
+  socket.message(
+    JSON.stringify({
+      contractVersion: 1,
+      type: 'update',
+      update: { type: 'command-accepted', acceptedSeq: 4, completesMatch: true },
+    }),
+  )
+  expect(caughtUp).toEqual([4])
+  expect(states).toEqual(['connecting', 'completed'])
+  expect(socket.closeCalls).toBe(1)
+  subscription.stop()
 })
