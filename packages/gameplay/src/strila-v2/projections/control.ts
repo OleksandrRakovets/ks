@@ -209,4 +209,6 @@ export function deriveStrilaControlProjection(snapshot: StrilaSparringFrameSnaps
         situationSummary: 'No further scoring commands are available.',
       })
   }
+
+  throw new Error('Unsupported Strila frame phase')
 }

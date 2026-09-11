@@ -41,7 +41,7 @@ describe('gameplay characterization', () => {
     expectAccepted(opponentPlus.execute({ type: 'frame.commence', seat: 'A' }))
     const freeFoul = expectAccepted(opponentPlus.execute({ type: 'foul.commit', seat: 'A' }))
     expect(opponentPlus.getScore()).toEqual({ A: 0, B: 1 })
-    expect(freeFoul.gameProtocolEntries[0]?.body).toEqual({
+    expect(freeFoul.gameProtocolEntries[0].body).toEqual({
       commandType: 'foul.commit',
       penalty: 'opponent-plus-one',
     })
@@ -55,7 +55,7 @@ describe('gameplay characterization', () => {
     expectAccepted(owed.execute({ type: 'frame.commence', seat: 'A' }))
     const oldFoul = expectAccepted(owed.execute({ type: 'foul.commit', seat: 'A' }))
     expect(owed.getScore()).toEqual({ A: -1, B: 0 })
-    expect(oldFoul.gameProtocolEntries[0]?.body).toEqual({
+    expect(oldFoul.gameProtocolEntries[0].body).toEqual({
       commandType: 'foul.commit',
       penalty: 'offender-minus-one',
     })

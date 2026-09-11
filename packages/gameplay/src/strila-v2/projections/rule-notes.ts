@@ -18,6 +18,13 @@ export function deriveStrilaRuleNotes(
       break
     case 'respotted-black.opening':
       ruleNotes.push({ severity: 'info', code: 'respotted-black-opening' })
+      break
+    case 'frame-over':
+    case 'not-started':
+    case 'open-play':
+    case 'respotted-black.play':
+    case 'winner-determined':
+      break
   }
 
   if (snapshot.context.cueBallSerialPots?.count === 2) {

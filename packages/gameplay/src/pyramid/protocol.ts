@@ -102,4 +102,6 @@ export function createPyramidProtocolEntries(args: {
         }),
       ]
   }
+
+  throw new Error('Unsupported pyramid command')
 }

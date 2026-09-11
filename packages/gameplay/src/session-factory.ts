@@ -34,4 +34,6 @@ export function createGameplaySession(...creation: GameplaySessionCreation): Any
     case 'combined-pyramid-old':
       return createPyramidGameplaySession('combined-pyramid-old', creation[1])
   }
+
+  throw new Error('Unsupported registered game')
 }

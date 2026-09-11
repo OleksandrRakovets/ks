@@ -123,6 +123,8 @@ function createGameplay(key: RegisteredGameKey, config: MatchConfig): AnyCorrela
     case 'combined-pyramid-old':
       return wrapGameplay(key, createGameplaySession(key, { targetPointsBySeat }))
   }
+
+  throw new Error('Unsupported registered game')
 }
 
 function requireGameplay<K extends RegisteredGameKey>(

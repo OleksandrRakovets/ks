@@ -231,6 +231,8 @@ export function deriveLifecycleState(snapshot: SparringMatchSnapshot): SparringM
         winnerSeat: context.winnerSeat!,
       }
   }
+
+  throw new Error('Unsupported sparring match phase')
 }
 
 export function sendLifecycleEvent(

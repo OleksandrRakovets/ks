@@ -24,7 +24,7 @@ import { type PyramidGameKey, type PyramidRulesFor, PyramidRuleSpecificsByGameKe
 class PyramidGameplaySession<K extends PyramidGameKey> implements GameplaySession<K> {
   readonly gameKey: K
   #snapshot: PyramidSparringFrameSnapshot
-  #rules: PyramidRulesFor<K>
+  readonly #rules: PyramidRulesFor<K>
 
   constructor(gameKey: K, args: GameplaySessionCreateArgsFor<K>, rules: PyramidRulesFor<K>) {
     this.gameKey = gameKey
@@ -101,4 +101,6 @@ export function createPyramidGameplaySession(
         PyramidRuleSpecificsByGameKey['combined-pyramid-old'],
       )
   }
+
+  throw new Error('Unsupported pyramid game')
 }

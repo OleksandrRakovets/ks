@@ -99,4 +99,6 @@ export function createLongFreePyramidProtocolEntries(args: {
         }),
       ]
   }
+
+  throw new Error('Unsupported long free pyramid command')
 }

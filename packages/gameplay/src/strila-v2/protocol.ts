@@ -34,6 +34,8 @@ function playerEntry(
       case 'penalty.select':
         return { commandType: command.type, choice: command.choice }
     }
+
+    throw new Error('Unsupported Strila command')
   })()
 
   return v.parse(StrilaProtocolEntry, {

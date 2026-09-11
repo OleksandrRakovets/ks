@@ -15,7 +15,7 @@ import {
 const RESPOTTED_BLACK: readonly StrilaColoredBall[] = [7]
 
 type StrilaSparringFrameMachineInput = {
-  targetPointsBySeat?: BySeatNumber
+  targetPointsBySeat: BySeatNumber | undefined
 }
 
 const FoulSnapshotValue = v.strictObject({
@@ -286,7 +286,7 @@ export const StrilaSparringFrameMachine = setup({
   initial: 'not-started',
   context: ({ input }) => ({
     score: { A: 0, B: 0 },
-    targetPoints: input?.targetPointsBySeat ?? { A: 9, B: 9 },
+    targetPoints: input.targetPointsBySeat ?? { A: 9, B: 9 },
     coloredBallsOnTable: [...StrilaMeta.coloredBalls],
     pottedBallsBySeat: { A: [], B: [] },
     cueBallSerialPots: null,
