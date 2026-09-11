@@ -1,6 +1,6 @@
 import { type Seat } from '@ks/core'
 
-import type { GameControlProjection } from '../../constants'
+import type { GameControl, GameControlProjection } from '../../constants'
 import { ballsOnTableFromRacks, currentRack, removedByRack, totalScore } from '../calculations'
 import type { LongFreePyramidGamePresentation, LongFreePyramidGamePresentationState } from '../definitions'
 import { getPhase, type LongFreePyramidSparringFrameSnapshot } from '../machine'
@@ -30,13 +30,19 @@ export function deriveLongFreePyramidControlProjection(
       : phase === 'open-play'
         ? [
             ...seats.flatMap((seat) =>
-              ([1, 2, 3, 4] as const).slice(0, ballsOnTable).map((pottedBallCount, index) => ({
-                source: 'game' as const,
-                type: 'pot.record',
-                seat,
-                fixedInput: { pottedBallCount },
-                prominence: index === 0 ? ('primary' as const) : ('secondary' as const),
-              })),
+              ([1, 2, 3, 4] as const).reduce<GameControl[]>((controls, pottedBallCount) => {
+                if (pottedBallCount > ballsOnTable) return controls
+
+                controls.push({
+                  source: 'game',
+                  type: 'pot.record',
+                  seat,
+                  fixedInput: { pottedBallCount },
+                  prominence: controls.length === 0 ? 'primary' : 'secondary',
+                })
+
+                return controls
+              }, []),
             ),
             ...seats.map((seat) => ({
               source: 'game' as const,
