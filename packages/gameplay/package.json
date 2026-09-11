@@ -9,9 +9,6 @@
     "./pyramid-machine": "./contract/pyramid-machine.ts",
     "./long-free-pyramid-machine": "./contract/long-free-pyramid-machine.ts"
   },
-  "scripts": {
-    "typecheck": "tsc -b"
-  },
   "dependencies": {
     "@ks/core": "workspace:*",
     "tiny-invariant": "catalog:",

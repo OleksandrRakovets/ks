@@ -48,7 +48,8 @@
     "machine:explore": "bun --cwd apps/machine-explorer dev",
     "test": "bun test",
     "test:integration": "turbo run test:integration --log-order=grouped",
-    "typecheck": "turbo run typecheck --log-order=grouped"
+    "typecheck": "bun run typegen && tsc --build",
+    "typegen": "bun run --filter '@ks/match-room' --filter '@ks/play' typegen"
   },
   "devDependencies": {
     "@oxlint/plugins": "1.81.0",

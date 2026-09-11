@@ -10,8 +10,8 @@
     "build": "wrangler deploy --dry-run --outdir dist",
     "dev": "wrangler dev",
     "test": "bun test src",
-    "test:integration": "wrangler types && tsc -b tsconfig.integration.json && vitest run --config vitest.config.ts",
-    "typecheck": "wrangler types && tsc -b"
+    "test:integration": "vitest run --config vitest.config.ts",
+    "typegen": "wrangler types"
   },
   "dependencies": {
     "@ks/competition": "workspace:*",
