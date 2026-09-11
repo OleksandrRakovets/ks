@@ -23,7 +23,7 @@ function pyramidCommandLabel(t: TFunction, command: Control): string {
   if (command.type !== 'pot.record') return controlLabel(t, command)
   const pottedBallCount = potRecordPottedBallCount(command)
   if (pottedBallCount === undefined) return controlLabel(t, command)
-  return t('match.control.controls.game.pot.pottedBallCount', { pottedBallCount })
+  return t('match.control.commands.game.pot.pottedBallCount', { pottedBallCount })
 }
 
 function buttonVariant(prominence: Control['prominence']): 'primary' | 'secondary' | 'outline' {
