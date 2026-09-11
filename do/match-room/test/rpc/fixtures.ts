@@ -1,6 +1,6 @@
 import { CreateMatchRequest } from '@ks/competition'
 import { newCommandId, newMatchId, PlayerRef, UnixEpochMilliseconds } from '@ks/core'
-import { env } from 'cloudflare:test'
+import { env } from 'cloudflare:workers'
 import * as v from 'valibot'
 
 const request = v.parse(CreateMatchRequest, {

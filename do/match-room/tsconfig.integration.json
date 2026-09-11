@@ -1,10 +1,11 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    "composite": true,
     "noEmit": true,
     "strictNullChecks": true,
     "exactOptionalPropertyTypes": false,
     "types": ["@cloudflare/vitest-plugin/types", "@cloudflare/workers-types", "node"]
   },
-  "include": ["test/**/*.integration.test.ts", "worker-configuration.d.ts"]
+  "include": ["src/**/*", "drizzle/**/*.ts", "test/**/*.ts", "vitest.config.ts", "worker-configuration.d.ts"]
 }

@@ -9,7 +9,7 @@
     "db:seed:local": "wrangler d1 execute ks --local --file ../../d1/seeds/local-players.sql",
     "build": "react-router build",
     "preview": "react-router build && vite preview",
-    "typecheck": "wrangler types --config wrangler.jsonc --config ../../do/match-room/wrangler.jsonc && react-router typegen && tsc -b"
+    "typegen": "wrangler types --config wrangler.jsonc --config ../../do/match-room/wrangler.jsonc && react-router typegen"
   },
   "dependencies": {
     "@base-ui/react": "catalog:",

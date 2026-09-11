@@ -1,5 +1,6 @@
 import { newCommandId } from '@ks/core'
-import { env, evictDurableObject, runInDurableObject } from 'cloudflare:test'
+import { evictDurableObject, runInDurableObject } from 'cloudflare:test'
+import { env } from 'cloudflare:workers'
 import { expect, test } from 'vitest'
 
 import {

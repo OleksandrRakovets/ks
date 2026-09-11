@@ -4,8 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "typecheck": "tsc -b"
+    "dev": "vite"
   },
   "dependencies": {
     "@ks/competition": "workspace:*",

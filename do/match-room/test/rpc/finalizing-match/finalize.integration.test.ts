@@ -1,4 +1,5 @@
-import { env, evictDurableObject, runInDurableObject } from 'cloudflare:test'
+import { evictDurableObject, runInDurableObject } from 'cloudflare:test'
+import { env } from 'cloudflare:workers'
 import { expect, test } from 'vitest'
 
 import { captureRpcError, initializedRoom, makeRoomFinalizing } from '../fixtures'
