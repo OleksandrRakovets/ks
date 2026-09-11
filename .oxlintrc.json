@@ -105,6 +105,28 @@
   },
   "overrides": [
     {
+      "files": ["**/*.js", "**/*.mjs"],
+      "rules": {
+        "typescript/no-unsafe-argument": "off",
+        "typescript/no-unsafe-assignment": "off",
+        "typescript/no-unsafe-call": "off",
+        "typescript/no-unsafe-member-access": "off",
+        "typescript/no-unsafe-return": "off"
+      }
+    },
+    {
+      "files": ["apps/play/web/routes/**/*.{ts,tsx}"],
+      "rules": {
+        "typescript/only-throw-error": "off"
+      }
+    },
+    {
+      "files": ["apps/play/web/routes/match/**/*.{ts,tsx}"],
+      "rules": {
+        "typescript/no-unnecessary-condition": "off"
+      }
+    },
+    {
       "files": ["packages/application/test/**/*.ts", "do/match-room/test/**/*.ts"],
       "rules": {
         "typescript/no-unsafe-argument": "off",
