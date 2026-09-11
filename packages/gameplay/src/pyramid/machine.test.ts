@@ -7,7 +7,9 @@ import { createInitialSnapshot, getPhase, type PyramidSparringFrameSnapshot, sen
 import { type PyramidRules, PyramidRuleSpecificsByGameKey } from './rules'
 
 const FREE_RULES = PyramidRuleSpecificsByGameKey['free-pyramid']
+
 const COMBINED_RULES = PyramidRuleSpecificsByGameKey['combined-pyramid']
+
 const COMBINED_OLD_RULES = PyramidRuleSpecificsByGameKey['combined-pyramid-old']
 
 const DEFAULT_TARGET: BySeatNumber = { A: 8, B: 8 }
@@ -170,6 +172,7 @@ describe('PyramidSparringFrameMachine: foul handling', () => {
       foulPenalty: 'offender-minus-one',
       shotPointOptions: [1, 2],
     }
+
     let snap = start(clampRules)
     snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
     snap = sendEvent(snap, { type: 'foul.commit', seat: 'A' })

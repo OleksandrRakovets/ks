@@ -8,6 +8,7 @@ test('shows the relevant cue-ball warning while resolving a manual foul', () => 
     type: 'frame.commence',
     seat: 'A',
   })
+
   snapshot = sendEvent(snapshot, { type: 'foul.commit', seat: 'A' })
   expect(deriveStrilaRuleNotes(snapshot)).toEqual([
     { severity: 'warning', code: 'manual-foul-cue-ball-response' },
@@ -24,6 +25,7 @@ test('warns the affected player before a third consecutive cue-ball pot', () => 
     type: 'frame.commence',
     seat: 'A',
   })
+
   snapshot = sendEvent(snapshot, { type: 'pot.record', seat: 'A', pottedBalls: [0] })
   snapshot = sendEvent(snapshot, { type: 'pot.record', seat: 'A', pottedBalls: [0] })
 
@@ -39,6 +41,7 @@ test('projects warning and information outcomes from last-colored-ball transitio
     type: 'frame.commence',
     seat: 'A',
   })
+
   snapshot = sendEvent(snapshot, { type: 'pot.record', seat: 'A', pottedBalls: [1, 2] })
   snapshot = sendEvent(snapshot, { type: 'pot.record', seat: 'B', pottedBalls: [3, 4, 5, 6] })
 
@@ -73,6 +76,7 @@ test('combines same-severity last-colored-ball outcomes into one note', () => {
     type: 'frame.commence',
     seat: 'A',
   })
+
   snapshot = sendEvent(snapshot, { type: 'pot.record', seat: 'A', pottedBalls: [0, 1] })
   snapshot = sendEvent(snapshot, { type: 'pot.record', seat: 'A', pottedBalls: [0, 2] })
   snapshot = sendEvent(snapshot, { type: 'pot.record', seat: 'A', pottedBalls: [3] })

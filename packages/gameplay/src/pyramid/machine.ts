@@ -12,21 +12,26 @@ type PyramidMachineInput = {
 }
 
 type PotEvent = Extract<PyramidCommand, { type: 'pot.record' }>
+
 type FoulCommitEvent = Extract<PyramidCommand, { type: 'foul.commit' }>
+
 type FrameAwardEvent = Extract<PyramidCommand, { type: 'frame.award' }>
 
 function potEvent(event: PyramidCommand): PotEvent {
   invariant(event.type === 'pot.record', `Expected pot.record event, received ${event.type}`)
+
   return event
 }
 
 function foulCommitEvent(event: PyramidCommand): FoulCommitEvent {
   invariant(event.type === 'foul.commit', `Expected foul.commit event, received ${event.type}`)
+
   return event
 }
 
 function frameAwardEvent(event: PyramidCommand): FrameAwardEvent {
   invariant(event.type === 'frame.award', `Expected frame.award event, received ${event.type}`)
+
   return event
 }
 
@@ -50,19 +55,24 @@ function applyShot(
 function applyFoul(score: BySeatNumber, offender: Seat, rules: PyramidRules): BySeatNumber {
   if (rules.foulPenalty === 'opponent-plus-one') {
     const target = opponentOf(offender)
+
     return setSeat(score, target, score[target] + 1)
   }
+
   return setSeat(score, offender, clamp(score[offender] - 1, rules.allowNegative))
 }
 
 function targetReached(score: BySeatNumber, target: BySeatNumber): Seat | null {
   if (score.A >= target.A) return 'A'
+
   if (score.B >= target.B) return 'B'
+
   return null
 }
 
 function outputWinner(context: PyramidContext): Seat {
   invariant(context.winner !== null, 'Winner is required for Pyramid machine output')
+
   return context.winner
 }
 
@@ -78,29 +88,36 @@ export const PyramidSparringFrameMachine = setup({
   guards: {
     isAllowedPottedBallCount: ({ context, event }) => {
       const e = potEvent(event)
+
       return context.rules.shotPointOptions.includes(e.pottedBallCount)
     },
     isAllowedPottedBallCountAndTargetReachedAfterPot: ({ context, event }) => {
       const e = potEvent(event)
+
       if (!context.rules.shotPointOptions.includes(e.pottedBallCount)) return false
       const next = applyShot(context.score, e.seat, e.pottedBallCount, context.rules.allowNegative)
+
       return targetReached(next, context.targetPoints) !== null
     },
     isTargetReachedAfterFoul: ({ context, event }) => {
       const e = foulCommitEvent(event)
       const next = applyFoul(context.score, e.seat, context.rules)
+
       return targetReached(next, context.targetPoints) !== null
     },
     isAwardForLeader: ({ context, event }) => {
       const e = frameAwardEvent(event)
+
       return context.winner === e.seat
     },
     isSeatWinner: ({ context, event }) => {
       if (event.type === 'frame.commence' || event.type === 'frame.award') return false
+
       return context.winner === event.seat
     },
     isSeatWinnerWithAllowedPottedBallCount: ({ context, event }) => {
       const e = potEvent(event)
+
       return context.winner === e.seat && context.rules.shotPointOptions.includes(e.pottedBallCount)
     },
   },
@@ -110,6 +127,7 @@ export const PyramidSparringFrameMachine = setup({
     })),
     applyPot: assign(({ context, event }) => {
       const e = potEvent(event)
+
       return {
         score: applyShot(context.score, e.seat, e.pottedBallCount, context.rules.allowNegative),
       }
@@ -119,6 +137,7 @@ export const PyramidSparringFrameMachine = setup({
       const score = applyShot(context.score, e.seat, e.pottedBallCount, context.rules.allowNegative)
       const winner = targetReached(score, context.targetPoints)
       invariant(winner !== null, 'Pot did not reach target')
+
       return {
         score,
         winner,
@@ -126,6 +145,7 @@ export const PyramidSparringFrameMachine = setup({
     }),
     applyFoul: assign(({ context, event }) => {
       const e = foulCommitEvent(event)
+
       return {
         score: applyFoul(context.score, e.seat, context.rules),
       }
@@ -135,6 +155,7 @@ export const PyramidSparringFrameMachine = setup({
       const score = applyFoul(context.score, e.seat, context.rules)
       const winner = targetReached(score, context.targetPoints)
       invariant(winner !== null, 'Foul did not reach target')
+
       return {
         score,
         winner,
@@ -227,6 +248,7 @@ export function createInitialSnapshot(
   targetPointsBySeat: BySeatNumber,
 ): PyramidSparringFrameSnapshot {
   const [snapshot] = initialTransition(PyramidSparringFrameMachine, { targetPointsBySeat, rules })
+
   return snapshot
 }
 
@@ -245,6 +267,8 @@ export function sendEvent(
   if (!snapshot.can(event)) {
     throw new Error(`Invalid Pyramid event ${event.type} in phase ${getPhase(snapshot)}`)
   }
+
   const [nextSnapshot] = transition(PyramidSparringFrameMachine, snapshot, event)
+
   return nextSnapshot
 }

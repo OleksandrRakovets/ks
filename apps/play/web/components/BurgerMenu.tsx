@@ -41,12 +41,15 @@ export function BurgerMenu(props: { placement?: 'header' | 'navigation' }) {
   const location = useLocation()
   const { t } = useTranslation()
   const sparringPath = localizedPath('/sparring/', currentLocale)
+
   const isNewMatchRoute =
     location.pathname === sparringPath || location.pathname.startsWith(`${sparringPath}init/`)
+
   const isMatchesRoute = location.pathname === localizedPath('/sparring/matches/', currentLocale)
 
   function changeTheme(values: string[]) {
     const theme = values[0]
+
     if (isAppTheme(theme) && theme !== currentTheme) {
       void fetcher.submit({ theme }, { method: 'post', action: '/ui-preferences/theme/' })
     }

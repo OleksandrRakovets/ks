@@ -32,8 +32,10 @@ export default function StrilaV2ControlRoute() {
   const fetcher = useFetcher<typeof action>()
   const markLocalSubmit = useControlLiveRevalidation(data.state, data.latestSeq, fetcher)
   const snapshotFrame = data.state.frames[data.state.currentFrameIndex - 1]
+
   const frameScore =
     data.controlState === 'frame-active' ? data.game.score : (snapshotFrame?.pointsBySeat ?? { A: 0, B: 0 })
+
   const pottedBalls = data.controlState === 'frame-active' ? data.game.details.pottedBallsBySeat : null
 
   function submitCommand(command: MatchCommand) {

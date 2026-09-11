@@ -27,6 +27,7 @@ export const MatchCreationDefinition = v.pipe(
   ),
   v.readonly(),
 )
+
 export type MatchCreationDefinition = v.InferOutput<typeof MatchCreationDefinition>
 
 export const CreateMatchRequest = v.pipe(
@@ -54,6 +55,7 @@ export function buildMatchConfig(matchId: MatchId, input: CreateMatchRequest): M
     targets: input.targets,
     firstBreakerSeat: input.firstBreakerSeat,
   }
+
   // Omit absent optional values so MatchConfig remains structurally equal after JSON persistence round-trips.
   return input.gameConfiguration === undefined
     ? config

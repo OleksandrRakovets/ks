@@ -6,9 +6,13 @@ import type { Brand } from './brand'
 const ULID_RE = /^[0-9A-HJKMNP-TV-Z]{26}$/
 
 export type GuestPlayerId = Brand<string, 'GuestPlayerId'>
+
 export type VerifiedPlayerId = Brand<string, 'VerifiedPlayerId'>
+
 export type PlayerRef = Brand<string, 'PlayerRef'>
+
 export type MatchId = Brand<string, 'MatchId'>
+
 export type CommandId = Brand<string, 'CommandId'>
 
 function toBrand<B extends string>(value: string): Brand<string, B> {
@@ -25,13 +29,17 @@ function ulidBranded<B extends string>() {
 }
 
 export const GuestPlayerId = ulidBranded<'GuestPlayerId'>()
+
 export const VerifiedPlayerId = ulidBranded<'VerifiedPlayerId'>()
+
 export const PlayerRef = v.pipe(
   v.string(),
   v.regex(/^(gp|vp)_[0-9A-HJKMNP-TV-Z]{26}$/),
   v.transform((value) => toBrand<'PlayerRef'>(value)),
 )
+
 export const MatchId = ulidBranded<'MatchId'>()
+
 export const CommandId = ulidBranded<'CommandId'>()
 
 export function newGuestPlayerId(): GuestPlayerId {
@@ -56,7 +64,9 @@ export function formatPlayerRef(kind: 'gp' | 'vp', id: string): PlayerRef {
 
 export function stripOptionalPrefix(value: string): string {
   const idx = value.indexOf('_')
+
   if (idx <= 0) return value
   const maybeId = value.slice(idx + 1)
+
   return ULID_RE.test(maybeId) ? maybeId : value
 }

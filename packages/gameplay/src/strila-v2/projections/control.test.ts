@@ -59,6 +59,7 @@ test('projects open-play miss controls only while a cue-ball streak exists', () 
     type: 'frame.commence',
     seat: 'A',
   })
+
   expect(deriveStrilaControlProjection(snapshot).controls.some(({ type }) => type === 'miss.record')).toBe(
     false,
   )
@@ -81,6 +82,7 @@ test('projects all manual foul responses', () => {
     type: 'frame.commence',
     seat: 'A',
   })
+
   snapshot = sendEvent(snapshot, { type: 'foul.commit', seat: 'A' })
 
   const projection = deriveStrilaControlProjection(snapshot)
@@ -98,6 +100,7 @@ test.each(['foul-committed.ball-in-hand', 'respotted-black.opening'] as const)(
       type: 'frame.commence',
       seat: 'A',
     })
+
     if (phase === 'foul-committed.ball-in-hand') {
       snapshot = sendEvent(snapshot, { type: 'foul.commit', seat: 'A' })
       snapshot = sendEvent(snapshot, { type: 'penalty.select', seat: 'B', choice: 'ball-in-hand' })

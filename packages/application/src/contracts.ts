@@ -26,6 +26,7 @@ export const DisplayName = v.pipe(
   // "I Lastname" becomes "I. Lastname" when hydrated, so creation reserves one character for the short form.
   v.maxLength(127),
 )
+
 export type DisplayName = v.InferOutput<typeof DisplayName>
 
 export const CreateMatchInput = v.pipe(
@@ -38,6 +39,7 @@ export const CreateMatchInput = v.pipe(
   v.check((value) => value.playerNames.A !== value.playerNames.B, 'Players must have different display names'),
   v.readonly(),
 )
+
 export type CreateMatchInput = v.InferOutput<typeof CreateMatchInput>
 
 export type CreateMatchResult =

@@ -23,6 +23,7 @@ const BALL_COLORS = {
 } satisfies Record<StrilaBall, { bg: string; border: string }>
 
 type StrilaRuleNote = StrilaGamePresentation['details']['ruleNotes'][number]
+
 type RuleMessageLine = { player?: string; text: string }
 
 function ruleMessageLines(
@@ -59,6 +60,7 @@ function ruleMessageLines(
                 }),
       }))
   }
+
   throw new Error('Unsupported Strila rule note')
 }
 
@@ -132,14 +134,19 @@ type SeatControls = ReturnType<typeof groupControlsIntoSections>['primary']
 
 function strilaCommandLabel(t: TFunction, command: Control, index: number): string {
   if (command.type !== 'penalty.select') return controlLabel(t, command)
+
   if (index === 0) return t('match.control.commands.game.penalty.select.play-from-position')
+
   if (index === 1) return t('match.control.commands.game.penalty.select.pass-position')
+
   return t('match.control.commands.game.penalty.select.ball-in-hand')
 }
 
 function prominenceVariant(prominence: Control['prominence']): 'primary' | 'secondary' | 'outline' {
   if (prominence === 'primary') return 'primary'
+
   if (prominence === 'tertiary') return 'outline'
+
   return 'secondary'
 }
 
@@ -158,6 +165,7 @@ function ControlRows({
     const isPot = cmd.type === 'pot.record'
     const label = strilaCommandLabel(t, cmd, index)
     const effect = controlEffect(t, cmd)
+
     return (
       <div key={key} className="grid gap-1">
         <Button
@@ -238,12 +246,15 @@ export function StrilaControlRenderer(props: MatchControlRendererProps<StrilaGam
         {StrilaMeta.allBalls.map((ball) => {
           const colors = BALL_COLORS[ball]
           const status = details.ballStatuses[ball]
+
           const ballLabel = t(keys.match.control.strila.ballLabel, {
             ball: t(`match.control.strila.balls.${ball}`),
             status: t(`match.control.strila.ballStatus.${status}`),
           })
+
           const isPotted = status === 'potted'
           const isSelected = details.isPotCommandAvailable && selectedBalls.includes(ball) && !isPotted
+
           return (
             <button
               key={ball}

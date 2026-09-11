@@ -49,11 +49,13 @@ export async function loader({
   context: AppLoadContext
 }): Promise<LoaderData> {
   const gameKey = params.gameKey
+
   if (!gameKey || !isRegisteredGameKey(gameKey)) {
     throw new Response('Unknown gameKey', { status: 404 })
   }
 
   const locale = localeFromContext(context)
+
   return {
     gameKey,
     title: registry[gameKey].meta.title[locale],
@@ -71,6 +73,7 @@ export async function action({
   context: AppLoadContext
 }): Promise<ActionData | Response> {
   const gameKey = params.gameKey
+
   if (!gameKey || !isRegisteredGameKey(gameKey)) {
     throw new Response('Unknown gameKey', { status: 404 })
   }
@@ -81,10 +84,12 @@ export async function action({
   const form = await request.formData()
   const seatAName = v.safeParse(DisplayName, stringFormValue(form, 'seatAName'))
   const seatBName = v.safeParse(DisplayName, stringFormValue(form, 'seatBName'))
+
   const matchTargetFrames =
     profile.matchTargetFrames.mode === 'fixed'
       ? profile.matchTargetFrames.fixedValue
       : parsePositiveInt(form.get('matchTargetFrames'))
+
   const targetA = parsePositiveInt(form.get('targetA'), defaultFrameTargetPointsBySeat.A)
   const targetB = parsePositiveInt(form.get('targetB'), defaultFrameTargetPointsBySeat.B)
   const firstBreakerSeat = v.safeParse(Seat, form.get('firstBreakerSeat'))
@@ -93,23 +98,29 @@ export async function action({
   if (!seatAName.success || !seatBName.success) {
     return { ok: false, errorKey: keys.match.sparring.errorBothNamesRequired } as const
   }
+
   if (seatAName.output === seatBName.output) {
     return { ok: false, errorKey: keys.match.sparring.errorNamesMustDiffer } as const
   }
+
   if (matchTargetFrames == null) {
     return { ok: false, errorKey: keys.match.sparring.errorMatchTargetFramesRequired } as const
   }
+
   if (targetA == null || targetB == null) {
     return { ok: false, errorKey: keys.match.sparring.errorHandicapMustBePositiveInt } as const
   }
+
   if (profile.rackRollover && rackRollover == null) {
     return { ok: false, errorKey: keys.match.sparring.errorRackRolloverRequired } as const
   }
+
   if (!firstBreakerSeat.success) {
     throw new Response('Invalid first breaker', { status: 400 })
   }
 
   const application = requireApplication(context)
+
   const createInputBase = {
     gameKey,
     targets: {
@@ -122,9 +133,11 @@ export async function action({
     firstBreakerSeat: firstBreakerSeat.output,
     playerNames: { A: seatAName.output, B: seatBName.output },
   }
+
   const createInput: CreateMatchInput = rackRollover
     ? { ...createInputBase, gameConfiguration: { rackRollover } }
     : createInputBase
+
   const result = await application.createMatch(createInput)
 
   if (!result.ok) {
@@ -136,6 +149,7 @@ export async function action({
 
 function stringFormValue(form: FormData, key: string): string {
   const value = v.safeParse(v.string(), form.get(key))
+
   return value.success ? value.output : ''
 }
 
@@ -157,12 +171,15 @@ export default function SparringInitRoute() {
 
   const normalizedSeatAName = safeNormalizeDisplayName(seatAName)
   const normalizedSeatBName = safeNormalizeDisplayName(seatBName)
+
   const canShowSettings =
     normalizedSeatAName != null && normalizedSeatBName != null && normalizedSeatAName !== normalizedSeatBName
+
   const suggestionsA = useMemo(
     () => recentPlayerSuggestions(recentPlayers, seatBName),
     [recentPlayers, seatBName],
   )
+
   const suggestionsB = useMemo(
     () => recentPlayerSuggestions(recentPlayers, seatAName),
     [recentPlayers, seatAName],

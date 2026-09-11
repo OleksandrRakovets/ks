@@ -18,5 +18,6 @@ export function pathForLocale(
   locale: SupportedLocale,
 ): string {
   const pathWithoutLocale = pathname === '/en/' ? '/' : pathname.replace(/^\/en(?=\/)/, '')
+
   return `${localizedPath(pathWithoutLocale, locale)}${search}${hash}`
 }

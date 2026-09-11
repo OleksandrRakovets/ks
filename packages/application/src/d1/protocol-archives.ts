@@ -41,15 +41,20 @@ export async function getProtocolArchive(
     .from(matchProtocolArchives)
     .where(eq(matchProtocolArchives.matchId, matchId))
     .get()
+
   if (!row) return null
+
   try {
     const parsed = v.parse(ProtocolArchiveStorageRow, row)
     const { matchId: _matchId, entries, ...archive } = parsed
     const gameKey = archive.state.gameKey
+
     const normalizedEntries = isRegisteredGameKey(gameKey)
       ? entries.map((entry) => {
           const { acceptedSeq, entryIndex, causedByCommandId, acceptedAt, ...content } = entry
+
           if (content.gameKey !== gameKey) throw new Error('Protocol archive game key mismatch')
+
           return {
             acceptedSeq,
             entryIndex,
@@ -59,6 +64,7 @@ export async function getProtocolArchive(
           }
         })
       : entries
+
     return {
       ...archive,
       // SAFETY: entries is non-empty by schema, and mapping preserves its length.
@@ -68,6 +74,7 @@ export async function getProtocolArchive(
     if (!isSupportedProtocolArchiveVersion(row.protocolVersion)) {
       throw new UnsupportedProtocolArchiveVersionError(matchId, row.protocolVersion)
     }
+
     throw new ProtocolArchiveCorruptionError(matchId)
   }
 }

@@ -5,6 +5,7 @@ import * as v from 'valibot'
 import { safeNormalizeDisplayName } from './validation'
 
 const RECENT_PLAYERS_KEY = 'ks.sparring.recentPlayers.v1'
+
 const MAX_RECENT_PLAYERS = 5
 
 type RecentPlayer = {
@@ -29,8 +30,10 @@ function normalizeRecentKey(name: string): string {
 function readRecentPlayers(): RecentPlayer[] {
   try {
     const raw = localStorage.getItem(RECENT_PLAYERS_KEY)
+
     if (!raw) return []
     const parsed = v.safeParse(v.pipe(v.string(), v.parseJson(), RecentPlayersStore), raw)
+
     return parsed.success ? parsed.output.players.slice(0, MAX_RECENT_PLAYERS) : []
   } catch {
     return []
@@ -38,10 +41,12 @@ function readRecentPlayers(): RecentPlayer[] {
 }
 
 const EMPTY_RECENT_PLAYERS: RecentPlayer[] = []
+
 let clientRecentPlayers: RecentPlayer[] | undefined
 
 function writeRecentPlayers(players: RecentPlayer[]) {
   clientRecentPlayers = players
+
   try {
     localStorage.setItem(
       RECENT_PLAYERS_KEY,
@@ -54,6 +59,7 @@ function writeRecentPlayers(players: RecentPlayer[]) {
 
 function getClientRecentPlayers(): RecentPlayer[] {
   clientRecentPlayers ??= readRecentPlayers()
+
   return clientRecentPlayers
 }
 
@@ -72,6 +78,7 @@ export function rememberRecentPlayers(names: string[]) {
 
   for (const rawName of names) {
     const name = safeNormalizeDisplayName(rawName)
+
     if (!name) continue
     byName.set(normalizeRecentKey(name), { name, lastUsedAt: now })
   }
@@ -87,6 +94,7 @@ export function useRecentPlayers() {
 
 export function recentPlayerSuggestions(players: RecentPlayer[], excludedName: string): string[] {
   const excludedKey = normalizeRecentKey(excludedName)
+
   return players
     .filter((player) => normalizeRecentKey(player.name) !== excludedKey)
     .slice(0, MAX_RECENT_PLAYERS)

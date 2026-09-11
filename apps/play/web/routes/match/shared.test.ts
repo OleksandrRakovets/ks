@@ -16,6 +16,7 @@ function makeActionContext(submitMatchCommand: Application['submitMatchCommand']
   // SAFETY: the test supplies only submitMatchCommand, which is all commandMatchAction reads from Application.
   const application = { submitMatchCommand } as Application
   provider.set(cloudflareContext, { application })
+
   return provider
 }
 
@@ -23,6 +24,7 @@ describe('commandMatchAction adaptation', () => {
   test('returns acceptedSeqMax for accepted outcomes', async () => {
     const matchId = newMatchId()
     const commandId = newCommandId()
+
     const context = makeActionContext(async () => ({
       ok: true,
       outcome: {
@@ -30,6 +32,7 @@ describe('commandMatchAction adaptation', () => {
         acceptedSeq: 5,
       },
     }))
+
     const form = new FormData()
     form.set('command', JSON.stringify({ commandId, source: 'match', command: { type: 'frame.prepare' } }))
 
@@ -41,16 +44,19 @@ describe('commandMatchAction adaptation', () => {
       },
       'free-pyramid',
     )
+
     expect(result).toEqual({ ok: true, acceptedSeqMax: 5 })
   })
 
   test('returns commandRejectedByRules for rejected outcomes', async () => {
     const matchId = newMatchId()
     const commandId = newCommandId()
+
     const context = makeActionContext(async () => ({
       ok: true,
       outcome: { _tag: 'rejected', reason: { code: 'frame-already-active' } },
     }))
+
     const form = new FormData()
     form.set('command', JSON.stringify({ commandId, source: 'match', command: { type: 'frame.prepare' } }))
 
@@ -62,6 +68,7 @@ describe('commandMatchAction adaptation', () => {
       },
       'free-pyramid',
     )
+
     expect(result).toEqual({ ok: false, errorKey: keys.match.control.commandRejectedByRules })
   })
 })
@@ -123,6 +130,7 @@ test('live client validates catch-up and sequences updates without replay', asyn
   const caughtUp: number[] = []
   const updates: number[] = []
   const states: string[] = []
+
   const subscription = subscribeSparringMatchLive({
     matchId,
     pageKind: 'control',
@@ -137,8 +145,10 @@ test('live client validates catch-up and sequences updates without replay', asyn
       states.push(state)
     },
   })
+
   await Promise.resolve()
   const socket = FakeWebSocket.instances[0]
+
   if (!socket) throw new Error('Expected live socket')
   expect(socket.url).toBe(`wss://play.example/api/sparring-match/${matchId}/live/?contract=1&view=control`)
   socket.dispatchEvent(new Event('open'))
@@ -169,6 +179,7 @@ test('live client stops and requests catch-up for a gapped completing update', (
   const matchId = newMatchId()
   const caughtUp: number[] = []
   const states: string[] = []
+
   const subscription = subscribeSparringMatchLive({
     matchId,
     pageKind: 'control',
@@ -181,7 +192,9 @@ test('live client stops and requests catch-up for a gapped completing update', (
       states.push(state)
     },
   })
+
   const socket = FakeWebSocket.instances[0]
+
   if (!socket) throw new Error('Expected live socket')
   socket.message(
     JSON.stringify({

@@ -14,5 +14,6 @@ export const cloudflareContext = createContext<CloudflareLoadContext | undefined
 export function requireApplication(context: AppLoadContext): Application {
   const application = context.get(cloudflareContext)?.application
   invariant(application, 'Missing application in route context')
+
   return application
 }

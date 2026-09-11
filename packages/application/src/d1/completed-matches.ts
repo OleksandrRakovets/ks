@@ -42,6 +42,7 @@ function semanticArchiveEqual(
   const decodedLeftState = leftState.success ? (leftState.output as StructuralValue) : undefined
   // SAFETY: MatchState validates a JSON-compatible structural value.
   const decodedRightState = rightState.success ? (rightState.output as StructuralValue) : undefined
+
   return (
     leftRows.success &&
     rightRows.success &&
@@ -60,11 +61,14 @@ type StructuralValue =
   | string
   | readonly StructuralValue[]
   | StructuralObject
+
 type StructuralObject = { readonly [key: string]: StructuralValue }
 
 function structuralEqual(left: StructuralValue, right: StructuralValue): boolean {
   if (Object.is(left, right)) return true
+
   if (left === null || right === null || Object(left) !== left || Object(right) !== right) return false
+
   if (isStructuralArray(left) || isStructuralArray(right))
     return (
       isStructuralArray(left) &&
@@ -78,6 +82,7 @@ function structuralEqual(left: StructuralValue, right: StructuralValue): boolean
   const rightObject = right as StructuralObject
   const keys = Object.keys(leftObject).filter((key) => leftObject[key] !== undefined)
   const rightKeys = Object.keys(rightObject).filter((key) => rightObject[key] !== undefined)
+
   return (
     keys.length === rightKeys.length &&
     keys.every((key) => Object.hasOwn(rightObject, key) && structuralEqual(leftObject[key], rightObject[key]))
@@ -100,6 +105,7 @@ export async function archiveCompletedMatch(
     stateJson: JSON.stringify(input.finalState),
     createdAt: input.endedAt,
   }
+
   const storedMatch = await db
     .select({
       matchId: matches.matchId,
@@ -111,6 +117,7 @@ export async function archiveCompletedMatch(
     .from(matches)
     .where(eq(matches.matchId, input.matchId))
     .get()
+
   if (
     !storedMatch ||
     storedMatch.matchId !== input.matchId ||
@@ -118,13 +125,16 @@ export async function archiveCompletedMatch(
     storedMatch.createdAt !== input.createdAt
   )
     throw new MatchCompletionError('Completed match identity conflicts with D1')
+
   if (storedMatch.status !== StoredMatchStatus.active && storedMatch.status !== StoredMatchStatus.finished)
     throw new MatchCompletionError('Completed match is not ready to archive')
+
   const inserted = await db
     .insert(matchProtocolArchives)
     .values(archive)
     .onConflictDoNothing({ target: matchProtocolArchives.matchId })
     .returning()
+
   const persistedArchive =
     inserted[0] ??
     (await db
@@ -132,6 +142,7 @@ export async function archiveCompletedMatch(
       .from(matchProtocolArchives)
       .where(eq(matchProtocolArchives.matchId, input.matchId))
       .get())
+
   if (!persistedArchive || !semanticArchiveEqual(persistedArchive, archive))
     throw new MatchCompletionError('Completed match archive conflicts with existing data')
 }
@@ -152,6 +163,7 @@ export async function markMatchFinished(
       ),
     )
     .returning({ status: matches.status, endedAt: matches.endedAt })
+
   if (result.length !== 1 || result[0]?.status !== StoredMatchStatus.finished || result[0].endedAt !== endedAt)
     throw new MatchCompletionError('Completed match is not ready to finish')
 }

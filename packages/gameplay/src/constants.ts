@@ -12,6 +12,7 @@ export type GameMeta = {
 }
 
 export const GameControl = v.pipe(v.object({ ...Control.entries, source: v.literal('game') }), v.readonly())
+
 export type GameControl = v.InferOutput<typeof GameControl>
 
 export type GameControlProjection<Presentation> = {
@@ -27,4 +28,5 @@ export const GamePresentation = v.pipe(
   }),
   v.readonly(),
 )
+
 export type GamePresentation = v.InferOutput<typeof GamePresentation>

@@ -9,9 +9,11 @@ import { createGameplaySession } from './session-factory'
 
 function expectAccepted(result: GameCommandExecution): Extract<GameCommandExecution, { _tag: 'accepted' }> {
   expect(result._tag).toBe('accepted')
+
   if (result._tag !== 'accepted') throw new Error('Expected accepted gameplay command')
   expect(result.gameProtocolEntries.length).toBeGreaterThan(0)
   expect(result.gameProtocolEntries.every((entry) => v.is(GameProtocolEntry, entry))).toBe(true)
+
   return result
 }
 
@@ -75,6 +77,7 @@ describe('gameplay characterization', () => {
       targetPointsBySeat: { A: 1, B: 30 },
       rackRollover: 14,
     })
+
     expectAccepted(long.execute({ type: 'frame.commence', seat: 'A' }))
     expectAccepted(long.execute({ type: 'pot.record', seat: 'A', pottedBallCount: 1 }))
     expect(long.deriveControls().game.details.phase).toBe('winner-determined')
@@ -94,7 +97,9 @@ describe('gameplay characterization', () => {
       targetPointsBySeat: { A: 30, B: 30 },
       rackRollover: 14,
     })
+
     expectAccepted(session.execute({ type: 'frame.commence', seat: 'A' }))
+
     for (const pottedBallCount of [4, 4, 4, 2] as const) {
       expectAccepted(session.execute({ type: 'pot.record', seat: 'A', pottedBallCount }))
     }

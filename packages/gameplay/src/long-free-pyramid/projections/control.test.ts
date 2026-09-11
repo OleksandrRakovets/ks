@@ -10,6 +10,7 @@ test('projects presentation and limits selectable pots to balls remaining', () =
     type: 'frame.commence',
     seat: 'A',
   })
+
   snapshot = LongFreePyramidSparringFrameMachine.resolveState({
     ...snapshot,
     context: { ...snapshot.context, racks: [{ rackNumber: 1, scoreBySeat: { A: 14, B: 0 } }] },
@@ -49,6 +50,7 @@ test('projects presentation and limits selectable pots to balls remaining', () =
     A: number
     B: number
   }
+
   historicalScore.A = 99
   expect(deriveLongFreePyramidControlProjection(snapshot).game.details.rackHistory[0]!.scoreBySeat.A).toBe(14)
 })

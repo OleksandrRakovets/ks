@@ -27,9 +27,11 @@ function databaseReturning(row: LocalizedPlayerRow | null): ApplicationDatabase 
       return row
     },
   }
+
   // SAFETY: hydrateParticipant only uses the select query chain installed below.
   const db = {} as ApplicationDatabase
   Object.defineProperty(db, 'select', { value: () => query })
+
   return db
 }
 
@@ -58,12 +60,14 @@ describe('D1 participant hydration boundary', () => {
     ['oversized generated short name', localized('A', 'x'.repeat(126))],
   ])('rejects corrupt D1 %s', async (_label, row) => {
     let error: Error | undefined
+
     try {
       await hydrateParticipant(databaseReturning(row), playerRef, 'en')
     } catch (reason) {
       if (!(reason instanceof Error)) throw reason
       error = reason
     }
+
     expect(error).toBeInstanceOf(Error)
   })
 

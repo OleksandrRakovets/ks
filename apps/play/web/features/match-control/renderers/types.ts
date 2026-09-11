@@ -12,6 +12,7 @@ export type MatchControlRendererProps<Presentation> = {
 
 export function matchCommandFromControl(control: Control, input: Control['fixedInput'] = {}): MatchCommand {
   const command = { type: control.type, ...control.fixedInput, ...input }
+
   return {
     commandId: newCommandId(),
     source: control.source,

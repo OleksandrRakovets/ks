@@ -18,11 +18,14 @@ export class ResidentMatch {
   restore(config: MatchConfig, latestSeq: number, commands: AcceptedCommand[]): ResidentState {
     try {
       const restored = restoreSparringMatch(config, commands)
+
       const protocolEntries = restored.accepted.flatMap(({ acceptedCommand, protocolEntryContents }) =>
         this.#promote(acceptedCommand, protocolEntryContents),
       )
+
       const state = { latestSeq, match: restored.match, protocolEntries }
       this.#cache = state
+
       return state
     } catch (error) {
       this.clear()
@@ -38,12 +41,15 @@ export class ResidentMatch {
     if (this.#cache !== prior || acceptedCommand.acceptedSeq !== prior.latestSeq + 1)
       throw new Error('MatchRoom resident cursor mismatch')
     const promoted = this.#promote(acceptedCommand, contents)
+
     const state = {
       latestSeq: acceptedCommand.acceptedSeq,
       match: prior.match,
       protocolEntries: [...prior.protocolEntries, ...promoted],
     }
+
     this.#cache = state
+
     return state
   }
 

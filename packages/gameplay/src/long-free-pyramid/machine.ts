@@ -25,28 +25,34 @@ type LongFreePyramidMachineInput = {
 }
 
 type PotEvent = Extract<LongFreePyramidCommand, { type: 'pot.record' }>
+
 type FoulCommitEvent = Extract<LongFreePyramidCommand, { type: 'foul.commit' }>
+
 type FrameAwardEvent = Extract<LongFreePyramidCommand, { type: 'frame.award' }>
 
 const VALID_POTTED_BALL_COUNTS = [1, 2, 3, 4] as const
 
 function requireRackRollover(rackRollover: number): 14 | 15 {
   invariant(rackRollover === 14 || rackRollover === 15, 'Long free pyramid requires rackRollover 14 or 15')
+
   return rackRollover
 }
 
 function potEvent(event: LongFreePyramidCommand): PotEvent {
   invariant(event.type === 'pot.record', `Expected pot.record event, received ${event.type}`)
+
   return event
 }
 
 function foulCommitEvent(event: LongFreePyramidCommand): FoulCommitEvent {
   invariant(event.type === 'foul.commit', `Expected foul.commit event, received ${event.type}`)
+
   return event
 }
 
 function frameAwardEvent(event: LongFreePyramidCommand): FrameAwardEvent {
   invariant(event.type === 'frame.award', `Expected frame.award event, received ${event.type}`)
+
   return event
 }
 
@@ -65,6 +71,7 @@ function finalizeScoringUpdate(args: {
     rackRollover: args.rackRollover,
     phase: args.phase,
   })
+
   return {
     racks: rolled.racks,
     messages: rolled.messages,
@@ -84,22 +91,29 @@ export const LongFreePyramidSparringFrameMachine = setup({
   guards: {
     isValidPotWithinTable: ({ context, event }) => {
       const e = potEvent(event)
+
       if (!isValidPottedBallCount(e.pottedBallCount)) return false
+
       return e.pottedBallCount <= ballsOnTableFromRacks(context.racks)
     },
     isValidWinnerPotWithinTable: ({ context, event }) => {
       const e = potEvent(event)
+
       if (context.winner !== e.seat) return false
+
       if (!isValidPottedBallCount(e.pottedBallCount)) return false
+
       return e.pottedBallCount <= ballsOnTableFromRacks(context.racks)
     },
     isCurrentRackHasBall: ({ context }) => ballsOnTableFromRacks(context.racks) >= 1,
     isWinnerFoulWithBall: ({ context, event }) => {
       if (event.type !== 'foul.commit') return false
+
       return context.winner === event.seat && ballsOnTableFromRacks(context.racks) >= 1
     },
     isOpenPlayPotReachingTarget: ({ context, event }) => {
       const e = potEvent(event)
+
       if (
         !isValidPottedBallCount(e.pottedBallCount) ||
         e.pottedBallCount > ballsOnTableFromRacks(context.racks)
@@ -107,18 +121,22 @@ export const LongFreePyramidSparringFrameMachine = setup({
         return false
       const racks = applyPotToRacks(context.racks, e.seat, e.pottedBallCount)
       const score = totalScore(racks)
+
       return targetReachedBySeat(score, context.targetPoints, e.seat)
     },
     isOpenPlayFoulReachingTarget: ({ context, event }) => {
       const e = foulCommitEvent(event)
+
       if (ballsOnTableFromRacks(context.racks) < 1) return false
       const awardedSeat = opponentOf(e.seat)
       const racks = applyFoulToRacks(context.racks, awardedSeat)
       const score = totalScore(racks)
+
       return targetReachedBySeat(score, context.targetPoints, awardedSeat)
     },
     isAwardForWinner: ({ context, event }) => {
       const e = frameAwardEvent(event)
+
       return context.winner === e.seat
     },
   },
@@ -126,6 +144,7 @@ export const LongFreePyramidSparringFrameMachine = setup({
     applyOpenPlayPot: assign(({ context, event }) => {
       const e = potEvent(event)
       const racks = applyPotToRacks(context.racks, e.seat, e.pottedBallCount)
+
       return finalizeScoringUpdate({
         racks,
         rackRollover: context.rackRollover,
@@ -136,6 +155,7 @@ export const LongFreePyramidSparringFrameMachine = setup({
     applyOpenPlayPotAndSetWinner: assign(({ context, event }) => {
       const e = potEvent(event)
       const racks = applyPotToRacks(context.racks, e.seat, e.pottedBallCount)
+
       return finalizeScoringUpdate({
         racks,
         rackRollover: context.rackRollover,
@@ -146,6 +166,7 @@ export const LongFreePyramidSparringFrameMachine = setup({
     applyWinnerPot: assign(({ context, event }) => {
       const e = potEvent(event)
       const racks = applyPotToRacks(context.racks, e.seat, e.pottedBallCount)
+
       return finalizeScoringUpdate({
         racks,
         rackRollover: context.rackRollover,
@@ -157,6 +178,7 @@ export const LongFreePyramidSparringFrameMachine = setup({
       const e = foulCommitEvent(event)
       const awardedSeat = opponentOf(e.seat)
       const racks = applyFoulToRacks(context.racks, awardedSeat)
+
       return finalizeScoringUpdate({
         racks,
         rackRollover: context.rackRollover,
@@ -168,6 +190,7 @@ export const LongFreePyramidSparringFrameMachine = setup({
       const e = foulCommitEvent(event)
       const awardedSeat = opponentOf(e.seat)
       const racks = applyFoulToRacks(context.racks, awardedSeat)
+
       return finalizeScoringUpdate({
         racks,
         rackRollover: context.rackRollover,
@@ -179,6 +202,7 @@ export const LongFreePyramidSparringFrameMachine = setup({
       const e = foulCommitEvent(event)
       const awardedSeat = opponentOf(e.seat)
       const racks = applyFoulToRacks(context.racks, awardedSeat)
+
       return finalizeScoringUpdate({
         racks,
         rackRollover: context.rackRollover,
@@ -269,6 +293,7 @@ export const LongFreePyramidSparringFrameMachine = setup({
 
   output: ({ context }): FrameOutcome => {
     invariant(context.winner !== null, 'Winner is required for LongFreePyramid machine output')
+
     return {
       winnerSeat: context.winner,
       winReason: 'game-rules' as const,
@@ -283,6 +308,7 @@ export function createInitialSnapshot(
   input: LongFreePyramidMachineInput,
 ): LongFreePyramidSparringFrameSnapshot {
   const [snapshot] = initialTransition(LongFreePyramidSparringFrameMachine, input)
+
   return snapshot
 }
 
@@ -303,6 +329,8 @@ export function sendEvent(
   if (!snapshot.can(event)) {
     throw new Error(`Invalid Long free pyramid event ${event.type} in phase ${getPhase(snapshot)}`)
   }
+
   const [nextSnapshot] = transition(LongFreePyramidSparringFrameMachine, snapshot, event)
+
   return nextSnapshot
 }

@@ -14,9 +14,11 @@ export const PyramidCommand = v.variant('type', [
   FoulCommitCommand,
   FrameAwardCommand,
 ])
+
 export type PyramidCommand = v.InferOutput<typeof PyramidCommand>
 
 export const PyramidPhase = v.picklist(['not-started', 'open-play', 'winner-determined', 'frame-over'])
+
 export type PyramidPhase = v.InferOutput<typeof PyramidPhase>
 
 const PyramidContext = v.pipe(
@@ -28,6 +30,7 @@ const PyramidContext = v.pipe(
   }),
   v.readonly(),
 )
+
 export type PyramidContext = v.InferOutput<typeof PyramidContext>
 
 const PyramidGamePresentationState = v.pipe(
@@ -37,6 +40,7 @@ const PyramidGamePresentationState = v.pipe(
   }),
   v.readonly(),
 )
+
 type PyramidGamePresentationState = v.InferOutput<typeof PyramidGamePresentationState>
 
 const PyramidGamePresentationDetails = v.pipe(
@@ -48,6 +52,7 @@ const PyramidGamePresentationDetails = v.pipe(
   }),
   v.readonly(),
 )
+
 type PyramidGamePresentationDetails = v.InferOutput<typeof PyramidGamePresentationDetails>
 
 function gamePresentation<K extends PyramidGameKey>(gameKey: K) {
@@ -62,12 +67,15 @@ function gamePresentation<K extends PyramidGameKey>(gameKey: K) {
 }
 
 export const FreePyramidGamePresentation = gamePresentation('free-pyramid')
+
 export type FreePyramidGamePresentation = v.InferOutput<typeof FreePyramidGamePresentation>
 
 export const CombinedPyramidGamePresentation = gamePresentation('combined-pyramid')
+
 export type CombinedPyramidGamePresentation = v.InferOutput<typeof CombinedPyramidGamePresentation>
 
 export const CombinedPyramidOldGamePresentation = gamePresentation('combined-pyramid-old')
+
 export type CombinedPyramidOldGamePresentation = v.InferOutput<typeof CombinedPyramidOldGamePresentation>
 
 export type AnyPyramidGamePresentation = Omit<FreePyramidGamePresentation, 'gameKey'> & {

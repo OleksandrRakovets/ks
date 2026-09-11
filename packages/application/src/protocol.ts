@@ -48,8 +48,11 @@ export type ProtocolRow = Readonly<{
 }>
 
 const ProtocolBall = v.picklist([0, 1, 2, 3, 4, 5, 6, 7])
+
 type ProtocolBall = v.InferOutput<typeof ProtocolBall>
+
 const PottedBalls = v.pipe(v.array(ProtocolBall), v.minLength(1))
+
 const ProtocolMessageBody = v.object({
   commandType: v.optional(v.string()),
   systemType: v.optional(v.string()),
@@ -78,11 +81,13 @@ function entryMessage(
       return { key: 'match.protocol.commands.frame.commence', actor }
     case 'pot.record': {
       const pottedBalls = v.safeParse(PottedBalls, body.pottedBalls)
+
       if (pottedBalls.success) {
         return { key: 'match.protocol.commands.pot.record.balls', actor, pottedBalls: pottedBalls.output }
       }
 
       const pottedBallCount = body.pottedBallCount
+
       if (pottedBallCount !== undefined) {
         return {
           key: 'match.protocol.commands.pot.record.pottedBallCount',
@@ -90,17 +95,21 @@ function entryMessage(
           params: { pottedBallCount: `+${pottedBallCount}` },
         }
       }
+
       return { key: 'match.protocol.commands.pot.record.default', actor }
     }
+
     case 'miss.record':
       return { key: 'match.protocol.commands.miss.record', actor }
     case 'foul.commit':
       if (body.penalty === 'opponent-plus-one') {
         return { key: 'match.protocol.commands.foul.commit.opponent-plus-one', actor }
       }
+
       if (body.penalty === 'offender-minus-one') {
         return { key: 'match.protocol.commands.foul.commit.offender-minus-one', actor }
       }
+
       return { key: 'match.protocol.commands.foul.commit.default', actor }
     case 'penalty.select':
       switch (body.choice) {
@@ -115,11 +124,13 @@ function entryMessage(
         default:
           return { key: 'match.protocol.commands.penalty.select.default', actor }
       }
+
     case 'frame.award':
       return { key: 'match.protocol.commands.frame.award', actor }
   }
 
   const systemType = body.systemType ?? entry.entryType
+
   switch (systemType) {
     case 'frame-prepared':
       return {
@@ -146,6 +157,7 @@ function entryMessage(
         default:
           return { key: 'match.protocol.system.automatic-foul.default' }
       }
+
     case 'winner-determined':
       switch (body.reason) {
         case undefined:
@@ -165,6 +177,7 @@ function entryMessage(
         default:
           return { key: 'match.protocol.system.winner-determined.default' }
       }
+
     case 'respotted-black-declared':
       return { key: 'match.protocol.system.respotted-black-declared' }
   }

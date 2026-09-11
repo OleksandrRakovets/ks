@@ -8,6 +8,7 @@ test('projects the exact ordered entry and total scoreAfter across rack state', 
     type: 'frame.commence',
     seat: 'A',
   })
+
   for (const pottedBallCount of [4, 4, 4] as const)
     previous = sendEvent(previous, { type: 'pot.record', seat: 'A', pottedBallCount })
   const command = { type: 'pot.record', seat: 'B', pottedBallCount: 2 } as const

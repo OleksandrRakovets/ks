@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { Input, Label, NumberInput } from '@/components/ui'
 
 export { FirstBreakerField } from './first-breaker-toss'
+
 import type { MatchCreateProfile } from './profile'
 
 export function PlayerNameFields(props: {
@@ -111,6 +112,7 @@ export function FrameTargetFields(props: { playerNames: { A: string; B: string }
 
 export function RackRolloverField(props: { profile: MatchCreateProfile }) {
   const { t } = useTranslation()
+
   if (!props.profile.rackRollover) return null
 
   return (

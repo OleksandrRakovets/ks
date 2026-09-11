@@ -35,5 +35,6 @@ test('renders the dedicated table-cleared winner message', () => {
     { A: 'Alice', B: 'Bob' },
     'UTC',
   )[0]
+
   expect(row?.message.key).toBe('match.protocol.system.winner-determined.table-cleared')
 })

@@ -64,6 +64,7 @@ describe('GameplaySession', () => {
       const commenced = session.execute({ type: 'frame.commence', seat: 'A' })
       expect(commenced._tag).toBe('accepted')
       expect(session.canConcede()).toBe(true)
+
       if (commenced._tag === 'accepted') {
         expect(commenced.gameProtocolEntries.length).toBeGreaterThan(0)
         expect(commenced.gameProtocolEntries.every((entry) => v.is(GameProtocolEntry, entry))).toBe(true)
@@ -84,6 +85,7 @@ describe('GameplaySession', () => {
       expect(session.canConcede()).toBe(false)
       const frameCompletion = session.execute({ type: 'frame.award', seat: 'A' })
       expect(frameCompletion._tag).toBe('accepted')
+
       if (frameCompletion._tag === 'accepted') expect(v.is(FrameOutcome, frameCompletion.outcome)).toBe(true)
 
       expect(session.deriveControls()).not.toBe(session.deriveControls())

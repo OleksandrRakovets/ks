@@ -7,6 +7,7 @@ import { createStrilaGameplaySession } from './strila-v2/session'
 type GameplaySessionCreation = {
   [K in RegisteredGameKey]: readonly [gameKey: K, args: GameplaySessionCreateArgsFor<K>]
 }[RegisteredGameKey]
+
 type AnyGameplaySession = { [K in RegisteredGameKey]: GameplaySession<K> }[RegisteredGameKey]
 
 /**

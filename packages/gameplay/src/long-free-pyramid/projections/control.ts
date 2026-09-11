@@ -11,6 +11,7 @@ export function deriveLongFreePyramidControlProjection(
   const phase = getPhase(snapshot)
   const ballsOnTable = ballsOnTableFromRacks(snapshot.context.racks)
   const rack = currentRack(snapshot.context.racks)
+
   const details: LongFreePyramidGamePresentationState = {
     phase,
     winner: snapshot.context.winner ?? undefined,
@@ -20,22 +21,22 @@ export function deriveLongFreePyramidControlProjection(
     ballsOnTable,
     messages: snapshot.context.messages.map((message) => ({ ...message })),
   }
+
   const seats: readonly Seat[] = ['A', 'B']
+
   const controls =
     phase === 'not-started'
       ? []
       : phase === 'open-play'
         ? [
             ...seats.flatMap((seat) =>
-              ([1, 2, 3, 4] as const)
-                .filter((pottedBallCount) => pottedBallCount <= ballsOnTable)
-                .map((pottedBallCount, index) => ({
-                  source: 'game' as const,
-                  type: 'pot.record',
-                  seat,
-                  fixedInput: { pottedBallCount },
-                  prominence: index === 0 ? ('primary' as const) : ('secondary' as const),
-                })),
+              ([1, 2, 3, 4] as const).slice(0, ballsOnTable).map((pottedBallCount, index) => ({
+                source: 'game' as const,
+                type: 'pot.record',
+                seat,
+                fixedInput: { pottedBallCount },
+                prominence: index === 0 ? ('primary' as const) : ('secondary' as const),
+              })),
             ),
             ...seats.map((seat) => ({
               source: 'game' as const,

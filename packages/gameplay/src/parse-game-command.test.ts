@@ -39,7 +39,9 @@ const validCommandsByKey = {
 
 function representativePotCommand(gameKey: RegisteredGameKey) {
   if (gameKey === 'strila-v2') return { type: 'pot.record', seat: 'A', pottedBalls: [1] }
+
   if (gameKey === 'free-pyramid-long') return { type: 'pot.record', seat: 'A', pottedBallCount: 2 }
+
   return { type: 'pot.record', seat: 'A', pottedBallCount: 1 }
 }
 
@@ -85,6 +87,7 @@ describe('parseGameCommand', () => {
     expect(parseGameCommand('free-pyramid', { type: 'pot.record', seat: 'A', pottedBallCount: 99 })._tag).toBe(
       'parsed',
     )
+
     for (const pottedBallCount of [0, -1, 1.5]) {
       expect(parseGameCommand('free-pyramid', { type: 'pot.record', seat: 'A', pottedBallCount })._tag).toBe(
         'game-command-parse-failure',
@@ -98,6 +101,7 @@ describe('parseGameCommand', () => {
         parseGameCommand('free-pyramid-long', { type: 'pot.record', seat: 'A', pottedBallCount })._tag,
       ).toBe('parsed')
     }
+
     for (const pottedBallCount of [0, 5, -1, 1.5]) {
       expect(
         parseGameCommand('free-pyramid-long', { type: 'pot.record', seat: 'A', pottedBallCount })._tag,

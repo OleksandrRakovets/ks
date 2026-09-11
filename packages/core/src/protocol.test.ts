@@ -6,6 +6,7 @@ import { CommandId } from './ids'
 import { GameProtocolEntry, ProtocolEntry } from './protocol'
 
 const commandId = v.parse(CommandId, '01ARZ3NDEKTSV4RRFFQ69G5FAB')
+
 const semantic = {
   gameKey: 'strila-v2',
   frameIndex: 1,
@@ -14,6 +15,7 @@ const semantic = {
   seat: 'A' as const,
   body: { breaker: true },
 }
+
 const authoritative = {
   ...semantic,
   acceptedSeq: 1,

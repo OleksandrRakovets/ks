@@ -26,6 +26,7 @@ function reachRespottedBlack(): StrilaSparringFrameSnapshot {
   snap = sendEvent(snap, { type: 'penalty.select', seat: 'B', choice: 'play-from-position' }) // B:8
   snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [7] }) // A:8, table empty → 8:8
   expect(getPhase(snap)).toBe('respotted-black.opening')
+
   return snap
 }
 
@@ -168,6 +169,7 @@ describe('machine-sparring: empty table', () => {
   for (const scenario of cases) {
     test(scenario.name, () => {
       let snap = sendEvent(start(scenario.targets), { type: 'frame.commence', seat: 'A' })
+
       for (const command of scenario.commands) snap = sendEvent(snap, command)
       expect(snap.context.score).toEqual(scenario.score)
       expect(snap.context.winner).toBe(scenario.winner)
@@ -181,10 +183,12 @@ describe('machine-sparring: empty table', () => {
     let snap = sendEvent(start(), { type: 'frame.commence', seat: 'A' })
     snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [1, 2, 3] })
     snap = sendEvent(snap, { type: 'pot.record', seat: 'B', pottedBalls: [4, 5, 6] })
+
     if (tie) {
       snap = sendEvent(snap, { type: 'pot.record', seat: 'B', pottedBalls: [0] })
       snap = sendEvent(snap, { type: 'pot.record', seat: 'B', pottedBalls: [0] })
     }
+
     snap = sendEvent(snap, { type: 'foul.commit', seat: 'B' })
     snap = sendEvent(snap, { type: 'penalty.select', seat: 'A', choice: 'ball-in-hand' })
     snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [7] })
@@ -200,6 +204,7 @@ describe('machine-sparring: empty table', () => {
       let snap = sendEvent(start(), { type: 'frame.commence', seat: 'A' })
       snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [1, 2, 3] })
       snap = sendEvent(snap, { type: 'pot.record', seat: 'B', pottedBalls: [4, 5, 6] })
+
       if (kind === 'third-cue') {
         snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [0] })
         snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [0] })
@@ -207,6 +212,7 @@ describe('machine-sparring: empty table', () => {
         snap = sendEvent(snap, { type: 'foul.commit', seat: 'B' })
         snap = sendEvent(snap, { type: 'penalty.select', seat: 'A', choice: 'ball-in-hand' })
       }
+
       const before = snap.context
       snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [0, 7] })
       expect(getPhase(snap)).toBe('foul-committed.ball-in-hand')
@@ -292,6 +298,7 @@ describe('machine-sparring: foul handling', () => {
 
       snap = sendEvent(snap, { type: 'penalty.select', seat: 'B', choice })
       expect(snap.context.cueBallSerialPots).toBeNull()
+
       if (choice === 'pass-position') {
         snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [0] })
         expect(snap.context.cueBallSerialPots).toEqual({ seat: 'A', count: 1 })

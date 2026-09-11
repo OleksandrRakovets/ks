@@ -18,6 +18,7 @@ export const MatchCommand = v.pipe(
   }),
   v.readonly(),
 )
+
 export type MatchCommand = v.InferOutput<typeof MatchCommand>
 
 /** A Match Command promoted with metadata assigned by its authoritative MatchRoom transaction. */
@@ -29,4 +30,5 @@ export const AcceptedCommand = v.pipe(
   }),
   v.readonly(),
 )
+
 export type AcceptedCommand = v.InferOutput<typeof AcceptedCommand>

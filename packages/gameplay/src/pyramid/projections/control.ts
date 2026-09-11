@@ -18,6 +18,7 @@ export function derivePyramidControlProjection<K extends PyramidGameKey>(
 ): GameControlProjection<PyramidGamePresentationFor<K>> {
   const phase = getPhase(snapshot)
   const score = { ...snapshot.context.score }
+
   if (phase === 'not-started') {
     const projection = {
       gameKey: rules.gameKey,
@@ -29,11 +30,13 @@ export function derivePyramidControlProjection<K extends PyramidGameKey>(
         isPotCommandAvailable: false,
       },
     } satisfies AnyPyramidGamePresentation & { gameKey: K }
+
     return { game: projection, controls: [] }
   }
 
   if (phase === 'open-play') {
     const seats: readonly ('A' | 'B')[] = ['A', 'B']
+
     const controls = [
       ...seats.flatMap((seat) =>
         rules.shotPointOptions.map((pottedBallCount, index) => ({
@@ -64,6 +67,7 @@ export function derivePyramidControlProjection<K extends PyramidGameKey>(
         isPotCommandAvailable: true,
       },
     } satisfies AnyPyramidGamePresentation & { gameKey: K }
+
     return { game: projection, controls }
   }
 
@@ -72,6 +76,7 @@ export function derivePyramidControlProjection<K extends PyramidGameKey>(
       snapshot.context.winner !== null,
       'Winner is required before awarding a determined pyramid frame',
     )
+
     const controls = [
       {
         source: 'game',
@@ -99,6 +104,7 @@ export function derivePyramidControlProjection<K extends PyramidGameKey>(
         isPotCommandAvailable: true,
       },
     } satisfies AnyPyramidGamePresentation & { gameKey: K }
+
     return { game: projection, controls }
   }
 
@@ -112,5 +118,6 @@ export function derivePyramidControlProjection<K extends PyramidGameKey>(
       isPotCommandAvailable: false,
     },
   } satisfies AnyPyramidGamePresentation & { gameKey: K }
+
   return { game: projection, controls: [] }
 }

@@ -8,6 +8,7 @@ export const GameCommandRejection = v.pipe(
   v.object({ code: v.literal('command-not-available') }),
   v.readonly(),
 )
+
 export type GameCommandRejection = v.InferOutput<typeof GameCommandRejection>
 
 export type GameCommandExecution =
@@ -25,6 +26,7 @@ type GameplaySessionCreateArgsByKey = {
   readonly 'combined-pyramid': { readonly targetPointsBySeat: BySeatNumber }
   readonly 'combined-pyramid-old': { readonly targetPointsBySeat: BySeatNumber }
 }
+
 export type GameplaySessionCreateArgsFor<K extends RegisteredGameKey> = GameplaySessionCreateArgsByKey[K]
 
 /** Resident gameplay for one active frame of a registered game. */

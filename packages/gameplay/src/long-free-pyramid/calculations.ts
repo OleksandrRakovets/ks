@@ -15,7 +15,9 @@ export function totalScore(racks: readonly LongFreePyramidRack[]): BySeatNumber 
 
 export function currentRack(racks: readonly LongFreePyramidRack[]): LongFreePyramidRack {
   const rack = racks.at(-1)
+
   if (!rack) throw new Error('Long free pyramid state must contain at least one rack')
+
   return rack
 }
 
@@ -37,6 +39,7 @@ export function applyPotToRacks(
   pottedBallCount: number,
 ): LongFreePyramidRack[] {
   const rack = currentRack(racks)
+
   return [...racks.slice(0, -1), addRackScore(rack, seat, pottedBallCount)]
 }
 
@@ -53,16 +56,19 @@ export function maybeRollRacks(args: {
   readonly phase: LongFreePyramidPhase
 }): Pick<LongFreePyramidContext, 'racks' | 'messages'> {
   const { racks, rackRollover, phase } = args
+
   if (phase === 'awaiting-award') {
     return { racks: [...racks], messages: [] }
   }
 
   const rack = currentRack(racks)
+
   if (removedByRack(rack) < rackRollover) {
     return { racks: [...racks], messages: [] }
   }
 
   const nextRackNumber = rack.rackNumber + 1
+
   return {
     racks: [...racks, { rackNumber: nextRackNumber, scoreBySeat: zeroScore() }],
     messages: [{ code: 'rack-started', rackNumber: nextRackNumber }],

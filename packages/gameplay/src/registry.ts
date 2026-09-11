@@ -76,7 +76,9 @@ export const registry = {
 
 // SAFETY: registry is a non-empty object, and Object.keys returns exactly its runtime string keys.
 const registeredGameKeys = Object.keys(registry) as [keyof typeof registry, ...(keyof typeof registry)[]]
+
 export const RegisteredGameKey = v.picklist(registeredGameKeys)
+
 export type RegisteredGameKey = v.InferOutput<typeof RegisteredGameKey>
 
 export type GamePresentationFor<K extends RegisteredGameKey> = v.InferOutput<
@@ -91,8 +93,10 @@ export function isRegisteredGameKey(value: string): value is RegisteredGameKey {
 
 export function listGameKeys(): RegisteredGameKey[] {
   const keys: RegisteredGameKey[] = []
+
   for (const key of Object.keys(registry)) {
     if (isRegisteredGameKey(key)) keys.push(key)
   }
+
   return keys
 }

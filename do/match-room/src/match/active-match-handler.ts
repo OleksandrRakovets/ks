@@ -31,8 +31,10 @@ export class ActiveMatchHandler {
 
   submitCommand(command: MatchCommand): ActiveCommandOutcome {
     const priorReceipt = this.#storage.findCommandReceipt(command)
+
     if (priorReceipt) {
       if (priorReceipt._tag === 'command-id-conflict') return { response: priorReceipt }
+
       if (priorReceipt.receipt._tag === 'accepted')
         return {
           response: {
@@ -41,12 +43,15 @@ export class ActiveMatchHandler {
             completesMatch: false,
           },
         }
+
       return { response: priorReceipt.receipt }
     }
 
     try {
       const result = this.#state.match.execute(command)
+
       if (result._tag === 'parse-failed') return { response: { _tag: 'invalid-command' } }
+
       if (result._tag === 'rejected')
         return {
           response: this.#storage.commitRejectedCommand({
@@ -57,26 +62,32 @@ export class ActiveMatchHandler {
         }
 
       const state = this.#state.match.project().state
+
       const committed = this.#storage.commitAcceptedCommand({
         match: this.#storedMatch,
         command: result.command,
         finalState: state.status === 'finished' ? state : null,
       })
+
       this.#state = this.#resident.advance(
         this.#state,
         committed.acceptedCommand,
         result.protocolEntryContents,
       )
+
       // Delivery of the match-completing acceptance waits until application has archived the Match in D1.
       if (!committed.streamUpdate.completesMatch) this.#liveConnections.broadcast(committed.streamUpdate)
+
       const response: ActiveCommandResult = {
         _tag: 'accepted',
         acceptedSeq: committed.receipt.acceptedSeq,
         completesMatch: committed.streamUpdate.completesMatch,
       }
+
       if (committed.storedMatch.status === 'finalizing')
         return { response, next: { storedMatch: committed.storedMatch, resident: this.#resident } }
       this.#storedMatch = committed.storedMatch
+
       return { response }
     } catch (error) {
       this.#resident.clear()

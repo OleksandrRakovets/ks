@@ -30,8 +30,10 @@ function deriveBallStatuses(
 ): StrilaGamePresentationDetails['ballStatuses'] {
   const objectBalls = new Set(computeStrilaObjectBalls(snapshot.context.coloredBallsOnTable))
   const onTableColored = new Set(snapshot.context.coloredBallsOnTable)
+
   const cueStatus: 'object' | 'on-table' =
     getPhase(snapshot) === 'respotted-black.opening' ? 'on-table' : 'object'
+
   const ballStatuses: MutableStrilaBallStatuses = {
     0: cueStatus,
     1: 'potted',
@@ -48,14 +50,17 @@ function deriveBallStatuses(
       ballStatuses[ball] = cueStatus
       continue
     }
+
     if (objectBalls.has(ball)) {
       ballStatuses[ball] = 'object'
       continue
     }
+
     if (onTableColored.has(ball)) {
       ballStatuses[ball] = 'on-table'
       continue
     }
+
     ballStatuses[ball] = 'potted'
   }
 
@@ -115,6 +120,7 @@ export function deriveStrilaControlProjection(snapshot: StrilaSparringFrameSnaps
         'Foul offender is required while selecting a foul penalty',
       )
       const chooser = opponentOf(snapshot.context.foulOffender)
+
       return controlProjection(snapshot, {
         controls: [
           {
@@ -147,6 +153,7 @@ export function deriveStrilaControlProjection(snapshot: StrilaSparringFrameSnaps
         situationSummary: 'Opponent committed a foul. Choose the response.',
       })
     }
+
     case 'foul-committed.ball-in-hand':
       return controlProjection(snapshot, {
         controls: [
@@ -176,6 +183,7 @@ export function deriveStrilaControlProjection(snapshot: StrilaSparringFrameSnaps
     case 'winner-determined': {
       invariant(snapshot.context.winner !== null, 'Winner is required before awarding a determined frame')
       const controls: GameControl[] = []
+
       if (snapshot.can({ type: 'pot.record', seat: snapshot.context.winner, pottedBalls: [0] })) {
         controls.push({
           source: 'game',
@@ -185,6 +193,7 @@ export function deriveStrilaControlProjection(snapshot: StrilaSparringFrameSnaps
           prominence: 'primary',
         })
       }
+
       const canContinue = controls.length > 0
       controls.push({
         source: 'game',
@@ -193,6 +202,7 @@ export function deriveStrilaControlProjection(snapshot: StrilaSparringFrameSnaps
         fixedInput: {},
         prominence: 'primary',
       })
+
       return controlProjection(snapshot, {
         controls,
         seat: snapshot.context.winner,
@@ -202,6 +212,7 @@ export function deriveStrilaControlProjection(snapshot: StrilaSparringFrameSnaps
           : 'The frame can be awarded now.',
       })
     }
+
     case 'frame-over':
       return controlProjection(snapshot, {
         controls: [],

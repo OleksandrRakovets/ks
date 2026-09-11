@@ -38,11 +38,13 @@ export function loader({ request, context }: Route.LoaderArgs) {
 
 export function useRootLocale(): SupportedLocale {
   const data = useRouteLoaderData<RootLoaderData>('root')
+
   return data?.locale ?? 'uk'
 }
 
 export function useRootTheme(): AppTheme {
   const data = useRouteLoaderData<RootLoaderData>('root')
+
   return data?.theme ?? 'club-dark'
 }
 

@@ -20,7 +20,9 @@ function newControlSecret(): string {
   const bytes = new Uint8Array(24)
   crypto.getRandomValues(bytes)
   let binary = ''
+
   for (const byte of bytes) binary += String.fromCharCode(byte)
+
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
 }
 
@@ -41,6 +43,7 @@ function matchRecordFromRow(row: MatchRow) {
 
 export function createApplication(bindings: ApplicationBindings) {
   const db = createApplicationDatabaseClient(bindings.DB)
+
   return createApplicationWithDependencies({
     newMatchId,
     newControlSecret,
@@ -50,6 +53,7 @@ export function createApplication(bindings: ApplicationBindings) {
     listMatchRecords: async () => (await listMatchRows(db)).map(matchRecordFromRow),
     getMatchRecord: async (matchId) => {
       const row = await getMatchRow(db, matchId)
+
       return row ? matchRecordFromRow(row) : null
     },
     getProtocolArchive: async (matchId) => getProtocolArchive(db, matchId),

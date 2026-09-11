@@ -5,6 +5,7 @@ import { FoulCommitCommand, FrameAwardCommand, FrameCommenceCommand } from '../c
 import { GamePresentation } from '../constants'
 
 const CueBall = v.literal(0)
+
 const ColoredBall = v.union([
   v.literal(1),
   v.literal(2),
@@ -14,11 +15,15 @@ const ColoredBall = v.union([
   v.literal(6),
   v.literal(7),
 ])
+
 export type StrilaColoredBall = v.InferOutput<typeof ColoredBall>
+
 const COLORED_BALLS: readonly StrilaColoredBall[] = [1, 2, 3, 4, 5, 6, 7]
 
 const Ball = v.union([CueBall, ColoredBall])
+
 export type StrilaBall = v.InferOutput<typeof Ball>
+
 const BALLS: readonly StrilaBall[] = [0, ...COLORED_BALLS]
 
 const PottedBalls = v.pipe(
@@ -51,6 +56,7 @@ export const StrilaCommand = v.variant('type', [
   ),
   FrameAwardCommand,
 ])
+
 export type StrilaCommand = v.InferOutput<typeof StrilaCommand>
 
 export const StrilaPhase = v.picklist([
@@ -63,6 +69,7 @@ export const StrilaPhase = v.picklist([
   'winner-determined',
   'frame-over',
 ])
+
 export type StrilaPhase = v.InferOutput<typeof StrilaPhase>
 
 const WinnerDeterminationReason = v.picklist([
@@ -102,9 +109,11 @@ const StrilaContext = v.pipe(
   }),
   v.readonly(),
 )
+
 export type StrilaContext = v.InferOutput<typeof StrilaContext>
 
 const BallStatus = v.picklist(['object', 'on-table', 'potted'])
+
 export const StrilaBallStatuses = v.pipe(
   v.object({
     0: BallStatus,
@@ -118,6 +127,7 @@ export const StrilaBallStatuses = v.pipe(
   }),
   v.readonly(),
 )
+
 export type StrilaBallStatuses = v.InferOutput<typeof StrilaBallStatuses>
 
 const LastColoredBallPotOutcome = v.pipe(
@@ -159,6 +169,7 @@ const StrilaRuleNote = v.variant('code', [
     v.readonly(),
   ),
 ])
+
 type StrilaRuleNote = v.InferOutput<typeof StrilaRuleNote>
 
 const StrilaGamePresentationDetails = v.pipe(
@@ -174,6 +185,7 @@ const StrilaGamePresentationDetails = v.pipe(
   }),
   v.readonly(),
 )
+
 export type StrilaGamePresentationDetails = v.InferOutput<typeof StrilaGamePresentationDetails>
 
 export const StrilaGamePresentation = v.pipe(
@@ -185,6 +197,7 @@ export const StrilaGamePresentation = v.pipe(
   }),
   v.readonly(),
 )
+
 export type StrilaGamePresentation = v.InferOutput<typeof StrilaGamePresentation>
 
 const AutomaticFoulReason = v.picklist([
@@ -225,4 +238,5 @@ export const StrilaProtocolEntry = v.pipe(
   }),
   v.readonly(),
 )
+
 export type StrilaProtocolEntry = v.InferOutput<typeof StrilaProtocolEntry>

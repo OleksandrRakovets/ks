@@ -36,17 +36,21 @@ export function deriveStrilaRuleNotes(
   }
 
   ruleNotes.push(...lastColoredBallRuleNotes(snapshot))
+
   return normalizeRuleNotes(ruleNotes)
 }
 
 function normalizeRuleNotes(entries: StrilaGamePresentationDetails['ruleNotes']) {
   const seen = new Set<string>()
+
   return [...entries]
     .sort((a, b) => (a.severity === b.severity ? 0 : a.severity === 'warning' ? -1 : 1))
     .filter((entry) => {
       const key = `${entry.severity}:${entry.code}`
+
       if (seen.has(key)) return false
       seen.add(key)
+
       return true
     })
 }
@@ -58,6 +62,7 @@ function lastColoredBallRuleNotes(
   snapshot: StrilaSparringFrameSnapshot,
 ): StrilaGamePresentationDetails['ruleNotes'] {
   const phase = getPhase(snapshot)
+
   // Other phases either use respotted-black rules or no longer offer ordinary pot controls.
   if (
     snapshot.context.coloredBallsOnTable.length !== 1 ||
@@ -67,26 +72,33 @@ function lastColoredBallRuleNotes(
 
   const ball = snapshot.context.coloredBallsOnTable[0]
   invariant(ball !== undefined, 'A last-colored-ball projection must have a colored ball')
+
   const projectedOutcome = (seat: Seat) => {
     const candidate = sendEvent(snapshot, {
       type: 'pot.record',
       seat,
       pottedBalls: [ball],
     })
+
     const phase = getPhase(candidate)
+
     if (phase === 'respotted-black.opening') {
       return { seat, result: { type: 'respotted-black' as const } }
     }
+
     if (phase !== 'winner-determined') return null
     invariant(candidate.context.winner !== null, 'A determined last-colored-ball pot must have a winner')
+
     return {
       seat,
       result: { type: 'winner-determined' as const, winnerSeat: candidate.context.winner },
     }
   }
+
   const outcomes = (['A', 'B'] as const).map((seat) => {
     const outcome = projectedOutcome(seat)
     invariant(outcome !== null, 'A last colored ball must determine the next frame phase')
+
     return outcome
   })
 
@@ -95,6 +107,7 @@ function lastColoredBallRuleNotes(
       ({ seat, result }) =>
         (result.type === 'winner-determined' && result.winnerSeat !== seat) === (severity === 'warning'),
     )
+
     return matching.length === 0
       ? []
       : [{ severity, code: 'last-colored-ball-pot-outcomes' as const, ball, outcomes: matching }]

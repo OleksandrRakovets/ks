@@ -6,6 +6,7 @@ const PotRecordCountPayload = v.object({ pottedBallCount: PositiveInteger })
 
 export function potRecordPottedBallCount(control: Control): number | undefined {
   const parsed = v.safeParse(PotRecordCountPayload, control.fixedInput)
+
   return parsed.success ? parsed.output.pottedBallCount : undefined
 }
 
@@ -54,5 +55,6 @@ export function controlEffect(t: TFunction, control: Control): string | undefine
     case 'no-points-awarded':
       return t('match.control.effects.no-points-awarded')
   }
+
   return undefined
 }
