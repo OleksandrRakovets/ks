@@ -139,15 +139,12 @@ export type ControlLiveEvent =
   | { type: 'submit-started' }
   | { type: 'submit-finished' }
   | { type: 'accepted'; seq: number }
-  | { type: 'ready'; seq: number }
   | { type: 'update'; seq: number }
   | { type: 'match-ended'; seq: number }
-  | { type: 'error' }
 
 export type ControlLiveTransition = {
   state: ControlLiveState
   revalidate: boolean
-  close: boolean
 }
 
 export function transitionControlLive(
@@ -155,35 +152,30 @@ export function transitionControlLive(
   event: ControlLiveEvent,
 ): ControlLiveTransition {
   if (event.type === 'snapshot') {
-    return { state: { ...state, latestSeq: event.latestSeq }, revalidate: false, close: false }
+    return { state: { ...state, latestSeq: event.latestSeq }, revalidate: false }
   }
   if (event.type === 'submit-started') {
-    return { state: { ...state, localSubmitInFlight: true }, revalidate: false, close: false }
+    return { state: { ...state, localSubmitInFlight: true }, revalidate: false }
   }
   if (event.type === 'submit-finished') {
-    return { state: { ...state, localSubmitInFlight: false }, revalidate: false, close: false }
+    return { state: { ...state, localSubmitInFlight: false }, revalidate: false }
   }
   if (event.type === 'accepted') {
     return {
       state: { ...state, suppressUntilSeq: Math.max(state.suppressUntilSeq, event.seq) },
       revalidate: false,
-      close: false,
     }
   }
   if (event.type === 'match-ended') {
     return {
       state: { ...state, latestSeq: Math.max(state.latestSeq, event.seq) },
       revalidate: true,
-      close: true,
     }
   }
-  if (event.type === 'error') return { state, revalidate: true, close: false }
-  if (event.type === 'ready') return { state, revalidate: false, close: false }
-  if (event.seq <= state.latestSeq) return { state, revalidate: false, close: false }
+  if (event.seq <= state.latestSeq) return { state, revalidate: false }
   return {
     state: { ...state, latestSeq: event.seq },
     revalidate: !state.localSubmitInFlight && event.seq > state.suppressUntilSeq,
-    close: false,
   }
 }
 

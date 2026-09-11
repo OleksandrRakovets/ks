@@ -1,7 +1,7 @@
 import type { SparringMatchRoomProjection } from '@ks/competition'
 import type { MatchCommand, ProtocolEntry } from '@ks/core'
 
-import { type ActiveLiveMatch, LiveConnectionHandler } from '../live/live-connection-handler'
+import { type LiveConnectionCursor, LiveConnectionHandler } from '../live/live-connection-handler'
 import {
   type CommandReceipt,
   MatchStorage,
@@ -101,7 +101,7 @@ export class ActiveMatchHandler {
     }
   }
 
-  liveMatch(): ActiveLiveMatch {
+  liveConnectionCursor(): LiveConnectionCursor {
     return { matchId: this.#storedMatch.matchId, latestSeq: this.#storedMatch.latestSeq }
   }
 }

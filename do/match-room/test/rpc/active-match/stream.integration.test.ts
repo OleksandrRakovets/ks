@@ -1,4 +1,5 @@
-import { newCommandId, SparringMatchLiveServerMessage } from '@ks/core'
+import { newCommandId, newMatchId, SparringMatchLiveServerMessage } from '@ks/core'
+import { env } from 'cloudflare:test'
 import * as v from 'valibot'
 import { expect, test } from 'vitest'
 
@@ -29,6 +30,11 @@ function nextMessage(socket: WebSocket): Promise<SparringMatchLiveServerMessage>
     ),
   )
 }
+
+test('rejects a routed identity mismatch before reading MatchRoom storage', async () => {
+  const stub = env.MATCH_ROOM.getByName(newMatchId())
+  expect((await stub.fetch(liveRequest(newMatchId()))).status).toBe(400)
+})
 
 test('sends one catch-up cursor and broadcasts committed non-terminal acceptances', async () => {
   const { matchId, stub } = await initializedRoom()

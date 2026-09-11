@@ -55,16 +55,17 @@ export class MatchRoom extends DurableObject<Env> {
     return this.#requireHandler().getProtocol()
   }
 
-  /** Serves only the dedicated WebSocket handshake forwarded by Play; it is not a general HTTP API. */
+  /**
+   * Serves only the dedicated WebSocket handshake forwarded by Play; it is not a general HTTP API.
+   * Validation, synchronous cursor capture, and socket acceptance remain in one event turn with no await.
+   */
   fetch(request: Request): Response {
-    try {
-      const handler = this.#requireHandler()
-      return handler instanceof ActiveMatchHandler
-        ? this.#liveConnections.connect(request, handler.liveMatch())
-        : new Response('Match is finalizing', { status: 410 })
-    } catch {
-      return new Response('Internal server error', { status: 500 })
-    }
+    const pageKind = this.#liveConnections.validateHandshake(request)
+    if (!pageKind) return new Response('Invalid live request', { status: 400 })
+    const handler = this.#requireHandler()
+    return handler instanceof ActiveMatchHandler
+      ? this.#liveConnections.connect(handler.liveConnectionCursor(), pageKind)
+      : new Response('Match is finalizing', { status: 410 })
   }
 
   webSocketMessage(socket: WebSocket): void {

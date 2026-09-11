@@ -3,14 +3,6 @@ import * as v from 'valibot'
 import { MatchId } from './ids'
 import { NonNegativeInteger, PositiveInteger } from './valicombos'
 
-export const MatchStreamReady = v.pipe(
-  v.object({
-    latestSeq: NonNegativeInteger,
-  }),
-  v.readonly(),
-)
-export type MatchStreamReady = v.InferOutput<typeof MatchStreamReady>
-
 export const MatchStreamUpdate = v.pipe(
   v.object({
     type: v.literal('command-accepted'),
@@ -23,6 +15,19 @@ export type MatchStreamUpdate = v.InferOutput<typeof MatchStreamUpdate>
 
 export const SparringMatchLiveContractVersion = v.literal(1)
 export type SparringMatchLiveContractVersion = v.InferOutput<typeof SparringMatchLiveContractVersion>
+
+export const SparringMatchLivePageKind = v.picklist(['control', 'protocol'])
+export type SparringMatchLivePageKind = v.InferOutput<typeof SparringMatchLivePageKind>
+
+export const SparringMatchLiveQuery = v.strictObject({
+  contract: v.pipe(
+    v.literal('1'),
+    v.transform(() => 1),
+    SparringMatchLiveContractVersion,
+  ),
+  view: SparringMatchLivePageKind,
+})
+export type SparringMatchLiveQuery = v.InferOutput<typeof SparringMatchLiveQuery>
 
 export const SparringMatchLiveUpdateMessage = v.pipe(
   v.object({

@@ -11,7 +11,7 @@ export type SparringMatchLiveConnectionState =
   | 'connected'
   | 'disconnected'
   | 'completed'
-  | 'protocol-error'
+  | 'invalid-message'
 export type SparringMatchLiveSubscription = { stop(): void }
 
 export function subscribeSparringMatchLive(args: {
@@ -37,8 +37,8 @@ export function subscribeSparringMatchLive(args: {
     socket = null
   }
 
-  const failProtocol = () => {
-    args.onConnectionState('protocol-error')
+  const rejectInvalidMessage = () => {
+    args.onConnectionState('invalid-message')
     stop()
   }
 
@@ -74,19 +74,24 @@ export function subscribeSparringMatchLive(args: {
         v.pipe(v.string(), v.parseJson(), SparringMatchLiveServerMessage),
         event.data,
       )
-      if (!message.success) return failProtocol()
+      if (!message.success) return rejectInvalidMessage()
       if (message.output.type === 'caught-up') {
-        if (message.output.matchId !== args.matchId || serverSeq !== null) return failProtocol()
+        if (message.output.matchId !== args.matchId || serverSeq !== null) return rejectInvalidMessage()
         serverSeq = message.output.latestSeq
         reconnectAttempt = 0
         if (serverSeq > args.currentLatestSeq()) args.onCaughtUp(serverSeq)
         return
       }
-      if (serverSeq === null) return failProtocol()
+      if (serverSeq === null) return rejectInvalidMessage()
       const update = message.output.update
       if (update.acceptedSeq <= serverSeq) return
       if (update.acceptedSeq !== serverSeq + 1) {
         args.onCaughtUp(update.acceptedSeq)
+        if (update.completesMatch) {
+          args.onConnectionState('completed')
+          stop()
+          return
+        }
         current.close()
         return
       }
@@ -98,7 +103,6 @@ export function subscribeSparringMatchLive(args: {
       if (socket === current) socket = null
       if (stopped) return
       if (event.code === SPARRING_MATCH_LIVE_COMPLETED_CLOSE_CODE) {
-        args.onCaughtUp(serverSeq ?? args.currentLatestSeq())
         args.onConnectionState('completed')
         stop()
         return

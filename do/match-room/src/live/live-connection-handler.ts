@@ -3,18 +3,20 @@ import {
   type MatchStreamUpdate,
   SPARRING_MATCH_LIVE_COMPLETED_CLOSE_CODE,
   SPARRING_MATCH_LIVE_COMPLETED_CLOSE_REASON,
+  SparringMatchLiveContractVersion,
+  SparringMatchLivePageKind,
+  SparringMatchLiveQuery,
 } from '@ks/core'
 import * as v from 'valibot'
 
-type PageKind = 'control' | 'protocol'
-export type ActiveLiveMatch = {
+export type LiveConnectionCursor = {
   readonly matchId: MatchId
   readonly latestSeq: number
 }
-const ConnectionAttachment = v.object({
-  contractVersion: v.literal(1),
+const ConnectionAttachment = v.strictObject({
+  contractVersion: SparringMatchLiveContractVersion,
   connectionId: v.pipe(v.string(), v.uuid()),
-  pageKind: v.picklist(['control', 'protocol']),
+  pageKind: SparringMatchLivePageKind,
 })
 type ConnectionAttachment = v.InferOutput<typeof ConnectionAttachment>
 
@@ -25,10 +27,8 @@ export class LiveConnectionHandler {
     this.#ctx = ctx
   }
 
-  connect(request: Request, match: ActiveLiveMatch): Response {
-    const pageKind = this.#parseHandshake(request, match.matchId)
-    if (!pageKind) return new Response('Invalid live request', { status: 400 })
-
+  /** Accepts a socket and sends its catch-up cursor synchronously, leaving no command-delivery gap. */
+  connect(cursor: LiveConnectionCursor, pageKind: SparringMatchLivePageKind): Response {
     const pair = new WebSocketPair()
     const client = pair[0]
     const server = pair[1]
@@ -43,11 +43,11 @@ export class LiveConnectionHandler {
       JSON.stringify({
         contractVersion: 1,
         type: 'caught-up',
-        matchId: match.matchId,
-        latestSeq: match.latestSeq,
+        matchId: cursor.matchId,
+        latestSeq: cursor.latestSeq,
       }),
     )
-    console.info({ event: 'sparring-match-live.accepted', matchId: match.matchId, ...attachment })
+    console.info({ event: 'sparring-match-live.accepted', matchId: cursor.matchId, ...attachment })
     return new Response(null, { status: 101, webSocket: client })
   }
 
@@ -96,22 +96,21 @@ export class LiveConnectionHandler {
     }
   }
 
-  #parseHandshake(request: Request, expectedMatchId: MatchId): PageKind | null {
+  validateHandshake(request: Request): SparringMatchLivePageKind | null {
     const url = new URL(request.url)
     const route = /^\/api\/sparring-match\/([^/]+)\/live\/$/.exec(url.pathname)
     const matchId = v.safeParse(MatchId, route?.[1])
-    const pageKind = url.searchParams.get('view')
+    const query = v.safeParse(SparringMatchLiveQuery, Object.fromEntries(url.searchParams))
     if (
       !matchId.success ||
-      matchId.output !== expectedMatchId ||
+      matchId.output !== this.#ctx.id.name ||
+      !query.success ||
       request.method !== 'GET' ||
       request.headers.get('Upgrade')?.toLowerCase() !== 'websocket' ||
-      url.searchParams.get('contract') !== '1' ||
-      (pageKind !== 'control' && pageKind !== 'protocol') ||
       url.searchParams.size !== 2
     )
       return null
-    return pageKind
+    return query.output.view
   }
 }
 

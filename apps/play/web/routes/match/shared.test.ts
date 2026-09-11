@@ -67,21 +67,10 @@ describe('commandMatchAction adaptation', () => {
 })
 
 describe('control live transitions', () => {
-  test('ready confirms without advancing and ordinary newer updates revalidate', () => {
-    const ready = transitionControlLive(initial, { type: 'ready', seq: 5 })
-    expect(ready).toEqual({
-      state: initial,
-      revalidate: false,
-      close: false,
-    })
-    expect(transitionControlLive(ready.state, { type: 'update', seq: 6 }).revalidate).toBe(true)
-  })
-
   test('stale updates do nothing', () => {
     expect(transitionControlLive(initial, { type: 'update', seq: 4 })).toEqual({
       state: initial,
       revalidate: false,
-      close: false,
     })
   })
 
@@ -95,19 +84,10 @@ describe('control live transitions', () => {
     expect(transitionControlLive(echoed.state, { type: 'update', seq: 8 }).revalidate).toBe(true)
   })
 
-  test('match end closes and revalidates even when its sequence is stale', () => {
+  test('match end revalidates even when its sequence is stale', () => {
     expect(transitionControlLive(initial, { type: 'match-ended', seq: 3 })).toEqual({
       state: initial,
       revalidate: true,
-      close: true,
-    })
-  })
-
-  test('stream errors revalidate without closing', () => {
-    expect(transitionControlLive(initial, { type: 'error' })).toEqual({
-      state: initial,
-      revalidate: true,
-      close: false,
     })
   })
 })
@@ -176,4 +156,40 @@ test('live client validates catch-up and sequences updates without replay', asyn
   expect(states).toEqual(['connecting', 'connected'])
   subscription.stop()
   expect(socket.closeCalls).toBe(1)
+})
+
+test('live client stops and requests catch-up for a gapped completing update', () => {
+  FakeWebSocket.instances = []
+  const matchId = newMatchId()
+  const caughtUp: number[] = []
+  const states: string[] = []
+  const subscription = subscribeSparringMatchLive({
+    matchId,
+    pageKind: 'control',
+    currentLatestSeq: () => 2,
+    onCaughtUp: (seq) => caughtUp.push(seq),
+    onUpdate: () => {},
+    onConnectionState: (state) => states.push(state),
+  })
+  const socket = FakeWebSocket.instances[0]
+  if (!socket) throw new Error('Expected live socket')
+  socket.message(
+    JSON.stringify({
+      contractVersion: 1,
+      type: 'caught-up',
+      matchId,
+      latestSeq: 2,
+    }),
+  )
+  socket.message(
+    JSON.stringify({
+      contractVersion: 1,
+      type: 'update',
+      update: { type: 'command-accepted', acceptedSeq: 4, completesMatch: true },
+    }),
+  )
+  expect(caughtUp).toEqual([4])
+  expect(states).toEqual(['connecting', 'completed'])
+  expect(socket.closeCalls).toBe(1)
+  subscription.stop()
 })
