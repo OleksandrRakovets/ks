@@ -33,6 +33,5 @@ export function parseGameCommand<K extends RegisteredGameKey>(
     return parseFailure(gameKey, commandType, parsed.issues)
   }
 
-  // SAFETY: schema is keyed to gameKey in the exhaustive registry entry above.
   return { _tag: 'parsed', command: parsed.output }
 }

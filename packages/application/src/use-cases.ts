@@ -169,7 +169,6 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
       controls: roomResult.controls,
     }
     if (roomResult.game !== undefined) {
-      // SAFETY: the preceding MatchRoom state key check correlates its game presentation with expectedGameKey.
       result.game = roomResult.game
     }
     return result
