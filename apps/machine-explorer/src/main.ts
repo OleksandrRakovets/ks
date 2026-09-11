@@ -21,9 +21,17 @@ import {
   type StrilaSparringFrameSnapshot,
 } from '@ks/gameplay/strila-machine'
 import { createBrowserInspector } from '@statelyai/inspect'
-import { type AnyActorRef, createActor } from 'xstate'
+import { type ActorRefFrom, createActor } from 'xstate'
 
 type FrameGameKey = 'strila-v2' | 'free-pyramid' | 'free-pyramid-long'
+
+type FrameRuntime =
+  | { readonly gameKey: 'strila-v2'; readonly actor: ActorRefFrom<typeof StrilaSparringFrameMachine> }
+  | { readonly gameKey: 'free-pyramid'; readonly actor: ActorRefFrom<typeof PyramidSparringFrameMachine> }
+  | {
+      readonly gameKey: 'free-pyramid-long'
+      readonly actor: ActorRefFrom<typeof LongFreePyramidSparringFrameMachine>
+    }
 
 type Mode = 'frame' | 'match'
 
@@ -52,7 +60,7 @@ let matchFrameTargetA = 9
 
 let matchFrameTargetB = 9
 
-let frameActor: AnyActorRef = buildFrameActor()
+let frameRuntime = buildFrameActor()
 
 let matchActor = buildMatchActor()
 
@@ -80,26 +88,50 @@ function switchMode(next: Mode) {
   rebuildCurrentActor()
 }
 
-function buildFrameActor() {
+function buildFrameActor(): FrameRuntime {
   switch (frameGame) {
     case 'strila-v2':
-      return createActor(StrilaSparringFrameMachine, {
-        input: { targetPointsBySeat: { A: targetA, B: targetB } },
-        inspect: inspectorInspect,
-      })
+      return {
+        gameKey: frameGame,
+        actor: createActor(StrilaSparringFrameMachine, {
+          input: { targetPointsBySeat: { A: targetA, B: targetB } },
+          inspect: inspectorInspect,
+        }),
+      }
     case 'free-pyramid':
-      return createActor(PyramidSparringFrameMachine, {
-        input: { targetPointsBySeat: { A: targetA, B: targetB }, rules: FREE_PYRAMID_RULES },
-        inspect: inspectorInspect,
-      })
+      return {
+        gameKey: frameGame,
+        actor: createActor(PyramidSparringFrameMachine, {
+          input: { targetPointsBySeat: { A: targetA, B: targetB }, rules: FREE_PYRAMID_RULES },
+          inspect: inspectorInspect,
+        }),
+      }
     case 'free-pyramid-long':
-      return createActor(LongFreePyramidSparringFrameMachine, {
-        input: { targetPointsBySeat: { A: targetA, B: targetB }, rackRollover: 14 },
-        inspect: inspectorInspect,
-      })
+      return {
+        gameKey: frameGame,
+        actor: createActor(LongFreePyramidSparringFrameMachine, {
+          input: { targetPointsBySeat: { A: targetA, B: targetB }, rackRollover: 14 },
+          inspect: inspectorInspect,
+        }),
+      }
   }
 
   throw new Error('Unsupported frame game')
+}
+
+function subscribeToFrameRuntime(runtime: FrameRuntime) {
+  switch (runtime.gameKey) {
+    case 'strila-v2':
+      runtime.actor.subscribe(() => renderFrame())
+
+      return
+    case 'free-pyramid':
+      runtime.actor.subscribe(() => renderFrame())
+
+      return
+    case 'free-pyramid-long':
+      runtime.actor.subscribe(() => renderFrame())
+  }
 }
 
 const MATCH_CREATE_REQUEST: CreateMatchRequest = {
@@ -138,11 +170,11 @@ function buildMatchActor() {
 
 function rebuildCurrentActor() {
   if (mode === 'frame') {
-    frameActor.stop()
+    frameRuntime.actor.stop()
     selectedBalls.clear()
-    frameActor = buildFrameActor()
-    frameActor.subscribe(() => renderFrame())
-    frameActor.start()
+    frameRuntime = buildFrameActor()
+    subscribeToFrameRuntime(frameRuntime)
+    frameRuntime.actor.start()
     renderFrame()
   } else {
     matchActor.stop()
@@ -153,28 +185,28 @@ function rebuildCurrentActor() {
 }
 
 function renderFrame() {
-  const snap: unknown = frameActor.getSnapshot()
+  const runtime = frameRuntime
 
-  switch (frameGame) {
+  switch (runtime.gameKey) {
     case 'strila-v2':
-      // SAFETY: frameGame selects the Strila actor built above.
-      renderStrilaFrame(snap as StrilaSparringFrameSnapshot)
+      renderStrilaFrame(runtime.actor.getSnapshot(), runtime.actor)
 
       return
     case 'free-pyramid':
-      // SAFETY: frameGame selects the regular pyramid actor built above.
-      renderPyramidFrame(snap as PyramidSparringFrameSnapshot)
+      renderPyramidFrame(runtime.actor.getSnapshot(), runtime.actor)
 
       return
     case 'free-pyramid-long':
-      // SAFETY: frameGame selects the long free pyramid actor built above.
-      renderLongFreePyramidFrame(snap as LongFreePyramidSparringFrameSnapshot)
+      renderLongFreePyramidFrame(runtime.actor.getSnapshot(), runtime.actor)
 
       return
   }
 }
 
-function renderStrilaFrame(snap: StrilaSparringFrameSnapshot) {
+function renderStrilaFrame(
+  snap: StrilaSparringFrameSnapshot,
+  actor: ActorRefFrom<typeof StrilaSparringFrameMachine>,
+) {
   const phase = getStrilaSparringFramePhase(snap)
   const ctx = snap.context
   status.innerHTML = `
@@ -192,32 +224,34 @@ function renderStrilaFrame(snap: StrilaSparringFrameSnapshot) {
 
   if (phase === 'not-started') {
     controls.append(
-      btn('Break-off A', () => frameActor.send({ type: 'frame.commence', seat: 'A' })),
-      btn('Break-off B', () => frameActor.send({ type: 'frame.commence', seat: 'B' })),
+      btn('Break-off A', () => actor.send({ type: 'frame.commence', seat: 'A' })),
+      btn('Break-off B', () => actor.send({ type: 'frame.commence', seat: 'B' })),
     )
 
     return
   }
 
   if (phase === 'winner-determined') {
-    controls.append(
-      btn(
-        `Award frame to ${ctx.winner}`,
-        () => frameActor.send({ type: 'frame.award', seat: ctx.winner! }),
-        'primary',
-      ),
-    )
+    const winner = ctx.winner
+
+    if (winner)
+      controls.append(
+        btn(`Award frame to ${winner}`, () => actor.send({ type: 'frame.award', seat: winner }), 'primary'),
+      )
   }
 
   controls.append(
-    btn('Pot A (+2)', () => frameActor.send({ type: 'pot.record', seat: 'A', pottedBalls: [1] })),
-    btn('Pot B (+2)', () => frameActor.send({ type: 'pot.record', seat: 'B', pottedBalls: [1] })),
-    btn('Foul A', () => frameActor.send({ type: 'foul.commit', seat: 'A' })),
-    btn('Foul B', () => frameActor.send({ type: 'foul.commit', seat: 'B' })),
+    btn('Pot A (+2)', () => actor.send({ type: 'pot.record', seat: 'A', pottedBalls: [1] })),
+    btn('Pot B (+2)', () => actor.send({ type: 'pot.record', seat: 'B', pottedBalls: [1] })),
+    btn('Foul A', () => actor.send({ type: 'foul.commit', seat: 'A' })),
+    btn('Foul B', () => actor.send({ type: 'foul.commit', seat: 'B' })),
   )
 }
 
-function renderPyramidFrame(snap: PyramidSparringFrameSnapshot) {
+function renderPyramidFrame(
+  snap: PyramidSparringFrameSnapshot,
+  actor: ActorRefFrom<typeof PyramidSparringFrameMachine>,
+) {
   const phase = getPyramidSparringFramePhase(snap)
   status.innerHTML = `
     <div class="state-label">${phase}</div>
@@ -234,8 +268,8 @@ function renderPyramidFrame(snap: PyramidSparringFrameSnapshot) {
 
   if (phase === 'not-started') {
     controls.append(
-      btn('Break-off A', () => frameActor.send({ type: 'frame.commence', seat: 'A' })),
-      btn('Break-off B', () => frameActor.send({ type: 'frame.commence', seat: 'B' })),
+      btn('Break-off A', () => actor.send({ type: 'frame.commence', seat: 'A' })),
+      btn('Break-off B', () => actor.send({ type: 'frame.commence', seat: 'B' })),
     )
 
     return
@@ -246,23 +280,22 @@ function renderPyramidFrame(snap: PyramidSparringFrameSnapshot) {
 
     if (winner)
       controls.append(
-        btn(
-          `Award frame to ${winner}`,
-          () => frameActor.send({ type: 'frame.award', seat: winner }),
-          'primary',
-        ),
+        btn(`Award frame to ${winner}`, () => actor.send({ type: 'frame.award', seat: winner }), 'primary'),
       )
   }
 
   controls.append(
-    btn('Pot A (+1)', () => frameActor.send({ type: 'pot.record', seat: 'A', pottedBallCount: 1 })),
-    btn('Pot B (+1)', () => frameActor.send({ type: 'pot.record', seat: 'B', pottedBallCount: 1 })),
-    btn('Foul A', () => frameActor.send({ type: 'foul.commit', seat: 'A' })),
-    btn('Foul B', () => frameActor.send({ type: 'foul.commit', seat: 'B' })),
+    btn('Pot A (+1)', () => actor.send({ type: 'pot.record', seat: 'A', pottedBallCount: 1 })),
+    btn('Pot B (+1)', () => actor.send({ type: 'pot.record', seat: 'B', pottedBallCount: 1 })),
+    btn('Foul A', () => actor.send({ type: 'foul.commit', seat: 'A' })),
+    btn('Foul B', () => actor.send({ type: 'foul.commit', seat: 'B' })),
   )
 }
 
-function renderLongFreePyramidFrame(snap: LongFreePyramidSparringFrameSnapshot) {
+function renderLongFreePyramidFrame(
+  snap: LongFreePyramidSparringFrameSnapshot,
+  actor: ActorRefFrom<typeof LongFreePyramidSparringFrameMachine>,
+) {
   const phase = getLongFreePyramidSparringFramePhase(snap)
   status.innerHTML = `
     <div class="state-label">${phase}</div>
@@ -279,8 +312,8 @@ function renderLongFreePyramidFrame(snap: LongFreePyramidSparringFrameSnapshot) 
 
   if (phase === 'not-started') {
     controls.append(
-      btn('Break-off A', () => frameActor.send({ type: 'frame.commence', seat: 'A' })),
-      btn('Break-off B', () => frameActor.send({ type: 'frame.commence', seat: 'B' })),
+      btn('Break-off A', () => actor.send({ type: 'frame.commence', seat: 'A' })),
+      btn('Break-off B', () => actor.send({ type: 'frame.commence', seat: 'B' })),
     )
 
     return
@@ -291,19 +324,15 @@ function renderLongFreePyramidFrame(snap: LongFreePyramidSparringFrameSnapshot) 
 
     if (winner)
       controls.append(
-        btn(
-          `Award frame to ${winner}`,
-          () => frameActor.send({ type: 'frame.award', seat: winner }),
-          'primary',
-        ),
+        btn(`Award frame to ${winner}`, () => actor.send({ type: 'frame.award', seat: winner }), 'primary'),
       )
   }
 
   controls.append(
-    btn('Pot A (+1)', () => frameActor.send({ type: 'pot.record', seat: 'A', pottedBallCount: 1 })),
-    btn('Pot B (+1)', () => frameActor.send({ type: 'pot.record', seat: 'B', pottedBallCount: 1 })),
-    btn('Foul A', () => frameActor.send({ type: 'foul.commit', seat: 'A' })),
-    btn('Foul B', () => frameActor.send({ type: 'foul.commit', seat: 'B' })),
+    btn('Pot A (+1)', () => actor.send({ type: 'pot.record', seat: 'A', pottedBallCount: 1 })),
+    btn('Pot B (+1)', () => actor.send({ type: 'pot.record', seat: 'B', pottedBallCount: 1 })),
+    btn('Foul A', () => actor.send({ type: 'foul.commit', seat: 'A' })),
+    btn('Foul B', () => actor.send({ type: 'foul.commit', seat: 'B' })),
   )
 }
 
@@ -474,9 +503,9 @@ function el(tag: string, text: string, id = '') {
   return element
 }
 
-frameActor.subscribe(() => renderFrame())
+subscribeToFrameRuntime(frameRuntime)
 
-frameActor.start()
+frameRuntime.actor.start()
 
 matchActor.subscribe(() => renderMatch())
 

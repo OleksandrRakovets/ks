@@ -427,6 +427,10 @@ class ResidentSparringMatch implements SparringMatch {
  * @throws A Valibot parse error when the configuration uses an unregistered game key.
  */
 export function createSparringMatch(config: MatchConfig): SparringMatch {
+  return createResidentSparringMatch(config)
+}
+
+function createResidentSparringMatch(config: MatchConfig): ResidentSparringMatch {
   gameKeyOf(config.gameKey)
 
   return new ResidentSparringMatch(createInitialSnapshot(config), null)
@@ -440,8 +444,7 @@ export function restoreSparringMatch(
   config: MatchConfig,
   history: readonly AcceptedCommand[],
 ): RestoredSparringMatch {
-  // SAFETY: createSparringMatch always constructs the private implementation in this module.
-  const resident = createSparringMatch(config) as ResidentSparringMatch
+  const resident = createResidentSparringMatch(config)
 
   try {
     const accepted = history.map((acceptedCommand) => ({

@@ -1,4 +1,11 @@
-import { type MatchId, MatchState, NonEmptyProtocolEntries, type UnixEpochMilliseconds } from '@ks/core'
+import {
+  type MatchId,
+  MatchState,
+  type MatchState as MatchStateValue,
+  NonEmptyProtocolEntries,
+  type NonEmptyProtocolEntries as NonEmptyProtocolEntriesValue,
+  type UnixEpochMilliseconds,
+} from '@ks/core'
 import { and, eq, inArray, isNull, or } from 'drizzle-orm'
 import * as v from 'valibot'
 
@@ -34,22 +41,14 @@ function semanticArchiveEqual(
   const rightRows = v.safeParse(v.pipe(v.string(), v.parseJson(), NonEmptyProtocolEntries), right.rowsJson)
   const leftState = v.safeParse(v.pipe(v.string(), v.parseJson(), MatchState), left.stateJson)
   const rightState = v.safeParse(v.pipe(v.string(), v.parseJson(), MatchState), right.stateJson)
-  // SAFETY: both schemas validate JSON-compatible structural values.
-  const decodedLeftRows = leftRows.success ? (leftRows.output as StructuralValue) : undefined
-  // SAFETY: both schemas validate JSON-compatible structural values.
-  const decodedRightRows = rightRows.success ? (rightRows.output as StructuralValue) : undefined
-  // SAFETY: MatchState validates a JSON-compatible structural value.
-  const decodedLeftState = leftState.success ? (leftState.output as StructuralValue) : undefined
-  // SAFETY: MatchState validates a JSON-compatible structural value.
-  const decodedRightState = rightState.success ? (rightState.output as StructuralValue) : undefined
 
   return (
     leftRows.success &&
     rightRows.success &&
     leftState.success &&
     rightState.success &&
-    structuralEqual(decodedLeftRows, decodedRightRows) &&
-    structuralEqual(decodedLeftState, decodedRightState)
+    structuralEqual(leftRows.output, rightRows.output) &&
+    structuralEqual(leftState.output, rightState.output)
   )
 }
 
@@ -61,13 +60,13 @@ type StructuralValue =
   | string
   | readonly StructuralValue[]
   | StructuralObject
+  | MatchStateValue
+  | NonEmptyProtocolEntriesValue
 
 type StructuralObject = { readonly [key: string]: StructuralValue }
 
 function structuralEqual(left: StructuralValue, right: StructuralValue): boolean {
   if (Object.is(left, right)) return true
-
-  if (left === null || right === null || Object(left) !== left || Object(right) !== right) return false
 
   if (isStructuralArray(left) || isStructuralArray(right))
     return (
@@ -76,21 +75,23 @@ function structuralEqual(left: StructuralValue, right: StructuralValue): boolean
       left.length === right.length &&
       left.every((value, index) => structuralEqual(value, right[index]))
     )
-  // SAFETY: primitives and arrays were excluded above, leaving structural objects.
-  const leftObject = left as StructuralObject
-  // SAFETY: primitives and arrays were excluded above, leaving structural objects.
-  const rightObject = right as StructuralObject
-  const keys = Object.keys(leftObject).filter((key) => leftObject[key] !== undefined)
-  const rightKeys = Object.keys(rightObject).filter((key) => rightObject[key] !== undefined)
+
+  if (!isStructuralObject(left) || !isStructuralObject(right)) return false
+  const entries = Object.entries(left).filter(([, value]) => value !== undefined)
+  const rightValues = new Map(Object.entries(right).filter(([, value]) => value !== undefined))
 
   return (
-    keys.length === rightKeys.length &&
-    keys.every((key) => Object.hasOwn(rightObject, key) && structuralEqual(leftObject[key], rightObject[key]))
+    entries.length === rightValues.size &&
+    entries.every(([key, value]) => rightValues.has(key) && structuralEqual(value, rightValues.get(key)))
   )
 }
 
 function isStructuralArray(value: StructuralValue): value is readonly StructuralValue[] {
   return Array.isArray(value)
+}
+
+function isStructuralObject(value: StructuralValue): value is StructuralObject {
+  return value !== null && !isStructuralArray(value) && Object(value) === value
 }
 
 export async function archiveCompletedMatch(

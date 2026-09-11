@@ -73,7 +73,8 @@ class PyramidGameplaySession<K extends PyramidGameKey> implements GameplaySessio
   deriveControls(): { readonly game: GamePresentationFor<K>; readonly controls: readonly GameControl[] } {
     const projection: unknown = derivePyramidControlProjection(this.#snapshot, this.#rules)
 
-    // SAFETY: both the family projection and registry contract are discriminated by this session's same K.
+    // SAFETY: TypeScript cannot reduce the registry's indexed presentation type for generic K;
+    // the projection and registry entry are both selected by this session's same game key.
     return projection as { readonly game: GamePresentationFor<K>; readonly controls: readonly GameControl[] }
   }
 }

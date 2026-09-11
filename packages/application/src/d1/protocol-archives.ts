@@ -1,5 +1,5 @@
 import { parseProtocolEntryContent } from '@ks/competition'
-import { MatchId, MatchState, NonEmptyProtocolEntries, PositiveInteger } from '@ks/core'
+import { MatchId, MatchState, NonEmptyProtocolEntries, PositiveInteger, type ProtocolEntry } from '@ks/core'
 import { isRegisteredGameKey } from '@ks/gameplay/definitions'
 import { eq } from 'drizzle-orm'
 import * as v from 'valibot'
@@ -49,26 +49,27 @@ export async function getProtocolArchive(
     const { matchId: _matchId, entries, ...archive } = parsed
     const gameKey = archive.state.gameKey
 
-    const normalizedEntries = isRegisteredGameKey(gameKey)
-      ? entries.map((entry) => {
-          const { acceptedSeq, entryIndex, causedByCommandId, acceptedAt, ...content } = entry
+    const normalizeEntry = (entry: ProtocolEntry): ProtocolEntry => {
+      const { acceptedSeq, entryIndex, causedByCommandId, acceptedAt, ...content } = entry
 
-          if (content.gameKey !== gameKey) throw new Error('Protocol archive game key mismatch')
+      if (content.gameKey !== gameKey) throw new Error('Protocol archive game key mismatch')
 
-          return {
-            acceptedSeq,
-            entryIndex,
-            causedByCommandId,
-            acceptedAt,
-            ...parseProtocolEntryContent(content),
-          }
-        })
+      return {
+        acceptedSeq,
+        entryIndex,
+        causedByCommandId,
+        acceptedAt,
+        ...parseProtocolEntryContent(content),
+      }
+    }
+
+    const normalizedEntries: NonEmptyProtocolEntries = isRegisteredGameKey(gameKey)
+      ? [normalizeEntry(entries[0]), ...entries.slice(1).map(normalizeEntry)]
       : entries
 
     return {
       ...archive,
-      // SAFETY: entries is non-empty by schema, and mapping preserves its length.
-      entries: normalizedEntries as NonEmptyProtocolEntries,
+      entries: normalizedEntries,
     }
   } catch {
     if (!isSupportedProtocolArchiveVersion(row.protocolVersion)) {

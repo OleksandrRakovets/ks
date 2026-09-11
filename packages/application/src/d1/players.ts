@@ -1,4 +1,4 @@
-import { type GuestPlayerId, HydratedMatchParticipant, type PlayerRef, type VerifiedPlayerId } from '@ks/core'
+import { GuestPlayerId, HydratedMatchParticipant, type PlayerRef, VerifiedPlayerId } from '@ks/core'
 import type { SupportedLocale } from '@ks/i18n'
 import { eq } from 'drizzle-orm'
 import * as v from 'valibot'
@@ -18,8 +18,7 @@ async function loadPlayerRow(
   playerRef: PlayerRef,
 ): Promise<LocalizedPlayerRow | null> {
   if (playerRef.startsWith('gp_')) {
-    // SAFETY: PlayerRef guarantees gp_<GuestPlayerId>; the suffix is the stored guest player ID.
-    const guestPlayerId = playerRef.slice(3) as GuestPlayerId
+    const guestPlayerId = v.parse(GuestPlayerId, playerRef.slice(3))
 
     return (
       (await db
@@ -36,8 +35,7 @@ async function loadPlayerRow(
   }
 
   if (playerRef.startsWith('vp_')) {
-    // SAFETY: PlayerRef guarantees vp_<VerifiedPlayerId>; the suffix is the stored verified player ID.
-    const verifiedPlayerId = playerRef.slice(3) as VerifiedPlayerId
+    const verifiedPlayerId = v.parse(VerifiedPlayerId, playerRef.slice(3))
 
     return (
       (await db
