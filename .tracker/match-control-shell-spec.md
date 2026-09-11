@@ -78,6 +78,23 @@ Invariants:
   therefore land in the same thumb region on every screen size and in every game.
 - Slack collapses to zero before anything else shrinks. Nothing else shrinks.
 - Must fit 375×667 through 430×932 in every state listed in §12.
+  **Surfaces carry the structure; lines almost never do.** Three tones, no dividers between them:
+
+| Region                                                        | Surface       |
+| ------------------------------------------------------------- | ------------- |
+| Top bar, Board, slack, Last Action Bar, tabs                  | `--c-base`    |
+| Action Stack — Selector, Primary, Secondary, and any Takeover | `--c-raised`  |
+| Controls sitting on the raised surface, and the active tab    | `--c-overlay` |
+
+The raised block running from the Selector zone down through the Secondary zone is what says _this
+is the part you touch_, and it does that job better than the six hairlines it replaces. Keep the
+tonal steps far enough apart to survive a dim screen at an angle in a club; the values were pushed
+apart once already for exactly this reason, and they need checking on a real phone.
+
+The **only** rule on this screen is the lane spine. It divides two otherwise identical halves,
+which is what a line is for. Do not reintroduce borders between the Board and the stack, above the
+Secondary zone, above the Last Action Bar, or under the top bar.
+
 - At `≥768px` the shell content is capped at `560px` and centred. This is deliberate: the screen
   is a phone-shaped task surface used at the table, and a wide desktop variant would need its own
   interaction study. Revisit only with evidence.
@@ -129,7 +146,8 @@ The chunking is the point of the feature. Long Pyramid runs long enough that she
 a player forgets to shelf a ball, or miscounts — so this row exists to be compared against the
 physical shelf. Chunking makes the app side readable at a glance so only the shelf needs counting.
 
-**4. Aux row.** Optional, centred, 16px `--t-secondary`, hairline rule above.
+**4. Aux row.** Optional, centred, 16px `--t-secondary`, separated by spacing only. It reads as part
+of the reconciliation block above it, which is correct: potted plus on-table is the whole rack.
 
 - `free-pyramid-long`: `на столі {ballsOnTable}` with the numeral in `--t-primary`/600.
 - All others: absent.
@@ -156,10 +174,12 @@ sit in the path between them.
 
 **Primary zone.** Two lanes split by a 1px spine. Filled `--a-green`, 18px/600, `min-height: 60px`.
 
-**Secondary zone.** Two lanes, outlined, 17px, `min-height: 50px`, preceded by a hairline and 14px
-of padding. Recessive weight and the extra separation are what keep `Фол` out of the tap path from
-the tray. `foul.commit` uses a red outline and red text; every other secondary Control uses the
-neutral outline.
+**Secondary zone.** Two lanes on `--c-overlay`, 17px, `min-height: 50px`, separated from the
+Primary zone by 14px of padding rather than a rule. Recessive weight and the extra separation are
+what keep `Фол` out of the tap path from the tray. `foul.commit` takes red text on the same
+recessed surface; every other secondary Control takes `--t-primary`. No outlines — a red-outlined
+button reads louder than a filled recessed one, which is backwards for a control we deliberately
+demoted.
 
 **Arity within a lane.** Deterministic, no measurement:
 
@@ -213,7 +233,22 @@ the tabs, in both normal and Takeover states.
 - Line one: actor `displayName`, 16px/600.
 - Line two: the rendered Protocol message, 16px, with the resulting score at 14px `--t-muted`.
   Two lines maximum.
-- Right: `Виправити`, outlined, `min-height: 44px`, 16px, with a counter-clockwise arrow icon.
+- Right: `Виправити` on `--c-overlay`, `min-height: 44px`, 16px, with a counter-clockwise arrow
+  icon.
+
+The bar sits on `--c-base`, dropping back out of the raised Action Stack. That tonal break is
+load-bearing: while the bar shared the stack's surface and left padding, it read as belonging to
+seat A's lane, so an entry about seat B looked misfiled.
+
+**Always name the actor, and never let position carry it.** The single most likely mistake this bar
+exists to catch is recording an action against the wrong player, and position is the weakest
+possible signal for precisely that error — a wrong-seat tap would show up only as a subtle shift,
+while a name states it in words. This is not duplication of the Board: the name above labels a lane
+in the live state, the name here labels a past event.
+
+**Do not mirror the bar for seat B, and never move `Виправити`.** A fix button that changes sides
+depending on who last acted is a moving target for a control pressed under time pressure, sometimes
+twice in succession.
 
 This is the confirmation loop. The observed failure was a player mis-tapping and then searching for
 a fix, so the record of what was just accepted and the control that corrects it are deliberately
@@ -231,8 +266,8 @@ correct distance for controls used in under 1% of matches.
 - Reuse the existing `Sheet` primitive from `@/components/ui`, bottom-anchored.
 - Title `Інші дії`, 19px/600, with a ✕ dismiss.
 - One group per participant, headed by their `displayName` at 16px/600 `--t-secondary`, separated
-  by a hairline. Within a group, one outlined button per tertiary Control, full width,
-  `min-height: 56px`, 17px.
+  by spacing rather than a rule. Within a group, one button per tertiary Control on `--c-overlay`,
+  full width, `min-height: 56px`, 17px.
 - Groups render in seat order A then B, and a group with no Controls is omitted.
 
 ## 10. Tokens
@@ -245,8 +280,8 @@ worse. Do not introduce generated or per-player colours without a separate decis
 | ----------------------------------- | -------------------------------------- |
 | Commit / primary action             | `--a-green`                            |
 | Pending selection, not yet recorded | `--a-amber` (tray selection ring only) |
-| Foul                                | `--a-red`, outline and text only       |
-| Rulebook note                       | `--a-blue`, border and 10% wash        |
+| Foul                                | `--a-red` text on `--c-overlay`        |
+| Rulebook note                       | `--a-blue` at a 16% wash, no border    |
 | Score numerals                      | `--bone`                               |
 
 Typography uses the system stack. No webfont: the app must stay usable on club connections.
