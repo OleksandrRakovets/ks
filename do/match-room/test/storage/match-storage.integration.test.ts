@@ -1,6 +1,7 @@
 import { buildMatchConfig, CreateMatchRequest } from '@ks/competition'
 import { newCommandId, newMatchId, PlayerRef, UnixEpochMilliseconds } from '@ks/core'
-import { env, runInDurableObject } from 'cloudflare:test'
+import { runInDurableObject } from 'cloudflare:test'
+import { env } from 'cloudflare:workers'
 import * as v from 'valibot'
 import { expect, test } from 'vitest'
 

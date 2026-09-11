@@ -7,7 +7,8 @@ import {
   type ProtocolEntry,
   UnixEpochMilliseconds,
 } from '@ks/core'
-import { applyD1Migrations, env, reset } from 'cloudflare:test'
+import { applyD1Migrations, reset } from 'cloudflare:test'
+import { env } from 'cloudflare:workers'
 import * as v from 'valibot'
 import { beforeEach, describe, expect, test } from 'vitest'
 

@@ -1,5 +1,5 @@
 import { newCommandId, newMatchId, SparringMatchLiveServerMessage } from '@ks/core'
-import { env } from 'cloudflare:test'
+import { env } from 'cloudflare:workers'
 import * as v from 'valibot'
 import { expect, test } from 'vitest'
 

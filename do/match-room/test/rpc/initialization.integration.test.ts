@@ -1,5 +1,6 @@
 import { newMatchId } from '@ks/core'
-import { env, evictDurableObject } from 'cloudflare:test'
+import { evictDurableObject } from 'cloudflare:test'
+import { env } from 'cloudflare:workers'
 import { expect, test } from 'vitest'
 
 import { captureRpcError, initialization, initializedRoom } from './fixtures'

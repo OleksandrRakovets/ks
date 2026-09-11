@@ -141,6 +141,12 @@
       }
     },
     {
+      "files": ["do/match-room/test/rpc/finalizing-match/*.integration.test.ts"],
+      "rules": {
+        "typescript/await-thenable": "off"
+      }
+    },
+    {
       "files": ["packages/gameplay/src/**/*.{ts,tsx}"],
       "rules": {
         "no-restricted-imports": [
