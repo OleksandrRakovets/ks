@@ -6,6 +6,7 @@
     { "path": "packages/gameplay" },
     { "path": "packages/i18n" },
     { "path": "packages/application" },
+    { "path": "do/match-room" },
     { "path": "apps/machine-explorer" },
     { "path": "apps/play" }
   ]
