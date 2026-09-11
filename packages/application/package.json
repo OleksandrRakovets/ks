@@ -6,7 +6,7 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "test:integration": "tsc -p tsconfig.integration.json && vitest run --config vitest.config.ts",
+    "test:integration": "tsc -b tsconfig.integration.json && vitest run --config vitest.config.ts",
     "typecheck": "tsc -b"
   },
   "dependencies": {

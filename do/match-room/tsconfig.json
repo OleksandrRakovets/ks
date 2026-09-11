@@ -3,8 +3,8 @@
   "compilerOptions": {
     "composite": true,
     "noEmit": true,
-    "types": ["bun-types", "node"]
+    "types": []
   },
-  "include": ["src/**/*", "drizzle/**/*.ts", "worker-configuration.d.ts"],
-  "exclude": ["src/MatchRoom.integration.test.ts"]
+  "files": [],
+  "references": [{ "path": "./tsconfig.src.json" }, { "path": "./tsconfig.integration.json" }]
 }
