@@ -2,15 +2,15 @@
 
 KS is a two-player billiards scorekeeper with public live scoring. A match is a race across frames; seats are always `A` and `B`. Supported games are registered in `packages/gameplay/src/registry.ts`.
 
-Domain vocabulary and distinctions are defined in CONTEXT.md. Treat it as authoritative when naming concepts in code, tests, UI copy, and architecture documentation.
+Consult the relevant definitions in CONTEXT.md when introducing or changing domain terminology. Treat it as authoritative.
 
 ## Working Mode
 
 - Optimize for architectural clarity and small, reviewable slices.
-- Respect an explicit architecture-only phase; otherwise implement and verify changes.
-- Ask before adding a package, layer, or major abstraction.
+- For change requests, implement and verify unless the user requests an architecture-only or review-first phase. Keep reviews, investigations, and explanations read-only unless changes are requested.
+- Ask before adding dependencies or workspace packages, or introducing a new architectural layer. Small internal extractions within existing boundaries do not require approval.
 - Keep only durable, current architecture notes in `.tracker/decisions/`.
-- Treat new automated test coverage as opt-in. Do not create test files, test-only helpers or fixtures, or materially expand a suite unless the user explicitly requests or approves it. Requests to implement, fix, test, or verify authorize running existing checks and updating existing tests required by the change, not adding broad coverage. If one focused regression test would provide concrete value, explain why and ask first.
+- Allow focused regression tests for the requested change using existing test infrastructure. Ask before broad coverage expansion, new test infrastructure, or substantial fixtures.
 - Test each behavior at the lowest layer that owns it. Higher-level tests should cover wiring, persistence, transport, or lifecycle boundaries rather than repeat lower-level rule matrices. Assert observable contracts, not source strings, implementation shape, or the existence of tests.
 
 ## Commands
@@ -29,9 +29,11 @@ Domain vocabulary and distinctions are defined in CONTEXT.md. Treat it as author
 
 `check` and `check:full` apply formatting before running their remaining gates. `check:full` also includes integration projects and both deployable builds.
 
+These commands overlap. Choose the appropriate gate; do not rerun its constituent checks on unchanged code.
+
 ## Dependencies
 
-- Check all workspaces with `bun outdated --recursive`.
+- For dependency audits or upgrades, check all workspaces with `bun outdated --recursive`.
 - Shared versions belong in root `workspaces.catalog`; consumers use `"catalog:"`.
 - Change the owning manifest, then run `bun install` to regenerate `bun.lock`.
 - Do not bypass Bun's configured two-day package release cooldown.
