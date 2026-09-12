@@ -4,9 +4,10 @@ import { isRegisteredGameKey, registry } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Form, Link, redirect, useActionData, useLoaderData, useNavigation } from 'react-router'
+import { Form, redirect, useActionData, useLoaderData, useNavigation } from 'react-router'
 import * as v from 'valibot'
 
+import { Page } from '@/components/Page'
 import { Button } from '@/components/ui'
 
 import { matchControlUrl } from '../../features/match-urls'
@@ -153,14 +154,10 @@ function stringFormValue(form: FormData, key: string): string {
   return value.success ? value.output : ''
 }
 
-export const handle = {
-  headerConfig: (data: LoaderData) => ({ title: data.title, backTo: '/sparring/' }),
-}
-
 export default function SparringInitRoute() {
   const { t } = useTranslation()
   const locale = useRootLocale()
-  const { profile } = useLoaderData<typeof loader>()
+  const { profile, title } = useLoaderData<typeof loader>()
   const actionData = useActionData<typeof action>()
   const navigation = useNavigation()
   const isSubmitting = navigation.state === 'submitting'
@@ -201,61 +198,55 @@ export default function SparringInitRoute() {
   }
 
   return (
-    <main className="flex-1 bg-background px-4 py-6 text-foreground">
-      <div className="mx-auto w-full max-w-2xl">
-        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h1 className="text-3xl font-semibold tracking-tight">{t(keys.match.sparring.setupTitle)}</h1>
+    <Page
+      title={title}
+      backLink={{ to: localizedPath('/sparring/', locale), label: t(keys.match.sparring.chooseAnotherGame) }}
+      className="mx-auto w-full max-w-[44rem] pb-28"
+    >
+      <Form method="post" className="flex flex-col gap-7" onSubmit={handleSubmit}>
+        <PlayerNameFields
+          seatAName={seatAName}
+          seatBName={seatBName}
+          suggestionsA={suggestionsA}
+          suggestionsB={suggestionsB}
+          onSeatANameChange={handleSeatANameChange}
+          onSeatBNameChange={handleSeatBNameChange}
+        />
+
+        {canShowSettings ? (
+          <div className="flex flex-col gap-6">
+            <MatchTargetFramesField profile={profile} />
+            <FrameTargetFields
+              playerNames={{ A: normalizedSeatAName, B: normalizedSeatBName }}
+              defaults={profile.defaultFrameTargetPointsBySeat}
+              isSingleFrame={profile.matchTargetFrames.mode === 'fixed'}
+            />
+            <RackRolloverField profile={profile} />
+            <FirstBreakerField
+              playerNames={{ A: normalizedSeatAName, B: normalizedSeatBName }}
+              firstBreakerSeat={firstBreakerSeat}
+              onFirstBreakerSeatChange={setFirstBreakerSeat}
+            />
           </div>
-          <Button
-            nativeButton={false}
-            render={<Link to={localizedPath('/sparring/', locale)} />}
-            variant="outline"
-          >
-            {t(keys.match.sparring.chooseAnotherGame)}
-          </Button>
+        ) : null}
+
+        {actionData?.ok === false ? (
+          <p className="text-base text-destructive">{t(actionData.errorKey)}</p>
+        ) : null}
+
+        <div className="fixed inset-x-0 bottom-0 border-t border-border bg-background px-4 py-3">
+          <div className="mx-auto w-full max-w-2xl">
+            <Button
+              type="submit"
+              size="control"
+              className="h-[60px] w-full"
+              disabled={isSubmitting || !canShowSettings || firstBreakerSeat === null}
+            >
+              {isSubmitting ? t(keys.match.sparring.creatingMatch) : t(keys.match.sparring.createMatch)}
+            </Button>
+          </div>
         </div>
-
-        <Form method="post" className="grid gap-6" onSubmit={handleSubmit}>
-          <PlayerNameFields
-            seatAName={seatAName}
-            seatBName={seatBName}
-            suggestionsA={suggestionsA}
-            suggestionsB={suggestionsB}
-            onSeatANameChange={handleSeatANameChange}
-            onSeatBNameChange={handleSeatBNameChange}
-          />
-
-          {canShowSettings ? (
-            <div className="grid gap-6">
-              <MatchTargetFramesField profile={profile} />
-              <RackRolloverField profile={profile} />
-              <FirstBreakerField
-                playerNames={{ A: normalizedSeatAName, B: normalizedSeatBName }}
-                firstBreakerSeat={firstBreakerSeat}
-                onFirstBreakerSeatChange={setFirstBreakerSeat}
-              />
-              <FrameTargetFields
-                playerNames={{ A: normalizedSeatAName, B: normalizedSeatBName }}
-                defaults={profile.defaultFrameTargetPointsBySeat}
-              />
-            </div>
-          ) : null}
-
-          {actionData?.ok === false ? (
-            <p className="text-sm text-destructive">{t(actionData.errorKey)}</p>
-          ) : null}
-
-          <Button
-            type="submit"
-            size="touch"
-            className="w-full"
-            disabled={isSubmitting || !canShowSettings || firstBreakerSeat === null}
-          >
-            {isSubmitting ? t(keys.match.sparring.creatingMatch) : t(keys.match.sparring.createMatch)}
-          </Button>
-        </Form>
-      </div>
-    </main>
+      </Form>
+    </Page>
   )
 }

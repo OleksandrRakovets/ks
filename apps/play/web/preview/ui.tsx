@@ -20,10 +20,6 @@ import {
 
 import { MatchNavigation } from './components/match-navigation'
 
-export const handle = {
-  headerConfig: () => ({ title: 'UI Preview v2', backTo: '/top-secret/preview/' }),
-}
-
 const buttonVariants = ['primary', 'secondary', 'outline', 'ghost', 'destructive'] as const
 
 function Specimen({ label, children }: { label: string; children: React.ReactNode }) {

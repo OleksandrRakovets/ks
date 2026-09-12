@@ -45,7 +45,10 @@ function SheetTitle({ className, ...props }: SheetPrimitive.Title.Props) {
 
 function SheetDescription({ className, ...props }: SheetPrimitive.Description.Props) {
   return (
-    <SheetPrimitive.Description className={cn('text-xs leading-relaxed text-text-lo', className)} {...props} />
+    <SheetPrimitive.Description
+      className={cn('text-base leading-relaxed text-text-lo', className)}
+      {...props}
+    />
   )
 }
 

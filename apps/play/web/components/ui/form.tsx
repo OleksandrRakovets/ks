@@ -21,7 +21,7 @@ function Field({ className, ...props }: React.ComponentProps<'div'>) {
 function FieldLabel({ className, ...props }: React.ComponentProps<'label'>) {
   return (
     <label
-      className={cn('text-sm font-medium group-data-[disabled=true]/field:opacity-50', className)}
+      className={cn('text-base font-medium group-data-[disabled=true]/field:opacity-50', className)}
       {...props}
     />
   )
@@ -31,7 +31,7 @@ function FieldLabel({ className, ...props }: React.ComponentProps<'label'>) {
 const Label = FieldLabel
 
 function FieldDescription({ className, ...props }: React.ComponentProps<'p'>) {
-  return <p className={cn('text-xs leading-relaxed text-text-lo', className)} {...props} />
+  return <p className={cn('text-base leading-relaxed text-text-lo', className)} {...props} />
 }
 
 const controlClasses =

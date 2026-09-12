@@ -5,7 +5,7 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from './utils'
 
 const navigationLinkVariants = cva(
-  'relative flex min-h-12 items-center rounded-sm px-3 text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/40 lg:min-h-14 lg:px-5',
+  'relative flex min-h-12 items-center rounded-sm px-3 text-base font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/40 lg:min-h-14 lg:px-5',
   {
     variants: {
       state: {
