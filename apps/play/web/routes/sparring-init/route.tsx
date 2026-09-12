@@ -201,7 +201,7 @@ export default function SparringInitRoute() {
     <Page
       title={title}
       backLink={{ to: localizedPath('/sparring/', locale), label: t(keys.match.sparring.chooseAnotherGame) }}
-      className="mx-auto w-full max-w-[44rem] pb-28"
+      className="pb-28"
     >
       <Form method="post" className="flex flex-col gap-7" onSubmit={handleSubmit}>
         <PlayerNameFields
@@ -234,17 +234,15 @@ export default function SparringInitRoute() {
           <p className="text-base text-destructive">{t(actionData.errorKey)}</p>
         ) : null}
 
-        <div className="fixed inset-x-0 bottom-0 border-t border-border bg-background px-4 py-3">
-          <div className="mx-auto w-full max-w-2xl">
-            <Button
-              type="submit"
-              size="control"
-              className="h-[60px] w-full"
-              disabled={isSubmitting || !canShowSettings || firstBreakerSeat === null}
-            >
-              {isSubmitting ? t(keys.match.sparring.creatingMatch) : t(keys.match.sparring.createMatch)}
-            </Button>
-          </div>
+        <div className="fixed inset-x-0 bottom-0 mx-auto w-full max-w-(--app-width) border-t border-border bg-background px-4 py-3">
+          <Button
+            type="submit"
+            size="control"
+            className="h-[60px] w-full"
+            disabled={isSubmitting || !canShowSettings || firstBreakerSeat === null}
+          >
+            {isSubmitting ? t(keys.match.sparring.creatingMatch) : t(keys.match.sparring.createMatch)}
+          </Button>
         </div>
       </Form>
     </Page>

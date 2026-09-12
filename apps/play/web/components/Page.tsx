@@ -12,22 +12,20 @@ type PageProps = {
 
 export function Page({ title, backLink, children, className }: PageProps) {
   return (
-    <main className={cn('flex-1 bg-background px-4 py-6 text-foreground', className)}>
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-        <header>
-          {backLink ? (
-            <Link
-              to={backLink.to}
-              className="mb-1 inline-flex min-h-11 items-center gap-1 text-[17px] text-text-lo outline-none hover:text-foreground focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-ring/40"
-            >
-              <ChevronLeftIcon />
-              {backLink.label}
-            </Link>
-          ) : null}
-          <h1 className="text-[32px] leading-tight font-bold tracking-[-0.025em]">{title}</h1>
-        </header>
-        {children}
-      </div>
+    <main className={cn('flex flex-1 flex-col gap-6 bg-background px-4 py-6 text-foreground', className)}>
+      <header>
+        {backLink ? (
+          <Link
+            to={backLink.to}
+            className="mb-1 inline-flex min-h-11 items-center gap-1 text-[17px] text-text-lo outline-none hover:text-foreground focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-ring/40"
+          >
+            <ChevronLeftIcon />
+            {backLink.label}
+          </Link>
+        ) : null}
+        <h1 className="text-[32px] leading-tight font-bold tracking-[-0.025em]">{title}</h1>
+      </header>
+      {children}
     </main>
   )
 }

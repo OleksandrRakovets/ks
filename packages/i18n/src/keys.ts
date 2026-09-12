@@ -21,8 +21,6 @@ export const keys = {
     allMatches: 'nav.allMatches',
     newGame: 'nav.newGame',
     matches: 'nav.matches',
-    clubs: 'nav.clubs',
-    tournaments: 'nav.tournaments',
     comingSoon: 'nav.comingSoon',
   },
   theme: {

@@ -79,14 +79,15 @@ vestigial and it is now the app layout).
 
 ## 4. Burger
 
-Bottom sheet, reusing the existing `Sheet` primitive. Same content at every width.
+Same content at every width. Below 768px, use the existing `Sheet` primitive as a bottom sheet
+with a vertical entrance. On desktop, use a compact popup anchored below and right-aligned to
+the burger. Do not combine horizontal centering transforms with entrance translation.
 
 Structure, top to bottom:
 
-1. **Module sections.** One heading per module, at 16px/600. Sparring is the only live module:
-   `Нова гра`, and `Матчі` with a count. Clubs and Tournaments appear as headings with a
-   `Незабаром` badge and no links, so the shell visibly has room for what is coming. Do not build
-   routes for them.
+1. **Sparring section**, at 16px/600: `Нова гра`, and `Матчі` with a count. Do not show
+   placeholders for Clubs or Tournaments. Active navigation uses a filled surface, not the
+   old navigation underline.
 2. Separator.
 3. **Тема** — label left, `ToggleGroup` right, on one row.
 4. **Мова** — label left, `ToggleGroup` right, on one row. Language currently uses two `Button`s;
@@ -104,6 +105,8 @@ exists. The count is similarly global.
 
 One `Page` component the three App Shell pages compose. No page reinvents its header.
 
+- Use one 704px maximum outer width, shared by the header, pages, and pinned Setup submit.
+  Do not nest additional independently sized page containers.
 - Title `<h1>`, 32px/700, `letter-spacing: -0.025em`, wraps freely.
 - **No subtitle slot.** The component must not offer one. A line of prose under every heading is a
   tic, not information: `Новий спаринг.` restates the title, and `Усі спаринги цього пристрою.` was
@@ -257,7 +260,8 @@ Run `bun run lint` for knip's dead-export check afterwards.
 At 390×844 and 1280×900:
 
 1. Wordmark visible on every App Shell page at every width.
-2. Burger identical at both widths, showing Sparring plus the two `Незабаром` modules.
+2. Burger has the same Sparring links and preferences at both widths, with no future-module
+   placeholders: bottom sheet on mobile, anchored popup on desktop.
 3. Game index with the Strila and Baraban cards and the four-row Pyramid group; the Комбінована gap
    is visibly a gap.
 4. Matches under the new shell, including the empty state.

@@ -104,7 +104,8 @@ function RulesLink({ href, children }: { href: string; children: React.ReactNode
       rel="noreferrer"
       className="rounded-sm text-text-lo underline underline-offset-4 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40"
     >
-      {children} ↗
+      {children}
+      {'\u00a0↗'}
     </a>
   )
 }

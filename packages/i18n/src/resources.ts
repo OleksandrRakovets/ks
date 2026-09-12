@@ -23,8 +23,6 @@ export const resources = {
         allMatches: 'Усі матчі',
         newGame: 'Нова гра',
         matches: 'Матчі',
-        clubs: 'Клуби',
-        tournaments: 'Турніри',
         comingSoon: 'Незабаром',
       },
       theme: {
@@ -343,8 +341,6 @@ export const resources = {
         allMatches: 'All matches',
         newGame: 'New game',
         matches: 'Matches',
-        clubs: 'Clubs',
-        tournaments: 'Tournaments',
         comingSoon: 'Coming soon',
       },
       theme: {
