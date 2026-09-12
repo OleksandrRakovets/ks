@@ -5,13 +5,14 @@
   },
   "plugins": ["unicorn", "typescript", "oxc", "react", "react-perf", "jsx-a11y"],
   "ignorePatterns": [
+    // Dependencies and generated build/framework output are not reviewed source.
     "**/node_modules/**",
     "**/dist/**",
     "**/.wrangler/**",
     "**/.react-router/**",
+    // Assistant/tool configuration is not product source and may contain third-party snippets.
     "**/.agents/**",
     ".agent/**",
-    ".agents/**",
     ".claude/**",
     ".codex/**",
     ".continue/**",
@@ -20,9 +21,11 @@
     ".opencode/**",
     ".pi/**",
     ".roo/**",
+    // Planning prose and temporary output are outside the code lint policy.
     ".tracker/**",
     ".windsurf/**",
     "tmp/**",
+    // Keep the intentionally unmodified vendored rules aligned with upstream.
     "tools/oxlint/anti-slop/**"
   ],
   "jsPlugins": [{ "name": "anti-slop", "specifier": "./tools/oxlint/anti-slop/index.ts" }],
@@ -116,7 +119,8 @@
   },
   "overrides": [
     {
-      "files": ["**/*.js", "**/*.mjs"],
+      // These Node/Drizzle files remain syntax-linted but are outside checked TypeScript projects.
+      "files": ["tools/check-boundaries.mjs", "do/match-room/drizzle/migrations.js"],
       "rules": {
         "typescript/no-unsafe-argument": "off",
         "typescript/no-unsafe-assignment": "off",
@@ -126,18 +130,21 @@
       }
     },
     {
+      // React Router uses thrown Response values and redirects as framework control flow.
       "files": ["apps/play/web/routes/**/*.{ts,tsx}"],
       "rules": {
         "typescript/only-throw-error": "off"
       }
     },
     {
+      // Runtime-indexed frame and test-socket lookups stay defensive despite TypeScript's array indexing.
       "files": ["apps/play/web/routes/match/**/*.{ts,tsx}"],
       "rules": {
         "typescript/no-unnecessary-condition": "off"
       }
     },
     {
+      // Cloudflare's test boundary exposes a few runtime-safe bindings and callbacks as any/error types.
       "files": ["packages/application/test/**/*.ts", "do/match-room/test/**/*.ts"],
       "rules": {
         "typescript/no-unsafe-argument": "off",
@@ -148,6 +155,7 @@
       }
     },
     {
+      // Durable Object RPC is asynchronous at runtime although these test stubs retain synchronous class signatures.
       "files": ["do/match-room/test/rpc/finalizing-match/*.integration.test.ts"],
       "rules": {
         "typescript/await-thenable": "off"
