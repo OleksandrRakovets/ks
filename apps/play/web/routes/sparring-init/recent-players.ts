@@ -31,7 +31,7 @@ function readRecentPlayers(): RecentPlayer[] {
   try {
     const raw = localStorage.getItem(RECENT_PLAYERS_KEY)
 
-    if (!raw) return []
+    if (raw === null || raw.length === 0) return []
     const parsed = v.safeParse(v.pipe(v.string(), v.parseJson(), RecentPlayersStore), raw)
 
     return parsed.success ? parsed.output.players.slice(0, MAX_RECENT_PLAYERS) : []
@@ -79,7 +79,7 @@ export function rememberRecentPlayers(names: string[]) {
   for (const rawName of names) {
     const name = safeNormalizeDisplayName(rawName)
 
-    if (!name) continue
+    if (name === null) continue
     byName.set(normalizeRecentKey(name), { name, lastUsedAt: now })
   }
 

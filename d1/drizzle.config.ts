@@ -8,6 +8,6 @@ const config = {
   out: 'd1/migrations',
 } as const
 
-export default localDatabaseUrl
+export default localDatabaseUrl !== undefined && localDatabaseUrl.length > 0
   ? defineConfig({ ...config, dbCredentials: { url: localDatabaseUrl } })
   : defineConfig(config)

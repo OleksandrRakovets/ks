@@ -261,7 +261,7 @@ export function useControlLiveRevalidation(
     requestRevalidation(targetSeqRef.current)
   }, [latestSeq, revalidator.state])
   useEffect(() => {
-    if (fetcher.data?.ok && fetcher.data.acceptedSeqMax != null) {
+    if (fetcher.data?.ok === true && fetcher.data.acceptedSeqMax != null) {
       applyLiveEvent({ type: 'accepted', seq: fetcher.data.acceptedSeqMax })
     }
   }, [fetcher.data])
@@ -446,7 +446,9 @@ export function ProtocolPanel(props: { rows: readonly ProtocolRow[]; emptyLabel:
         >
           <span className="flex min-w-0 flex-col">
             <span className="flex min-w-0 items-baseline gap-2">
-              {row.message.actor ? <span className="shrink-0 font-medium">{row.message.actor}</span> : null}
+              {row.message.actor !== undefined && row.message.actor.length > 0 ? (
+                <span className="shrink-0 font-medium">{row.message.actor}</span>
+              ) : null}
               <span>{protocolLabel(t, row)}</span>
             </span>
             {row.score ? (

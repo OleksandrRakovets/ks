@@ -80,10 +80,19 @@ export function subscribeSparringMatchLive(args: {
         event.data,
       )
 
-      if (!message.success) return rejectInvalidMessage()
+      if (!message.success) {
+        rejectInvalidMessage()
+
+        return
+      }
 
       if (message.output.type === 'caught-up') {
-        if (message.output.matchId !== args.matchId || serverSeq !== null) return rejectInvalidMessage()
+        if (message.output.matchId !== args.matchId || serverSeq !== null) {
+          rejectInvalidMessage()
+
+          return
+        }
+
         serverSeq = message.output.latestSeq
         reconnectAttempt = 0
 
@@ -92,7 +101,12 @@ export function subscribeSparringMatchLive(args: {
         return
       }
 
-      if (serverSeq === null) return rejectInvalidMessage()
+      if (serverSeq === null) {
+        rejectInvalidMessage()
+
+        return
+      }
+
       const update = message.output.update
 
       if (update.acceptedSeq <= serverSeq) return

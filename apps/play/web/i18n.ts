@@ -9,7 +9,7 @@ function normalizeLocale(value: string | null | undefined): SupportedLocale {
 function pickLocale(): SupportedLocale {
   // The DOM library declares document globally, but server rendering does not provide it at runtime.
   // oxlint-disable-next-line typescript/no-unnecessary-condition
-  if (!globalThis.document) {
+  if (globalThis.document === undefined) {
     return 'uk'
   }
 

@@ -149,7 +149,7 @@ test('live client validates catch-up and sequences updates without replay', asyn
   await Promise.resolve()
   const socket = FakeWebSocket.instances[0]
 
-  if (!socket) throw new Error('Expected live socket')
+  if (socket === undefined) throw new Error('Expected live socket')
   expect(socket.url).toBe(`wss://play.example/api/sparring-match/${matchId}/live/?contract=1&view=control`)
   socket.dispatchEvent(new Event('open'))
   socket.message(JSON.stringify({ contractVersion: 1, type: 'caught-up', matchId, latestSeq: 3 }))
@@ -195,7 +195,7 @@ test('live client stops and requests catch-up for a gapped completing update', (
 
   const socket = FakeWebSocket.instances[0]
 
-  if (!socket) throw new Error('Expected live socket')
+  if (socket === undefined) throw new Error('Expected live socket')
   socket.message(
     JSON.stringify({
       contractVersion: 1,

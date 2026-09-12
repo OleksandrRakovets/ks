@@ -57,7 +57,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   // The DOM library declares document globally, but server rendering does not provide it at runtime.
   // oxlint-disable-next-line typescript/no-unnecessary-condition
-  if (!globalThis.document && i18n.resolvedLanguage !== locale) {
+  if (globalThis.document === undefined && i18n.resolvedLanguage !== locale) {
     void i18n.changeLanguage(locale)
   }
 

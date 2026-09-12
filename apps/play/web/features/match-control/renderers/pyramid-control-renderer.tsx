@@ -45,6 +45,8 @@ function ControlRows(props: {
   const { t } = useTranslation()
 
   function renderButton(command: Control, key: string) {
+    const effect = controlEffect(t, command)
+
     return (
       <div key={key} className="grid gap-1">
         <Button
@@ -55,8 +57,8 @@ function ControlRows(props: {
         >
           {pyramidCommandLabel(t, command)}
         </Button>
-        {props.showEffectSummaries && controlEffect(t, command) ? (
-          <p className="text-center text-base text-text-lo">{controlEffect(t, command)}</p>
+        {props.showEffectSummaries === true && effect !== undefined && effect.length > 0 ? (
+          <p className="text-center text-base text-text-lo">{effect}</p>
         ) : null}
       </div>
     )

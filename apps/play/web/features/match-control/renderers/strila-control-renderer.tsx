@@ -101,7 +101,7 @@ function RuleNote(props: {
       <div className="grid gap-1 text-foreground">
         {ruleMessageLines(t, props.message, props.participants).map((line, index) => (
           <p key={index}>
-            {line.player && <strong>{line.player}: </strong>}
+            {line.player !== undefined && line.player.length > 0 ? <strong>{line.player}: </strong> : null}
             {line.text}
           </p>
         ))}
@@ -177,7 +177,9 @@ function ControlRows({
         >
           {label}
         </Button>
-        {effect && <p className="text-center text-base text-muted-foreground">{effect}</p>}
+        {effect !== undefined && effect.length > 0 ? (
+          <p className="text-center text-base text-muted-foreground">{effect}</p>
+        ) : null}
       </div>
     )
   }

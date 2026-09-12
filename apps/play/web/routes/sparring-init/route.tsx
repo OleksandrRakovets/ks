@@ -50,7 +50,7 @@ export async function loader({
 }): Promise<LoaderData> {
   const gameKey = params.gameKey
 
-  if (!gameKey || !isRegisteredGameKey(gameKey)) {
+  if (gameKey === undefined || !isRegisteredGameKey(gameKey)) {
     throw new Response('Unknown gameKey', { status: 404 })
   }
 
@@ -74,7 +74,7 @@ export async function action({
 }): Promise<ActionData | Response> {
   const gameKey = params.gameKey
 
-  if (!gameKey || !isRegisteredGameKey(gameKey)) {
+  if (gameKey === undefined || !isRegisteredGameKey(gameKey)) {
     throw new Response('Unknown gameKey', { status: 404 })
   }
 

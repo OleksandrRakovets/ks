@@ -32,7 +32,7 @@ export default async function handleRequest(
 
   shellRendered = true
 
-  if ((userAgent && isbot(userAgent)) || routerContext.isSpaMode) {
+  if ((userAgent !== null && isbot(userAgent)) || routerContext.isSpaMode) {
     await body.allReady
   }
 
