@@ -38,11 +38,13 @@ export function loader({ request, context }: Route.LoaderArgs) {
 
 export function useRootLocale(): SupportedLocale {
   const data = useRouteLoaderData<RootLoaderData>('root')
+
   return data?.locale ?? 'uk'
 }
 
 export function useRootTheme(): AppTheme {
   const data = useRouteLoaderData<RootLoaderData>('root')
+
   return data?.theme ?? 'club-dark'
 }
 
@@ -53,7 +55,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const iconVariant = data?.iconVariant ?? 'amber'
   const iconPath = iconBasePath(iconVariant)
 
-  if (!globalThis.document && i18n.resolvedLanguage !== locale) {
+  // The DOM library declares document globally, but server rendering does not provide it at runtime.
+  // oxlint-disable-next-line typescript/no-unnecessary-condition
+  if (globalThis.document === undefined && i18n.resolvedLanguage !== locale) {
     void i18n.changeLanguage(locale)
   }
 

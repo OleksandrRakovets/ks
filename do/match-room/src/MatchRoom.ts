@@ -17,7 +17,7 @@ export class MatchRoom extends DurableObject<Env> {
     super(ctx, env)
     this.#storage = new MatchStorage(ctx.storage)
     this.#liveConnections = new LiveConnectionHandler(ctx)
-    ctx.blockConcurrencyWhile(async () => {
+    void ctx.blockConcurrencyWhile(async () => {
       this.#storage.migrate()
     })
   }
@@ -25,14 +25,18 @@ export class MatchRoom extends DurableObject<Env> {
   async initialize(input: InitializeMatchInput) {
     if (this.ctx.id.name !== input.matchId)
       throw new Error('MatchRoom routed identity does not match initialization Match')
+
     return initializeMatch(this.#storage, input)
   }
 
   async submitCommand(command: MatchCommand) {
     const handler = this.#requireHandler()
+
     if (handler instanceof FinalizingMatchHandler) return handler.submitCommand(command)
+
     try {
       const outcome = handler.submitCommand(command)
+
       if (outcome.next)
         this.#handler = new FinalizingMatchHandler(
           this.#storage,
@@ -40,6 +44,7 @@ export class MatchRoom extends DurableObject<Env> {
           outcome.next.storedMatch,
           outcome.next.resident,
         )
+
       return outcome.response
     } catch (error) {
       this.#handler = null
@@ -61,8 +66,10 @@ export class MatchRoom extends DurableObject<Env> {
    */
   fetch(request: Request): Response {
     const pageKind = this.#liveConnections.validateHandshake(request)
+
     if (!pageKind) return new Response('Invalid live request', { status: 400 })
     const handler = this.#requireHandler()
+
     return handler instanceof ActiveMatchHandler
       ? this.#liveConnections.connect(handler.liveConnectionCursor(), pageKind)
       : new Response('Match is finalizing', { status: 410 })
@@ -82,12 +89,15 @@ export class MatchRoom extends DurableObject<Env> {
 
   async prepareArchive() {
     const handler = this.#requireHandler()
+
     if (handler instanceof ActiveMatchHandler) throw new Error('Cannot prepare archive for active Match')
+
     return handler.prepareArchive()
   }
 
   async finalize(): Promise<void> {
     const handler = this.#requireHandler()
+
     if (handler instanceof ActiveMatchHandler) throw new Error('Cannot finalize active Match')
     handler.finalize()
   }
@@ -95,11 +105,13 @@ export class MatchRoom extends DurableObject<Env> {
   #requireHandler(): ActiveMatchHandler | FinalizingMatchHandler {
     if (this.#handler) return this.#handler
     const storedMatch = this.#storage.match()
+
     if (!storedMatch) throw new Error('MatchRoom storage missing')
     this.#handler =
       storedMatch.status === 'active'
         ? new ActiveMatchHandler(this.#storage, this.#liveConnections, storedMatch)
         : new FinalizingMatchHandler(this.#storage, this.#liveConnections, storedMatch)
+
     return this.#handler
   }
 }

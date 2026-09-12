@@ -23,7 +23,9 @@ function config(target = 2): MatchConfig {
 
 function accept(match: ReturnType<typeof createSparringMatch>, command: Parameters<typeof match.execute>[0]) {
   const result = match.execute(command)
+
   if (result._tag !== 'accepted') throw new Error(`Expected acceptance, received ${result._tag}`)
+
   return result
 }
 
@@ -43,6 +45,7 @@ describe('SparringMatch', () => {
     const matchConfig = config()
     const warm = createSparringMatch(matchConfig)
     const history: AcceptedCommand[] = []
+
     for (const submitted of [
       { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } },
       { commandId: newCommandId(), source: 'match', command: { type: 'frame.commence', seat: 'A' } },
@@ -59,6 +62,7 @@ describe('SparringMatch', () => {
         acceptedAt: nowUnixEpochMilliseconds(),
       })
     }
+
     // SAFETY: this fixture is built from typed accepted results immediately above.
     const persisted = JSON.parse(JSON.stringify(history)) as AcceptedCommand[]
     const restored = restoreSparringMatch(matchConfig, persisted)
@@ -72,8 +76,10 @@ describe('SparringMatch', () => {
       gameKey: 'strila-v2',
       targets: { frameTargetPointsBySeat: { A: 9, B: 9 }, matchTargetFrames: 1 },
     }
+
     const match = createSparringMatch(matchConfig)
     const history: AcceptedCommand[] = []
+
     for (const submitted of [
       { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } },
       { commandId: newCommandId(), source: 'match', command: { type: 'frame.commence', seat: 'A' } },
@@ -89,6 +95,7 @@ describe('SparringMatch', () => {
       },
     ] satisfies MatchCommand[]) {
       const accepted = accept(match, submitted)
+
       for (const entry of accepted.protocolEntryContents)
         expect(parseProtocolEntryContent(entry)).toEqual(entry)
       history.push({
@@ -97,6 +104,7 @@ describe('SparringMatch', () => {
         acceptedAt: nowUnixEpochMilliseconds(),
       })
     }
+
     // SAFETY: this fixture is built from typed accepted results immediately above.
     const persisted = JSON.parse(JSON.stringify(history)) as AcceptedCommand[]
     const restored = restoreSparringMatch(matchConfig, persisted).match
@@ -108,6 +116,7 @@ describe('SparringMatch', () => {
       source: 'game',
       command: { type: 'frame.award', seat: 'A' },
     })
+
     for (const entry of awarded.protocolEntryContents) expect(parseProtocolEntryContent(entry)).toEqual(entry)
     expect(awarded.protocolEntryContents).toContainEqual({
       gameKey: 'strila-v2',
@@ -128,11 +137,13 @@ describe('SparringMatch', () => {
       acceptedSeq: history.length + 1,
       acceptedAt: nowUnixEpochMilliseconds(),
     })
+
     // SAFETY: this fixture is built from typed accepted results immediately above.
     const completed = restoreSparringMatch(
       matchConfig,
       JSON.parse(JSON.stringify(history)) as AcceptedCommand[],
     ).match
+
     expect(completed.project()).toEqual(restored.project())
   })
 
@@ -142,8 +153,10 @@ describe('SparringMatch', () => {
       gameKey: 'strila-v2',
       targets: { frameTargetPointsBySeat: { A: 9, B: 9 }, matchTargetFrames: 2 },
     }
+
     const resident = createSparringMatch(matchConfig)
     const history: AcceptedCommand[] = []
+
     for (const submitted of [
       { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } },
       { commandId: newCommandId(), source: 'match', command: { type: 'frame.commence', seat: 'A' } },
@@ -172,6 +185,7 @@ describe('SparringMatch', () => {
       // SAFETY: this fixture is built from typed accepted results immediately above.
       JSON.parse(JSON.stringify(history)) as AcceptedCommand[],
     ).match
+
     expect(restored.project()).toEqual(resident.project())
 
     const nextCuePot = {
@@ -179,6 +193,7 @@ describe('SparringMatch', () => {
       source: 'game',
       command: { type: 'pot.record', seat: 'A', pottedBalls: [0] },
     } satisfies MatchCommand
+
     const residentResult = accept(resident, nextCuePot)
     const restoredResult = accept(restored, nextCuePot)
     expect(restoredResult).toEqual(residentResult)
@@ -204,6 +219,7 @@ describe('SparringMatch', () => {
         source: 'match',
         command: { type: 'frame.prepare' },
       })
+
       expect(prepared.protocolEntryContents[0]).toMatchObject({
         entryType: 'frame-prepared',
         seat: breakerSeat,
@@ -213,6 +229,7 @@ describe('SparringMatch', () => {
         source: 'match',
         command: { type: 'frame.commence', seat: breakerSeat },
       })
+
       for (let point = 0; point < 8; point += 1)
         accept(match, {
           commandId: newCommandId(),
@@ -241,11 +258,13 @@ describe('SparringMatch', () => {
   test('concession records concession, award, and match-completing lifecycle in order', () => {
     const match = createSparringMatch(config(1))
     accept(match, { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } })
+
     const result = accept(match, {
       commandId: newCommandId(),
       source: 'match',
       command: { type: 'frame.concede', seat: 'A' },
     })
+
     expect(result.protocolEntryContents.map((entry) => [entry.entryType, entry.seat])).toEqual([
       ['frame-conceded', 'A'],
       ['frame-awarded', 'B'],
@@ -260,6 +279,7 @@ describe('SparringMatch', () => {
       gameKey: 'strila-v2',
       targets: { frameTargetPointsBySeat: { A: 1, B: 9 }, matchTargetFrames: 1 },
     })
+
     accept(match, { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } })
     accept(match, {
       commandId: newCommandId(),
@@ -275,6 +295,7 @@ describe('SparringMatch', () => {
 
     const determined = match.project()
     expect(determined.controls.filter(({ type }) => type === 'frame.concede')).toEqual([])
+
     for (const seat of ['A', 'B'] as const) {
       expect(
         match.execute({

@@ -1,8 +1,10 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    "composite": true,
     "noEmit": true,
     "types": ["@cloudflare/vitest-plugin/types", "@cloudflare/workers-types", "node"]
   },
-  "include": ["test/**/*.ts", "vitest.config.ts"]
+  "include": ["src/**/*", "test/**/*.ts", "vitest.config.ts"],
+  "exclude": ["src/**/*.test.ts"]
 }

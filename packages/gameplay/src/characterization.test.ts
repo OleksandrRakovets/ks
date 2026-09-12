@@ -9,9 +9,11 @@ import { createGameplaySession } from './session-factory'
 
 function expectAccepted(result: GameCommandExecution): Extract<GameCommandExecution, { _tag: 'accepted' }> {
   expect(result._tag).toBe('accepted')
+
   if (result._tag !== 'accepted') throw new Error('Expected accepted gameplay command')
   expect(result.gameProtocolEntries.length).toBeGreaterThan(0)
   expect(result.gameProtocolEntries.every((entry) => v.is(GameProtocolEntry, entry))).toBe(true)
+
   return result
 }
 
@@ -41,7 +43,7 @@ describe('gameplay characterization', () => {
     expectAccepted(opponentPlus.execute({ type: 'frame.commence', seat: 'A' }))
     const freeFoul = expectAccepted(opponentPlus.execute({ type: 'foul.commit', seat: 'A' }))
     expect(opponentPlus.getScore()).toEqual({ A: 0, B: 1 })
-    expect(freeFoul.gameProtocolEntries[0]?.body).toEqual({
+    expect(freeFoul.gameProtocolEntries[0].body).toEqual({
       commandType: 'foul.commit',
       penalty: 'opponent-plus-one',
     })
@@ -55,7 +57,7 @@ describe('gameplay characterization', () => {
     expectAccepted(owed.execute({ type: 'frame.commence', seat: 'A' }))
     const oldFoul = expectAccepted(owed.execute({ type: 'foul.commit', seat: 'A' }))
     expect(owed.getScore()).toEqual({ A: -1, B: 0 })
-    expect(oldFoul.gameProtocolEntries[0]?.body).toEqual({
+    expect(oldFoul.gameProtocolEntries[0].body).toEqual({
       commandType: 'foul.commit',
       penalty: 'offender-minus-one',
     })
@@ -75,6 +77,7 @@ describe('gameplay characterization', () => {
       targetPointsBySeat: { A: 1, B: 30 },
       rackRollover: 14,
     })
+
     expectAccepted(long.execute({ type: 'frame.commence', seat: 'A' }))
     expectAccepted(long.execute({ type: 'pot.record', seat: 'A', pottedBallCount: 1 }))
     expect(long.deriveControls().game.details.phase).toBe('winner-determined')
@@ -94,7 +97,9 @@ describe('gameplay characterization', () => {
       targetPointsBySeat: { A: 30, B: 30 },
       rackRollover: 14,
     })
+
     expectAccepted(session.execute({ type: 'frame.commence', seat: 'A' }))
+
     for (const pottedBallCount of [4, 4, 4, 2] as const) {
       expectAccepted(session.execute({ type: 'pot.record', seat: 'A', pottedBallCount }))
     }

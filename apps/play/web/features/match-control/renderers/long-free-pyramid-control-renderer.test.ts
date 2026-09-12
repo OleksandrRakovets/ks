@@ -12,6 +12,7 @@ test('winner-determined pot keeps its one-point label and original command', () 
     seat: 'A',
     prominence: 'primary',
   }
+
   const oneBallPot: Control = {
     source: 'game',
     type: 'pot.record',

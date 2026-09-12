@@ -12,6 +12,7 @@ export type SparringMatchLiveConnectionState =
   | 'disconnected'
   | 'completed'
   | 'invalid-message'
+
 export type SparringMatchLiveSubscription = { stop(): void }
 
 export function subscribeSparringMatchLive(args: {
@@ -31,6 +32,7 @@ export function subscribeSparringMatchLive(args: {
   const stop = () => {
     if (stopped) return
     stopped = true
+
     if (reconnectTimer) clearTimeout(reconnectTimer)
     reconnectTimer = null
     socket?.close()
@@ -58,10 +60,12 @@ export function subscribeSparringMatchLive(args: {
     args.onConnectionState('connecting')
     serverSeq = null
     const webSocketScheme = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+
     const url = new URL(
       `/api/sparring-match/${args.matchId}/live/?contract=1&view=${args.pageKind}`,
       `${webSocketScheme}//${window.location.host}`,
     )
+
     const current = new WebSocket(url)
     socket = current
     current.addEventListener('open', () => {
@@ -70,43 +74,75 @@ export function subscribeSparringMatchLive(args: {
     })
     current.addEventListener('message', (event) => {
       if (stopped || socket !== current) return
+
       const message = v.safeParse(
         v.pipe(v.string(), v.parseJson(), SparringMatchLiveServerMessage),
         event.data,
       )
-      if (!message.success) return rejectInvalidMessage()
-      if (message.output.type === 'caught-up') {
-        if (message.output.matchId !== args.matchId || serverSeq !== null) return rejectInvalidMessage()
-        serverSeq = message.output.latestSeq
-        reconnectAttempt = 0
-        if (serverSeq > args.currentLatestSeq()) args.onCaughtUp(serverSeq)
+
+      if (!message.success) {
+        rejectInvalidMessage()
+
         return
       }
-      if (serverSeq === null) return rejectInvalidMessage()
+
+      if (message.output.type === 'caught-up') {
+        if (message.output.matchId !== args.matchId || serverSeq !== null) {
+          rejectInvalidMessage()
+
+          return
+        }
+
+        serverSeq = message.output.latestSeq
+        reconnectAttempt = 0
+
+        if (serverSeq > args.currentLatestSeq()) args.onCaughtUp(serverSeq)
+
+        return
+      }
+
+      if (serverSeq === null) {
+        rejectInvalidMessage()
+
+        return
+      }
+
       const update = message.output.update
+
       if (update.acceptedSeq <= serverSeq) return
+
       if (update.acceptedSeq !== serverSeq + 1) {
         args.onCaughtUp(update.acceptedSeq)
+
         if (update.completesMatch) {
           args.onConnectionState('completed')
           stop()
+
           return
         }
+
         current.close()
+
         return
       }
+
       serverSeq = update.acceptedSeq
       args.onUpdate(update)
+
       if (update.completesMatch) stop()
     })
     current.addEventListener('close', (event) => {
       if (socket === current) socket = null
+
       if (stopped) return
+
       if (event.code === SPARRING_MATCH_LIVE_COMPLETED_CLOSE_CODE) {
         args.onConnectionState('completed')
         stop()
+
         return
       }
+
       scheduleReconnect()
     })
     current.addEventListener('error', () => {
@@ -115,5 +151,6 @@ export function subscribeSparringMatchLive(args: {
   }
 
   connect()
+
   return { stop }
 }

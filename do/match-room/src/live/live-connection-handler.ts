@@ -13,11 +13,13 @@ export type LiveConnectionCursor = {
   readonly matchId: MatchId
   readonly latestSeq: number
 }
+
 const ConnectionAttachment = v.strictObject({
   contractVersion: SparringMatchLiveContractVersion,
   connectionId: v.pipe(v.string(), v.uuid()),
   pageKind: SparringMatchLivePageKind,
 })
+
 type ConnectionAttachment = v.InferOutput<typeof ConnectionAttachment>
 
 export class LiveConnectionHandler {
@@ -32,11 +34,13 @@ export class LiveConnectionHandler {
     const pair = new WebSocketPair()
     const client = pair[0]
     const server = pair[1]
+
     const attachment: ConnectionAttachment = {
       contractVersion: 1,
       connectionId: crypto.randomUUID(),
       pageKind,
     }
+
     server.serializeAttachment(attachment)
     this.#ctx.acceptWebSocket(server)
     server.send(
@@ -48,6 +52,7 @@ export class LiveConnectionHandler {
       }),
     )
     console.info({ event: 'sparring-match-live.accepted', matchId: cursor.matchId, ...attachment })
+
     return new Response(null, { status: 101, webSocket: client })
   }
 
@@ -77,6 +82,7 @@ export class LiveConnectionHandler {
 
   broadcast(update: MatchStreamUpdate): void {
     const message = JSON.stringify({ contractVersion: 1, type: 'update', update })
+
     for (const socket of this.#ctx.getWebSockets()) {
       try {
         socket.send(message)
@@ -101,6 +107,7 @@ export class LiveConnectionHandler {
     const route = /^\/api\/sparring-match\/([^/]+)\/live\/$/.exec(url.pathname)
     const matchId = v.safeParse(MatchId, route?.[1])
     const query = v.safeParse(SparringMatchLiveQuery, Object.fromEntries(url.searchParams))
+
     if (
       !matchId.success ||
       matchId.output !== this.#ctx.id.name ||
@@ -110,6 +117,7 @@ export class LiveConnectionHandler {
       url.searchParams.size !== 2
     )
       return null
+
     return query.output.view
   }
 }

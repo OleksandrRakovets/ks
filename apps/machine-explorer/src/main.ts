@@ -21,9 +21,18 @@ import {
   type StrilaSparringFrameSnapshot,
 } from '@ks/gameplay/strila-machine'
 import { createBrowserInspector } from '@statelyai/inspect'
-import { type AnyActorRef, createActor } from 'xstate'
+import { type ActorRefFrom, createActor } from 'xstate'
 
 type FrameGameKey = 'strila-v2' | 'free-pyramid' | 'free-pyramid-long'
+
+type FrameRuntime =
+  | { readonly gameKey: 'strila-v2'; readonly actor: ActorRefFrom<typeof StrilaSparringFrameMachine> }
+  | { readonly gameKey: 'free-pyramid'; readonly actor: ActorRefFrom<typeof PyramidSparringFrameMachine> }
+  | {
+      readonly gameKey: 'free-pyramid-long'
+      readonly actor: ActorRefFrom<typeof LongFreePyramidSparringFrameMachine>
+    }
+
 type Mode = 'frame' | 'match'
 
 const FREE_PYRAMID_RULES = {
@@ -34,23 +43,35 @@ const FREE_PYRAMID_RULES = {
 }
 
 let inspectorInspect: ReturnType<typeof createBrowserInspector>['inspect'] | undefined
+
 let mode: Mode = 'frame'
+
 let frameGame: FrameGameKey = 'strila-v2'
+
 let targetA = 9
+
 let targetB = 9
+
 let selectedBalls = new Set<number>()
+
 let matchTargetFrames = 3
+
 let matchFrameTargetA = 9
+
 let matchFrameTargetB = 9
 
-let frameActor: AnyActorRef = buildFrameActor()
+let frameRuntime = buildFrameActor()
+
 let matchActor = buildMatchActor()
 
 const controls = document.getElementById('controls')!
+
 const status = document.getElementById('status')!
 
 document.getElementById('open-inspector')!.addEventListener('click', openInspector)
+
 document.getElementById('tab-frame')!.addEventListener('click', () => switchMode('frame'))
+
 document.getElementById('tab-match')!.addEventListener('click', () => switchMode('match'))
 
 function openInspector() {
@@ -67,23 +88,49 @@ function switchMode(next: Mode) {
   rebuildCurrentActor()
 }
 
-function buildFrameActor() {
+function buildFrameActor(): FrameRuntime {
   switch (frameGame) {
     case 'strila-v2':
-      return createActor(StrilaSparringFrameMachine, {
-        input: { targetPointsBySeat: { A: targetA, B: targetB } },
-        inspect: inspectorInspect,
-      })
+      return {
+        gameKey: frameGame,
+        actor: createActor(StrilaSparringFrameMachine, {
+          input: { targetPointsBySeat: { A: targetA, B: targetB } },
+          inspect: inspectorInspect,
+        }),
+      }
     case 'free-pyramid':
-      return createActor(PyramidSparringFrameMachine, {
-        input: { targetPointsBySeat: { A: targetA, B: targetB }, rules: FREE_PYRAMID_RULES },
-        inspect: inspectorInspect,
-      })
+      return {
+        gameKey: frameGame,
+        actor: createActor(PyramidSparringFrameMachine, {
+          input: { targetPointsBySeat: { A: targetA, B: targetB }, rules: FREE_PYRAMID_RULES },
+          inspect: inspectorInspect,
+        }),
+      }
     case 'free-pyramid-long':
-      return createActor(LongFreePyramidSparringFrameMachine, {
-        input: { targetPointsBySeat: { A: targetA, B: targetB }, rackRollover: 14 },
-        inspect: inspectorInspect,
-      })
+      return {
+        gameKey: frameGame,
+        actor: createActor(LongFreePyramidSparringFrameMachine, {
+          input: { targetPointsBySeat: { A: targetA, B: targetB }, rackRollover: 14 },
+          inspect: inspectorInspect,
+        }),
+      }
+  }
+
+  throw new Error('Unsupported frame game')
+}
+
+function subscribeToFrameRuntime(runtime: FrameRuntime) {
+  switch (runtime.gameKey) {
+    case 'strila-v2':
+      runtime.actor.subscribe(() => renderFrame())
+
+      return
+    case 'free-pyramid':
+      runtime.actor.subscribe(() => renderFrame())
+
+      return
+    case 'free-pyramid-long':
+      runtime.actor.subscribe(() => renderFrame())
   }
 }
 
@@ -115,17 +162,19 @@ function buildMatchActor() {
     input: buildExplorerMatchConfig(),
     inspect: inspectorInspect,
   })
+
   actor.start()
+
   return actor
 }
 
 function rebuildCurrentActor() {
   if (mode === 'frame') {
-    frameActor.stop()
+    frameRuntime.actor.stop()
     selectedBalls.clear()
-    frameActor = buildFrameActor()
-    frameActor.subscribe(() => renderFrame())
-    frameActor.start()
+    frameRuntime = buildFrameActor()
+    subscribeToFrameRuntime(frameRuntime)
+    frameRuntime.actor.start()
     renderFrame()
   } else {
     matchActor.stop()
@@ -136,24 +185,28 @@ function rebuildCurrentActor() {
 }
 
 function renderFrame() {
-  const snap = frameActor.getSnapshot()
-  switch (frameGame) {
+  const runtime = frameRuntime
+
+  switch (runtime.gameKey) {
     case 'strila-v2':
-      // SAFETY: frameGame selects the Strila actor built above.
-      renderStrilaFrame(snap as StrilaSparringFrameSnapshot)
+      renderStrilaFrame(runtime.actor.getSnapshot(), runtime.actor)
+
       return
     case 'free-pyramid':
-      // SAFETY: frameGame selects the regular pyramid actor built above.
-      renderPyramidFrame(snap as PyramidSparringFrameSnapshot)
+      renderPyramidFrame(runtime.actor.getSnapshot(), runtime.actor)
+
       return
     case 'free-pyramid-long':
-      // SAFETY: frameGame selects the long free pyramid actor built above.
-      renderLongFreePyramidFrame(snap as LongFreePyramidSparringFrameSnapshot)
+      renderLongFreePyramidFrame(runtime.actor.getSnapshot(), runtime.actor)
+
       return
   }
 }
 
-function renderStrilaFrame(snap: StrilaSparringFrameSnapshot) {
+function renderStrilaFrame(
+  snap: StrilaSparringFrameSnapshot,
+  actor: ActorRefFrom<typeof StrilaSparringFrameMachine>,
+) {
   const phase = getStrilaSparringFramePhase(snap)
   const ctx = snap.context
   status.innerHTML = `
@@ -166,32 +219,39 @@ function renderStrilaFrame(snap: StrilaSparringFrameSnapshot) {
     frameGameSelector(),
     frameTargetRow(() => rebuildCurrentActor()),
   )
+
   if (phase === 'frame-over') return
+
   if (phase === 'not-started') {
     controls.append(
-      btn('Break-off A', () => frameActor.send({ type: 'frame.commence', seat: 'A' })),
-      btn('Break-off B', () => frameActor.send({ type: 'frame.commence', seat: 'B' })),
+      btn('Break-off A', () => actor.send({ type: 'frame.commence', seat: 'A' })),
+      btn('Break-off B', () => actor.send({ type: 'frame.commence', seat: 'B' })),
     )
+
     return
   }
+
   if (phase === 'winner-determined') {
-    controls.append(
-      btn(
-        `Award frame to ${ctx.winner}`,
-        () => frameActor.send({ type: 'frame.award', seat: ctx.winner! }),
-        'primary',
-      ),
-    )
+    const winner = ctx.winner
+
+    if (winner)
+      controls.append(
+        btn(`Award frame to ${winner}`, () => actor.send({ type: 'frame.award', seat: winner }), 'primary'),
+      )
   }
+
   controls.append(
-    btn('Pot A (+2)', () => frameActor.send({ type: 'pot.record', seat: 'A', pottedBalls: [1] })),
-    btn('Pot B (+2)', () => frameActor.send({ type: 'pot.record', seat: 'B', pottedBalls: [1] })),
-    btn('Foul A', () => frameActor.send({ type: 'foul.commit', seat: 'A' })),
-    btn('Foul B', () => frameActor.send({ type: 'foul.commit', seat: 'B' })),
+    btn('Pot A (+2)', () => actor.send({ type: 'pot.record', seat: 'A', pottedBalls: [1] })),
+    btn('Pot B (+2)', () => actor.send({ type: 'pot.record', seat: 'B', pottedBalls: [1] })),
+    btn('Foul A', () => actor.send({ type: 'foul.commit', seat: 'A' })),
+    btn('Foul B', () => actor.send({ type: 'foul.commit', seat: 'B' })),
   )
 }
 
-function renderPyramidFrame(snap: PyramidSparringFrameSnapshot) {
+function renderPyramidFrame(
+  snap: PyramidSparringFrameSnapshot,
+  actor: ActorRefFrom<typeof PyramidSparringFrameMachine>,
+) {
   const phase = getPyramidSparringFramePhase(snap)
   status.innerHTML = `
     <div class="state-label">${phase}</div>
@@ -203,34 +263,39 @@ function renderPyramidFrame(snap: PyramidSparringFrameSnapshot) {
     frameGameSelector(),
     frameTargetRow(() => rebuildCurrentActor()),
   )
+
   if (phase === 'frame-over') return
+
   if (phase === 'not-started') {
     controls.append(
-      btn('Break-off A', () => frameActor.send({ type: 'frame.commence', seat: 'A' })),
-      btn('Break-off B', () => frameActor.send({ type: 'frame.commence', seat: 'B' })),
+      btn('Break-off A', () => actor.send({ type: 'frame.commence', seat: 'A' })),
+      btn('Break-off B', () => actor.send({ type: 'frame.commence', seat: 'B' })),
     )
+
     return
   }
+
   if (phase === 'winner-determined') {
     const winner = snap.context.winner
+
     if (winner)
       controls.append(
-        btn(
-          `Award frame to ${winner}`,
-          () => frameActor.send({ type: 'frame.award', seat: winner }),
-          'primary',
-        ),
+        btn(`Award frame to ${winner}`, () => actor.send({ type: 'frame.award', seat: winner }), 'primary'),
       )
   }
+
   controls.append(
-    btn('Pot A (+1)', () => frameActor.send({ type: 'pot.record', seat: 'A', pottedBallCount: 1 })),
-    btn('Pot B (+1)', () => frameActor.send({ type: 'pot.record', seat: 'B', pottedBallCount: 1 })),
-    btn('Foul A', () => frameActor.send({ type: 'foul.commit', seat: 'A' })),
-    btn('Foul B', () => frameActor.send({ type: 'foul.commit', seat: 'B' })),
+    btn('Pot A (+1)', () => actor.send({ type: 'pot.record', seat: 'A', pottedBallCount: 1 })),
+    btn('Pot B (+1)', () => actor.send({ type: 'pot.record', seat: 'B', pottedBallCount: 1 })),
+    btn('Foul A', () => actor.send({ type: 'foul.commit', seat: 'A' })),
+    btn('Foul B', () => actor.send({ type: 'foul.commit', seat: 'B' })),
   )
 }
 
-function renderLongFreePyramidFrame(snap: LongFreePyramidSparringFrameSnapshot) {
+function renderLongFreePyramidFrame(
+  snap: LongFreePyramidSparringFrameSnapshot,
+  actor: ActorRefFrom<typeof LongFreePyramidSparringFrameMachine>,
+) {
   const phase = getLongFreePyramidSparringFramePhase(snap)
   status.innerHTML = `
     <div class="state-label">${phase}</div>
@@ -242,36 +307,39 @@ function renderLongFreePyramidFrame(snap: LongFreePyramidSparringFrameSnapshot) 
     frameGameSelector(),
     frameTargetRow(() => rebuildCurrentActor()),
   )
+
   if (phase === 'frame-over') return
+
   if (phase === 'not-started') {
     controls.append(
-      btn('Break-off A', () => frameActor.send({ type: 'frame.commence', seat: 'A' })),
-      btn('Break-off B', () => frameActor.send({ type: 'frame.commence', seat: 'B' })),
+      btn('Break-off A', () => actor.send({ type: 'frame.commence', seat: 'A' })),
+      btn('Break-off B', () => actor.send({ type: 'frame.commence', seat: 'B' })),
     )
+
     return
   }
+
   if (phase === 'winner-determined') {
     const winner = snap.context.winner
+
     if (winner)
       controls.append(
-        btn(
-          `Award frame to ${winner}`,
-          () => frameActor.send({ type: 'frame.award', seat: winner }),
-          'primary',
-        ),
+        btn(`Award frame to ${winner}`, () => actor.send({ type: 'frame.award', seat: winner }), 'primary'),
       )
   }
+
   controls.append(
-    btn('Pot A (+1)', () => frameActor.send({ type: 'pot.record', seat: 'A', pottedBallCount: 1 })),
-    btn('Pot B (+1)', () => frameActor.send({ type: 'pot.record', seat: 'B', pottedBallCount: 1 })),
-    btn('Foul A', () => frameActor.send({ type: 'foul.commit', seat: 'A' })),
-    btn('Foul B', () => frameActor.send({ type: 'foul.commit', seat: 'B' })),
+    btn('Pot A (+1)', () => actor.send({ type: 'pot.record', seat: 'A', pottedBallCount: 1 })),
+    btn('Pot B (+1)', () => actor.send({ type: 'pot.record', seat: 'B', pottedBallCount: 1 })),
+    btn('Foul A', () => actor.send({ type: 'foul.commit', seat: 'A' })),
+    btn('Foul B', () => actor.send({ type: 'foul.commit', seat: 'B' })),
   )
 }
 
 function frameGameSelector() {
   const row = div('display:flex;gap:8px;align-items:center;flex-wrap:wrap;width:100%')
   row.append(label('Frame machine:'))
+
   for (const key of ['strila-v2', 'free-pyramid', 'free-pyramid-long'] as const) {
     row.append(
       btn(
@@ -284,6 +352,7 @@ function frameGameSelector() {
       ),
     )
   }
+
   return row
 }
 
@@ -300,6 +369,7 @@ function frameTargetRow(onApply: () => void) {
       targetB = value
     }),
   )
+
   return row
 }
 
@@ -342,7 +412,9 @@ function renderMatchControls(snap: SparringMatchSnapshot) {
       matchFrameTargetB = value
     }),
   )
+
   if (phase === 'match-over') return
+
   if (phase === 'between-frames') {
     controls.append(
       btn(
@@ -356,19 +428,20 @@ function renderMatchControls(snap: SparringMatchSnapshot) {
         'primary',
       ),
     )
+
     return
   }
-  if (phase === 'frame-in-progress') {
-    controls.append(
-      el('div', 'Complete the active frame with a synthetic outcome.', 'frame-info'),
-      btn('Complete frame: A wins', () => completeMatchFrame(snap, 'A'), 'primary'),
-      btn('Complete frame: B wins', () => completeMatchFrame(snap, 'B'), 'primary'),
-    )
-  }
+
+  controls.append(
+    el('div', 'Complete the active frame with a synthetic outcome.', 'frame-info'),
+    btn('Complete frame: A wins', () => completeMatchFrame(snap, 'A'), 'primary'),
+    btn('Complete frame: B wins', () => completeMatchFrame(snap, 'B'), 'primary'),
+  )
 }
 
 function completeMatchFrame(snap: SparringMatchSnapshot, winnerSeat: 'A' | 'B') {
   const activeFrame = snap.context.activeFrame
+
   if (!activeFrame) return
   matchActor.send({
     type: 'frame.completed',
@@ -387,14 +460,17 @@ function completeMatchFrame(snap: SparringMatchSnapshot, winnerSeat: 'A' | 'B') 
 function btn(text: string, onClick: () => void, cls = '') {
   const button = document.createElement('button')
   button.textContent = text
+
   if (cls) button.className = cls
   button.onclick = onClick
+
   return button
 }
 
 function label(text: string) {
   const element = document.createElement('label')
   element.textContent = text
+
   return element
 }
 
@@ -405,24 +481,32 @@ function numberInput(initial: number, onChange: (value: number) => void) {
   input.min = '1'
   input.max = '30'
   input.onchange = () => onChange(Number(input.value))
+
   return input
 }
 
 function div(style: string, cls = '') {
   const element = document.createElement('div')
   element.style.cssText = style
+
   if (cls) element.className = cls
+
   return element
 }
 
 function el(tag: string, text: string, id = '') {
   const element = document.createElement(tag)
   element.textContent = text
+
   if (id) element.id = id
+
   return element
 }
 
-frameActor.subscribe(() => renderFrame())
-frameActor.start()
+subscribeToFrameRuntime(frameRuntime)
+
+frameRuntime.actor.start()
+
 matchActor.subscribe(() => renderMatch())
+
 renderFrame()

@@ -56,6 +56,7 @@ export type SparringMatchLifecycleEvent =
     }
 
 const SparringMatchPhase = v.picklist(['between-frames', 'frame-in-progress', 'match-over'])
+
 export type SparringMatchPhase = v.InferOutput<typeof SparringMatchPhase>
 
 function expectedBreakerSeat(config: MatchConfig, frameIndex: number): Seat {
@@ -89,6 +90,7 @@ export const SparringMatchMachine = setup({
   guards: {
     isValidFramePrepare: ({ context, event }) => {
       if (event.type !== 'frame.prepared') return false
+
       return (
         event.frameIndex === context.nextFrameIndex &&
         event.breakerSeat === expectedBreakerSeat(context.config, event.frameIndex)
@@ -96,18 +98,22 @@ export const SparringMatchMachine = setup({
     },
     isValidFrameComplete: ({ context, event }) => {
       if (event.type !== 'frame.completed') return false
+
       return context.activeFrame?.frameIndex === event.frameIndex
     },
     isMatchWinningFrameComplete: ({ context, event }) => {
       if (event.type !== 'frame.completed') return false
+
       if (context.activeFrame?.frameIndex !== event.frameIndex) return false
       const nextWins = winsAfterOutcome(context.framesWonBySeat, event.outcome)
+
       return isMatchTargetReached(nextWins, context.config.targets.matchTargetFrames, event.outcome.winnerSeat)
     },
   },
   actions: {
     activateFrame: assign(({ event }) => {
       if (event.type !== 'frame.prepared') throw new Error('Expected frame.prepared')
+
       return {
         activeFrame: {
           frameIndex: event.frameIndex,
@@ -118,9 +124,11 @@ export const SparringMatchMachine = setup({
     recordCompletedFrame: assign(({ context, event }) => {
       if (event.type !== 'frame.completed') throw new Error('Expected frame.completed')
       const activeFrame = context.activeFrame
+
       if (!activeFrame) throw new Error('No active frame to complete')
 
       const { outcome } = event
+
       return {
         completedFrames: [
           ...context.completedFrames,
@@ -137,6 +145,7 @@ export const SparringMatchMachine = setup({
     }),
     setWinner: assign(({ event }) => {
       if (event.type !== 'frame.completed') throw new Error('Expected frame.completed')
+
       return {
         winnerSeat: event.outcome.winnerSeat,
       }
@@ -193,6 +202,7 @@ export function getSparringMatchPhase(snapshot: SparringMatchSnapshot): Sparring
 
 export function createInitialSnapshot(config: MatchConfig): SparringMatchSnapshot {
   const [snapshot] = initialTransition(SparringMatchMachine, config)
+
   return snapshot
 }
 
@@ -231,6 +241,8 @@ export function deriveLifecycleState(snapshot: SparringMatchSnapshot): SparringM
         winnerSeat: context.winnerSeat!,
       }
   }
+
+  throw new Error('Unsupported sparring match phase')
 }
 
 export function sendLifecycleEvent(
@@ -238,11 +250,13 @@ export function sendLifecycleEvent(
   event: SparringMatchLifecycleEvent,
 ): SparringMatchSnapshot {
   const phase = getPhase(snapshot)
+
   if (!snapshot.can(event)) {
     throw new Error(`Invalid sparring lifecycle event ${event.type} in phase ${phase}`)
   }
 
   const [nextSnapshot] = transition(SparringMatchMachine, snapshot, event)
+
   if (nextSnapshot === snapshot) {
     throw new Error(`Invalid sparring lifecycle event ${event.type} in phase ${phase}`)
   }

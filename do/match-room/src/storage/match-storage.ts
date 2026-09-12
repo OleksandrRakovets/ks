@@ -51,8 +51,11 @@ export class MatchStorage {
 
   match(): StoredMatch | null {
     const rows = this.#db.select().from(schema.activeMatches).limit(2).all()
+
     if (rows.length > 1) throw new Error('MatchRoom contains multiple Match rows')
+
     if (!rows[0]) return null
+
     try {
       return v.parse(StoredMatch, rows[0])
     } catch {
@@ -67,7 +70,9 @@ export class MatchStorage {
       .where(eq(schema.commands.commandId, command.commandId))
       .limit(1)
       .all()[0]
+
     if (!row) return null
+
     return isDeepStrictEqual(decodeCommand(row), command)
       ? { _tag: 'retry', receipt: decodeCommandReceipt(row) }
       : { _tag: 'command-id-conflict' }
@@ -88,6 +93,7 @@ export class MatchStorage {
         rejectionJson: JSON.stringify(args.reason),
       })
       .run()
+
     return { _tag: 'rejected', reason: args.reason }
   }
 
@@ -106,7 +112,9 @@ export class MatchStorage {
       acceptedSeq: args.match.latestSeq + 1,
       acceptedAt: nowUnixEpochMilliseconds(),
     })
+
     const completesMatch = args.finalState !== null
+
     return this.#db.transaction((tx) => {
       tx.insert(schema.commands)
         .values({
@@ -119,6 +127,7 @@ export class MatchStorage {
           rejectionJson: null,
         })
         .run()
+
       const result = tx
         .update(schema.activeMatches)
         .set({
@@ -134,7 +143,9 @@ export class MatchStorage {
           ),
         )
         .run()
+
       if (result.rowsWritten !== 1) throw new Error('Active match cursor mismatch')
+
       return {
         acceptedCommand,
         receipt: { _tag: 'accepted', acceptedSeq: acceptedCommand.acceptedSeq },
@@ -165,6 +176,7 @@ export class MatchStorage {
         .where(isNotNull(schema.commands.acceptedSeq))
         .orderBy(asc(schema.commands.acceptedSeq))
         .all()
+
       const commands = rows.map((row, index) => {
         if (
           row.matchId !== match.matchId ||
@@ -175,14 +187,18 @@ export class MatchStorage {
         )
           throw new Error('invalid accepted row')
         const command = decodeCommand(row)
+
         if (command.commandId !== row.commandId) throw new Error('command ID mismatch')
+
         return v.parse(AcceptedCommand, {
           ...command,
           acceptedSeq: row.acceptedSeq,
           acceptedAt: row.acceptedAt,
         })
       })
+
       if (commands.length !== match.latestSeq) throw new Error('tail mismatch')
+
       return commands
     } catch {
       throw new Error('MatchRoom commands storage corruption')
@@ -194,7 +210,9 @@ const CommandReceipt = v.variant('_tag', [
   v.pipe(v.object({ _tag: v.literal('accepted'), acceptedSeq: PositiveInteger }), v.readonly()),
   v.pipe(v.object({ _tag: v.literal('rejected'), reason: SparringMatchRejection }), v.readonly()),
 ])
+
 export type CommandReceipt = v.InferOutput<typeof CommandReceipt>
+
 export type CommandReceiptLookup =
   | { readonly _tag: 'retry'; readonly receipt: CommandReceipt }
   | { readonly _tag: 'command-id-conflict' }
@@ -203,6 +221,7 @@ const ActiveMatchConfig = v.pipe(
   v.object({ ...MatchConfig.entries, gameKey: RegisteredGameKey }),
   v.readonly(),
 )
+
 const StoredMatchFields = {
   matchId: MatchId,
   controlSecret: v.pipe(v.string(), v.minLength(16)),
@@ -210,6 +229,7 @@ const StoredMatchFields = {
   latestSeq: NonNegativeInteger,
   createdAt: UnixEpochMilliseconds,
 }
+
 const StoredActiveMatch = v.pipe(
   v.object({
     ...StoredMatchFields,
@@ -225,6 +245,7 @@ const StoredActiveMatch = v.pipe(
   v.check((row) => row.matchId === row.config.matchId),
   v.readonly(),
 )
+
 const StoredFinalizingMatch = v.pipe(
   v.object({
     ...StoredMatchFields,
@@ -247,10 +268,15 @@ const StoredFinalizingMatch = v.pipe(
   ),
   v.readonly(),
 )
+
 const StoredMatch = v.variant('status', [StoredActiveMatch, StoredFinalizingMatch])
+
 export type StoredActiveMatch = v.InferOutput<typeof StoredActiveMatch>
+
 export type StoredFinalizingMatch = v.InferOutput<typeof StoredFinalizingMatch>
+
 export type StoredMatch = v.InferOutput<typeof StoredMatch>
+
 export type MatchCreation = {
   readonly config: MatchConfig
   readonly controlSecret: string
@@ -267,12 +293,11 @@ function decodeCommand(row: typeof schema.commands.$inferSelect): MatchCommand {
 
 function decodeCommandReceipt(row: typeof schema.commands.$inferSelect): CommandReceipt {
   try {
-    return v.parse(
-      CommandReceipt,
-      row.outcome === 'accepted'
-        ? { _tag: 'accepted', acceptedSeq: row.acceptedSeq }
-        : { _tag: 'rejected', reason: JSON.parse(row.rejectionJson ?? '') },
-    )
+    if (row.outcome === 'accepted')
+      return v.parse(CommandReceipt, { _tag: 'accepted', acceptedSeq: row.acceptedSeq })
+    const rejectionReason: unknown = JSON.parse(row.rejectionJson ?? '')
+
+    return v.parse(CommandReceipt, { _tag: 'rejected', reason: rejectionReason })
   } catch {
     throw new Error(`MatchRoom commands storage corruption for command ${row.commandId}`)
   }

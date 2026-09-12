@@ -11,6 +11,7 @@ import { controlLabel, potRecordPottedBallCount } from './control-copy'
 import { matchCommandFromControl, type MatchControlRendererProps } from './types'
 
 type SeatControls = ReturnType<typeof groupControlsIntoSections>['primary']
+
 type LabelledLongFreePyramidCommand =
   | { kind: 'pottedBallCount'; command: Control; pottedBallCount: number }
   | { kind: 'command'; command: Control }
@@ -19,7 +20,9 @@ export function labelLongFreePyramidCommands(controls: readonly Control[]): Labe
   return controls.map((command) => {
     if (command.type !== 'pot.record') return { kind: 'command', command }
     const pottedBallCount = potRecordPottedBallCount(command)
+
     if (pottedBallCount === undefined) return { kind: 'command', command }
+
     return { kind: 'pottedBallCount', command, pottedBallCount }
   })
 }
@@ -30,12 +33,15 @@ function longFreePyramidCommandLabel(t: TFunction, labelled: LabelledLongFreePyr
       pottedBallCount: labelled.pottedBallCount,
     })
   }
+
   return controlLabel(t, labelled.command)
 }
 
 function buttonVariant(prominence: Control['prominence']): 'primary' | 'secondary' | 'outline' {
   if (prominence === 'primary') return 'primary'
+
   if (prominence === 'secondary') return 'secondary'
+
   return 'outline'
 }
 
@@ -103,10 +109,12 @@ export function LongFreePyramidControlRenderer(
   const controlSections = groupControlsIntoSections(props.controls)
   const hasNeutral = controlSections.neutral.length > 0
   const hasTertiary = controlSections.tertiary.A.length > 0 || controlSections.tertiary.B.length > 0
+
   const scoringCommands = {
     A: [...controlSections.primary.A, ...controlSections.secondary.A],
     B: [...controlSections.primary.B, ...controlSections.secondary.B],
   }
+
   const hasScoringCommands = scoringCommands.A.length > 0 || scoringCommands.B.length > 0
 
   return (

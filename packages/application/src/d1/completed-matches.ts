@@ -1,4 +1,11 @@
-import { type MatchId, MatchState, NonEmptyProtocolEntries, type UnixEpochMilliseconds } from '@ks/core'
+import {
+  type MatchId,
+  MatchState,
+  type MatchState as MatchStateValue,
+  ProtocolEntries,
+  type ProtocolEntries as ProtocolEntriesValue,
+  type UnixEpochMilliseconds,
+} from '@ks/core'
 import { and, eq, inArray, isNull, or } from 'drizzle-orm'
 import * as v from 'valibot'
 
@@ -30,25 +37,18 @@ function semanticArchiveEqual(
     left.createdAt !== right.createdAt
   )
     return false
-  const leftRows = v.safeParse(v.pipe(v.string(), v.parseJson(), NonEmptyProtocolEntries), left.rowsJson)
-  const rightRows = v.safeParse(v.pipe(v.string(), v.parseJson(), NonEmptyProtocolEntries), right.rowsJson)
+  const leftRows = v.safeParse(v.pipe(v.string(), v.parseJson(), ProtocolEntries), left.rowsJson)
+  const rightRows = v.safeParse(v.pipe(v.string(), v.parseJson(), ProtocolEntries), right.rowsJson)
   const leftState = v.safeParse(v.pipe(v.string(), v.parseJson(), MatchState), left.stateJson)
   const rightState = v.safeParse(v.pipe(v.string(), v.parseJson(), MatchState), right.stateJson)
-  // SAFETY: both schemas validate JSON-compatible structural values.
-  const decodedLeftRows = leftRows.success ? (leftRows.output as StructuralValue) : undefined
-  // SAFETY: both schemas validate JSON-compatible structural values.
-  const decodedRightRows = rightRows.success ? (rightRows.output as StructuralValue) : undefined
-  // SAFETY: MatchState validates a JSON-compatible structural value.
-  const decodedLeftState = leftState.success ? (leftState.output as StructuralValue) : undefined
-  // SAFETY: MatchState validates a JSON-compatible structural value.
-  const decodedRightState = rightState.success ? (rightState.output as StructuralValue) : undefined
+
   return (
     leftRows.success &&
     rightRows.success &&
     leftState.success &&
     rightState.success &&
-    structuralEqual(decodedLeftRows, decodedRightRows) &&
-    structuralEqual(decodedLeftState, decodedRightState)
+    structuralEqual(leftRows.output, rightRows.output) &&
+    structuralEqual(leftState.output, rightState.output)
   )
 }
 
@@ -60,28 +60,38 @@ type StructuralValue =
   | string
   | readonly StructuralValue[]
   | StructuralObject
+  | MatchStateValue
+  | ProtocolEntriesValue
+
 type StructuralObject = { readonly [key: string]: StructuralValue }
 
 function structuralEqual(left: StructuralValue, right: StructuralValue): boolean {
   if (Object.is(left, right)) return true
-  if (left === null || right === null || Object(left) !== left || Object(right) !== right) return false
-  if (Array.isArray(left) || Array.isArray(right))
+
+  if (isStructuralArray(left) || isStructuralArray(right))
     return (
-      Array.isArray(left) &&
-      Array.isArray(right) &&
+      isStructuralArray(left) &&
+      isStructuralArray(right) &&
       left.length === right.length &&
       left.every((value, index) => structuralEqual(value, right[index]))
     )
-  // SAFETY: primitives and arrays were excluded above, leaving structural objects.
-  const leftObject = left as StructuralObject
-  // SAFETY: primitives and arrays were excluded above, leaving structural objects.
-  const rightObject = right as StructuralObject
-  const keys = Object.keys(leftObject).filter((key) => leftObject[key] !== undefined)
-  const rightKeys = Object.keys(rightObject).filter((key) => rightObject[key] !== undefined)
+
+  if (!isStructuralObject(left) || !isStructuralObject(right)) return false
+  const entries = Object.entries(left).filter(([, value]) => value !== undefined)
+  const rightValues = new Map(Object.entries(right).filter(([, value]) => value !== undefined))
+
   return (
-    keys.length === rightKeys.length &&
-    keys.every((key) => Object.hasOwn(rightObject, key) && structuralEqual(leftObject[key], rightObject[key]))
+    entries.length === rightValues.size &&
+    entries.every(([key, value]) => rightValues.has(key) && structuralEqual(value, rightValues.get(key)))
   )
+}
+
+function isStructuralArray(value: StructuralValue): value is readonly StructuralValue[] {
+  return Array.isArray(value)
+}
+
+function isStructuralObject(value: StructuralValue): value is StructuralObject {
+  return value !== null && !isStructuralArray(value) && Object(value) === value
 }
 
 export async function archiveCompletedMatch(
@@ -96,6 +106,7 @@ export async function archiveCompletedMatch(
     stateJson: JSON.stringify(input.finalState),
     createdAt: input.endedAt,
   }
+
   const storedMatch = await db
     .select({
       matchId: matches.matchId,
@@ -107,6 +118,7 @@ export async function archiveCompletedMatch(
     .from(matches)
     .where(eq(matches.matchId, input.matchId))
     .get()
+
   if (
     !storedMatch ||
     storedMatch.matchId !== input.matchId ||
@@ -114,13 +126,16 @@ export async function archiveCompletedMatch(
     storedMatch.createdAt !== input.createdAt
   )
     throw new MatchCompletionError('Completed match identity conflicts with D1')
+
   if (storedMatch.status !== StoredMatchStatus.active && storedMatch.status !== StoredMatchStatus.finished)
     throw new MatchCompletionError('Completed match is not ready to archive')
+
   const inserted = await db
     .insert(matchProtocolArchives)
     .values(archive)
     .onConflictDoNothing({ target: matchProtocolArchives.matchId })
     .returning()
+
   const persistedArchive =
     inserted[0] ??
     (await db
@@ -128,6 +143,7 @@ export async function archiveCompletedMatch(
       .from(matchProtocolArchives)
       .where(eq(matchProtocolArchives.matchId, input.matchId))
       .get())
+
   if (!persistedArchive || !semanticArchiveEqual(persistedArchive, archive))
     throw new MatchCompletionError('Completed match archive conflicts with existing data')
 }
@@ -148,6 +164,7 @@ export async function markMatchFinished(
       ),
     )
     .returning({ status: matches.status, endedAt: matches.endedAt })
+
   if (result.length !== 1 || result[0]?.status !== StoredMatchStatus.finished || result[0].endedAt !== endedAt)
     throw new MatchCompletionError('Completed match is not ready to finish')
 }

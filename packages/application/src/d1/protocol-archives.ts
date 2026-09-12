@@ -1,5 +1,5 @@
 import { parseProtocolEntryContent } from '@ks/competition'
-import { MatchId, MatchState, NonEmptyProtocolEntries, PositiveInteger } from '@ks/core'
+import { MatchId, MatchState, PositiveInteger, ProtocolEntries, type ProtocolEntry } from '@ks/core'
 import { isRegisteredGameKey } from '@ks/gameplay/definitions'
 import { eq } from 'drizzle-orm'
 import * as v from 'valibot'
@@ -18,7 +18,7 @@ const ProtocolArchiveStorageRow = v.pipe(
     matchId: MatchId,
     sourceLatestSeq: PositiveInteger,
     protocolVersion: v.literal(PROTOCOL_ARCHIVE_VERSION),
-    rowsJson: v.pipe(v.string(), v.parseJson(), NonEmptyProtocolEntries),
+    rowsJson: v.pipe(v.string(), v.parseJson(), ProtocolEntries),
     stateJson: v.pipe(v.string(), v.parseJson(), MatchState),
   }),
   v.transform(({ rowsJson, stateJson, ...row }) => ({ ...row, entries: rowsJson, state: stateJson })),
@@ -41,34 +41,43 @@ export async function getProtocolArchive(
     .from(matchProtocolArchives)
     .where(eq(matchProtocolArchives.matchId, matchId))
     .get()
+
   if (!row) return null
+
   try {
     const parsed = v.parse(ProtocolArchiveStorageRow, row)
     const { matchId: _matchId, entries, ...archive } = parsed
     const gameKey = archive.state.gameKey
-    const normalizedEntries = isRegisteredGameKey(gameKey)
-      ? entries.map((entry) => {
-          const { acceptedSeq, entryIndex, causedByCommandId, acceptedAt, ...content } = entry
-          if (content.gameKey !== gameKey) throw new Error('Protocol archive game key mismatch')
-          return {
-            acceptedSeq,
-            entryIndex,
-            causedByCommandId,
-            acceptedAt,
-            ...parseProtocolEntryContent(content),
-          }
-        })
-      : entries
-    const firstEntry = normalizedEntries[0]
-    if (!firstEntry) throw new Error('Protocol archive contains no entries')
+
+    const normalizeEntry = (entry: ProtocolEntry): ProtocolEntry => {
+      const { acceptedSeq, entryIndex, causedByCommandId, acceptedAt, ...content } = entry
+
+      if (content.gameKey !== gameKey) throw new Error('Protocol archive game key mismatch')
+
+      return {
+        acceptedSeq,
+        entryIndex,
+        causedByCommandId,
+        acceptedAt,
+        ...parseProtocolEntryContent(content),
+      }
+    }
+
+    const normalizedEntries = isRegisteredGameKey(gameKey) ? entries.map(normalizeEntry) : entries
+
     return {
       ...archive,
-      entries: [firstEntry, ...normalizedEntries.slice(1)],
+      entries: normalizedEntries,
     }
   } catch {
-    if (row.protocolVersion !== PROTOCOL_ARCHIVE_VERSION) {
+    if (!isSupportedProtocolArchiveVersion(row.protocolVersion)) {
       throw new UnsupportedProtocolArchiveVersionError(matchId, row.protocolVersion)
     }
+
     throw new ProtocolArchiveCorruptionError(matchId)
   }
+}
+
+function isSupportedProtocolArchiveVersion(version: number): boolean {
+  return version === PROTOCOL_ARCHIVE_VERSION
 }

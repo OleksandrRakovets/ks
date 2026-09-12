@@ -24,7 +24,7 @@ import { type PyramidGameKey, type PyramidRulesFor, PyramidRuleSpecificsByGameKe
 class PyramidGameplaySession<K extends PyramidGameKey> implements GameplaySession<K> {
   readonly gameKey: K
   #snapshot: PyramidSparringFrameSnapshot
-  #rules: PyramidRulesFor<K>
+  readonly #rules: PyramidRulesFor<K>
 
   constructor(gameKey: K, args: GameplaySessionCreateArgsFor<K>, rules: PyramidRulesFor<K>) {
     this.gameKey = gameKey
@@ -34,21 +34,28 @@ class PyramidGameplaySession<K extends PyramidGameKey> implements GameplaySessio
 
   execute(command: PyramidCommand): GameCommandExecution {
     const previous = this.#snapshot
+
     if (!previous.can(command)) return commandNotAvailable()
     const [candidate] = transition(PyramidSparringFrameMachine, previous, command)
+
     const gameProtocolEntries = createPyramidProtocolEntries({
       previous,
       command,
       next: candidate,
       rules: this.#rules,
     })
+
     const outcome = candidate.status === 'done' ? candidate.output : undefined
+
     if (outcome !== undefined && !v.is(FrameOutcome, outcome))
       throw new Error('Pyramid machine produced an invalid outcome')
+
     const result = outcome
       ? { _tag: 'accepted' as const, gameProtocolEntries, outcome }
       : { _tag: 'accepted' as const, gameProtocolEntries }
+
     this.#snapshot = candidate
+
     return result
   }
 
@@ -60,11 +67,14 @@ class PyramidGameplaySession<K extends PyramidGameKey> implements GameplaySessio
   }
   canConcede() {
     const phase = getPhase(this.#snapshot)
+
     return phase !== 'winner-determined' && phase !== 'frame-over'
   }
   deriveControls(): { readonly game: GamePresentationFor<K>; readonly controls: readonly GameControl[] } {
     const projection: unknown = derivePyramidControlProjection(this.#snapshot, this.#rules)
-    // SAFETY: both the family projection and registry contract are discriminated by this session's same K.
+
+    // SAFETY: TypeScript cannot reduce the registry's indexed presentation type for generic K;
+    // the projection and registry entry are both selected by this session's same game key.
     return projection as { readonly game: GamePresentationFor<K>; readonly controls: readonly GameControl[] }
   }
 }
@@ -72,6 +82,7 @@ class PyramidGameplaySession<K extends PyramidGameKey> implements GameplaySessio
 type PyramidGameplaySessionCreation = {
   [K in PyramidGameKey]: readonly [gameKey: K, args: GameplaySessionCreateArgsFor<K>]
 }[PyramidGameKey]
+
 type AnyPyramidGameplaySession = { [K in PyramidGameKey]: GameplaySession<K> }[PyramidGameKey]
 
 export function createPyramidGameplaySession<K extends PyramidGameKey>(
@@ -101,4 +112,6 @@ export function createPyramidGameplaySession(
         PyramidRuleSpecificsByGameKey['combined-pyramid-old'],
       )
   }
+
+  throw new Error('Unsupported pyramid game')
 }

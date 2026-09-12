@@ -1,6 +1,7 @@
 import { buildMatchConfig, CreateMatchRequest } from '@ks/competition'
 import { newCommandId, newMatchId, PlayerRef, UnixEpochMilliseconds } from '@ks/core'
-import { env, runInDurableObject } from 'cloudflare:test'
+import { runInDurableObject } from 'cloudflare:test'
+import { env } from 'cloudflare:workers'
 import * as v from 'valibot'
 import { expect, test } from 'vitest'
 
@@ -15,13 +16,16 @@ const request = v.parse(CreateMatchRequest, {
     { seat: 'B', playerRef: v.parse(PlayerRef, 'gp_01ARZ3NDEKTSV4RRFFQ69G5FAB') },
   ],
 })
+
 const createdAt = v.parse(UnixEpochMilliseconds, 1_700_000_000_000)
+
 const controlSecret = 'control-secret-1234567890'
 
 test('stores canonical values and compares durable Command retries semantically', async () => {
   const matchId = newMatchId()
   const config = buildMatchConfig(matchId, request)
   const commandId = newCommandId()
+
   const command = {
     commandId,
     source: 'game' as const,
@@ -61,6 +65,7 @@ test('reconstructs flat Accepted Commands from its authoritative cursor', async 
   const matchId = newMatchId()
   const stub = env.MATCH_ROOM.getByName(matchId)
   await stub.initialize({ ...request, matchId, controlSecret, createdAt })
+
   const commands = [
     { commandId: newCommandId(), source: 'match' as const, command: { type: 'frame.prepare' } },
     {
@@ -70,11 +75,13 @@ test('reconstructs flat Accepted Commands from its authoritative cursor', async 
     },
     { commandId: newCommandId(), source: 'match' as const, command: { type: 'frame.concede', seat: 'B' } },
   ]
+
   for (const command of commands) await stub.submitCommand(command)
 
   await runInDurableObject(stub, (_room, state) => {
     const storage = new MatchStorage(state.storage)
     const match = storage.match()
+
     if (!match) throw new Error('Expected Match')
     expect(storage.readAcceptedCommands(match)).toEqual(
       commands.map((command, index) => expect.objectContaining({ ...command, acceptedSeq: index + 1 })),
@@ -129,9 +136,11 @@ test('rejects lifecycle corruption', async () => {
 
   await runInDurableObject(stub, (_room, state) => {
     const storage = new MatchStorage(state.storage)
+
     const finalState = state.storage.sql
       .exec<{ final_state_json: string }>('SELECT final_state_json FROM active_matches')
       .one().final_state_json
+
     state.storage.sql.exec(
       `UPDATE active_matches SET final_state_json = ?`,
       JSON.stringify({ ...JSON.parse(finalState), status: 'active' }),

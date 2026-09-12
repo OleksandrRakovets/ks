@@ -6,6 +6,7 @@ import { UnixEpochMilliseconds } from './time'
 import { NonNegativeInteger, PositiveInteger, SizedString, UnknownObject } from './valicombos'
 
 export const ProtocolEntrySource = v.picklist(['player', 'system'])
+
 export type ProtocolEntrySource = v.InferOutput<typeof ProtocolEntrySource>
 
 /**
@@ -23,6 +24,7 @@ export const GameProtocolEntry = v.pipe(
   }),
   v.readonly(),
 )
+
 export type GameProtocolEntry = v.InferOutput<typeof GameProtocolEntry>
 
 /** Complete Protocol meaning before MatchRoom attaches acceptance metadata. */
@@ -33,13 +35,8 @@ export const ProtocolEntryContent = v.pipe(
   }),
   v.readonly(),
 )
-export type ProtocolEntryContent = v.InferOutput<typeof ProtocolEntryContent>
 
-export const NonEmptyProtocolEntryContents = v.pipe(
-  v.tupleWithRest([ProtocolEntryContent], ProtocolEntryContent),
-  v.readonly(),
-)
-export type NonEmptyProtocolEntryContents = v.InferOutput<typeof NonEmptyProtocolEntryContents>
+export type ProtocolEntryContent = v.InferOutput<typeof ProtocolEntryContent>
 
 /** Authoritative Protocol Entry with acceptance, causation, and ordering metadata. */
 export const ProtocolEntry = v.pipe(
@@ -52,10 +49,9 @@ export const ProtocolEntry = v.pipe(
   }),
   v.readonly(),
 )
+
 export type ProtocolEntry = v.InferOutput<typeof ProtocolEntry>
 
 export const ProtocolEntries = v.pipe(v.array(ProtocolEntry), v.readonly())
-export type ProtocolEntries = v.InferOutput<typeof ProtocolEntries>
 
-export const NonEmptyProtocolEntries = v.pipe(v.tupleWithRest([ProtocolEntry], ProtocolEntry), v.readonly())
-export type NonEmptyProtocolEntries = v.InferOutput<typeof NonEmptyProtocolEntries>
+export type ProtocolEntries = v.InferOutput<typeof ProtocolEntries>

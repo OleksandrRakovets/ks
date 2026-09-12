@@ -8,6 +8,7 @@ import { MatchStorage } from '../storage/match-storage'
 export function initializeMatch(storage: MatchStorage, input: InitializeMatchInput): InitializeMatchResult {
   const config = buildMatchConfig(input.matchId, input)
   const existing = storage.match()
+
   if (existing) {
     return existing.matchId === config.matchId &&
       existing.controlSecret === input.controlSecret &&
@@ -16,7 +17,9 @@ export function initializeMatch(storage: MatchStorage, input: InitializeMatchInp
       ? { _tag: 'initialized', matchId: config.matchId }
       : { _tag: 'initialization-conflict' }
   }
+
   storage.commitCreation({ config, controlSecret: input.controlSecret, createdAt: input.createdAt })
+
   return { _tag: 'initialized', matchId: config.matchId }
 }
 

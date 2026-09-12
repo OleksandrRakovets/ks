@@ -7,7 +7,8 @@ import {
   type ProtocolEntry,
   UnixEpochMilliseconds,
 } from '@ks/core'
-import { applyD1Migrations, env, reset } from 'cloudflare:test'
+import { applyD1Migrations, reset } from 'cloudflare:test'
+import { env } from 'cloudflare:workers'
 import * as v from 'valibot'
 import { beforeEach, describe, expect, test } from 'vitest'
 
@@ -19,11 +20,17 @@ import { createApplicationDatabaseClient } from '../../src/d1/types'
 import type { MatchRoomCompletionTransfer } from '../../src/match-room-client'
 
 const matchId = v.parse(MatchId, '01ARZ3NDEKTSV4RRFFQ69G5FAV')
+
 const otherMatchId = v.parse(MatchId, '01ARZ3NDEKTSV4RRFFQ69G5FAW')
+
 const newestMatchId = v.parse(MatchId, '01ARZ3NDEKTSV4RRFFQ69G5FAX')
+
 const creatingMatchId = v.parse(MatchId, '01ARZ3NDEKTSV4RRFFQ69G5FAY')
+
 const seatAPlayerRef = v.parse(PlayerRef, 'gp_01HX0000000000000000000000')
+
 const seatBPlayerRef = v.parse(PlayerRef, 'gp_01HX0000000000000000000001')
+
 const createdAt = v.parse(UnixEpochMilliseconds, 1_000)
 
 const createRequest = v.parse(CreateMatchRequest, {
@@ -46,6 +53,7 @@ function completedMatchTransfer(id = matchId): MatchRoomCompletionTransfer {
   const acceptedAt = v.parse(UnixEpochMilliseconds, 2_000)
   const protocolEntries: ProtocolEntry[] = []
   let acceptedSeq = 0
+
   for (const command of [
     { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } },
     { commandId: newCommandId(), source: 'match', command: { type: 'frame.commence', seat: 'A' } },
@@ -57,21 +65,24 @@ function completedMatchTransfer(id = matchId): MatchRoomCompletionTransfer {
     { commandId: newCommandId(), source: 'game', command: { type: 'frame.award', seat: 'A' } },
   ] satisfies MatchCommand[]) {
     const decision = session.execute(command)
-    if (decision._tag !== 'accepted')
-      throw new Error(`Fixture command rejected: ${String(command.command.type)}`)
+
+    if (decision._tag !== 'accepted') throw new Error(`Fixture command rejected: ${command.command.type}`)
     acceptedSeq += 1
-    decision.protocolEntryContents.forEach((entry, entryIndex) =>
+    decision.protocolEntryContents.forEach((entry, entryIndex) => {
       protocolEntries.push({
         ...entry,
         acceptedSeq,
         entryIndex,
         causedByCommandId: command.commandId,
         acceptedAt,
-      }),
-    )
+      })
+    })
   }
+
   const finalState = session.project().state
+
   if (finalState.status !== 'finished') throw new Error('Fixture did not finish')
+
   return {
     matchId: id,
     gameKey: 'free-pyramid',
@@ -179,6 +190,7 @@ describe('real D1 match lifecycle', () => {
     await activateMatch(db, matchId)
     const first = completedMatchTransfer()
     const conflictingTimestamp = v.parse(UnixEpochMilliseconds, first.endedAt + 1)
+
     const candidates = [
       first,
       {
@@ -192,7 +204,7 @@ describe('real D1 match lifecycle', () => {
     ]
 
     const results = await Promise.allSettled(
-      candidates.map(async (candidate) => await archiveCompletedMatch(db, candidate)),
+      candidates.map(async (candidate) => archiveCompletedMatch(db, candidate)),
     )
 
     expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1)
@@ -210,6 +222,7 @@ describe('real D1 match lifecycle', () => {
 
   test('reads a locally seeded historical game key archive', async () => {
     const db = createApplicationDatabaseClient(env.DB)
+
     const state = {
       matchId,
       gameKey: 'historical-game',
@@ -219,6 +232,7 @@ describe('real D1 match lifecycle', () => {
       framesWonBySeat: { A: 1, B: 0 },
       frames: [{ frameIndex: 1, pointsBySeat: { A: 8, B: 2 }, breakerSeat: 'A', winnerSeat: 'A' }],
     }
+
     const entries = [
       {
         acceptedSeq: 1,
@@ -233,6 +247,7 @@ describe('real D1 match lifecycle', () => {
         body: {},
       },
     ]
+
     await seedArchive(JSON.stringify(entries), JSON.stringify(state), 1)
     expect(await getProtocolArchive(db, matchId)).toMatchObject({ protocolVersion: 1, entries, state })
   })

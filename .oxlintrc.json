@@ -1,14 +1,18 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "options": {
+    "typeAware": true
+  },
   "plugins": ["unicorn", "typescript", "oxc", "react", "react-perf", "jsx-a11y"],
   "ignorePatterns": [
+    // Dependencies and generated build/framework output are not reviewed source.
     "**/node_modules/**",
     "**/dist/**",
     "**/.wrangler/**",
     "**/.react-router/**",
+    // Assistant/tool configuration is not product source and may contain third-party snippets.
     "**/.agents/**",
     ".agent/**",
-    ".agents/**",
     ".claude/**",
     ".codex/**",
     ".continue/**",
@@ -17,18 +21,23 @@
     ".opencode/**",
     ".pi/**",
     ".roo/**",
+    // Planning prose and temporary output are outside the code lint policy.
     ".tracker/**",
     ".windsurf/**",
     "tmp/**",
+    // Keep the intentionally unmodified vendored rules aligned with upstream.
     "tools/oxlint/anti-slop/**"
   ],
   "jsPlugins": [{ "name": "anti-slop", "specifier": "./tools/oxlint/anti-slop/index.ts" }],
   "rules": {
+    "oxc/no-accumulating-spread": "error",
+    "anti-slop/no-array-filter-map": "error",
     "anti-slop/no-chained-type-assertions": "error",
     "anti-slop/no-conditional-empty-object-spread": "error",
     "anti-slop/no-known-value-widening": "error",
     "anti-slop/no-module-mocking": "error",
     "anti-slop/no-object-parameters": "error",
+    "anti-slop/no-reduce-accumulator-copy": "error",
     "anti-slop/no-reflect-apply": "error",
     "anti-slop/no-reflect-get": "error",
     "anti-slop/no-runtime-typeof": "error",
@@ -38,6 +47,7 @@
     "anti-slop/no-unknown-type-aliases": "error",
     "anti-slop/no-unsafe-dictionary-type": "error",
     "anti-slop/no-widen-then-assert": "error",
+    "anti-slop/require-readable-spacing": "error",
     "anti-slop/require-safety-comment-for-type-assertion": "error",
     "sort-imports": [
       "error",
@@ -45,9 +55,112 @@
         "ignoreCase": true,
         "ignoreDeclarationSort": true
       }
-    ]
+    ],
+    "typescript/await-thenable": "error",
+    "typescript/consistent-return": "error",
+    "typescript/consistent-type-exports": "error",
+    "typescript/dot-notation": "error",
+    "typescript/no-array-delete": "error",
+    "typescript/no-base-to-string": "error",
+    "typescript/no-confusing-void-expression": [
+      "error",
+      {
+        "ignoreArrowShorthand": true
+      }
+    ],
+    "typescript/no-deprecated": "error",
+    "typescript/no-duplicate-type-constituents": "error",
+    "typescript/no-floating-promises": "error",
+    "typescript/no-for-in-array": "error",
+    "typescript/no-implied-eval": "error",
+    "typescript/no-meaningless-void-operator": "error",
+    "typescript/no-misused-promises": "error",
+    "typescript/no-misused-spread": "error",
+    "typescript/no-mixed-enums": "error",
+    "typescript/no-redundant-type-constituents": "error",
+    "typescript/no-unnecessary-boolean-literal-compare": "error",
+    "typescript/no-unnecessary-condition": "error",
+    "typescript/no-unnecessary-qualifier": "error",
+    "typescript/no-unnecessary-template-expression": "error",
+    "typescript/no-unnecessary-type-arguments": "error",
+    "typescript/no-unnecessary-type-assertion": "error",
+    "typescript/no-unnecessary-type-conversion": "error",
+    "typescript/no-unnecessary-type-parameters": "error",
+    "typescript/no-unsafe-argument": "error",
+    "typescript/no-unsafe-assignment": "error",
+    "typescript/no-unsafe-call": "error",
+    "typescript/no-unsafe-enum-comparison": "error",
+    "typescript/no-unsafe-member-access": "error",
+    "typescript/no-unsafe-return": "error",
+    "typescript/no-unsafe-unary-minus": "error",
+    "typescript/no-useless-default-assignment": "error",
+    "typescript/non-nullable-type-assertion-style": "error",
+    "typescript/only-throw-error": "error",
+    "typescript/prefer-find": "error",
+    "typescript/prefer-includes": "error",
+    "typescript/prefer-nullish-coalescing": "error",
+    "typescript/prefer-optional-chain": "error",
+    "typescript/prefer-promise-reject-errors": "error",
+    "typescript/prefer-readonly": "error",
+    "typescript/prefer-reduce-type-parameter": "error",
+    "typescript/prefer-regexp-exec": "error",
+    "typescript/prefer-return-this-type": "error",
+    "typescript/prefer-string-starts-ends-with": "error",
+    "typescript/related-getter-setter-pairs": "error",
+    "typescript/require-array-sort-compare": "error",
+    "typescript/restrict-plus-operands": "error",
+    "typescript/restrict-template-expressions": "error",
+    "typescript/return-await": "error",
+    "typescript/strict-boolean-expressions": "error",
+    "typescript/strict-void-return": "error",
+    "typescript/switch-exhaustiveness-check": "error",
+    "typescript/unbound-method": "error",
+    "typescript/use-unknown-in-catch-callback-variable": "error"
   },
   "overrides": [
+    {
+      // These Node/Drizzle files remain syntax-linted but are outside checked TypeScript projects.
+      "files": ["tools/check-boundaries.mjs", "do/match-room/drizzle/migrations.js"],
+      "rules": {
+        "typescript/no-unsafe-argument": "off",
+        "typescript/no-unsafe-assignment": "off",
+        "typescript/no-unsafe-call": "off",
+        "typescript/no-unsafe-member-access": "off",
+        "typescript/no-unsafe-return": "off"
+      }
+    },
+    {
+      // React Router uses thrown Response values and redirects as framework control flow.
+      "files": ["apps/play/web/routes/**/*.{ts,tsx}"],
+      "rules": {
+        "typescript/only-throw-error": "off"
+      }
+    },
+    {
+      // Runtime-indexed frame and test-socket lookups stay defensive despite TypeScript's array indexing.
+      "files": ["apps/play/web/routes/match/**/*.{ts,tsx}"],
+      "rules": {
+        "typescript/no-unnecessary-condition": "off"
+      }
+    },
+    {
+      // Cloudflare's test boundary exposes a few runtime-safe bindings and callbacks as any/error types.
+      "files": ["packages/application/test/**/*.ts", "do/match-room/test/**/*.ts"],
+      "rules": {
+        "typescript/no-unsafe-argument": "off",
+        "typescript/no-unsafe-assignment": "off",
+        "typescript/no-unsafe-call": "off",
+        "typescript/no-unsafe-member-access": "off",
+        "typescript/no-unsafe-return": "off"
+      }
+    },
+    {
+      // Durable Object RPC is asynchronous at runtime although these test stubs retain synchronous class signatures.
+      "files": ["do/match-room/test/rpc/finalizing-match/*.integration.test.ts"],
+      "rules": {
+        "typescript/await-thenable": "off"
+      }
+    },
     {
       "files": ["packages/gameplay/src/**/*.{ts,tsx}"],
       "rules": {

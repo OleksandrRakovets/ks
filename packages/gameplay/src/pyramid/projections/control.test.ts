@@ -6,6 +6,7 @@ import { derivePyramidControlProjection } from './control'
 
 test('projects exact combined-pyramid open-play presentation and flat controls', () => {
   const rules = PyramidRuleSpecificsByGameKey['combined-pyramid']
+
   const snapshot = sendEvent(createInitialSnapshot(rules, { A: 8, B: 8 }), {
     type: 'frame.commence',
     seat: 'A',

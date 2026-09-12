@@ -1,4 +1,5 @@
-import { env, evictDurableObject, runInDurableObject } from 'cloudflare:test'
+import { evictDurableObject, runInDurableObject } from 'cloudflare:test'
+import { env } from 'cloudflare:workers'
 import { expect, test } from 'vitest'
 
 import { captureRpcError, initializedRoom, makeRoomFinalizing } from '../fixtures'
@@ -49,11 +50,13 @@ test('finalizing lightweight reads do not reconstruct corrupt command history', 
 
   await expect(restored.getControls()).resolves.toEqual({ _tag: 'finalizing' })
   await expect(restored.getProtocol()).resolves.toEqual({ _tag: 'finalizing' })
+
   const response = await restored.fetch(
     new Request(`https://match-room/api/sparring-match/${matchId}/live/?contract=1&view=control`, {
       headers: { Upgrade: 'websocket' },
     }),
   )
+
   expect(response.status).toBe(410)
   await expect(
     captureRpcError(async () => {

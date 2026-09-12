@@ -19,6 +19,7 @@ export const LongFreePyramidCommand = v.variant('type', [
   FoulCommitCommand,
   FrameAwardCommand,
 ])
+
 export type LongFreePyramidCommand = v.InferOutput<typeof LongFreePyramidCommand>
 
 const LongFreePyramidRack = v.pipe(
@@ -28,6 +29,7 @@ const LongFreePyramidRack = v.pipe(
   }),
   v.readonly(),
 )
+
 export type LongFreePyramidRack = v.InferOutput<typeof LongFreePyramidRack>
 
 const LongFreePyramidMessage = v.pipe(
@@ -37,7 +39,9 @@ const LongFreePyramidMessage = v.pipe(
   }),
   v.readonly(),
 )
+
 type LongFreePyramidMessage = v.InferOutput<typeof LongFreePyramidMessage>
+
 export const LongFreePyramidPhase = v.picklist([
   'not-started',
   'open-play',
@@ -45,6 +49,7 @@ export const LongFreePyramidPhase = v.picklist([
   'awaiting-award',
   'frame-over',
 ])
+
 export type LongFreePyramidPhase = v.InferOutput<typeof LongFreePyramidPhase>
 
 const LongFreePyramidContext = v.pipe(
@@ -57,6 +62,7 @@ const LongFreePyramidContext = v.pipe(
   }),
   v.readonly(),
 )
+
 export type LongFreePyramidContext = v.InferOutput<typeof LongFreePyramidContext>
 
 const LongFreePyramidGamePresentationState = v.pipe(
@@ -71,6 +77,7 @@ const LongFreePyramidGamePresentationState = v.pipe(
   }),
   v.readonly(),
 )
+
 export type LongFreePyramidGamePresentationState = v.InferOutput<typeof LongFreePyramidGamePresentationState>
 
 const LongFreePyramidGamePresentationDetails = v.pipe(
@@ -80,6 +87,7 @@ const LongFreePyramidGamePresentationDetails = v.pipe(
   }),
   v.readonly(),
 )
+
 type LongFreePyramidGamePresentationDetails = v.InferOutput<typeof LongFreePyramidGamePresentationDetails>
 
 export const LongFreePyramidGamePresentation = v.pipe(
@@ -90,4 +98,5 @@ export const LongFreePyramidGamePresentation = v.pipe(
   }),
   v.readonly(),
 )
+
 export type LongFreePyramidGamePresentation = v.InferOutput<typeof LongFreePyramidGamePresentation>

@@ -9,9 +9,11 @@ import type { Route } from './+types/layout-base'
 export const middleware: Route.MiddlewareFunction[] = [
   ({ request, context }) => {
     const url = new URL(request.url)
+
     if (url.pathname === '/en') {
       throw redirect(`/en/${url.search}`, 308)
     }
+
     context.set(localeContext, url.pathname.startsWith('/en/') ? 'en' : 'uk')
   },
 ]

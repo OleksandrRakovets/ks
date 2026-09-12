@@ -14,8 +14,8 @@ export type ParseGameCommandResult<K extends RegisteredGameKey> =
   | { readonly _tag: 'parsed'; readonly command: GameCommandFor<K> }
   | GameCommandParseFailure
 
-function parseFailure<K extends RegisteredGameKey>(
-  gameKey: K,
+function parseFailure(
+  gameKey: RegisteredGameKey,
   commandType: string,
   issues: readonly v.BaseIssue<unknown>[],
 ): GameCommandParseFailure {
@@ -27,12 +27,13 @@ export function parseGameCommand<K extends RegisteredGameKey>(
   input: MatchCommand['command'],
 ): ParseGameCommandResult<K> {
   const parsed = v.safeParse(registry[gameKey].commandSchema, input)
+
   if (!parsed.success) {
     const discriminator = v.safeParse(v.object({ type: v.string() }), input)
     const commandType = discriminator.success ? discriminator.output.type : 'unknown'
+
     return parseFailure(gameKey, commandType, parsed.issues)
   }
 
-  // SAFETY: schema is keyed to gameKey in the exhaustive registry entry above.
-  return { _tag: 'parsed', command: parsed.output as GameCommandFor<K> }
+  return { _tag: 'parsed', command: parsed.output }
 }

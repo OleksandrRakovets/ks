@@ -4,6 +4,7 @@ import { MatchId, PlayerRef } from './ids'
 import { Integer, NonNegativeInteger, PositiveInteger, SizedString } from './valicombos'
 
 export const Seat = v.picklist(['A', 'B'])
+
 export type Seat = v.InferOutput<typeof Seat>
 
 export function opponentOf(seat: Seat): Seat {
@@ -11,9 +12,11 @@ export function opponentOf(seat: Seat): Seat {
 }
 
 export const GameKey = v.pipe(SizedString(1, 64), v.regex(/^[a-z0-9-]+$/))
+
 export type GameKey = v.InferOutput<typeof GameKey>
 
 export const BySeatNumber = v.pipe(v.object({ A: Integer, B: Integer }), v.readonly())
+
 export type BySeatNumber = v.InferOutput<typeof BySeatNumber>
 
 export const MatchTargets = v.pipe(
@@ -23,6 +26,7 @@ export const MatchTargets = v.pipe(
   }),
   v.readonly(),
 )
+
 export type MatchTargets = v.InferOutput<typeof MatchTargets>
 
 export const GameConfiguration = v.pipe(
@@ -31,6 +35,7 @@ export const GameConfiguration = v.pipe(
   }),
   v.readonly(),
 )
+
 export type GameConfiguration = v.InferOutput<typeof GameConfiguration>
 
 export const MatchSeatAssignment = v.pipe(
@@ -40,6 +45,7 @@ export const MatchSeatAssignment = v.pipe(
   }),
   v.readonly(),
 )
+
 export type MatchSeatAssignment = v.InferOutput<typeof MatchSeatAssignment>
 
 export const HydratedMatchParticipant = v.pipe(
@@ -50,6 +56,7 @@ export const HydratedMatchParticipant = v.pipe(
   }),
   v.readonly(),
 )
+
 export type HydratedMatchParticipant = v.InferOutput<typeof HydratedMatchParticipant>
 
 const HydratedMatchParticipants = v.pipe(
@@ -59,6 +66,7 @@ const HydratedMatchParticipants = v.pipe(
   }),
   v.readonly(),
 )
+
 export type HydratedMatchParticipants = v.InferOutput<typeof HydratedMatchParticipants>
 
 export const MatchConfig = v.pipe(
@@ -71,6 +79,7 @@ export const MatchConfig = v.pipe(
   }),
   v.readonly(),
 )
+
 export type MatchConfig = v.InferOutput<typeof MatchConfig>
 
 const FrameState = v.pipe(
@@ -82,10 +91,12 @@ const FrameState = v.pipe(
   }),
   v.readonly(),
 )
+
 export type FrameState = v.InferOutput<typeof FrameState>
 
 /** Gameplay owns the specific winning condition; competition only distinguishes it from concession. */
 export const FrameWinReason = v.picklist(['game-rules', 'conceded'])
+
 export type FrameWinReason = v.InferOutput<typeof FrameWinReason>
 
 export const FrameOutcome = v.pipe(
@@ -96,6 +107,7 @@ export const FrameOutcome = v.pipe(
   }),
   v.readonly(),
 )
+
 export type FrameOutcome = v.InferOutput<typeof FrameOutcome>
 
 export const MatchState = v.pipe(
@@ -110,4 +122,5 @@ export const MatchState = v.pipe(
   }),
   v.readonly(),
 )
+
 export type MatchState = v.InferOutput<typeof MatchState>

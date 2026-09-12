@@ -23,7 +23,9 @@ function prepared(): AcceptedCommand {
     source: 'match',
     command: { type: 'frame.prepare' },
   })
+
   if (result._tag !== 'accepted') throw new Error('Expected acceptance')
+
   return { ...result.command, acceptedSeq: 1, acceptedAt: nowUnixEpochMilliseconds() }
 }
 

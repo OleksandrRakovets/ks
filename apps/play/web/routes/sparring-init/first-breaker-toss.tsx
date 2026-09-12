@@ -30,6 +30,7 @@ function FirstBreakerToss(props: FirstBreakerFieldProps) {
 
   function clearTimers() {
     if (intervalRef.current) clearInterval(intervalRef.current)
+
     if (timeoutRef.current) clearTimeout(timeoutRef.current)
     intervalRef.current = null
     timeoutRef.current = null
@@ -68,6 +69,7 @@ function FirstBreakerToss(props: FirstBreakerFieldProps) {
   const opponentName = tossWinner ? props.playerNames[opponentOf(tossWinner)] : null
   const breakerName = props.firstBreakerSeat ? props.playerNames[props.firstBreakerSeat] : null
   const displayInitial = displaySeat ? playerInitial(props.playerNames[displaySeat]) : ''
+
   const coinLabel = isRolling
     ? t(keys.match.sparring.firstBreaker.coinRolling)
     : displaySeat
@@ -98,14 +100,14 @@ function FirstBreakerToss(props: FirstBreakerFieldProps) {
             <p className="text-sm font-medium">
               {isRolling
                 ? t(keys.match.sparring.firstBreaker.coinInAir)
-                : winnerName
+                : winnerName !== null && winnerName.length > 0
                   ? t(keys.match.sparring.firstBreaker.tossWinner, { name: winnerName })
                   : t(keys.match.sparring.firstBreaker.tossInstructions)}
             </p>
             <p className="text-sm text-muted-foreground">
-              {breakerName
+              {breakerName !== null && breakerName.length > 0
                 ? t(keys.match.sparring.firstBreaker.breakerSelected, { name: breakerName })
-                : winnerName
+                : winnerName !== null && winnerName.length > 0
                   ? t(keys.match.sparring.firstBreaker.chooseBreaker, { name: winnerName })
                   : t(keys.match.sparring.firstBreaker.winnerChooses)}
             </p>

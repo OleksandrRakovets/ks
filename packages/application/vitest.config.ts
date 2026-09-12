@@ -5,10 +5,12 @@ import { cloudflareTest, readD1Migrations } from '@cloudflare/vitest-plugin'
 import { defineConfig } from 'vitest/config'
 
 const migrationsRoot = resolve(import.meta.dirname, '../../d1/migrations')
+
 const migrationDirectories = readdirSync(migrationsRoot, { withFileTypes: true })
   .filter((entry) => entry.isDirectory())
   .map((entry) => entry.name)
   .sort()
+
 const migrations = (
   await Promise.all(
     migrationDirectories.map(async (directory) =>

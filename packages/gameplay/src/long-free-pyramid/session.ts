@@ -32,16 +32,21 @@ class LongFreePyramidGameplaySession implements GameplaySession<'free-pyramid-lo
 
   execute(command: LongFreePyramidCommand): GameCommandExecution {
     const previous = this.#snapshot
+
     if (!previous.can(command)) return commandNotAvailable()
     const [candidate] = transition(LongFreePyramidSparringFrameMachine, previous, command)
     const gameProtocolEntries = createLongFreePyramidProtocolEntries({ previous, command, next: candidate })
     const outcome = candidate.status === 'done' ? candidate.output : undefined
+
     if (outcome !== undefined && !v.is(FrameOutcome, outcome))
       throw new Error('Long free Pyramid machine produced an invalid outcome')
+
     const result = outcome
       ? { _tag: 'accepted' as const, gameProtocolEntries, outcome }
       : { _tag: 'accepted' as const, gameProtocolEntries }
+
     this.#snapshot = candidate
+
     return result
   }
 
@@ -53,6 +58,7 @@ class LongFreePyramidGameplaySession implements GameplaySession<'free-pyramid-lo
   }
   canConcede() {
     const phase = getPhase(this.#snapshot)
+
     return phase !== 'winner-determined' && phase !== 'awaiting-award' && phase !== 'frame-over'
   }
   deriveControls() {

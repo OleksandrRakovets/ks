@@ -7,6 +7,7 @@ import { createStrilaGameplaySession } from './strila-v2/session'
 type GameplaySessionCreation = {
   [K in RegisteredGameKey]: readonly [gameKey: K, args: GameplaySessionCreateArgsFor<K>]
 }[RegisteredGameKey]
+
 type AnyGameplaySession = { [K in RegisteredGameKey]: GameplaySession<K> }[RegisteredGameKey]
 
 /**
@@ -34,4 +35,6 @@ export function createGameplaySession(...creation: GameplaySessionCreation): Any
     case 'combined-pyramid-old':
       return createPyramidGameplaySession('combined-pyramid-old', creation[1])
   }
+
+  throw new Error('Unsupported registered game')
 }

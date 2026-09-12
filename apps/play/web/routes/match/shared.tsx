@@ -23,15 +23,18 @@ type RouteArgs = {
 }
 
 type ControlSuccess<K extends RegisteredGameKey> = Extract<ReadMatchControlResult<K>, { ok: true }>
+
 type ProtocolSuccess<K extends RegisteredGameKey> = Extract<ReadMatchProtocolResult<K>, { ok: true }>
 
 export type ControlRouteData<K extends RegisteredGameKey> = ControlSuccess<K> & { gameTitle: string }
+
 export type ProtocolRouteData<K extends RegisteredGameKey> = ProtocolSuccess<K> & { gameTitle: string }
 
 export function protocolFrameScore<K extends RegisteredGameKey>(
   state: ProtocolRouteData<K>['state'],
 ): BySeatNumber {
   const snapshotFrame = state.frames[state.currentFrameIndex - 1]
+
   return snapshotFrame?.pointsBySeat ?? { A: 0, B: 0 }
 }
 
@@ -52,7 +55,9 @@ const SubmittedMatchCommand = v.pipe(v.string(), v.parseJson(), MatchCommand)
 
 function matchIdFromParams(params: RouteArgs['params']): MatchId {
   const matchId = v.safeParse(MatchId, params.matchId)
+
   if (!matchId.success) throw new Response('Invalid matchId', { status: 400 })
+
   return matchId.output
 }
 
@@ -63,7 +68,9 @@ export async function loadMatchControl<K extends RegisteredGameKey>(
   const matchId = matchIdFromParams(args.params)
   const locale = localeFromContext(args.context)
   const result = await requireApplication(args.context).readMatchControl(matchId, locale, expectedGameKey)
+
   if (!result.ok) throw new Response(result.error, { status: result.status })
+
   return { ...result, gameTitle: registry[expectedGameKey].meta.title[locale] }
 }
 
@@ -73,31 +80,38 @@ export async function loadMatchProtocol<K extends RegisteredGameKey>(
 ): Promise<ProtocolRouteData<K>> {
   const matchId = matchIdFromParams(args.params)
   const locale = localeFromContext(args.context)
+
   const result = await requireApplication(args.context).readMatchProtocol(
     matchId,
     'UTC',
     locale,
     expectedGameKey,
   )
+
   if (!result.ok) throw new Response(result.error, { status: result.status })
+
   return { ...result, gameTitle: registry[expectedGameKey].meta.title[locale] }
 }
 
 function commandErrorKey(error: string): ControlActionErrorKey {
   if (error === 'unknown-match' || error === 'Unknown match') return keys.match.control.unknownMatch
+
   if (error === 'match-locked') return keys.match.control.matchLocked
+
   if (error === 'invalid-command-body' || error === 'command-id-conflict')
     return keys.match.control.invalidCommandPayload
+
   return keys.match.control.invalidCommandPayload
 }
 
-export async function commandMatchAction<K extends RegisteredGameKey>(
+export async function commandMatchAction(
   args: RouteArgs,
-  expectedGameKey: K,
+  expectedGameKey: RegisteredGameKey,
 ): Promise<ControlActionData> {
   const matchId = matchIdFromParams(args.params)
   const form = await args.request.formData()
   const command = v.safeParse(SubmittedMatchCommand, form.get('command'))
+
   if (!command.success) {
     return { ok: false, errorKey: keys.match.control.invalidCommandPayload }
   }
@@ -107,12 +121,17 @@ export async function commandMatchAction<K extends RegisteredGameKey>(
     command.output,
     expectedGameKey,
   )
+
   if (!result.ok) {
     if (result.status === 404) throw new Response(result.error, { status: 404 })
+
     if (result.status === 409) return { ok: false, errorKey: keys.match.control.matchLocked }
+
     if (result.status >= 500) throw new Response(result.error, { status: result.status })
+
     return { ok: false, errorKey: commandErrorKey(result.error) }
   }
+
   if (result.outcome._tag === 'rejected')
     return { ok: false, errorKey: keys.match.control.commandRejectedByRules }
 
@@ -154,25 +173,31 @@ export function transitionControlLive(
   if (event.type === 'snapshot') {
     return { state: { ...state, latestSeq: event.latestSeq }, revalidate: false }
   }
+
   if (event.type === 'submit-started') {
     return { state: { ...state, localSubmitInFlight: true }, revalidate: false }
   }
+
   if (event.type === 'submit-finished') {
     return { state: { ...state, localSubmitInFlight: false }, revalidate: false }
   }
+
   if (event.type === 'accepted') {
     return {
       state: { ...state, suppressUntilSeq: Math.max(state.suppressUntilSeq, event.seq) },
       revalidate: false,
     }
   }
+
   if (event.type === 'match-ended') {
     return {
       state: { ...state, latestSeq: Math.max(state.latestSeq, event.seq) },
       revalidate: true,
     }
   }
+
   if (event.seq <= state.latestSeq) return { state, revalidate: false }
+
   return {
     state: { ...state, latestSeq: event.seq },
     revalidate: !state.localSubmitInFlight && event.seq > state.suppressUntilSeq,
@@ -185,11 +210,13 @@ export function useControlLiveRevalidation(
   fetcher: { state: string; data?: ControlActionData },
 ): () => void {
   const revalidator = useRevalidator()
+
   const liveStateRef = useRef<ControlLiveState>({
     latestSeq,
     suppressUntilSeq: latestSeq,
     localSubmitInFlight: false,
   })
+
   const revalidateRef = useRef(revalidator.revalidate)
   const revalidatorStateRef = useRef(revalidator.state)
   const loaderLatestSeqRef = useRef(latestSeq)
@@ -202,7 +229,7 @@ export function useControlLiveRevalidation(
       loaderLatestSeqRef.current < targetSeqRef.current
     ) {
       revalidatorStateRef.current = 'loading'
-      revalidateRef.current()
+      void revalidateRef.current()
     }
   }
 
@@ -215,8 +242,10 @@ export function useControlLiveRevalidation(
     if (event.type === 'update' || event.type === 'match-ended') {
       targetSeqRef.current = Math.max(targetSeqRef.current, event.seq)
     }
+
     const transition = transitionControlLive(liveStateRef.current, event)
     liveStateRef.current = transition.state
+
     if (transition.revalidate || event.type === 'submit-finished') drainRevalidation()
   }
 
@@ -232,7 +261,7 @@ export function useControlLiveRevalidation(
     requestRevalidation(targetSeqRef.current)
   }, [latestSeq, revalidator.state])
   useEffect(() => {
-    if (fetcher.data?.ok && fetcher.data.acceptedSeqMax != null) {
+    if (fetcher.data?.ok === true && fetcher.data.acceptedSeqMax != null) {
       applyLiveEvent({ type: 'accepted', seq: fetcher.data.acceptedSeqMax })
     }
   }, [fetcher.data])
@@ -241,7 +270,8 @@ export function useControlLiveRevalidation(
   }, [fetcher.state])
 
   useEffect(() => {
-    if (state.status !== 'active') return
+    if (state.status !== 'active') return undefined
+
     const subscription = subscribeSparringMatchLive({
       matchId: state.matchId,
       pageKind: 'control',
@@ -259,11 +289,12 @@ export function useControlLiveRevalidation(
           revalidatorStateRef.current === 'idle'
         ) {
           revalidatorStateRef.current = 'loading'
-          revalidateRef.current()
+          void revalidateRef.current()
         }
       },
     })
-    return subscription.stop
+
+    return () => subscription.stop()
   }, [state.matchId, state.status])
 
   return () => {
@@ -280,9 +311,10 @@ export function useProtocolLiveRevalidation(state: MatchState, latestSeq: number
 
   function requestRevalidation(seq: number) {
     targetSeqRef.current = Math.max(targetSeqRef.current, seq)
+
     if (revalidatorStateRef.current === 'idle' && latestSeqRef.current < targetSeqRef.current) {
       revalidatorStateRef.current = 'loading'
-      revalidateRef.current()
+      void revalidateRef.current()
     }
   }
 
@@ -297,7 +329,8 @@ export function useProtocolLiveRevalidation(state: MatchState, latestSeq: number
     requestRevalidation(targetSeqRef.current)
   }, [latestSeq, revalidator.state])
   useEffect(() => {
-    if (state.status !== 'active') return
+    if (state.status !== 'active') return undefined
+
     const subscription = subscribeSparringMatchLive({
       matchId: state.matchId,
       pageKind: 'protocol',
@@ -310,11 +343,12 @@ export function useProtocolLiveRevalidation(state: MatchState, latestSeq: number
           revalidatorStateRef.current === 'idle'
         ) {
           revalidatorStateRef.current = 'loading'
-          revalidateRef.current()
+          void revalidateRef.current()
         }
       },
     })
-    return subscription.stop
+
+    return () => subscription.stop()
   }, [state.matchId, state.status])
 }
 
@@ -340,6 +374,7 @@ export function BetweenFrameControls(props: {
 }) {
   const { t } = useTranslation()
   const controls = props.controls.filter((control) => control.source === 'match')
+
   return (
     <section aria-label={t(keys.match.control.perGameContainer)} className="border-b border-divider px-4 py-3">
       <div className="mx-auto grid w-2/3 gap-3.5">
@@ -393,12 +428,15 @@ function protocolLabel(t: TFunction, row: ProtocolRow): string {
   const balls = row.message.pottedBalls
     ? row.message.pottedBalls.map((ball) => protocolBallLabel(t, ball)).join(', ')
     : t('match.protocol.balls.none')
+
   return t(row.message.key, { ...row.message.params, balls })
 }
 
 export function ProtocolPanel(props: { rows: readonly ProtocolRow[]; emptyLabel: string }) {
   const { t } = useTranslation()
+
   if (props.rows.length === 0) return <p className="text-sm text-muted-foreground">{props.emptyLabel}</p>
+
   return (
     <div className="grid gap-2">
       {props.rows.map((row) => (
@@ -408,7 +446,9 @@ export function ProtocolPanel(props: { rows: readonly ProtocolRow[]; emptyLabel:
         >
           <span className="flex min-w-0 flex-col">
             <span className="flex min-w-0 items-baseline gap-2">
-              {row.message.actor ? <span className="shrink-0 font-medium">{row.message.actor}</span> : null}
+              {row.message.actor !== undefined && row.message.actor.length > 0 ? (
+                <span className="shrink-0 font-medium">{row.message.actor}</span>
+              ) : null}
               <span>{protocolLabel(t, row)}</span>
             </span>
             {row.score ? (

@@ -1,5 +1,6 @@
 import { newCommandId } from '@ks/core'
-import { env, evictDurableObject, runInDurableObject } from 'cloudflare:test'
+import { evictDurableObject, runInDurableObject } from 'cloudflare:test'
+import { env } from 'cloudflare:workers'
 import { expect, test } from 'vitest'
 
 import {
@@ -36,11 +37,13 @@ test('persists accepted and rejected outcomes and retries them after eviction', 
 test('detects Command ID conflicts', async () => {
   const { stub } = await initializedRoom()
   const commandId = newCommandId()
+
   const command = {
     commandId,
     source: 'match' as const,
     command: { type: 'frame.commence', seat: 'A' },
   }
+
   await stub.submitCommand(command)
   expect(await stub.submitCommand({ ...command, command: { ...command.command, seat: 'B' } })).toEqual({
     _tag: 'command-id-conflict',
@@ -65,10 +68,12 @@ test('returns malformed nested Commands as data without poisoning the stub', asy
 
 test('serializes concurrent Commands into one authoritative accepted order', async () => {
   const { stub } = await initializedRoom()
+
   const results = await Promise.all([
     stub.submitCommand(prepareCommand()),
     stub.submitCommand(prepareCommand()),
   ])
+
   expect(results).toContainEqual({ _tag: 'accepted', acceptedSeq: 1, completesMatch: false })
   expect(results).toContainEqual({ _tag: 'rejected', reason: { code: 'frame-already-active' } })
 })

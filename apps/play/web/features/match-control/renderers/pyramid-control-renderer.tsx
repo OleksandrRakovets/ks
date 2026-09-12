@@ -15,6 +15,7 @@ import { controlEffect, controlLabel, potRecordPottedBallCount } from './control
 import { matchCommandFromControl, type MatchControlRendererProps } from './types'
 
 type SeatControls = ControlSections['primary']
+
 type ControlSection = {
   controls: SeatControls
 }
@@ -22,13 +23,17 @@ type ControlSection = {
 function pyramidCommandLabel(t: TFunction, command: Control): string {
   if (command.type !== 'pot.record') return controlLabel(t, command)
   const pottedBallCount = potRecordPottedBallCount(command)
+
   if (pottedBallCount === undefined) return controlLabel(t, command)
+
   return t('match.control.commands.game.pot.pottedBallCount', { pottedBallCount })
 }
 
 function buttonVariant(prominence: Control['prominence']): 'primary' | 'secondary' | 'outline' {
   if (prominence === 'primary') return 'primary'
+
   if (prominence === 'secondary') return 'secondary'
+
   return 'outline'
 }
 
@@ -40,6 +45,8 @@ function ControlRows(props: {
   const { t } = useTranslation()
 
   function renderButton(command: Control, key: string) {
+    const effect = controlEffect(t, command)
+
     return (
       <div key={key} className="grid gap-1">
         <Button
@@ -50,8 +57,8 @@ function ControlRows(props: {
         >
           {pyramidCommandLabel(t, command)}
         </Button>
-        {props.showEffectSummaries && controlEffect(t, command) ? (
-          <p className="text-center text-base text-text-lo">{controlEffect(t, command)}</p>
+        {props.showEffectSummaries === true && effect !== undefined && effect.length > 0 ? (
+          <p className="text-center text-base text-text-lo">{effect}</p>
         ) : null}
       </div>
     )
@@ -123,6 +130,7 @@ function PyramidControlRenderer(props: {
   const hasPrimary = controlSections.primary.A.length > 0 || controlSections.primary.B.length > 0
   const hasSecondary = controlSections.secondary.A.length > 0 || controlSections.secondary.B.length > 0
   const hasTertiary = controlSections.tertiary.A.length > 0 || controlSections.tertiary.B.length > 0
+
   const visibleSections: ControlSection[] = [
     ...(hasPrimary ? [{ controls: controlSections.primary }] : []),
     ...(hasSecondary ? [{ controls: controlSections.secondary }] : []),

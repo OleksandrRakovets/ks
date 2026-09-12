@@ -2,6 +2,7 @@ import { Integer } from '@ks/core'
 import * as v from 'valibot'
 
 const PyramidGameKey = v.picklist(['free-pyramid', 'combined-pyramid', 'combined-pyramid-old'])
+
 export type PyramidGameKey = v.InferOutput<typeof PyramidGameKey>
 
 export const PyramidRules = v.pipe(
@@ -13,7 +14,9 @@ export const PyramidRules = v.pipe(
   }),
   v.readonly(),
 )
+
 export type PyramidRules = v.InferOutput<typeof PyramidRules>
+
 export type PyramidRulesFor<K extends PyramidGameKey> = PyramidRules & { readonly gameKey: K }
 
 export const PyramidRuleSpecificsByGameKey = {

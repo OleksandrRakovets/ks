@@ -6,10 +6,6 @@
       "dependsOn": ["^build"],
       "outputs": []
     },
-    "typecheck": {
-      "dependsOn": ["^typecheck"],
-      "outputs": []
-    },
     "test:integration": {
       "dependsOn": ["^test:integration"],
       "outputs": []
@@ -21,14 +17,8 @@
     "@ks/play#build": {
       "outputs": ["build/**"]
     },
-    "@ks/play#typecheck": {
-      "outputs": [".react-router/types/**", "worker-configuration.d.ts"]
-    },
     "@ks/match-room#build": {
       "outputs": ["dist/**"]
-    },
-    "@ks/match-room#typecheck": {
-      "outputs": ["worker-configuration.d.ts"]
     },
     "@ks/play#dev": {
       "cache": false,

@@ -1,5 +1,5 @@
 import { newCommandId, newMatchId, SparringMatchLiveServerMessage } from '@ks/core'
-import { env } from 'cloudflare:test'
+import { env } from 'cloudflare:workers'
 import * as v from 'valibot'
 import { expect, test } from 'vitest'
 
@@ -15,8 +15,10 @@ async function connect(stub: Awaited<ReturnType<typeof initializedRoom>>['stub']
   const response = await stub.fetch(liveRequest(matchId))
   expect(response.status).toBe(101)
   const socket = response.webSocket
+
   if (!socket) throw new Error('Expected WebSocket')
   socket.accept()
+
   return socket
 }
 
@@ -73,9 +75,11 @@ test('withholds completing delivery, refuses new sockets, then delivers and clos
   await stub.submitCommand(matchCompletingCommand())
   expect((await stub.fetch(liveRequest(matchId))).status).toBe(410)
   const terminal = nextMessage(socket)
-  const closed = new Promise<CloseEvent>((resolve) =>
-    socket.addEventListener('close', (event) => resolve(event), { once: true }),
-  )
+
+  const closed = new Promise<CloseEvent>((resolve) => {
+    socket.addEventListener('close', (event) => resolve(event), { once: true })
+  })
+
   await stub.finalize()
   expect(await terminal).toMatchObject({
     type: 'update',

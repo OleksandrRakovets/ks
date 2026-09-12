@@ -20,6 +20,7 @@ const PyramidProtocolEntryBody = v.variant('commandType', [
   ),
   v.pipe(v.strictObject({ commandType: v.literal('frame.award') }), v.readonly()),
 ])
+
 type PyramidProtocolEntryBody = v.InferOutput<typeof PyramidProtocolEntryBody>
 
 export const PyramidProtocolEntry = v.pipe(
@@ -29,6 +30,7 @@ export const PyramidProtocolEntry = v.pipe(
   }),
   v.readonly(),
 )
+
 export type PyramidProtocolEntry = v.InferOutput<typeof PyramidProtocolEntry>
 
 function scoreChanged(previous: PyramidSparringFrameSnapshot, next: PyramidSparringFrameSnapshot): boolean {
@@ -102,4 +104,6 @@ export function createPyramidProtocolEntries(args: {
         }),
       ]
   }
+
+  throw new Error('Unsupported pyramid command')
 }

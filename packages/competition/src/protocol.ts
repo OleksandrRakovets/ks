@@ -40,13 +40,16 @@ export const MatchLifecycleProtocolEntry = v.variant('entryType', [
     v.readonly(),
   ),
 ])
+
 export type MatchLifecycleProtocolEntry = v.InferOutput<typeof MatchLifecycleProtocolEntry>
 
 /** Validates Protocol meaning against the selected game or competition lifecycle schema. */
 export function parseProtocolEntryContent(input: ProtocolEntryContent): ProtocolEntryContent {
   const gameKey = v.parse(RegisteredGameKey, input.gameKey)
   const lifecycle = v.safeParse(MatchLifecycleProtocolEntry, input)
+
   if (lifecycle.success) return lifecycle.output
   parseGameProtocolEntry(gameKey, input)
+
   return input
 }

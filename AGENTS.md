@@ -20,12 +20,14 @@ Domain vocabulary and distinctions are defined in CONTEXT.md. Treat it as author
 - Fast gate: `bun run check`
 - Full integration/build gate: `bun run check:full`
 - Tests: `bun test`; Workerd integration: `bun run test:integration`
-- Format/lint: `bun run format`, `bun run format:check`, `bun run lint`, `bun run lint:fix`
+- Format/lint: `bun run format`, `bun run lint`, `bun run lint:fix`
 - Boundary check: `bun run check:boundaries`
 - Local D1: `bun run db:migrate:local`, `bun run db:seed:local`, `bun run db:studio:local`
 - Database migration workflows: `.tracker/db.md`
 
-`check:full` is the merge/deployment gate. It includes the fast gate, integration projects, and both deployable builds.
+`typegen` intentionally runs directly before the single root `tsc --build`. Keep it outside Turbo unless generated-output caching provides measured value; there are no per-package typecheck tasks for Turbo to schedule.
+
+`check` and `check:full` apply formatting before running their remaining gates. `check:full` also includes integration projects and both deployable builds.
 
 ## Dependencies
 
@@ -33,6 +35,8 @@ Domain vocabulary and distinctions are defined in CONTEXT.md. Treat it as author
 - Shared versions belong in root `workspaces.catalog`; consumers use `"catalog:"`.
 - Change the owning manifest, then run `bun install` to regenerate `bun.lock`.
 - Do not bypass Bun's configured two-day package release cooldown.
+- Keep source-policy tools (`typescript`, `oxlint`, `@oxlint/plugins`, and `oxlint-tsgolint`) on exact versions so compiler or diagnostic changes happen only in explicit toolchain updates.
+- Match TypeScript to the TypeScript-Go release embedded by `oxlint-tsgolint`; for example, `oxlint-tsgolint@7.0.2001` embeds TypeScript 7.0.2 plus tsgolint revision 001. Upgrade TypeScript and tsgolint together, update Oxlint and its plugin API deliberately, run `bun install`, then run `bun run check:full`.
 
 ## Boundaries
 

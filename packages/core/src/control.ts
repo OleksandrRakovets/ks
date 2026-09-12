@@ -4,6 +4,7 @@ import { Seat } from './match'
 import { NonEmptyString, UnknownObject } from './valicombos'
 
 const ControlProminence = v.picklist(['primary', 'secondary', 'tertiary'])
+
 const ControlEffect = v.picklist([
   'opponent-plus-one',
   'offender-minus-one',
@@ -29,6 +30,7 @@ export const Control = v.pipe(
   }),
   v.readonly(),
 )
+
 export type Control = v.InferOutput<typeof Control>
 
 const SeatControlBucket = v.pipe(
@@ -49,6 +51,7 @@ export const ControlSections = v.pipe(
   }),
   v.readonly(),
 )
+
 export type ControlSections = v.InferOutput<typeof ControlSections>
 
 type MutableControlSections = {
@@ -70,9 +73,11 @@ export function emptyControlSections(): MutableControlSections {
 /** Groups controls for layout while preserving their input order within each bucket. Seatless controls are neutral. */
 export function groupControlsIntoSections(controls: readonly Control[]): ControlSections {
   const sections = emptyControlSections()
+
   for (const control of controls) {
     if (control.seat) sections[control.prominence][control.seat].push(control)
     else sections.neutral.push(control)
   }
+
   return sections
 }

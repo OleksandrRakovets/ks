@@ -18,21 +18,26 @@ import {
 export function loader(args: Route.LoaderArgs) {
   return loadMatchControl(args, 'combined-pyramid-old')
 }
+
 export function action(args: Route.ActionArgs) {
   return commandMatchAction(args, 'combined-pyramid-old')
 }
+
 export default function CombinedPyramidOldControlRoute() {
   const { t } = useTranslation()
   const data = useLoaderData<typeof loader>()
   const fetcher = useFetcher<typeof action>()
   const markLocalSubmit = useControlLiveRevalidation(data.state, data.latestSeq, fetcher)
   const snapshotFrame = data.state.frames[data.state.currentFrameIndex - 1]
+
   const frameScore =
     data.controlState === 'frame-active' ? data.game.score : (snapshotFrame?.pointsBySeat ?? { A: 0, B: 0 })
+
   function submitCommand(command: MatchCommand) {
     markLocalSubmit()
-    fetcher.submit(matchCommandForm(command), { method: 'post' })
+    void fetcher.submit(matchCommandForm(command), { method: 'post' })
   }
+
   return (
     <main className="flex flex-1 flex-col bg-surface">
       <MatchNavigation

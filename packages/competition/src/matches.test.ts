@@ -45,6 +45,7 @@ describe('match creation helpers', () => {
       gameKey: 'free-pyramid-long',
       gameConfiguration: { rackRollover: 14 },
     })
+
     const matchId = newMatchId()
 
     expect(buildMatchConfig(matchId, longRequest)).toEqual({

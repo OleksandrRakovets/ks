@@ -34,9 +34,13 @@ export class FinalizingMatchHandler {
 
   submitCommand(command: MatchCommand): FinalizingCommandResult {
     const prior = this.#storage.findCommandReceipt(command)
+
     if (!prior) return { _tag: 'finalizing' }
+
     if (prior._tag === 'command-id-conflict') return prior
+
     if (prior.receipt._tag === 'rejected') return prior.receipt
+
     return {
       _tag: 'accepted',
       acceptedSeq: prior.receipt.acceptedSeq,
@@ -55,8 +59,10 @@ export class FinalizingMatchHandler {
   prepareArchive(): CompletedMatchTransfer {
     const resident = this.#load()
     const projected = resident.match.project().state
+
     if (!isDeepStrictEqual(projected, this.#storedMatch.finalState))
       throw new Error('MatchRoom final state does not match accepted history')
+
     return {
       matchId: this.#storedMatch.matchId,
       gameKey: this.#storedMatch.config.gameKey,
@@ -82,6 +88,7 @@ export class FinalizingMatchHandler {
   #load(): ResidentState {
     const resident = this.#resident ?? new ResidentMatch()
     this.#resident = resident
+
     return (
       resident.lookup(this.#storedMatch.latestSeq) ??
       resident.restore(
@@ -94,6 +101,7 @@ export class FinalizingMatchHandler {
 }
 
 export type FinalizingResult = { readonly _tag: 'finalizing' }
+
 export type FinalizingCommandResult =
   | FinalizingResult
   | { readonly _tag: 'command-id-conflict' }

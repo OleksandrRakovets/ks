@@ -8,6 +8,7 @@ export const StoredMatchStatus = {
   active: 'active',
   finished: 'finished',
 } as const
+
 export type StoredMatchStatus = (typeof StoredMatchStatus)[keyof typeof StoredMatchStatus]
 
 export const matches = sqliteTable(

@@ -10,10 +10,12 @@ import { loadMatchProtocol, protocolFrameScore, ProtocolPanel, useProtocolLiveRe
 export function loader(args: Route.LoaderArgs) {
   return loadMatchProtocol(args, 'combined-pyramid-old')
 }
+
 export default function CombinedPyramidOldProtocolRoute() {
   const { t } = useTranslation()
   const data = useLoaderData<typeof loader>()
   useProtocolLiveRevalidation(data.state, data.latestSeq)
+
   return (
     <main className="flex flex-1 flex-col bg-surface">
       <MatchNavigation

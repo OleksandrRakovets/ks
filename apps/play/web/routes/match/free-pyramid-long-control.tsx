@@ -18,18 +18,23 @@ import {
 export function loader(args: Route.LoaderArgs) {
   return loadMatchControl(args, 'free-pyramid-long')
 }
+
 export function action(args: Route.ActionArgs) {
   return commandMatchAction(args, 'free-pyramid-long')
 }
+
 export default function FreePyramidLongControlRoute() {
   const { t } = useTranslation()
   const data = useLoaderData<typeof loader>()
   const fetcher = useFetcher<typeof action>()
   const markLocalSubmit = useControlLiveRevalidation(data.state, data.latestSeq, fetcher)
   const snapshotFrame = data.state.frames[data.state.currentFrameIndex - 1]
+
   const frameScore =
     data.controlState === 'frame-active' ? data.game.score : (snapshotFrame?.pointsBySeat ?? { A: 0, B: 0 })
+
   const rack = data.controlState === 'frame-active' ? data.game.details.currentRack : null
+
   const statusLine =
     data.controlState === 'frame-active'
       ? `${data.gameTitle} · ${t(keys.match.control.longFreePyramid.rack, {
@@ -38,10 +43,12 @@ export default function FreePyramidLongControlRoute() {
           count: data.game.details.ballsOnTable,
         })}`
       : undefined
+
   function submitCommand(command: MatchCommand) {
     markLocalSubmit()
-    fetcher.submit(matchCommandForm(command), { method: 'post' })
+    void fetcher.submit(matchCommandForm(command), { method: 'post' })
   }
+
   return (
     <main className="flex flex-1 flex-col bg-surface">
       <MatchNavigation

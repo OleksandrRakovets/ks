@@ -26,15 +26,19 @@ describe('LongFreePyramidSparringFrameMachine: configuration', () => {
   test('rejects invalid rackRollover at machine input boundary', () => {
     // SAFETY: 13 is intentionally invalid rackRollover for direct actor construction test.
     const invalidRollover = 13 as 14
+
     const actor = createActor(LongFreePyramidSparringFrameMachine, {
       input: { targetPointsBySeat: DEFAULT_TARGET, rackRollover: invalidRollover },
     })
+
     let capturedError: unknown
+
     const subscription = actor.subscribe({
       error: (error) => {
         capturedError = error
       },
     })
+
     actor.start()
     subscription.unsubscribe()
 
@@ -71,9 +75,11 @@ describe('LongFreePyramidSparringFrameMachine: scoring and racks', () => {
   test('accumulates multi-rack totals', () => {
     let snap = start(14, { A: 30, B: 30 })
     snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
+
     for (const pottedBallCount of [4, 4, 4, 1] as const) {
       snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBallCount })
     }
+
     snap = sendEvent(snap, { type: 'pot.record', seat: 'B', pottedBallCount: 2 })
 
     expect(totalScore(snap.context.racks)).toEqual({ A: 13, B: 2 })
@@ -87,6 +93,7 @@ describe('LongFreePyramidSparringFrameMachine: scoring and racks', () => {
   test('rolls over at rackRollover 14 by pot', () => {
     let snap = start(14, { A: 30, B: 30 })
     snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
+
     for (const pottedBallCount of [4, 4, 4, 2] as const) {
       snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBallCount })
     }
@@ -100,6 +107,7 @@ describe('LongFreePyramidSparringFrameMachine: scoring and racks', () => {
   test('rolls over at rackRollover 15 by foul', () => {
     let snap = start(15, { A: 30, B: 30 })
     snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
+
     for (let index = 0; index < 15; index += 1) {
       snap = sendEvent(snap, { type: 'foul.commit', seat: 'A' })
     }
@@ -112,9 +120,11 @@ describe('LongFreePyramidSparringFrameMachine: scoring and racks', () => {
   test('ordinary commands clear prior rack-start messages', () => {
     let snap = start(14, { A: 30, B: 30 })
     snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
+
     for (const pottedBallCount of [4, 4, 4, 2] as const) {
       snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBallCount })
     }
+
     expect(snap.context.messages).toEqual([{ code: 'rack-started', rackNumber: 2 }])
 
     snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBallCount: 1 })
@@ -207,9 +217,11 @@ describe('LongFreePyramidSparringFrameMachine: winner flow', () => {
   test('awaiting-award does not roll racks', () => {
     let snap = start(14, { A: 30, B: 14 })
     snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
+
     for (let index = 0; index < 13; index += 1) {
       snap = sendEvent(snap, { type: 'foul.commit', seat: 'A' })
     }
+
     snap = sendEvent(snap, { type: 'foul.commit', seat: 'A' })
 
     expect(getPhase(snap)).toBe('awaiting-award')

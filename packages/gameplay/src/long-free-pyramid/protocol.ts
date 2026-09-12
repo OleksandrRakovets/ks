@@ -17,6 +17,7 @@ const LongFreePyramidProtocolEntryBody = v.variant('commandType', [
   ),
   v.pipe(v.strictObject({ commandType: v.literal('frame.award') }), v.readonly()),
 ])
+
 type LongFreePyramidProtocolEntryBody = v.InferOutput<typeof LongFreePyramidProtocolEntryBody>
 
 export const LongFreePyramidProtocolEntry = v.pipe(
@@ -26,6 +27,7 @@ export const LongFreePyramidProtocolEntry = v.pipe(
   }),
   v.readonly(),
 )
+
 export type LongFreePyramidProtocolEntry = v.InferOutput<typeof LongFreePyramidProtocolEntry>
 
 function scoreChanged(
@@ -34,6 +36,7 @@ function scoreChanged(
 ): boolean {
   const previousScore = totalScore(previous.context.racks)
   const nextScore = totalScore(next.context.racks)
+
   return previousScore.A !== nextScore.A || previousScore.B !== nextScore.B
 }
 
@@ -44,6 +47,7 @@ function protocolEntry(args: {
   readonly next: LongFreePyramidSparringFrameSnapshot
 }) {
   const nextScore = totalScore(args.next.context.racks)
+
   return v.parse(LongFreePyramidProtocolEntry, {
     gameKey: 'free-pyramid-long',
     source: 'player',
@@ -99,4 +103,6 @@ export function createLongFreePyramidProtocolEntries(args: {
         }),
       ]
   }
+
+  throw new Error('Unsupported long free pyramid command')
 }

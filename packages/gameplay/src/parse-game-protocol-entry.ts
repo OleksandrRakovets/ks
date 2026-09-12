@@ -20,4 +20,6 @@ export function parseGameProtocolEntry(
     case 'combined-pyramid-old':
       return v.parse(PyramidProtocolEntry, input)
   }
+
+  throw new Error('Unsupported registered game')
 }

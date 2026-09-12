@@ -34,8 +34,8 @@ export function ScoreBox({
 }: Props) {
   const { t } = useTranslation()
   const isLive = matchStatus === 'active'
-  const numberA = isLive || alwaysShowFrameScore ? frameScore.A : matchScore.A
-  const numberB = isLive || alwaysShowFrameScore ? frameScore.B : matchScore.B
+  const numberA = isLive || alwaysShowFrameScore === true ? frameScore.A : matchScore.A
+  const numberB = isLive || alwaysShowFrameScore === true ? frameScore.B : matchScore.B
   const isAWinner = !isLive && numberA > numberB
   const isBWinner = !isLive && numberB > numberA
 
@@ -47,7 +47,7 @@ export function ScoreBox({
       </div>
 
       <div className="flex items-center gap-x-5 border-b border-divider py-2 text-base text-muted-foreground">
-        {statusLine ? (
+        {statusLine !== undefined && statusLine.length > 0 ? (
           <span className="flex-1 text-center">{statusLine}</span>
         ) : (
           <>

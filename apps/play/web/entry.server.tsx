@@ -23,18 +23,21 @@ export default async function handleRequest(
   const body = await renderToReadableStream(<ServerRouter context={routerContext} url={request.url} />, {
     onError(error: RenderError) {
       statusCode = 500
+
       if (shellRendered) {
         console.error(error)
       }
     },
   })
+
   shellRendered = true
 
-  if ((userAgent && isbot(userAgent)) || routerContext.isSpaMode) {
+  if ((userAgent !== null && isbot(userAgent)) || routerContext.isSpaMode) {
     await body.allReady
   }
 
   responseHeaders.set('Content-Type', 'text/html')
+
   return new Response(body, {
     headers: responseHeaders,
     status: statusCode,

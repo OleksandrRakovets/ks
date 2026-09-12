@@ -1,4 +1,5 @@
-import { env, evictDurableObject, runInDurableObject } from 'cloudflare:test'
+import { evictDurableObject, runInDurableObject } from 'cloudflare:test'
+import { env } from 'cloudflare:workers'
 import { expect, test } from 'vitest'
 
 import type { MatchRoom } from '../../../src/MatchRoom'
@@ -45,6 +46,7 @@ test('rejects a schema-valid persisted final state that disagrees with replay', 
     const stored = state.storage.sql
       .exec<{ final_state_json: string }>('SELECT final_state_json FROM active_matches')
       .one().final_state_json
+
     const finalState = JSON.parse(stored)
     state.storage.sql.exec(
       'UPDATE active_matches SET final_state_json = ?',

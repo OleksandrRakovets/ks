@@ -88,6 +88,7 @@ test.each([
     type: 'frame.commence',
     seat: 'A',
   })
+
   if (reason === 'third-consecutive-cue-ball-pot') {
     previous = sendEvent(previous, { type: 'pot.record', seat: 'A', pottedBalls: [0] })
     previous = sendEvent(previous, { type: 'pot.record', seat: 'A', pottedBalls: [0] })
@@ -95,6 +96,7 @@ test.each([
     previous = sendEvent(previous, { type: 'foul.commit', seat: 'B' })
     previous = sendEvent(previous, { type: 'penalty.select', seat: 'A', choice: 'ball-in-hand' })
   }
+
   const command: StrilaCommand = { type: 'pot.record', seat: 'A', pottedBalls }
   const next = sendEvent(previous, command)
 

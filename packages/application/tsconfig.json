@@ -3,7 +3,8 @@
   "compilerOptions": {
     "composite": true,
     "noEmit": true,
-    "types": ["bun-types", "@cloudflare/workers-types"]
+    "types": []
   },
-  "include": ["src/**/*"]
+  "files": [],
+  "references": [{ "path": "./tsconfig.src.json" }, { "path": "./tsconfig.integration.json" }]
 }

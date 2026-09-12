@@ -1,10 +1,5 @@
 import { restoreSparringMatch, type SparringMatch } from '@ks/competition'
-import {
-  type AcceptedCommand,
-  type MatchConfig,
-  type NonEmptyProtocolEntryContents,
-  ProtocolEntry,
-} from '@ks/core'
+import { type AcceptedCommand, type MatchConfig, ProtocolEntry, type ProtocolEntryContent } from '@ks/core'
 import * as v from 'valibot'
 
 /** Disposable, atomically published semantic projection of authoritative Accepted Commands. */
@@ -18,11 +13,14 @@ export class ResidentMatch {
   restore(config: MatchConfig, latestSeq: number, commands: AcceptedCommand[]): ResidentState {
     try {
       const restored = restoreSparringMatch(config, commands)
+
       const protocolEntries = restored.accepted.flatMap(({ acceptedCommand, protocolEntryContents }) =>
         this.#promote(acceptedCommand, protocolEntryContents),
       )
+
       const state = { latestSeq, match: restored.match, protocolEntries }
       this.#cache = state
+
       return state
     } catch (error) {
       this.clear()
@@ -33,17 +31,20 @@ export class ResidentMatch {
   advance(
     prior: ResidentState,
     acceptedCommand: AcceptedCommand,
-    contents: NonEmptyProtocolEntryContents,
+    contents: readonly ProtocolEntryContent[],
   ): ResidentState {
     if (this.#cache !== prior || acceptedCommand.acceptedSeq !== prior.latestSeq + 1)
       throw new Error('MatchRoom resident cursor mismatch')
     const promoted = this.#promote(acceptedCommand, contents)
+
     const state = {
       latestSeq: acceptedCommand.acceptedSeq,
       match: prior.match,
       protocolEntries: [...prior.protocolEntries, ...promoted],
     }
+
     this.#cache = state
+
     return state
   }
 
@@ -51,7 +52,7 @@ export class ResidentMatch {
     this.#cache = null
   }
 
-  #promote(command: AcceptedCommand, contents: NonEmptyProtocolEntryContents): ProtocolEntry[] {
+  #promote(command: AcceptedCommand, contents: readonly ProtocolEntryContent[]): ProtocolEntry[] {
     return contents.map((content, entryIndex) =>
       v.parse(ProtocolEntry, {
         ...content,
