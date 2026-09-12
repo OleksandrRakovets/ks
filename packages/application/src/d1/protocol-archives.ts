@@ -1,5 +1,5 @@
 import { parseProtocolEntryContent } from '@ks/competition'
-import { MatchId, MatchState, NonEmptyProtocolEntries, PositiveInteger, type ProtocolEntry } from '@ks/core'
+import { MatchId, MatchState, PositiveInteger, ProtocolEntries, type ProtocolEntry } from '@ks/core'
 import { isRegisteredGameKey } from '@ks/gameplay/definitions'
 import { eq } from 'drizzle-orm'
 import * as v from 'valibot'
@@ -18,7 +18,7 @@ const ProtocolArchiveStorageRow = v.pipe(
     matchId: MatchId,
     sourceLatestSeq: PositiveInteger,
     protocolVersion: v.literal(PROTOCOL_ARCHIVE_VERSION),
-    rowsJson: v.pipe(v.string(), v.parseJson(), NonEmptyProtocolEntries),
+    rowsJson: v.pipe(v.string(), v.parseJson(), ProtocolEntries),
     stateJson: v.pipe(v.string(), v.parseJson(), MatchState),
   }),
   v.transform(({ rowsJson, stateJson, ...row }) => ({ ...row, entries: rowsJson, state: stateJson })),
@@ -63,9 +63,7 @@ export async function getProtocolArchive(
       }
     }
 
-    const normalizedEntries: NonEmptyProtocolEntries = isRegisteredGameKey(gameKey)
-      ? [normalizeEntry(entries[0]), ...entries.slice(1).map(normalizeEntry)]
-      : entries
+    const normalizedEntries = isRegisteredGameKey(gameKey) ? entries.map(normalizeEntry) : entries
 
     return {
       ...archive,

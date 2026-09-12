@@ -6,7 +6,6 @@ import {
   type MatchCommand,
   type MatchConfig,
   type MatchState,
-  type NonEmptyProtocolEntryContents,
   opponentOf,
   type ProtocolEntryContent,
   Seat,
@@ -46,7 +45,7 @@ type MatchCommandResult =
   | {
       readonly _tag: 'accepted'
       readonly command: MatchCommand
-      readonly protocolEntryContents: NonEmptyProtocolEntryContents
+      readonly protocolEntryContents: readonly ProtocolEntryContent[]
     }
 
 type SparringMatchRoomProjectionFor<K extends RegisteredGameKey> =
@@ -142,12 +141,6 @@ function requireGameplay<K extends RegisteredGameKey>(
 
   // SAFETY: the runtime key check correlates the discriminated gameplay session with K.
   return gameplay as CorrelatedGameplay<K>
-}
-
-function nonempty(contents: readonly ProtocolEntryContent[]): NonEmptyProtocolEntryContents {
-  if (!contents[0]) throw new Error('Accepted command emitted no Protocol entries')
-
-  return [contents[0], ...contents.slice(1)]
 }
 
 function concedeControl(seat: Seat): Control {
@@ -362,25 +355,25 @@ class ResidentSparringMatch implements SparringMatch {
     if (execution._tag === 'rejected')
       return { _tag: 'rejected', reason: { code: 'game-command-rejected', reason: execution.reason } }
 
-    const entryContents = execution.gameProtocolEntries.map((entry) => ({
+    const protocolEntryContents = execution.gameProtocolEntries.map((entry) => ({
       ...entry,
       frameIndex: lifecycle.activeFrame.frameIndex,
     }))
 
     return execution.outcome
-      ? this.completeFrame(execution.outcome, acceptedCommand, entryContents)
-      : { _tag: 'accepted', command: acceptedCommand, protocolEntryContents: nonempty(entryContents) }
+      ? this.completeFrame(execution.outcome, acceptedCommand, protocolEntryContents)
+      : { _tag: 'accepted', command: acceptedCommand, protocolEntryContents }
   }
 
   private completeFrame(
     outcome: FrameOutcome,
     acceptedCommand: MatchCommand,
-    entryContents: ProtocolEntryContent[],
+    protocolEntryContents: ProtocolEntryContent[],
   ): MatchCommandResult {
     const lifecycle = deriveLifecycleState(this.snapshot)
 
     if (lifecycle.phase !== 'frame-in-progress') throw new Error('Cannot complete inactive frame')
-    entryContents.push({
+    protocolEntryContents.push({
       gameKey: lifecycle.config.gameKey,
       frameIndex: lifecycle.activeFrame.frameIndex,
       source: 'system',
@@ -397,7 +390,7 @@ class ResidentSparringMatch implements SparringMatch {
     const resulting = deriveLifecycleState(this.snapshot)
 
     if (resulting.phase === 'match-over')
-      entryContents.push({
+      protocolEntryContents.push({
         gameKey: lifecycle.config.gameKey,
         frameIndex: lifecycle.activeFrame.frameIndex,
         source: 'system',
@@ -407,10 +400,10 @@ class ResidentSparringMatch implements SparringMatch {
       })
     this.gameplay = null
 
-    return { _tag: 'accepted', command: acceptedCommand, protocolEntryContents: nonempty(entryContents) }
+    return { _tag: 'accepted', command: acceptedCommand, protocolEntryContents }
   }
 
-  restore(command: AcceptedCommand): NonEmptyProtocolEntryContents {
+  restore(command: AcceptedCommand): readonly ProtocolEntryContent[] {
     const result = this.execute(command)
 
     if (result._tag === 'parse-failed') throw new SparringMatchHistoryError('Malformed stored Match Command')
@@ -463,6 +456,6 @@ export type RestoredSparringMatch = {
   readonly match: SparringMatch
   readonly accepted: readonly {
     readonly acceptedCommand: AcceptedCommand
-    readonly protocolEntryContents: NonEmptyProtocolEntryContents
+    readonly protocolEntryContents: readonly ProtocolEntryContent[]
   }[]
 }

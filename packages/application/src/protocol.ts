@@ -2,7 +2,7 @@ import {
   type BySeatNumber,
   type MatchId,
   type MatchState,
-  type NonEmptyProtocolEntries,
+  type ProtocolEntries,
   ProtocolEntry,
   type Seat,
   type UnixEpochMilliseconds,
@@ -28,7 +28,7 @@ export class ProtocolArchiveCorruptionError extends Error {
 export type ProtocolArchiveRecord = Readonly<{
   sourceLatestSeq: number
   protocolVersion: typeof PROTOCOL_ARCHIVE_VERSION
-  entries: NonEmptyProtocolEntries
+  entries: ProtocolEntries
   state: MatchState
 }>
 

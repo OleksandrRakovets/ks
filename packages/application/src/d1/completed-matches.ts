@@ -2,8 +2,8 @@ import {
   type MatchId,
   MatchState,
   type MatchState as MatchStateValue,
-  NonEmptyProtocolEntries,
-  type NonEmptyProtocolEntries as NonEmptyProtocolEntriesValue,
+  ProtocolEntries,
+  type ProtocolEntries as ProtocolEntriesValue,
   type UnixEpochMilliseconds,
 } from '@ks/core'
 import { and, eq, inArray, isNull, or } from 'drizzle-orm'
@@ -37,8 +37,8 @@ function semanticArchiveEqual(
     left.createdAt !== right.createdAt
   )
     return false
-  const leftRows = v.safeParse(v.pipe(v.string(), v.parseJson(), NonEmptyProtocolEntries), left.rowsJson)
-  const rightRows = v.safeParse(v.pipe(v.string(), v.parseJson(), NonEmptyProtocolEntries), right.rowsJson)
+  const leftRows = v.safeParse(v.pipe(v.string(), v.parseJson(), ProtocolEntries), left.rowsJson)
+  const rightRows = v.safeParse(v.pipe(v.string(), v.parseJson(), ProtocolEntries), right.rowsJson)
   const leftState = v.safeParse(v.pipe(v.string(), v.parseJson(), MatchState), left.stateJson)
   const rightState = v.safeParse(v.pipe(v.string(), v.parseJson(), MatchState), right.stateJson)
 
@@ -61,7 +61,7 @@ type StructuralValue =
   | readonly StructuralValue[]
   | StructuralObject
   | MatchStateValue
-  | NonEmptyProtocolEntriesValue
+  | ProtocolEntriesValue
 
 type StructuralObject = { readonly [key: string]: StructuralValue }
 

@@ -38,13 +38,6 @@ export const ProtocolEntryContent = v.pipe(
 
 export type ProtocolEntryContent = v.InferOutput<typeof ProtocolEntryContent>
 
-export const NonEmptyProtocolEntryContents = v.pipe(
-  v.tupleWithRest([ProtocolEntryContent], ProtocolEntryContent),
-  v.readonly(),
-)
-
-export type NonEmptyProtocolEntryContents = v.InferOutput<typeof NonEmptyProtocolEntryContents>
-
 /** Authoritative Protocol Entry with acceptance, causation, and ordering metadata. */
 export const ProtocolEntry = v.pipe(
   v.object({
@@ -62,7 +55,3 @@ export type ProtocolEntry = v.InferOutput<typeof ProtocolEntry>
 export const ProtocolEntries = v.pipe(v.array(ProtocolEntry), v.readonly())
 
 export type ProtocolEntries = v.InferOutput<typeof ProtocolEntries>
-
-export const NonEmptyProtocolEntries = v.pipe(v.tupleWithRest([ProtocolEntry], ProtocolEntry), v.readonly())
-
-export type NonEmptyProtocolEntries = v.InferOutput<typeof NonEmptyProtocolEntries>

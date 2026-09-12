@@ -1,10 +1,5 @@
 import { restoreSparringMatch, type SparringMatch } from '@ks/competition'
-import {
-  type AcceptedCommand,
-  type MatchConfig,
-  type NonEmptyProtocolEntryContents,
-  ProtocolEntry,
-} from '@ks/core'
+import { type AcceptedCommand, type MatchConfig, ProtocolEntry, type ProtocolEntryContent } from '@ks/core'
 import * as v from 'valibot'
 
 /** Disposable, atomically published semantic projection of authoritative Accepted Commands. */
@@ -36,7 +31,7 @@ export class ResidentMatch {
   advance(
     prior: ResidentState,
     acceptedCommand: AcceptedCommand,
-    contents: NonEmptyProtocolEntryContents,
+    contents: readonly ProtocolEntryContent[],
   ): ResidentState {
     if (this.#cache !== prior || acceptedCommand.acceptedSeq !== prior.latestSeq + 1)
       throw new Error('MatchRoom resident cursor mismatch')
@@ -57,7 +52,7 @@ export class ResidentMatch {
     this.#cache = null
   }
 
-  #promote(command: AcceptedCommand, contents: NonEmptyProtocolEntryContents): ProtocolEntry[] {
+  #promote(command: AcceptedCommand, contents: readonly ProtocolEntryContent[]): ProtocolEntry[] {
     return contents.map((content, entryIndex) =>
       v.parse(ProtocolEntry, {
         ...content,
