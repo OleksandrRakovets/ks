@@ -32,7 +32,7 @@ export function Page({ title, backLink, children, className }: PageProps) {
 
 function ChevronLeftIcon() {
   return (
-    <svg className="size-5" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+    <svg className="size-5 shrink-0 -translate-y-px" viewBox="0 0 20 20" fill="none" aria-hidden="true">
       <path d="m12 5-5 5 5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   )

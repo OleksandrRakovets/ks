@@ -157,7 +157,7 @@ function TargetField(props: { seat: Seat; playerName: string; defaultValue: numb
   const id = `target${props.seat}`
 
   return (
-    <Field className="gap-0 rounded-lg border border-border px-3 py-2">
+    <Field className="gap-0 rounded-lg border border-border px-3 py-2 transition-[border-color,box-shadow] focus-within:border-green focus-within:shadow-[0_0_18px_var(--a-green-dim)] focus-within:ring-2 focus-within:ring-green">
       <FieldLabel htmlFor={id} className="truncate text-base font-normal text-muted-foreground">
         {firstName(props.playerName)}
       </FieldLabel>
@@ -168,7 +168,7 @@ function TargetField(props: { seat: Seat; playerName: string; defaultValue: numb
         min={1}
         defaultValue={props.defaultValue}
         aria-label={t(keys.match.sparring.playerTargetPoints, { name: props.playerName })}
-        className="h-8 [appearance:textfield] border-0 bg-transparent px-0 text-[26px] font-bold tabular-nums [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+        className="h-9 [appearance:textfield] border-0 bg-transparent px-0 text-[26px] leading-[1.2] font-bold tabular-nums focus-visible:ring-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
       />
     </Field>
   )
