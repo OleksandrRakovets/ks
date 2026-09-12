@@ -32,7 +32,7 @@
   "type": "module",
   "scripts": {
     "check": "bun run check:fast",
-    "check:fast": "bun run format:check && bun run lint && bun run check:boundaries && bun run typecheck && bun test",
+    "check:fast": "bun run format && bun run lint && bun run check:boundaries && bun run typecheck && bun test",
     "check:full": "bun run check:fast && bun run test:integration && bun run build",
     "check:boundaries": "node ./tools/check-boundaries.mjs",
     "build": "turbo run build --log-order=grouped",
@@ -42,7 +42,6 @@
     "dev": "turbo watch dev --filter=@ks/play",
     "dev:human": "turbo watch dev --filter=@ks/play --ui=tui",
     "format": "oxfmt .",
-    "format:check": "oxfmt --check .",
     "lint": "oxlint .",
     "lint:fix": "oxlint --fix .",
     "machine:explore": "bun --cwd apps/machine-explorer dev",
