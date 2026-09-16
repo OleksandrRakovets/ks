@@ -120,7 +120,7 @@ function Lane(
           disabled={props.submitting || presentation.disabled}
           aria-label={presentation.accessibleLabel}
           className={cn(
-            'min-w-0 rounded-lg px-2 py-2 text-[17px] leading-tight font-semibold whitespace-normal outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-45',
+            'min-w-0 rounded-lg px-2 py-2 text-lg leading-tight font-semibold whitespace-normal outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-45',
             props.kind === 'primary'
               ? 'min-h-[60px] bg-green text-[#07140D]'
               : 'min-h-[50px] bg-overlay text-foreground',

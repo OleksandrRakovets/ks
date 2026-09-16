@@ -8,7 +8,9 @@ import type { ControlActionData } from '../../routes/match/shared'
 import { matchCommandForm, useControlLiveRevalidation } from '../../routes/match/shared'
 import { controlEffect, controlLabel } from './renderers/control-copy'
 import type { MatchControlRendererProps } from './renderers/types'
-import { ActionStack, type ControlPresentation, type MatchControlData, MatchShell } from './shell'
+import { ActionStack, type ControlPresentation } from './shell/action-stack'
+import { MatchShell } from './shell/match-shell'
+import type { MatchControlData } from './shell/types'
 
 export function MatchControlPage<K extends RegisteredGameKey>(props: {
   data: MatchControlData<K>

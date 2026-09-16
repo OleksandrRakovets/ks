@@ -6,7 +6,7 @@ import { protocolRowLabel } from './protocol-copy'
 export function ProtocolPanel(props: { rows: readonly ProtocolRow[]; emptyLabel: string }) {
   const { t } = useTranslation()
 
-  if (props.rows.length === 0) return <p className="text-base text-text-lo">{props.emptyLabel}</p>
+  if (props.rows.length === 0) return <p className="text-text-lo text-base">{props.emptyLabel}</p>
 
   return (
     <div className="grid gap-2">
@@ -23,11 +23,11 @@ export function ProtocolPanel(props: { rows: readonly ProtocolRow[]; emptyLabel:
               {protocolRowLabel(t, row)}
             </span>
             {row.score ? (
-              <span className="text-[14px] text-text-lo">{`${row.score.A}:${row.score.B}`}</span>
+              <span className="text-text-lo text-[14px]">{`${row.score.A}:${row.score.B}`}</span>
             ) : null}
           </span>
           <time
-            className="shrink-0 text-[14px] text-text-lo tabular-nums"
+            className="text-text-lo shrink-0 text-[14px] tabular-nums"
             dateTime={new Date(row.acceptedAt).toISOString()}
           >
             {row.timeLabel}

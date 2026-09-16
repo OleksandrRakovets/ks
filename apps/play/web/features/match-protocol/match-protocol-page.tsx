@@ -4,7 +4,8 @@ import { keys } from '@ks/i18n'
 import { useTranslation } from 'react-i18next'
 import { useFetcher } from 'react-router'
 
-import { type MatchControlData, MatchShell } from '@/features/match-control/shell'
+import { MatchShell } from '@/features/match-control/shell/match-shell'
+import type { MatchControlData } from '@/features/match-control/shell/types'
 import { matchCommandForm, type ProtocolRouteData, useProtocolLiveRevalidation } from '@/routes/match/shared'
 import type { ControlActionData } from '@/routes/match/shared'
 

@@ -7,7 +7,8 @@ import { useTranslation } from 'react-i18next'
 
 import { cn } from '@/components/ui/utils'
 
-import { ActionStack, type ControlPresentation, Takeover } from '../shell'
+import { ActionStack, type ControlPresentation } from '../shell/action-stack'
+import { Takeover } from '../shell/takeover'
 import { STRILA_BALL_COLORS } from '../strila-balls'
 import { controlEffect, controlLabel } from './control-copy'
 import type { MatchControlRendererProps } from './types'
@@ -96,7 +97,7 @@ function PenaltyTakeover(props: {
           <span>
             {t(keys.match.control.takeover.foulActor, { player: props.participants[offender].displayName })}
           </span>{' '}
-          <span className="font-normal text-text-lo">
+          <span className="text-text-lo font-normal">
             {t(keys.match.control.takeover.foulChooser, { player: props.participants[chooser].displayName })}
           </span>
         </>
@@ -121,7 +122,7 @@ function BallSelector(props: {
   return (
     <div className="grid gap-1 px-3 pb-3.5 [@media(min-height:740px)]:pb-4 [@media(min-height:820px)]:pb-5">
       <RuleNotes notes={props.details.ruleNotes} participants={props.participants} />
-      <p className="px-1 text-[14px] leading-snug text-text-lo">{t(keys.match.control.choosePottedBall)}</p>
+      <p className="text-text-lo px-1 text-[14px] leading-snug">{t(keys.match.control.choosePottedBall)}</p>
       <fieldset className="grid min-w-0 grid-cols-8 gap-1">
         <legend className="sr-only">{t(keys.match.control.choosePottedBall)}</legend>
         {StrilaMeta.allBalls.map((ball) => {

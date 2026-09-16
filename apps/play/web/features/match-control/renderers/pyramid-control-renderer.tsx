@@ -8,7 +8,7 @@ import { keys } from '@ks/i18n'
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 
-import { ActionStack, type ControlPresentation } from '../shell'
+import { ActionStack, type ControlPresentation } from '../shell/action-stack'
 import { controlLabel, potRecordPottedBallCount } from './control-copy'
 import type { MatchControlRendererProps } from './types'
 

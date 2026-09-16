@@ -58,7 +58,7 @@ export function Board<K extends RegisteredGameKey>({ data }: { data: MatchContro
             <RackReconciliation count={data.game.details.currentRack.scoreBySeat.A} align="left" />
             <RackReconciliation count={data.game.details.currentRack.scoreBySeat.B} align="right" />
           </div>
-          <p className="mt-3 text-center text-base text-text-lo">
+          <p className="text-text-lo mt-3 text-center text-base">
             {t(keys.match.control.longFreePyramid.ballsOnTable, {
               count: data.game.details.ballsOnTable,
             })}
@@ -110,7 +110,7 @@ function FrameScore({ visible, score }: { visible: boolean; score: BySeatNumber 
   return (
     <span className="grid place-items-center self-center text-center">
       <strong className="text-[22px] leading-none font-bold tabular-nums">{`${score.A}:${score.B}`}</strong>
-      <span className="mt-1 text-[14px] leading-none text-text-lo">{t(keys.match.control.frames)}</span>
+      <span className="text-text-lo mt-1 text-[14px] leading-none">{t(keys.match.control.frames)}</span>
     </span>
   )
 }

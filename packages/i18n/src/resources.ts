@@ -73,7 +73,7 @@ export const resources = {
               match: { end: 'Завершити матч' },
             },
             game: {
-              pot: { record: 'Забити кулю', pottedBallCount: '{{pottedBallCount}}' },
+              pot: { record: 'Забити кулю', pottedBallCount: '+{{pottedBallCount}}' },
               miss: { record: 'Зафіксувати промах' },
               foul: { commit: 'Фол' },
               frame: { award: 'Зарахувати партію' },
@@ -146,7 +146,7 @@ export const resources = {
           longFreePyramid: {
             rackStatus: 'Стан піраміди довгої вільної піраміди',
             rack: 'Піраміда {{rackNumber}}',
-            rackRollover: 'переставка з {{count}}',
+            rackRollover: 'нова з {{count}}',
             ballsOnTable: 'на столі {{count}}',
             rackScore: 'Рахунок піраміди {{scoreA}}:{{scoreB}}',
             previousRacks: 'Попередні піраміди: {{scores}}',
@@ -344,7 +344,7 @@ export const resources = {
               match: { end: 'End match' },
             },
             game: {
-              pot: { record: 'Record pot', pottedBallCount: '{{pottedBallCount}}' },
+              pot: { record: 'Record pot', pottedBallCount: '+{{pottedBallCount}}' },
               miss: { record: 'Record miss' },
               foul: { commit: 'Foul' },
               frame: { award: 'Award frame' },

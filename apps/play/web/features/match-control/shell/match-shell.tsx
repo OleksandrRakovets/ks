@@ -32,7 +32,7 @@ export function MatchShell<K extends RegisteredGameKey>(props: {
         <Link
           to={localizedPath('/sparring/matches/', locale)}
           aria-label={t(keys.match.control.exit)}
-          className="grid size-11 shrink-0 place-items-center rounded-lg text-text-lo outline-none hover:bg-overlay hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40"
+          className="text-text-lo grid size-11 shrink-0 place-items-center rounded-lg outline-none hover:bg-overlay hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40"
         >
           <CloseIcon />
         </Link>
