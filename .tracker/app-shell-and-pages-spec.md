@@ -1,6 +1,6 @@
 # App Shell And Pages
 
-Status: design approved. Not yet implemented.
+Status: prerequisite App Shell pages implemented. Result remains deferred with the Match Shell.
 Reference renders: `.tracker/app-shell-and-pages/`.
 
 **Everything in this document can be built today.** No contract change, no new use case, no new
@@ -69,7 +69,7 @@ is new.
 Single component replacing `AppHeader`, used by `layout-construction.tsx` (rename it; the name is
 vestigial and it is now the app layout).
 
-- Height 60px, bottom hairline, not sticky.
+- Height 60px, no bottom border, not sticky.
 - Wordmark left at 34px tall, always visible, at every width. It links to the game index. The
   wordmark carries the brand and the production domain is `play.ks.ua`, so it does the work that
   `nav.newMatch` and `nav.allMatches` were doing badly.
@@ -81,7 +81,8 @@ vestigial and it is now the app layout).
 
 Same content at every width. Below 768px, use the existing `Sheet` primitive as a bottom sheet
 with a vertical entrance. On desktop, use a compact popup anchored below and right-aligned to
-the burger. Do not combine horizontal centering transforms with entrance translation.
+the burger. Do not combine horizontal centering transforms with entrance translation. The mobile
+handle closes on tap and supports downward drag-to-dismiss; an incomplete drag snaps back.
 
 Structure, top to bottom:
 
@@ -149,8 +150,10 @@ the game). Rewrite all five.
 **visible dashed placeholder** rather than inventing rules copy or repeating a neighbour. An
 obvious gap gets filled; a plausible-sounding invention does not.
 
-Badge licensing with strila.pro is unresolved, and the badges need checking against the light
-theme.
+The game author has granted permission to use and adapt the official Strila and Baraban badges.
+Preserve their full-colour ball artwork in both themes and use a subtle neutral shadow to separate
+the pale discs from light cards. Keep Baraban's badge legible while the surrounding unavailable
+card carries the subdued treatment.
 
 ## 7. Matches
 
@@ -288,5 +291,5 @@ Revised after review: no subtitles anywhere (§5, §7), the back link replacing 
 (§5, §8), native `<datalist>` instead of suggestion chips (§8), per-seat targets as a single
 always-present field (§8), and keeping the coin toss intact (§8).
 
-Still open: badge licensing and light-theme legibility (§6), and the unbounded, unfiltered match
-list (§7). Everything else open moved to the additions document.
+Still open: the unbounded, unfiltered match list (§7). Everything else open moved to the additions
+document.

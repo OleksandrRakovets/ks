@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 
 import { Page } from '@/components/Page'
-import { Button, Card, CardContent, CardFooter, CardHeader, CardTitle, Separator } from '@/components/ui'
+import { Button, Card, CardFooter, CardHeader, CardTitle, Separator } from '@/components/ui'
 
 import { localizedPath } from '../locale'
 import { useRootLocale } from '../root'
@@ -18,14 +18,15 @@ export default function SparringRoute() {
     <Page title={t(keys.match.sparring.title)}>
       <section className="grid gap-4 md:grid-cols-2" aria-label={t(keys.match.sparring.games.featured)}>
         <Card>
-          <CardHeader className="border-b-0 pb-2">
-            <CardTitle className="text-[22px] font-bold">
-              {t(keys.match.sparring.games.strila.title)}
-            </CardTitle>
+          <CardHeader className="flex-row items-center gap-4 border-b-0 pb-2">
+            <GameBadge src="/games/strila.webp" />
+            <div className="flex min-w-0 flex-col gap-1">
+              <CardTitle className="text-[22px] font-bold">
+                {t(keys.match.sparring.games.strila.title)}
+              </CardTitle>
+              <p className="leading-relaxed text-text-lo">{t(keys.match.sparring.games.strila.description)}</p>
+            </div>
           </CardHeader>
-          <CardContent className="pt-0">
-            <p className="leading-relaxed text-text-lo">{t(keys.match.sparring.games.strila.description)}</p>
-          </CardContent>
           <CardFooter className="justify-between">
             <RulesLink href={strilaRulesUrl}>{t(keys.match.sparring.games.rules)}</RulesLink>
             <Button
@@ -39,14 +40,17 @@ export default function SparringRoute() {
         </Card>
 
         <Card className="border-border/70 bg-card/60">
-          <CardHeader className="border-b-0 pb-2">
-            <CardTitle className="text-[22px] font-bold text-text-lo">
-              {t(keys.match.sparring.games.baraban.title)}
-            </CardTitle>
+          <CardHeader className="flex-row items-center gap-4 border-b-0 pb-2">
+            <GameBadge src="/games/baraban.webp" />
+            <div className="flex min-w-0 flex-col gap-1">
+              <CardTitle className="text-[22px] font-bold text-text-lo">
+                {t(keys.match.sparring.games.baraban.title)}
+              </CardTitle>
+              <p className="leading-relaxed text-text-lo">
+                {t(keys.match.sparring.games.baraban.description)}
+              </p>
+            </div>
           </CardHeader>
-          <CardContent className="pt-0">
-            <p className="leading-relaxed text-text-lo">{t(keys.match.sparring.games.baraban.description)}</p>
-          </CardContent>
           <CardFooter className="justify-between">
             <RulesLink href={barabanRulesUrl}>{t(keys.match.sparring.games.rules)}</RulesLink>
             <Button variant="outline" disabled>
@@ -93,6 +97,18 @@ export default function SparringRoute() {
         </Card>
       </section>
     </Page>
+  )
+}
+
+function GameBadge({ src }: { src: string }) {
+  return (
+    <img
+      src={src}
+      alt=""
+      width="64"
+      height="64"
+      className="size-16 shrink-0 object-contain drop-shadow-[0_2px_3px_rgb(0_0_0/0.22)]"
+    />
   )
 }
 
