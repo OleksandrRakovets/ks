@@ -10,6 +10,8 @@ export { NavigationLink } from './navigation-link'
 
 export { NumberInput } from './number-input'
 
+export { ResponsiveMenu } from './responsive-menu'
+
 export { Separator } from './separator'
 
 export {
@@ -23,5 +25,3 @@ export {
 } from './sheet'
 
 export { ToggleGroup, ToggleGroupItem } from './toggle-group'
-
-export { useBottomSheetDrag } from './use-bottom-sheet-drag'

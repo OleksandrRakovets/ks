@@ -37,7 +37,7 @@ CONTEXT.md remains authoritative. This document adds presentation-only terms.
 | Zone            | One horizontal band of the Action Stack: Selector, Primary, or Secondary.               |
 | Takeover        | Single decision surface that replaces all three Zones.                                  |
 | Last Action Bar | One-line confirmation of the latest potentially correctable player action, and its Correction affordance. |
-| Overflow Sheet  | Bottom sheet holding every tertiary Control.                                            |
+| Overflow Sheet  | Responsive menu holding every tertiary Control.                                          |
 
 "Undo" must not appear in code, copy, or key names. A Correction compensates for an earlier
 Accepted Command without removing it from the record, so the Ukrainian label is `Виправити`.
@@ -276,8 +276,11 @@ handling, and its Protocol representation. This document owns only its placement
 Opened by ⋯ in the top bar — the farthest point on the screen from the thumb region, which is the
 correct distance for controls used in under 1% of matches.
 
-- Reuse the existing `Sheet` primitive from `@/components/ui`, bottom-anchored.
-- Title `Інші дії`, 19px/600, with a ✕ dismiss.
+- Reuse the same `ResponsiveMenu` as the app burger. Below 768px it is a bottom sheet with a drag
+  handle that closes on tap or downward swipe. At 768px and above it is an anchored popover with a
+  ✕ dismiss. The responsive chrome and dismissal behavior belong to the shared component; this
+  feature supplies only its trigger and content.
+- Title `Інші дії`, 19px/600.
 - One group per participant, headed by their `displayName` at 16px/600 `--t-secondary`, separated
   by spacing rather than a rule. Within a group, one button per tertiary Control on `--c-overlay`,
   full width, `min-height: 56px`, 18px/600.
@@ -328,6 +331,7 @@ These are presentation projection changes, not gameplay rule or machine changes.
 **New** — `apps/play/web/features/match-control/shell/`: `MatchShell`, `Board`, `ActionStack`,
 `Zone`, `Takeover`, `LastActionBar`, `OverflowSheet`. Consumers import components directly from
 their files; the directory has no export bundle. Primary export first, private helpers below.
+`apps/play/web/components/ui/ResponsiveMenu` owns the shared burger and match-overflow presentation.
 
 **Removed** — `MatchNavigation` (`apps/play/web/features/match-navigation.tsx`), `ScoreBox`
 (`apps/play/web/routes/sparring-match/score-box.tsx`), `BetweenFrameControls` in `shared.tsx`, and
