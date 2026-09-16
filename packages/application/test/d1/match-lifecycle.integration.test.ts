@@ -47,10 +47,10 @@ function catalogInput(id = matchId, timestamp = createdAt): ActiveMatchCatalogIn
   return { matchId: id, gameKey: 'free-pyramid', seatAPlayerRef, seatBPlayerRef, createdAt: timestamp }
 }
 
-function completedMatchTransfer(id = matchId): MatchRoomCompletionTransfer {
+function completedMatchTransfer(id = matchId, timestamp = createdAt): MatchRoomCompletionTransfer {
   const config = buildMatchConfig(id, createRequest)
   const session = createSparringMatch(config)
-  const acceptedAt = v.parse(UnixEpochMilliseconds, 2_000)
+  const acceptedAt = v.parse(UnixEpochMilliseconds, timestamp + 1_000)
   const protocolEntries: ProtocolEntry[] = []
   let acceptedSeq = 0
 
@@ -86,7 +86,7 @@ function completedMatchTransfer(id = matchId): MatchRoomCompletionTransfer {
   return {
     matchId: id,
     gameKey: 'free-pyramid',
-    createdAt,
+    createdAt: timestamp,
     sourceLatestSeq: acceptedSeq,
     endedAt: acceptedAt,
     protocolEntries,
@@ -110,11 +110,12 @@ describe('real D1 match lifecycle', () => {
     )
     await activateMatch(db, matchId)
 
-    await beginMatchCreation(db, catalogInput(otherMatchId, v.parse(UnixEpochMilliseconds, 3_000)))
+    const otherCreatedAt = v.parse(UnixEpochMilliseconds, 3_000)
+    await beginMatchCreation(db, catalogInput(otherMatchId, otherCreatedAt))
     await activateMatch(db, otherMatchId)
-    await env.DB.prepare('UPDATE matches SET status = ? WHERE match_id = ?')
-      .bind('finished', otherMatchId)
-      .run()
+    const otherArchive = completedMatchTransfer(otherMatchId, otherCreatedAt)
+    await archiveCompletedMatch(db, otherArchive)
+    await markMatchFinished(db, otherArchive)
     await beginMatchCreation(db, catalogInput(newestMatchId, v.parse(UnixEpochMilliseconds, 4_000)))
     await activateMatch(db, newestMatchId)
     await beginMatchCreation(db, catalogInput(creatingMatchId, v.parse(UnixEpochMilliseconds, 5_000)))
@@ -136,8 +137,17 @@ describe('real D1 match lifecycle', () => {
     ).rejects.toThrow(MatchCompletionError)
     expect(await getMatchRow(db, matchId)).toMatchObject({ status: 'active' })
 
-    await markMatchFinished(db, matchId, archive.endedAt)
-    expect(await getMatchRow(db, matchId)).toMatchObject({ status: 'finished' })
+    await markMatchFinished(db, archive)
+    await markMatchFinished(db, archive)
+    expect(await getMatchRow(db, matchId)).toMatchObject({
+      status: 'finished',
+      finalSourceLatestSeq: archive.sourceLatestSeq,
+      finalScore: {
+        matchTargetFrames: 1,
+        framesWonBySeat: { A: 1, B: 0 },
+        activeFrame: null,
+      },
+    })
     expect(
       (await env.DB.prepare('SELECT ended_at FROM matches WHERE match_id = ?').bind(matchId).first())
         ?.ended_at,
@@ -176,7 +186,7 @@ describe('real D1 match lifecycle', () => {
       .bind(conflictingEndedAt, matchId)
       .run()
 
-    await expect(markMatchFinished(db, matchId, archive.endedAt)).rejects.toThrow(MatchCompletionError)
+    await expect(markMatchFinished(db, archive)).rejects.toThrow(MatchCompletionError)
     expect(await getMatchRow(db, matchId)).toMatchObject({ status: 'active' })
     expect(
       (await env.DB.prepare('SELECT ended_at FROM matches WHERE match_id = ?').bind(matchId).first())

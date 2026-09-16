@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { MatchId, newCommandId, PlayerRef, UnixEpochMilliseconds } from '@ks/core'
+import { MatchId, newCommandId, PlayerRef, projectMatchScore, UnixEpochMilliseconds } from '@ks/core'
 import * as v from 'valibot'
 
 import type { MatchRoomClient, MatchRoomCompletionTransfer } from './match-room-client'
@@ -43,6 +43,7 @@ function selectedClient(overrides: Partial<MatchRoomClient> = {}): MatchRoomClie
     initialize: unexpected,
     getControls: unexpected,
     getProtocol: unexpected,
+    getScore: unexpected,
     submitCommand: unexpected,
     prepareArchive: unexpected,
     finalize: unexpected,
@@ -62,6 +63,24 @@ function application(
 ) {
   let status = options.initialStatus ?? ('active' as const)
 
+  const matchRecord = () => {
+    const identity = {
+      matchId,
+      gameKey: 'free-pyramid' as const,
+      createdAt,
+      participantRefs: { A: playerRefA, B: playerRefB },
+    }
+
+    return status === 'finished'
+      ? {
+          ...identity,
+          status,
+          finalSourceLatestSeq: transfer.sourceLatestSeq,
+          finalScore: projectMatchScore(transfer.finalState),
+        }
+      : { ...identity, status }
+  }
+
   return createApplicationWithDependencies({
     newMatchId: () => matchId,
     newControlSecret: () => 'control-secret-1234567890',
@@ -73,13 +92,8 @@ function application(
       shortDisplayName: playerRef,
     }),
     listMatchRecords: async () => [],
-    getMatchRecord: async () => ({
-      matchId,
-      gameKey: 'free-pyramid',
-      status,
-      createdAt,
-      participantRefs: { A: playerRefA, B: playerRefB },
-    }),
+    getMatchRecord: async () => matchRecord(),
+    getMatchRecords: async () => [matchRecord()],
     getProtocolArchive: async () => ({
       sourceLatestSeq: 1,
       protocolVersion: 1,
@@ -160,6 +174,36 @@ describe('trusted MatchRoom orchestration', () => {
       ok: true,
       latestSeq: 0,
       state,
+    })
+  })
+
+  test('reads compact active scores for list loading and polling', async () => {
+    const score = {
+      matchTargetFrames: 1,
+      framesWonBySeat: { A: 0, B: 0 },
+      activeFrame: null,
+    }
+
+    const room = selectedClient({ getScore: async () => ({ _tag: 'active', latestSeq: 3, score }) })
+
+    const app = application(room, [], {
+      overrides: {
+        listMatchRecords: async () => [
+          {
+            matchId,
+            gameKey: 'free-pyramid',
+            status: 'active',
+            createdAt,
+            participantRefs: { A: playerRefA, B: playerRefB },
+          },
+        ],
+      },
+    })
+
+    expect(await app.listMatches('en')).toMatchObject([{ matchId, status: 'active', latestSeq: 3, score }])
+    expect(await app.readMatchScores([matchId])).toEqual({
+      ok: true,
+      matches: [{ matchId, status: 'active', latestSeq: 3, score }],
     })
   })
 

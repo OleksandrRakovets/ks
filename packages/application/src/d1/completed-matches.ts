@@ -1,12 +1,11 @@
 import {
-  type MatchId,
   MatchState,
   type MatchState as MatchStateValue,
+  projectMatchScore,
   ProtocolEntries,
   type ProtocolEntries as ProtocolEntriesValue,
-  type UnixEpochMilliseconds,
 } from '@ks/core'
-import { and, eq, inArray, isNull, or } from 'drizzle-orm'
+import { and, eq, isNull, or } from 'drizzle-orm'
 import * as v from 'valibot'
 
 import type { MatchRoomCompletionTransfer } from '../match-room-client'
@@ -150,21 +149,50 @@ export async function archiveCompletedMatch(
 
 export async function markMatchFinished(
   db: ApplicationDatabase,
-  matchId: MatchId,
-  endedAt: UnixEpochMilliseconds,
+  input: MatchRoomCompletionTransfer,
 ): Promise<void> {
+  const finalScoreJson = JSON.stringify(projectMatchScore(input.finalState))
+
   const result = await db
     .update(matches)
-    .set({ status: StoredMatchStatus.finished, endedAt })
+    .set({
+      status: StoredMatchStatus.finished,
+      endedAt: input.endedAt,
+      finalSourceLatestSeq: input.sourceLatestSeq,
+      finalScoreJson,
+    })
     .where(
       and(
-        eq(matches.matchId, matchId),
-        inArray(matches.status, [StoredMatchStatus.active, StoredMatchStatus.finished]),
-        or(isNull(matches.endedAt), eq(matches.endedAt, endedAt)),
+        eq(matches.matchId, input.matchId),
+        or(
+          and(
+            eq(matches.status, StoredMatchStatus.active),
+            isNull(matches.endedAt),
+            isNull(matches.finalSourceLatestSeq),
+            isNull(matches.finalScoreJson),
+          ),
+          and(
+            eq(matches.status, StoredMatchStatus.finished),
+            eq(matches.endedAt, input.endedAt),
+            eq(matches.finalSourceLatestSeq, input.sourceLatestSeq),
+            eq(matches.finalScoreJson, finalScoreJson),
+          ),
+        ),
       ),
     )
-    .returning({ status: matches.status, endedAt: matches.endedAt })
+    .returning({
+      status: matches.status,
+      endedAt: matches.endedAt,
+      finalSourceLatestSeq: matches.finalSourceLatestSeq,
+      finalScoreJson: matches.finalScoreJson,
+    })
 
-  if (result.length !== 1 || result[0]?.status !== StoredMatchStatus.finished || result[0].endedAt !== endedAt)
+  if (
+    result.length !== 1 ||
+    result[0]?.status !== StoredMatchStatus.finished ||
+    result[0].endedAt !== input.endedAt ||
+    result[0].finalSourceLatestSeq !== input.sourceLatestSeq ||
+    result[0].finalScoreJson !== finalScoreJson
+  )
     throw new MatchCompletionError('Completed match is not ready to finish')
 }

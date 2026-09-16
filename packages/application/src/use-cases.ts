@@ -4,6 +4,8 @@ import {
   type HydratedMatchParticipant,
   type MatchCommand,
   type MatchId,
+  type MatchScoreProjection,
+  type NonNegativeInteger,
   type PlayerRef,
   type UnixEpochMilliseconds,
 } from '@ks/core'
@@ -16,12 +18,14 @@ import type {
   CreateMatchResult,
   HydratedMatchParticipants,
   MatchListEntry,
+  MatchScorePollEntry,
   ReadMatchControlResult,
   ReadMatchFailure,
   ReadMatchProtocolResult,
+  ReadMatchScoresResult,
   SubmitMatchCommandResult,
 } from './contracts'
-import { CreateMatchInput } from './contracts'
+import { CreateMatchInput, MATCH_SCORE_POLL_MAX_MATCHES } from './contracts'
 import type {
   MatchRoomClient,
   MatchRoomCompletionTransfer,
@@ -36,13 +40,20 @@ import {
 
 type CatalogMatchStatus = 'creating' | 'active' | 'finished'
 
-type MatchRecord = {
+type MatchRecordIdentity = {
   matchId: MatchId
   gameKey: RegisteredGameKey
-  status: CatalogMatchStatus
   createdAt: UnixEpochMilliseconds
   participantRefs: { A: PlayerRef; B: PlayerRef }
 }
+
+type MatchRecord =
+  | (MatchRecordIdentity & { status: Exclude<CatalogMatchStatus, 'finished'> })
+  | (MatchRecordIdentity & {
+      status: 'finished'
+      finalSourceLatestSeq: NonNegativeInteger
+      finalScore: MatchScoreProjection
+    })
 
 type ApplicationDependencies = {
   newMatchId(): MatchId
@@ -52,6 +63,7 @@ type ApplicationDependencies = {
   hydrateParticipant(playerRef: PlayerRef, locale: SupportedLocale): Promise<HydratedMatchParticipant>
   listMatchRecords(): Promise<MatchRecord[]>
   getMatchRecord(matchId: MatchId): Promise<MatchRecord | null>
+  getMatchRecords(matchIds: readonly MatchId[]): Promise<MatchRecord[]>
   getProtocolArchive(matchId: MatchId): Promise<ProtocolArchiveRecord | null>
   beginMatchCreation(input: {
     matchId: MatchId
@@ -62,7 +74,7 @@ type ApplicationDependencies = {
   }): Promise<void>
   activateMatch(matchId: MatchId): Promise<void>
   archiveCompletedMatch(input: MatchRoomCompletionTransfer): Promise<void>
-  markMatchFinished(matchId: MatchId, endedAt: UnixEpochMilliseconds): Promise<void>
+  markMatchFinished(input: MatchRoomCompletionTransfer): Promise<void>
   matchRoomClient(matchId: MatchId): MatchRoomClient
 }
 
@@ -137,18 +149,56 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     const records = await dependencies.listMatchRecords()
 
     return Promise.all(
+      records.map(async (record) => {
+        const [score, participants] = await Promise.all([
+          readMatchListScore(record),
+          hydrateParticipants(record, locale),
+        ])
+
+        return {
+          matchId: record.matchId,
+          gameKey: record.gameKey,
+          gameTitle: registry[record.gameKey].meta.title[locale],
+          createdAt: record.createdAt,
+          participants,
+          ...score,
+        }
+      }),
+    )
+  }
+
+  async function readMatchScores(matchIds: readonly MatchId[]): Promise<ReadMatchScoresResult> {
+    if (
+      matchIds.length < 1 ||
+      matchIds.length > MATCH_SCORE_POLL_MAX_MATCHES ||
+      new Set(matchIds).size !== matchIds.length
+    )
+      throw new Error('Match score batch must contain 1 to 20 unique Matches')
+
+    const recordsById = new Map(
+      (await dependencies.getMatchRecords(matchIds)).map((record) => [record.matchId, record]),
+    )
+
+    const records: MatchRecord[] = []
+
+    for (const matchId of matchIds) {
+      const record = recordsById.get(matchId)
+
+      if (!record) return { ok: false, error: 'Unknown match', status: 404 }
+
+      if (record.status === 'creating')
+        throw new Error('Creating Match cannot be included in Match score polling')
+      records.push(record)
+    }
+
+    const matches: MatchScorePollEntry[] = await Promise.all(
       records.map(async (record) => ({
         matchId: record.matchId,
-        gameKey: record.gameKey,
-        gameTitle: registry[record.gameKey].meta.title[locale],
-        status: record.status === 'active' ? ('active' as const) : ('finished' as const),
-        createdAt: record.createdAt,
-        participants: {
-          A: await dependencies.hydrateParticipant(record.participantRefs.A, locale),
-          B: await dependencies.hydrateParticipant(record.participantRefs.B, locale),
-        },
+        ...(await readMatchListScore(record)),
       })),
     )
+
+    return { ok: true, matches }
   }
 
   async function readKeyedMatch<K extends RegisteredGameKey>(
@@ -311,7 +361,36 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     const transfer = await dependencies.matchRoomClient(matchId).prepareArchive()
     await dependencies.archiveCompletedMatch(transfer)
     await dependencies.matchRoomClient(matchId).finalize()
-    await dependencies.markMatchFinished(matchId, transfer.endedAt)
+    await dependencies.markMatchFinished(transfer)
+  }
+
+  async function readMatchListScore(record: MatchRecord): Promise<{
+    status: 'active' | 'finished'
+    latestSeq: NonNegativeInteger
+    score: MatchScoreProjection
+  }> {
+    if (record.status === 'finished')
+      return {
+        status: 'finished',
+        latestSeq: record.finalSourceLatestSeq,
+        score: record.finalScore,
+      }
+
+    if (record.status === 'creating') throw new Error('Creating Match cannot be included in the Match list')
+    const room = await dependencies.matchRoomClient(record.matchId).getScore()
+
+    if (room._tag === 'active') return { status: 'active', latestSeq: room.latestSeq, score: room.score }
+    await archiveAndFinishRoom(record.matchId)
+    const finished = await dependencies.getMatchRecord(record.matchId)
+
+    if (finished?.status !== 'finished')
+      throw new Error('Finalized Match is missing its finished D1 projection')
+
+    return {
+      status: 'finished',
+      latestSeq: finished.finalSourceLatestSeq,
+      score: finished.finalScore,
+    }
   }
 
   async function hydrateParticipants(record: MatchRecord, locale: SupportedLocale) {
@@ -354,6 +433,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
   return {
     createMatch,
     listMatches,
+    readMatchScores,
     readMatchControl,
     submitMatchCommand,
     readMatchProtocol,

@@ -124,3 +124,42 @@ export const MatchState = v.pipe(
 )
 
 export type MatchState = v.InferOutput<typeof MatchState>
+
+export const ActiveFrameScoreProjection = v.pipe(
+  v.object({
+    frameIndex: PositiveInteger,
+    pointsBySeat: BySeatNumber,
+  }),
+  v.readonly(),
+)
+
+export type ActiveFrameScoreProjection = v.InferOutput<typeof ActiveFrameScoreProjection>
+
+export const MatchScoreProjection = v.pipe(
+  v.object({
+    matchTargetFrames: PositiveInteger,
+    framesWonBySeat: BySeatNumber,
+    activeFrame: v.nullable(ActiveFrameScoreProjection),
+  }),
+  v.readonly(),
+)
+
+export type MatchScoreProjection = v.InferOutput<typeof MatchScoreProjection>
+
+/** Derives the compact list score without treating the last completed Frame as active. */
+export function projectMatchScore(state: MatchState): MatchScoreProjection {
+  const currentFrame =
+    state.status === 'active'
+      ? state.frames.find(
+          (frame) => frame.frameIndex === state.currentFrameIndex && frame.winnerSeat === undefined,
+        )
+      : undefined
+
+  return {
+    matchTargetFrames: state.targets.matchTargetFrames,
+    framesWonBySeat: state.framesWonBySeat,
+    activeFrame: currentFrame
+      ? { frameIndex: currentFrame.frameIndex, pointsBySeat: currentFrame.pointsBySeat }
+      : null,
+  }
+}

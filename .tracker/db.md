@@ -11,7 +11,7 @@ Run commands from the repository root.
 
 These stores have independent lifecycles. MatchRoom SQLite contains active Accepted Commands, command outcomes, the cursor, lifecycle, and final state, but does not persist Protocol. Active and finalizing Protocol is derived by semantic replay. D1 contains players and match rows and is the first independent persistence of the immutable completed Protocol archive.
 
-Drizzle ORM and Kit are pinned to `1.0.0-rc.4`. Both stores currently have one generated initial migration because the project has not been deployed. Do not rewrite migration history after deployment.
+Drizzle ORM and Kit are pinned to `1.0.0-rc.4`. The project has not been deployed. Do not rewrite migration history after deployment.
 
 ## Local D1
 

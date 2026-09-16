@@ -60,6 +60,10 @@ export class MatchRoom extends DurableObject<Env> {
     return this.#requireHandler().getProtocol()
   }
 
+  async getScore() {
+    return this.#requireHandler().getScore()
+  }
+
   /**
    * Serves only the dedicated WebSocket handshake forwarded by Play; it is not a general HTTP API.
    * Validation, synchronous cursor capture, and socket acceptance remain in one event turn with no await.

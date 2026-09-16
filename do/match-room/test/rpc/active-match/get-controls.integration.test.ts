@@ -19,8 +19,23 @@ test('returns active Controls at the authoritative sequence and restores after e
   })
 })
 
+test('returns the compact score at the authoritative sequence', async () => {
+  const { stub } = await initializedRoom()
+  await stub.submitCommand(prepareCommand())
+  expect(await stub.getScore()).toEqual({
+    _tag: 'active',
+    latestSeq: 1,
+    score: {
+      matchTargetFrames: 1,
+      framesWonBySeat: { A: 0, B: 0 },
+      activeFrame: { frameIndex: 1, pointsBySeat: { A: 0, B: 0 } },
+    },
+  })
+})
+
 test('returns finalizing after a match-completing acceptance', async () => {
   const { stub } = await initializedRoom()
   await makeRoomFinalizing(stub)
   expect(await stub.getControls()).toEqual({ _tag: 'finalizing' })
+  expect(await stub.getScore()).toEqual({ _tag: 'finalizing' })
 })

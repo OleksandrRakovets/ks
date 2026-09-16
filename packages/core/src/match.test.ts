@@ -3,7 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import * as v from 'valibot'
 
 import { MatchId } from './ids'
-import { BySeatNumber, GameKey, MatchState, MatchTargets } from './match'
+import { BySeatNumber, GameKey, MatchState, MatchTargets, projectMatchScore } from './match'
 
 describe('match value schemas', () => {
   test('requires positive frame and match targets', () => {
@@ -53,5 +53,39 @@ describe('match value schemas', () => {
     })
 
     expect(state.gameKey).toBe('historical-game')
+  })
+
+  test('projects only an unfinished current Frame as active', () => {
+    const base = {
+      matchId: v.parse(MatchId, '01ARZ3NDEKTSV4RRFFQ69G5FAV'),
+      gameKey: 'free-pyramid',
+      targets: { frameTargetPointsBySeat: { A: 8, B: 8 }, matchTargetFrames: 3 },
+      status: 'active' as const,
+      currentFrameIndex: 2,
+      framesWonBySeat: { A: 1, B: 0 },
+      frames: [
+        { frameIndex: 1, pointsBySeat: { A: 8, B: 3 }, breakerSeat: 'A' as const, winnerSeat: 'A' as const },
+        { frameIndex: 2, pointsBySeat: { A: 2, B: 5 }, breakerSeat: 'B' as const },
+      ],
+    }
+
+    expect(projectMatchScore(v.parse(MatchState, base))).toEqual({
+      matchTargetFrames: 3,
+      framesWonBySeat: { A: 1, B: 0 },
+      activeFrame: { frameIndex: 2, pointsBySeat: { A: 2, B: 5 } },
+    })
+    expect(
+      projectMatchScore(
+        v.parse(MatchState, {
+          ...base,
+          currentFrameIndex: 1,
+          frames: base.frames.slice(0, 1),
+        }),
+      ).activeFrame,
+    ).toBeNull()
+    expect(
+      projectMatchScore(v.parse(MatchState, { ...base, status: 'finished', framesWonBySeat: { A: 3, B: 0 } }))
+        .activeFrame,
+    ).toBeNull()
   })
 })

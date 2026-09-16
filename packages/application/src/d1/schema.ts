@@ -1,4 +1,11 @@
-import type { GuestPlayerId, MatchId, PlayerRef, UnixEpochMilliseconds, VerifiedPlayerId } from '@ks/core'
+import type {
+  GuestPlayerId,
+  MatchId,
+  NonNegativeInteger,
+  PlayerRef,
+  UnixEpochMilliseconds,
+  VerifiedPlayerId,
+} from '@ks/core'
 import type { RegisteredGameKey } from '@ks/gameplay/definitions'
 import { sql } from 'drizzle-orm'
 import { check, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
@@ -21,6 +28,8 @@ export const matches = sqliteTable(
     status: text('status').$type<StoredMatchStatus>().notNull(),
     createdAt: integer('created_at').$type<UnixEpochMilliseconds>().notNull(),
     endedAt: integer('ended_at').$type<UnixEpochMilliseconds>(),
+    finalSourceLatestSeq: integer('final_source_latest_seq').$type<NonNegativeInteger>(),
+    finalScoreJson: text('final_score_json'),
   },
   (table) => [
     check('matches_distinct_players', sql`${table.seatAPlayerRef} != ${table.seatBPlayerRef}`),

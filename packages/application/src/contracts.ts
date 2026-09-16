@@ -1,10 +1,12 @@
 import { MatchCreationDefinition, type MatchStateFor, type SparringMatchRejection } from '@ks/competition'
-import type {
-  Control,
-  HydratedMatchParticipants,
-  MatchCommand,
+import {
+  type Control,
+  type HydratedMatchParticipants,
+  type MatchCommand,
   MatchId,
-  UnixEpochMilliseconds,
+  MatchScoreProjection,
+  NonNegativeInteger,
+  type UnixEpochMilliseconds,
 } from '@ks/core'
 import type { GamePresentationFor, RegisteredGameKey } from '@ks/gameplay/definitions'
 import type { SupportedLocale } from '@ks/i18n'
@@ -53,9 +55,38 @@ export type MatchListEntry = Readonly<{
   status: 'active' | 'finished'
   createdAt: UnixEpochMilliseconds
   participants: HydratedMatchParticipants
+  latestSeq: NonNegativeInteger
+  score: MatchScoreProjection
 }>
 
+export const MATCH_SCORE_POLL_MAX_MATCHES = 20
+
+export const MatchScorePollEntry = v.pipe(
+  v.object({
+    matchId: MatchId,
+    status: v.picklist(['active', 'finished']),
+    latestSeq: NonNegativeInteger,
+    score: MatchScoreProjection,
+  }),
+  v.readonly(),
+)
+
+export type MatchScorePollEntry = v.InferOutput<typeof MatchScorePollEntry>
+
+export const MatchScorePollResponse = v.pipe(
+  v.object({
+    matches: v.pipe(v.array(MatchScorePollEntry), v.maxLength(MATCH_SCORE_POLL_MAX_MATCHES), v.readonly()),
+  }),
+  v.readonly(),
+)
+
+export type MatchScorePollResponse = v.InferOutput<typeof MatchScorePollResponse>
+
 export type ReadMatchFailure = { readonly ok: false; readonly error: string; readonly status: number }
+
+export type ReadMatchScoresResult =
+  | { readonly ok: true; readonly matches: readonly MatchScorePollEntry[] }
+  | ReadMatchFailure
 
 export type ReadMatchControlResult<K extends RegisteredGameKey> =
   /** A prepared gameplay frame is frame-active even before it has commenced. */
@@ -110,6 +141,7 @@ export type ReadMatchProtocolResult<K extends RegisteredGameKey> =
 export type Application = {
   createMatch(input: CreateMatchInput): Promise<CreateMatchResult>
   listMatches(locale: SupportedLocale): Promise<MatchListEntry[]>
+  readMatchScores(matchIds: readonly MatchId[]): Promise<ReadMatchScoresResult>
   readMatchControl<K extends RegisteredGameKey>(
     matchId: MatchId,
     locale: SupportedLocale,
