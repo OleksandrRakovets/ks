@@ -41,7 +41,6 @@ export function BurgerMenu({
   const mobileSheetRef = useRef<HTMLDivElement>(null)
 
   const mobileDragRef = useRef<{
-    lastY: number
     pointerId: number
     startTime: number
     startY: number
@@ -75,7 +74,6 @@ export function BurgerMenu({
     const popup = mobileSheetRef.current
 
     mobileDragRef.current = {
-      lastY: event.clientY,
       pointerId: event.pointerId,
       startTime: event.timeStamp,
       startY: event.clientY,
@@ -92,7 +90,6 @@ export function BurgerMenu({
 
     if (!drag || drag.pointerId !== event.pointerId || !popup) return
 
-    drag.lastY = event.clientY
     const offset = Math.max(0, event.clientY - drag.startY)
     suppressHandleClickRef.current ||= offset > 4
     popup.style.translate = `0 ${offset}px`
@@ -105,7 +102,7 @@ export function BurgerMenu({
     if (!drag || drag.pointerId !== event.pointerId || !popup) return
 
     mobileDragRef.current = null
-    const offset = Math.max(0, drag.lastY - drag.startY)
+    const offset = Math.max(0, event.clientY - drag.startY)
 
     if (offset <= 4) {
       popup.style.translate = ''
