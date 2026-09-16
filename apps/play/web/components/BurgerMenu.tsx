@@ -116,10 +116,19 @@ export function BurgerMenu({
 
     const velocity = offset / Math.max(event.timeStamp - drag.startTime, 1)
     const dismiss = offset > Math.min(96, popup.offsetHeight * 0.2) || velocity > 0.55
-    const destination = dismiss ? popup.offsetHeight : 0
 
-    const animation = popup.animate([{ translate: `0 ${offset}px` }, { translate: `0 ${destination}px` }], {
-      duration: dismiss ? 160 : 200,
+    if (dismiss) {
+      setOpen(false)
+      requestAnimationFrame(() => {
+        popup.style.translate = ''
+        popup.style.transition = ''
+      })
+
+      return
+    }
+
+    const animation = popup.animate([{ translate: `0 ${offset}px` }, { translate: '0 0' }], {
+      duration: 200,
       easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
       fill: 'forwards',
     })
@@ -129,8 +138,6 @@ export function BurgerMenu({
         animation.cancel()
         popup.style.translate = ''
         popup.style.transition = ''
-
-        if (dismiss) setOpen(false)
       })
       .catch(() => undefined)
   }
@@ -306,7 +313,7 @@ export function BurgerMenu({
       </SheetTrigger>
       <SheetContent
         ref={mobileSheetRef}
-        className="inset-x-0 top-auto bottom-0 max-h-[calc(100dvh-1rem)] w-full rounded-t-2xl border-t border-r-0 border-b-0 border-l-0 data-ending-style:translate-x-0 data-ending-style:translate-y-8 data-starting-style:translate-x-0 data-starting-style:translate-y-8 motion-reduce:transition-none"
+        className="inset-x-0 top-auto bottom-0 max-h-[calc(100dvh-1rem)] w-full rounded-t-2xl border-t border-r-0 border-b-0 border-l-0 data-ending-style:translate-x-0 data-ending-style:translate-y-full data-starting-style:translate-x-0 data-starting-style:translate-y-8 motion-reduce:transition-none"
       >
         {content}
       </SheetContent>
