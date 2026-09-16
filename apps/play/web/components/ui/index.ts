@@ -4,7 +4,7 @@ export { Button } from './button'
 
 export { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './card'
 
-export { Field, FieldDescription, FieldGroup, FieldLabel, Input, Label, Textarea } from './form'
+export { Field, FieldDescription, FieldGroup, FieldLabel, Input, Textarea } from './form'
 
 export { NavigationLink } from './navigation-link'
 
@@ -23,3 +23,5 @@ export {
 } from './sheet'
 
 export { ToggleGroup, ToggleGroupItem } from './toggle-group'
+
+export { useBottomSheetDrag } from './use-bottom-sheet-drag'

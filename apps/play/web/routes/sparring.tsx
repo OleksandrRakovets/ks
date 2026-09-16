@@ -1,3 +1,4 @@
+import { type RegisteredGameKey, registry } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
@@ -22,38 +23,41 @@ export default function SparringRoute() {
             <GameBadge src="/games/strila.webp" />
             <div className="flex min-w-0 flex-col gap-1">
               <CardTitle className="text-[22px] font-bold">
-                {t(keys.match.sparring.games.strila.title)}
+                {registry['strila-v2'].meta.title[locale]}
               </CardTitle>
-              <p className="leading-relaxed text-text-lo">{t(keys.match.sparring.games.strila.description)}</p>
+              <p className="leading-relaxed text-muted-foreground">
+                {t(keys.match.sparring.games.strila.description)}
+              </p>
             </div>
           </CardHeader>
-          <CardFooter className="justify-between">
+          <CardFooter className="mt-auto justify-between">
             <RulesLink href={strilaRulesUrl}>{t(keys.match.sparring.games.rules)}</RulesLink>
             <Button
               nativeButton={false}
               render={<Link to={localizedPath('/sparring/init/strila-v2/', locale)} />}
               size="touch"
+              className="min-w-28"
             >
               {t(keys.match.sparring.games.play)}
             </Button>
           </CardFooter>
         </Card>
 
-        <Card className="border-border/70 bg-card/60">
+        <Card className="border-border/70 bg-overlay/50">
           <CardHeader className="flex-row items-center gap-4 border-b-0 pb-2">
             <GameBadge src="/games/baraban.webp" />
             <div className="flex min-w-0 flex-col gap-1">
-              <CardTitle className="text-[22px] font-bold text-text-lo">
+              <CardTitle className="text-[22px] font-bold text-muted-foreground">
                 {t(keys.match.sparring.games.baraban.title)}
               </CardTitle>
-              <p className="leading-relaxed text-text-lo">
+              <p className="leading-relaxed text-muted-foreground">
                 {t(keys.match.sparring.games.baraban.description)}
               </p>
             </div>
           </CardHeader>
-          <CardFooter className="justify-between">
+          <CardFooter className="mt-auto justify-between">
             <RulesLink href={barabanRulesUrl}>{t(keys.match.sparring.games.rules)}</RulesLink>
-            <Button variant="outline" disabled>
+            <Button variant="outline" size="touch" className="min-w-28" disabled>
               {t(keys.nav.comingSoon)}
             </Button>
           </CardFooter>
@@ -67,31 +71,24 @@ export default function SparringRoute() {
           <h2 id="pyramid-title" className="text-[22px] font-bold">
             {t(keys.match.sparring.games.pyramid.title)}
           </h2>
-          <p className="leading-relaxed text-text-lo">{t(keys.match.sparring.games.pyramid.description)}</p>
+          <p className="leading-relaxed text-muted-foreground">
+            {t(keys.match.sparring.games.pyramid.description)}
+          </p>
         </div>
 
         <Card className="divide-y divide-border">
-          <PyramidGameLink gameKey="free-pyramid" title={t(keys.match.sparring.games.freePyramid.title)}>
+          <PyramidGameLink gameKey="free-pyramid">
             {t(keys.match.sparring.games.freePyramid.description)}
           </PyramidGameLink>
-          <PyramidGameLink
-            gameKey="free-pyramid-long"
-            title={t(keys.match.sparring.games.longFreePyramid.title)}
-          >
+          <PyramidGameLink gameKey="free-pyramid-long">
             {t(keys.match.sparring.games.longFreePyramid.description)}
           </PyramidGameLink>
-          <PyramidGameLink
-            gameKey="combined-pyramid"
-            title={t(keys.match.sparring.games.combinedPyramid.title)}
-          >
+          <PyramidGameLink gameKey="combined-pyramid">
             <span className="inline-flex rounded-md border border-dashed border-amber/60 px-2 py-1 text-amber">
               {t(keys.match.sparring.games.combinedPyramid.placeholder)}
             </span>
           </PyramidGameLink>
-          <PyramidGameLink
-            gameKey="combined-pyramid-old"
-            title={t(keys.match.sparring.games.oldCombinedPyramid.title)}
-          >
+          <PyramidGameLink gameKey="combined-pyramid-old">
             {t(keys.match.sparring.games.oldCombinedPyramid.description)}
           </PyramidGameLink>
         </Card>
@@ -118,7 +115,7 @@ function RulesLink({ href, children }: { href: string; children: React.ReactNode
       href={href}
       target="_blank"
       rel="noreferrer"
-      className="rounded-sm text-text-lo underline underline-offset-4 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40"
+      className="shrink-0 rounded-sm text-muted-foreground underline underline-offset-4 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40"
     >
       {children}
       {'\u00a0↗'}
@@ -126,15 +123,7 @@ function RulesLink({ href, children }: { href: string; children: React.ReactNode
   )
 }
 
-function PyramidGameLink({
-  gameKey,
-  title,
-  children,
-}: {
-  gameKey: string
-  title: string
-  children: React.ReactNode
-}) {
+function PyramidGameLink({ gameKey, children }: { gameKey: RegisteredGameKey; children: React.ReactNode }) {
   const locale = useRootLocale()
 
   return (
@@ -143,8 +132,8 @@ function PyramidGameLink({
       className="group flex min-h-20 items-center justify-between gap-4 px-5 py-4 transition-colors outline-none first:rounded-t-lg last:rounded-b-lg hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset"
     >
       <span className="flex min-w-0 flex-col gap-1">
-        <span className="text-lg font-semibold">{title}</span>
-        <span className="leading-relaxed text-text-lo">{children}</span>
+        <span className="text-lg font-semibold">{registry[gameKey].meta.title[locale]}</span>
+        <span className="leading-relaxed text-muted-foreground">{children}</span>
       </span>
       <ChevronRightIcon />
     </Link>
@@ -154,7 +143,7 @@ function PyramidGameLink({
 function ChevronRightIcon() {
   return (
     <svg
-      className="size-5 shrink-0 text-text-lo group-hover:text-foreground"
+      className="size-5 shrink-0 text-muted-foreground group-hover:text-foreground"
       viewBox="0 0 20 20"
       fill="none"
       aria-hidden="true"

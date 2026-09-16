@@ -52,7 +52,7 @@ function DrawerNavigation() {
 
         <div className="flex flex-1 flex-col overflow-y-auto p-3">
           <nav className="flex flex-col gap-1" aria-label="Drawer navigation">
-            <p className="px-3 pt-2 pb-1 text-xs font-semibold tracking-widest text-text-lo uppercase">
+            <p className="px-3 pt-2 pb-1 text-xs font-semibold tracking-widest text-muted-foreground uppercase">
               Sparring
             </p>
             <SheetClose
@@ -86,7 +86,7 @@ function DrawerNavigation() {
           <section className="flex flex-col gap-3 px-3" aria-labelledby="preview-theme-label">
             <p
               id="preview-theme-label"
-              className="text-xs font-semibold tracking-widest text-text-lo uppercase"
+              className="text-xs font-semibold tracking-widest text-muted-foreground uppercase"
             >
               Appearance
             </p>

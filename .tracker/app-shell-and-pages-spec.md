@@ -102,7 +102,8 @@ sheet with `aria-label`.
 
 **Naming caution.** `listMatches` takes no owner and `listMatchRecords()` has no filter, so the
 list is every match ever created by anyone. Call the entry `Матчі`, not `Мої матчі`, until identity
-exists. The count is similarly global.
+exists. The count is similarly global. The App Shell reads that count through a dedicated scalar
+query; it must not load and hydrate the unbounded list merely to take its length.
 
 ## 5. Page frame
 
@@ -130,6 +131,10 @@ constraints on the copy, not finished copy.
 
 The page is a curated shelf, not a rendered collection. Entries are authored in JSX and are free to
 differ in shape. Adding a game means writing its entry, not adding a row to an array.
+
+Registered game names still come from `registry[gameKey].meta.title`; only each entry's description,
+availability, links, and layout are authored here. Setup and the shelf must not maintain parallel
+localized names for the same game.
 
 **Strila and Baraban** each get a full card: the badge from strila.pro, the name at 22px/700, a
 short description, a link out to the rules on strila.pro, and a primary `Грати` action. Baraban is

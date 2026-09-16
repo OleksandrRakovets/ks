@@ -27,7 +27,6 @@ import { recentPlayerSuggestions, rememberRecentPlayers, useRecentPlayers } from
 import { parsePositiveInt, parseRackRollover, safeNormalizeDisplayName } from './validation'
 
 type LoaderData = {
-  gameKey: string
   title: string
   profile: MatchCreateProfile
 }
@@ -58,7 +57,6 @@ export async function loader({
   const locale = localeFromContext(context)
 
   return {
-    gameKey,
     title: registry[gameKey].meta.title[locale],
     profile: createProfileForGame(gameKey),
   }

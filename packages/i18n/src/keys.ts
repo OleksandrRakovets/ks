@@ -99,7 +99,6 @@ export const keys = {
         rules: 'match.sparring.games.rules',
         play: 'match.sparring.games.play',
         strila: {
-          title: 'match.sparring.games.strila.title',
           description: 'match.sparring.games.strila.description',
         },
         baraban: {
@@ -111,19 +110,15 @@ export const keys = {
           description: 'match.sparring.games.pyramid.description',
         },
         freePyramid: {
-          title: 'match.sparring.games.freePyramid.title',
           description: 'match.sparring.games.freePyramid.description',
         },
         longFreePyramid: {
-          title: 'match.sparring.games.longFreePyramid.title',
           description: 'match.sparring.games.longFreePyramid.description',
         },
         combinedPyramid: {
-          title: 'match.sparring.games.combinedPyramid.title',
           placeholder: 'match.sparring.games.combinedPyramid.placeholder',
         },
         oldCombinedPyramid: {
-          title: 'match.sparring.games.oldCombinedPyramid.title',
           description: 'match.sparring.games.oldCombinedPyramid.description',
         },
       },
@@ -132,9 +127,6 @@ export const keys = {
       matchTargetFrames: 'match.sparring.matchTargetFrames',
       decreaseMatchTarget: 'match.sparring.decreaseMatchTarget',
       increaseMatchTarget: 'match.sparring.increaseMatchTarget',
-      handicapAdvanced: 'match.sparring.handicapAdvanced',
-      seatATargetPoints: 'match.sparring.seatATargetPoints',
-      seatBTargetPoints: 'match.sparring.seatBTargetPoints',
       createMatch: 'match.sparring.createMatch',
       creatingMatch: 'match.sparring.creatingMatch',
       errorBothNamesRequired: 'match.sparring.errorBothNamesRequired',
@@ -159,9 +151,6 @@ export const keys = {
       rackRolloverNewer: 'match.sparring.rackRolloverNewer',
       firstBreaker: {
         title: 'match.sparring.firstBreaker.title',
-        coinRolling: 'match.sparring.firstBreaker.coinRolling',
-        coinShows: 'match.sparring.firstBreaker.coinShows',
-        coinReady: 'match.sparring.firstBreaker.coinReady',
         coinInAir: 'match.sparring.firstBreaker.coinInAir',
         tossWinner: 'match.sparring.firstBreaker.tossWinner',
         tossInstructions: 'match.sparring.firstBreaker.tossInstructions',

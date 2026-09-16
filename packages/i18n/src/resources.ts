@@ -241,7 +241,6 @@ export const resources = {
             rules: 'Правила на strila.pro',
             play: 'Грати',
             strila: {
-              title: 'Стріла',
               description: 'Кольорові кулі та чергування ходів.',
             },
             baraban: {
@@ -253,19 +252,15 @@ export const resources = {
               description: 'Чотири варіанти однієї гри. Куля скрізь коштує одне очко — різниться решта.',
             },
             freePyramid: {
-              title: 'Вільна піраміда',
               description: 'Заліковується будь-яка правильно забита куля.',
             },
             longFreePyramid: {
-              title: 'Вільна піраміда з продовженням',
               description: 'Одна довга партія з кількома пірамідами.',
             },
             combinedPyramid: {
-              title: 'Комбінована піраміда',
               placeholder: 'Потрібен опис відмінності',
             },
             oldCombinedPyramid: {
-              title: 'Комбінована піраміда (старі правила)',
               description: 'Після фолу порушник спершу відіграє заборговані кулі.',
             },
           },
@@ -274,9 +269,6 @@ export const resources = {
           matchTargetFrames: 'До скількох перемог',
           decreaseMatchTarget: 'Зменшити кількість перемог',
           increaseMatchTarget: 'Збільшити кількість перемог',
-          handicapAdvanced: 'Фора (додатково)',
-          seatATargetPoints: 'Цільові очки місця A',
-          seatBTargetPoints: 'Цільові очки місця B',
           createMatch: 'Почати матч',
           creatingMatch: 'Починаємо матч...',
           errorBothNamesRequired: 'Обидва імені гравців обовʼязкові.',
@@ -296,14 +288,11 @@ export const resources = {
           gameTargetPoints: 'Гра до',
           playerTargetPoints: '{{name}}: цільові очки',
           rackRollover: 'Переставка',
-          rackRolloverBalls: 'з {{count}}',
+          rackRolloverBalls: 'з {{value}}',
           rackRolloverPreferred: 'звично',
           rackRolloverNewer: 'новіше',
           firstBreaker: {
             title: 'Хто розбиває',
-            coinRolling: 'Монета обертається',
-            coinShows: 'Монета показує {{name}}',
-            coinReady: 'Монета готова',
             coinInAir: 'Монета в повітрі...',
             tossWinner: 'Випав {{name}}.',
             tossInstructions: 'Монета вирішує, хто обирає.',
@@ -551,7 +540,6 @@ export const resources = {
             rules: 'Rules at strila.pro',
             play: 'Play',
             strila: {
-              title: 'Strila',
               description: 'Coloured balls and alternating turns.',
             },
             baraban: {
@@ -563,19 +551,15 @@ export const resources = {
               description: 'Four variants of one game. Every ball is worth one point; the rest differs.',
             },
             freePyramid: {
-              title: 'Free pyramid',
               description: 'Any legally potted ball counts.',
             },
             longFreePyramid: {
-              title: 'Free pyramid with continuation',
               description: 'One long frame played across multiple racks.',
             },
             combinedPyramid: {
-              title: 'Combined pyramid',
               placeholder: 'Distinctive description needed',
             },
             oldCombinedPyramid: {
-              title: 'Combined pyramid (old rules)',
               description: 'After a foul, the offender first repays the balls they owe.',
             },
           },
@@ -584,9 +568,6 @@ export const resources = {
           matchTargetFrames: 'Race to how many wins',
           decreaseMatchTarget: 'Decrease wins target',
           increaseMatchTarget: 'Increase wins target',
-          handicapAdvanced: 'Handicap (advanced)',
-          seatATargetPoints: 'Seat A target points',
-          seatBTargetPoints: 'Seat B target points',
           createMatch: 'Start match',
           creatingMatch: 'Starting match...',
           errorBothNamesRequired: 'Both player names are required.',
@@ -606,14 +587,11 @@ export const resources = {
           gameTargetPoints: 'Game to',
           playerTargetPoints: '{{name}} target points',
           rackRollover: 'Re-rack',
-          rackRolloverBalls: 'at {{count}}',
+          rackRolloverBalls: 'at {{value}}',
           rackRolloverPreferred: 'usual',
           rackRolloverNewer: 'newer',
           firstBreaker: {
             title: 'Who breaks',
-            coinRolling: 'Coin is rolling',
-            coinShows: 'Coin shows {{name}}',
-            coinReady: 'Coin is ready',
             coinInAir: 'Coin is in the air...',
             tossWinner: 'The coin chose {{name}}.',
             tossInstructions: 'The coin decides who chooses.',

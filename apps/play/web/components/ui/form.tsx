@@ -28,10 +28,8 @@ function FieldLabel({ className, ...props }: React.ComponentProps<'label'>) {
 }
 /* oxlint-enable jsx-a11y/label-has-associated-control */
 
-const Label = FieldLabel
-
 function FieldDescription({ className, ...props }: React.ComponentProps<'p'>) {
-  return <p className={cn('text-base leading-relaxed text-text-lo', className)} {...props} />
+  return <p className={cn('text-base leading-relaxed text-muted-foreground', className)} {...props} />
 }
 
 const controlClasses =
@@ -51,4 +49,4 @@ function Textarea({ className, ...props }: React.ComponentProps<'textarea'>) {
   )
 }
 
-export { Field, FieldDescription, FieldGroup, FieldLabel, Input, Label, Textarea }
+export { Field, FieldDescription, FieldGroup, FieldLabel, Input, Textarea }

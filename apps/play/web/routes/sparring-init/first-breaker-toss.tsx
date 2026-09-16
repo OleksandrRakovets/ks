@@ -6,6 +6,8 @@ import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui'
 import { cn } from '@/components/ui/utils'
 
+import { firstName } from './player-name'
+
 type FirstBreakerFieldProps = {
   playerNames: { A: string; B: string }
   firstBreakerSeat: Seat | null
@@ -65,12 +67,6 @@ function FirstBreakerToss(props: FirstBreakerFieldProps) {
   const breakerName = props.firstBreakerSeat ? props.playerNames[props.firstBreakerSeat] : null
   const displayInitial = displaySeat ? playerInitial(props.playerNames[displaySeat]) : '?'
 
-  const coinLabel = isRolling
-    ? t(keys.match.sparring.firstBreaker.coinRolling)
-    : displaySeat
-      ? t(keys.match.sparring.firstBreaker.coinShows, { name: props.playerNames[displaySeat] })
-      : t(keys.match.sparring.firstBreaker.coinReady)
-
   return (
     <section className="flex flex-col gap-2.5" aria-labelledby="first-breaker-heading">
       <h2 id="first-breaker-heading" className="text-lg font-semibold text-muted-foreground">
@@ -87,13 +83,12 @@ function FirstBreakerToss(props: FirstBreakerFieldProps) {
             displaySeat ? 'border-amber bg-amber-dim text-amber' : 'border-border text-muted-foreground',
             isRolling && 'motion-safe:animate-[spin_0.55s_linear_infinite]',
           )}
-          aria-live="polite"
-          aria-label={coinLabel}
+          aria-hidden="true"
         >
           {displayInitial}
         </div>
 
-        <div className="flex min-w-0 flex-col gap-1">
+        <div className="flex min-w-0 flex-col gap-1" aria-live="polite" aria-atomic="true">
           <p className="text-[17px] leading-snug font-medium">
             {isRolling
               ? t(keys.match.sparring.firstBreaker.coinInAir)
@@ -136,7 +131,7 @@ function FirstBreakerToss(props: FirstBreakerFieldProps) {
             onClick={() => chooseBreaker(tossWinner)}
             disabled={isRolling}
           >
-            {playerFirstName(props.playerNames[tossWinner])}
+            {firstName(props.playerNames[tossWinner])}
           </Button>
           <Button
             type="button"
@@ -149,7 +144,7 @@ function FirstBreakerToss(props: FirstBreakerFieldProps) {
             onClick={() => chooseBreaker(opponentOf(tossWinner))}
             disabled={isRolling}
           >
-            {playerFirstName(props.playerNames[opponentOf(tossWinner)])}
+            {firstName(props.playerNames[opponentOf(tossWinner)])}
           </Button>
         </div>
       ) : null}
@@ -159,8 +154,4 @@ function FirstBreakerToss(props: FirstBreakerFieldProps) {
 
 function playerInitial(name: string): string {
   return name.trim().slice(0, 1).toLocaleUpperCase()
-}
-
-function playerFirstName(name: string): string {
-  return name.trim().split(/\s+/u)[0] ?? name
 }

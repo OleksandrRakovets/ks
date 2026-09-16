@@ -1,13 +1,7 @@
 import { Popover } from '@base-ui/react/popover'
 import { keys } from '@ks/i18n'
 import type { SupportedLocale } from '@ks/i18n'
-import {
-  type PointerEvent as ReactPointerEvent,
-  useEffect,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from 'react'
+import { useState, useSyncExternalStore } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useFetcher, useLocation } from 'react-router'
 
@@ -23,6 +17,7 @@ import {
   SheetTrigger,
   ToggleGroup,
   ToggleGroupItem,
+  useBottomSheetDrag,
 } from './ui'
 
 const THEME_OPTIONS: { value: AppTheme; labelKey: string }[] = [
@@ -44,31 +39,20 @@ export function BurgerMenu({
   placement?: 'header' | 'navigation'
 }) {
   const [open, setOpen] = useState(false)
-  const mobileSheetRef = useRef<HTMLDivElement>(null)
-  const mobileFrameRef = useRef<number | null>(null)
-
-  const mobileDragRef = useRef<{
-    pointerId: number
-    startOffset: number
-    startTime: number
-    startY: number
-  } | null>(null)
-
-  const suppressHandleClickRef = useRef(false)
   const currentLocale = useRootLocale()
   const currentTheme = useRootTheme()
   const fetcher = useFetcher()
   const location = useLocation()
   const { t } = useTranslation()
   const desktop = useSyncExternalStore(subscribeDesktop, isDesktop, () => false)
-  const sparringPath = localizedPath('/sparring/', currentLocale)
 
-  useEffect(() => {
-    return () => {
-      if (mobileFrameRef.current !== null) cancelAnimationFrame(mobileFrameRef.current)
-      mobileFrameRef.current = null
-    }
-  }, [desktop])
+  const {
+    close: closeMobileSheet,
+    handleProps: mobileSheetHandleProps,
+    popupRef: mobileSheetPopupRef,
+  } = useBottomSheetDrag({ enabled: !desktop, onDismiss: () => setOpen(false) })
+
+  const sparringPath = localizedPath('/sparring/', currentLocale)
 
   const isNewMatchRoute =
     location.pathname === sparringPath || location.pathname.startsWith(`${sparringPath}init/`)
@@ -83,135 +67,9 @@ export function BurgerMenu({
     }
   }
 
-  function beginMobileDrag(event: ReactPointerEvent<HTMLButtonElement>) {
-    if (!event.isPrimary) return
-
-    const popup = mobileSheetRef.current
-    const translate = popup ? getComputedStyle(popup).translate : ''
-    const startOffset = readTranslateY(translate)
-
-    clearMobileFrame()
-
-    if (popup) {
-      popup.style.transition = 'none'
-      popup.style.translate = translate === 'none' ? '' : translate
-    }
-
-    mobileDragRef.current = {
-      pointerId: event.pointerId,
-      startOffset,
-      startTime: event.timeStamp,
-      startY: event.clientY,
-    }
-    suppressHandleClickRef.current = false
-
-    event.currentTarget.setPointerCapture(event.pointerId)
-  }
-
-  function moveMobileDrag(event: ReactPointerEvent<HTMLButtonElement>) {
-    const drag = mobileDragRef.current
-    const popup = mobileSheetRef.current
-
-    if (!drag || drag.pointerId !== event.pointerId || !popup) return
-
-    const movement = event.clientY - drag.startY
-    const offset = Math.max(0, drag.startOffset + movement)
-    suppressHandleClickRef.current ||= Math.abs(movement) > 4
-    popup.style.translate = `0 ${offset}px`
-  }
-
-  function endMobileDrag(event: ReactPointerEvent<HTMLButtonElement>) {
-    const drag = mobileDragRef.current
-    const popup = mobileSheetRef.current
-
-    if (!drag || drag.pointerId !== event.pointerId || !popup) return
-
-    mobileDragRef.current = null
-    const movement = event.clientY - drag.startY
-    const offset = Math.max(0, drag.startOffset + movement)
-
-    if (Math.abs(movement) <= 4) {
-      restoreMobileSheet(popup, drag.startOffset)
-
-      return
-    }
-
-    const velocity = Math.max(0, movement) / Math.max(event.timeStamp - drag.startTime, 1)
-    const dismiss = offset > Math.min(96, popup.offsetHeight * 0.2) || velocity > 0.55
-
-    if (dismiss) {
-      dismissMobileSheet(popup)
-
-      return
-    }
-
-    restoreMobileSheet(popup, offset)
-  }
-
-  function cancelMobileDrag(event: ReactPointerEvent<HTMLButtonElement>) {
-    if (mobileDragRef.current?.pointerId !== event.pointerId) return
-
-    mobileDragRef.current = null
-    const popup = mobileSheetRef.current
-
-    if (!popup) return
-    restoreMobileSheet(popup, readTranslateY(popup.style.translate))
-  }
-
-  function restoreMobileSheet(popup: HTMLDivElement, offset: number) {
-    if (offset <= 4) {
-      popup.style.translate = ''
-      popup.style.transition = ''
-
-      return
-    }
-
-    releaseMobileStyles(popup)
-  }
-
-  function clearMobileFrame() {
-    if (mobileFrameRef.current !== null) cancelAnimationFrame(mobileFrameRef.current)
-    mobileFrameRef.current = null
-  }
-
-  function releaseMobileStyles(popup: HTMLDivElement) {
-    clearMobileFrame()
-
-    mobileFrameRef.current = requestAnimationFrame(() => {
-      mobileFrameRef.current = null
-      popup.style.transition = ''
-      popup.style.translate = ''
-    })
-  }
-
-  function dismissMobileSheet(popup: HTMLDivElement) {
-    setOpen(false)
-    releaseMobileStyles(popup)
-  }
-
-  function freezeMobileSheet(popup: HTMLDivElement) {
-    const translate = getComputedStyle(popup).translate
-    const offset = readTranslateY(translate)
-
-    if (offset <= 0) return 0
-
-    clearMobileFrame()
-    popup.style.transition = 'none'
-    popup.style.translate = translate === 'none' ? '' : translate
-
-    return offset
-  }
-
   function closeMenu() {
-    const popup = mobileSheetRef.current
-
-    if (popup && freezeMobileSheet(popup) > 0) {
-      dismissMobileSheet(popup)
-
-      return
-    }
-
-    setOpen(false)
+    if (desktop) setOpen(false)
+    else closeMobileSheet()
   }
 
   function changeOpen(nextOpen: boolean) {
@@ -240,19 +98,7 @@ export function BurgerMenu({
             type="button"
             aria-label={t(keys.nav.close)}
             className="mx-auto flex h-11 w-16 shrink-0 cursor-grab touch-none items-center justify-center rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/40 active:cursor-grabbing"
-            onClick={() => {
-              if (suppressHandleClickRef.current) {
-                suppressHandleClickRef.current = false
-
-                return
-              }
-
-              closeMenu()
-            }}
-            onPointerDown={beginMobileDrag}
-            onPointerMove={moveMobileDrag}
-            onPointerUp={endMobileDrag}
-            onPointerCancel={cancelMobileDrag}
+            {...mobileSheetHandleProps}
           >
             <span className="h-1 w-10 rounded-full bg-border" />
           </button>
@@ -266,7 +112,7 @@ export function BurgerMenu({
             to={sparringPath}
             onClick={closeMenu}
             aria-current={isNewMatchRoute ? 'page' : undefined}
-            className="flex min-h-12 items-center rounded-md px-3 text-text-lo outline-none hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring/40 aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-foreground"
+            className="flex min-h-12 items-center rounded-md px-3 text-muted-foreground outline-none hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring/40 aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-foreground"
           >
             {t(keys.nav.newGame)}
           </Link>
@@ -274,10 +120,12 @@ export function BurgerMenu({
             to={localizedPath('/sparring/matches/', currentLocale)}
             onClick={closeMenu}
             aria-current={isMatchesRoute ? 'page' : undefined}
-            className="flex min-h-12 items-center justify-between rounded-md px-3 text-text-lo outline-none hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring/40 aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-foreground"
+            className="flex min-h-12 items-center justify-between rounded-md px-3 text-muted-foreground outline-none hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring/40 aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-foreground"
           >
             <span>{t(keys.nav.matches)}</span>
-            {matchCount === undefined ? null : <span className="text-text-lo tabular-nums">{matchCount}</span>}
+            {matchCount === undefined ? null : (
+              <span className="text-muted-foreground tabular-nums">{matchCount}</span>
+            )}
           </Link>
         </nav>
 
@@ -364,22 +212,11 @@ export function BurgerMenu({
       >
         <HamburgerIcon />
       </SheetTrigger>
-      <SheetContent
-        ref={mobileSheetRef}
-        className="inset-x-0 top-auto bottom-0 max-h-[calc(100dvh-1rem)] w-full rounded-t-2xl border-t border-r-0 border-b-0 border-l-0 data-ending-style:translate-x-0 data-ending-style:translate-y-full data-starting-style:translate-x-0 data-starting-style:translate-y-8 motion-reduce:transition-none"
-      >
+      <SheetContent ref={mobileSheetPopupRef} side="bottom" className="motion-reduce:transition-none">
         {content}
       </SheetContent>
     </Sheet>
   )
-}
-
-function readTranslateY(translate: string) {
-  if (translate.length === 0 || translate === 'none') return 0
-
-  const value = translate.trim().split(/\s+/).at(-1)
-
-  return Number.parseFloat(value ?? '0') || 0
 }
 
 function subscribeDesktop(onChange: () => void) {

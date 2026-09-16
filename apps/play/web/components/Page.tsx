@@ -17,7 +17,7 @@ export function Page({ title, backLink, children, className }: PageProps) {
         {backLink ? (
           <Link
             to={backLink.to}
-            className="mb-1 inline-flex min-h-11 items-center gap-1 text-[17px] text-text-lo outline-none hover:text-foreground focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-ring/40"
+            className="mb-1 inline-flex min-h-11 items-center gap-1 text-[17px] text-muted-foreground outline-none hover:text-foreground focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-ring/40"
           >
             <ChevronLeftIcon />
             {backLink.label}

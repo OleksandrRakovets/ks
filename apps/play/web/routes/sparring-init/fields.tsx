@@ -16,6 +16,7 @@ import {
 
 export { FirstBreakerField } from './first-breaker-toss'
 
+import { firstName } from './player-name'
 import type { MatchCreateProfile } from './profile'
 
 export function PlayerNameFields(props: {
@@ -191,7 +192,11 @@ export function RackRolloverField(props: { profile: MatchCreateProfile }) {
         onValueChange={(nextValue) => {
           const selected = nextValue.at(0)
 
-          if (selected === '14' || selected === '15') setValue(selected === '14' ? 14 : 15)
+          const selectedOption = props.profile.rackRollover?.options.find(
+            (option) => String(option) === selected,
+          )
+
+          if (selectedOption !== undefined) setValue(selectedOption)
         }}
         aria-labelledby="rack-rollover-heading"
         className="grid h-[62px] w-full grid-cols-2 gap-1"
@@ -202,7 +207,7 @@ export function RackRolloverField(props: { profile: MatchCreateProfile }) {
             value={String(value)}
             className="flex h-full flex-col items-center justify-center gap-0 px-2 text-base data-pressed:border data-pressed:border-green data-pressed:bg-green-tint"
           >
-            <span className="font-semibold">{t(keys.match.sparring.rackRolloverBalls, { count: value })}</span>
+            <span className="font-semibold">{t(keys.match.sparring.rackRolloverBalls, { value })}</span>
             <span className="text-base font-normal text-muted-foreground">
               {value === 14
                 ? t(keys.match.sparring.rackRolloverPreferred)
@@ -213,8 +218,4 @@ export function RackRolloverField(props: { profile: MatchCreateProfile }) {
       </ToggleGroup>
     </section>
   )
-}
-
-function firstName(displayName: string): string {
-  return displayName.trim().split(/\s+/u)[0] ?? displayName
 }

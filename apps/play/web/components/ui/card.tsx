@@ -23,7 +23,7 @@ function CardTitle({ className, ...props }: React.ComponentProps<'div'>) {
 }
 
 function CardDescription({ className, ...props }: React.ComponentProps<'p'>) {
-  return <p className={cn('text-base leading-relaxed text-text-lo', className)} {...props} />
+  return <p className={cn('text-base leading-relaxed text-muted-foreground', className)} {...props} />
 }
 
 function CardContent({ className, ...props }: React.ComponentProps<'div'>) {
