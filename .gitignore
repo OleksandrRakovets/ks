@@ -17,6 +17,7 @@ build/
 .vite/
 .turbo/
 .opencode/
+.amp/*
 
 # Logs
 logs/

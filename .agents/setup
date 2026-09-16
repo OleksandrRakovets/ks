@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly NODE_MAJOR="26"
 readonly ROBOTO_RELEASE_TAG="v3.016"
 readonly ROBOTO_ARCHIVE_SHA256="1653dbe12f248da8fb0b9920db7b9496cd677ed3981154f6f15285c8bd4e334f"
 readonly ROBOTO_FONT_SHA256="07f56c49cba5aa0c36f0c8295ffe2e39578e8459a743a7a619ad094b483ba857"
@@ -10,6 +9,10 @@ readonly ROBOTO_ARCHIVE_URL="https://github.com/googlefonts/roboto-3-classic/rel
 repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 local_bin="${HOME}/.local/bin"
 local_share="${HOME}/.local/share"
+setup_marker="${repo_root}/.amp/setup-complete"
+
+mkdir -p "${repo_root}/.amp"
+rm -f "$setup_marker"
 
 if [[ "$(uname -m)" != "x86_64" ]]; then
   echo "Unsupported architecture: $(uname -m) (expected x86_64)" >&2
@@ -17,41 +20,6 @@ if [[ "$(uname -m)" != "x86_64" ]]; then
 fi
 
 mkdir -p "$local_bin" "$local_share"
-
-install_node() {
-  local current
-  if [[ -x "${local_bin}/node" ]]; then
-    current="$("${local_bin}/node" --version)"
-    if [[ "${current}" == "v${NODE_MAJOR}."* ]]; then
-      echo "Node ${current} already installed."
-      return
-    fi
-    echo "Node ${current} installed, wanted v${NODE_MAJOR}.x — upgrading..."
-  fi
-
-  # Latest patch of the pinned major; no SHA pin (HTTPS is the integrity check).
-  local version install_dir
-  version="$(curl --fail --location --silent --show-error https://nodejs.org/dist/index.json \
-    | NODE_MAJOR="${NODE_MAJOR}" python3 -c 'import json,os,sys; print(next(e["version"].removeprefix("v") for e in json.load(sys.stdin) if e["version"].startswith("v" + os.environ["NODE_MAJOR"] + ".") and "-" not in e["version"]))')"
-  install_dir="${local_share}/node-v${version}"
-
-  if [[ ! -x "${install_dir}/bin/node" ]]; then
-    echo "Installing Node.js v${version}..."
-    local temp_dir archive
-    temp_dir="$(mktemp -d)"
-    archive="${temp_dir}/node.tar.xz"
-    curl --fail --location --silent --show-error \
-      "https://nodejs.org/dist/v${version}/node-v${version}-linux-x64.tar.xz" \
-      --output "$archive"
-    mkdir -p "$install_dir"
-    tar -xJf "$archive" --strip-components=1 -C "$install_dir"
-    rm -rf "$temp_dir"
-  fi
-
-  for command in node npm npx corepack; do
-    ln -sfn "${install_dir}/bin/${command}" "${local_bin}/${command}"
-  done
-}
 
 install_bun() {
   # Only the major.minor of packageManager is enforced; patch floats (rolling).
@@ -215,7 +183,6 @@ PY
 
 cd "$repo_root"
 install_roboto
-install_node
 install_bun
 export PATH="${local_bin}:${PATH}"
 
@@ -230,5 +197,8 @@ bun install --frozen-lockfile
 
 echo "Applying local D1 migrations..."
 CI=1 bun run db:migrate:local
+
+setup_checksum="$(sha256sum "${repo_root}/.agents/setup")"
+printf '%s\n' "${setup_checksum%% *}" > "$setup_marker"
 
 echo "Orb setup complete. Start development with: bun run dev"

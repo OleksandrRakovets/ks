@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+setup_marker="${repo_root}/.amp/setup-complete"
+setup_checksum="$(sha256sum "${repo_root}/.agents/setup")"
+expected_checksum="${setup_checksum%% *}"
+actual_checksum="$(cat "$setup_marker" 2>/dev/null || true)"
+
+if [[ "$actual_checksum" != "$expected_checksum" ]]; then
+  echo "Orb setup did not complete for the current .agents/setup." >&2
+  echo "Inspect ~/.cache/amp/logs/setup.log, then rerun .agents/setup." >&2
+  exit 1
+fi
