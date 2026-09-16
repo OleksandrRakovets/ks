@@ -1,7 +1,13 @@
 import { Popover } from '@base-ui/react/popover'
 import { keys } from '@ks/i18n'
 import type { SupportedLocale } from '@ks/i18n'
-import { type PointerEvent as ReactPointerEvent, useRef, useState, useSyncExternalStore } from 'react'
+import {
+  type PointerEvent as ReactPointerEvent,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useFetcher, useLocation } from 'react-router'
 
@@ -39,9 +45,11 @@ export function BurgerMenu({
 }) {
   const [open, setOpen] = useState(false)
   const mobileSheetRef = useRef<HTMLDivElement>(null)
+  const mobileFrameRef = useRef<number | null>(null)
 
   const mobileDragRef = useRef<{
     pointerId: number
+    startOffset: number
     startTime: number
     startY: number
   } | null>(null)
@@ -54,6 +62,13 @@ export function BurgerMenu({
   const { t } = useTranslation()
   const desktop = useSyncExternalStore(subscribeDesktop, isDesktop, () => false)
   const sparringPath = localizedPath('/sparring/', currentLocale)
+
+  useEffect(() => {
+    return () => {
+      if (mobileFrameRef.current !== null) cancelAnimationFrame(mobileFrameRef.current)
+      mobileFrameRef.current = null
+    }
+  }, [desktop])
 
   const isNewMatchRoute =
     location.pathname === sparringPath || location.pathname.startsWith(`${sparringPath}init/`)
@@ -72,15 +87,24 @@ export function BurgerMenu({
     if (!event.isPrimary) return
 
     const popup = mobileSheetRef.current
+    const translate = popup ? getComputedStyle(popup).translate : ''
+    const startOffset = readTranslateY(translate)
+
+    clearMobileFrame()
+
+    if (popup) {
+      popup.style.transition = 'none'
+      popup.style.translate = translate === 'none' ? '' : translate
+    }
 
     mobileDragRef.current = {
       pointerId: event.pointerId,
+      startOffset,
       startTime: event.timeStamp,
       startY: event.clientY,
     }
     suppressHandleClickRef.current = false
 
-    if (popup) popup.style.transition = 'none'
     event.currentTarget.setPointerCapture(event.pointerId)
   }
 
@@ -90,8 +114,9 @@ export function BurgerMenu({
 
     if (!drag || drag.pointerId !== event.pointerId || !popup) return
 
-    const offset = Math.max(0, event.clientY - drag.startY)
-    suppressHandleClickRef.current ||= offset > 4
+    const movement = event.clientY - drag.startY
+    const offset = Math.max(0, drag.startOffset + movement)
+    suppressHandleClickRef.current ||= Math.abs(movement) > 4
     popup.style.translate = `0 ${offset}px`
   }
 
@@ -102,41 +127,25 @@ export function BurgerMenu({
     if (!drag || drag.pointerId !== event.pointerId || !popup) return
 
     mobileDragRef.current = null
-    const offset = Math.max(0, event.clientY - drag.startY)
+    const movement = event.clientY - drag.startY
+    const offset = Math.max(0, drag.startOffset + movement)
 
-    if (offset <= 4) {
-      popup.style.translate = ''
-      popup.style.transition = ''
+    if (Math.abs(movement) <= 4) {
+      restoreMobileSheet(popup, drag.startOffset)
 
       return
     }
 
-    const velocity = offset / Math.max(event.timeStamp - drag.startTime, 1)
+    const velocity = Math.max(0, movement) / Math.max(event.timeStamp - drag.startTime, 1)
     const dismiss = offset > Math.min(96, popup.offsetHeight * 0.2) || velocity > 0.55
 
     if (dismiss) {
-      setOpen(false)
-      requestAnimationFrame(() => {
-        popup.style.translate = ''
-        popup.style.transition = ''
-      })
+      dismissMobileSheet(popup)
 
       return
     }
 
-    const animation = popup.animate([{ translate: `0 ${offset}px` }, { translate: '0 0' }], {
-      duration: 200,
-      easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
-      fill: 'forwards',
-    })
-
-    void animation.finished
-      .then(() => {
-        animation.cancel()
-        popup.style.translate = ''
-        popup.style.transition = ''
-      })
-      .catch(() => undefined)
+    restoreMobileSheet(popup, offset)
   }
 
   function cancelMobileDrag(event: ReactPointerEvent<HTMLButtonElement>) {
@@ -146,21 +155,68 @@ export function BurgerMenu({
     const popup = mobileSheetRef.current
 
     if (!popup) return
-    const offset = popup.style.translate || '0 0'
+    restoreMobileSheet(popup, readTranslateY(popup.style.translate))
+  }
 
-    const animation = popup.animate([{ translate: offset }, { translate: '0 0' }], {
-      duration: 200,
-      easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
-      fill: 'forwards',
+  function restoreMobileSheet(popup: HTMLDivElement, offset: number) {
+    if (offset <= 4) {
+      popup.style.translate = ''
+      popup.style.transition = ''
+
+      return
+    }
+
+    releaseMobileStyles(popup)
+  }
+
+  function clearMobileFrame() {
+    if (mobileFrameRef.current !== null) cancelAnimationFrame(mobileFrameRef.current)
+    mobileFrameRef.current = null
+  }
+
+  function releaseMobileStyles(popup: HTMLDivElement) {
+    clearMobileFrame()
+
+    mobileFrameRef.current = requestAnimationFrame(() => {
+      mobileFrameRef.current = null
+      popup.style.transition = ''
+      popup.style.translate = ''
     })
+  }
 
-    void animation.finished
-      .then(() => {
-        animation.cancel()
-        popup.style.translate = ''
-        popup.style.transition = ''
-      })
-      .catch(() => undefined)
+  function dismissMobileSheet(popup: HTMLDivElement) {
+    setOpen(false)
+    releaseMobileStyles(popup)
+  }
+
+  function freezeMobileSheet(popup: HTMLDivElement) {
+    const translate = getComputedStyle(popup).translate
+    const offset = readTranslateY(translate)
+
+    if (offset <= 0) return 0
+
+    clearMobileFrame()
+    popup.style.transition = 'none'
+    popup.style.translate = translate === 'none' ? '' : translate
+
+    return offset
+  }
+
+  function closeMenu() {
+    const popup = mobileSheetRef.current
+
+    if (popup && freezeMobileSheet(popup) > 0) {
+      dismissMobileSheet(popup)
+
+      return
+    }
+
+    setOpen(false)
+  }
+
+  function changeOpen(nextOpen: boolean) {
+    if (nextOpen) setOpen(true)
+    else closeMenu()
   }
 
   const content = (
@@ -191,7 +247,7 @@ export function BurgerMenu({
                 return
               }
 
-              setOpen(false)
+              closeMenu()
             }}
             onPointerDown={beginMobileDrag}
             onPointerMove={moveMobileDrag}
@@ -208,7 +264,7 @@ export function BurgerMenu({
           <h2 className="px-3 py-1 text-base font-semibold">{t(keys.nav.sparring)}</h2>
           <Link
             to={sparringPath}
-            onClick={() => setOpen(false)}
+            onClick={closeMenu}
             aria-current={isNewMatchRoute ? 'page' : undefined}
             className="flex min-h-12 items-center rounded-md px-3 text-text-lo outline-none hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring/40 aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-foreground"
           >
@@ -216,7 +272,7 @@ export function BurgerMenu({
           </Link>
           <Link
             to={localizedPath('/sparring/matches/', currentLocale)}
-            onClick={() => setOpen(false)}
+            onClick={closeMenu}
             aria-current={isMatchesRoute ? 'page' : undefined}
             className="flex min-h-12 items-center justify-between rounded-md px-3 text-text-lo outline-none hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring/40 aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-foreground"
           >
@@ -280,7 +336,7 @@ export function BurgerMenu({
 
   if (desktop) {
     return (
-      <Popover.Root open={open} onOpenChange={setOpen}>
+      <Popover.Root open={open} onOpenChange={changeOpen}>
         <Popover.Trigger
           render={<Button variant="ghost" size="icon" aria-label={t(keys.nav.menu)} />}
           className="size-11 active:translate-y-0"
@@ -299,7 +355,7 @@ export function BurgerMenu({
   }
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
+    <Sheet open={open} onOpenChange={changeOpen}>
       <SheetTrigger
         render={<Button variant="ghost" size="icon" aria-label={t(keys.nav.menu)} />}
         className={
@@ -316,6 +372,14 @@ export function BurgerMenu({
       </SheetContent>
     </Sheet>
   )
+}
+
+function readTranslateY(translate: string) {
+  if (translate.length === 0 || translate === 'none') return 0
+
+  const value = translate.trim().split(/\s+/).at(-1)
+
+  return Number.parseFloat(value ?? '0') || 0
 }
 
 function subscribeDesktop(onChange: () => void) {

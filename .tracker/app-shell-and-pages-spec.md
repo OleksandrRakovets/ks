@@ -82,7 +82,9 @@ vestigial and it is now the app layout).
 Same content at every width. Below 768px, use the existing `Sheet` primitive as a bottom sheet
 with a vertical entrance. On desktop, use a compact popup anchored below and right-aligned to
 the burger. Do not combine horizontal centering transforms with entrance translation. The mobile
-handle closes on tap and supports downward drag-to-dismiss; an incomplete drag snaps back.
+handle closes on tap and supports downward drag-to-dismiss; an incomplete drag snaps back. The
+desktop close control is absolutely positioned at the popup's top right rather than consuming a
+row. The burger trigger does not use the standard button's pressed translation.
 
 Structure, top to bottom:
 
@@ -181,6 +183,8 @@ Same flow and the same fields. Presentation only.
   into. Do not add visible suggestion chips — they duplicate a control the platform already gives
   us and they take a row each.
 - Settings appear only once both names are valid and differ, exactly as today.
+- Do not preview those later controls in a dimmed or disabled state; the sparse pre-validation
+  state is intentional.
 - `До скількох перемог` is a stepper with 54px targets. Absent for `free-pyramid-long`, which is
   fixed at one frame. The existing `longFreePyramidFrameHelp` box can go: the label on the targets
   field says `Гра до` instead of `Партія до`, and there is no race field, which together say it.
@@ -193,6 +197,12 @@ concept and no collapsed summary — equal targets are just the common default o
 Render it as two compact cards side by side, each with the player's **first name** at 15px above a
 26px tabular numeral input. The current `FrameTargetFields` is right in structure and only too
 heavy visually — a full `Label` and `NumberInput` stack each.
+
+Numeric Setup inputs select their existing value on focus or click so a table-side edit can replace
+it immediately; player-name inputs retain normal caret behaviour. Focus on a per-seat target uses
+one bright green ring and glow around the whole card, with no second outline around the nested
+input. Keep the 26px numeral on a normal 31.2px single-line height rather than forcing line-height
+to `1`.
 
 Label: `Партія до` for multi-frame games, `Гра до` for `free-pyramid-long`.
 
@@ -246,8 +256,8 @@ larger text. The audit found the app currently bottoms out at 12px in `Badge`, `
 occurrences across 11 files, so this is a mechanical pass over `components/ui`, not a redesign.
 
 Colour follows the control screen: green commits, amber is reserved, red is failure, and there are
-no per-seat hues. The light theme is unresolved and unloved; treat dark as the reference and do not
-tune light beyond legibility in this work.
+no per-seat hues. Dark remains the reference; light must preserve legibility and contrast but does
+not need a separate visual reinterpretation.
 
 No webfont. System stack, for club connections.
 
