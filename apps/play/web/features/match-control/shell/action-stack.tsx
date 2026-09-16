@@ -74,7 +74,7 @@ export function ActionStack(props: {
   )
 }
 
-export function Zone(props: {
+function Zone(props: {
   kind: 'primary' | 'secondary'
   controls: ControlSections['primary']
   renderControl: (control: Control, index: number) => ControlPresentation

@@ -67,7 +67,7 @@ export async function loadMatchControl<K extends RegisteredGameKey>(
   return { ...result, gameTitle: registry[expectedGameKey].meta.title[locale] }
 }
 
-export async function loadMatchProtocol<K extends RegisteredGameKey>(
+async function loadMatchProtocol<K extends RegisteredGameKey>(
   args: RouteArgs,
   expectedGameKey: K,
 ): Promise<ProtocolRouteData<K>> {
