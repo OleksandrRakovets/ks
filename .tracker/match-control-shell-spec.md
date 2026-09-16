@@ -98,9 +98,11 @@ The **only** rule on this screen is the lane spine. It divides two otherwise ide
 which is what a line is for. Do not reintroduce borders between the Board and the stack, above the
 Secondary zone, above the Last Action Bar, or under the top bar.
 
-- At `≥768px` the shell content is capped at `560px` and centred. This is deliberate: the screen
-  is a phone-shaped task surface used at the table, and a wide desktop variant would need its own
-  interaction study. Revisit only with evidence.
+- The shell width is `min(100%, --container-match)`, where `--container-match` is `35rem` (`560px`).
+  It is therefore fluid on narrow phones and remains centred at one consistent width on tablets
+  and larger viewports. This is deliberate: the screen is a phone-shaped task surface used at the
+  table, and a wide desktop variant would need its own interaction study. Revisit only with
+  evidence.
 
 ## 4. Top bar
 

@@ -31,7 +31,7 @@ export function OverflowSheet(props: {
       >
         <EllipsisIcon />
       </SheetTrigger>
-      <SheetContent className="inset-x-0 top-auto bottom-0 mx-auto h-auto max-h-[calc(100dvh-1rem)] w-full max-w-[560px] rounded-t-[20px] border-0 bg-raised pb-[max(18px,env(safe-area-inset-bottom))] data-ending-style:translate-x-0 data-ending-style:translate-y-8 data-starting-style:translate-x-0 data-starting-style:translate-y-8">
+      <SheetContent className="inset-x-0 top-auto bottom-0 mx-auto h-auto max-h-[calc(100dvh-1rem)] w-full max-w-match rounded-t-[20px] border-0 bg-raised pb-[max(18px,env(safe-area-inset-bottom))] data-ending-style:translate-x-0 data-ending-style:translate-y-8 data-starting-style:translate-x-0 data-starting-style:translate-y-8">
         <div aria-hidden className="mx-auto mt-2 h-1 w-12 rounded-full bg-[var(--t-muted)]" />
         <SheetHeader className="flex-row items-center justify-between border-0 px-4 pt-4 pb-2">
           <SheetTitle className="text-[19px]">{t(keys.match.control.otherActions)}</SheetTitle>

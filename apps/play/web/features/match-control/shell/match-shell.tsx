@@ -27,7 +27,7 @@ export function MatchShell<K extends RegisteredGameKey>(props: {
   const controlSections = groupControlsIntoSections(props.data.controls)
 
   return (
-    <main className="mx-auto flex h-dvh w-full max-w-[560px] flex-col overflow-hidden bg-background text-foreground">
+    <main className="mx-auto flex h-dvh w-full max-w-match flex-col overflow-hidden bg-background text-foreground">
       <header className="flex h-[52px] shrink-0 items-center gap-3 px-1.5">
         <Link
           to={localizedPath('/sparring/matches/', locale)}

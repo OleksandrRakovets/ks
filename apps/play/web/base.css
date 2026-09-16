@@ -1,6 +1,11 @@
 @import 'tailwindcss';
 @import './components/ui/styles.css';
 
+@theme {
+  --container-app: 44rem;
+  --container-match: 35rem;
+}
+
 html,
 body {
   height: 100%;
