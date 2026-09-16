@@ -31,13 +31,7 @@ const LOCALE_OPTIONS: { value: SupportedLocale; labelKey: string }[] = [
   { value: 'en', labelKey: keys.language.english },
 ]
 
-export function BurgerMenu({
-  matchCount,
-  placement,
-}: {
-  matchCount?: number
-  placement?: 'header' | 'navigation'
-}) {
+export function BurgerMenu({ placement }: { placement?: 'header' | 'navigation' }) {
   const [open, setOpen] = useState(false)
   const currentLocale = useRootLocale()
   const currentTheme = useRootTheme()
@@ -120,12 +114,9 @@ export function BurgerMenu({
             to={localizedPath('/sparring/matches/', currentLocale)}
             onClick={closeMenu}
             aria-current={isMatchesRoute ? 'page' : undefined}
-            className="flex min-h-12 items-center justify-between rounded-md px-3 text-muted-foreground outline-none hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring/40 aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-foreground"
+            className="flex min-h-12 items-center rounded-md px-3 text-muted-foreground outline-none hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring/40 aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-foreground"
           >
-            <span>{t(keys.nav.matches)}</span>
-            {matchCount === undefined ? null : (
-              <span className="text-muted-foreground tabular-nums">{matchCount}</span>
-            )}
+            {t(keys.nav.matches)}
           </Link>
         </nav>
 

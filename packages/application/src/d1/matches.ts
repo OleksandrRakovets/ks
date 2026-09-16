@@ -6,16 +6,6 @@ import type { ApplicationDatabase } from './types'
 
 const visibleMatchStatuses = [StoredMatchStatus.active, StoredMatchStatus.finished]
 
-export async function countMatchRows(db: ApplicationDatabase): Promise<number> {
-  const result = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(matches)
-    .where(inArray(matches.status, visibleMatchStatuses))
-    .get()
-
-  return result?.count ?? 0
-}
-
 export async function listMatchRows(db: ApplicationDatabase) {
   return db
     .select({

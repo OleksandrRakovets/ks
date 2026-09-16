@@ -7,7 +7,7 @@ import { useRootLocale } from '../root'
 import { BrandWordmark } from './BrandWordmark'
 import { BurgerMenu } from './BurgerMenu'
 
-export function AppShell({ matchCount }: { matchCount: number }) {
+export function AppShell() {
   const { t } = useTranslation()
   const locale = useRootLocale()
 
@@ -19,7 +19,7 @@ export function AppShell({ matchCount }: { matchCount: number }) {
       >
         <BrandWordmark className="h-[34px] w-auto" title={t(keys.appTitle)} />
       </Link>
-      <BurgerMenu matchCount={matchCount} />
+      <BurgerMenu />
     </header>
   )
 }

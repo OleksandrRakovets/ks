@@ -88,9 +88,8 @@ row. The burger trigger does not use the standard button's pressed translation.
 
 Structure, top to bottom:
 
-1. **Sparring section**, at 16px/600: `Нова гра`, and `Матчі` with a count. Do not show
-   placeholders for Clubs or Tournaments. Active navigation uses a filled surface, not the
-   old navigation underline.
+1. **Sparring section**, at 16px/600: `Нова гра` and `Матчі`. Do not show placeholders for Clubs or
+   Tournaments. Active navigation uses a filled surface, not the old navigation underline.
 2. Separator.
 3. **Тема** — label left, `ToggleGroup` right, on one row.
 4. **Мова** — label left, `ToggleGroup` right, on one row. Language currently uses two `Button`s;
@@ -102,8 +101,7 @@ sheet with `aria-label`.
 
 **Naming caution.** `listMatches` takes no owner and `listMatchRecords()` has no filter, so the
 list is every match ever created by anyone. Call the entry `Матчі`, not `Мої матчі`, until identity
-exists. The count is similarly global. The App Shell reads that count through a dedicated scalar
-query; it must not load and hydrate the unbounded list merely to take its length.
+exists. Do not show a global count in the menu.
 
 ## 5. Page frame
 

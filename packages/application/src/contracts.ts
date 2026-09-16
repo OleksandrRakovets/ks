@@ -109,7 +109,6 @@ export type ReadMatchProtocolResult<K extends RegisteredGameKey> =
 
 export type Application = {
   createMatch(input: CreateMatchInput): Promise<CreateMatchResult>
-  countMatches(): Promise<number>
   listMatches(locale: SupportedLocale): Promise<MatchListEntry[]>
   readMatchControl<K extends RegisteredGameKey>(
     matchId: MatchId,

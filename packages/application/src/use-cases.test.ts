@@ -72,7 +72,6 @@ function application(
       displayName: playerRef,
       shortDisplayName: playerRef,
     }),
-    countMatchRecords: async () => 0,
     listMatchRecords: async () => [],
     getMatchRecord: async () => ({
       matchId,

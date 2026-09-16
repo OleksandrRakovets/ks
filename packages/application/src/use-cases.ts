@@ -50,7 +50,6 @@ type ApplicationDependencies = {
   now(): UnixEpochMilliseconds
   getOrCreateGuestPlayerRef(displayName: string): Promise<PlayerRef>
   hydrateParticipant(playerRef: PlayerRef, locale: SupportedLocale): Promise<HydratedMatchParticipant>
-  countMatchRecords(): Promise<number>
   listMatchRecords(): Promise<MatchRecord[]>
   getMatchRecord(matchId: MatchId): Promise<MatchRecord | null>
   getProtocolArchive(matchId: MatchId): Promise<ProtocolArchiveRecord | null>
@@ -132,10 +131,6 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     await dependencies.activateMatch(matchId)
 
     return { ok: true, matchId }
-  }
-
-  async function countMatches(): Promise<number> {
-    return dependencies.countMatchRecords()
   }
 
   async function listMatches(locale: SupportedLocale): Promise<MatchListEntry[]> {
@@ -358,7 +353,6 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
 
   return {
     createMatch,
-    countMatches,
     listMatches,
     readMatchControl,
     submitMatchCommand,

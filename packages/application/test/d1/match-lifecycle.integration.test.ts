@@ -14,7 +14,7 @@ import { beforeEach, describe, expect, test } from 'vitest'
 
 import { archiveCompletedMatch, markMatchFinished, MatchCompletionError } from '../../src/d1/completed-matches'
 import { activateMatch, type ActiveMatchCatalogInput, beginMatchCreation } from '../../src/d1/match-lifecycle'
-import { countMatchRows, getMatchRow, listMatchRows } from '../../src/d1/matches'
+import { getMatchRow, listMatchRows } from '../../src/d1/matches'
 import { getProtocolArchive } from '../../src/d1/protocol-archives'
 import { createApplicationDatabaseClient } from '../../src/d1/types'
 import type { MatchRoomCompletionTransfer } from '../../src/match-room-client'
@@ -121,7 +121,6 @@ describe('real D1 match lifecycle', () => {
 
     expect(await getMatchRow(db, matchId)).toMatchObject({ matchId, status: 'active' })
     expect((await listMatchRows(db)).map((row) => row.matchId)).toEqual([newestMatchId, matchId, otherMatchId])
-    expect(await countMatchRows(db)).toBe(3)
 
     const archive = completedMatchTransfer()
     await archiveCompletedMatch(db, archive)
