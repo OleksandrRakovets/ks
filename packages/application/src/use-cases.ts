@@ -30,6 +30,7 @@ import type {
 import {
   ProtocolArchiveCorruptionError,
   type ProtocolArchiveRecord,
+  renderLastCorrectableProtocolRow,
   renderProtocolRows,
   UnsupportedProtocolArchiveVersionError,
 } from './protocol'
@@ -73,6 +74,7 @@ type ReadKeyedMatchSuccess<K extends RegisteredGameKey> = {
   participants: HydratedMatchParticipants
   game?: GamePresentationFor<K>
   controls: readonly Control[]
+  lastEntry?: NonNullable<ReturnType<typeof renderLastCorrectableProtocolRow>>
 }
 
 type ReadKeyedMatchResult<K extends RegisteredGameKey> = ReadKeyedMatchSuccess<K> | ReadMatchFailure
@@ -167,7 +169,8 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
 
     if (record.status !== 'active') return { ok: false, error: 'Unknown match', status: 404 }
 
-    const roomResult = await dependencies.matchRoomClient(matchId).getControls()
+    const roomClient = dependencies.matchRoomClient(matchId)
+    const roomResult = await roomClient.getControls()
 
     if (roomResult._tag === 'finalizing') {
       await archiveAndFinishRoom(matchId)
@@ -178,13 +181,38 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     if (roomResult.state.matchId !== matchId || roomResult.state.gameKey !== expectedGameKey)
       throw new Error('MatchRoom active identity conflicts with D1')
 
+    const protocolResult = await roomClient.getProtocol()
+
+    if (protocolResult._tag === 'finalizing') {
+      await archiveAndFinishRoom(matchId)
+
+      return readArchivedMatch(record, locale, expectedGameKey)
+    }
+
+    if (protocolResult.state.matchId !== matchId || protocolResult.state.gameKey !== expectedGameKey)
+      throw new Error('MatchRoom active identity conflicts with D1')
+
+    if (protocolResult.latestSeq < roomResult.latestSeq)
+      throw new Error('MatchRoom Protocol cursor trails its Control projection')
+
+    const participants = await hydrateParticipants(record, locale)
+    const seatNames = { A: participants.A.displayName, B: participants.B.displayName }
+
+    const lastEntry = renderLastCorrectableProtocolRow(
+      protocolResult.protocolEntries,
+      seatNames,
+      roomResult.latestSeq,
+    )
+
     const result: ReadKeyedMatchSuccess<K> = {
       ok: true,
       state: { ...roomResult.state, gameKey: expectedGameKey },
       latestSeq: roomResult.latestSeq,
-      participants: await hydrateParticipants(record, locale),
+      participants,
       controls: roomResult.controls,
     }
+
+    if (lastEntry !== undefined) result.lastEntry = lastEntry
 
     if (roomResult.game !== undefined) {
       result.game = roomResult.game

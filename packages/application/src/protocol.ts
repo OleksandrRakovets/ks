@@ -47,6 +47,8 @@ export type ProtocolRow = Readonly<{
   timeLabel: string
 }>
 
+type ProtocolConfirmationRow = Pick<ProtocolRow, 'key' | 'message' | 'score'>
+
 const ProtocolBall = v.picklist([0, 1, 2, 3, 4, 5, 6, 7])
 
 type ProtocolBall = v.InferOutput<typeof ProtocolBall>
@@ -205,4 +207,36 @@ export function renderProtocolRows(
       }),
     }
   })
+}
+
+/**
+ * Selects the latest player-authored entry for the control surface's confirmation line.
+ *
+ * One Accepted Command can append system entries after the player's entry (for example winner
+ * determination and frame completion). Those entries remain in Protocol, but showing one here
+ * would hide the participant and table-side action that a future Correction could compensate for.
+ */
+export function renderLastCorrectableProtocolRow(
+  entries: readonly ProtocolEntry[],
+  seatNames: SeatNames,
+  maxAcceptedSeq: number,
+): ProtocolConfirmationRow | undefined {
+  let entry: ProtocolEntry | undefined
+
+  for (let index = entries.length - 1; index >= 0; index -= 1) {
+    const candidate = entries[index]
+
+    if (candidate && candidate.acceptedSeq <= maxAcceptedSeq && candidate.source === 'player') {
+      entry = candidate
+      break
+    }
+  }
+
+  if (!entry) return undefined
+
+  return {
+    key: `protocol-${entry.acceptedSeq}-${entry.entryIndex}`,
+    message: entryMessage(entry, seatNames),
+    score: entry.scoreAfter,
+  }
 }

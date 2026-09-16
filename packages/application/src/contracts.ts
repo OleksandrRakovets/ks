@@ -67,6 +67,8 @@ export type ReadMatchControlResult<K extends RegisteredGameKey> =
       readonly game: GamePresentationFor<K>
       readonly controls: readonly Control[]
       readonly participants: HydratedMatchParticipants
+      /** Most recent player-authored Protocol row suitable for the control surface's confirmation line. */
+      readonly lastEntry?: Pick<ProtocolRow, 'key' | 'message' | 'score'>
     }
   | {
       readonly ok: true
@@ -76,6 +78,8 @@ export type ReadMatchControlResult<K extends RegisteredGameKey> =
       readonly game?: never
       readonly controls: readonly Control[]
       readonly participants: HydratedMatchParticipants
+      /** Most recent player-authored Protocol row suitable for the control surface's confirmation line. */
+      readonly lastEntry?: Pick<ProtocolRow, 'key' | 'message' | 'score'>
     }
   | {
       readonly ok: true

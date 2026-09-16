@@ -10,6 +10,7 @@
   --t-primary: oklch(95% 0.006 155);
   --t-secondary: oklch(63% 0.01 155);
   --t-muted: oklch(40% 0.008 155);
+  --bone: #f2ede1;
 
   --a-green: oklch(60% 0.16 152);
   --a-green-dim: oklch(60% 0.16 152 / 0.18);
@@ -38,6 +39,7 @@
   --t-primary: oklch(13% 0.022 158);
   --t-secondary: oklch(36% 0.016 158);
   --t-muted: oklch(54% 0.012 158);
+  --bone: #18211c;
 
   --a-green: oklch(38% 0.18 152);
   --a-green-dim: oklch(38% 0.18 152 / 0.12);
@@ -66,6 +68,7 @@
     --t-primary: oklch(13% 0.022 158);
     --t-secondary: oklch(36% 0.016 158);
     --t-muted: oklch(54% 0.012 158);
+    --bone: #18211c;
 
     --a-green: oklch(38% 0.18 152);
     --a-green-dim: oklch(38% 0.18 152 / 0.12);

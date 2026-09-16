@@ -17,6 +17,7 @@ export function deriveLongFreePyramidControlProjection(
     winner: snapshot.context.winner ?? undefined,
     rackHistory: snapshot.context.racks.map((entry) => ({ ...entry, scoreBySeat: { ...entry.scoreBySeat } })),
     currentRack: { ...rack, scoreBySeat: { ...rack.scoreBySeat } },
+    rackRollover: snapshot.context.rackRollover,
     ballsRemoved: removedByRack(rack),
     ballsOnTable,
     messages: snapshot.context.messages.map((message) => ({ ...message })),
@@ -38,7 +39,7 @@ export function deriveLongFreePyramidControlProjection(
                   type: 'pot.record',
                   seat,
                   fixedInput: { pottedBallCount },
-                  prominence: controls.length === 0 ? 'primary' : 'secondary',
+                  prominence: 'primary',
                 })
 
                 return controls

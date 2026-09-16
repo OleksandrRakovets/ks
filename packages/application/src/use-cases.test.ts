@@ -154,6 +154,12 @@ describe('trusted MatchRoom orchestration', () => {
         game: undefined,
         controls: [],
       }),
+      getProtocol: async () => ({
+        _tag: 'active',
+        latestSeq: 0,
+        state,
+        protocolEntries: [],
+      }),
     })
 
     expect(await application(room).readMatchControl(matchId, 'en', 'free-pyramid')).toMatchObject({
