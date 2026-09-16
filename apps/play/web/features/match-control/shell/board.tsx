@@ -22,7 +22,7 @@ export function Board<K extends RegisteredGameKey>({ data }: { data: MatchContro
 
   return (
     <section
-      className="shrink-0 bg-background px-4 pt-1 pb-4 [@media(min-height:740px)]:pt-3 [@media(min-height:740px)]:pb-5 [@media(min-height:820px)]:pt-4 [@media(min-height:820px)]:pb-6"
+      className="shrink-0 bg-background px-4 pt-1 pb-3.5 [@media(min-height:740px)]:pt-3 [@media(min-height:740px)]:pb-5 [@media(min-height:820px)]:pt-4 [@media(min-height:820px)]:pb-6"
       aria-label={t(keys.match.control.perGameContainer)}
     >
       <div className="grid grid-cols-[minmax(0,1fr)_52px_minmax(0,1fr)] items-end gap-x-2 gap-y-2">
@@ -71,7 +71,12 @@ export function Board<K extends RegisteredGameKey>({ data }: { data: MatchContro
 
 function PlayerName({ children, align = 'left' }: { children: string; align?: 'left' | 'right' }) {
   return (
-    <span className={cn('min-w-0 text-lg leading-[1.22] font-semibold', align === 'right' && 'text-right')}>
+    <span
+      className={cn(
+        'w-min min-w-0 text-lg leading-[1.22] font-semibold',
+        align === 'right' && 'justify-self-end text-right',
+      )}
+    >
       {children}
     </span>
   )
@@ -117,7 +122,7 @@ function FrameScore({ visible, score }: { visible: boolean; score: BySeatNumber 
 
 function StrilaReconciliation(props: { balls: readonly StrilaBall[]; align: 'left' | 'right' }) {
   return (
-    <div className={cn('flex flex-wrap gap-1', props.align === 'right' && 'justify-end')}>
+    <div className={cn('grid w-fit grid-cols-[repeat(8,13px)] gap-1', props.align === 'right' && 'ml-auto')}>
       {props.balls.map((ball, index) => (
         <span
           key={`${ball}-${index}`}
@@ -131,22 +136,14 @@ function StrilaReconciliation(props: { balls: readonly StrilaBall[]; align: 'lef
 }
 
 function RackReconciliation({ count, align }: { count: number; align: 'left' | 'right' }) {
-  const groups = Array.from({ length: Math.ceil(count / 5) }, (_, groupIndex) =>
-    Array.from({ length: Math.min(5, count - groupIndex * 5) }),
-  )
-
   return (
-    <div className={cn('flex flex-wrap gap-[11px]', align === 'right' && 'justify-end')}>
-      {groups.map((group, groupIndex) => (
-        <span key={groupIndex} className="flex gap-1">
-          {group.map((_, ballIndex) => (
-            <span
-              key={ballIndex}
-              aria-hidden
-              className="size-[13px] shrink-0 rounded-full bg-[#F2EDE1] shadow-[var(--ball-shadow)]"
-            />
-          ))}
-        </span>
+    <div className={cn('grid w-fit grid-cols-[repeat(4,13px)] gap-1', align === 'right' && 'ml-auto')}>
+      {Array.from({ length: count }, (_, index) => (
+        <span
+          key={index}
+          aria-hidden
+          className="size-[13px] rounded-full bg-[#F2EDE1] shadow-[var(--ball-shadow)]"
+        />
       ))}
     </div>
   )

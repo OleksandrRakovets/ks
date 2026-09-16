@@ -120,9 +120,10 @@ never truncated or auto-shrunk.
 Four slots, top to bottom. Slots 3 and 4 are optional and supplied by the game.
 
 **1. Names.** Both participants' `displayName`, 18px/600, `line-height: 1.22`, seat B
-right-aligned. Wraps at spaces to as many lines as needed; the two names bottom-align so the
-numerals below stay on one line. Keep 8px between the names and scores. No ellipsis, no initials,
-no measurement-based fallback.
+right-aligned. The name has `inline-size: min-content`, forcing every available space to wrap; the
+usual first-name/last-name form therefore always occupies two lines regardless of viewport width.
+The two names bottom-align so the numerals below stay on one line. Keep 8px between the names and
+scores. No ellipsis, initials, or measurement-based fallback.
 
 **2. Scores.** Three columns.
 
@@ -139,16 +140,18 @@ no measurement-based fallback.
 
 **3. Reconciliation row.** Optional. Two columns spanning the full width with no spine slot, so
 the dots get the width the numerals do not need. Dots are 13px circles with the ball shadow
-treatment, outer-aligned per seat, wrapping when needed.
+treatment, outer-aligned per seat, with a 4px gap in both directions.
 
-- `strila-v2`: `details.pottedBallsBySeat`, coloured to the physical balls.
-- `free-pyramid-long`: `details.currentRack.scoreBySeat`, cream (`#F2EDE1`), **chunked into groups
-  of five** with an 11px gap between groups and 4px within.
+- `strila-v2`: `details.pottedBallsBySeat`, coloured to the physical balls, eight per row. Every
+  entry remains a separate dot, including repeated cue-ball pots; never compress them into a count.
+- `free-pyramid-long`: `details.currentRack.scoreBySeat`, cream (`#F2EDE1`), four per row to match
+  the common physical shelf layout. A 15:0 rack therefore renders as `4 + 4 + 4 + 3`.
 - Pyramid variants: absent.
 
-The chunking is the point of the feature. Long Pyramid runs long enough that shelf counts drift —
-a player forgets to shelf a ball, or miscounts — so this row exists to be compared against the
-physical shelf. Chunking makes the app side readable at a glance so only the shelf needs counting.
+The rows are the point of the feature. Long Pyramid runs long enough that shelf counts drift — a
+player forgets to shelf a ball, or miscounts — so this row exists to be compared against the
+physical shelf. Matching its common four-ball row makes the app side readable at a glance so only
+the shelf needs counting.
 
 **4. Aux row.** Optional, centred, 16px `--t-secondary`, separated by spacing only. It reads as part
 of the reconciliation block above it, which is correct: potted plus on-table is the whole rack.
