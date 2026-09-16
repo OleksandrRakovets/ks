@@ -23,7 +23,6 @@ export const resources = {
         allMatches: 'Усі матчі',
         newGame: 'Нова гра',
         matches: 'Матчі',
-        comingSoon: 'Незабаром',
       },
       theme: {
         section: 'Тема',
@@ -233,37 +232,8 @@ export const resources = {
           unknown: '{{value}}',
         },
         sparring: {
-          title: 'Спаринг',
           noRecentMatches: 'Матчів ще немає.',
           chooseAnotherGame: 'Інша гра',
-          games: {
-            featured: 'Ігри для спарингу',
-            rules: 'Правила на strila.pro',
-            play: 'Грати',
-            strila: {
-              description: 'Кольорові кулі та чергування ходів.',
-            },
-            baraban: {
-              title: 'Барабан',
-              description: 'Готуємо підтримку гри.',
-            },
-            pyramid: {
-              title: 'Піраміда',
-              description: 'Чотири варіанти однієї гри. Куля скрізь коштує одне очко — різниться решта.',
-            },
-            freePyramid: {
-              description: 'Заліковується будь-яка правильно забита куля.',
-            },
-            longFreePyramid: {
-              description: 'Одна довга партія з кількома пірамідами.',
-            },
-            combinedPyramid: {
-              placeholder: 'Потрібен опис відмінності',
-            },
-            oldCombinedPyramid: {
-              description: 'Після фолу порушник спершу відіграє заборговані кулі.',
-            },
-          },
           playerA: 'Гравець A',
           playerB: 'Гравець B',
           matchTargetFrames: 'До скількох перемог',
@@ -330,7 +300,6 @@ export const resources = {
         allMatches: 'All matches',
         newGame: 'New game',
         matches: 'Matches',
-        comingSoon: 'Coming soon',
       },
       theme: {
         section: 'Theme',
@@ -532,37 +501,8 @@ export const resources = {
           unknown: '{{value}}',
         },
         sparring: {
-          title: 'Sparring',
           noRecentMatches: 'No matches yet.',
           chooseAnotherGame: 'Another game',
-          games: {
-            featured: 'Sparring games',
-            rules: 'Rules at strila.pro',
-            play: 'Play',
-            strila: {
-              description: 'Coloured balls and alternating turns.',
-            },
-            baraban: {
-              title: 'Baraban',
-              description: 'Game support is coming soon.',
-            },
-            pyramid: {
-              title: 'Pyramid',
-              description: 'Four variants of one game. Every ball is worth one point; the rest differs.',
-            },
-            freePyramid: {
-              description: 'Any legally potted ball counts.',
-            },
-            longFreePyramid: {
-              description: 'One long frame played across multiple racks.',
-            },
-            combinedPyramid: {
-              placeholder: 'Distinctive description needed',
-            },
-            oldCombinedPyramid: {
-              description: 'After a foul, the offender first repays the balls they owe.',
-            },
-          },
           playerA: 'Player A',
           playerB: 'Player B',
           matchTargetFrames: 'Race to how many wins',

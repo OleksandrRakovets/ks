@@ -21,7 +21,6 @@ export const keys = {
     allMatches: 'nav.allMatches',
     newGame: 'nav.newGame',
     matches: 'nav.matches',
-    comingSoon: 'nav.comingSoon',
   },
   theme: {
     section: 'theme.section',
@@ -91,37 +90,8 @@ export const keys = {
       raceToWins: 'match.scoreboard.raceToWins',
     },
     sparring: {
-      title: 'match.sparring.title',
       noRecentMatches: 'match.sparring.noRecentMatches',
       chooseAnotherGame: 'match.sparring.chooseAnotherGame',
-      games: {
-        featured: 'match.sparring.games.featured',
-        rules: 'match.sparring.games.rules',
-        play: 'match.sparring.games.play',
-        strila: {
-          description: 'match.sparring.games.strila.description',
-        },
-        baraban: {
-          title: 'match.sparring.games.baraban.title',
-          description: 'match.sparring.games.baraban.description',
-        },
-        pyramid: {
-          title: 'match.sparring.games.pyramid.title',
-          description: 'match.sparring.games.pyramid.description',
-        },
-        freePyramid: {
-          description: 'match.sparring.games.freePyramid.description',
-        },
-        longFreePyramid: {
-          description: 'match.sparring.games.longFreePyramid.description',
-        },
-        combinedPyramid: {
-          placeholder: 'match.sparring.games.combinedPyramid.placeholder',
-        },
-        oldCombinedPyramid: {
-          description: 'match.sparring.games.oldCombinedPyramid.description',
-        },
-      },
       playerA: 'match.sparring.playerA',
       playerB: 'match.sparring.playerB',
       matchTargetFrames: 'match.sparring.matchTargetFrames',

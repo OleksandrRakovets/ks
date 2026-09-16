@@ -1,6 +1,4 @@
-import { type RegisteredGameKey, registry } from '@ks/gameplay/definitions'
-import { keys } from '@ks/i18n'
-import { useTranslation } from 'react-i18next'
+import type { RegisteredGameKey } from '@ks/gameplay/definitions'
 import { Link } from 'react-router'
 
 import { Page } from '@/components/Page'
@@ -10,35 +8,36 @@ import { localizedPath } from '../locale'
 import { useRootLocale } from '../root'
 
 export default function SparringRoute() {
-  const { t } = useTranslation()
   const locale = useRootLocale()
-  const strilaRulesUrl = locale === 'uk' ? 'https://strila.pro/pravyla/' : 'https://strila.pro/en/rules/'
-  const barabanRulesUrl = locale === 'uk' ? 'https://strila.pro/baraban-3/' : 'https://strila.pro/en/baraban/'
+
+  return locale === 'uk' ? <UkrainianSparringIndex /> : <EnglishSparringIndex />
+}
+
+// This curated page is intentionally hand-crafted as per-locale JSX. Keep all shelf copy here,
+// including game names, so each locale's content and layout can evolve independently.
+function UkrainianSparringIndex() {
+  const locale = 'uk'
 
   return (
-    <Page title={t(keys.match.sparring.title)}>
-      <section className="grid gap-4 md:grid-cols-2" aria-label={t(keys.match.sparring.games.featured)}>
+    <Page title="Спаринг">
+      <section className="grid gap-4 md:grid-cols-2" aria-label="Ігри для спарингу">
         <Card>
           <CardHeader className="flex-row items-center gap-4 border-b-0 pb-2">
             <GameBadge src="/games/strila.webp" />
             <div className="flex min-w-0 flex-col gap-1">
-              <CardTitle className="text-[22px] font-bold">
-                {registry['strila-v2'].meta.title[locale]}
-              </CardTitle>
-              <p className="leading-relaxed text-muted-foreground">
-                {t(keys.match.sparring.games.strila.description)}
-              </p>
+              <CardTitle className="text-[22px] font-bold">Стріла</CardTitle>
+              <p className="leading-relaxed text-muted-foreground">Кольорові кулі та чергування ходів.</p>
             </div>
           </CardHeader>
           <CardFooter className="mt-auto justify-between">
-            <RulesLink href={strilaRulesUrl}>{t(keys.match.sparring.games.rules)}</RulesLink>
+            <RulesLink href="https://strila.pro/pravyla/">Правила на strila.pro</RulesLink>
             <Button
               nativeButton={false}
               render={<Link to={localizedPath('/sparring/init/strila-v2/', locale)} />}
               size="touch"
               className="min-w-28"
             >
-              {t(keys.match.sparring.games.play)}
+              Грати
             </Button>
           </CardFooter>
         </Card>
@@ -47,18 +46,14 @@ export default function SparringRoute() {
           <CardHeader className="flex-row items-center gap-4 border-b-0 pb-2">
             <GameBadge src="/games/baraban.webp" />
             <div className="flex min-w-0 flex-col gap-1">
-              <CardTitle className="text-[22px] font-bold text-muted-foreground">
-                {t(keys.match.sparring.games.baraban.title)}
-              </CardTitle>
-              <p className="leading-relaxed text-muted-foreground">
-                {t(keys.match.sparring.games.baraban.description)}
-              </p>
+              <CardTitle className="text-[22px] font-bold text-muted-foreground">Барабан</CardTitle>
+              <p className="leading-relaxed text-muted-foreground">Готуємо підтримку гри.</p>
             </div>
           </CardHeader>
           <CardFooter className="mt-auto justify-between">
-            <RulesLink href={barabanRulesUrl}>{t(keys.match.sparring.games.rules)}</RulesLink>
+            <RulesLink href="https://strila.pro/baraban-3/">Правила на strila.pro</RulesLink>
             <Button variant="outline" size="touch" className="min-w-28" disabled>
-              {t(keys.nav.comingSoon)}
+              Незабаром
             </Button>
           </CardFooter>
         </Card>
@@ -69,27 +64,104 @@ export default function SparringRoute() {
       <section className="flex flex-col gap-4" aria-labelledby="pyramid-title">
         <div className="flex max-w-2xl flex-col gap-1">
           <h2 id="pyramid-title" className="text-[22px] font-bold">
-            {t(keys.match.sparring.games.pyramid.title)}
+            Піраміда
           </h2>
           <p className="leading-relaxed text-muted-foreground">
-            {t(keys.match.sparring.games.pyramid.description)}
+            Чотири варіанти однієї гри. Куля скрізь коштує одне очко — різниться решта.
           </p>
         </div>
 
         <Card className="divide-y divide-border">
-          <PyramidGameLink gameKey="free-pyramid">
-            {t(keys.match.sparring.games.freePyramid.description)}
+          <PyramidGameLink gameKey="free-pyramid" title="Вільна піраміда">
+            Заліковується будь-яка правильно забита куля.
           </PyramidGameLink>
-          <PyramidGameLink gameKey="free-pyramid-long">
-            {t(keys.match.sparring.games.longFreePyramid.description)}
+          <PyramidGameLink gameKey="free-pyramid-long" title="Вільна піраміда з продовженням">
+            Одна довга партія з кількома пірамідами.
           </PyramidGameLink>
-          <PyramidGameLink gameKey="combined-pyramid">
+          <PyramidGameLink gameKey="combined-pyramid" title="Комбінована піраміда">
             <span className="inline-flex rounded-md border border-dashed border-amber/60 px-2 py-1 text-amber">
-              {t(keys.match.sparring.games.combinedPyramid.placeholder)}
+              Потрібен опис відмінності
             </span>
           </PyramidGameLink>
-          <PyramidGameLink gameKey="combined-pyramid-old">
-            {t(keys.match.sparring.games.oldCombinedPyramid.description)}
+          <PyramidGameLink gameKey="combined-pyramid-old" title="Комбінована піраміда (старі правила)">
+            Після фолу порушник спершу відіграє заборговані кулі.
+          </PyramidGameLink>
+        </Card>
+      </section>
+    </Page>
+  )
+}
+
+function EnglishSparringIndex() {
+  const locale = 'en'
+
+  return (
+    <Page title="Sparring">
+      <section className="grid gap-4 md:grid-cols-2" aria-label="Sparring games">
+        <Card>
+          <CardHeader className="flex-row items-center gap-4 border-b-0 pb-2">
+            <GameBadge src="/games/strila.webp" />
+            <div className="flex min-w-0 flex-col gap-1">
+              <CardTitle className="text-[22px] font-bold">Strila</CardTitle>
+              <p className="leading-relaxed text-muted-foreground">Coloured balls and alternating turns.</p>
+            </div>
+          </CardHeader>
+          <CardFooter className="mt-auto justify-between">
+            <RulesLink href="https://strila.pro/en/rules/">Rules at strila.pro</RulesLink>
+            <Button
+              nativeButton={false}
+              render={<Link to={localizedPath('/sparring/init/strila-v2/', locale)} />}
+              size="touch"
+              className="min-w-28"
+            >
+              Play
+            </Button>
+          </CardFooter>
+        </Card>
+
+        <Card className="border-border/70 bg-overlay/50">
+          <CardHeader className="flex-row items-center gap-4 border-b-0 pb-2">
+            <GameBadge src="/games/baraban.webp" />
+            <div className="flex min-w-0 flex-col gap-1">
+              <CardTitle className="text-[22px] font-bold text-muted-foreground">Baraban</CardTitle>
+              <p className="leading-relaxed text-muted-foreground">Game support is coming soon.</p>
+            </div>
+          </CardHeader>
+          <CardFooter className="mt-auto justify-between">
+            <RulesLink href="https://strila.pro/en/baraban/">Rules at strila.pro</RulesLink>
+            <Button variant="outline" size="touch" className="min-w-28" disabled>
+              Coming soon
+            </Button>
+          </CardFooter>
+        </Card>
+      </section>
+
+      <Separator />
+
+      <section className="flex flex-col gap-4" aria-labelledby="pyramid-title">
+        <div className="flex max-w-2xl flex-col gap-1">
+          <h2 id="pyramid-title" className="text-[22px] font-bold">
+            Pyramid
+          </h2>
+          <p className="leading-relaxed text-muted-foreground">
+            Four variants of one game. Every ball is worth one point; the rest differs.
+          </p>
+        </div>
+
+        <Card className="divide-y divide-border">
+          <PyramidGameLink gameKey="free-pyramid" title="Free pyramid">
+            Any legally potted ball counts.
+          </PyramidGameLink>
+          <PyramidGameLink gameKey="free-pyramid-long" title="Free pyramid (long)">
+            One long frame played across multiple racks.
+          </PyramidGameLink>
+          <PyramidGameLink gameKey="combined-pyramid" title="Combined pyramid">
+            <span className="inline-flex rounded-md border border-dashed border-amber/60 px-2 py-1 text-amber">
+              Distinctive description needed
+            </span>
+          </PyramidGameLink>
+          <PyramidGameLink gameKey="combined-pyramid-old" title="Combined pyramid (old rules)">
+            After a foul, the offender first repays the balls they owe.
           </PyramidGameLink>
         </Card>
       </section>
@@ -123,7 +195,15 @@ function RulesLink({ href, children }: { href: string; children: React.ReactNode
   )
 }
 
-function PyramidGameLink({ gameKey, children }: { gameKey: RegisteredGameKey; children: React.ReactNode }) {
+function PyramidGameLink({
+  gameKey,
+  title,
+  children,
+}: {
+  gameKey: RegisteredGameKey
+  title: React.ReactNode
+  children: React.ReactNode
+}) {
   const locale = useRootLocale()
 
   return (
@@ -132,7 +212,7 @@ function PyramidGameLink({ gameKey, children }: { gameKey: RegisteredGameKey; ch
       className="group flex min-h-20 items-center justify-between gap-4 px-5 py-4 transition-colors outline-none first:rounded-t-lg last:rounded-b-lg hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset"
     >
       <span className="flex min-w-0 flex-col gap-1">
-        <span className="text-lg font-semibold">{registry[gameKey].meta.title[locale]}</span>
+        <span className="text-lg font-semibold">{title}</span>
         <span className="leading-relaxed text-muted-foreground">{children}</span>
       </span>
       <ChevronRightIcon />

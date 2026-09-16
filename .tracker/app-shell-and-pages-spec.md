@@ -127,12 +127,10 @@ Titles are owned by the page, from its own loader data. This is what replaces `h
 **Sasha owns this page's content and will tune it himself.** What follows is the structure and the
 constraints on the copy, not finished copy.
 
-The page is a curated shelf, not a rendered collection. Entries are authored in JSX and are free to
-differ in shape. Adding a game means writing its entry, not adding a row to an array.
-
-Registered game names still come from `registry[gameKey].meta.title`; only each entry's description,
-availability, links, and layout are authored here. Setup and the shelf must not maintain parallel
-localized names for the same game.
+The page is a curated shelf, not a rendered collection. Each locale is hand-crafted as JSX in the
+route and is free to differ in copy and shape. Adding a game means writing its entry, not adding a
+row to an array. All shelf copy, including game names, lives in this route rather than i18n or the
+gameplay registry so Sasha can tune this page independently. Setup continues to use registry names.
 
 **Strila and Baraban** each get a full card: the badge from strila.pro, the name at 22px/700, a
 short description, a link out to the rules on strila.pro, and a primary `Грати` action. Baraban is
