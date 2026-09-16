@@ -52,7 +52,10 @@ const matchRowSelection = {
   finalScore: matches.finalScoreJson,
 }
 
-export async function listMatchRows(db: ApplicationDatabase) {
+export async function listMatchRows(
+  db: ApplicationDatabase,
+  pagination: { readonly limit: number; readonly offset: number },
+) {
   const rows = await db
     .select(matchRowSelection)
     .from(matches)
@@ -60,8 +63,10 @@ export async function listMatchRows(db: ApplicationDatabase) {
     .orderBy(
       sql`CASE WHEN ${matches.status} = ${StoredMatchStatus.finished} THEN 1 ELSE 0 END`,
       sql`${matches.createdAt} DESC`,
+      sql`${matches.matchId} DESC`,
     )
-    .limit(20)
+    .limit(pagination.limit)
+    .offset(pagination.offset)
 
   return rows.map((row) => v.parse(MatchRow, row))
 }

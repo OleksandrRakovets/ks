@@ -4,7 +4,7 @@
 
 Approved backend implementation plan. Frontend presentation and polling behavior are specified separately in `match-list-live-scores-frontend-spec.md` and remain deferred while the list is redesigned.
 
-The backend supplies initial and polled score projections for at most 20 Sparring Matches under the existing active-first, newest-first ordering. It intentionally uses bounded batch reads rather than one live connection per Active Match. Individual Match pages retain the versioned live transport specified in `match-live-websocket-spec.md`.
+The backend supplies paginated initial score projections and bounded polling under the existing active-first, newest-first ordering. A list page defaults to 5 Matches and permits at most 20. It intentionally uses bounded batch reads rather than one live connection per Active Match. Individual Match pages retain the versioned live transport specified in `match-live-websocket-spec.md`.
 
 This slice does not change scoring semantics, command transport, persistence authority, Match completion ordering, or the live behavior of an individual Match page. It does not introduce a shared live-match index, active-score mirror in D1, cross-Durable-Object publication, or browser subscription per list row.
 
@@ -116,6 +116,37 @@ export type MatchListEntry = Readonly<{
 }>
 ```
 
+List pagination is offset-based and bounded at the application boundary:
+
+```ts
+export const MATCH_LIST_DEFAULT_PAGE_SIZE = 5
+export const MATCH_LIST_MAX_PAGE_SIZE = 20
+
+export const MatchListPagination = v.pipe(
+  v.object({
+    page: v.optional(PositiveInteger, 1),
+    pageSize: v.optional(
+      v.pipe(PositiveInteger, v.maxValue(MATCH_LIST_MAX_PAGE_SIZE)),
+      MATCH_LIST_DEFAULT_PAGE_SIZE,
+    ),
+  }),
+  v.check(({ page, pageSize }) => Number.isSafeInteger((page - 1) * pageSize)),
+  v.readonly(),
+)
+export type MatchListPagination = v.InferOutput<typeof MatchListPagination>
+
+export type MatchListPage = Readonly<{
+  matches: readonly MatchListEntry[]
+  page: PositiveInteger
+  pageSize: PositiveInteger
+  hasNextPage: boolean
+}>
+
+listMatches(locale: SupportedLocale, pagination?: MatchListPagination): Promise<MatchListPage>
+```
+
+The D1 adapter orders by lifecycle, descending creation time, and descending Match ID as a deterministic tie-breaker, then applies offset and limit. Application requests one extra row to derive `hasNextPage`, but hydrates participants and reads MatchRoom scores only for the returned page.
+
 Define the polling entry once as a Valibot schema and inferred type. Add the response schema at the same application boundary:
 
 ```ts
@@ -186,8 +217,10 @@ The poll contains only IDs, lifecycle, versions, and scores. It does not reload 
 ```text
 Browser navigation
   -> React Router Sparring Match list loader
-     -> Application.listMatches(locale)
-        -> D1: list up to 20 Match rows and hydrate participants
+     -> parse optional positive page and pageSize query parameters
+     -> Application.listMatches(locale, pagination)
+        -> D1: read one bounded page plus one row for hasNextPage
+        -> hydrate participants only for the returned page
         -> for each Active Match, in parallel
            -> MATCH_ROOM.getByName(matchId).getScore()
               -> MatchRoom active handler
@@ -200,11 +233,11 @@ Browser navigation
         -> if an active D1 row has a finalizing MatchRoom
            -> run existing archive-and-finish orchestration
            -> use the resulting finished D1 Match row
-        -> MatchListEntry[]
+        -> MatchListPage
      -> server-render rows with complete initial scores
 ```
 
-The list query applies `LIMIT 20` after its existing active-first, newest-first ordering. If a required initial score cannot be read or finalized, the loader fails; there is no partial list-entry contract.
+The list defaults to page 1 with 5 rows and accepts a page size up to 20. If a required initial score cannot be read or finalized, the loader fails; there is no partial list-entry contract.
 
 ## Poll Call Stack
 
@@ -270,7 +303,7 @@ If a list read encounters a D1-active row whose MatchRoom is finalizing, it resu
 1. Add the shared score projection and derivation.
 2. Add finished score fields to D1 Match rows and populate them during `markMatchFinished`.
 3. Add MatchRoom `getScore()` and application lifecycle routing for initial and batched score reads.
-4. Extend list loader data with scores and apply the 20-row limit without changing list presentation.
+4. Extend list loader data with scores and bounded pagination without changing list presentation.
 5. Add the bounded score resource route and response schema.
 
 New automated coverage remains subject to `AGENTS.md`: update existing tests required by the changes, and seek approval before adding focused regression test files or materially expanding a suite.

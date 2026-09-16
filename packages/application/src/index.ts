@@ -5,6 +5,7 @@ export type {
   HydratedMatchParticipant,
   HydratedMatchParticipants,
   MatchListEntry,
+  MatchListPage,
   ReadMatchControlResult,
   ReadMatchFailure,
   ReadMatchProtocolResult,
@@ -15,7 +16,10 @@ export type {
 export {
   CreateMatchInput,
   DisplayName,
+  MATCH_LIST_DEFAULT_PAGE_SIZE,
+  MATCH_LIST_MAX_PAGE_SIZE,
   MATCH_SCORE_POLL_MAX_MATCHES,
+  MatchListPagination,
   MatchScorePollEntry,
   MatchScorePollResponse,
 } from './contracts'

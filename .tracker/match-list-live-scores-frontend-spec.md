@@ -4,7 +4,7 @@
 
 Design specification; implementation is deferred while the Match list is redesigned.
 
-The backend contract is specified in `match-list-live-scores-backend-spec.md`. This document owns list presentation, route-local state, and browser polling behavior. The first slice displays at most 20 Matches under the backend's active-first, newest-first ordering. “Displayed” means included in the rendered list, not intersecting the browser viewport.
+The backend contract is specified in `match-list-live-scores-backend-spec.md`. This document owns list presentation, route-local state, and browser polling behavior. The first slice displays one page under the backend's active-first, newest-first ordering, defaulting to 5 Matches and permitting at most 20. “Displayed” means included in the rendered page, not intersecting the browser viewport.
 
 The Match list polls compact score projections approximately every 30 seconds. It does not subscribe to every Match or update for every accepted ball. Individual Match pages retain their separate live transport.
 
@@ -24,7 +24,7 @@ The lifecycle badge and link destination must use the same merged row state. The
 
 ## Browser State Ownership
 
-Loader data owns row membership, ordering, participants, game metadata, and the initial score. Polling may override only the score and lifecycle of a retained row.
+Loader data owns the current page, row membership, ordering, participants, game metadata, and the initial score. Polling may override only the score and lifecycle of a retained row. Page navigation replaces loader membership and therefore the polling batch.
 
 Keep polling overrides in route-local reducer state keyed by `MatchId`. Render by mapping the current loader entries and merging any newer override; an override never creates a row absent from current loader membership. Later loader data is authoritative for added, removed, or reordered rows without discarding a newer polled score for a retained row.
 
@@ -106,8 +106,9 @@ document becomes visible or focused while visible
 ## Deferred Frontend Implementation
 
 1. Integrate scores into the redesigned Match row presentation.
-2. Add route-local score overrides and merge rules.
-3. Add the single polling effect with sequencing, visibility, focus, jitter, cancellation, and terminal removal behavior.
-4. Verify the rendered list with 20 simultaneous Active Matches, asymmetric scores, between-Frame rows, a completion transition, hidden-tab catch-up, and a failed poll retaining prior values.
+2. Add page navigation bound to the loader's `page`, `pageSize`, and `hasNextPage` data.
+3. Add route-local score overrides and merge rules.
+4. Add the single polling effect with sequencing, visibility, focus, jitter, cancellation, and terminal removal behavior.
+5. Verify the rendered list with 20 simultaneous Active Matches across pages, asymmetric scores, between-Frame rows, a page transition, a completion transition, hidden-tab catch-up, and a failed poll retaining prior values.
 
 New automated coverage remains subject to `AGENTS.md`: update existing tests required by the changes, and seek approval before adding focused regression test files or materially expanding a suite.

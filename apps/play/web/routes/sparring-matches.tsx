@@ -1,7 +1,8 @@
-import type { MatchListEntry } from '@ks/application'
+import { type MatchListPage, MatchListPagination } from '@ks/application'
 import { keys } from '@ks/i18n'
 import { useTranslation } from 'react-i18next'
 import { Link, useLoaderData } from 'react-router'
+import * as v from 'valibot'
 
 import { Badge, Button } from '@/components/ui'
 
@@ -11,17 +12,30 @@ import { useRootLocale } from '../root'
 import type { AppLoadContext } from '../server/context'
 import { requireApplication } from '../server/context'
 
-type LoaderData = {
-  matches: MatchListEntry[]
-}
+type LoaderData = MatchListPage
 
-export async function loader({ context }: { context: AppLoadContext }): Promise<LoaderData> {
+export async function loader({
+  request,
+  context,
+}: {
+  request: Request
+  context: AppLoadContext
+}): Promise<LoaderData> {
   const application = requireApplication(context)
   const locale = localeFromContext(context)
+  const url = new URL(request.url)
 
-  return {
-    matches: await application.listMatches(locale),
-  }
+  if (url.searchParams.getAll('page').length > 1 || url.searchParams.getAll('pageSize').length > 1)
+    throw new Response('Invalid Match list pagination', { status: 400 })
+
+  const pagination = v.safeParse(MatchListPagination, {
+    page: parsePositiveInteger(url.searchParams.get('page')),
+    pageSize: parsePositiveInteger(url.searchParams.get('pageSize')),
+  })
+
+  if (!pagination.success) throw new Response('Invalid Match list pagination', { status: 400 })
+
+  return application.listMatches(locale, pagination.output)
 }
 
 export const handle = {
@@ -82,4 +96,15 @@ export default function SparringMatchesRoute() {
       </div>
     </main>
   )
+}
+
+function parsePositiveInteger(value: string | null): number | undefined {
+  if (value === null) return undefined
+
+  if (!/^[1-9]\d*$/.test(value)) throw new Response('Invalid Match list pagination', { status: 400 })
+  const parsed = Number(value)
+
+  if (!Number.isSafeInteger(parsed)) throw new Response('Invalid Match list pagination', { status: 400 })
+
+  return parsed
 }

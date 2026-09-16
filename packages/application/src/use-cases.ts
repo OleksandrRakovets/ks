@@ -18,6 +18,7 @@ import type {
   CreateMatchResult,
   HydratedMatchParticipants,
   MatchListEntry,
+  MatchListPage,
   MatchScorePollEntry,
   ReadMatchControlResult,
   ReadMatchFailure,
@@ -25,7 +26,7 @@ import type {
   ReadMatchScoresResult,
   SubmitMatchCommandResult,
 } from './contracts'
-import { CreateMatchInput, MATCH_SCORE_POLL_MAX_MATCHES } from './contracts'
+import { CreateMatchInput, MATCH_SCORE_POLL_MAX_MATCHES, MatchListPagination } from './contracts'
 import type {
   MatchRoomClient,
   MatchRoomCompletionTransfer,
@@ -61,7 +62,7 @@ type ApplicationDependencies = {
   now(): UnixEpochMilliseconds
   getOrCreateGuestPlayerRef(displayName: string): Promise<PlayerRef>
   hydrateParticipant(playerRef: PlayerRef, locale: SupportedLocale): Promise<HydratedMatchParticipant>
-  listMatchRecords(): Promise<MatchRecord[]>
+  listMatchRecords(input: { limit: number; offset: number }): Promise<MatchRecord[]>
   getMatchRecord(matchId: MatchId): Promise<MatchRecord | null>
   getMatchRecords(matchIds: readonly MatchId[]): Promise<MatchRecord[]>
   getProtocolArchive(matchId: MatchId): Promise<ProtocolArchiveRecord | null>
@@ -145,13 +146,23 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     return { ok: true, matchId }
   }
 
-  async function listMatches(locale: SupportedLocale): Promise<MatchListEntry[]> {
-    const records = await dependencies.listMatchRecords()
+  async function listMatches(
+    locale: SupportedLocale,
+    pagination?: MatchListPagination,
+  ): Promise<MatchListPage> {
+    const { page, pageSize } = v.parse(MatchListPagination, pagination ?? {})
 
-    return Promise.all(
-      records.map(async (record) => {
+    const records = await dependencies.listMatchRecords({
+      limit: pageSize + 1,
+      offset: (page - 1) * pageSize,
+    })
+
+    const pageRecords = records.slice(0, pageSize)
+
+    const matches: MatchListEntry[] = await Promise.all(
+      pageRecords.map(async (record) => {
         const [score, participants] = await Promise.all([
-          readMatchListScore(record),
+          readMatchScoreForList(record),
           hydrateParticipants(record, locale),
         ])
 
@@ -165,6 +176,8 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
         }
       }),
     )
+
+    return { matches, page, pageSize, hasNextPage: records.length > pageSize }
   }
 
   async function readMatchScores(matchIds: readonly MatchId[]): Promise<ReadMatchScoresResult> {
@@ -194,7 +207,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     const matches: MatchScorePollEntry[] = await Promise.all(
       records.map(async (record) => ({
         matchId: record.matchId,
-        ...(await readMatchListScore(record)),
+        ...(await readMatchScoreForList(record)),
       })),
     )
 
@@ -364,7 +377,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     await dependencies.markMatchFinished(transfer)
   }
 
-  async function readMatchListScore(record: MatchRecord): Promise<{
+  async function readMatchScoreForList(record: MatchRecord): Promise<{
     status: 'active' | 'finished'
     latestSeq: NonNegativeInteger
     score: MatchScoreProjection

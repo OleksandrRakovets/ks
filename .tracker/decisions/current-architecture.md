@@ -87,7 +87,7 @@ The generated control secret is stored in MatchRoom but is not exposed or checke
 
 ## Match List Score Reads
 
-The Match list loader reads at most 20 rows in active-first, newest-first order. Application reads compact finished scores directly from those D1 rows and asks each selected Active MatchRoom for a coherent score and Accepted Command cursor. A room found finalizing resumes the existing completion orchestration before the list result is returned.
+The Match list loader reads an offset-based page in active-first, newest-first order, with Match ID as a deterministic tie-breaker. A page defaults to 5 rows and is capped at 20; one extra D1 row determines `hasNextPage` without triggering participant hydration or MatchRoom reads. Application reads compact finished scores directly from returned D1 rows and asks each selected Active MatchRoom for a coherent score and Accepted Command cursor. A room found finalizing resumes the existing completion orchestration before the list result is returned.
 
 Play also exposes `GET /api/sparring-matches/scores/` for bounded polling of 1–20 unique Match IDs. Application batch-reads their D1 lifecycle, reads Active MatchRooms in parallel, preserves request order, and returns replacement score projections rather than command deltas. The frontend polling consumer is deferred while the list presentation is redesigned.
 

@@ -188,19 +188,28 @@ describe('trusted MatchRoom orchestration', () => {
 
     const app = application(room, [], {
       overrides: {
-        listMatchRecords: async () => [
-          {
-            matchId,
-            gameKey: 'free-pyramid',
-            status: 'active',
-            createdAt,
-            participantRefs: { A: playerRefA, B: playerRefB },
-          },
-        ],
+        listMatchRecords: async (pagination) => {
+          expect(pagination).toEqual({ limit: 6, offset: 0 })
+
+          return [
+            {
+              matchId,
+              gameKey: 'free-pyramid',
+              status: 'active',
+              createdAt,
+              participantRefs: { A: playerRefA, B: playerRefB },
+            },
+          ]
+        },
       },
     })
 
-    expect(await app.listMatches('en')).toMatchObject([{ matchId, status: 'active', latestSeq: 3, score }])
+    expect(await app.listMatches('en')).toMatchObject({
+      matches: [{ matchId, status: 'active', latestSeq: 3, score }],
+      page: 1,
+      pageSize: 5,
+      hasNextPage: false,
+    })
     expect(await app.readMatchScores([matchId])).toEqual({
       ok: true,
       matches: [{ matchId, status: 'active', latestSeq: 3, score }],

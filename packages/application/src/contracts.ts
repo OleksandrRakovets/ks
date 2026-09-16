@@ -6,6 +6,7 @@ import {
   MatchId,
   MatchScoreProjection,
   NonNegativeInteger,
+  PositiveInteger,
   type UnixEpochMilliseconds,
 } from '@ks/core'
 import type { GamePresentationFor, RegisteredGameKey } from '@ks/gameplay/definitions'
@@ -59,7 +60,35 @@ export type MatchListEntry = Readonly<{
   score: MatchScoreProjection
 }>
 
-export const MATCH_SCORE_POLL_MAX_MATCHES = 20
+export const MATCH_LIST_DEFAULT_PAGE_SIZE = 5
+
+export const MATCH_LIST_MAX_PAGE_SIZE = 20
+
+export const MatchListPagination = v.pipe(
+  v.object({
+    page: v.optional(PositiveInteger, 1),
+    pageSize: v.optional(
+      v.pipe(PositiveInteger, v.maxValue(MATCH_LIST_MAX_PAGE_SIZE)),
+      MATCH_LIST_DEFAULT_PAGE_SIZE,
+    ),
+  }),
+  v.check(
+    ({ page, pageSize }) => Number.isSafeInteger((page - 1) * pageSize),
+    'Match list offset exceeds the safe integer range',
+  ),
+  v.readonly(),
+)
+
+export type MatchListPagination = v.InferOutput<typeof MatchListPagination>
+
+export type MatchListPage = Readonly<{
+  matches: readonly MatchListEntry[]
+  page: PositiveInteger
+  pageSize: PositiveInteger
+  hasNextPage: boolean
+}>
+
+export const MATCH_SCORE_POLL_MAX_MATCHES = MATCH_LIST_MAX_PAGE_SIZE
 
 export const MatchScorePollEntry = v.pipe(
   v.object({
@@ -140,7 +169,7 @@ export type ReadMatchProtocolResult<K extends RegisteredGameKey> =
 
 export type Application = {
   createMatch(input: CreateMatchInput): Promise<CreateMatchResult>
-  listMatches(locale: SupportedLocale): Promise<MatchListEntry[]>
+  listMatches(locale: SupportedLocale, pagination?: MatchListPagination): Promise<MatchListPage>
   readMatchScores(matchIds: readonly MatchId[]): Promise<ReadMatchScoresResult>
   readMatchControl<K extends RegisteredGameKey>(
     matchId: MatchId,

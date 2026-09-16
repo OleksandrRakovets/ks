@@ -58,7 +58,7 @@ export function createApplication(bindings: ApplicationBindings) {
     now: nowUnixEpochMilliseconds,
     getOrCreateGuestPlayerRef: async (displayName) => getOrCreateGuestPlayerRef(db, displayName),
     hydrateParticipant: async (playerRef, locale) => hydrateParticipant(db, playerRef, locale),
-    listMatchRecords: async () => (await listMatchRows(db)).map(matchRecordFromRow),
+    listMatchRecords: async (pagination) => (await listMatchRows(db, pagination)).map(matchRecordFromRow),
     getMatchRecord: async (matchId) => {
       const row = await getMatchRow(db, matchId)
 

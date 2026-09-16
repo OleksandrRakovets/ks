@@ -121,7 +121,13 @@ describe('real D1 match lifecycle', () => {
     await beginMatchCreation(db, catalogInput(creatingMatchId, v.parse(UnixEpochMilliseconds, 5_000)))
 
     expect(await getMatchRow(db, matchId)).toMatchObject({ matchId, status: 'active' })
-    expect((await listMatchRows(db)).map((row) => row.matchId)).toEqual([newestMatchId, matchId, otherMatchId])
+    expect((await listMatchRows(db, { limit: 2, offset: 0 })).map((row) => row.matchId)).toEqual([
+      newestMatchId,
+      matchId,
+    ])
+    expect((await listMatchRows(db, { limit: 2, offset: 2 })).map((row) => row.matchId)).toEqual([
+      otherMatchId,
+    ])
 
     const archive = completedMatchTransfer()
     await archiveCompletedMatch(db, archive)
