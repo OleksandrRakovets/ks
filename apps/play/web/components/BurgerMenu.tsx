@@ -1,7 +1,7 @@
 import { Popover } from '@base-ui/react/popover'
 import { keys } from '@ks/i18n'
 import type { SupportedLocale } from '@ks/i18n'
-import { useState, useSyncExternalStore } from 'react'
+import { type PointerEvent as ReactPointerEvent, useRef, useState, useSyncExternalStore } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useFetcher, useLocation } from 'react-router'
 
@@ -12,7 +12,6 @@ import {
   Button,
   Separator,
   Sheet,
-  SheetClose,
   SheetContent,
   SheetTitle,
   SheetTrigger,
@@ -39,14 +38,22 @@ export function BurgerMenu({
   placement?: 'header' | 'navigation'
 }) {
   const [open, setOpen] = useState(false)
+  const mobileSheetRef = useRef<HTMLDivElement>(null)
+
+  const mobileDragRef = useRef<{
+    lastY: number
+    pointerId: number
+    startTime: number
+    startY: number
+  } | null>(null)
+
+  const suppressHandleClickRef = useRef(false)
   const currentLocale = useRootLocale()
   const currentTheme = useRootTheme()
   const fetcher = useFetcher()
   const location = useLocation()
   const { t } = useTranslation()
   const desktop = useSyncExternalStore(subscribeDesktop, isDesktop, () => false)
-  const MenuTitle = desktop ? Popover.Title : SheetTitle
-  const MenuClose = desktop ? Popover.Close : SheetClose
   const sparringPath = localizedPath('/sparring/', currentLocale)
 
   const isNewMatchRoute =
@@ -62,23 +69,137 @@ export function BurgerMenu({
     }
   }
 
+  function beginMobileDrag(event: ReactPointerEvent<HTMLButtonElement>) {
+    if (!event.isPrimary) return
+
+    const popup = mobileSheetRef.current
+
+    mobileDragRef.current = {
+      lastY: event.clientY,
+      pointerId: event.pointerId,
+      startTime: event.timeStamp,
+      startY: event.clientY,
+    }
+    suppressHandleClickRef.current = false
+
+    if (popup) popup.style.transition = 'none'
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  function moveMobileDrag(event: ReactPointerEvent<HTMLButtonElement>) {
+    const drag = mobileDragRef.current
+    const popup = mobileSheetRef.current
+
+    if (!drag || drag.pointerId !== event.pointerId || !popup) return
+
+    drag.lastY = event.clientY
+    const offset = Math.max(0, event.clientY - drag.startY)
+    suppressHandleClickRef.current ||= offset > 4
+    popup.style.translate = `0 ${offset}px`
+  }
+
+  function endMobileDrag(event: ReactPointerEvent<HTMLButtonElement>) {
+    const drag = mobileDragRef.current
+    const popup = mobileSheetRef.current
+
+    if (!drag || drag.pointerId !== event.pointerId || !popup) return
+
+    mobileDragRef.current = null
+    const offset = Math.max(0, drag.lastY - drag.startY)
+
+    if (offset <= 4) {
+      popup.style.translate = ''
+      popup.style.transition = ''
+
+      return
+    }
+
+    const velocity = offset / Math.max(event.timeStamp - drag.startTime, 1)
+    const dismiss = offset > Math.min(96, popup.offsetHeight * 0.2) || velocity > 0.55
+    const destination = dismiss ? popup.offsetHeight : 0
+
+    const animation = popup.animate([{ translate: `0 ${offset}px` }, { translate: `0 ${destination}px` }], {
+      duration: dismiss ? 160 : 200,
+      easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
+      fill: 'forwards',
+    })
+
+    void animation.finished
+      .then(() => {
+        animation.cancel()
+        popup.style.translate = ''
+        popup.style.transition = ''
+
+        if (dismiss) setOpen(false)
+      })
+      .catch(() => undefined)
+  }
+
+  function cancelMobileDrag(event: ReactPointerEvent<HTMLButtonElement>) {
+    if (mobileDragRef.current?.pointerId !== event.pointerId) return
+
+    mobileDragRef.current = null
+    const popup = mobileSheetRef.current
+
+    if (!popup) return
+    const offset = popup.style.translate || '0 0'
+
+    const animation = popup.animate([{ translate: offset }, { translate: '0 0' }], {
+      duration: 200,
+      easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
+      fill: 'forwards',
+    })
+
+    void animation.finished
+      .then(() => {
+        animation.cancel()
+        popup.style.translate = ''
+        popup.style.transition = ''
+      })
+      .catch(() => undefined)
+  }
+
   const content = (
     <>
-      <MenuTitle className="sr-only">{t(keys.nav.menu)}</MenuTitle>
-      <MenuClose
-        aria-label={t(keys.nav.close)}
-        className="mx-auto flex h-11 w-16 shrink-0 items-center justify-center rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/40 md:mr-2 md:ml-auto md:w-11"
-      >
-        {desktop ? (
-          <span aria-hidden="true" className="text-2xl">
-            ×
-          </span>
-        ) : (
-          <span className="h-1 w-10 rounded-full bg-border" />
-        )}
-      </MenuClose>
+      {desktop ? (
+        <>
+          <Popover.Title className="sr-only">{t(keys.nav.menu)}</Popover.Title>
+          <Popover.Close
+            aria-label={t(keys.nav.close)}
+            className="absolute top-2 right-2 flex size-11 items-center justify-center rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+          >
+            <span aria-hidden="true" className="text-2xl">
+              ×
+            </span>
+          </Popover.Close>
+        </>
+      ) : (
+        <>
+          <SheetTitle className="sr-only">{t(keys.nav.menu)}</SheetTitle>
+          <button
+            type="button"
+            aria-label={t(keys.nav.close)}
+            className="mx-auto flex h-11 w-16 shrink-0 cursor-grab touch-none items-center justify-center rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/40 active:cursor-grabbing"
+            onClick={() => {
+              if (suppressHandleClickRef.current) {
+                suppressHandleClickRef.current = false
 
-      <div className="flex flex-1 flex-col overflow-y-auto px-5 pb-5">
+                return
+              }
+
+              setOpen(false)
+            }}
+            onPointerDown={beginMobileDrag}
+            onPointerMove={moveMobileDrag}
+            onPointerUp={endMobileDrag}
+            onPointerCancel={cancelMobileDrag}
+          >
+            <span className="h-1 w-10 rounded-full bg-border" />
+          </button>
+        </>
+      )}
+
+      <div className="flex flex-1 flex-col overflow-y-auto px-5 pb-5 md:pt-4">
         <nav className="flex flex-col gap-1" aria-label={t(keys.nav.sparring)}>
           <h2 className="px-3 py-1 text-base font-semibold">{t(keys.nav.sparring)}</h2>
           <Link
@@ -158,13 +279,13 @@ export function BurgerMenu({
       <Popover.Root open={open} onOpenChange={setOpen}>
         <Popover.Trigger
           render={<Button variant="ghost" size="icon" aria-label={t(keys.nav.menu)} />}
-          className="size-11"
+          className="size-11 active:translate-y-0"
         >
           <HamburgerIcon />
         </Popover.Trigger>
         <Popover.Portal>
           <Popover.Positioner side="bottom" align="end" sideOffset={8} collisionPadding={16}>
-            <Popover.Popup className="flex max-h-[var(--available-height)] w-96 max-w-[calc(100vw-2rem)] flex-col rounded-xl border border-border bg-card text-card-foreground shadow-2xl transition-opacity duration-150 outline-none data-ending-style:opacity-0 data-starting-style:opacity-0 motion-reduce:transition-none">
+            <Popover.Popup className="relative flex max-h-[var(--available-height)] w-96 max-w-[calc(100vw-2rem)] flex-col rounded-xl border border-border bg-card text-card-foreground shadow-2xl transition-opacity duration-150 outline-none data-ending-style:opacity-0 data-starting-style:opacity-0 motion-reduce:transition-none">
               {content}
             </Popover.Popup>
           </Popover.Positioner>
@@ -177,11 +298,16 @@ export function BurgerMenu({
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger
         render={<Button variant="ghost" size="icon" aria-label={t(keys.nav.menu)} />}
-        className={placement === 'navigation' ? 'lg:mr-2' : 'size-11'}
+        className={
+          placement === 'navigation' ? 'active:translate-y-0 lg:mr-2' : 'size-11 active:translate-y-0'
+        }
       >
         <HamburgerIcon />
       </SheetTrigger>
-      <SheetContent className="inset-x-0 top-auto bottom-0 max-h-[calc(100dvh-1rem)] w-full rounded-t-2xl border-t border-r-0 border-b-0 border-l-0 data-ending-style:translate-x-0 data-ending-style:translate-y-8 data-starting-style:translate-x-0 data-starting-style:translate-y-8 motion-reduce:transition-none">
+      <SheetContent
+        ref={mobileSheetRef}
+        className="inset-x-0 top-auto bottom-0 max-h-[calc(100dvh-1rem)] w-full rounded-t-2xl border-t border-r-0 border-b-0 border-l-0 data-ending-style:translate-x-0 data-ending-style:translate-y-8 data-starting-style:translate-x-0 data-starting-style:translate-y-8 motion-reduce:transition-none"
+      >
         {content}
       </SheetContent>
     </Sheet>

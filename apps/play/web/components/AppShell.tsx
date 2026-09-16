@@ -12,7 +12,7 @@ export function AppShell({ matchCount }: { matchCount: number }) {
   const locale = useRootLocale()
 
   return (
-    <header className="flex h-[60px] shrink-0 items-center justify-between border-b border-border px-4">
+    <header className="flex h-[60px] shrink-0 items-center justify-between px-4">
       <Link
         to={localizedPath('/sparring/', locale)}
         className="rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
