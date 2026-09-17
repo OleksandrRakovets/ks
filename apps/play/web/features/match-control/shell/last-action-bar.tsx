@@ -11,7 +11,7 @@ export function LastActionBar({ entry }: { entry: Pick<ProtocolRow, 'key' | 'mes
     <section className="flex min-h-[68px] shrink-0 items-center gap-3 bg-background px-4 py-2">
       <div className="min-w-0 flex-1 text-base leading-tight">
         {entry.message.actor !== undefined && entry.message.actor.length > 0 ? (
-          <p className="truncate font-semibold">{entry.message.actor}</p>
+          <p className="font-semibold break-words">{entry.message.actor}</p>
         ) : null}
         <p className="line-clamp-2">
           {protocolRowLabel(t, entry)}

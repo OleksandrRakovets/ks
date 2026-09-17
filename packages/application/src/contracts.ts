@@ -102,13 +102,9 @@ export type SparringMatchLiveAdmission =
   | { readonly _tag: 'finished' }
 
 export type ReadMatchProtocolResult<K extends RegisteredGameKey> =
-  | {
-      readonly ok: true
-      readonly state: MatchStateFor<K>
-      readonly latestSeq: number
-      readonly participants: HydratedMatchParticipants
+  | (Extract<ReadMatchControlResult<K>, { readonly ok: true }> & {
       readonly protocolRows: readonly ProtocolRow[]
-    }
+    })
   | ReadMatchFailure
 
 export type Application = {

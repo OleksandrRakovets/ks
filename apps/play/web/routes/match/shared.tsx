@@ -90,12 +90,9 @@ export async function loadMatchProtocolPage<K extends RegisteredGameKey>(
   args: RouteArgs,
   expectedGameKey: K,
 ): Promise<ProtocolPageData<K>> {
-  const [control, protocol] = await Promise.all([
-    loadMatchControl(args, expectedGameKey),
-    loadMatchProtocol(args, expectedGameKey),
-  ])
+  const protocol = await loadMatchProtocol(args, expectedGameKey)
 
-  return { control, protocol }
+  return { control: protocol, protocol }
 }
 
 function commandErrorKey(error: string): ControlActionErrorKey {

@@ -5,6 +5,7 @@ import {
   type MatchCommand,
   type MatchId,
   type PlayerRef,
+  type ProtocolEntries,
   type UnixEpochMilliseconds,
 } from '@ks/core'
 import { type GamePresentationFor, type RegisteredGameKey, registry } from '@ks/gameplay/definitions'
@@ -74,6 +75,7 @@ type ReadKeyedMatchSuccess<K extends RegisteredGameKey> = {
   participants: HydratedMatchParticipants
   game?: GamePresentationFor<K>
   controls: readonly Control[]
+  protocolEntries: ProtocolEntries
   lastEntry?: NonNullable<ReturnType<typeof renderLastCorrectableProtocolRow>>
 }
 
@@ -198,11 +200,11 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     const participants = await hydrateParticipants(record, locale)
     const seatNames = { A: participants.A.displayName, B: participants.B.displayName }
 
-    const lastEntry = renderLastCorrectableProtocolRow(
-      protocolResult.protocolEntries,
-      seatNames,
-      roomResult.latestSeq,
+    const protocolEntries = protocolResult.protocolEntries.filter(
+      (entry) => entry.acceptedSeq <= roomResult.latestSeq,
     )
+
+    const lastEntry = renderLastCorrectableProtocolRow(protocolEntries, seatNames, roomResult.latestSeq)
 
     const result: ReadKeyedMatchSuccess<K> = {
       ok: true,
@@ -210,6 +212,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
       latestSeq: roomResult.latestSeq,
       participants,
       controls: roomResult.controls,
+      protocolEntries,
     }
 
     if (lastEntry !== undefined) result.lastEntry = lastEntry
@@ -229,13 +232,8 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     const match = await readKeyedMatch(matchId, locale, expectedGameKey)
 
     if (!match.ok) return match
-    const { game: _game, ...withoutGame } = match
 
-    if (match.state.status === 'finished') return { ...withoutGame, controlState: 'finished', controls: [] }
-
-    return match.game
-      ? { ...match, controlState: 'frame-active', game: match.game, controls: match.controls }
-      : { ...withoutGame, controlState: 'between-frames', controls: match.controls }
+    return toControlResult(match)
   }
 
   async function submitMatchCommand(
@@ -282,56 +280,22 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     locale: SupportedLocale,
     expectedGameKey: K,
   ): Promise<ReadMatchProtocolResult<K>> {
-    const record = await dependencies.getMatchRecord(matchId)
+    const match = await readKeyedMatch(matchId, locale, expectedGameKey)
 
-    if (!record || record.gameKey !== expectedGameKey)
-      return { ok: false, error: 'Unknown match', status: 404 }
-    const participants = await hydrateParticipants(record, locale)
-    const seatNames = { A: participants.A.displayName, B: participants.B.displayName }
+    if (!match.ok) return match
 
-    if (record.status === 'active') {
-      const room = await dependencies.matchRoomClient(matchId).getProtocol()
+    const control = toControlResult(match)
 
-      if (room._tag === 'finalizing') {
-        await archiveAndFinishRoom(matchId)
+    const seatNames = {
+      A: match.participants.A.displayName,
+      B: match.participants.B.displayName,
+    }
 
-        return readMatchProtocol(matchId, timeZone, locale, expectedGameKey)
-      }
+    const protocolRows = renderProtocolRows(match.protocolEntries, seatNames, timeZone, locale)
 
-      if (room.state.matchId !== matchId || room.state.gameKey !== expectedGameKey)
-        throw new Error('MatchRoom active identity conflicts with D1')
-
-      return {
-        ok: true,
-        // SAFETY: runtime identity correlation above establishes expectedGameKey K.
-        state: room.state as MatchStateFor<K>,
-        latestSeq: room.latestSeq,
-        participants,
-        protocolRows: renderProtocolRows(room.protocolEntries, seatNames, timeZone, locale).reverse(),
-      }
-    } else {
-      let archive: ProtocolArchiveRecord | null
-
-      try {
-        archive = await dependencies.getProtocolArchive(matchId)
-      } catch (error) {
-        const failure = error instanceof Error ? archiveReadFailure(error) : null
-
-        if (failure) return failure
-        throw error
-      }
-
-      if (!archive) return { ok: false, error: 'Missing protocol archive', status: 500 }
-
-      if (archive.state.gameKey !== expectedGameKey) return { ok: false, error: 'Unknown match', status: 404 }
-
-      return {
-        ok: true,
-        state: { ...archive.state, gameKey: expectedGameKey },
-        latestSeq: archive.sourceLatestSeq,
-        participants,
-        protocolRows: renderProtocolRows(archive.entries, seatNames, timeZone, locale),
-      }
+    return {
+      ...control,
+      protocolRows: match.state.status === 'active' ? protocolRows.reverse() : protocolRows,
     }
   }
 
@@ -376,7 +340,20 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
       latestSeq: archive.sourceLatestSeq,
       participants: await hydrateParticipants(record, locale),
       controls: [],
+      protocolEntries: archive.entries,
     }
+  }
+
+  function toControlResult<K extends RegisteredGameKey>(
+    match: ReadKeyedMatchSuccess<K>,
+  ): Extract<ReadMatchControlResult<K>, { ok: true }> {
+    const { game: _game, protocolEntries: _protocolEntries, ...withoutGame } = match
+
+    if (match.state.status === 'finished') return { ...withoutGame, controlState: 'finished', controls: [] }
+
+    return match.game
+      ? { ...withoutGame, controlState: 'frame-active', game: match.game, controls: match.controls }
+      : { ...withoutGame, controlState: 'between-frames', controls: match.controls }
   }
 
   return {

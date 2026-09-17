@@ -31,6 +31,12 @@ export function MatchProtocolPage<K extends RegisteredGameKey>(props: {
       onSubmit={submitCommand}
     >
       <div className="px-4 py-3">
+        {fetcher.data?.ok === false ? (
+          <p role="alert" className="mb-3 rounded-lg bg-red-dim px-3 py-2 text-base text-red">
+            {t(fetcher.data.errorKey)}
+          </p>
+        ) : null}
+
         <ProtocolPanel rows={props.protocol.protocolRows} emptyLabel={t(keys.match.sparring.protocolEmpty)} />
       </div>
     </MatchShell>

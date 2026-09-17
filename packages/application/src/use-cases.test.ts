@@ -169,6 +169,60 @@ describe('trusted MatchRoom orchestration', () => {
     })
   })
 
+  test('reads Protocol and Control projections at the Control cursor', async () => {
+    const commandId = newCommandId()
+
+    const room = selectedClient({
+      getControls: async () => ({
+        _tag: 'active',
+        latestSeq: 1,
+        state,
+        game: undefined,
+        controls: [],
+      }),
+      getProtocol: async () => ({
+        _tag: 'active',
+        latestSeq: 2,
+        state: { ...state, currentFrameIndex: 1 },
+        protocolEntries: [
+          {
+            acceptedSeq: 1,
+            entryIndex: 0,
+            causedByCommandId: commandId,
+            acceptedAt: createdAt,
+            frameIndex: 1,
+            gameKey: 'free-pyramid',
+            source: 'player',
+            entryType: 'command',
+            seat: 'A',
+            body: { commandType: 'miss.record' },
+          },
+          {
+            acceptedSeq: 2,
+            entryIndex: 0,
+            causedByCommandId: newCommandId(),
+            acceptedAt: createdAt,
+            frameIndex: 1,
+            gameKey: 'free-pyramid',
+            source: 'player',
+            entryType: 'command',
+            seat: 'B',
+            body: { commandType: 'miss.record' },
+          },
+        ],
+      }),
+    })
+
+    const result = await application(room).readMatchProtocol(matchId, 'UTC', 'en', 'free-pyramid')
+
+    expect(result).toMatchObject({
+      ok: true,
+      latestSeq: 1,
+      state,
+      protocolRows: [{ key: 'protocol-1-0' }],
+    })
+  })
+
   test('archives, finalizes, and finishes after a match-completing Accepted Command', async () => {
     const events: string[] = []
 
@@ -227,6 +281,13 @@ describe('trusted MatchRoom orchestration', () => {
     const events: string[] = []
 
     const room = selectedClient({
+      getControls: async () => ({
+        _tag: 'active',
+        latestSeq: 0,
+        state,
+        game: undefined,
+        controls: [],
+      }),
       getProtocol: async () => ({ _tag: 'finalizing' }),
       prepareArchive: async () => transfer,
       finalize: async () => {
