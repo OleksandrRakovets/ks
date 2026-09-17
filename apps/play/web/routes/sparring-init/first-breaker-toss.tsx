@@ -55,7 +55,7 @@ function FirstBreakerToss(props: FirstBreakerFieldProps) {
       setDisplaySeat(winner)
       setTossWinner(winner)
       setIsRolling(false)
-    }, 2400)
+    }, 1800)
   }
 
   function chooseBreaker(seat: Seat) {
