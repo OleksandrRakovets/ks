@@ -3,6 +3,7 @@ import { keys } from '@ks/i18n'
 import { useTranslation } from 'react-i18next'
 
 import { protocolRowLabel } from '@/features/match-protocol/protocol-copy'
+import { StrilaBall } from '@/features/strila-ball'
 
 export function LastActionBar({ entry }: { entry: Pick<ProtocolRow, 'key' | 'message' | 'score'> }) {
   const { t } = useTranslation()
@@ -13,10 +14,22 @@ export function LastActionBar({ entry }: { entry: Pick<ProtocolRow, 'key' | 'mes
         {entry.message.actor !== undefined && entry.message.actor.length > 0 ? (
           <p className="font-semibold break-words">{entry.message.actor}</p>
         ) : null}
-        <p className="line-clamp-2">
-          {protocolRowLabel(t, entry)}
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          {entry.message.pottedBalls ? (
+            <>
+              <span className="sr-only">{protocolRowLabel(t, entry)}</span>
+              <span aria-hidden>{t('match.protocol.commands.pot.record.default')}</span>
+              <span aria-hidden className="inline-flex gap-1">
+                {entry.message.pottedBalls.map((ball) => (
+                  <StrilaBall key={ball} ball={ball} className="size-4" />
+                ))}
+              </span>
+            </>
+          ) : (
+            <span>{protocolRowLabel(t, entry)}</span>
+          )}
           {entry.score ? (
-            <span className="ml-2 text-[14px] text-[var(--t-muted)]">{`${entry.score.A}:${entry.score.B}`}</span>
+            <span className="text-[14px] text-[var(--t-muted)]">{`${entry.score.A}:${entry.score.B}`}</span>
           ) : null}
         </p>
       </div>

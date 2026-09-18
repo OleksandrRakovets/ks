@@ -1,15 +1,19 @@
 import { type Control, groupControlsIntoSections, opponentOf } from '@ks/core'
-import { type StrilaBall, type StrilaGamePresentation, StrilaMeta } from '@ks/gameplay/definitions'
+import {
+  type StrilaBall as StrilaBallValue,
+  type StrilaGamePresentation,
+  StrilaMeta,
+} from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
 import type { TFunction } from 'i18next'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { cn } from '@/components/ui/utils'
+import { StrilaBall } from '@/features/strila-ball'
 
 import { ActionStack, type ControlPresentation } from '../shell/action-stack'
 import { Takeover } from '../shell/takeover'
-import { STRILA_BALL_COLORS } from '../strila-balls'
 import { controlEffect, controlLabel } from './control-copy'
 import type { MatchControlRendererProps } from './types'
 
@@ -17,7 +21,7 @@ type StrilaRuleNote = StrilaGamePresentation['details']['ruleNotes'][number]
 
 export function StrilaControlRenderer(props: MatchControlRendererProps<StrilaGamePresentation>) {
   const { t } = useTranslation()
-  const [selectedBalls, setSelectedBalls] = useState<StrilaBall[]>([])
+  const [selectedBalls, setSelectedBalls] = useState<StrilaBallValue[]>([])
   const sections = groupControlsIntoSections(props.controls)
   const details = props.game.details
 
@@ -114,19 +118,20 @@ function PenaltyTakeover(props: {
 function BallSelector(props: {
   details: StrilaGamePresentation['details']
   participants: MatchControlRendererProps<StrilaGamePresentation>['participants']
-  selectedBalls: StrilaBall[]
-  onSelectionChange: (balls: StrilaBall[]) => void
+  selectedBalls: StrilaBallValue[]
+  onSelectionChange: (balls: StrilaBallValue[]) => void
 }) {
   const { t } = useTranslation()
 
   return (
     <div className="grid gap-1 px-3 pb-3.5 [@media(min-height:740px)]:pb-4 [@media(min-height:820px)]:pb-5">
       <RuleNotes notes={props.details.ruleNotes} participants={props.participants} />
-      <p className="text-text-lo px-1 text-[14px] leading-snug">{t(keys.match.control.choosePottedBall)}</p>
+      <p className="mb-1 px-1 text-[14px] leading-snug text-muted-foreground [@media(min-height:740px)]:mb-3 [@media(min-height:820px)]:mb-4">
+        {t(keys.match.control.choosePottedBall)}
+      </p>
       <fieldset className="grid min-w-0 grid-cols-8 gap-1">
         <legend className="sr-only">{t(keys.match.control.choosePottedBall)}</legend>
         {StrilaMeta.allBalls.map((ball) => {
-          const colors = STRILA_BALL_COLORS[ball]
           const status = props.details.ballStatuses[ball]
           const potted = status === 'potted'
           const selected = props.selectedBalls.includes(ball) && !potted
@@ -152,20 +157,14 @@ function BallSelector(props: {
                 )
               }
             >
-              <span
-                aria-hidden
+              <StrilaBall
+                ball={ball}
+                selected={selected}
                 className={cn(
-                  'block aspect-square rounded-full border-[1.5px] shadow-[var(--ball-shadow)]',
+                  'aspect-square',
                   status === 'object' ? 'w-full max-w-12' : 'w-4/5 max-w-[38px]',
                   'group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-ring',
                 )}
-                style={{
-                  backgroundColor: colors.background,
-                  borderColor: colors.border,
-                  boxShadow: selected
-                    ? '0 0 0 2px var(--c-raised), 0 0 0 5px var(--a-amber), var(--ball-shadow)'
-                    : undefined,
-                }}
               />
             </button>
           )
@@ -175,17 +174,12 @@ function BallSelector(props: {
   )
 }
 
-function PotLabel({ label, selectedBalls }: { label: string; selectedBalls: readonly StrilaBall[] }) {
+function PotLabel({ label, selectedBalls }: { label: string; selectedBalls: readonly StrilaBallValue[] }) {
   return (
     <span className="inline-flex flex-wrap items-center justify-center gap-1.5">
       <span>{label}</span>
       {selectedBalls.map((ball) => (
-        <span
-          key={ball}
-          aria-hidden
-          className="size-3 rounded-full shadow-[var(--ball-shadow)]"
-          style={{ backgroundColor: STRILA_BALL_COLORS[ball].background }}
-        />
+        <StrilaBall key={ball} ball={ball} className="size-3" />
       ))}
     </span>
   )

@@ -4,8 +4,8 @@ import { keys } from '@ks/i18n'
 import { useTranslation } from 'react-i18next'
 
 import { cn } from '@/components/ui/utils'
+import { StrilaBall as StrilaBallVisual } from '@/features/strila-ball'
 
-import { STRILA_BALL_COLORS } from '../strila-balls'
 import type { MatchControlData } from './types'
 
 export function Board<K extends RegisteredGameKey>({ data }: { data: MatchControlData<K> }) {
@@ -124,12 +124,7 @@ function StrilaReconciliation(props: { balls: readonly StrilaBall[]; align: 'lef
   return (
     <div className={cn('grid w-fit grid-cols-[repeat(8,13px)] gap-1', props.align === 'right' && 'ml-auto')}>
       {props.balls.map((ball, index) => (
-        <span
-          key={`${ball}-${index}`}
-          aria-hidden
-          className="size-[13px] shrink-0 rounded-full shadow-[var(--ball-shadow)]"
-          style={{ backgroundColor: STRILA_BALL_COLORS[ball].background }}
-        />
+        <StrilaBallVisual key={`${ball}-${index}`} ball={ball} className="size-[13px]" />
       ))}
     </div>
   )
