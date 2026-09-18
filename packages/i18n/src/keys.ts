@@ -61,11 +61,17 @@ export const keys = {
       invalidCommandPayload: 'match.control.invalidCommandPayload',
       commandRejectedByRules: 'match.control.commandRejectedByRules',
       targetReached: 'match.control.targetReached',
-      undo: 'match.control.undo',
       offline: 'match.control.offline',
       choosePottedBall: 'match.control.choosePottedBall',
-      showMore: 'match.control.showMore',
-      showLess: 'match.control.showLess',
+      pottedBallCountLabel: 'match.control.pottedBallCountLabel',
+      exit: 'match.control.exit',
+      otherActions: 'match.control.otherActions',
+      correction: 'match.control.correction',
+      frames: 'match.control.frames',
+      takeover: {
+        foulActor: 'match.control.takeover.foulActor',
+        foulChooser: 'match.control.takeover.foulChooser',
+      },
       perGameContainer: 'match.control.perGameContainer',
       strila: {
         container: 'match.control.strila.container',
@@ -75,6 +81,7 @@ export const keys = {
       longFreePyramid: {
         rackStatus: 'match.control.longFreePyramid.rackStatus',
         rack: 'match.control.longFreePyramid.rack',
+        rackRollover: 'match.control.longFreePyramid.rackRollover',
         ballsOnTable: 'match.control.longFreePyramid.ballsOnTable',
         rackScore: 'match.control.longFreePyramid.rackScore',
         previousRacks: 'match.control.longFreePyramid.previousRacks',

@@ -1,15 +1,11 @@
-import type { ProtocolRow, ReadMatchControlResult, ReadMatchProtocolResult } from '@ks/application'
-import { type BySeatNumber, type Control, MatchCommand, MatchId, type MatchState } from '@ks/core'
+import type { ReadMatchControlResult, ReadMatchProtocolResult } from '@ks/application'
+import { MatchCommand, MatchId, type MatchState } from '@ks/core'
 import { type RegisteredGameKey, registry } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
-import type { TFunction } from 'i18next'
 import { useEffect, useRef } from 'react'
-import { useTranslation } from 'react-i18next'
 import { useRevalidator } from 'react-router'
 import * as v from 'valibot'
 
-import { Button } from '@/components/ui'
-import { matchCommandFromControl } from '@/features/match-control/renderers/types'
 import { subscribeSparringMatchLive } from '@/live/sparring-match-live-client'
 
 import { localeFromContext } from '../../locale'
@@ -30,12 +26,9 @@ export type ControlRouteData<K extends RegisteredGameKey> = ControlSuccess<K> & 
 
 export type ProtocolRouteData<K extends RegisteredGameKey> = ProtocolSuccess<K> & { gameTitle: string }
 
-export function protocolFrameScore<K extends RegisteredGameKey>(
-  state: ProtocolRouteData<K>['state'],
-): BySeatNumber {
-  const snapshotFrame = state.frames[state.currentFrameIndex - 1]
-
-  return snapshotFrame?.pointsBySeat ?? { A: 0, B: 0 }
+export type ProtocolPageData<K extends RegisteredGameKey> = {
+  control: ControlRouteData<K>
+  protocol: ProtocolRouteData<K>
 }
 
 export type ControlActionData =
@@ -74,7 +67,7 @@ export async function loadMatchControl<K extends RegisteredGameKey>(
   return { ...result, gameTitle: registry[expectedGameKey].meta.title[locale] }
 }
 
-export async function loadMatchProtocol<K extends RegisteredGameKey>(
+async function loadMatchProtocol<K extends RegisteredGameKey>(
   args: RouteArgs,
   expectedGameKey: K,
 ): Promise<ProtocolRouteData<K>> {
@@ -91,6 +84,15 @@ export async function loadMatchProtocol<K extends RegisteredGameKey>(
   if (!result.ok) throw new Response(result.error, { status: result.status })
 
   return { ...result, gameTitle: registry[expectedGameKey].meta.title[locale] }
+}
+
+export async function loadMatchProtocolPage<K extends RegisteredGameKey>(
+  args: RouteArgs,
+  expectedGameKey: K,
+): Promise<ProtocolPageData<K>> {
+  const protocol = await loadMatchProtocol(args, expectedGameKey)
+
+  return { control: protocol, protocol }
 }
 
 function commandErrorKey(error: string): ControlActionErrorKey {
@@ -350,116 +352,4 @@ export function useProtocolLiveRevalidation(state: MatchState, latestSeq: number
 
     return () => subscription.stop()
   }, [state.matchId, state.status])
-}
-
-function matchControlLabel(t: TFunction, control: Control): string {
-  switch (control.type) {
-    case 'frame.commence':
-      return t('match.control.commands.match.frame.commence')
-    case 'frame.prepare':
-      return t('match.control.commands.match.frame.prepare')
-    case 'frame.concede':
-      return t('match.control.commands.match.frame.concede')
-    case 'match.end':
-      return t('match.control.commands.match.match.end')
-    default:
-      return t('match.control.commands.unknown')
-  }
-}
-
-export function BetweenFrameControls(props: {
-  controls: readonly Control[]
-  submitting: boolean
-  onSubmit: (command: MatchCommand) => void
-}) {
-  const { t } = useTranslation()
-  const controls = props.controls.filter((control) => control.source === 'match')
-
-  return (
-    <section aria-label={t(keys.match.control.perGameContainer)} className="border-b border-divider px-4 py-3">
-      <div className="mx-auto grid w-2/3 gap-3.5">
-        {controls.map((control, index) => (
-          <Button
-            key={`${control.type}-${index}`}
-            type="button"
-            size="control"
-            variant={
-              control.prominence === 'primary'
-                ? 'primary'
-                : control.prominence === 'secondary'
-                  ? 'secondary'
-                  : 'outline'
-            }
-            disabled={props.submitting}
-            onClick={() => props.onSubmit(matchCommandFromControl(control))}
-          >
-            {matchControlLabel(t, control)}
-          </Button>
-        ))}
-      </div>
-    </section>
-  )
-}
-
-function protocolBallLabel(t: TFunction, ball: number): string {
-  switch (ball) {
-    case 0:
-      return t('match.protocol.balls.0')
-    case 1:
-      return t('match.protocol.balls.1')
-    case 2:
-      return t('match.protocol.balls.2')
-    case 3:
-      return t('match.protocol.balls.3')
-    case 4:
-      return t('match.protocol.balls.4')
-    case 5:
-      return t('match.protocol.balls.5')
-    case 6:
-      return t('match.protocol.balls.6')
-    case 7:
-      return t('match.protocol.balls.7')
-    default:
-      return t('match.protocol.balls.none')
-  }
-}
-
-function protocolLabel(t: TFunction, row: ProtocolRow): string {
-  const balls = row.message.pottedBalls
-    ? row.message.pottedBalls.map((ball) => protocolBallLabel(t, ball)).join(', ')
-    : t('match.protocol.balls.none')
-
-  return t(row.message.key, { ...row.message.params, balls })
-}
-
-export function ProtocolPanel(props: { rows: readonly ProtocolRow[]; emptyLabel: string }) {
-  const { t } = useTranslation()
-
-  if (props.rows.length === 0) return <p className="text-sm text-muted-foreground">{props.emptyLabel}</p>
-
-  return (
-    <div className="grid gap-2">
-      {props.rows.map((row) => (
-        <div
-          key={row.key}
-          className="flex items-baseline justify-between gap-3 border-b border-border/60 pb-2 text-sm"
-        >
-          <span className="flex min-w-0 flex-col">
-            <span className="flex min-w-0 items-baseline gap-2">
-              {row.message.actor !== undefined && row.message.actor.length > 0 ? (
-                <span className="shrink-0 font-medium">{row.message.actor}</span>
-              ) : null}
-              <span>{protocolLabel(t, row)}</span>
-            </span>
-            {row.score ? (
-              <span className="text-xs text-muted-foreground">{`${row.score.A}:${row.score.B}`}</span>
-            ) : null}
-          </span>
-          <span className="text-xs text-muted-foreground tabular-nums">
-            <time dateTime={new Date(row.acceptedAt).toISOString()}>{row.timeLabel}</time>
-          </span>
-        </div>
-      ))}
-    </div>
-  )
 }

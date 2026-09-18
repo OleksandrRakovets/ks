@@ -32,6 +32,13 @@ test('projects presentation and limits selectable pots to balls remaining', () =
         seat: 'A',
         prominence: 'primary',
       },
+      {
+        source: 'game',
+        type: 'pot.record',
+        fixedInput: { pottedBallCount: 2 },
+        seat: 'A',
+        prominence: 'primary',
+      },
     ],
     B: [
       {
@@ -41,9 +48,16 @@ test('projects presentation and limits selectable pots to balls remaining', () =
         seat: 'B',
         prominence: 'primary',
       },
+      {
+        source: 'game',
+        type: 'pot.record',
+        fixedInput: { pottedBallCount: 2 },
+        seat: 'B',
+        prominence: 'primary',
+      },
     ],
   })
-  expect(sections.secondary.A.map((entry) => entry.fixedInput)).toEqual([{ pottedBallCount: 2 }, {}])
+  expect(sections.secondary.A.map((entry) => entry.fixedInput)).toEqual([{}])
 
   // SAFETY: deliberately bypass readonly to verify the projection does not share machine state.
   const historicalScore = controlProjection.game.details.rackHistory[0]!.scoreBySeat as {

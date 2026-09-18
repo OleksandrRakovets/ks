@@ -71,6 +71,7 @@ const LongFreePyramidGamePresentationState = v.pipe(
     winner: v.optional(Seat),
     rackHistory: v.pipe(v.array(LongFreePyramidRack), v.minLength(1), v.readonly()),
     currentRack: LongFreePyramidRack,
+    rackRollover: v.picklist([14, 15]),
     ballsRemoved: v.pipe(Integer, v.minValue(0)),
     ballsOnTable: v.pipe(Integer, v.minValue(0)),
     messages: v.pipe(v.array(LongFreePyramidMessage), v.readonly()),

@@ -1,6 +1,6 @@
 # Match Control Shell And Zone Contract
 
-Status: approved design, not yet implemented.
+Status: implemented. Correction behavior and finished-match presentation remain deferred.
 Reference renders: `.tracker/match-control-shell/`.
 
 ## 1. Purpose
@@ -18,11 +18,12 @@ Problems being fixed, all observed during real play:
 - `frame.concede` occupies the play surface although it is used in well under 1% of matches.
 - Strila's penalty selection is treated as extra rows, so the screen threatens to scroll.
 
-Scope is `apps/play/web` presentation plus one `@ks/application` contract addition. No gameplay
-rule, machine, or projection changes.
+Scope is `apps/play/web` presentation, one `@ks/application` contract addition, and the gameplay
+presentation metadata needed to render the shell. Gameplay rules and machines do not change.
 
-Out of scope, tracked separately: Protocol page polish, the finished-match result view, the app
-shell and burger used by non-match pages, `/`, and the Correction command itself.
+The active Protocol page shares the Match Shell and Board. Further Protocol polish, the
+finished-match result view, the app shell and burger used by non-match pages, `/`, and the
+Correction command itself are out of scope and tracked separately.
 
 ## 2. Vocabulary
 
@@ -35,8 +36,8 @@ CONTEXT.md remains authoritative. This document adds presentation-only terms.
 | Action Stack    | Interactive region anchored to the bottom of the shell.                                 |
 | Zone            | One horizontal band of the Action Stack: Selector, Primary, or Secondary.               |
 | Takeover        | Single decision surface that replaces all three Zones.                                  |
-| Last Action Bar | One-line confirmation of the most recent Protocol entry, and its Correction affordance. |
-| Overflow Sheet  | Bottom sheet holding every tertiary Control.                                            |
+| Last Action Bar | One-line confirmation of the latest potentially correctable player action, and its Correction affordance. |
+| Overflow Sheet  | Responsive menu holding every tertiary Control.                                          |
 
 "Undo" must not appear in code, copy, or key names. A Correction compensates for an earlier
 Accepted Command without removing it from the record, so the Ukrainian label is `Виправити`.
@@ -55,7 +56,7 @@ Accepted Command without removing it from the record, so the Ukrainian label is 
 │                                      │  Slack          flex: 1, may reach 0
 │                                      │
 ├──────────────────────────────────────┤
-│ Обрано 2 кулі — натисни «Забити»…    │  Selector zone  optional
+│ Обери забиті кулі                     │  Selector zone  optional
 │ ○ ○ ○ ○ ○ ● ● ○                      │
 ├──────────────────┬───────────────────┤
 │    Забити ● ●    │    Забити ● ●     │  Primary zone
@@ -76,13 +77,15 @@ Invariants:
   add a scrollbar.
 - Board is pinned top, Action Stack is pinned bottom, slack absorbs the difference. Controls
   therefore land in the same thumb region on every screen size and in every game.
-- Slack collapses to zero before anything else shrinks. Nothing else shrinks.
+- Within each responsive spacing tier, slack absorbs all remaining height before controls. The
+  Action Stack uses a consistent 14px rhythm below 740px, 16px from 740px, and 20px from 820px.
+  This rhythm applies between controls and at the top and bottom of the raised section.
 - Must fit 375×667 through 430×932 in every state listed in §12.
   **Surfaces carry the structure; lines almost never do.** Three tones, no dividers between them:
 
 | Region                                                        | Surface       |
 | ------------------------------------------------------------- | ------------- |
-| Top bar, Board, slack, Last Action Bar, tabs                  | `--c-base`    |
+| Top bar, Board, slack, Last Action Bar, tabs                  | `--c-deep`    |
 | Action Stack — Selector, Primary, Secondary, and any Takeover | `--c-raised`  |
 | Controls sitting on the raised surface, and the active tab    | `--c-overlay` |
 
@@ -95,9 +98,11 @@ The **only** rule on this screen is the lane spine. It divides two otherwise ide
 which is what a line is for. Do not reintroduce borders between the Board and the stack, above the
 Secondary zone, above the Last Action Bar, or under the top bar.
 
-- At `≥768px` the shell content is capped at `560px` and centred. This is deliberate: the screen
-  is a phone-shaped task surface used at the table, and a wide desktop variant would need its own
-  interaction study. Revisit only with evidence.
+- The shell width is `min(100%, --container-match)`, where `--container-match` is `35rem` (`560px`).
+  It is therefore fluid on narrow phones and remains centred at one consistent width on tablets
+  and larger viewports. This is deliberate: the screen is a phone-shaped task surface used at the
+  table, and a wide desktop variant would need its own interaction study. Revisit only with
+  evidence.
 
 ## 4. Top bar
 
@@ -105,7 +110,7 @@ Secondary zone, above the Last Action Bar, or under the top bar.
 | ------- | ----------------------------- | ---------------------------------------------------------------------------------- |
 | Left    | ✕ icon button, 44×44          | Navigates to `/sparring/matches/`. The only exit. No global nav here.              |
 | Context | 17px/600, nowrap              | Multi-frame games: `Партія {n}`. `free-pyramid-long`: `Піраміда {rackNumber}`.     |
-| Rule    | 16px, `--t-secondary`, nowrap | Multi-frame: `до {n} перемог`. `free-pyramid-long`: `нова з {rackRollover}`. |
+| Rule    | 16px, `--t-primary`, nowrap   | Multi-frame: `до {n} перемог`. `free-pyramid-long`: `нова з {rackRollover}`.       |
 | Right   | ⋯ icon button, 44×44          | Opens the Overflow Sheet. Rendered only when tertiary Controls exist.              |
 
 The Rule slot holds the match-level rule that the numerals do not already show. It has roughly
@@ -117,8 +122,10 @@ never truncated or auto-shrunk.
 Four slots, top to bottom. Slots 3 and 4 are optional and supplied by the game.
 
 **1. Names.** Both participants' `displayName`, 18px/600, `line-height: 1.22`, seat B
-right-aligned. Wraps at spaces to as many lines as needed; the two names bottom-align so the
-numerals below stay on one line. No ellipsis, no initials, no measurement-based fallback.
+right-aligned. The name has `inline-size: min-content`, forcing every available space to wrap; the
+usual first-name/last-name form therefore always occupies two lines regardless of viewport width.
+The two names bottom-align so the numerals below stay on one line. Keep 8px between the names and
+scores. No ellipsis, initials, or measurement-based fallback.
 
 **2. Scores.** Three columns.
 
@@ -135,16 +142,18 @@ numerals below stay on one line. No ellipsis, no initials, no measurement-based 
 
 **3. Reconciliation row.** Optional. Two columns spanning the full width with no spine slot, so
 the dots get the width the numerals do not need. Dots are 13px circles with the ball shadow
-treatment, outer-aligned per seat, wrapping when needed.
+treatment, outer-aligned per seat, with a 4px gap in both directions.
 
-- `strila-v2`: `details.pottedBallsBySeat`, coloured to the physical balls.
-- `free-pyramid-long`: `details.currentRack.scoreBySeat`, cream (`#F2EDE1`), **chunked into groups
-  of five** with an 11px gap between groups and 4px within.
+- `strila-v2`: `details.pottedBallsBySeat`, coloured to the physical balls, eight per row. Every
+  entry remains a separate dot, including repeated cue-ball pots; never compress them into a count.
+- `free-pyramid-long`: `details.currentRack.scoreBySeat`, cream (`#F2EDE1`), four per row to match
+  the common physical shelf layout. A 15:0 rack therefore renders as `4 + 4 + 4 + 3`.
 - Pyramid variants: absent.
 
-The chunking is the point of the feature. Long Pyramid runs long enough that shelf counts drift —
-a player forgets to shelf a ball, or miscounts — so this row exists to be compared against the
-physical shelf. Chunking makes the app side readable at a glance so only the shelf needs counting.
+The rows are the point of the feature. Long Pyramid runs long enough that shelf counts drift — a
+player forgets to shelf a ball, or miscounts — so this row exists to be compared against the
+physical shelf. Matching its common four-ball row makes the app side readable at a glance so only
+the shelf needs counting.
 
 **4. Aux row.** Optional, centred, 16px `--t-secondary`, separated by spacing only. It reads as part
 of the reconciliation block above it, which is correct: potted plus on-table is the whole rack.
@@ -170,16 +179,18 @@ later inherits the placement by declaring its prominence, with no UI change.
 **Selector zone.** Optional, game-supplied, full width, immediately above the Primary zone with no
 intervening element. Only `strila-v2` uses it today, for the shared eight-ball tray. Adjacency to
 the Primary zone is a hard requirement: the tray is step one of a two-step action and nothing may
-sit in the path between them.
+sit in the path between them. Its hint remains `Обери забиті кулі`; selecting balls must not change
+the copy or shift the layout. Object balls use the full 48px selector cell while the cue and black
+balls remain at most 38px, preserving the object treatment.
 
 **Primary zone.** Two lanes split by a 1px spine. Filled `--a-green`, 18px/600, `min-height: 60px`.
 
-**Secondary zone.** Two lanes on `--c-overlay`, 17px, `min-height: 50px`, separated from the
-Primary zone by 14px of padding rather than a rule. Recessive weight and the extra separation are
-what keep `Фол` out of the tap path from the tray. `foul.commit` takes red text on the same
-recessed surface; every other secondary Control takes `--t-primary`. No outlines — a red-outlined
-button reads louder than a filled recessed one, which is backwards for a control we deliberately
-demoted.
+**Secondary zone.** Two lanes on `--c-overlay`, 18px/600, `min-height: 50px`. It follows the same
+responsive 14/16/20px rhythm as the other controls and section edges; equal prominence does not
+imply different spacing. Its recessed surface keeps `Фол` distinct from the Primary zone.
+`foul.commit` takes red text on the same recessed surface; every other secondary Control takes
+`--t-primary`. No outlines — a red-outlined button reads louder than a filled recessed one, which
+is backwards for a control we deliberately demoted.
 
 **Arity within a lane.** Deterministic, no measurement:
 
@@ -215,8 +226,8 @@ Structure:
 
 - Title, 17px/600. Two clauses: who acted, then who must respond, the second in `--t-secondary`.
   `Владислав Косогов зробив фол.` / `Костянтин Кулик обирає продовження.`
-- Optional note: rulebook guidance in a blue-bordered panel at 16px. Strila supplies this from its
-  existing rule notes; other games omit it.
+- Optional note: rulebook guidance on the borderless `--a-blue-dim` surface at 16px. Strila
+  supplies this from its existing rule notes; other games omit it.
 - Buttons: full width, stacked, `min-height: 62px`, raised surface with a border. Primary label
   18px/600, with the `control.effect` rendered beneath at 14px via `match.control.effects.*`.
 
@@ -227,7 +238,9 @@ This replaces `BetweenFrameControls` in `apps/play/web/routes/match/shared.tsx`.
 
 ## 8. Last Action Bar
 
-Always present once the match has at least one Accepted Command. Sits between the Action Stack and
+Present once the match has a player-authored Protocol entry that a future Correction could
+compensate for. Select the latest such entry at or before the Control read's Accepted Command
+cursor; later system-authored entries do not replace it. The bar sits between the Action Stack and
 the tabs, in both normal and Takeover states.
 
 - Line one: actor `displayName`, 16px/600.
@@ -236,7 +249,7 @@ the tabs, in both normal and Takeover states.
 - Right: `Виправити` on `--c-overlay`, `min-height: 44px`, 16px, with a counter-clockwise arrow
   icon.
 
-The bar sits on `--c-base`, dropping back out of the raised Action Stack. That tonal break is
+The bar sits on `--c-deep`, dropping back out of the raised Action Stack. That tonal break is
 load-bearing: while the bar shared the stack's surface and left padding, it read as belonging to
 seat A's lane, so an entry about seat B looked misfiled.
 
@@ -263,11 +276,14 @@ handling, and its Protocol representation. This document owns only its placement
 Opened by ⋯ in the top bar — the farthest point on the screen from the thumb region, which is the
 correct distance for controls used in under 1% of matches.
 
-- Reuse the existing `Sheet` primitive from `@/components/ui`, bottom-anchored.
-- Title `Інші дії`, 19px/600, with a ✕ dismiss.
+- Reuse the same `ResponsiveMenu` as the app burger. Below 768px it is a bottom sheet with a drag
+  handle that closes on tap or downward swipe. At 768px and above it is an anchored popover with a
+  ✕ dismiss. The responsive chrome and dismissal behavior belong to the shared component; this
+  feature supplies only its trigger and content.
+- Title `Інші дії`, 19px/600.
 - One group per participant, headed by their `displayName` at 16px/600 `--t-secondary`, separated
   by spacing rather than a rule. Within a group, one button per tertiary Control on `--c-overlay`,
-  full width, `min-height: 56px`, 17px.
+  full width, `min-height: 56px`, 18px/600.
 - Groups render in seat order A then B, and a group with no Controls is omitted.
 
 ## 10. Tokens
@@ -281,7 +297,7 @@ worse. Do not introduce generated or per-player colours without a separate decis
 | Commit / primary action             | `--a-green`                            |
 | Pending selection, not yet recorded | `--a-amber` (tray selection ring only) |
 | Foul                                | `--a-red` text on `--c-overlay`        |
-| Rulebook note                       | `--a-blue` at a 16% wash, no border    |
+| Rulebook note                       | `--a-blue-dim`, no border              |
 | Score numerals                      | `--bone`                               |
 
 Typography uses the system stack. No webfont: the app must stay usable on club connections.
@@ -293,10 +309,11 @@ suffix in the Last Action Bar. The score target suffix is 20px and is not an exc
 ## 11. Required changes
 
 **`@ks/application`** — one contract addition. `ReadMatchControlResult`'s `frame-active` and
-`between-frames` variants gain the most recent Protocol entry for the Last Action Bar:
+`between-frames` variants gain the latest player-authored, potentially correctable Protocol entry
+at or before the Control cursor:
 
 ```ts
-/** Most recent Protocol entry, for the control surface's confirmation line. Absent until the first Accepted Command. */
+/** Latest potentially correctable player entry for the control surface's confirmation line. */
 readonly lastEntry?: Pick<ProtocolRow, 'key' | 'message' | 'score'>
 ```
 
@@ -304,22 +321,27 @@ readonly lastEntry?: Pick<ProtocolRow, 'key' | 'message' | 'score'>
 bar shows no timestamp.
 
 **`packages/i18n`** — new keys for the Overflow Sheet title, the Correction label, the Takeover
-titles, and the Aux row. Change `match.control.commands.game.pot.pottedBallCount` from
-`'+{{pottedBallCount}}'` to `'{{pottedBallCount}}'`: the keypad records a count of balls, and every
-game scores one ball as one point, so a `+N` delta framing is wrong. Add a separate accessible-name
-key so the button's accessible name is a full phrase while its visible label is the numeral.
+titles, and the Aux row. Pyramid scoring keys show `+{{pottedBallCount}}`; the plus identifies the
+score change while the separate accessible-name key states the full action and participant.
+
+**Gameplay presentation** — Long Pyramid exposes `rackRollover` in its presentation state and
+declares all four pot Controls primary so the renderer can place them together in the 2×2 keypad.
+These are presentation projection changes, not gameplay rule or machine changes.
 
 **New** — `apps/play/web/features/match-control/shell/`: `MatchShell`, `Board`, `ActionStack`,
-`Zone`, `Takeover`, `LastActionBar`, `OverflowSheet`. Primary export first, private helpers below.
+`Zone`, `Takeover`, `LastActionBar`, `OverflowSheet`. Consumers import components directly from
+their files; the directory has no export bundle. Primary export first, private helpers below.
+`apps/play/web/components/ui/ResponsiveMenu` owns the shared burger and match-overflow presentation.
 
 **Removed** — `MatchNavigation` (`apps/play/web/features/match-navigation.tsx`), `ScoreBox`
 (`apps/play/web/routes/sparring-match/score-box.tsx`), `BetweenFrameControls` in `shared.tsx`, and
 the `showMore`/`showLess` tertiary disclosure in both the Strila and Long Pyramid renderers. Their
 i18n keys go with them.
 
-**Adapted** — the four control routes under `apps/play/web/routes/match/` compose the shell instead
-of `MatchNavigation` + `ScoreBox`. The four protocol routes take the same shell so the tabs and exit
-stay identical across both tabs. Per-game renderers keep
+**Adapted** — the five concrete, game-keyed control routes under `apps/play/web/routes/match/`
+compose the shell instead of `MatchNavigation` + `ScoreBox`. The five concrete Protocol routes use
+the same shell and Board so the tabs and exit stay identical across both tabs while preserving each
+route's concrete schema and types. Per-game renderers keep
 `MatchControlRendererProps` and return zone content rather than their own sections.
 
 ## 12. Acceptance

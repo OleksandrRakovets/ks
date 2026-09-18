@@ -1,4 +1,4 @@
-import { type Control, type ControlSections, groupControlsIntoSections, type MatchCommand } from '@ks/core'
+import { type Control, groupControlsIntoSections, type HydratedMatchParticipants } from '@ks/core'
 import type {
   CombinedPyramidGamePresentation,
   CombinedPyramidOldGamePresentation,
@@ -6,195 +6,67 @@ import type {
 } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
 import type { TFunction } from 'i18next'
-import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { Button } from '@/components/ui'
-
-import { controlEffect, controlLabel, potRecordPottedBallCount } from './control-copy'
-import { matchCommandFromControl, type MatchControlRendererProps } from './types'
-
-type SeatControls = ControlSections['primary']
-
-type ControlSection = {
-  controls: SeatControls
-}
-
-function pyramidCommandLabel(t: TFunction, command: Control): string {
-  if (command.type !== 'pot.record') return controlLabel(t, command)
-  const pottedBallCount = potRecordPottedBallCount(command)
-
-  if (pottedBallCount === undefined) return controlLabel(t, command)
-
-  return t('match.control.commands.game.pot.pottedBallCount', { pottedBallCount })
-}
-
-function buttonVariant(prominence: Control['prominence']): 'primary' | 'secondary' | 'outline' {
-  if (prominence === 'primary') return 'primary'
-
-  if (prominence === 'secondary') return 'secondary'
-
-  return 'outline'
-}
-
-function ControlRows(props: {
-  controls: SeatControls
-  showEffectSummaries?: boolean
-  onSubmit: (command: MatchCommand) => void
-}) {
-  const { t } = useTranslation()
-
-  function renderButton(command: Control, key: string) {
-    const effect = controlEffect(t, command)
-
-    return (
-      <div key={key} className="grid gap-1">
-        <Button
-          type="button"
-          variant={buttonVariant(command.prominence)}
-          size="control"
-          onClick={() => props.onSubmit(matchCommandFromControl(command))}
-        >
-          {pyramidCommandLabel(t, command)}
-        </Button>
-        {props.showEffectSummaries === true && effect !== undefined && effect.length > 0 ? (
-          <p className="text-center text-base text-muted-foreground">{effect}</p>
-        ) : null}
-      </div>
-    )
-  }
-
-  function renderSeatControls(controls: readonly Control[], seat: 'A' | 'B') {
-    return controls.map((command, index) => renderButton(command, `${seat}-${index}`))
-  }
-
-  return (
-    <section className="border-b border-divider px-4 py-3">
-      <div className="grid grid-cols-2 gap-6">
-        <div className="grid gap-3.5">{renderSeatControls(props.controls.A, 'A')}</div>
-        <div className="grid gap-3.5">{renderSeatControls(props.controls.B, 'B')}</div>
-      </div>
-    </section>
-  )
-}
-
-function CombinedControlRows(props: {
-  sections: ControlSection[]
-  onSubmit: (command: MatchCommand) => void
-}) {
-  const controls = props.sections.reduce<SeatControls>(
-    (merged, section) => ({
-      A: [...merged.A, ...section.controls.A],
-      B: [...merged.B, ...section.controls.B],
-    }),
-    { A: [], B: [] },
-  )
-
-  return <ControlRows controls={controls} onSubmit={props.onSubmit} />
-}
-
-function NeutralControlRows(props: {
-  controls: readonly Control[]
-  onSubmit: (command: MatchCommand) => void
-}) {
-  const { t } = useTranslation()
-
-  return (
-    <section className="border-b border-divider px-4 py-3">
-      <div className="mx-auto grid w-2/3 gap-3.5">
-        {props.controls.map((command, index) => (
-          <Button
-            key={`${command.source}-${command.type}-${index}`}
-            type="button"
-            variant={buttonVariant(command.prominence)}
-            size="control"
-            onClick={() => props.onSubmit(matchCommandFromControl(command))}
-          >
-            {controlLabel(t, command)}
-          </Button>
-        ))}
-      </div>
-    </section>
-  )
-}
-
-function PyramidControlRenderer(props: {
-  controlSections: ControlSections
-  onSubmitCommand: (command: MatchCommand) => void
-}) {
-  const [showTertiary, setShowTertiary] = useState(false)
-  const { t } = useTranslation()
-  const controlSections = props.controlSections
-  const hasNeutral = controlSections.neutral.length > 0
-
-  const hasPrimary = controlSections.primary.A.length > 0 || controlSections.primary.B.length > 0
-  const hasSecondary = controlSections.secondary.A.length > 0 || controlSections.secondary.B.length > 0
-  const hasTertiary = controlSections.tertiary.A.length > 0 || controlSections.tertiary.B.length > 0
-
-  const visibleSections: ControlSection[] = [
-    ...(hasPrimary ? [{ controls: controlSections.primary }] : []),
-    ...(hasSecondary ? [{ controls: controlSections.secondary }] : []),
-  ]
-
-  return (
-    <div className="grid">
-      {hasNeutral && (
-        <NeutralControlRows controls={controlSections.neutral} onSubmit={props.onSubmitCommand} />
-      )}
-
-      {visibleSections.length > 0 && (
-        <CombinedControlRows sections={visibleSections} onSubmit={props.onSubmitCommand} />
-      )}
-
-      {hasTertiary && (
-        <div className="grid">
-          <button
-            type="button"
-            aria-expanded={showTertiary}
-            className="flex items-center gap-2 px-4 py-2 text-left text-base text-muted-foreground hover:text-foreground"
-            onClick={() => setShowTertiary((v) => !v)}
-          >
-            <span aria-hidden className={showTertiary ? undefined : 'rotate-180'}>
-              ▲
-            </span>
-            {showTertiary ? t(keys.match.control.showLess) : t(keys.match.control.showMore)}
-          </button>
-          {showTertiary && (
-            <ControlRows controls={controlSections.tertiary} onSubmit={props.onSubmitCommand} />
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
+import { ActionStack, type ControlPresentation } from '../shell/action-stack'
+import { controlLabel, potRecordPottedBallCount } from './control-copy'
+import type { MatchControlRendererProps } from './types'
 
 export function FreePyramidControlRenderer(props: MatchControlRendererProps<FreePyramidGamePresentation>) {
-  return (
-    <PyramidControlRenderer
-      controlSections={groupControlsIntoSections(props.controls)}
-      onSubmitCommand={props.onSubmitCommand}
-    />
-  )
+  return <PyramidControlRenderer {...props} />
 }
 
 export function CombinedPyramidControlRenderer(
   props: MatchControlRendererProps<CombinedPyramidGamePresentation>,
 ) {
-  return (
-    <PyramidControlRenderer
-      controlSections={groupControlsIntoSections(props.controls)}
-      onSubmitCommand={props.onSubmitCommand}
-    />
-  )
+  return <PyramidControlRenderer {...props} />
 }
 
 export function CombinedPyramidOldControlRenderer(
   props: MatchControlRendererProps<CombinedPyramidOldGamePresentation>,
 ) {
+  return <PyramidControlRenderer {...props} />
+}
+
+function PyramidControlRenderer<
+  TPresentation extends
+    | FreePyramidGamePresentation
+    | CombinedPyramidGamePresentation
+    | CombinedPyramidOldGamePresentation,
+>(props: MatchControlRendererProps<TPresentation>) {
+  const { t } = useTranslation()
+
   return (
-    <PyramidControlRenderer
-      controlSections={groupControlsIntoSections(props.controls)}
-      onSubmitCommand={props.onSubmitCommand}
+    <ActionStack
+      sections={groupControlsIntoSections(props.controls)}
+      renderControl={(control) => pyramidControlPresentation(t, control, props.participants)}
+      submitting={props.submitting}
+      onSubmit={props.onSubmitCommand}
     />
   )
+}
+
+function pyramidControlPresentation(
+  t: TFunction,
+  control: Control,
+  participants: HydratedMatchParticipants,
+): ControlPresentation {
+  const pottedBallCount = potRecordPottedBallCount(control)
+
+  const label =
+    pottedBallCount === undefined
+      ? controlLabel(t, control)
+      : t('match.control.commands.game.pot.pottedBallCount', { pottedBallCount })
+
+  return {
+    label,
+    visibleLabel: label,
+    accessibleLabel:
+      pottedBallCount !== undefined && control.seat
+        ? t(keys.match.control.pottedBallCountLabel, {
+            count: pottedBallCount,
+            player: participants[control.seat].displayName,
+          })
+        : undefined,
+  }
 }

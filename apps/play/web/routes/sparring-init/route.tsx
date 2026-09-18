@@ -227,7 +227,7 @@ export default function SparringInitRoute() {
           </div>
         ) : null}
 
-        <div className="fixed inset-x-0 bottom-0 mx-auto w-full max-w-(--app-width) bg-raised p-4 shadow-(--raised-top-shadow)">
+        <div className="fixed inset-x-0 bottom-0 mx-auto w-full max-w-app bg-raised p-4 shadow-(--raised-top-shadow)">
           <Button
             type="submit"
             size="control"
