@@ -35,7 +35,7 @@ export function Takeover(props: {
             >
               <span className="text-lg font-semibold">{presentation.label}</span>
               {presentation.effect !== undefined && presentation.effect.length > 0 ? (
-                <span className="text-text-lo text-[14px]">{presentation.effect}</span>
+                <span className="text-[14px] text-muted-foreground">{presentation.effect}</span>
               ) : null}
             </button>
           )

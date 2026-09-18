@@ -12,7 +12,7 @@ const navigationLinkVariants = cva(
         default: 'text-muted-foreground hover:bg-muted hover:text-foreground',
         active:
           'bg-primary/10 text-foreground after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:bg-primary',
-        disabled: 'cursor-not-allowed text-text-ghost opacity-60',
+        disabled: 'cursor-not-allowed text-muted-foreground opacity-60',
       },
       indicator: {
         wide: '',

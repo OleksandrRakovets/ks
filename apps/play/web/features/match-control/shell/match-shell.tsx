@@ -32,7 +32,7 @@ export function MatchShell<K extends RegisteredGameKey>(props: {
         <Link
           to={localizedPath('/sparring/matches/', locale)}
           aria-label={t(keys.match.control.exit)}
-          className="text-text-lo grid size-11 shrink-0 place-items-center rounded-lg outline-none hover:bg-overlay hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40"
+          className="grid size-11 shrink-0 place-items-center rounded-lg text-muted-foreground outline-none hover:bg-overlay hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40"
         >
           <CloseIcon />
         </Link>
@@ -101,7 +101,7 @@ function CloseIcon() {
 function MatchTab(props: { active: boolean; disabled?: boolean; to: string; children: ReactNode }) {
   const className = cn(
     'grid place-items-center rounded-lg text-base font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring/40',
-    props.active ? 'bg-overlay text-foreground' : 'text-text-lo hover:text-foreground',
+    props.active ? 'bg-overlay text-foreground' : 'text-muted-foreground hover:text-foreground',
     props.disabled === true && 'opacity-45',
   )
 

@@ -39,7 +39,7 @@ export function OverflowSheet(props: {
             {(['A', 'B'] as const).map((seat) =>
               props.controls[seat].length > 0 ? (
                 <section key={seat} className="grid gap-2">
-                  <h2 className="text-text-lo text-base font-semibold">{props.names[seat]}</h2>
+                  <h2 className="text-base font-semibold text-muted-foreground">{props.names[seat]}</h2>
                   {props.controls[seat].map((control, index) => (
                     <OverflowControl
                       key={`${control.type}-${index}`}
@@ -61,7 +61,7 @@ export function OverflowSheet(props: {
 
 function EllipsisIcon() {
   return (
-    <svg aria-hidden className="text-text-lo size-5" viewBox="0 0 20 20" fill="none">
+    <svg aria-hidden className="size-5 text-muted-foreground" viewBox="0 0 20 20" fill="none">
       <path d="M4 10h.01M10 10h.01M16 10h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </svg>
   )

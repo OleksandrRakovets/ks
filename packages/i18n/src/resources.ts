@@ -73,8 +73,8 @@ export const resources = {
               match: { end: 'Завершити матч' },
             },
             game: {
-              pot: { record: 'Забити кулю', pottedBallCount: '+{{pottedBallCount}}' },
-              miss: { record: 'Зафіксувати промах' },
+              pot: { record: 'Забити', pottedBallCount: '+{{pottedBallCount}}' },
+              miss: { record: 'Промах' },
               foul: { commit: 'Фол' },
               frame: { award: 'Зарахувати партію' },
               penalty: {

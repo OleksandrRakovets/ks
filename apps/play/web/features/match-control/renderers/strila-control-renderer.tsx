@@ -101,7 +101,7 @@ function PenaltyTakeover(props: {
           <span>
             {t(keys.match.control.takeover.foulActor, { player: props.participants[offender].displayName })}
           </span>{' '}
-          <span className="text-text-lo font-normal">
+          <span className="font-normal text-muted-foreground">
             {t(keys.match.control.takeover.foulChooser, { player: props.participants[chooser].displayName })}
           </span>
         </>
