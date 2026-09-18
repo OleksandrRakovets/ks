@@ -132,26 +132,13 @@ route and is free to differ in copy and shape. Adding a game means writing its e
 row to an array. All shelf copy, including game names, lives in this route rather than i18n or the
 gameplay registry so Sasha can tune this page independently. Setup continues to use registry names.
 
-**Strila and Baraban** each get a full card: the badge from strila.pro, the name at 22px/700, a
-short description, a link out to the rules on strila.pro, and a primary `Грати` action. Baraban is
-present but dimmed, with `Незабаром` in place of the action, because a game we are about to support
-is worth showing.
-
-**The Pyramid family** gets one section, not four peer cards. A heading, one sentence of family
-context, then the four variants as rows in a single grouped card. The whole row is the link; there
-are no four repeated `Грати` buttons.
-
-Family sentence: `Чотири варіанти однієї гри. Куля скрізь коштує одне очко — різниться решта.`
-
-Per-variant copy must not present pot values as scoring differences. Every game scores one ball as
-one point; `shotPointOptions` describes how many balls one button records, which is a control
-convenience, not a rule. The current descriptions in `sparring.tsx` violate this — `Удари по
-будь-якій кулі: +1, +2 або +4 очки` and `Вільна піраміда до 30 очок` (30 is one club's default, not
-the game). Rewrite all five.
-
-`Комбінована піраміда` has no distinguishing description that anyone has written. Render it as a
-**visible dashed placeholder** rather than inventing rules copy or repeating a neighbour. An
-obvious gap gets filled; a plausible-sounding invention does not.
+All six games use the same card shape in this order: Strila, Continuous free pyramid, Baraban,
+Combined pyramid under the old rules, Combined pyramid, Free pyramid. Cards use their natural
+height on mobile; each desktop pair shares the taller card's row height. Every playable card is one
+large navigation target without a repeated `Грати` button or arrow. Where a card also links to
+external rules, the internal card link and rules link are sibling anchors so both remain valid,
+independently focusable targets. Baraban remains unavailable and dimmed, with availability shown in
+a neutral badge; only its rules link is interactive.
 
 The game author has granted permission to use and adapt the official Strila and Baraban badges.
 Preserve their full-colour ball artwork in both themes and use a subtle neutral shadow to separate
