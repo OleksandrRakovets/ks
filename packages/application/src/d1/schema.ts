@@ -8,7 +8,7 @@ import type {
 } from '@ks/core'
 import type { RegisteredGameKey } from '@ks/gameplay/definitions'
 import { sql } from 'drizzle-orm'
-import { check, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import { check, index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 export const StoredMatchStatus = {
   creating: 'creating',
@@ -32,6 +32,8 @@ export const matches = sqliteTable(
     finalScoreJson: text('final_score_json'),
   },
   (table) => [
+    index('matches_status_created_at_match_id_idx').on(table.status, table.createdAt, table.matchId),
+    index('matches_status_ended_at_match_id_idx').on(table.status, table.endedAt, table.matchId),
     check('matches_distinct_players', sql`${table.seatAPlayerRef} != ${table.seatBPlayerRef}`),
     check(
       'matches_seat_a_player_ref_format',

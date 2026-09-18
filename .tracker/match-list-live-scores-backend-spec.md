@@ -4,7 +4,11 @@
 
 Implemented backend contract. Frontend presentation and polling behavior are specified separately in `match-list-live-scores-frontend-spec.md`.
 
-The backend supplies paginated initial score projections and bounded polling under the existing active-first, newest-first ordering. A list page defaults to 5 Matches and permits at most 20. It intentionally uses bounded batch reads rather than one live connection per Active Match. Individual Match pages retain the versioned live transport specified in `match-live-websocket-spec.md`.
+The backend supplies two paginated list scopes and bounded polling. `live` contains Active Matches plus
+Matches whose canonical `endedAt` is within the last 15 minutes; `completed` contains only finished
+Matches. A page always contains at most 10 Matches. It intentionally uses bounded batch reads rather
+than one live connection per Active Match. Individual Match pages retain the versioned live transport
+specified in `match-live-websocket-spec.md`.
 
 This slice does not change scoring semantics, command transport, persistence authority, Match completion ordering, or the live behavior of an individual Match page. It does not introduce a shared live-match index, active-score mirror in D1, cross-Durable-Object publication, or browser subscription per list row.
 
@@ -115,29 +119,24 @@ export type MatchListEntry = Readonly<{
   matchId: MatchId
   gameKey: RegisteredGameKey
   shortGameTitle: string
-  status: 'active' | 'finished'
   createdAt: UnixEpochMilliseconds
   participants: HydratedMatchParticipants
   latestSeq: NonNegativeInteger
   score: MatchScoreProjection
-}>
+} & (
+  | { status: 'active'; endedAt: null }
+  | { status: 'finished'; endedAt: UnixEpochMilliseconds }
+)>
 ```
 
 List pagination is offset-based and bounded at the application boundary:
 
 ```ts
 export const MATCH_LIST_DEFAULT_PAGE_SIZE = 10
-export const MATCH_LIST_MAX_PAGE_SIZE = 20
 
 export const MatchListPagination = v.pipe(
-  v.object({
-    page: v.optional(PositiveInteger, 1),
-    pageSize: v.optional(
-      v.pipe(PositiveInteger, v.maxValue(MATCH_LIST_MAX_PAGE_SIZE)),
-      MATCH_LIST_DEFAULT_PAGE_SIZE,
-    ),
-  }),
-  v.check(({ page, pageSize }) => Number.isSafeInteger((page - 1) * pageSize)),
+  v.object({ page: v.optional(PositiveInteger, 1) }),
+  v.check(({ page }) => Number.isSafeInteger((page - 1) * MATCH_LIST_DEFAULT_PAGE_SIZE)),
   v.readonly(),
 )
 export type MatchListPagination = v.InferOutput<typeof MatchListPagination>
@@ -145,32 +144,41 @@ export type MatchListPagination = v.InferOutput<typeof MatchListPagination>
 export type MatchListPage = Readonly<{
   matches: readonly MatchListEntry[]
   page: PositiveInteger
-  pageSize: PositiveInteger
   hasNextPage: boolean
 }>
 
-listMatches(locale: SupportedLocale, pagination?: MatchListPagination): Promise<MatchListPage>
+listMatches(
+  scope: 'live' | 'completed',
+  locale: SupportedLocale,
+  pagination?: MatchListPagination,
+): Promise<MatchListPage>
 ```
 
-The D1 adapter orders by lifecycle, descending creation time, and descending Match ID as a deterministic tie-breaker, then applies offset and limit. Application requests one extra row to derive `hasNextPage`, but hydrates participants and reads MatchRoom scores only for the returned page.
+Application computes the `live` cutoff from its injected server clock. The D1 adapter orders Active
+Matches by descending creation time and recent finished Matches by descending `endedAt`, with Active
+Matches first. The `completed` scope orders by descending `endedAt`. Both use descending Match ID as
+a deterministic tie-breaker, then apply offset and the fixed limit. Composite indexes beginning with
+`status` support the creation-time and end-time paths. Application requests one extra row to derive
+`hasNextPage`, but hydrates participants and reads MatchRoom scores only for the returned page.
 
 Define the polling entry once as a Valibot schema and inferred type. Add the response schema at the same application boundary:
 
 ```ts
 export const MatchScorePollEntry = v.pipe(
-  v.object({
-    matchId: MatchId,
-    status: v.picklist(['active', 'finished']),
-    latestSeq: NonNegativeInteger,
-    score: MatchScoreProjection,
-  }),
+  v.intersect([
+    v.object({ matchId: MatchId, latestSeq: NonNegativeInteger, score: MatchScoreProjection }),
+    v.variant('status', [
+      v.object({ status: v.literal('active'), endedAt: v.null() }),
+      v.object({ status: v.literal('finished'), endedAt: UnixEpochMilliseconds }),
+    ]),
+  ]),
   v.readonly(),
 )
 export type MatchScorePollEntry = v.InferOutput<typeof MatchScorePollEntry>
 
 export const MatchScorePollResponse = v.pipe(
   v.object({
-    matches: v.pipe(v.array(MatchScorePollEntry), v.maxLength(20), v.readonly()),
+    matches: v.pipe(v.array(MatchScorePollEntry), v.maxLength(10), v.readonly()),
   }),
   v.readonly(),
 )
@@ -183,7 +191,9 @@ export type ReadMatchScoresResult =
 readMatchScores(matchIds: readonly MatchId[]): Promise<ReadMatchScoresResult>
 ```
 
-The operation accepts at most 20 unique Match IDs. The HTTP route enforces that external limit; duplicate or excessive values reaching application are caller defects and must not cause unbounded fan-out.
+The operation accepts at most 10 unique Match IDs, matching the fixed list page size. The HTTP route
+enforces that external limit; duplicate or excessive values reaching application are caller defects
+and must not cause unbounded fan-out.
 
 Application resolves each requested Match according to D1 lifecycle:
 
@@ -208,7 +218,7 @@ GET /api/sparring-matches/scores/?matchId=:id&matchId=:id...
 The route:
 
 1. accepts only `GET`;
-2. requires between 1 and 20 `matchId` parameters;
+2. requires between 1 and 10 `matchId` parameters;
 3. validates each value with `MatchId`;
 4. rejects duplicate IDs;
 5. calls `Application.readMatchScores`;
@@ -223,19 +233,19 @@ The poll contains only IDs, lifecycle, versions, and scores. It does not reload 
 
 ```text
 Browser navigation
-  -> React Router Sparring Match list loader
-     -> parse optional positive page and pageSize query parameters
-     -> Application.listMatches(locale, pagination)
+  -> React Router live or completed Match list loader
+     -> parse the optional positive page query parameter
+     -> Application.listMatches(scope, locale, pagination)
         -> D1: read one bounded page plus one row for hasNextPage
         -> hydrate participants only for the returned page
-        -> for each Active Match, in parallel
+        -> for each Active Match in the live scope, in parallel
            -> MATCH_ROOM.getByName(matchId).getScore()
               -> MatchRoom active handler
                  -> restore resident Match from Accepted Commands when needed
                  -> project MatchState
                  -> projectMatchScore(state)
                  -> { latestSeq, score }
-        -> for each finished Match
+        -> for each finished Match in either scope
            -> D1 Match row finalSourceLatestSeq and finalScoreJson
         -> if an active D1 row has a finalizing MatchRoom
            -> run existing archive-and-finish orchestration
@@ -244,13 +254,15 @@ Browser navigation
      -> server-render rows with complete initial scores
 ```
 
-The list defaults to page 1 with 5 rows and accepts a page size up to 20. If a required initial score cannot be read or finalized, the loader fails; there is no partial list-entry contract.
+The list defaults to page 1 with 10 rows. The completed scope never selects MatchRoom because its D1
+query returns only finished rows. If a required initial live score cannot be read or finalized, the
+loader fails; there is no partial list-entry contract.
 
 ## Poll Call Stack
 
 ```text
 GET /api/sparring-matches/scores/?matchId=...
-  -> route parses and validates 1..20 unique Match IDs
+  -> route parses and validates 1..10 unique Match IDs
   -> Application.readMatchScores(matchIds)
      -> D1: batch-read lifecycle and finished scores for requested IDs
      -> active arms: parallel MatchRoom.getScore() RPCs

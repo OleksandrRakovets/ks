@@ -8,7 +8,7 @@ import {
   type NonNegativeInteger,
   type PlayerRef,
   type ProtocolEntries,
-  type UnixEpochMilliseconds,
+  UnixEpochMilliseconds,
 } from '@ks/core'
 import { type GamePresentationFor, type RegisteredGameKey, registry } from '@ks/gameplay/definitions'
 import type { SupportedLocale } from '@ks/i18n'
@@ -20,6 +20,7 @@ import type {
   HydratedMatchParticipants,
   MatchListEntry,
   MatchListPage,
+  MatchListScope,
   MatchScorePollEntry,
   ReadMatchControlResult,
   ReadMatchFailure,
@@ -27,7 +28,13 @@ import type {
   ReadMatchScoresResult,
   SubmitMatchCommandResult,
 } from './contracts'
-import { CreateMatchInput, MATCH_SCORE_POLL_MAX_MATCHES, MatchListPagination } from './contracts'
+import {
+  CreateMatchInput,
+  MATCH_LIST_DEFAULT_PAGE_SIZE,
+  MATCH_SCORE_POLL_MAX_MATCHES,
+  MatchListPagination,
+  RECENT_COMPLETED_MATCH_WINDOW_MS,
+} from './contracts'
 import type {
   MatchRoomClient,
   MatchRoomCompletionTransfer,
@@ -54,9 +61,28 @@ type MatchRecord =
   | (MatchRecordIdentity & { status: Exclude<CatalogMatchStatus, 'finished'> })
   | (MatchRecordIdentity & {
       status: 'finished'
+      endedAt: UnixEpochMilliseconds
       finalSourceLatestSeq: NonNegativeInteger
       finalScore: MatchScoreProjection
     })
+
+type MatchListRecordQuery =
+  | { readonly scope: 'live'; readonly completedSince: UnixEpochMilliseconds }
+  | { readonly scope: 'completed' }
+
+type MatchListScore =
+  | {
+      readonly status: 'active'
+      readonly endedAt: null
+      readonly latestSeq: NonNegativeInteger
+      readonly score: MatchScoreProjection
+    }
+  | {
+      readonly status: 'finished'
+      readonly endedAt: UnixEpochMilliseconds
+      readonly latestSeq: NonNegativeInteger
+      readonly score: MatchScoreProjection
+    }
 
 type ApplicationDependencies = {
   newMatchId(): MatchId
@@ -64,7 +90,9 @@ type ApplicationDependencies = {
   now(): UnixEpochMilliseconds
   getOrCreateGuestPlayerRef(displayName: string): Promise<PlayerRef>
   hydrateParticipant(playerRef: PlayerRef, locale: SupportedLocale): Promise<HydratedMatchParticipant>
-  listMatchRecords(input: { limit: number; offset: number }): Promise<MatchRecord[]>
+  listMatchRecords(
+    input: MatchListRecordQuery & { readonly limit: number; readonly offset: number },
+  ): Promise<MatchRecord[]>
   getMatchRecord(matchId: MatchId): Promise<MatchRecord | null>
   getMatchRecords(matchIds: readonly MatchId[]): Promise<MatchRecord[]>
   getProtocolArchive(matchId: MatchId): Promise<ProtocolArchiveRecord | null>
@@ -151,17 +179,30 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
   }
 
   async function listMatches(
+    scope: MatchListScope,
     locale: SupportedLocale,
     pagination?: MatchListPagination,
   ): Promise<MatchListPage> {
-    const { page, pageSize } = v.parse(MatchListPagination, pagination ?? {})
+    const { page } = v.parse(MatchListPagination, pagination ?? {})
+
+    const query: MatchListRecordQuery =
+      scope === 'live'
+        ? {
+            scope,
+            completedSince: v.parse(
+              UnixEpochMilliseconds,
+              Math.max(0, dependencies.now() - RECENT_COMPLETED_MATCH_WINDOW_MS),
+            ),
+          }
+        : { scope }
 
     const records = await dependencies.listMatchRecords({
-      limit: pageSize + 1,
-      offset: (page - 1) * pageSize,
+      ...query,
+      limit: MATCH_LIST_DEFAULT_PAGE_SIZE + 1,
+      offset: (page - 1) * MATCH_LIST_DEFAULT_PAGE_SIZE,
     })
 
-    const pageRecords = records.slice(0, pageSize)
+    const pageRecords = records.slice(0, MATCH_LIST_DEFAULT_PAGE_SIZE)
 
     const matches: MatchListEntry[] = await Promise.all(
       pageRecords.map(async (record) => {
@@ -181,7 +222,11 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
       }),
     )
 
-    return { matches, page, pageSize, hasNextPage: records.length > pageSize }
+    return {
+      matches,
+      page,
+      hasNextPage: records.length > MATCH_LIST_DEFAULT_PAGE_SIZE,
+    }
   }
 
   async function readMatchScores(matchIds: readonly MatchId[]): Promise<ReadMatchScoresResult> {
@@ -190,7 +235,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
       matchIds.length > MATCH_SCORE_POLL_MAX_MATCHES ||
       new Set(matchIds).size !== matchIds.length
     )
-      throw new Error('Match score batch must contain 1 to 20 unique Matches')
+      throw new Error(`Match score batch must contain 1 to ${MATCH_SCORE_POLL_MAX_MATCHES} unique Matches`)
 
     const recordsById = new Map(
       (await dependencies.getMatchRecords(matchIds)).map((record) => [record.matchId, record]),
@@ -369,14 +414,11 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     await dependencies.markMatchFinished(transfer)
   }
 
-  async function readMatchScoreForList(record: MatchRecord): Promise<{
-    status: 'active' | 'finished'
-    latestSeq: NonNegativeInteger
-    score: MatchScoreProjection
-  }> {
+  async function readMatchScoreForList(record: MatchRecord): Promise<MatchListScore> {
     if (record.status === 'finished')
       return {
         status: 'finished',
+        endedAt: record.endedAt,
         latestSeq: record.finalSourceLatestSeq,
         score: record.finalScore,
       }
@@ -384,7 +426,8 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     if (record.status === 'creating') throw new Error('Creating Match cannot be included in the Match list')
     const room = await dependencies.matchRoomClient(record.matchId).getScore()
 
-    if (room._tag === 'active') return { status: 'active', latestSeq: room.latestSeq, score: room.score }
+    if (room._tag === 'active')
+      return { status: 'active', endedAt: null, latestSeq: room.latestSeq, score: room.score }
     await archiveAndFinishRoom(record.matchId)
     const finished = await dependencies.getMatchRecord(record.matchId)
 
@@ -393,6 +436,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
 
     return {
       status: 'finished',
+      endedAt: finished.endedAt,
       latestSeq: finished.finalSourceLatestSeq,
       score: finished.finalScore,
     }

@@ -7,7 +7,7 @@ import {
   MatchScoreProjection,
   NonNegativeInteger,
   PositiveInteger,
-  type UnixEpochMilliseconds,
+  UnixEpochMilliseconds,
 } from '@ks/core'
 import type { GamePresentationFor, RegisteredGameKey } from '@ks/gameplay/definitions'
 import type { SupportedLocale } from '@ks/i18n'
@@ -49,31 +49,31 @@ export type CreateMatchResult =
   | { readonly ok: true; readonly matchId: MatchId }
   | { readonly ok: false; readonly error: string; readonly status: number }
 
-export type MatchListEntry = Readonly<{
+type MatchListEntryIdentity = {
   matchId: MatchId
   gameKey: RegisteredGameKey
   shortGameTitle: string
-  status: 'active' | 'finished'
   createdAt: UnixEpochMilliseconds
   participants: HydratedMatchParticipants
   latestSeq: NonNegativeInteger
   score: MatchScoreProjection
-}>
+}
+
+export type MatchListEntry = Readonly<
+  MatchListEntryIdentity &
+    ({ status: 'active'; endedAt: null } | { status: 'finished'; endedAt: UnixEpochMilliseconds })
+>
+
+export type MatchListScope = 'live' | 'completed'
 
 export const MATCH_LIST_DEFAULT_PAGE_SIZE = 10
 
-export const MATCH_LIST_MAX_PAGE_SIZE = 20
+export const RECENT_COMPLETED_MATCH_WINDOW_MS = 15 * 60 * 1_000
 
 export const MatchListPagination = v.pipe(
-  v.object({
-    page: v.optional(PositiveInteger, 1),
-    pageSize: v.optional(
-      v.pipe(PositiveInteger, v.maxValue(MATCH_LIST_MAX_PAGE_SIZE)),
-      MATCH_LIST_DEFAULT_PAGE_SIZE,
-    ),
-  }),
+  v.object({ page: v.optional(PositiveInteger, 1) }),
   v.check(
-    ({ page, pageSize }) => Number.isSafeInteger((page - 1) * pageSize),
+    ({ page }) => Number.isSafeInteger((page - 1) * MATCH_LIST_DEFAULT_PAGE_SIZE),
     'Match list offset exceeds the safe integer range',
   ),
   v.readonly(),
@@ -84,19 +84,23 @@ export type MatchListPagination = v.InferOutput<typeof MatchListPagination>
 export type MatchListPage = Readonly<{
   matches: readonly MatchListEntry[]
   page: PositiveInteger
-  pageSize: PositiveInteger
   hasNextPage: boolean
 }>
 
-export const MATCH_SCORE_POLL_MAX_MATCHES = MATCH_LIST_MAX_PAGE_SIZE
+export const MATCH_SCORE_POLL_MAX_MATCHES = MATCH_LIST_DEFAULT_PAGE_SIZE
 
 export const MatchScorePollEntry = v.pipe(
-  v.object({
-    matchId: MatchId,
-    status: v.picklist(['active', 'finished']),
-    latestSeq: NonNegativeInteger,
-    score: MatchScoreProjection,
-  }),
+  v.intersect([
+    v.object({
+      matchId: MatchId,
+      latestSeq: NonNegativeInteger,
+      score: MatchScoreProjection,
+    }),
+    v.variant('status', [
+      v.object({ status: v.literal('active'), endedAt: v.null() }),
+      v.object({ status: v.literal('finished'), endedAt: UnixEpochMilliseconds }),
+    ]),
+  ]),
   v.readonly(),
 )
 
@@ -169,7 +173,11 @@ export type ReadMatchProtocolResult<K extends RegisteredGameKey> =
 
 export type Application = {
   createMatch(input: CreateMatchInput): Promise<CreateMatchResult>
-  listMatches(locale: SupportedLocale, pagination?: MatchListPagination): Promise<MatchListPage>
+  listMatches(
+    scope: MatchListScope,
+    locale: SupportedLocale,
+    pagination?: MatchListPagination,
+  ): Promise<MatchListPage>
   readMatchScores(matchIds: readonly MatchId[]): Promise<ReadMatchScoresResult>
   readMatchControl<K extends RegisteredGameKey>(
     matchId: MatchId,

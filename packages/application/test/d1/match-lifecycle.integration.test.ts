@@ -121,11 +121,18 @@ describe('real D1 match lifecycle', () => {
     await beginMatchCreation(db, catalogInput(creatingMatchId, v.parse(UnixEpochMilliseconds, 5_000)))
 
     expect(await getMatchRow(db, matchId)).toMatchObject({ matchId, status: 'active' })
-    expect((await listMatchRows(db, { limit: 2, offset: 0 })).map((row) => row.matchId)).toEqual([
+
+    const liveQuery = {
+      scope: 'live' as const,
+      completedSince: v.parse(UnixEpochMilliseconds, 0),
+      limit: 2,
+    }
+
+    expect((await listMatchRows(db, { ...liveQuery, offset: 0 })).map((row) => row.matchId)).toEqual([
       newestMatchId,
       matchId,
     ])
-    expect((await listMatchRows(db, { limit: 2, offset: 2 })).map((row) => row.matchId)).toEqual([
+    expect((await listMatchRows(db, { ...liveQuery, offset: 2 })).map((row) => row.matchId)).toEqual([
       otherMatchId,
     ])
 
@@ -160,6 +167,19 @@ describe('real D1 match lifecycle', () => {
       (await env.DB.prepare('SELECT ended_at FROM matches WHERE match_id = ?').bind(matchId).first())
         ?.ended_at,
     ).toBe(archive.endedAt)
+    expect(
+      (await listMatchRows(db, { scope: 'completed', limit: 10, offset: 0 })).map((row) => row.matchId),
+    ).toEqual([otherMatchId, matchId])
+    expect(
+      (
+        await listMatchRows(db, {
+          scope: 'live',
+          completedSince: v.parse(UnixEpochMilliseconds, 3_000),
+          limit: 10,
+          offset: 0,
+        })
+      ).map((row) => row.matchId),
+    ).toEqual([newestMatchId, otherMatchId])
   })
 
   test('rejects conflicting persisted archive data without changing the active match row', async () => {

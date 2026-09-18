@@ -1,0 +1,385 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "id": "2a6c1174-ccac-4bd6-bf70-187759f5f394",
+  "prevIds": ["7a8c0fb2-a884-444b-97f0-17779950bd76"],
+  "ddl": [
+    {
+      "name": "guest_players",
+      "entityType": "tables"
+    },
+    {
+      "name": "match_protocol_archives",
+      "entityType": "tables"
+    },
+    {
+      "name": "matches",
+      "entityType": "tables"
+    },
+    {
+      "name": "verified_players",
+      "entityType": "tables"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "guest_player_id",
+      "entityType": "columns",
+      "table": "guest_players"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "first_name_uk",
+      "entityType": "columns",
+      "table": "guest_players"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "last_name_uk",
+      "entityType": "columns",
+      "table": "guest_players"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "first_name_en",
+      "entityType": "columns",
+      "table": "guest_players"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "last_name_en",
+      "entityType": "columns",
+      "table": "guest_players"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "guest_players"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "match_id",
+      "entityType": "columns",
+      "table": "match_protocol_archives"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "source_latest_seq",
+      "entityType": "columns",
+      "table": "match_protocol_archives"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "protocol_version",
+      "entityType": "columns",
+      "table": "match_protocol_archives"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "rows_json",
+      "entityType": "columns",
+      "table": "match_protocol_archives"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "state_json",
+      "entityType": "columns",
+      "table": "match_protocol_archives"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "match_protocol_archives"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "match_id",
+      "entityType": "columns",
+      "table": "matches"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "game_key",
+      "entityType": "columns",
+      "table": "matches"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "seat_a_player_ref",
+      "entityType": "columns",
+      "table": "matches"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "seat_b_player_ref",
+      "entityType": "columns",
+      "table": "matches"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "status",
+      "entityType": "columns",
+      "table": "matches"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "matches"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "ended_at",
+      "entityType": "columns",
+      "table": "matches"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "final_source_latest_seq",
+      "entityType": "columns",
+      "table": "matches"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "final_score_json",
+      "entityType": "columns",
+      "table": "matches"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "verified_player_id",
+      "entityType": "columns",
+      "table": "verified_players"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "first_name_uk",
+      "entityType": "columns",
+      "table": "verified_players"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "last_name_uk",
+      "entityType": "columns",
+      "table": "verified_players"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "first_name_en",
+      "entityType": "columns",
+      "table": "verified_players"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "last_name_en",
+      "entityType": "columns",
+      "table": "verified_players"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "verified_players"
+    },
+    {
+      "columns": ["guest_player_id"],
+      "nameExplicit": false,
+      "name": "guest_players_pk",
+      "table": "guest_players",
+      "entityType": "pks"
+    },
+    {
+      "columns": ["match_id"],
+      "nameExplicit": false,
+      "name": "match_protocol_archives_pk",
+      "table": "match_protocol_archives",
+      "entityType": "pks"
+    },
+    {
+      "columns": ["match_id"],
+      "nameExplicit": false,
+      "name": "matches_pk",
+      "table": "matches",
+      "entityType": "pks"
+    },
+    {
+      "columns": ["verified_player_id"],
+      "nameExplicit": false,
+      "name": "verified_players_pk",
+      "table": "verified_players",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        {
+          "value": "status",
+          "isExpression": false
+        },
+        {
+          "value": "created_at",
+          "isExpression": false
+        },
+        {
+          "value": "match_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "matches_status_created_at_match_id_idx",
+      "entityType": "indexes",
+      "table": "matches"
+    },
+    {
+      "columns": [
+        {
+          "value": "status",
+          "isExpression": false
+        },
+        {
+          "value": "ended_at",
+          "isExpression": false
+        },
+        {
+          "value": "match_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "matches_status_ended_at_match_id_idx",
+      "entityType": "indexes",
+      "table": "matches"
+    },
+    {
+      "value": "\"seat_a_player_ref\" != \"seat_b_player_ref\"",
+      "name": "matches_distinct_players",
+      "entityType": "checks",
+      "table": "matches"
+    },
+    {
+      "value": "\"seat_a_player_ref\" GLOB 'gp_*' OR \"seat_a_player_ref\" GLOB 'vp_*'",
+      "name": "matches_seat_a_player_ref_format",
+      "entityType": "checks",
+      "table": "matches"
+    },
+    {
+      "value": "\"seat_b_player_ref\" GLOB 'gp_*' OR \"seat_b_player_ref\" GLOB 'vp_*'",
+      "name": "matches_seat_b_player_ref_format",
+      "entityType": "checks",
+      "table": "matches"
+    }
+  ],
+  "renames": []
+}

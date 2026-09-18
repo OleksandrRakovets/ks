@@ -15,7 +15,10 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     url.searchParams.size !== values.length ||
     new Set(values).size !== values.length
   )
-    return Response.json({ error: 'Expected 1 to 20 unique Match IDs' }, { status: 400 })
+    return Response.json(
+      { error: `Expected 1 to ${MATCH_SCORE_POLL_MAX_MATCHES} unique Match IDs` },
+      { status: 400 },
+    )
   const matchIds = v.safeParse(v.array(MatchId), values)
 
   if (!matchIds.success) return Response.json({ error: 'Invalid Match ID' }, { status: 400 })

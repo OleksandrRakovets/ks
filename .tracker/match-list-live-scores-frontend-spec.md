@@ -4,9 +4,20 @@
 
 Implemented and browser-verified with the redesigned Match list.
 
-The backend contract is specified in `match-list-live-scores-backend-spec.md`. This document owns list presentation, route-local state, and browser polling behavior. The first slice displays one page under the backend's active-first, newest-first ordering, defaulting to 10 Matches and permitting at most 20. “Displayed” means included in the rendered page, not intersecting the browser viewport.
+The backend contract is specified in `match-list-live-scores-backend-spec.md`. This document owns list
+presentation, route-local state, and browser polling behavior. `/sparring/matches/` displays Active
+Matches plus Matches completed within the last 15 minutes. `/sparring/matches/completed/` displays
+only completed Matches. Both use a fixed server page size of 10 and accept only the optional `page`
+query parameter. “Displayed” means included in the rendered page, not intersecting the browser
+viewport.
 
-The Match list polls compact score projections approximately every 30 seconds. It does not subscribe to every Match or update for every accepted ball. Individual Match pages retain their separate live transport.
+Only the live route polls compact score projections approximately every 30 seconds. The completed
+route's loader reads finished D1 projections and its update policy mounts no polling behavior.
+Individual Match pages retain their separate live transport.
+
+Both pages share the title row, live/completed navigation, card grid, rows, and pagination renderers.
+The route loaders choose the data scope and return an explicit update policy. Shared renderers do not
+inspect the URL or infer whether to poll from the rendered rows.
 
 ## Presentation Semantics
 
@@ -26,11 +37,16 @@ Their start timestamp uses the browser's current time zone: `HH:mm` when the Mat
 `DD.MM` on another day in the current year, and `DD.MM.YYYY` in another year. It does not use
 relative dates.
 
-Sections use one column on narrow screens and two columns on desktop. Active cards retain a green
-status dot and one-pixel green border without a tinted fill; their player names use regular weight.
-Finished cards continue to emphasize the winner and mute the loser. Footer metadata forms one inline
-sequence separated by middle dots so it wraps naturally; Active and finished rows both include the
-browser-local Match start time or date.
+The list uses one column on narrow screens and two columns on desktop. Every card uses the same
+neutral one-pixel border and footer divider. Active cards retain a green status dot with regular-weight
+player names; finished cards emphasize the winner and mute the loser. Footer metadata forms one
+inline sequence separated by middle dots so it wraps naturally; Active and finished rows both include
+the browser-local Match start time or date.
+
+Both pages use one uninterrupted grid. The live loader's Active-first order and each Active card's
+green dot convey lifecycle without subheadings, so a polled completion does not move a card between
+render sections. A two-option link control in the title row switches routes, exposes the current route
+with navigation semantics, and repeats the live dot beside its live label.
 
 `activeFrame` is absent before the first Frame is prepared, between Frames, and after the Match finishes. The most recently completed Frame must not be presented as though it were still active. A prepared but not yet commenced Frame is active and displays its initial score.
 
@@ -44,7 +60,11 @@ The lifecycle badge and link destination must use the same merged row state. The
 
 ## Browser State Ownership
 
-Loader data owns the current page, row membership, ordering, participants, game metadata, and the initial score. Polling may override only the score and lifecycle of a retained row. Page navigation replaces loader membership and therefore the polling batch.
+Loader data owns the selected view, current page, row membership, ordering, participants, game
+metadata, initial score, and update policy. The live policy supplies the initial Active Match IDs and
+the next recent-completion expiry. The completed policy is `none`. Polling may override only the
+score, lifecycle, and canonical end time of a retained row. Page navigation replaces loader
+membership and therefore the polling batch.
 
 Keep polling overrides in route-local reducer state keyed by `MatchId`. Render by mapping the current loader entries and merging any newer override; an override never creates a row absent from current loader membership. Later loader data is authoritative for added, removed, or reordered rows without discarding a newer polled score for a retained row.
 
@@ -57,11 +77,18 @@ Merge rules are exhaustive:
 
 New loader IDs start from loader data. Removed IDs are no longer rendered or polled; stale overrides may be pruned as ordinary reducer housekeeping. A response from an effect instance that has already been cleaned up is ignored.
 
+When polling first observes a completion, the live route revalidates once so the loader can apply
+canonical ordering and calculate expiry from persisted `endedAt`. For a recent completed row already
+returned by the loader, the route schedules one timeout at `endedAt + 15 minutes`; the timeout
+revalidates the loader so the server removes the expired row. This is expiry scheduling, not periodic
+list polling.
+
 `useSyncExternalStore` is not needed for this route-local state. It would require introducing an external store while still needing subscription setup and cleanup to own polling. A reducer plus an effect follows React's ownership model with fewer layers. Reconsider an external store only if multiple independently mounted consumers need the same polling snapshot.
 
 ## Poll Request and Response
 
-On each poll, collect the IDs whose merged lifecycle is active and request:
+On each poll, retain only IDs from the loader's `poll-scores` policy whose merged lifecycle remains
+active and request:
 
 ```text
 GET /api/sparring-matches/scores/?matchId=:id&matchId=:id...
@@ -87,7 +114,11 @@ The list route owns one polling effect for the batch, not one effect per row. Th
 - Retry on a later scheduled or visibility-triggered poll; do not clear scores or reload the document.
 - Stop polling after every displayed Match is finished.
 
-Finished rows are removed from subsequent poll URLs. Their final score remains rendered from the successful poll result. New Matches created after initial navigation are outside polling membership; normal navigation or an explicit list refresh discovers them. Polling does not re-fetch full list metadata merely to discover membership.
+Finished rows are removed from subsequent poll URLs. Their final score remains rendered from the
+successful poll result while one route revalidation reconciles canonical membership and expiry. New
+Matches created after initial navigation are outside polling membership; normal navigation or an
+explicit list refresh discovers them. Polling does not re-fetch full list metadata merely to discover
+membership.
 
 The initial slice adds no separate application request deadline or focus-event debounce. Browser request behavior, the in-flight guard, and effect cleanup are sufficient until observed failures justify more machinery.
 
@@ -125,11 +156,14 @@ document becomes visible or focused while visible
 
 ## Implementation and Verification
 
-The route implements the redesigned score rows, page navigation, route-local score overrides and merge rules, and one batched polling effect with sequencing, visibility, focus, jitter, cancellation, and terminal removal behavior.
+The route modules select live or completed data and return explicit update policies. Reusable Match
+list components implement the title navigation, score rows, fixed-size page navigation, route-local
+score overrides, expiry revalidation, and the live route's batched polling effect with sequencing,
+visibility, focus, jitter, cancellation, and terminal removal behavior.
 
 Browser verification covered:
 
-- 20 simultaneous Active Matches in one maximum-size polling batch and navigation to the following page;
+- 10 simultaneous Active Matches in one full polling batch and navigation to the following page;
 - asymmetric multi-Frame and single-Frame scores;
 - mobile 390×844 and desktop 1280×900 layouts;
 - a completion transition that retained final single-Frame points, changed lifecycle and destination together, and removed the finished Match from later poll requests;

@@ -3,6 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import { MatchId, newCommandId, PlayerRef, projectMatchScore, UnixEpochMilliseconds } from '@ks/core'
 import * as v from 'valibot'
 
+import { RECENT_COMPLETED_MATCH_WINDOW_MS } from './contracts'
 import type { MatchRoomClient, MatchRoomCompletionTransfer } from './match-room-client'
 import { createApplicationWithDependencies } from './use-cases'
 
@@ -75,6 +76,7 @@ function application(
       ? {
           ...identity,
           status,
+          endedAt: transfer.endedAt,
           finalSourceLatestSeq: transfer.sourceLatestSeq,
           finalScore: projectMatchScore(transfer.finalState),
         }
@@ -196,8 +198,13 @@ describe('trusted MatchRoom orchestration', () => {
 
     const app = application(room, [], {
       overrides: {
-        listMatchRecords: async (pagination) => {
-          expect(pagination).toEqual({ limit: 11, offset: 0 })
+        listMatchRecords: async (query) => {
+          expect(query).toEqual({
+            scope: 'live',
+            completedSince: v.parse(UnixEpochMilliseconds, createdAt - RECENT_COMPLETED_MATCH_WINDOW_MS),
+            limit: 11,
+            offset: 0,
+          })
 
           return [
             {
@@ -212,15 +219,53 @@ describe('trusted MatchRoom orchestration', () => {
       },
     })
 
-    expect(await app.listMatches('en')).toMatchObject({
-      matches: [{ matchId, status: 'active', latestSeq: 3, score }],
+    expect(await app.listMatches('live', 'en')).toMatchObject({
+      matches: [{ matchId, status: 'active', endedAt: null, latestSeq: 3, score }],
       page: 1,
-      pageSize: 10,
       hasNextPage: false,
     })
     expect(await app.readMatchScores([matchId])).toEqual({
       ok: true,
-      matches: [{ matchId, status: 'active', latestSeq: 3, score }],
+      matches: [{ matchId, status: 'active', endedAt: null, latestSeq: 3, score }],
+    })
+  })
+
+  test('loads the completed list from stored projections without selecting MatchRoom', async () => {
+    const finalScore = projectMatchScore(transfer.finalState)
+
+    const app = application(selectedClient(), [], {
+      overrides: {
+        listMatchRecords: async (query) => {
+          expect(query).toEqual({ scope: 'completed', limit: 11, offset: 0 })
+
+          return [
+            {
+              matchId,
+              gameKey: 'free-pyramid',
+              status: 'finished',
+              createdAt,
+              endedAt: transfer.endedAt,
+              participantRefs: { A: playerRefA, B: playerRefB },
+              finalSourceLatestSeq: transfer.sourceLatestSeq,
+              finalScore,
+            },
+          ]
+        },
+      },
+    })
+
+    expect(await app.listMatches('completed', 'en')).toMatchObject({
+      matches: [
+        {
+          matchId,
+          status: 'finished',
+          endedAt: transfer.endedAt,
+          latestSeq: transfer.sourceLatestSeq,
+          score: finalScore,
+        },
+      ],
+      page: 1,
+      hasNextPage: false,
     })
   })
 

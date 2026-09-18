@@ -13,7 +13,8 @@ export default [
     layout('routes/layout-app.tsx', [
       route('sparring/', 'routes/sparring.tsx'),
       route('sparring/init/:gameKey/', 'routes/sparring-init/route.tsx'),
-      route('sparring/matches/', 'routes/sparring-matches.tsx'),
+      route('sparring/matches/', 'routes/sparring-matches/live.tsx'),
+      route('sparring/matches/completed/', 'routes/sparring-matches/completed.tsx'),
     ]),
     route('match/strila-v2/:matchId/control/', 'routes/match/strila-v2-control.tsx'),
     route('match/strila-v2/:matchId/protocol/', 'routes/match/strila-v2-protocol.tsx'),

@@ -43,6 +43,7 @@ function matchRecordFromRow(row: MatchRow) {
     ? {
         ...identity,
         status: row.status,
+        endedAt: row.endedAt,
         finalSourceLatestSeq: row.finalSourceLatestSeq,
         finalScore: row.finalScore,
       }
@@ -58,7 +59,7 @@ export function createApplication(bindings: ApplicationBindings) {
     now: nowUnixEpochMilliseconds,
     getOrCreateGuestPlayerRef: async (displayName) => getOrCreateGuestPlayerRef(db, displayName),
     hydrateParticipant: async (playerRef, locale) => hydrateParticipant(db, playerRef, locale),
-    listMatchRecords: async (pagination) => (await listMatchRows(db, pagination)).map(matchRecordFromRow),
+    listMatchRecords: async (query) => (await listMatchRows(db, query)).map(matchRecordFromRow),
     getMatchRecord: async (matchId) => {
       const row = await getMatchRow(db, matchId)
 

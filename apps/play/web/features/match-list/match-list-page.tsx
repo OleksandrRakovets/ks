@@ -1,96 +1,104 @@
 import {
   type MatchListEntry,
-  type MatchListPage,
-  MatchListPagination,
+  type MatchListPage as MatchListPageData,
   type MatchScorePollEntry,
   MatchScorePollResponse,
 } from '@ks/application'
 import type { BySeatNumber, MatchId, MatchScoreProjection, Seat, UnixEpochMilliseconds } from '@ks/core'
 import { keys } from '@ks/i18n'
-import { useEffect, useMemo, useReducer, useState } from 'react'
+import { useCallback, useEffect, useMemo, useReducer, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, useLoaderData } from 'react-router'
+import { Link, useRevalidator } from 'react-router'
 import * as v from 'valibot'
 
 import { Page } from '@/components/Page'
-import { Button } from '@/components/ui'
+import { Button, ToggleGroup, ToggleGroupItem } from '@/components/ui'
 import { cn } from '@/components/ui/utils'
 
-import { matchUrlForStatus } from '../features/match-urls'
-import { localeFromContext, localizedPath } from '../locale'
-import { useRootLocale } from '../root'
-import type { AppLoadContext } from '../server/context'
-import { requireApplication } from '../server/context'
+import { localizedPath } from '../../locale'
+import { useRootLocale } from '../../root'
+import { matchUrlForStatus } from '../match-urls'
 
-type LoaderData = MatchListPage
+export type MatchListView = 'live' | 'completed'
 
-export async function loader({
-  request,
-  context,
-}: {
-  request: Request
-  context: AppLoadContext
-}): Promise<LoaderData> {
-  const application = requireApplication(context)
-  const locale = localeFromContext(context)
-  const url = new URL(request.url)
+export type MatchListUpdates =
+  | {
+      readonly kind: 'poll-scores'
+      readonly matchIds: readonly MatchId[]
+      readonly revalidateAt?: UnixEpochMilliseconds
+    }
+  | { readonly kind: 'none' }
 
-  if (url.searchParams.getAll('page').length > 1 || url.searchParams.getAll('pageSize').length > 1)
-    throw new Response('Invalid Match list pagination', { status: 400 })
-
-  const pagination = v.safeParse(MatchListPagination, {
-    page: parsePositiveInteger(url.searchParams.get('page')),
-    pageSize: parsePositiveInteger(url.searchParams.get('pageSize')),
-  })
-
-  if (!pagination.success) throw new Response('Invalid Match list pagination', { status: 400 })
-
-  return application.listMatches(locale, pagination.output)
+export type MatchListRouteData = {
+  readonly view: MatchListView
+  readonly page: MatchListPageData
+  readonly updates: MatchListUpdates
 }
 
-export default function SparringMatchesRoute() {
-  const { t } = useTranslation()
-  const locale = useRootLocale()
-  const page = useLoaderData<typeof loader>()
+export function MatchListPage({ data }: { data: MatchListRouteData }) {
+  if (data.updates.kind === 'poll-scores') return <PollingMatchListPage data={data} updates={data.updates} />
+
+  return <MatchListContent view={data.view} page={data.page} matches={data.page.matches} />
+}
+
+function PollingMatchListPage({
+  data,
+  updates,
+}: {
+  data: MatchListRouteData
+  updates: Extract<MatchListUpdates, { kind: 'poll-scores' }>
+}) {
   const [overrides, dispatch] = useReducer(scoreOverridesReducer, new Map())
-  const [isClient, setIsClient] = useState(false)
+  const revalidator = useRevalidator()
+  const revalidate = useCallback(() => void revalidator.revalidate(), [revalidator])
 
   const matches = useMemo(
-    () => page.matches.map((match) => mergeMatchEntry(match, overrides.get(match.matchId))),
-    [overrides, page.matches],
+    () => data.page.matches.map((match) => mergeMatchEntry(match, overrides.get(match.matchId))),
+    [data.page.matches, overrides],
   )
 
-  const activeMatches = useMemo(() => matches.filter((match) => match.status === 'active'), [matches])
+  const pollableIds = useMemo(() => new Set(updates.matchIds), [updates.matchIds])
 
-  const finishedMatches = useMemo(() => matches.filter((match) => match.status === 'finished'), [matches])
+  const activeMatches = useMemo(
+    () => matches.filter((match) => match.status === 'active' && pollableIds.has(match.matchId)),
+    [matches, pollableIds],
+  )
+
+  useMatchScorePolling(activeMatches, dispatch, revalidate)
+  useMatchListExpiry(updates.revalidateAt, revalidate)
+
+  return <MatchListContent view={data.view} page={data.page} matches={matches} />
+}
+
+function MatchListContent({
+  view,
+  page,
+  matches,
+}: {
+  view: MatchListView
+  page: MatchListPageData
+  matches: readonly MatchListEntry[]
+}) {
+  const { t } = useTranslation()
+  const locale = useRootLocale()
+  const [isClient, setIsClient] = useState(false)
 
   // The browser timezone is unavailable during SSR; reveal local start times after hydration.
   // oxlint-disable-next-line react/set-state-in-effect
   useEffect(() => setIsClient(true), [])
-  useMatchScorePolling(activeMatches, dispatch)
 
   return (
-    <Page title={t(keys.nav.matches)}>
+    <Page title={t(keys.nav.matches)} headerAction={<MatchListViewToggle view={view} locale={locale} />}>
       {matches.length === 0 ? (
-        <p className="text-muted-foreground">{t(keys.match.sparring.noRecentMatches)}</p>
+        <p className="text-muted-foreground">
+          {t(view === 'live' ? keys.match.sparring.noLiveMatches : keys.match.sparring.noCompletedMatches)}
+        </p>
       ) : (
-        <div className="flex flex-col gap-6">
-          {activeMatches.length > 0 ? (
-            <MatchSection title={t(keys.match.sparring.playingNow)}>
-              {activeMatches.map((match) => (
-                <MatchRow key={match.matchId} match={match} locale={locale} isClient={isClient} />
-              ))}
-            </MatchSection>
-          ) : null}
-
-          {finishedMatches.length > 0 ? (
-            <MatchSection title={t(keys.match.sparring.finishedMatches)}>
-              {finishedMatches.map((match) => (
-                <MatchRow key={match.matchId} match={match} locale={locale} isClient={isClient} />
-              ))}
-            </MatchSection>
-          ) : null}
-        </div>
+        <MatchGrid>
+          {matches.map((match) => (
+            <MatchRow key={match.matchId} match={match} locale={locale} isClient={isClient} />
+          ))}
+        </MatchGrid>
       )}
 
       {page.page > 1 || page.hasNextPage ? (
@@ -101,7 +109,7 @@ export default function SparringMatchesRoute() {
           {page.page > 1 ? (
             <Button
               nativeButton={false}
-              render={<Link to={matchListPagePath(locale, page.page - 1, page.pageSize)} prefetch="intent" />}
+              render={<Link to={matchListPagePath(locale, view, page.page - 1)} prefetch="intent" />}
               variant="outline"
               size="touch"
               className="justify-self-start"
@@ -117,7 +125,7 @@ export default function SparringMatchesRoute() {
           {page.hasNextPage ? (
             <Button
               nativeButton={false}
-              render={<Link to={matchListPagePath(locale, page.page + 1, page.pageSize)} prefetch="intent" />}
+              render={<Link to={matchListPagePath(locale, view, page.page + 1)} prefetch="intent" />}
               variant="outline"
               size="touch"
               className="justify-self-end"
@@ -133,18 +141,35 @@ export default function SparringMatchesRoute() {
   )
 }
 
-type MatchSectionProps = {
-  title: string
-  children: React.ReactNode
+function MatchListViewToggle({ view, locale }: { view: MatchListView; locale: 'uk' | 'en' }) {
+  const { t } = useTranslation()
+
+  return (
+    <nav aria-label={t(keys.match.sparring.views)}>
+      <ToggleGroup value={[view]}>
+        <ToggleGroupItem
+          value="live"
+          nativeButton={false}
+          render={<Link to={localizedPath('/sparring/matches/', locale)} prefetch="intent" />}
+          className="gap-2"
+        >
+          <LiveDot />
+          {t(keys.match.sparring.liveMatches)}
+        </ToggleGroupItem>
+        <ToggleGroupItem
+          value="completed"
+          nativeButton={false}
+          render={<Link to={localizedPath('/sparring/matches/completed/', locale)} prefetch="intent" />}
+        >
+          {t(keys.match.sparring.completedMatches)}
+        </ToggleGroupItem>
+      </ToggleGroup>
+    </nav>
+  )
 }
 
-function MatchSection({ title, children }: MatchSectionProps) {
-  return (
-    <section className="flex flex-col gap-2.5">
-      <h2 className="text-[17px] font-semibold text-muted-foreground">{title}</h2>
-      <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2">{children}</div>
-    </section>
-  )
+function MatchGrid({ children }: { children: React.ReactNode }) {
+  return <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2">{children}</div>
 }
 
 function MatchRow({
@@ -166,10 +191,7 @@ function MatchRow({
   return (
     <Link
       to={matchUrlForStatus(match.gameKey, match.matchId, match.status, locale)}
-      className={cn(
-        'block rounded-xl border bg-card px-4 py-3.5 transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/30',
-        match.status === 'active' ? 'border-green hover:bg-muted' : 'border-border hover:bg-muted',
-      )}
+      className="block rounded-xl border border-border bg-card px-4 py-3.5 transition-colors outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/30"
     >
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-4 gap-y-1">
         <PlayerName
@@ -186,51 +208,50 @@ function MatchRow({
         <PlayerScore value={score.B} emphasized={winner === undefined || winner === 'B'} />
       </div>
 
-      <div
-        className={cn(
-          'mt-3 text-muted-foreground',
-          match.status === 'finished' && 'border-t border-border pt-3',
-        )}
-      >
-        {match.status === 'active' ? (
-          <>
-            <span className="mr-2 inline-block size-2 rounded-full bg-green" aria-hidden="true" />
-            <span className="sr-only">{t(keys.status.live)}</span>
-          </>
-        ) : (
-          <span className="sr-only">{t(keys.status.finished)}</span>
-        )}
-        <span>{match.shortGameTitle}</span>
-        {match.status === 'active' ? (
-          <>
-            {' · '}
-            <span>
-              {t(keys.match.scoreboard.target, {
-                target: displayedTarget(match.score),
-              })}
-            </span>
-          </>
-        ) : null}
-        {match.status === 'active' && activeFrame !== null ? (
-          <>
-            {' · '}
-            <span>
-              {t(keys.match.scoreboard.frameWithNumber, {
-                frameIndex: activeFrame.frameIndex,
-              })}
-            </span>
-          </>
-        ) : null}
-        {startLabel !== undefined ? (
-          <>
-            {' · '}
-            <time dateTime={new Date(match.createdAt).toISOString()} className="tabular-nums">
-              {startLabel}
-            </time>
-          </>
-        ) : null}
+      <div className="mt-3 flex items-start gap-2 border-t border-border pt-3 leading-6 text-muted-foreground">
+        {match.status === 'active' ? <LiveDot className="mt-2" /> : null}
+        <span className="min-w-0">
+          <span className="sr-only">
+            {t(match.status === 'active' ? keys.status.live : keys.status.finished)}
+          </span>
+          <span>{match.shortGameTitle}</span>
+          {match.status === 'active' ? (
+            <>
+              {' · '}
+              <span>
+                {t(keys.match.scoreboard.target, {
+                  target: displayedTarget(match.score),
+                })}
+              </span>
+            </>
+          ) : null}
+          {match.status === 'active' && activeFrame !== null ? (
+            <>
+              {' · '}
+              <span>
+                {t(keys.match.scoreboard.frameWithNumber, {
+                  frameIndex: activeFrame.frameIndex,
+                })}
+              </span>
+            </>
+          ) : null}
+          {startLabel !== undefined ? (
+            <>
+              {' · '}
+              <time dateTime={new Date(match.createdAt).toISOString()} className="tabular-nums">
+                {startLabel}
+              </time>
+            </>
+          ) : null}
+        </span>
       </div>
     </Link>
+  )
+}
+
+function LiveDot({ className }: { className?: string }) {
+  return (
+    <span className={cn('inline-block size-2 shrink-0 rounded-full bg-green', className)} aria-hidden="true" />
   )
 }
 
@@ -285,7 +306,21 @@ function scoreOverridesReducer(state: ScoreOverrides, action: ScoreOverridesActi
 function mergeMatchEntry(match: MatchListEntry, override?: MatchScorePollEntry): MatchListEntry {
   if (override === undefined || !shouldReplaceScore(match, override)) return match
 
-  return { ...match, status: override.status, latestSeq: override.latestSeq, score: override.score }
+  return override.status === 'active'
+    ? {
+        ...match,
+        status: override.status,
+        endedAt: override.endedAt,
+        latestSeq: override.latestSeq,
+        score: override.score,
+      }
+    : {
+        ...match,
+        status: override.status,
+        endedAt: override.endedAt,
+        latestSeq: override.latestSeq,
+        score: override.score,
+      }
 }
 
 function shouldReplaceScore(current: ScoreSnapshot, incoming: ScoreSnapshot): boolean {
@@ -301,6 +336,7 @@ function shouldReplaceScore(current: ScoreSnapshot, incoming: ScoreSnapshot): bo
 function useMatchScorePolling(
   activeMatches: readonly MatchListEntry[],
   dispatch: React.Dispatch<ScoreOverridesAction>,
+  onMatchFinished: () => void,
 ) {
   useEffect(() => {
     if (activeMatches.length === 0) return undefined
@@ -357,7 +393,11 @@ function useMatchScorePolling(
           return shouldReplaceScore(current, entry)
         })
 
-        if (changedEntries.length > 0) dispatch({ entries: changedEntries })
+        if (changedEntries.length > 0) {
+          dispatch({ entries: changedEntries })
+
+          if (changedEntries.some((entry) => entry.status === 'finished')) onMatchFinished()
+        }
       } catch {
         // Retain the last successful projections and retry on the next scheduled or browser-triggered poll.
       } finally {
@@ -389,7 +429,17 @@ function useMatchScorePolling(
       document.removeEventListener('visibilitychange', catchUp)
       window.removeEventListener('focus', catchUp)
     }
-  }, [activeMatches, dispatch])
+  }, [activeMatches, dispatch, onMatchFinished])
+}
+
+function useMatchListExpiry(revalidateAt: UnixEpochMilliseconds | undefined, revalidate: () => void) {
+  useEffect(() => {
+    if (revalidateAt === undefined) return undefined
+
+    const timer = window.setTimeout(revalidate, Math.max(0, revalidateAt - Date.now() + 100))
+
+    return () => window.clearTimeout(timer)
+  }, [revalidate, revalidateAt])
 }
 
 function displayedScore(match: MatchListEntry): BySeatNumber {
@@ -435,19 +485,8 @@ function twoDigits(value: number): string {
   return String(value).padStart(2, '0')
 }
 
-function matchListPagePath(locale: 'uk' | 'en', page: number, pageSize: number): string {
-  const search = new URLSearchParams({ page: String(page), pageSize: String(pageSize) })
+function matchListPagePath(locale: 'uk' | 'en', view: MatchListView, page: number): string {
+  const path = localizedPath(view === 'live' ? '/sparring/matches/' : '/sparring/matches/completed/', locale)
 
-  return `${localizedPath('/sparring/matches/', locale)}?${search}`
-}
-
-function parsePositiveInteger(value: string | null): number | undefined {
-  if (value === null) return undefined
-
-  if (!/^[1-9]\d*$/.test(value)) throw new Response('Invalid Match list pagination', { status: 400 })
-  const parsed = Number(value)
-
-  if (!Number.isSafeInteger(parsed)) throw new Response('Invalid Match list pagination', { status: 400 })
-
-  return parsed
+  return page === 1 ? path : `${path}?${new URLSearchParams({ page: String(page) })}`
 }
