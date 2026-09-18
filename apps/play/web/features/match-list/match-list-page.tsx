@@ -12,7 +12,7 @@ import { Link, useRevalidator } from 'react-router'
 import * as v from 'valibot'
 
 import { Page } from '@/components/Page'
-import { Button, ToggleGroup, ToggleGroupItem } from '@/components/ui'
+import { Button, SegmentedNavigation, SegmentedNavigationLink } from '@/components/ui'
 import { cn } from '@/components/ui/utils'
 
 import { localizedPath } from '../../locale'
@@ -25,7 +25,7 @@ export type MatchListUpdates =
   | {
       readonly kind: 'poll-scores'
       readonly matchIds: readonly MatchId[]
-      readonly revalidateAt?: UnixEpochMilliseconds
+      readonly revalidateAfterMs?: number
     }
   | { readonly kind: 'none' }
 
@@ -49,8 +49,8 @@ function PollingMatchListPage({
   updates: Extract<MatchListUpdates, { kind: 'poll-scores' }>
 }) {
   const [overrides, dispatch] = useReducer(scoreOverridesReducer, new Map())
-  const revalidator = useRevalidator()
-  const revalidate = useCallback(() => void revalidator.revalidate(), [revalidator])
+  const { revalidate } = useRevalidator()
+  const requestRevalidation = useCallback(() => void revalidate(), [revalidate])
 
   const matches = useMemo(
     () => data.page.matches.map((match) => mergeMatchEntry(match, overrides.get(match.matchId))),
@@ -64,8 +64,8 @@ function PollingMatchListPage({
     [matches, pollableIds],
   )
 
-  useMatchScorePolling(activeMatches, dispatch, revalidate)
-  useMatchListExpiry(updates.revalidateAt, revalidate)
+  useMatchScorePolling(activeMatches, dispatch, requestRevalidation)
+  useMatchListExpiry(updates.revalidateAfterMs, requestRevalidation)
 
   return <MatchListContent view={data.view} page={data.page} matches={matches} />
 }
@@ -145,26 +145,22 @@ function MatchListViewToggle({ view, locale }: { view: MatchListView; locale: 'u
   const { t } = useTranslation()
 
   return (
-    <nav aria-label={t(keys.match.sparring.views)}>
-      <ToggleGroup value={[view]}>
-        <ToggleGroupItem
-          value="live"
-          nativeButton={false}
-          render={<Link to={localizedPath('/sparring/matches/', locale)} prefetch="intent" />}
-          className="gap-2"
-        >
-          <LiveDot />
-          {t(keys.match.sparring.liveMatches)}
-        </ToggleGroupItem>
-        <ToggleGroupItem
-          value="completed"
-          nativeButton={false}
-          render={<Link to={localizedPath('/sparring/matches/completed/', locale)} prefetch="intent" />}
-        >
-          {t(keys.match.sparring.completedMatches)}
-        </ToggleGroupItem>
-      </ToggleGroup>
-    </nav>
+    <SegmentedNavigation aria-label={t(keys.match.sparring.views)}>
+      <SegmentedNavigationLink
+        active={view === 'live'}
+        render={<Link to={localizedPath('/sparring/matches/', locale)} prefetch="intent" />}
+        className="gap-2"
+      >
+        <LiveDot />
+        {t(keys.match.sparring.liveMatches)}
+      </SegmentedNavigationLink>
+      <SegmentedNavigationLink
+        active={view === 'completed'}
+        render={<Link to={localizedPath('/sparring/matches/completed/', locale)} prefetch="intent" />}
+      >
+        {t(keys.match.sparring.completedMatches)}
+      </SegmentedNavigationLink>
+    </SegmentedNavigation>
   )
 }
 
@@ -183,7 +179,7 @@ function MatchRow({
 }) {
   const { t } = useTranslation()
   const score = displayedScore(match)
-  const winner = match.status === 'finished' ? leadingSeat(score) : undefined
+  const winner = match.status === 'finished' ? leadingSeat(match.score.framesWonBySeat) : undefined
 
   const startLabel = isClient ? formatMatchStart(match.createdAt, locale) : undefined
   const activeFrame = match.gameKey === 'free-pyramid-long' ? null : match.score.activeFrame
@@ -432,14 +428,14 @@ function useMatchScorePolling(
   }, [activeMatches, dispatch, onMatchFinished])
 }
 
-function useMatchListExpiry(revalidateAt: UnixEpochMilliseconds | undefined, revalidate: () => void) {
+function useMatchListExpiry(revalidateAfterMs: number | undefined, revalidate: () => void) {
   useEffect(() => {
-    if (revalidateAt === undefined) return undefined
+    if (revalidateAfterMs === undefined) return undefined
 
-    const timer = window.setTimeout(revalidate, Math.max(0, revalidateAt - Date.now() + 100))
+    const timer = window.setTimeout(revalidate, revalidateAfterMs + 100)
 
     return () => window.clearTimeout(timer)
-  }, [revalidate, revalidateAt])
+  }, [revalidate, revalidateAfterMs])
 }
 
 function displayedScore(match: MatchListEntry): BySeatNumber {

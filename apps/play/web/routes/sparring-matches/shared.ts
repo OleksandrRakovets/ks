@@ -1,5 +1,4 @@
 import { MatchListPagination, type MatchListScope, RECENT_COMPLETED_MATCH_WINDOW_MS } from '@ks/application'
-import { UnixEpochMilliseconds } from '@ks/core'
 import * as v from 'valibot'
 
 import type { MatchListRouteData } from '../../features/match-list/match-list-page'
@@ -34,6 +33,7 @@ export async function loadMatchList(
   if (scope === 'completed') return { view: scope, page, updates: { kind: 'none' } }
 
   const recentCompletions = page.matches.filter((match) => match.status === 'finished')
+  const serverNow = Date.now()
 
   const earliestExpiry = recentCompletions.reduce<number | undefined>((earliest, match) => {
     const expiresAt = match.endedAt + RECENT_COMPLETED_MATCH_WINDOW_MS
@@ -47,7 +47,7 @@ export async function loadMatchList(
     updates: {
       kind: 'poll-scores',
       matchIds: page.matches.filter((match) => match.status === 'active').map((match) => match.matchId),
-      revalidateAt: earliestExpiry === undefined ? undefined : v.parse(UnixEpochMilliseconds, earliestExpiry),
+      revalidateAfterMs: earliestExpiry === undefined ? undefined : Math.max(0, earliestExpiry - serverNow),
     },
   }
 }
