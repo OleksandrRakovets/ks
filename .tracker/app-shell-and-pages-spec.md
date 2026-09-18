@@ -219,9 +219,10 @@ theme-adjusted soft upward shadow rather than a divider, hinting that content ca
 it. The container uses 16px padding on every side. Full width is what fixes `Розпочати матч` not
 fitting; the label was only ever too long for a narrow button. It remains disabled until both names
 are valid and different, every visible numeric input contains a positive integer, and a breaker has
-been selected after the toss. The action repeats these checks at the HTTP boundary and returns one
-generic 400 for an invalid setup payload; there are no localized server-validation messages for
-states the form prevents.
+been selected after the toss. Once submitted, it stays disabled with its pending label through both
+React Router's `submitting` and redirect `loading` states. The action repeats these checks at the
+HTTP boundary and returns one generic 400 for an invalid setup payload; there are no localized
+server-validation messages for states the form prevents.
 
 The toss is mandatory by design. There is no way to name a breaker directly and none should be
 added: the informal alternatives are slower than throwing here.

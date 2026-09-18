@@ -151,7 +151,7 @@ export default function SparringInitRoute() {
   const locale = useRootLocale()
   const { profile, title } = useLoaderData<typeof loader>()
   const navigation = useNavigation()
-  const isSubmitting = navigation.state === 'submitting'
+  const isPending = navigation.state !== 'idle'
   const recentPlayers = useRecentPlayers()
   const [seatAName, setSeatAName] = useState('')
   const [seatBName, setSeatBName] = useState('')
@@ -232,9 +232,9 @@ export default function SparringInitRoute() {
             type="submit"
             size="control"
             className="h-[60px] w-full"
-            disabled={isSubmitting || !canShowSettings || !hasValidInputs || firstBreakerSeat === null}
+            disabled={isPending || !canShowSettings || !hasValidInputs || firstBreakerSeat === null}
           >
-            {isSubmitting ? t(keys.match.sparring.creatingMatch) : t(keys.match.sparring.createMatch)}
+            {isPending ? t(keys.match.sparring.creatingMatch) : t(keys.match.sparring.createMatch)}
           </Button>
         </div>
       </Form>
