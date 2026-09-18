@@ -142,7 +142,7 @@ function MatchSection({ title, children }: MatchSectionProps) {
   return (
     <section className="flex flex-col gap-2.5">
       <h2 className="text-[17px] font-semibold text-muted-foreground">{title}</h2>
-      <div className="flex flex-col gap-2.5">{children}</div>
+      <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2">{children}</div>
     </section>
   )
 }
@@ -168,20 +168,20 @@ function MatchRow({
       to={matchUrlForStatus(match.gameKey, match.matchId, match.status, locale)}
       className={cn(
         'block rounded-xl border bg-card px-4 py-3.5 transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/30',
-        match.status === 'active'
-          ? 'border-green bg-green-tint hover:bg-green-tint'
-          : 'border-border hover:bg-muted',
+        match.status === 'active' ? 'border-green/40 hover:bg-muted' : 'border-border hover:bg-muted',
       )}
     >
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-4 gap-y-1">
         <PlayerName
           name={match.participants.A.displayName}
           emphasized={winner === undefined || winner === 'A'}
+          strong={match.status === 'finished'}
         />
         <PlayerScore value={score.A} emphasized={winner === undefined || winner === 'A'} />
         <PlayerName
           name={match.participants.B.displayName}
           emphasized={winner === undefined || winner === 'B'}
+          strong={match.status === 'finished'}
         />
         <PlayerScore value={score.B} emphasized={winner === undefined || winner === 'B'} />
       </div>
@@ -229,12 +229,14 @@ function MatchRow({
   )
 }
 
-function PlayerName({ name, emphasized }: { name: string; emphasized: boolean }) {
+function PlayerName({ name, emphasized, strong }: { name: string; emphasized: boolean; strong: boolean }) {
   return (
     <span
       className={cn(
         'truncate text-[18px] leading-snug',
-        emphasized ? 'font-semibold text-[var(--bone)]' : 'text-muted-foreground',
+        emphasized
+          ? cn(strong ? 'font-semibold' : 'font-normal', 'text-[var(--bone)]')
+          : 'text-muted-foreground',
       )}
     >
       {name}

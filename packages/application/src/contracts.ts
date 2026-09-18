@@ -60,7 +60,7 @@ export type MatchListEntry = Readonly<{
   score: MatchScoreProjection
 }>
 
-export const MATCH_LIST_DEFAULT_PAGE_SIZE = 5
+export const MATCH_LIST_DEFAULT_PAGE_SIZE = 10
 
 export const MATCH_LIST_MAX_PAGE_SIZE = 20
 

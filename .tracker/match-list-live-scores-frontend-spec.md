@@ -4,7 +4,7 @@
 
 Implemented and browser-verified with the redesigned Match list.
 
-The backend contract is specified in `match-list-live-scores-backend-spec.md`. This document owns list presentation, route-local state, and browser polling behavior. The first slice displays one page under the backend's active-first, newest-first ordering, defaulting to 5 Matches and permitting at most 20. “Displayed” means included in the rendered page, not intersecting the browser viewport.
+The backend contract is specified in `match-list-live-scores-backend-spec.md`. This document owns list presentation, route-local state, and browser polling behavior. The first slice displays one page under the backend's active-first, newest-first ordering, defaulting to 10 Matches and permitting at most 20. “Displayed” means included in the rendered page, not intersecting the browser viewport.
 
 The Match list polls compact score projections approximately every 30 seconds. It does not subscribe to every Match or update for every accepted ball. Individual Match pages retain their separate live transport.
 
@@ -22,6 +22,10 @@ Finished rows omit the target number of wins because their final score already c
 Their start timestamp uses the browser's current time zone: `HH:mm` when the Match started today,
 `DD.MM` on another day in the current year, and `DD.MM.YYYY` in another year. It does not use
 relative dates.
+
+Sections use one column on narrow screens and two columns on desktop. Active cards retain a green
+status dot and restrained green border without a tinted fill; their player names use regular weight.
+Finished cards continue to emphasize the winner and mute the loser.
 
 `activeFrame` is absent before the first Frame is prepared, between Frames, and after the Match finishes. The most recently completed Frame must not be presented as though it were still active. A prepared but not yet commenced Frame is active and displays its initial score.
 

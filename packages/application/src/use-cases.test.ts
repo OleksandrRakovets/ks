@@ -196,7 +196,7 @@ describe('trusted MatchRoom orchestration', () => {
     const app = application(room, [], {
       overrides: {
         listMatchRecords: async (pagination) => {
-          expect(pagination).toEqual({ limit: 6, offset: 0 })
+          expect(pagination).toEqual({ limit: 11, offset: 0 })
 
           return [
             {
@@ -214,7 +214,7 @@ describe('trusted MatchRoom orchestration', () => {
     expect(await app.listMatches('en')).toMatchObject({
       matches: [{ matchId, status: 'active', latestSeq: 3, score }],
       page: 1,
-      pageSize: 5,
+      pageSize: 10,
       hasNextPage: false,
     })
     expect(await app.readMatchScores([matchId])).toEqual({
