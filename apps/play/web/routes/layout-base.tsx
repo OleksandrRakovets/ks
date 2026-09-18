@@ -20,10 +20,8 @@ export const middleware: Route.MiddlewareFunction[] = [
 
 export default function LayoutBase() {
   return (
-    <div className="flex min-h-dvh w-full flex-col">
-      <div className="flex w-full flex-1 flex-col lg:mx-auto lg:w-4xl">
-        <Outlet />
-      </div>
+    <div className="mx-auto flex min-h-dvh w-full max-w-app flex-col">
+      <Outlet />
     </div>
   )
 }

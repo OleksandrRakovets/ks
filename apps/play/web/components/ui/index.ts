@@ -4,11 +4,13 @@ export { Button } from './button'
 
 export { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './card'
 
-export { Field, FieldDescription, FieldGroup, FieldLabel, Input, Label, Textarea } from './form'
+export { Field, FieldDescription, FieldGroup, FieldLabel, Input, Textarea } from './form'
 
 export { NavigationLink } from './navigation-link'
 
 export { NumberInput } from './number-input'
+
+export { ResponsiveMenu } from './responsive-menu'
 
 export { Separator } from './separator'
 

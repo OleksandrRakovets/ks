@@ -2,7 +2,7 @@ import * as React from 'react'
 
 import { Input } from './form'
 
-function NumberInput({ onFocus, ...props }: Omit<React.ComponentProps<'input'>, 'type'>) {
+function NumberInput({ onFocus, onClick, ...props }: Omit<React.ComponentProps<'input'>, 'type'>) {
   return (
     <Input
       type="number"
@@ -10,6 +10,10 @@ function NumberInput({ onFocus, ...props }: Omit<React.ComponentProps<'input'>, 
       onFocus={(event) => {
         event.currentTarget.select()
         onFocus?.(event)
+      }}
+      onClick={(event) => {
+        event.currentTarget.select()
+        onClick?.(event)
       }}
       {...props}
     />

@@ -127,6 +127,8 @@ export type ReadMatchControlResult<K extends RegisteredGameKey> =
       readonly game: GamePresentationFor<K>
       readonly controls: readonly Control[]
       readonly participants: HydratedMatchParticipants
+      /** Most recent player-authored Protocol row suitable for the control surface's confirmation line. */
+      readonly lastEntry?: Pick<ProtocolRow, 'key' | 'message' | 'score'>
     }
   | {
       readonly ok: true
@@ -136,6 +138,8 @@ export type ReadMatchControlResult<K extends RegisteredGameKey> =
       readonly game?: never
       readonly controls: readonly Control[]
       readonly participants: HydratedMatchParticipants
+      /** Most recent player-authored Protocol row suitable for the control surface's confirmation line. */
+      readonly lastEntry?: Pick<ProtocolRow, 'key' | 'message' | 'score'>
     }
   | {
       readonly ok: true
@@ -158,13 +162,9 @@ export type SparringMatchLiveAdmission =
   | { readonly _tag: 'finished' }
 
 export type ReadMatchProtocolResult<K extends RegisteredGameKey> =
-  | {
-      readonly ok: true
-      readonly state: MatchStateFor<K>
-      readonly latestSeq: number
-      readonly participants: HydratedMatchParticipants
+  | (Extract<ReadMatchControlResult<K>, { readonly ok: true }> & {
       readonly protocolRows: readonly ProtocolRow[]
-    }
+    })
   | ReadMatchFailure
 
 export type Application = {

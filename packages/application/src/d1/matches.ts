@@ -52,6 +52,8 @@ const matchRowSelection = {
   finalScore: matches.finalScoreJson,
 }
 
+const visibleMatchStatuses = [StoredMatchStatus.active, StoredMatchStatus.finished]
+
 export async function listMatchRows(
   db: ApplicationDatabase,
   pagination: { readonly limit: number; readonly offset: number },
@@ -59,7 +61,7 @@ export async function listMatchRows(
   const rows = await db
     .select(matchRowSelection)
     .from(matches)
-    .where(inArray(matches.status, [StoredMatchStatus.active, StoredMatchStatus.finished]))
+    .where(inArray(matches.status, visibleMatchStatuses))
     .orderBy(
       sql`CASE WHEN ${matches.status} = ${StoredMatchStatus.finished} THEN 1 ELSE 0 END`,
       sql`${matches.createdAt} DESC`,

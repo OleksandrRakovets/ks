@@ -1,26 +1,12 @@
 import { keys } from '@ks/i18n'
 import type { SupportedLocale } from '@ks/i18n'
-import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useFetcher, useLocation } from 'react-router'
 
 import { localizedPath, pathForLocale } from '../locale'
 import { useRootLocale, useRootTheme } from '../root'
 import type { AppTheme } from '../server/theme'
-import {
-  Button,
-  NavigationLink,
-  Separator,
-  Sheet,
-  SheetClose,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-  ToggleGroup,
-  ToggleGroupItem,
-} from './ui'
+import { Button, ResponsiveMenu, Separator, ToggleGroup, ToggleGroupItem } from './ui'
 
 const THEME_OPTIONS: { value: AppTheme; labelKey: string }[] = [
   { value: 'club-dark', labelKey: keys.theme.dark },
@@ -33,13 +19,13 @@ const LOCALE_OPTIONS: { value: SupportedLocale; labelKey: string }[] = [
   { value: 'en', labelKey: keys.language.english },
 ]
 
-export function BurgerMenu(props: { placement?: 'header' | 'navigation' }) {
-  const [open, setOpen] = useState(false)
+export function BurgerMenu({ placement }: { placement?: 'header' | 'navigation' }) {
   const currentLocale = useRootLocale()
   const currentTheme = useRootTheme()
   const fetcher = useFetcher()
   const location = useLocation()
   const { t } = useTranslation()
+
   const sparringPath = localizedPath('/sparring/', currentLocale)
 
   const isNewMatchRoute =
@@ -56,102 +42,98 @@ export function BurgerMenu(props: { placement?: 'header' | 'navigation' }) {
   }
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger
-        render={<Button variant="ghost" size="icon" aria-label={t(keys.nav.menu)} />}
-        className={props.placement === 'navigation' ? 'lg:mr-2' : undefined}
-      >
-        <HamburgerIcon />
-      </SheetTrigger>
-
-      <SheetContent>
-        <SheetHeader>
-          <SheetTitle>{t(keys.appTitle)}</SheetTitle>
-          <SheetDescription>{t(keys.nav.menu)}</SheetDescription>
-        </SheetHeader>
-        <SheetClose
-          render={<Button variant="ghost" size="icon" aria-label={t(keys.nav.close)} />}
-          className="absolute top-3 right-3"
+    <ResponsiveMenu
+      title={t(keys.nav.menu)}
+      closeLabel={t(keys.nav.close)}
+      trigger={
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label={t(keys.nav.menu)}
+          className={
+            placement === 'navigation'
+              ? 'size-11 active:translate-y-0 lg:mr-2'
+              : 'size-11 active:translate-y-0'
+          }
         >
-          <CloseIcon />
-        </SheetClose>
-
-        <div className="flex flex-1 flex-col overflow-y-auto p-3">
+          <HamburgerIcon />
+        </Button>
+      }
+    >
+      {({ close }) => (
+        <div className="flex flex-1 flex-col overflow-y-auto px-5 pb-5 md:pt-4">
           <nav className="flex flex-col gap-1" aria-label={t(keys.nav.sparring)}>
-            <p className="px-3 pt-2 pb-1 text-xs font-semibold tracking-widest text-text-lo uppercase">
-              {t(keys.nav.sparring)}
-            </p>
-            <NavigationLink
-              render={<Link to={sparringPath} onClick={() => setOpen(false)} />}
-              state={isNewMatchRoute ? 'active' : 'default'}
-              indicator="short"
+            <h2 className="px-3 py-1 text-base font-semibold">{t(keys.nav.sparring)}</h2>
+            <Link
+              to={sparringPath}
+              onClick={close}
+              aria-current={isNewMatchRoute ? 'page' : undefined}
+              className="flex min-h-12 items-center rounded-md px-3 text-muted-foreground outline-none hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring/40 aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-foreground"
             >
-              {t(keys.nav.newMatch)}
-            </NavigationLink>
-            <NavigationLink
-              render={
-                <Link to={localizedPath('/sparring/matches/', currentLocale)} onClick={() => setOpen(false)} />
-              }
-              state={isMatchesRoute ? 'active' : 'default'}
-              indicator="short"
+              {t(keys.nav.newGame)}
+            </Link>
+            <Link
+              to={localizedPath('/sparring/matches/', currentLocale)}
+              onClick={close}
+              aria-current={isMatchesRoute ? 'page' : undefined}
+              className="flex min-h-12 items-center rounded-md px-3 text-muted-foreground outline-none hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring/40 aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-foreground"
             >
               {t(keys.nav.allMatches)}
-            </NavigationLink>
+            </Link>
           </nav>
 
           <Separator className="my-4" />
 
-          <section className="flex flex-col gap-3 px-3" aria-labelledby="theme-options-label">
-            <p
-              id="theme-options-label"
-              className="text-xs font-semibold tracking-widest text-text-lo uppercase"
-            >
-              {t(keys.theme.section)}
-            </p>
-            <ToggleGroup
-              value={[currentTheme]}
-              onValueChange={changeTheme}
+          <div className="flex flex-col gap-3 px-3">
+            <section
+              className="flex min-h-11 items-center justify-between gap-3"
               aria-labelledby="theme-options-label"
             >
-              {THEME_OPTIONS.map(({ value, labelKey }) => (
-                <ToggleGroupItem key={value} value={value}>
-                  {t(labelKey)}
-                </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
-          </section>
+              <p id="theme-options-label" className="font-medium">
+                {t(keys.theme.section)}
+              </p>
+              <ToggleGroup
+                value={[currentTheme]}
+                onValueChange={changeTheme}
+                aria-labelledby="theme-options-label"
+              >
+                {THEME_OPTIONS.map(({ value, labelKey }) => (
+                  <ToggleGroupItem key={value} value={value}>
+                    {t(labelKey)}
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
+            </section>
 
-          <Separator className="my-4" />
-
-          <section className="flex flex-col gap-3 px-3" aria-labelledby="locale-options-label">
-            <p
-              id="locale-options-label"
-              className="text-xs font-semibold tracking-widest text-text-lo uppercase"
+            <section
+              className="flex min-h-11 items-center justify-between gap-3"
+              aria-labelledby="locale-options-label"
             >
-              {t(keys.language.section)}
-            </p>
-            <div className="flex gap-2">
-              {LOCALE_OPTIONS.map(({ value, labelKey }) => (
-                <Button
-                  key={value}
-                  nativeButton={false}
-                  render={
-                    <Link
-                      reloadDocument
-                      to={pathForLocale(location.pathname, location.search, location.hash, value)}
-                    />
-                  }
-                  size="sm"
-                  variant={currentLocale === value ? 'primary' : 'outline'}
-                >
-                  {t(labelKey)}
-                </Button>
-              ))}
-            </div>
-          </section>
+              <p id="locale-options-label" className="font-medium">
+                {t(keys.language.section)}
+              </p>
+              <ToggleGroup value={[currentLocale]} aria-labelledby="locale-options-label">
+                {LOCALE_OPTIONS.map(({ value, labelKey }) => (
+                  <ToggleGroupItem
+                    key={value}
+                    value={value}
+                    nativeButton={false}
+                    render={
+                      <Link
+                        reloadDocument
+                        to={pathForLocale(location.pathname, location.search, location.hash, value)}
+                      />
+                    }
+                  >
+                    {t(labelKey)}
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
+            </section>
+          </div>
         </div>
-      </SheetContent>
-    </Sheet>
+      )}
+    </ResponsiveMenu>
   )
 }
 
@@ -163,14 +145,6 @@ function HamburgerIcon() {
   return (
     <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
       <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  )
-}
-
-function CloseIcon() {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
-      <path d="m5 5 10 10M15 5 5 15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   )
 }

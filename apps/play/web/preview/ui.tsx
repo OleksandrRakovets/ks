@@ -20,16 +20,12 @@ import {
 
 import { MatchNavigation } from './components/match-navigation'
 
-export const handle = {
-  headerConfig: () => ({ title: 'UI Preview v2', backTo: '/top-secret/preview/' }),
-}
-
 const buttonVariants = ['primary', 'secondary', 'outline', 'ghost', 'destructive'] as const
 
 function Specimen({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-xs font-semibold tracking-widest text-text-lo uppercase">{label}</p>
+      <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">{label}</p>
       {children}
     </div>
   )
@@ -49,17 +45,17 @@ export default function PreviewUiRoute() {
             <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
               Club controls, rebuilt from the primitive up.
             </h1>
-            <p className="text-sm leading-relaxed text-text-lo sm:text-base">
+            <p className="text-sm leading-relaxed text-muted-foreground sm:text-base">
               A preview-local component set built on Base UI behavior and the existing club theme. No shared
               Radix component is used on this page.
             </p>
           </div>
           <dl className="grid grid-cols-2 gap-x-8 gap-y-2 text-xs">
-            <dt className="text-text-lo">Foundation</dt>
+            <dt className="text-muted-foreground">Foundation</dt>
             <dd className="font-medium">Base UI 1.8</dd>
-            <dt className="text-text-lo">Density</dt>
+            <dt className="text-muted-foreground">Density</dt>
             <dd className="font-medium">Touch-first</dd>
-            <dt className="text-text-lo">Theme</dt>
+            <dt className="text-muted-foreground">Theme</dt>
             <dd className="font-medium">Club Terminal</dd>
           </dl>
         </header>
@@ -180,11 +176,11 @@ export default function PreviewUiRoute() {
               <Separator />
               <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-3 text-sm">
                 <Badge variant="live">Live</Badge>
-                <p className="text-text-lo">Score changes are reaching spectators.</p>
+                <p className="text-muted-foreground">Score changes are reaching spectators.</p>
                 <Badge variant="warning">Syncing</Badge>
-                <p className="text-text-lo">The latest accepted command is being delivered.</p>
+                <p className="text-muted-foreground">The latest accepted command is being delivered.</p>
                 <Badge variant="destructive">Offline</Badge>
-                <p className="text-text-lo">Controls pause until the connection returns.</p>
+                <p className="text-muted-foreground">Controls pause until the connection returns.</p>
               </div>
             </CardContent>
           </Card>

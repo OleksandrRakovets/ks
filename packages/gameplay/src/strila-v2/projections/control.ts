@@ -107,7 +107,7 @@ export function deriveStrilaControlProjection(snapshot: StrilaSparringFrameSnaps
       return controlProjection(snapshot, {
         controls: [
           ...seatControls('pot.record', 'primary'),
-          ...(snapshot.context.cueBallSerialPots === null ? [] : seatControls('miss.record', 'primary')),
+          ...(snapshot.context.cueBallSerialPots === null ? [] : seatControls('miss.record', 'secondary')),
           ...seatControls('foul.commit', 'secondary'),
         ],
         situationTitle: 'Open play',
@@ -158,7 +158,7 @@ export function deriveStrilaControlProjection(snapshot: StrilaSparringFrameSnaps
       return controlProjection(snapshot, {
         controls: [
           ...seatControls('pot.record', 'primary'),
-          ...seatControls('miss.record', 'primary'),
+          ...seatControls('miss.record', 'secondary'),
           ...seatControls('foul.commit', 'secondary'),
         ],
         situationTitle: 'Ball in hand after foul',
@@ -168,7 +168,7 @@ export function deriveStrilaControlProjection(snapshot: StrilaSparringFrameSnaps
       return controlProjection(snapshot, {
         controls: [
           ...seatControls('pot.record', 'primary'),
-          ...seatControls('miss.record', 'primary'),
+          ...seatControls('miss.record', 'secondary'),
           ...seatControls('foul.commit', 'secondary'),
         ],
         situationTitle: 'Respotted black opening',
