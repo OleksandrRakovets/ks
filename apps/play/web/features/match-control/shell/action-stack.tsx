@@ -125,10 +125,7 @@ function Lane(
               ? 'min-h-[60px] bg-green text-[#07140D]'
               : 'min-h-[50px] bg-overlay text-foreground',
             props.kind === 'secondary' && control.type === 'foul.commit' && 'text-red',
-            compact &&
-              itemIndex === presentations.length - 1 &&
-              presentations.length % 2 === 1 &&
-              'col-span-2',
+            compact && itemIndex === 0 && presentations.length % 2 === 1 && 'col-span-2',
           )}
           onClick={() =>
             props.onSubmit(presentation.command ?? matchCommandFromControl(control, presentation.input))
