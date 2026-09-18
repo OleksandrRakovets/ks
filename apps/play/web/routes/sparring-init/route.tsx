@@ -4,7 +4,7 @@ import { isRegisteredGameKey, registry } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Form, redirect, useActionData, useLoaderData, useNavigation } from 'react-router'
+import { Form, redirect, useLoaderData, useNavigation } from 'react-router'
 import * as v from 'valibot'
 
 import { Page } from '@/components/Page'
@@ -29,16 +29,6 @@ import { parsePositiveInt, parseRackRollover, safeNormalizeDisplayName } from '.
 type LoaderData = {
   title: string
   profile: MatchCreateProfile
-}
-
-type ActionData = {
-  ok: false
-  errorKey:
-    | typeof keys.match.sparring.errorBothNamesRequired
-    | typeof keys.match.sparring.errorNamesMustDiffer
-    | typeof keys.match.sparring.errorMatchTargetFramesRequired
-    | typeof keys.match.sparring.errorHandicapMustBePositiveInt
-    | typeof keys.match.sparring.errorRackRolloverRequired
 }
 
 export async function loader({
@@ -70,7 +60,7 @@ export async function action({
   params: { gameKey?: string }
   request: Request
   context: AppLoadContext
-}): Promise<ActionData | Response> {
+}): Promise<Response> {
   const gameKey = params.gameKey
 
   if (gameKey === undefined || !isRegisteredGameKey(gameKey)) {
@@ -78,7 +68,6 @@ export async function action({
   }
 
   const profile = createProfileForGame(gameKey)
-  const defaultFrameTargetPointsBySeat = profile.defaultFrameTargetPointsBySeat
 
   const form = await request.formData()
   const seatAName = v.safeParse(DisplayName, stringFormValue(form, 'seatAName'))
@@ -89,33 +78,33 @@ export async function action({
       ? profile.matchTargetFrames.fixedValue
       : parsePositiveInt(form.get('matchTargetFrames'))
 
-  const targetA = parsePositiveInt(form.get('targetA'), defaultFrameTargetPointsBySeat.A)
-  const targetB = parsePositiveInt(form.get('targetB'), defaultFrameTargetPointsBySeat.B)
+  const targetA = parsePositiveInt(form.get('targetA'))
+  const targetB = parsePositiveInt(form.get('targetB'))
   const firstBreakerSeat = v.safeParse(Seat, form.get('firstBreakerSeat'))
   const rackRollover = profile.rackRollover ? parseRackRollover(form.get('rackRollover')) : null
 
   if (!seatAName.success || !seatBName.success) {
-    return { ok: false, errorKey: keys.match.sparring.errorBothNamesRequired } as const
+    throwInvalidSetup()
   }
 
   if (seatAName.output === seatBName.output) {
-    return { ok: false, errorKey: keys.match.sparring.errorNamesMustDiffer } as const
+    throwInvalidSetup()
   }
 
   if (matchTargetFrames == null) {
-    return { ok: false, errorKey: keys.match.sparring.errorMatchTargetFramesRequired } as const
+    throwInvalidSetup()
   }
 
   if (targetA == null || targetB == null) {
-    return { ok: false, errorKey: keys.match.sparring.errorHandicapMustBePositiveInt } as const
+    throwInvalidSetup()
   }
 
   if (profile.rackRollover && rackRollover == null) {
-    return { ok: false, errorKey: keys.match.sparring.errorRackRolloverRequired } as const
+    throwInvalidSetup()
   }
 
   if (!firstBreakerSeat.success) {
-    throw new Response('Invalid first breaker', { status: 400 })
+    throwInvalidSetup()
   }
 
   const application = requireApplication(context)
@@ -152,17 +141,22 @@ function stringFormValue(form: FormData, key: string): string {
   return value.success ? value.output : ''
 }
 
+/** The UI prevents invalid submissions; this rejects forged or stale payloads at the HTTP boundary. */
+function throwInvalidSetup(): never {
+  throw new Response('Invalid match setup', { status: 400 })
+}
+
 export default function SparringInitRoute() {
   const { t } = useTranslation()
   const locale = useRootLocale()
   const { profile, title } = useLoaderData<typeof loader>()
-  const actionData = useActionData<typeof action>()
   const navigation = useNavigation()
   const isSubmitting = navigation.state === 'submitting'
   const recentPlayers = useRecentPlayers()
   const [seatAName, setSeatAName] = useState('')
   const [seatBName, setSeatBName] = useState('')
   const [firstBreakerSeat, setFirstBreakerSeat] = useState<Seat | null>(null)
+  const [hasValidInputs, setHasValidInputs] = useState(false)
 
   const normalizedSeatAName = safeNormalizeDisplayName(seatAName)
   const normalizedSeatBName = safeNormalizeDisplayName(seatBName)
@@ -181,7 +175,7 @@ export default function SparringInitRoute() {
   )
 
   function handleSubmit() {
-    if (!canShowSettings || firstBreakerSeat === null) return
+    if (!canShowSettings || !hasValidInputs || firstBreakerSeat === null) return
     rememberRecentPlayers([seatAName, seatBName])
   }
 
@@ -201,7 +195,12 @@ export default function SparringInitRoute() {
       backLink={{ to: localizedPath('/sparring/', locale), label: t(keys.match.sparring.chooseAnotherGame) }}
       className="pb-28"
     >
-      <Form method="post" className="flex flex-col gap-7" onSubmit={handleSubmit}>
+      <Form
+        method="post"
+        className="flex flex-col gap-7"
+        onInput={(event) => setHasValidInputs(event.currentTarget.checkValidity())}
+        onSubmit={handleSubmit}
+      >
         <PlayerNameFields
           seatAName={seatAName}
           seatBName={seatBName}
@@ -228,16 +227,12 @@ export default function SparringInitRoute() {
           </div>
         ) : null}
 
-        {actionData?.ok === false ? (
-          <p className="text-base text-destructive">{t(actionData.errorKey)}</p>
-        ) : null}
-
         <div className="fixed inset-x-0 bottom-0 mx-auto w-full max-w-(--app-width) border-t border-border bg-background px-4 py-3">
           <Button
             type="submit"
             size="control"
             className="h-[60px] w-full"
-            disabled={isSubmitting || !canShowSettings || firstBreakerSeat === null}
+            disabled={isSubmitting || !canShowSettings || !hasValidInputs || firstBreakerSeat === null}
           >
             {isSubmitting ? t(keys.match.sparring.creatingMatch) : t(keys.match.sparring.createMatch)}
           </Button>

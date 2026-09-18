@@ -90,6 +90,16 @@ export function MatchTargetFramesField(props: { profile: MatchCreateProfile }) {
   const { t } = useTranslation()
   const inputRef = useRef<HTMLInputElement>(null)
 
+  function stepTarget(direction: -1 | 1) {
+    const input = inputRef.current
+
+    if (!input) return
+
+    if (direction === -1) input.stepDown()
+    else input.stepUp()
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+  }
+
   if (props.profile.matchTargetFrames.mode === 'fixed') {
     return <input type="hidden" name="matchTargetFrames" value={props.profile.matchTargetFrames.fixedValue} />
   }
@@ -103,11 +113,11 @@ export function MatchTargetFramesField(props: { profile: MatchCreateProfile }) {
         <Button
           type="button"
           variant="outline"
-          className="size-[54px] text-2xl"
+          className="size-[54px]"
           aria-label={t(keys.match.sparring.decreaseMatchTarget)}
-          onClick={() => inputRef.current?.stepDown()}
+          onClick={() => stepTarget(-1)}
         >
-          −
+          <MinusIcon />
         </Button>
         <NumberInput
           ref={inputRef}
@@ -122,11 +132,11 @@ export function MatchTargetFramesField(props: { profile: MatchCreateProfile }) {
         <Button
           type="button"
           variant="outline"
-          className="size-[54px] text-2xl"
+          className="size-[54px]"
           aria-label={t(keys.match.sparring.increaseMatchTarget)}
-          onClick={() => inputRef.current?.stepUp()}
+          onClick={() => stepTarget(1)}
         >
-          +
+          <PlusIcon />
         </Button>
       </div>
     </Field>
@@ -170,6 +180,7 @@ function TargetField(props: { seat: Seat; playerName: string; defaultValue: numb
         defaultValue={props.defaultValue}
         aria-label={t(keys.match.sparring.playerTargetPoints, { name: props.playerName })}
         className="h-9 [appearance:textfield] border-0 bg-transparent px-0 text-[26px] leading-[1.2] font-bold tabular-nums focus-visible:ring-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+        required
       />
     </Field>
   )
@@ -199,15 +210,17 @@ export function RackRolloverField(props: { profile: MatchCreateProfile }) {
           if (selectedOption !== undefined) setValue(selectedOption)
         }}
         aria-labelledby="rack-rollover-heading"
-        className="grid h-[62px] w-full grid-cols-2 gap-1"
+        className="grid h-[78px] w-full grid-cols-2 gap-1"
       >
         {props.profile.rackRollover.options.map((value) => (
           <ToggleGroupItem
             key={value}
             value={String(value)}
-            className="flex h-full flex-col items-center justify-center gap-0 px-2 text-base data-pressed:border data-pressed:border-green data-pressed:bg-green-tint"
+            className="flex h-auto flex-col items-center justify-center gap-0 rounded-lg px-2 py-1 data-pressed:border data-pressed:border-green data-pressed:bg-green-tint"
           >
-            <span className="font-semibold">{t(keys.match.sparring.rackRolloverBalls, { value })}</span>
+            <span className="text-xl leading-[1.2] font-bold tabular-nums">
+              {t(keys.match.sparring.rackRolloverBalls, { value })}
+            </span>
             <span className="text-base font-normal text-muted-foreground">
               {value === 14
                 ? t(keys.match.sparring.rackRolloverPreferred)
@@ -217,5 +230,21 @@ export function RackRolloverField(props: { profile: MatchCreateProfile }) {
         ))}
       </ToggleGroup>
     </section>
+  )
+}
+
+function MinusIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <path d="M5 10h10" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function PlusIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <path d="M5 10h10M10 5v10" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+    </svg>
   )
 }

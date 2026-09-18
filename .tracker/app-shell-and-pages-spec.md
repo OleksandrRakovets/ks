@@ -204,14 +204,19 @@ only:
 - Drop the `fieldset`/`legend` chrome for a normal section heading.
 - After the toss, the winner's choice is two buttons labelled with first names.
 
-`Нова з` for `free-pyramid-long` becomes a two-option segmented control, keeping the existing
-`звично` / `новіше` sub-labels from the current radio descriptions.
+`Продовження` for `free-pyramid-long` is a two-option segmented control. It matches the 78px
+per-seat target cards, gives `після 14` / `після 15` 20px emphasis with proportionate inset, and
+keeps the `традиційно` / `новий підхід` sub-labels.
 
 Section order: players, race length, per-seat targets, rack rollover, then the toss last — it is
 the ritual immediately before starting.
 
 Submit is **pinned to the bottom**, full width, 60px. Full width is what fixes `Розпочати матч` not
-fitting; the label was only ever too long for a narrow button.
+fitting; the label was only ever too long for a narrow button. It remains disabled until both
+names are valid and different, every visible numeric input contains a positive integer, and a
+breaker has been selected after the toss. The action repeats these checks at the HTTP boundary and
+returns one generic 400 for an invalid setup payload; there are no localized server-validation
+messages for states the form prevents.
 
 The toss is mandatory by design. There is no way to name a breaker directly and none should be
 added: the informal alternatives are slower than throwing here.
