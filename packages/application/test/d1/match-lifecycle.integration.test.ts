@@ -150,6 +150,7 @@ describe('real D1 match lifecycle', () => {
       finalSourceLatestSeq: archive.sourceLatestSeq,
       finalScore: {
         matchTargetFrames: 1,
+        frameTargetPointsBySeat: { A: 2, B: 2 },
         framesWonBySeat: { A: 1, B: 0 },
         singleFramePointsBySeat: { A: 2, B: 0 },
         activeFrame: null,

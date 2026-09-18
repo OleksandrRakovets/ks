@@ -186,6 +186,7 @@ describe('trusted MatchRoom orchestration', () => {
   test('reads compact active scores for list loading and polling', async () => {
     const score = {
       matchTargetFrames: 1,
+      frameTargetPointsBySeat: { A: 8, B: 8 },
       framesWonBySeat: { A: 0, B: 0 },
       singleFramePointsBySeat: null,
       activeFrame: null,

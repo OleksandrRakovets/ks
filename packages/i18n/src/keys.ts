@@ -95,6 +95,7 @@ export const keys = {
       frameWithNumber: 'match.scoreboard.frameWithNumber',
       points: 'match.scoreboard.points',
       raceToWins: 'match.scoreboard.raceToWins',
+      target: 'match.scoreboard.target',
     },
     sparring: {
       noRecentMatches: 'match.sparring.noRecentMatches',

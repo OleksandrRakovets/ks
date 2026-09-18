@@ -23,6 +23,7 @@ readonly score: {
   readonly framesWonBySeat: BySeatNumber
   readonly singleFramePointsBySeat: BySeatNumber | null
   readonly matchTargetFrames: PositiveInteger
+  readonly frameTargetPointsBySeat: BySeatNumber
   readonly activeFrame: { readonly frameIndex: PositiveInteger; readonly pointsBySeat: BySeatNumber } | null
 }
 ```

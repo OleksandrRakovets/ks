@@ -13,12 +13,14 @@ The Match list polls compact score projections approximately every 30 seconds. I
 Each Match row presents:
 
 - both participant names and the localized `shortGameTitle` resolved from the gameplay registry;
-- frames won by seats A and B for multi-Frame Matches, plus the target number of wins while Active;
+- frames won by seats A and B for multi-Frame Matches;
 - current or final points by seat for a single-Frame Match;
+- an Active target without a unit noun: `до {matchTargetFrames}` for multi-Frame Matches or
+  `до {frameTargetPoints}` for single-Frame Matches;
 - the active Frame number when a Frame is prepared or in progress;
 - Active or finished lifecycle presentation.
 
-Finished rows omit the target number of wins because their final score already communicates the result.
+Finished rows omit the target because their final score already communicates the result.
 Their start timestamp uses the browser's current time zone: `HH:mm` when the Match started today,
 `DD.MM` on another day in the current year, and `DD.MM.YYYY` in another year. It does not use
 relative dates.
@@ -31,7 +33,11 @@ browser-local Match start time or date.
 
 `activeFrame` is absent before the first Frame is prepared, between Frames, and after the Match finishes. The most recently completed Frame must not be presented as though it were still active. A prepared but not yet commenced Frame is active and displays its initial score.
 
-The route chooses the score representation. It uses `framesWonBySeat` when `matchTargetFrames` is greater than `1`; otherwise it uses `singleFramePointsBySeat`, falling back to the initial 0–0 Match score before the first Frame exists.
+The route chooses the score and target representations. It uses `framesWonBySeat` and
+`matchTargetFrames` when `matchTargetFrames` is greater than `1`; otherwise it uses
+`singleFramePointsBySeat` and `frameTargetPointsBySeat`, falling back to the initial 0–0 Match score
+before the first Frame exists. Equal per-seat point targets render as one number; asymmetric targets
+remain visible in A/B order as `{A}/{B}`.
 
 The lifecycle badge and link destination must use the same merged row state. The UI may indicate that scores refresh periodically, but it should not commit unchanged score overrides, animate every unchanged response, or announce all rows to assistive technology every cycle.
 

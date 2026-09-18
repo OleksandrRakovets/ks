@@ -171,6 +171,7 @@ export const resources = {
           frameWithNumber: 'Партія {{frameIndex}}',
           points: 'Очки',
           raceToWins: 'до {{targetFrames}} перемог',
+          target: 'до\u00a0{{target}}',
         },
         protocol: {
           balls: {
@@ -448,6 +449,7 @@ export const resources = {
           frameWithNumber: 'Frame {{frameIndex}}',
           points: 'Points',
           raceToWins: 'race to {{targetFrames}} wins',
+          target: 'to\u00a0{{target}}',
         },
         protocol: {
           balls: {

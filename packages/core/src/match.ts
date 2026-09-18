@@ -138,6 +138,7 @@ export type ActiveFrameScoreProjection = v.InferOutput<typeof ActiveFrameScorePr
 export const MatchScoreProjection = v.pipe(
   v.object({
     matchTargetFrames: PositiveInteger,
+    frameTargetPointsBySeat: v.pipe(v.object({ A: PositiveInteger, B: PositiveInteger }), v.readonly()),
     framesWonBySeat: BySeatNumber,
     singleFramePointsBySeat: v.nullable(BySeatNumber),
     activeFrame: v.nullable(ActiveFrameScoreProjection),
@@ -160,6 +161,7 @@ export function projectMatchScore(state: MatchState): MatchScoreProjection {
 
   return {
     matchTargetFrames: state.targets.matchTargetFrames,
+    frameTargetPointsBySeat: state.targets.frameTargetPointsBySeat,
     framesWonBySeat: state.framesWonBySeat,
     singleFramePointsBySeat:
       state.targets.matchTargetFrames === 1 ? (representedFrame?.pointsBySeat ?? null) : null,

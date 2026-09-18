@@ -5,7 +5,7 @@ import {
   type MatchScorePollEntry,
   MatchScorePollResponse,
 } from '@ks/application'
-import type { BySeatNumber, MatchId, Seat, UnixEpochMilliseconds } from '@ks/core'
+import type { BySeatNumber, MatchId, MatchScoreProjection, Seat, UnixEpochMilliseconds } from '@ks/core'
 import { keys } from '@ks/i18n'
 import { useEffect, useMemo, useReducer, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -200,12 +200,12 @@ function MatchRow({
           <span className="sr-only">{t(keys.status.finished)}</span>
         )}
         <span>{match.shortGameTitle}</span>
-        {match.status === 'active' && match.score.matchTargetFrames > 1 ? (
+        {match.status === 'active' ? (
           <>
             {' · '}
             <span>
-              {t(keys.match.scoreboard.raceToWins, {
-                targetFrames: match.score.matchTargetFrames,
+              {t(keys.match.scoreboard.target, {
+                target: displayedTarget(match.score),
               })}
             </span>
           </>
@@ -395,6 +395,14 @@ function displayedScore(match: MatchListEntry): BySeatNumber {
   if (match.score.matchTargetFrames > 1) return match.score.framesWonBySeat
 
   return match.score.singleFramePointsBySeat ?? match.score.framesWonBySeat
+}
+
+function displayedTarget(score: MatchScoreProjection): number | string {
+  if (score.matchTargetFrames > 1) return score.matchTargetFrames
+
+  const { A, B } = score.frameTargetPointsBySeat
+
+  return A === B ? A : `${A}/${B}`
 }
 
 function leadingSeat(score: BySeatNumber): Seat | undefined {

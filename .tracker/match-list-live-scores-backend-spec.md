@@ -34,6 +34,7 @@ export type ActiveFrameScoreProjection = v.InferOutput<typeof ActiveFrameScorePr
 export const MatchScoreProjection = v.pipe(
   v.object({
     matchTargetFrames: PositiveInteger,
+    frameTargetPointsBySeat: v.pipe(v.object({ A: PositiveInteger, B: PositiveInteger }), v.readonly()),
     framesWonBySeat: BySeatNumber,
     singleFramePointsBySeat: v.nullable(BySeatNumber),
     activeFrame: v.nullable(ActiveFrameScoreProjection),
@@ -62,6 +63,9 @@ The function selects an active Frame only when the Match is active and the Frame
 `activeFrame` is `null` before the first Frame is prepared, between Frames, and after the Match finishes. A prepared but not yet commenced Frame is active and contains its initial score.
 
 `singleFramePointsBySeat` is populated from the represented Frame when `matchTargetFrames` is `1`, including after completion, and is otherwise `null`. This preserves the final points needed for single-Frame Match rows without mislabeling the completed Frame as active or retaining general Frame history.
+
+`matchTargetFrames` and `frameTargetPointsBySeat` retain both target dimensions. The route presents
+the former for multi-Frame Matches and the latter for single-Frame Matches without game-key checks.
 
 The projection excludes player identity, game-specific presentation, breaker, frame history, controls, Protocol, and timestamps.
 

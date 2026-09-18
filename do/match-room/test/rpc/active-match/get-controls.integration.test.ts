@@ -27,6 +27,7 @@ test('returns the compact score at the authoritative sequence', async () => {
     latestSeq: 1,
     score: {
       matchTargetFrames: 1,
+      frameTargetPointsBySeat: { A: 8, B: 8 },
       framesWonBySeat: { A: 0, B: 0 },
       singleFramePointsBySeat: { A: 0, B: 0 },
       activeFrame: { frameIndex: 1, pointsBySeat: { A: 0, B: 0 } },

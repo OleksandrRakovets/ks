@@ -59,7 +59,7 @@ describe('match value schemas', () => {
     const base = {
       matchId: v.parse(MatchId, '01ARZ3NDEKTSV4RRFFQ69G5FAV'),
       gameKey: 'free-pyramid',
-      targets: { frameTargetPointsBySeat: { A: 8, B: 8 }, matchTargetFrames: 3 },
+      targets: { frameTargetPointsBySeat: { A: 8, B: 7 }, matchTargetFrames: 3 },
       status: 'active' as const,
       currentFrameIndex: 2,
       framesWonBySeat: { A: 1, B: 0 },
@@ -71,6 +71,7 @@ describe('match value schemas', () => {
 
     expect(projectMatchScore(v.parse(MatchState, base))).toEqual({
       matchTargetFrames: 3,
+      frameTargetPointsBySeat: { A: 8, B: 7 },
       framesWonBySeat: { A: 1, B: 0 },
       singleFramePointsBySeat: null,
       activeFrame: { frameIndex: 2, pointsBySeat: { A: 2, B: 5 } },
