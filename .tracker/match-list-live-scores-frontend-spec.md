@@ -2,7 +2,7 @@
 
 ## Status and Scope
 
-Design specification; implementation is deferred while the Match list is redesigned.
+Implemented and browser-verified with the redesigned Match list.
 
 The backend contract is specified in `match-list-live-scores-backend-spec.md`. This document owns list presentation, route-local state, and browser polling behavior. The first slice displays one page under the backend's active-first, newest-first ordering, defaulting to 5 Matches and permitting at most 20. “Displayed” means included in the rendered page, not intersecting the browser viewport.
 
@@ -13,12 +13,19 @@ The Match list polls compact score projections approximately every 30 seconds. I
 Each Match row presents:
 
 - both participant names and the game title;
-- the Match score as frames won by seats A and B;
-- the target number of frames;
-- the active Frame number and points by seat when a Frame is prepared or in progress;
+- frames won by seats A and B for multi-Frame Matches, plus the target number of wins while Active;
+- current or final points by seat for a single-Frame Match;
+- the active Frame number when a Frame is prepared or in progress;
 - Active or finished lifecycle presentation.
 
+Finished rows omit the target number of wins because their final score already communicates the result.
+Their start timestamp uses the browser's current time zone: `HH:mm` when the Match started today,
+`DD.MM` on another day in the current year, and `DD.MM.YYYY` in another year. It does not use
+relative dates.
+
 `activeFrame` is absent before the first Frame is prepared, between Frames, and after the Match finishes. The most recently completed Frame must not be presented as though it were still active. A prepared but not yet commenced Frame is active and displays its initial score.
+
+The route chooses the score representation. It uses `framesWonBySeat` when `matchTargetFrames` is greater than `1`; otherwise it uses `singleFramePointsBySeat`, falling back to the initial 0–0 Match score before the first Frame exists.
 
 The lifecycle badge and link destination must use the same merged row state. The UI may indicate that scores refresh periodically, but it should not commit unchanged score overrides, animate every unchanged response, or announce all rows to assistive technology every cycle.
 
@@ -103,12 +110,18 @@ document becomes visible or focused while visible
 - A failed batch leaves all rows at their last successful state. No row resets to zero or becomes finished by omission.
 - Malformed, incomplete, duplicate, reordered, or unrelated response entries fail the whole browser application of that response.
 
-## Deferred Frontend Implementation
+## Implementation and Verification
 
-1. Integrate scores into the redesigned Match row presentation.
-2. Add page navigation bound to the loader's `page`, `pageSize`, and `hasNextPage` data.
-3. Add route-local score overrides and merge rules.
-4. Add the single polling effect with sequencing, visibility, focus, jitter, cancellation, and terminal removal behavior.
-5. Verify the rendered list with 20 simultaneous Active Matches across pages, asymmetric scores, between-Frame rows, a page transition, a completion transition, hidden-tab catch-up, and a failed poll retaining prior values.
+The route implements the redesigned score rows, page navigation, route-local score overrides and merge rules, and one batched polling effect with sequencing, visibility, focus, jitter, cancellation, and terminal removal behavior.
+
+Browser verification covered:
+
+- 20 simultaneous Active Matches in one maximum-size polling batch and navigation to the following page;
+- asymmetric multi-Frame and single-Frame scores;
+- mobile 390×844 and desktop 1280×900 layouts;
+- a completion transition that retained final single-Frame points, changed lifecycle and destination together, and removed the finished Match from later poll requests;
+- hidden-tab and focus catch-up;
+- failed-poll retention;
+- the finished-only second page and empty presentation.
 
 New automated coverage remains subject to `AGENTS.md`: update existing tests required by the changes, and seek approval before adding focused regression test files or materially expanding a suite.

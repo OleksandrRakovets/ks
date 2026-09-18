@@ -72,6 +72,7 @@ describe('match value schemas', () => {
     expect(projectMatchScore(v.parse(MatchState, base))).toEqual({
       matchTargetFrames: 3,
       framesWonBySeat: { A: 1, B: 0 },
+      singleFramePointsBySeat: null,
       activeFrame: { frameIndex: 2, pointsBySeat: { A: 2, B: 5 } },
     })
     expect(
@@ -87,5 +88,18 @@ describe('match value schemas', () => {
       projectMatchScore(v.parse(MatchState, { ...base, status: 'finished', framesWonBySeat: { A: 3, B: 0 } }))
         .activeFrame,
     ).toBeNull()
+
+    expect(
+      projectMatchScore(
+        v.parse(MatchState, {
+          ...base,
+          targets: { ...base.targets, matchTargetFrames: 1 },
+          status: 'finished',
+          currentFrameIndex: 1,
+          framesWonBySeat: { A: 1, B: 0 },
+          frames: base.frames.slice(0, 1),
+        }),
+      ).singleFramePointsBySeat,
+    ).toEqual({ A: 8, B: 3 })
   })
 })

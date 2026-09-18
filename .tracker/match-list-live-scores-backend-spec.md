@@ -2,7 +2,7 @@
 
 ## Status and Scope
 
-Approved backend implementation plan. Frontend presentation and polling behavior are specified separately in `match-list-live-scores-frontend-spec.md` and remain deferred while the list is redesigned.
+Implemented backend contract. Frontend presentation and polling behavior are specified separately in `match-list-live-scores-frontend-spec.md`.
 
 The backend supplies paginated initial score projections and bounded polling under the existing active-first, newest-first ordering. A list page defaults to 5 Matches and permits at most 20. It intentionally uses bounded batch reads rather than one live connection per Active Match. Individual Match pages retain the versioned live transport specified in `match-live-websocket-spec.md`.
 
@@ -35,6 +35,7 @@ export const MatchScoreProjection = v.pipe(
   v.object({
     matchTargetFrames: PositiveInteger,
     framesWonBySeat: BySeatNumber,
+    singleFramePointsBySeat: v.nullable(BySeatNumber),
     activeFrame: v.nullable(ActiveFrameScoreProjection),
   }),
   v.readonly(),
@@ -60,6 +61,8 @@ The function selects an active Frame only when the Match is active and the Frame
 
 `activeFrame` is `null` before the first Frame is prepared, between Frames, and after the Match finishes. A prepared but not yet commenced Frame is active and contains its initial score.
 
+`singleFramePointsBySeat` is populated from the represented Frame when `matchTargetFrames` is `1`, including after completion, and is otherwise `null`. This preserves the final points needed for single-Frame Match rows without mislabeling the completed Frame as active or retaining general Frame history.
+
 The projection excludes player identity, game-specific presentation, breaker, frame history, controls, Protocol, and timestamps.
 
 ## D1 Finished Score Projection
@@ -75,7 +78,7 @@ finalScoreJson: text('final_score_json')
 
 `markMatchFinished` receives the completion transfer's `sourceLatestSeq` and `projectMatchScore(finalState)`. It stores both fields in the same D1 update that changes status to `finished` and stores `endedAt`. An idempotent retry verifies that an existing finished row has the same lifecycle and score values.
 
-The D1 adapter parses `finalSourceLatestSeq` with `NonNegativeInteger` and `finalScoreJson` with `v.pipe(v.string(), v.parseJson(), MatchScoreProjection)`. A finished row requires both values; a creating or active row requires neither. A finished projection must have `activeFrame: null`. Violations are persisted-data defects, not partial list entries.
+The D1 adapter parses `finalSourceLatestSeq` with `NonNegativeInteger` and `finalScoreJson` with `v.pipe(v.string(), v.parseJson(), MatchScoreProjection)`. A finished row requires both values; a creating or active row requires neither. A finished projection must have `activeFrame: null`; a finished single-Frame projection retains that Frame's final points in `singleFramePointsBySeat`. Violations are persisted-data defects, not partial list entries.
 
 The completed archive's Final Match State remains canonical and can reproduce this projection. Active scores are never written to D1.
 

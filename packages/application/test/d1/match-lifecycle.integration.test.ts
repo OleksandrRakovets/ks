@@ -151,6 +151,7 @@ describe('real D1 match lifecycle', () => {
       finalScore: {
         matchTargetFrames: 1,
         framesWonBySeat: { A: 1, B: 0 },
+        singleFramePointsBySeat: { A: 2, B: 0 },
         activeFrame: null,
       },
     })

@@ -98,6 +98,12 @@ export const keys = {
     },
     sparring: {
       noRecentMatches: 'match.sparring.noRecentMatches',
+      playingNow: 'match.sparring.playingNow',
+      finishedMatches: 'match.sparring.finishedMatches',
+      pagination: 'match.sparring.pagination',
+      previousPage: 'match.sparring.previousPage',
+      nextPage: 'match.sparring.nextPage',
+      pageNumber: 'match.sparring.pageNumber',
       chooseAnotherGame: 'match.sparring.chooseAnotherGame',
       playerA: 'match.sparring.playerA',
       playerB: 'match.sparring.playerB',

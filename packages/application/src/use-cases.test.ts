@@ -187,6 +187,7 @@ describe('trusted MatchRoom orchestration', () => {
     const score = {
       matchTargetFrames: 1,
       framesWonBySeat: { A: 0, B: 0 },
+      singleFramePointsBySeat: null,
       activeFrame: null,
     }
 
