@@ -105,7 +105,7 @@ Secondary zone, above the Last Action Bar, or under the top bar.
 | ------- | ----------------------------- | ---------------------------------------------------------------------------------- |
 | Left    | ✕ icon button, 44×44          | Navigates to `/sparring/matches/`. The only exit. No global nav here.              |
 | Context | 17px/600, nowrap              | Multi-frame games: `Партія {n}`. `free-pyramid-long`: `Піраміда {rackNumber}`.     |
-| Rule    | 16px, `--t-secondary`, nowrap | Multi-frame: `до {n} перемог`. `free-pyramid-long`: `переставка з {rackRollover}`. |
+| Rule    | 16px, `--t-secondary`, nowrap | Multi-frame: `до {n} перемог`. `free-pyramid-long`: `нова з {rackRollover}`. |
 | Right   | ⋯ icon button, 44×44          | Opens the Overflow Sheet. Rendered only when tertiary Controls exist.              |
 
 The Rule slot holds the match-level rule that the numerals do not already show. It has roughly

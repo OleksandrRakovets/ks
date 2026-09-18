@@ -217,7 +217,7 @@ only:
 - Drop the `fieldset`/`legend` chrome for a normal section heading.
 - After the toss, the winner's choice is two buttons labelled with first names.
 
-`Переставка` for `free-pyramid-long` becomes a two-option segmented control, keeping the existing
+`Нова з` for `free-pyramid-long` becomes a two-option segmented control, keeping the existing
 `звично` / `новіше` sub-labels from the current radio descriptions.
 
 Section order: players, race length, per-seat targets, rack rollover, then the toss last — it is

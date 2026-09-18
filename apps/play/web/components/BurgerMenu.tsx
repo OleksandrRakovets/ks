@@ -116,7 +116,7 @@ export function BurgerMenu({ placement }: { placement?: 'header' | 'navigation' 
             aria-current={isMatchesRoute ? 'page' : undefined}
             className="flex min-h-12 items-center rounded-md px-3 text-muted-foreground outline-none hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring/40 aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-foreground"
           >
-            {t(keys.nav.matches)}
+            {t(keys.nav.allMatches)}
           </Link>
         </nav>
 

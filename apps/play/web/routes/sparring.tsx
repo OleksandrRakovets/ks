@@ -26,7 +26,9 @@ function UkrainianSparringIndex() {
             <GameBadge src="/games/strila.webp" />
             <div className="flex min-w-0 flex-col gap-1">
               <CardTitle className="text-[22px] font-bold">Стріла</CardTitle>
-              <p className="leading-relaxed text-muted-foreground">Кольорові кулі та чергування ходів.</p>
+              <p className="leading-relaxed text-muted-foreground">
+                Українська гра зі спеціально розробленими кольоровими кулями на звичних столах.
+              </p>
             </div>
           </CardHeader>
           <CardFooter className="mt-auto justify-between">
@@ -47,13 +49,15 @@ function UkrainianSparringIndex() {
             <GameBadge src="/games/baraban.webp" />
             <div className="flex min-w-0 flex-col gap-1">
               <CardTitle className="text-[22px] font-bold text-muted-foreground">Барабан</CardTitle>
-              <p className="leading-relaxed text-muted-foreground">Готуємо підтримку гри.</p>
+              <p className="leading-relaxed text-muted-foreground">
+                Варіація для двох комплектів куль Стріли. Перемагає той, хто першим забиває свої кулі.
+              </p>
             </div>
           </CardHeader>
           <CardFooter className="mt-auto justify-between">
             <RulesLink href="https://strila.pro/baraban-3/">Правила на strila.pro</RulesLink>
             <Button variant="outline" size="touch" className="min-w-28" disabled>
-              Незабаром
+              Скоро
             </Button>
           </CardFooter>
         </Card>
@@ -66,25 +70,20 @@ function UkrainianSparringIndex() {
           <h2 id="pyramid-title" className="text-[22px] font-bold">
             Піраміда
           </h2>
-          <p className="leading-relaxed text-muted-foreground">
-            Чотири варіанти однієї гри. Куля скрізь коштує одне очко — різниться решта.
-          </p>
         </div>
 
         <Card className="divide-y divide-border">
-          <PyramidGameLink gameKey="free-pyramid" title="Вільна піраміда">
-            Заліковується будь-яка правильно забита куля.
-          </PyramidGameLink>
           <PyramidGameLink gameKey="free-pyramid-long" title="Вільна піраміда з продовженням">
-            Одна довга партія з кількома пірамідами.
+            Довга партія до визначеної кількості очок.
+          </PyramidGameLink>
+          <PyramidGameLink gameKey="combined-pyramid-old" title="Комбінована піраміда за старими правилами">
+            Традиційна клубна гра, зазвичай із замовленням куль.
           </PyramidGameLink>
           <PyramidGameLink gameKey="combined-pyramid" title="Комбінована піраміда">
-            <span className="inline-flex rounded-md border border-dashed border-amber/60 px-2 py-1 text-amber">
-              Потрібен опис відмінності
-            </span>
+            Спортивні правила, без замовлення.
           </PyramidGameLink>
-          <PyramidGameLink gameKey="combined-pyramid-old" title="Комбінована піраміда (старі правила)">
-            Після фолу порушник спершу відіграє заборговані кулі.
+          <PyramidGameLink gameKey="free-pyramid" title="Вільна піраміда">
+            Спортивні правила.
           </PyramidGameLink>
         </Card>
       </section>
@@ -152,7 +151,7 @@ function EnglishSparringIndex() {
           <PyramidGameLink gameKey="free-pyramid" title="Free pyramid">
             Any legally potted ball counts.
           </PyramidGameLink>
-          <PyramidGameLink gameKey="free-pyramid-long" title="Free pyramid (long)">
+          <PyramidGameLink gameKey="free-pyramid-long" title="Long free pyramid">
             One long frame played across multiple racks.
           </PyramidGameLink>
           <PyramidGameLink gameKey="combined-pyramid" title="Combined pyramid">
