@@ -110,7 +110,7 @@ Extend `MatchListEntry` with the version represented by the row and its score pr
 export type MatchListEntry = Readonly<{
   matchId: MatchId
   gameKey: RegisteredGameKey
-  gameTitle: string
+  shortGameTitle: string
   status: 'active' | 'finished'
   createdAt: UnixEpochMilliseconds
   participants: HydratedMatchParticipants

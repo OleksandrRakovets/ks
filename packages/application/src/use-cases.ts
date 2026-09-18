@@ -173,7 +173,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
         return {
           matchId: record.matchId,
           gameKey: record.gameKey,
-          gameTitle: registry[record.gameKey].meta.title[locale],
+          shortGameTitle: registry[record.gameKey].meta.shortGameTitle[locale],
           createdAt: record.createdAt,
           participants,
           ...score,

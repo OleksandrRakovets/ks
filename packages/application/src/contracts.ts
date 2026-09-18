@@ -52,7 +52,7 @@ export type CreateMatchResult =
 export type MatchListEntry = Readonly<{
   matchId: MatchId
   gameKey: RegisteredGameKey
-  gameTitle: string
+  shortGameTitle: string
   status: 'active' | 'finished'
   createdAt: UnixEpochMilliseconds
   participants: HydratedMatchParticipants

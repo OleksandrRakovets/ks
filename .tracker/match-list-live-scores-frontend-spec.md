@@ -12,7 +12,7 @@ The Match list polls compact score projections approximately every 30 seconds. I
 
 Each Match row presents:
 
-- both participant names and the game title;
+- both participant names and the localized `shortGameTitle` resolved from the gameplay registry;
 - frames won by seats A and B for multi-Frame Matches, plus the target number of wins while Active;
 - current or final points by seat for a single-Frame Match;
 - the active Frame number when a Frame is prepared or in progress;
@@ -24,8 +24,10 @@ Their start timestamp uses the browser's current time zone: `HH:mm` when the Mat
 relative dates.
 
 Sections use one column on narrow screens and two columns on desktop. Active cards retain a green
-status dot and restrained green border without a tinted fill; their player names use regular weight.
-Finished cards continue to emphasize the winner and mute the loser.
+status dot and one-pixel green border without a tinted fill; their player names use regular weight.
+Finished cards continue to emphasize the winner and mute the loser. Footer metadata forms one inline
+sequence separated by middle dots so it wraps naturally; Active and finished rows both include the
+browser-local Match start time or date.
 
 `activeFrame` is absent before the first Frame is prepared, between Frames, and after the Match finishes. The most recently completed Frame must not be presented as though it were still active. A prepared but not yet commenced Frame is active and displays its initial score.
 

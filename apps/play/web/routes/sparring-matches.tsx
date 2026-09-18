@@ -160,15 +160,14 @@ function MatchRow({
   const score = displayedScore(match)
   const winner = match.status === 'finished' ? leadingSeat(score) : undefined
 
-  const startLabel =
-    match.status === 'finished' && isClient ? formatMatchStart(match.createdAt, locale) : undefined
+  const startLabel = isClient ? formatMatchStart(match.createdAt, locale) : undefined
 
   return (
     <Link
       to={matchUrlForStatus(match.gameKey, match.matchId, match.status, locale)}
       className={cn(
         'block rounded-xl border bg-card px-4 py-3.5 transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/30',
-        match.status === 'active' ? 'border-green/40 hover:bg-muted' : 'border-border hover:bg-muted',
+        match.status === 'active' ? 'border-green hover:bg-muted' : 'border-border hover:bg-muted',
       )}
     >
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-4 gap-y-1">
@@ -188,41 +187,46 @@ function MatchRow({
 
       <div
         className={cn(
-          'mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground',
+          'mt-3 text-muted-foreground',
           match.status === 'finished' && 'border-t border-border pt-3',
         )}
       >
         {match.status === 'active' ? (
           <>
-            <span className="size-2 shrink-0 rounded-full bg-green" aria-hidden="true" />
+            <span className="mr-2 inline-block size-2 rounded-full bg-green" aria-hidden="true" />
             <span className="sr-only">{t(keys.status.live)}</span>
           </>
         ) : (
           <span className="sr-only">{t(keys.status.finished)}</span>
         )}
-        <span>{match.gameTitle}</span>
+        <span>{match.shortGameTitle}</span>
         {match.status === 'active' && match.score.matchTargetFrames > 1 ? (
-          <span>
-            {t(keys.match.scoreboard.raceToWins, {
-              targetFrames: match.score.matchTargetFrames,
-            })}
-          </span>
+          <>
+            {' · '}
+            <span>
+              {t(keys.match.scoreboard.raceToWins, {
+                targetFrames: match.score.matchTargetFrames,
+              })}
+            </span>
+          </>
         ) : null}
         {match.status === 'active' && match.score.activeFrame !== null ? (
-          <span>
-            {t(keys.match.scoreboard.frameWithNumber, {
-              frameIndex: match.score.activeFrame.frameIndex,
-            })}
-          </span>
+          <>
+            {' · '}
+            <span>
+              {t(keys.match.scoreboard.frameWithNumber, {
+                frameIndex: match.score.activeFrame.frameIndex,
+              })}
+            </span>
+          </>
         ) : null}
-        {match.status === 'finished' ? (
-          <time
-            dateTime={new Date(match.createdAt).toISOString()}
-            className="ml-auto tabular-nums"
-            aria-label={startLabel}
-          >
-            {startLabel ?? '—'}
-          </time>
+        {startLabel !== undefined ? (
+          <>
+            {' · '}
+            <time dateTime={new Date(match.createdAt).toISOString()} className="tabular-nums">
+              {startLabel}
+            </time>
+          </>
         ) : null}
       </div>
     </Link>
