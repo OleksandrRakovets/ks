@@ -184,6 +184,9 @@ function MatchRow({
   const startLabel = isClient ? formatMatchStart(match.createdAt, locale) : undefined
   const activeFrame = match.gameKey === 'free-pyramid-long' ? null : match.score.activeFrame
 
+  const activeFrameScore =
+    match.status === 'active' && match.score.matchTargetFrames > 1 ? activeFrame?.pointsBySeat : undefined
+
   return (
     <Link
       to={matchUrlForStatus(match.gameKey, match.matchId, match.status, locale)}
@@ -195,13 +198,21 @@ function MatchRow({
           emphasized={winner === undefined || winner === 'A'}
           strong={match.status === 'finished'}
         />
-        <PlayerScore value={score.A} emphasized={winner === undefined || winner === 'A'} />
+        <PlayerScore
+          value={score.A}
+          activeFrameValue={activeFrameScore?.A}
+          emphasized={winner === undefined || winner === 'A'}
+        />
         <PlayerName
           name={match.participants.B.displayName}
           emphasized={winner === undefined || winner === 'B'}
           strong={match.status === 'finished'}
         />
-        <PlayerScore value={score.B} emphasized={winner === undefined || winner === 'B'} />
+        <PlayerScore
+          value={score.B}
+          activeFrameValue={activeFrameScore?.B}
+          emphasized={winner === undefined || winner === 'B'}
+        />
       </div>
 
       <div className="mt-3 flex items-start gap-2 border-t border-border pt-3 leading-6 text-muted-foreground">
@@ -266,15 +277,28 @@ function PlayerName({ name, emphasized, strong }: { name: string; emphasized: bo
   )
 }
 
-function PlayerScore({ value, emphasized }: { value: number; emphasized: boolean }) {
+function PlayerScore({
+  value,
+  activeFrameValue,
+  emphasized,
+}: {
+  value: number
+  activeFrameValue?: number
+  emphasized: boolean
+}) {
   return (
-    <span
-      className={cn(
-        'text-right text-[22px] leading-none font-semibold tabular-nums',
-        emphasized ? 'text-[var(--bone)]' : 'text-[var(--t-muted)]',
+    <span className="flex items-baseline justify-end gap-3 tabular-nums">
+      {activeFrameValue === undefined ? null : (
+        <span className="text-[18px] leading-none font-normal text-amber">{activeFrameValue}</span>
       )}
-    >
-      {value}
+      <span
+        className={cn(
+          'text-right text-[22px] leading-none font-semibold',
+          emphasized ? 'text-[var(--bone)]' : 'text-[var(--t-muted)]',
+        )}
+      >
+        {value}
+      </span>
     </span>
   )
 }

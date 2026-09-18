@@ -168,7 +168,7 @@ export const resources = {
         scoreboard: {
           frames: 'Фрейми',
           frame: 'Фрейм',
-          frameWithNumber: 'Партія {{frameIndex}}',
+          frameWithNumber: 'Партія\u00a0{{frameIndex}}',
           points: 'Очки',
           raceToWins: 'до {{targetFrames}} перемог',
           target: 'до\u00a0{{target}}',
@@ -448,7 +448,7 @@ export const resources = {
         scoreboard: {
           frames: 'Frames',
           frame: 'Frame',
-          frameWithNumber: 'Frame {{frameIndex}}',
+          frameWithNumber: 'Frame\u00a0{{frameIndex}}',
           points: 'Points',
           raceToWins: 'race to {{targetFrames}} wins',
           target: 'to\u00a0{{target}}',
