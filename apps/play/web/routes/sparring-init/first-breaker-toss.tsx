@@ -64,14 +64,10 @@ function FirstBreakerToss(props: FirstBreakerFieldProps) {
   }
 
   const winnerName = tossWinner ? props.playerNames[tossWinner] : null
-  const breakerName = props.firstBreakerSeat ? props.playerNames[props.firstBreakerSeat] : null
   const displayInitial = displaySeat ? playerInitial(props.playerNames[displaySeat]) : '?'
 
   return (
-    <section className="flex flex-col gap-2.5" aria-labelledby="first-breaker-heading">
-      <h2 id="first-breaker-heading" className="text-lg font-semibold text-muted-foreground">
-        {t(keys.match.sparring.firstBreaker.title)}
-      </h2>
+    <section className="rounded-lg border border-border p-3" aria-labelledby="first-breaker-heading">
       {props.firstBreakerSeat ? (
         <input type="hidden" name="firstBreakerSeat" value={props.firstBreakerSeat} />
       ) : null}
@@ -88,66 +84,68 @@ function FirstBreakerToss(props: FirstBreakerFieldProps) {
           {displayInitial}
         </div>
 
-        <div className="flex min-w-0 flex-col gap-1" aria-live="polite" aria-atomic="true">
-          <p className="text-[17px] leading-snug font-medium">
+        <div className="flex min-w-0 flex-col gap-2.5">
+          <h2
+            id="first-breaker-heading"
+            className="text-[17px] leading-snug font-semibold"
+            aria-live="polite"
+            aria-atomic="true"
+          >
             {isRolling
               ? t(keys.match.sparring.firstBreaker.coinInAir)
               : winnerName !== null && winnerName.length > 0
-                ? t(keys.match.sparring.firstBreaker.tossWinner, { name: winnerName })
-                : t(keys.match.sparring.firstBreaker.tossInstructions)}
-          </p>
-          <p className="text-base leading-snug text-muted-foreground">
-            {breakerName !== null && breakerName.length > 0
-              ? t(keys.match.sparring.firstBreaker.breakerSelected, { name: breakerName })
-              : winnerName !== null && winnerName.length > 0
                 ? t(keys.match.sparring.firstBreaker.chooseBreaker, { name: winnerName })
-                : t(keys.match.sparring.firstBreaker.winnerChooses)}
-          </p>
+                : t(keys.match.sparring.firstBreaker.title)}
+          </h2>
+
+          {!tossWinner ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="touch"
+              className="w-fit"
+              onClick={rollCoin}
+              disabled={isRolling}
+            >
+              {t(keys.match.sparring.firstBreaker.tossCoin)}
+            </Button>
+          ) : null}
+          {tossWinner ? (
+            <div className="grid grid-cols-2 gap-2 md:w-fit md:grid-cols-[9rem_9rem]">
+              <Button
+                type="button"
+                size="touch"
+                className="min-w-0 px-2"
+                variant={props.firstBreakerSeat === tossWinner ? 'primary' : 'outline'}
+                aria-pressed={props.firstBreakerSeat === tossWinner}
+                aria-label={t(keys.match.sparring.firstBreaker.playerBreaks, {
+                  name: props.playerNames[tossWinner],
+                })}
+                onClick={() => chooseBreaker(tossWinner)}
+                disabled={isRolling}
+              >
+                <span className="min-w-0 truncate">{firstName(props.playerNames[tossWinner])}</span>
+              </Button>
+              <Button
+                type="button"
+                size="touch"
+                className="min-w-0 px-2"
+                variant={props.firstBreakerSeat === opponentOf(tossWinner) ? 'primary' : 'outline'}
+                aria-pressed={props.firstBreakerSeat === opponentOf(tossWinner)}
+                aria-label={t(keys.match.sparring.firstBreaker.playerBreaks, {
+                  name: props.playerNames[opponentOf(tossWinner)],
+                })}
+                onClick={() => chooseBreaker(opponentOf(tossWinner))}
+                disabled={isRolling}
+              >
+                <span className="min-w-0 truncate">
+                  {firstName(props.playerNames[opponentOf(tossWinner)])}
+                </span>
+              </Button>
+            </div>
+          ) : null}
         </div>
       </div>
-
-      {!tossWinner ? (
-        <Button
-          type="button"
-          variant="outline"
-          size="touch"
-          className="w-full"
-          onClick={rollCoin}
-          disabled={isRolling}
-        >
-          {t(keys.match.sparring.firstBreaker.tossCoin)}
-        </Button>
-      ) : null}
-      {tossWinner ? (
-        <div className="grid grid-cols-2 gap-2.5">
-          <Button
-            type="button"
-            size="touch"
-            variant={props.firstBreakerSeat === tossWinner ? 'primary' : 'outline'}
-            aria-pressed={props.firstBreakerSeat === tossWinner}
-            aria-label={t(keys.match.sparring.firstBreaker.playerBreaks, {
-              name: props.playerNames[tossWinner],
-            })}
-            onClick={() => chooseBreaker(tossWinner)}
-            disabled={isRolling}
-          >
-            {firstName(props.playerNames[tossWinner])}
-          </Button>
-          <Button
-            type="button"
-            size="touch"
-            variant={props.firstBreakerSeat === opponentOf(tossWinner) ? 'primary' : 'outline'}
-            aria-pressed={props.firstBreakerSeat === opponentOf(tossWinner)}
-            aria-label={t(keys.match.sparring.firstBreaker.playerBreaks, {
-              name: props.playerNames[opponentOf(tossWinner)],
-            })}
-            onClick={() => chooseBreaker(opponentOf(tossWinner))}
-            disabled={isRolling}
-          >
-            {firstName(props.playerNames[opponentOf(tossWinner)])}
-          </Button>
-        </div>
-      ) : null}
     </section>
   )
 }

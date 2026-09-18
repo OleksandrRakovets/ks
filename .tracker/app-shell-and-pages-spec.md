@@ -199,10 +199,13 @@ one. It encodes two steps: the coin decides **who chooses**, and the winner may 
 to their opponent. A three-option `A / B / Жереб` control would silently delete that rule. Restyle
 only:
 
-- Coin at 82px, amber ring, holding the player's initial; muted with `?` before the throw.
-- The two lines beside it move from 14px to 17px and 16px.
-- Drop the `fieldset`/`legend` chrome for a normal section heading.
-- After the toss, the winner's choice is two buttons labelled with first names.
+- Put the interaction in a rounded bordered card. The 82px coin stays on the left with an amber
+  ring and the player's initial; it is muted with `?` before the throw.
+- The right side has one 17px heading rather than explanatory copy: `Хто розбиває`, then the rolling
+  status, then `{{name}} обирає, хто розбиває`.
+- Actions sit below that heading, still to the right of the coin. The toss action hugs its label.
+  After the toss, two first-name buttons share the row at every supported width, starting at the
+  375px iPhone SE viewport, and stay compact on desktop.
 
 `Продовження` for `free-pyramid-long` is a two-option segmented control. It matches the 78px
 per-seat target cards, gives `після 14` / `після 15` 20px emphasis with proportionate inset, and
@@ -211,12 +214,14 @@ keeps the `традиційно` / `новий підхід` sub-labels.
 Section order: players, race length, per-seat targets, rack rollover, then the toss last — it is
 the ritual immediately before starting.
 
-Submit is **pinned to the bottom**, full width, 60px. Full width is what fixes `Розпочати матч` not
-fitting; the label was only ever too long for a narrow button. It remains disabled until both
-names are valid and different, every visible numeric input contains a positive integer, and a
-breaker has been selected after the toss. The action repeats these checks at the HTTP boundary and
-returns one generic 400 for an invalid setup payload; there are no localized server-validation
-messages for states the form prevents.
+Submit is **pinned to the bottom**, full width, 60px. Its container uses the raised surface and a
+theme-adjusted soft upward shadow rather than a divider, hinting that content can continue behind
+it. The container uses 16px padding on every side. Full width is what fixes `Розпочати матч` not
+fitting; the label was only ever too long for a narrow button. It remains disabled until both names
+are valid and different, every visible numeric input contains a positive integer, and a breaker has
+been selected after the toss. The action repeats these checks at the HTTP boundary and returns one
+generic 400 for an invalid setup payload; there are no localized server-validation messages for
+states the form prevents.
 
 The toss is mandatory by design. There is no way to name a breaker directly and none should be
 added: the informal alternatives are slower than throwing here.

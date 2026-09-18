@@ -117,11 +117,7 @@ export const keys = {
       firstBreaker: {
         title: 'match.sparring.firstBreaker.title',
         coinInAir: 'match.sparring.firstBreaker.coinInAir',
-        tossWinner: 'match.sparring.firstBreaker.tossWinner',
-        tossInstructions: 'match.sparring.firstBreaker.tossInstructions',
-        breakerSelected: 'match.sparring.firstBreaker.breakerSelected',
         chooseBreaker: 'match.sparring.firstBreaker.chooseBreaker',
-        winnerChooses: 'match.sparring.firstBreaker.winnerChooses',
         tossCoin: 'match.sparring.firstBreaker.tossCoin',
         playerBreaks: 'match.sparring.firstBreaker.playerBreaks',
       },
