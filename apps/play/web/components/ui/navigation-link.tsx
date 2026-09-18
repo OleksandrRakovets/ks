@@ -5,11 +5,11 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from './utils'
 
 const navigationLinkVariants = cva(
-  'relative flex min-h-12 items-center rounded-sm px-3 text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/40 lg:min-h-14 lg:px-5',
+  'relative flex min-h-12 items-center rounded-sm px-3 text-base font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/40 lg:min-h-14 lg:px-5',
   {
     variants: {
       state: {
-        default: 'text-text-lo hover:bg-muted hover:text-foreground',
+        default: 'text-muted-foreground hover:bg-muted hover:text-foreground',
         active:
           'bg-primary/10 text-foreground after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:bg-primary',
         disabled: 'cursor-not-allowed text-text-ghost opacity-60',

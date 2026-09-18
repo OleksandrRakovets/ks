@@ -5,12 +5,12 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from './utils'
 
 const badgeVariants = cva(
-  'inline-flex h-6 w-fit items-center rounded-full border px-2.5 text-xs font-semibold tracking-wide',
+  'inline-flex min-h-7 w-fit items-center rounded-full border px-2.5 text-base font-semibold',
   {
     variants: {
       variant: {
         live: 'border-primary/25 bg-primary/15 text-primary',
-        neutral: 'border-border bg-muted text-text-lo',
+        neutral: 'border-border bg-muted text-muted-foreground',
         warning: 'border-amber/25 bg-amber-tint text-amber',
         destructive: 'border-destructive/25 bg-destructive/10 text-destructive',
       },

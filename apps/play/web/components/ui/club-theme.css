@@ -23,6 +23,7 @@
 
   --f-score: 80px;
   --ks-wordmark-badge-shadow: 0 0 0 rgb(0 0 0 / 0);
+  --raised-top-shadow: 0 -10px 28px rgb(0 0 0 / 0.42);
   --ball-shadow: 0 3px 10px rgba(0, 0, 0, 0.55), 0 1px 3px rgba(0, 0, 0, 0.4);
   --ball-shadow-selected: 0 0 0 3px var(--a-amber-dim), 0 3px 10px rgba(0, 0, 0, 0.6);
 }
@@ -49,6 +50,7 @@
   --a-red-dim: oklch(44% 0.21 25 / 0.1);
 
   --ks-wordmark-badge-shadow: 0 10px 14px rgb(0 0 0 / 0.16);
+  --raised-top-shadow: 0 -8px 24px rgb(0 0 0 / 0.14);
   --ball-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
   --ball-shadow-selected: 0 0 0 3px var(--a-amber-dim), 0 1px 4px rgba(0, 0, 0, 0.2);
 }
@@ -76,6 +78,7 @@
     --a-red-dim: oklch(44% 0.21 25 / 0.1);
 
     --ks-wordmark-badge-shadow: 0 10px 14px rgb(0 0 0 / 0.16);
+    --raised-top-shadow: 0 -8px 24px rgb(0 0 0 / 0.14);
     --ball-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
     --ball-shadow-selected: 0 0 0 3px var(--a-amber-dim), 0 1px 4px rgba(0, 0, 0, 0.2);
   }
@@ -87,8 +90,6 @@
   --color-raised: var(--c-raised);
   --color-overlay: var(--c-overlay);
   --color-divider: var(--c-border);
-
-  --color-text-lo: var(--t-secondary);
 
   --color-green: var(--a-green);
   --color-green-dim: var(--a-green-dim);

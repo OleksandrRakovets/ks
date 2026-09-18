@@ -58,7 +58,7 @@ function ControlRows(props: {
           {pyramidCommandLabel(t, command)}
         </Button>
         {props.showEffectSummaries === true && effect !== undefined && effect.length > 0 ? (
-          <p className="text-center text-base text-text-lo">{effect}</p>
+          <p className="text-center text-base text-muted-foreground">{effect}</p>
         ) : null}
       </div>
     )
