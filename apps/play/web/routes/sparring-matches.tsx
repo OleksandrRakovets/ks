@@ -161,6 +161,7 @@ function MatchRow({
   const winner = match.status === 'finished' ? leadingSeat(score) : undefined
 
   const startLabel = isClient ? formatMatchStart(match.createdAt, locale) : undefined
+  const activeFrame = match.gameKey === 'free-pyramid-long' ? null : match.score.activeFrame
 
   return (
     <Link
@@ -210,12 +211,12 @@ function MatchRow({
             </span>
           </>
         ) : null}
-        {match.status === 'active' && match.score.activeFrame !== null ? (
+        {match.status === 'active' && activeFrame !== null ? (
           <>
             {' · '}
             <span>
               {t(keys.match.scoreboard.frameWithNumber, {
-                frameIndex: match.score.activeFrame.frameIndex,
+                frameIndex: activeFrame.frameIndex,
               })}
             </span>
           </>

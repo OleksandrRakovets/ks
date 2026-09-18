@@ -17,7 +17,8 @@ Each Match row presents:
 - current or final points by seat for a single-Frame Match;
 - an Active target without a unit noun: `до {matchTargetFrames}` for multi-Frame Matches or
   `до {frameTargetPoints}` for single-Frame Matches;
-- the active Frame number when a Frame is prepared or in progress;
+- the active Frame number when a Frame is prepared or in progress, except for
+  `free-pyramid-long`, whose continuously scored single Frame makes the label redundant;
 - Active or finished lifecycle presentation.
 
 Finished rows omit the target because their final score already communicates the result.
