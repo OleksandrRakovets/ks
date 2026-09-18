@@ -211,7 +211,7 @@ function RuleNote(props: {
   const { t } = useTranslation()
 
   return (
-    <aside className="flex gap-2 rounded-lg bg-blue-dim px-3 py-2 text-base leading-snug">
+    <aside className="flex gap-2 rounded-lg bg-info-dim px-3 py-2 text-base leading-snug">
       <OpenBookIcon />
       <div>
         {ruleMessageLines(t, props.note, props.participants).map((line, index) => (
@@ -280,7 +280,7 @@ function ruleMessageLines(
 
 function OpenBookIcon() {
   return (
-    <svg aria-hidden viewBox="0 0 24 24" fill="none" className="mt-0.5 size-5 shrink-0 text-blue">
+    <svg aria-hidden viewBox="0 0 24 24" fill="none" className="mt-0.5 size-5 shrink-0 text-info">
       <path
         d="M2.5 4.75h5.25A4.25 4.25 0 0 1 12 9v10.25A4.25 4.25 0 0 0 7.75 15H2.5zm19 0h-5.25A4.25 4.25 0 0 0 12 9v10.25A4.25 4.25 0 0 1 16.25 15h5.25z"
         stroke="currentColor"

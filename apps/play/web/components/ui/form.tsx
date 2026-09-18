@@ -33,7 +33,7 @@ function FieldDescription({ className, ...props }: React.ComponentProps<'p'>) {
 }
 
 const controlClasses =
-  'w-full rounded-md border border-input bg-background px-3 text-base text-foreground outline-none transition-[border-color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/20 disabled:cursor-not-allowed disabled:opacity-40 aria-invalid:border-destructive aria-invalid:ring-destructive/20'
+  'w-full rounded-md border border-input bg-field px-3 text-base text-foreground outline-none transition-[border-color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/20 disabled:cursor-not-allowed disabled:opacity-40 aria-invalid:border-destructive aria-invalid:ring-destructive/20'
 
 function Input({ className, ...props }: React.ComponentProps<'input'>) {
   return <InputPrimitive data-slot="input" className={cn(controlClasses, 'h-10', className)} {...props} />

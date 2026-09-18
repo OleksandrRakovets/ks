@@ -168,7 +168,7 @@ function TargetField(props: { seat: Seat; playerName: string; defaultValue: numb
   const id = `target${props.seat}`
 
   return (
-    <Field className="gap-0 rounded-lg border border-border px-3 py-2 transition-[border-color,box-shadow] focus-within:border-green focus-within:shadow-[0_0_18px_var(--a-green-dim)] focus-within:ring-2 focus-within:ring-green">
+    <Field className="gap-0 rounded-lg border border-border px-3 py-2 transition-[border-color,box-shadow] focus-within:border-primary focus-within:shadow-[0_0_18px_var(--color-primary-dim)] focus-within:ring-2 focus-within:ring-primary">
       <FieldLabel htmlFor={id} className="truncate text-base font-normal text-muted-foreground">
         {firstName(props.playerName)}
       </FieldLabel>
@@ -216,7 +216,7 @@ export function RackRolloverField(props: { profile: MatchCreateProfile }) {
           <ToggleGroupItem
             key={value}
             value={String(value)}
-            className="flex h-auto flex-col items-center justify-center gap-0 rounded-lg px-2 py-1 data-pressed:border data-pressed:border-green data-pressed:bg-green-tint"
+            className="flex h-auto flex-col items-center justify-center gap-0 rounded-lg px-2 py-1 data-pressed:border data-pressed:border-primary data-pressed:bg-primary-tint"
           >
             <span className="text-xl leading-[1.2] font-bold tabular-nums">
               {t(keys.match.sparring.rackRolloverBalls, { value })}

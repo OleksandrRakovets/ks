@@ -95,7 +95,7 @@ function Score(props: { align: 'left' | 'right'; value: number; target: number; 
     </strong>
   )
 
-  const target = <span className="pb-1 text-xl font-medium text-[var(--t-muted)]">/{props.target}</span>
+  const target = <span className="pb-1 text-xl font-medium text-muted-foreground">/{props.target}</span>
 
   return (
     <span

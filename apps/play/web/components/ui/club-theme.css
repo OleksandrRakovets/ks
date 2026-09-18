@@ -1,106 +1,79 @@
-/* Club Terminal theme — dark default, light override via .latte or OS preference */
+/* Club Terminal theme — follows the OS unless an explicit club theme is selected. */
 
 :root {
-  --c-deep: oklch(11% 0.022 158);
-  --c-base: oklch(16% 0.026 158);
-  --c-raised: oklch(20% 0.026 158);
-  --c-overlay: oklch(25% 0.022 158);
-  --c-border: oklch(28% 0.018 158);
+  color-scheme: light dark;
 
-  --t-primary: oklch(95% 0.006 155);
-  --t-secondary: oklch(63% 0.01 155);
-  --t-muted: oklch(40% 0.008 155);
-  --bone: #f2ede1;
+  --c-deep: light-dark(oklch(96% 0.008 158), oklch(11% 0.022 158));
+  --c-field: light-dark(oklch(96% 0.008 158), oklch(11% 0.022 158));
+  --c-raised: light-dark(oklch(93% 0.01 158), oklch(20% 0.026 158));
+  --c-hover: light-dark(oklch(93% 0.01 158), oklch(20% 0.026 158));
+  --c-overlay: light-dark(oklch(88% 0.014 158), oklch(25% 0.022 158));
+  --c-input-edge: light-dark(oklch(88% 0.014 158), oklch(25% 0.022 158));
+  --c-border: light-dark(oklch(80% 0.014 158), oklch(28% 0.018 158));
 
-  --a-green: oklch(60% 0.16 152);
-  --a-green-dim: oklch(60% 0.16 152 / 0.18);
-  --c-green-tint: oklch(21% 0.055 152);
-  --a-amber: oklch(78% 0.16 72);
-  --a-amber-dim: oklch(78% 0.16 72 / 0.14);
-  --a-blue: oklch(72% 0.11 245);
-  --a-blue-dim: oklch(72% 0.11 245 / 0.12);
-  --a-red: oklch(60% 0.2 25);
-  --a-red-dim: oklch(60% 0.2 25 / 0.16);
+  --t-primary: light-dark(oklch(13% 0.022 158), oklch(95% 0.006 155));
+  --t-secondary: light-dark(oklch(36% 0.016 158), oklch(63% 0.01 155));
+  --bone: light-dark(#18211c, #f2ede1);
 
-  --f-score: 80px;
+  /* Brand green owns identity, status, selection, and focus; action green owns control fills. */
+  --a-green: light-dark(oklch(38% 0.18 152), oklch(60% 0.16 152));
+  --a-green-dim: light-dark(oklch(38% 0.18 152 / 0.12), oklch(60% 0.16 152 / 0.18));
+  --c-green-tint: light-dark(oklch(91% 0.04 152), oklch(21% 0.055 152));
+  --action: light-dark(oklch(38% 0.18 152), #008348);
+  --action-hover: light-dark(#0c610c, #007b43);
+  --action-foreground: #fff;
+
+  --a-amber: light-dark(oklch(58% 0.21 64), oklch(78% 0.16 72));
+  --a-amber-dim: light-dark(oklch(58% 0.21 64 / 0.15), oklch(78% 0.16 72 / 0.14));
+  --a-blue: light-dark(oklch(48% 0.14 245), oklch(72% 0.11 245));
+  --a-blue-dim: light-dark(oklch(48% 0.14 245 / 0.1), oklch(72% 0.11 245 / 0.12));
+  --a-red: light-dark(oklch(44% 0.21 25), oklch(60% 0.2 25));
+  --a-red-dim: light-dark(oklch(44% 0.21 25 / 0.1), oklch(60% 0.2 25 / 0.16));
+
+  /* Amber is a physical/highlight accent; warning is status foreground and tint. */
+  --s-warning: light-dark(#625814, #ddd47a);
+  --s-warning-dim: light-dark(rgb(98 88 20 / 0.15), rgb(221 212 122 / 0.14));
+
   --ks-wordmark-badge-shadow: 0 0 0 rgb(0 0 0 / 0);
   --raised-top-shadow: 0 -10px 28px rgb(0 0 0 / 0.42);
   --ball-shadow: 0 3px 10px rgba(0, 0, 0, 0.55), 0 1px 3px rgba(0, 0, 0, 0.4);
-  --ball-shadow-selected: 0 0 0 3px var(--a-amber-dim), 0 3px 10px rgba(0, 0, 0, 0.6);
+}
+
+.club-dark {
+  color-scheme: dark;
 }
 
 .club-light {
-  --c-deep: oklch(96% 0.008 158);
-  --c-base: oklch(99% 0.004 158);
-  --c-raised: oklch(93% 0.01 158);
-  --c-overlay: oklch(88% 0.014 158);
-  --c-border: oklch(80% 0.014 158);
-
-  --t-primary: oklch(13% 0.022 158);
-  --t-secondary: oklch(36% 0.016 158);
-  --t-muted: oklch(54% 0.012 158);
-  --bone: #18211c;
-
-  --a-green: oklch(38% 0.18 152);
-  --a-green-dim: oklch(38% 0.18 152 / 0.12);
-  --c-green-tint: oklch(91% 0.04 152);
-  --a-amber: oklch(58% 0.21 64);
-  --a-amber-dim: oklch(58% 0.21 64 / 0.15);
-  --a-blue: oklch(48% 0.14 245);
-  --a-blue-dim: oklch(48% 0.14 245 / 0.1);
-  --a-red: oklch(44% 0.21 25);
-  --a-red-dim: oklch(44% 0.21 25 / 0.1);
-
+  color-scheme: light;
   --ks-wordmark-badge-shadow: 0 10px 14px rgb(0 0 0 / 0.16);
   --raised-top-shadow: 0 -8px 24px rgb(0 0 0 / 0.14);
   --ball-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
-  --ball-shadow-selected: 0 0 0 3px var(--a-amber-dim), 0 1px 4px rgba(0, 0, 0, 0.2);
 }
 
 @media (prefers-color-scheme: light) {
   :root:not(.club-dark) {
-    --c-deep: oklch(96% 0.008 158);
-    --c-base: oklch(99% 0.004 158);
-    --c-raised: oklch(93% 0.01 158);
-    --c-overlay: oklch(88% 0.014 158);
-    --c-border: oklch(80% 0.014 158);
-
-    --t-primary: oklch(13% 0.022 158);
-    --t-secondary: oklch(36% 0.016 158);
-    --t-muted: oklch(54% 0.012 158);
-    --bone: #18211c;
-
-    --a-green: oklch(38% 0.18 152);
-    --a-green-dim: oklch(38% 0.18 152 / 0.12);
-    --c-green-tint: oklch(91% 0.04 152);
-    --a-amber: oklch(58% 0.21 64);
-    --a-amber-dim: oklch(58% 0.21 64 / 0.15);
-    --a-blue: oklch(48% 0.14 245);
-    --a-blue-dim: oklch(48% 0.14 245 / 0.1);
-    --a-red: oklch(44% 0.21 25);
-    --a-red-dim: oklch(44% 0.21 25 / 0.1);
-
     --ks-wordmark-badge-shadow: 0 10px 14px rgb(0 0 0 / 0.16);
     --raised-top-shadow: 0 -8px 24px rgb(0 0 0 / 0.14);
     --ball-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
-    --ball-shadow-selected: 0 0 0 3px var(--a-amber-dim), 0 1px 4px rgba(0, 0, 0, 0.2);
   }
 }
 
 @theme inline {
-  --color-deep: var(--c-deep);
-  --color-surface: var(--c-base);
+  --color-field: var(--c-field);
   --color-raised: var(--c-raised);
   --color-overlay: var(--c-overlay);
   --color-divider: var(--c-border);
 
-  --color-green: var(--a-green);
-  --color-green-dim: var(--a-green-dim);
-  --color-green-tint: var(--c-green-tint);
+  --color-action: var(--action);
+  --color-action-hover: var(--action-hover);
+  --color-action-foreground: var(--action-foreground);
+  --color-primary-dim: var(--a-green-dim);
+  --color-primary-tint: var(--c-green-tint);
   --color-amber: var(--a-amber);
   --color-amber-dim: var(--a-amber-dim);
-  --color-blue: var(--a-blue);
-  --color-blue-dim: var(--a-blue-dim);
-  --color-red: var(--a-red);
-  --color-red-dim: var(--a-red-dim);
+  --color-warning: var(--s-warning);
+  --color-warning-dim: var(--s-warning-dim);
+  --color-info: var(--a-blue);
+  --color-info-dim: var(--a-blue-dim);
+  --color-destructive-dim: var(--a-red-dim);
 }
