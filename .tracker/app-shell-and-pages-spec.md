@@ -157,9 +157,9 @@ touches:
   16px.
 - Rows stay as they are otherwise. Do not half-build the scoreboard row against missing data.
 
-`listMatchRecords()` is unfiltered and unpaginated, so this page shows every match anyone ever
-created and grows without bound. Out of scope to fix, but it constrains the copy here and the
-burger entry in §4: neither may claim the matches belong to the viewer or the device.
+At the time of this shell slice, `listMatchRecords()` was unfiltered and unpaginated, so the page
+showed every match anyone ever created and grew without bound. It constrained the copy here and the
+burger entry in §4: neither could claim the matches belonged to the viewer or the device.
 
 ## 8. Setup
 
@@ -300,5 +300,5 @@ Revised after review: no subtitles anywhere (§5, §7), the back link replacing 
 (§5, §8), native `<datalist>` instead of suggestion chips (§8), per-seat targets as a single
 always-present field (§8), and keeping the coin toss intact (§8).
 
-Still open: the unbounded, unfiltered match list (§7). Everything else open moved to the additions
-document.
+Resolved after this review: the unbounded, unfiltered match list (§7). Everything else open moved to
+the additions document.

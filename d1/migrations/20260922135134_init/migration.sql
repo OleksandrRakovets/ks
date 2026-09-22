@@ -24,6 +24,8 @@ CREATE TABLE `matches` (
 	`status` text NOT NULL,
 	`created_at` integer NOT NULL,
 	`ended_at` integer,
+	`final_source_latest_seq` integer,
+	`final_score_json` text,
 	CONSTRAINT "matches_distinct_players" CHECK("seat_a_player_ref" != "seat_b_player_ref"),
 	CONSTRAINT "matches_seat_a_player_ref_format" CHECK("seat_a_player_ref" GLOB 'gp_*' OR "seat_a_player_ref" GLOB 'vp_*'),
 	CONSTRAINT "matches_seat_b_player_ref_format" CHECK("seat_b_player_ref" GLOB 'gp_*' OR "seat_b_player_ref" GLOB 'vp_*')
@@ -37,3 +39,6 @@ CREATE TABLE `verified_players` (
 	`last_name_en` text NOT NULL,
 	`created_at` integer NOT NULL
 );
+--> statement-breakpoint
+CREATE INDEX `matches_status_created_at_match_id_idx` ON `matches` (`status`,`created_at`,`match_id`);--> statement-breakpoint
+CREATE INDEX `matches_status_ended_at_match_id_idx` ON `matches` (`status`,`ended_at`,`match_id`);

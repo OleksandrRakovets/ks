@@ -1,2 +1,0 @@
-CREATE INDEX `matches_status_created_at_match_id_idx` ON `matches` (`status`,`created_at`,`match_id`);--> statement-breakpoint
-CREATE INDEX `matches_status_ended_at_match_id_idx` ON `matches` (`status`,`ended_at`,`match_id`);

@@ -17,12 +17,15 @@ export async function loadMatchList(
 ): Promise<MatchListRouteData> {
   const url = new URL(request.url)
   const pageParams = url.searchParams.getAll('page')
+  const hasUnknownParams = [...url.searchParams.keys()].some((key) => key !== 'page')
 
   const pagination = v.safeParse(MatchListPagination, {
     page: pageParams.length === 0 ? undefined : Number(pageParams[0]),
   })
 
-  if (pageParams.length > 1 || !pagination.success) throw new Response('Match list not found', { status: 404 })
+  if (hasUnknownParams || pageParams.length > 1 || !pagination.success) {
+    throw new Response('Match list not found', { status: 404 })
+  }
 
   const page = await requireApplication(context).listMatches(
     scope,
