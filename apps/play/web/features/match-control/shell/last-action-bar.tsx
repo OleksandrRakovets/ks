@@ -29,7 +29,7 @@ export function LastActionBar({ entry }: { entry: Pick<ProtocolRow, 'key' | 'mes
             <span>{protocolRowLabel(t, entry)}</span>
           )}
           {entry.score ? (
-            <span className="text-[14px] text-[var(--t-muted)]">{`${entry.score.A}:${entry.score.B}`}</span>
+            <span className="text-[14px] text-muted-foreground">{`${entry.score.A}:${entry.score.B}`}</span>
           ) : null}
         </p>
       </div>

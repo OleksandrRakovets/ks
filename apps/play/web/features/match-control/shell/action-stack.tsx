@@ -122,9 +122,9 @@ function Lane(
           className={cn(
             'min-w-0 rounded-lg px-2 py-2 text-lg leading-tight font-semibold whitespace-normal outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-45',
             props.kind === 'primary'
-              ? 'min-h-[60px] bg-green text-[#07140D]'
+              ? 'min-h-[60px] bg-action text-action-foreground'
               : 'min-h-[50px] bg-overlay text-foreground',
-            props.kind === 'secondary' && control.type === 'foul.commit' && 'text-red',
+            props.kind === 'secondary' && control.type === 'foul.commit' && 'text-destructive',
             compact && itemIndex === 0 && presentations.length % 2 === 1 && 'col-span-2',
           )}
           onClick={() =>

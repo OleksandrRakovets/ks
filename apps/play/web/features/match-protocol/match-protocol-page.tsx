@@ -32,7 +32,7 @@ export function MatchProtocolPage<K extends RegisteredGameKey>(props: {
     >
       <div className="px-4 py-3">
         {fetcher.data?.ok === false ? (
-          <p role="alert" className="mb-3 rounded-lg bg-red-dim px-3 py-2 text-base text-red">
+          <p role="alert" className="mb-3 rounded-lg bg-destructive-dim px-3 py-2 text-base text-destructive">
             {t(fetcher.data.errorKey)}
           </p>
         ) : null}

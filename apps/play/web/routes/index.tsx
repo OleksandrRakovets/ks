@@ -15,7 +15,7 @@ export default function Index() {
         {/*<nav className="flex w-full flex-col gap-3">
           <Link
             to="/sparring/"
-            className="flex h-12 items-center justify-center rounded-sm bg-green px-4 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+            className="flex h-12 items-center justify-center rounded-sm bg-action px-4 text-sm font-semibold text-action-foreground transition-colors hover:bg-action-hover"
           >
             {t(keys.nav.sparring)}
           </Link>

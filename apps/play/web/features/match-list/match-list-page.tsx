@@ -258,7 +258,10 @@ function MatchRow({
 
 function LiveDot({ className }: { className?: string }) {
   return (
-    <span className={cn('inline-block size-2 shrink-0 rounded-full bg-green', className)} aria-hidden="true" />
+    <span
+      className={cn('inline-block size-2 shrink-0 rounded-full bg-primary', className)}
+      aria-hidden="true"
+    />
   )
 }
 
@@ -294,7 +297,7 @@ function PlayerScore({
       <span
         className={cn(
           'text-right text-[22px] leading-none font-semibold',
-          emphasized ? 'text-[var(--bone)]' : 'text-[var(--t-muted)]',
+          emphasized ? 'text-[var(--bone)]' : 'text-muted-foreground',
         )}
       >
         {value}
