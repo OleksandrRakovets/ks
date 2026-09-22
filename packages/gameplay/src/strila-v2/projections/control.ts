@@ -38,7 +38,10 @@ function deriveBallStatuses(
 
   const onTableColored = new Set(snapshot.context.coloredBallsOnTable)
 
-  const cueStatus: 'object' | 'on-table' = phase === 'respotted-black.opening' ? 'on-table' : 'object'
+  const cueStatus: 'object' | 'on-table' =
+    phase === 'respotted-black.opening' || snapshot.context.cueBallSerialPots?.count === 2
+      ? 'on-table'
+      : 'object'
 
   const ballStatuses: MutableStrilaBallStatuses = {
     0: cueStatus,

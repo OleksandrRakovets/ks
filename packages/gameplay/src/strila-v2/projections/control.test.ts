@@ -93,6 +93,7 @@ test('projects open-play miss controls only after two consecutive cue-ball pots'
 
   snapshot = sendEvent(snapshot, { type: 'pot.record', seat: 'A', pottedBalls: [0] })
   const projection = deriveStrilaControlProjection(snapshot)
+  expect(projection.game.details.ballStatuses[0]).toBe('on-table')
   expect(projection.controls.filter(({ type }) => type === 'miss.record')).toEqual([
     { source: 'game', type: 'miss.record', fixedInput: {}, seat: 'A', prominence: 'secondary' },
     { source: 'game', type: 'miss.record', fixedInput: {}, seat: 'B', prominence: 'secondary' },
@@ -145,6 +146,9 @@ test.each(['foul-committed.ball-in-hand', 'respotted-black.opening'] as const)(
       { source: 'game', type: 'miss.record', fixedInput: {}, seat: 'A', prominence: 'secondary' },
       { source: 'game', type: 'miss.record', fixedInput: {}, seat: 'B', prominence: 'secondary' },
     ])
+    expect(deriveStrilaControlProjection(snapshot).game.details.ballStatuses[0]).toBe(
+      phase === 'respotted-black.opening' ? 'on-table' : 'object',
+    )
   },
 )
 
