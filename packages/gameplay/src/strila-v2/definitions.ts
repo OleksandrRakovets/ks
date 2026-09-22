@@ -178,6 +178,7 @@ const StrilaGamePresentationDetails = v.pipe(
     seat: v.optional(Seat),
     situationTitle: NonEmptyString,
     situationSummary: v.optional(NonEmptyString),
+    isBallSetVisible: v.boolean(),
     isPotCommandAvailable: v.boolean(),
     ballStatuses: StrilaBallStatuses,
     pottedBallsBySeat: PottedBallsBySeat,

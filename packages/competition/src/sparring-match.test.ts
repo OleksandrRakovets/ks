@@ -198,7 +198,7 @@ describe('SparringMatch', () => {
     const restoredResult = accept(restored, nextCuePot)
     expect(restoredResult).toEqual(residentResult)
     expect(restored.project()).toEqual(resident.project())
-    expect(restored.project().controls.filter(({ type }) => type === 'miss.record')).toHaveLength(2)
+    expect(restored.project().controls.filter(({ type }) => type === 'miss.record')).toHaveLength(0)
     expect(restoredResult.protocolEntryContents).toContainEqual({
       gameKey: 'strila-v2',
       frameIndex: 1,
@@ -208,6 +208,15 @@ describe('SparringMatch', () => {
       scoreAfter: { A: 3, B: 0 },
       body: { commandType: 'pot.record', pottedBalls: [0] },
     })
+
+    const secondCuePot = {
+      ...nextCuePot,
+      commandId: newCommandId(),
+    }
+
+    expect(accept(restored, secondCuePot)).toEqual(accept(resident, secondCuePot))
+    expect(restored.project()).toEqual(resident.project())
+    expect(restored.project().controls.filter(({ type }) => type === 'miss.record')).toHaveLength(2)
   })
 
   test('plays a multi-frame race through game scoring with alternating breakers', () => {

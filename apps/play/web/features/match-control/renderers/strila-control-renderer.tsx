@@ -52,11 +52,12 @@ export function StrilaControlRenderer(props: MatchControlRendererProps<StrilaGam
     <ActionStack
       sections={sections}
       selector={
-        details.isPotCommandAvailable ? (
-          <BallSelector
+        details.isBallSetVisible ? (
+          <BallSet
             details={details}
             participants={props.participants}
             selectedBalls={selectedBalls}
+            selectable={details.isPotCommandAvailable}
             onSelectionChange={setSelectedBalls}
           />
         ) : undefined
@@ -115,10 +116,11 @@ function PenaltyTakeover(props: {
   )
 }
 
-function BallSelector(props: {
+function BallSet(props: {
   details: StrilaGamePresentation['details']
   participants: MatchControlRendererProps<StrilaGamePresentation>['participants']
   selectedBalls: StrilaBallValue[]
+  selectable: boolean
   onSelectionChange: (balls: StrilaBallValue[]) => void
 }) {
   const { t } = useTranslation()
@@ -126,11 +128,15 @@ function BallSelector(props: {
   return (
     <div className="grid gap-1 px-3 pb-3.5 [@media(min-height:740px)]:pb-4 [@media(min-height:820px)]:pb-5">
       <RuleNotes notes={props.details.ruleNotes} participants={props.participants} />
-      <p className="mb-1 px-1 text-[14px] leading-snug text-muted-foreground [@media(min-height:740px)]:mb-3 [@media(min-height:820px)]:mb-4">
-        {t(keys.match.control.choosePottedBall)}
-      </p>
+      {props.selectable ? (
+        <p className="mb-1 px-1 text-[14px] leading-snug text-muted-foreground [@media(min-height:740px)]:mb-3 [@media(min-height:820px)]:mb-4">
+          {t(keys.match.control.choosePottedBall)}
+        </p>
+      ) : null}
       <fieldset className="grid min-w-0 grid-cols-8 gap-1">
-        <legend className="sr-only">{t(keys.match.control.choosePottedBall)}</legend>
+        <legend className="sr-only">
+          {props.selectable ? t(keys.match.control.choosePottedBall) : props.details.situationTitle}
+        </legend>
         {StrilaMeta.allBalls.map((ball) => {
           const status = props.details.ballStatuses[ball]
           const potted = status === 'potted'
@@ -146,9 +152,12 @@ function BallSelector(props: {
               key={ball}
               type="button"
               aria-label={label}
-              aria-pressed={selected}
-              disabled={potted}
-              className="group grid h-12 min-w-0 place-items-center rounded-full outline-none disabled:opacity-25"
+              aria-pressed={props.selectable ? selected : undefined}
+              disabled={!props.selectable || potted}
+              className={cn(
+                'group grid h-12 min-w-0 place-items-center rounded-full outline-none',
+                potted && 'opacity-25',
+              )}
               onClick={() =>
                 props.onSelectionChange(
                   selected

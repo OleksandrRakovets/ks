@@ -5,6 +5,27 @@ import { groupControlsIntoSections } from '@ks/core'
 import { createInitialSnapshot, sendEvent } from '../machine'
 import { deriveStrilaControlProjection } from './control'
 
+test('projects every break-off ball as an object in a visible, non-selectable set', () => {
+  const projection = deriveStrilaControlProjection(createInitialSnapshot({ A: 9, B: 9 }))
+
+  expect(projection.game.details).toMatchObject({
+    phase: 'not-started',
+    isBallSetVisible: true,
+    isPotCommandAvailable: false,
+    ballStatuses: {
+      0: 'object',
+      1: 'object',
+      2: 'object',
+      3: 'object',
+      4: 'object',
+      5: 'object',
+      6: 'object',
+      7: 'object',
+    },
+  })
+  expect(projection.controls).toEqual([])
+})
+
 test('projects exact open-play controls and selectable balls', () => {
   const snapshot = sendEvent(createInitialSnapshot({ A: 9, B: 9 }), { type: 'frame.commence', seat: 'A' })
   const controlProjection = deriveStrilaControlProjection(snapshot)
@@ -16,6 +37,7 @@ test('projects exact open-play controls and selectable balls', () => {
       phase: 'open-play',
       situationTitle: 'Open play',
       situationSummary: 'Log pots or a foul.',
+      isBallSetVisible: true,
       isPotCommandAvailable: true,
       ballStatuses: {
         0: 'object',
@@ -54,7 +76,7 @@ test('projects exact open-play controls and selectable balls', () => {
   expect(deriveStrilaControlProjection(snapshot).game.details.ballStatuses[1]).toBe('object')
 })
 
-test('projects open-play miss controls only while a cue-ball streak exists', () => {
+test('projects open-play miss controls only after two consecutive cue-ball pots', () => {
   let snapshot = sendEvent(createInitialSnapshot({ A: 9, B: 9 }), {
     type: 'frame.commence',
     seat: 'A',
@@ -65,7 +87,13 @@ test('projects open-play miss controls only while a cue-ball streak exists', () 
   )
 
   snapshot = sendEvent(snapshot, { type: 'pot.record', seat: 'A', pottedBalls: [0] })
+  expect(deriveStrilaControlProjection(snapshot).controls.some(({ type }) => type === 'miss.record')).toBe(
+    false,
+  )
+
+  snapshot = sendEvent(snapshot, { type: 'pot.record', seat: 'A', pottedBalls: [0] })
   const projection = deriveStrilaControlProjection(snapshot)
+  expect(projection.game.details.ballStatuses[0]).toBe('on-table')
   expect(projection.controls.filter(({ type }) => type === 'miss.record')).toEqual([
     { source: 'game', type: 'miss.record', fixedInput: {}, seat: 'A', prominence: 'secondary' },
     { source: 'game', type: 'miss.record', fixedInput: {}, seat: 'B', prominence: 'secondary' },
@@ -118,6 +146,9 @@ test.each(['foul-committed.ball-in-hand', 'respotted-black.opening'] as const)(
       { source: 'game', type: 'miss.record', fixedInput: {}, seat: 'A', prominence: 'secondary' },
       { source: 'game', type: 'miss.record', fixedInput: {}, seat: 'B', prominence: 'secondary' },
     ])
+    expect(deriveStrilaControlProjection(snapshot).game.details.ballStatuses[0]).toBe(
+      phase === 'respotted-black.opening' ? 'on-table' : 'object',
+    )
   },
 )
 

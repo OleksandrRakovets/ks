@@ -28,11 +28,20 @@ function seatControls(
 function deriveBallStatuses(
   snapshot: StrilaSparringFrameSnapshot,
 ): StrilaGamePresentationDetails['ballStatuses'] {
-  const objectBalls = new Set(computeStrilaObjectBalls(snapshot.context.coloredBallsOnTable))
+  const phase = getPhase(snapshot)
+
+  const objectBalls = new Set(
+    phase === 'not-started'
+      ? snapshot.context.coloredBallsOnTable
+      : computeStrilaObjectBalls(snapshot.context.coloredBallsOnTable),
+  )
+
   const onTableColored = new Set(snapshot.context.coloredBallsOnTable)
 
   const cueStatus: 'object' | 'on-table' =
-    getPhase(snapshot) === 'respotted-black.opening' ? 'on-table' : 'object'
+    phase === 'respotted-black.opening' || snapshot.context.cueBallSerialPots?.count === 2
+      ? 'on-table'
+      : 'object'
 
   const ballStatuses: MutableStrilaBallStatuses = {
     0: cueStatus,
@@ -76,16 +85,20 @@ function controlProjection(
     readonly seat?: Seat
   },
 ): GameControlProjection<StrilaGamePresentation> {
+  const phase = getPhase(snapshot)
+  const isPotCommandAvailable = args.controls.some((entry) => entry.type === 'pot.record')
+
   return {
     game: {
       gameKey: 'strila-v2',
       score: { ...snapshot.context.score },
       details: {
-        phase: getPhase(snapshot),
+        phase,
         seat: args.seat,
         situationTitle: args.situationTitle,
         situationSummary: args.situationSummary,
-        isPotCommandAvailable: args.controls.some((entry) => entry.type === 'pot.record'),
+        isBallSetVisible: phase === 'not-started' || isPotCommandAvailable,
+        isPotCommandAvailable,
         ballStatuses: deriveBallStatuses(snapshot),
         pottedBallsBySeat: snapshot.context.pottedBallsBySeat,
         ruleNotes: deriveStrilaRuleNotes(snapshot),
@@ -103,17 +116,20 @@ export function deriveStrilaControlProjection(snapshot: StrilaSparringFrameSnaps
         situationTitle: 'Break-off',
         situationSummary: 'Waiting for the match to open the frame.',
       })
-    case 'open-play':
+    case 'open-play': {
+      const canRecordMiss = snapshot.context.cueBallSerialPots?.count === 2
+
       return controlProjection(snapshot, {
         controls: [
           ...seatControls('pot.record', 'primary'),
-          ...(snapshot.context.cueBallSerialPots === null ? [] : seatControls('miss.record', 'secondary')),
+          ...(canRecordMiss ? seatControls('miss.record', 'secondary') : []),
           ...seatControls('foul.commit', 'secondary'),
         ],
         situationTitle: 'Open play',
-        situationSummary:
-          snapshot.context.cueBallSerialPots === null ? 'Log pots or a foul.' : 'Log pots, a miss, or a foul.',
+        situationSummary: canRecordMiss ? 'Log pots, a miss, or a foul.' : 'Log pots or a foul.',
       })
+    }
+
     case 'foul-committed.penalty-selection': {
       invariant(
         snapshot.context.foulOffender !== null,
