@@ -80,9 +80,9 @@ function EnglishSparringIndex() {
         />
         <GameCard
           gameKey="free-pyramid-long"
-          title="Continuous free pyramid"
+          title="Continuous Free Pyramid"
           description="One frame continues across successive racks to a set points target."
-          playLabel="Play Continuous free pyramid"
+          playLabel="Play Continuous Free Pyramid"
         />
         <GameCard
           title="Baraban"
@@ -94,21 +94,21 @@ function EnglishSparringIndex() {
         />
         <GameCard
           gameKey="combined-pyramid-old"
-          title="Combined pyramid under the old rules"
+          title="Combined Pyramid under the old rules"
           description="A traditional club game, usually played with called balls."
-          playLabel="Play Combined pyramid under the old rules"
+          playLabel="Play Combined Pyramid under the old rules"
         />
         <GameCard
           gameKey="combined-pyramid"
-          title="Combined pyramid"
+          title="Combined Pyramid"
           description="Competition rules, without called shots."
-          playLabel="Play Combined pyramid"
+          playLabel="Play Combined Pyramid"
         />
         <GameCard
           gameKey="free-pyramid"
-          title="Free pyramid"
+          title="Free Pyramid"
           description="Competition rules."
-          playLabel="Play Free pyramid"
+          playLabel="Play Free Pyramid"
         />
       </section>
     </Page>

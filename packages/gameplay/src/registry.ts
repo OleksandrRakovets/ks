@@ -36,11 +36,11 @@ export const registry = {
     meta: {
       title: {
         uk: 'Вільна піраміда',
-        en: 'Free pyramid',
+        en: 'Free Pyramid',
       },
       shortGameTitle: {
-        uk: 'Вільна піраміда',
-        en: 'Free pyramid',
+        uk: 'Вільна',
+        en: 'Free',
       },
       defaultFrameTargetPointsBySeat: { A: 8, B: 8 },
     },
@@ -51,11 +51,11 @@ export const registry = {
     meta: {
       title: {
         uk: 'Вільна піраміда з продовженням',
-        en: 'Free pyramid (long)',
+        en: 'Continuous Free Pyramid',
       },
       shortGameTitle: {
-        uk: 'Вільна піраміда з продовженням',
-        en: 'Free pyramid (long)',
+        uk: 'Вільна з продовженням',
+        en: 'Continuous Free',
       },
       defaultFrameTargetPointsBySeat: { A: 30, B: 30 },
     },
@@ -66,11 +66,11 @@ export const registry = {
     meta: {
       title: {
         uk: 'Комбінована піраміда',
-        en: 'Combined pyramid',
+        en: 'Combined Pyramid',
       },
       shortGameTitle: {
-        uk: 'Комбінована піраміда',
-        en: 'Combined pyramid',
+        uk: 'Комбінована',
+        en: 'Combined',
       },
       defaultFrameTargetPointsBySeat: { A: 8, B: 8 },
     },
@@ -81,11 +81,11 @@ export const registry = {
     meta: {
       title: {
         uk: 'Комбінована піраміда (старі правила)',
-        en: 'Combined pyramid (old rules)',
+        en: 'Combined Pyramid (old rules)',
       },
       shortGameTitle: {
-        uk: 'Комбінована піраміда (старі правила)',
-        en: 'Combined pyramid (old rules)',
+        uk: 'Комбінована (стара)',
+        en: 'Combined (old)',
       },
       defaultFrameTargetPointsBySeat: { A: 8, B: 8 },
     },
