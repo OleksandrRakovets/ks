@@ -23,6 +23,10 @@ export const registry = {
         uk: 'Стріла',
         en: 'Strila',
       },
+      shortGameTitle: {
+        uk: 'Стріла',
+        en: 'Strila',
+      },
       defaultFrameTargetPointsBySeat: { A: 9, B: 9 },
     },
     commandSchema: StrilaCommand,
@@ -32,7 +36,11 @@ export const registry = {
     meta: {
       title: {
         uk: 'Вільна піраміда',
-        en: 'Free pyramid',
+        en: 'Free Pyramid',
+      },
+      shortGameTitle: {
+        uk: 'Вільна',
+        en: 'Free',
       },
       defaultFrameTargetPointsBySeat: { A: 8, B: 8 },
     },
@@ -43,7 +51,11 @@ export const registry = {
     meta: {
       title: {
         uk: 'Вільна піраміда з продовженням',
-        en: 'Free pyramid (long)',
+        en: 'Continuous Free Pyramid',
+      },
+      shortGameTitle: {
+        uk: 'Вільна з продовженням',
+        en: 'Continuous Free',
       },
       defaultFrameTargetPointsBySeat: { A: 30, B: 30 },
     },
@@ -54,7 +66,11 @@ export const registry = {
     meta: {
       title: {
         uk: 'Комбінована піраміда',
-        en: 'Combined pyramid',
+        en: 'Combined Pyramid',
+      },
+      shortGameTitle: {
+        uk: 'Комбінована',
+        en: 'Combined',
       },
       defaultFrameTargetPointsBySeat: { A: 8, B: 8 },
     },
@@ -65,7 +81,11 @@ export const registry = {
     meta: {
       title: {
         uk: 'Комбінована піраміда (старі правила)',
-        en: 'Combined pyramid (old rules)',
+        en: 'Combined Pyramid (old rules)',
+      },
+      shortGameTitle: {
+        uk: 'Комбінована (стара)',
+        en: 'Combined (old)',
       },
       defaultFrameTargetPointsBySeat: { A: 8, B: 8 },
     },

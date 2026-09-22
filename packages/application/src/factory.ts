@@ -4,7 +4,7 @@ import { newMatchId, nowUnixEpochMilliseconds } from '@ks/core'
 import { archiveCompletedMatch, markMatchFinished } from './d1/completed-matches'
 import { getOrCreateGuestPlayerRef } from './d1/guest-players'
 import { activateMatch, beginMatchCreation } from './d1/match-lifecycle'
-import { getMatchRow, listMatchRows } from './d1/matches'
+import { getMatchRow, getMatchRows, listMatchRows } from './d1/matches'
 import { hydrateParticipant } from './d1/players'
 import { getProtocolArchive } from './d1/protocol-archives'
 import { createApplicationDatabaseClient } from './d1/types'
@@ -29,16 +29,25 @@ function newControlSecret(): string {
 type MatchRow = NonNullable<Awaited<ReturnType<typeof getMatchRow>>>
 
 function matchRecordFromRow(row: MatchRow) {
-  return {
+  const identity = {
     matchId: row.matchId,
     gameKey: row.gameKey,
-    status: row.status,
     createdAt: row.createdAt,
     participantRefs: {
       A: row.seatAPlayerRef,
       B: row.seatBPlayerRef,
     },
   }
+
+  return row.status === 'finished'
+    ? {
+        ...identity,
+        status: row.status,
+        endedAt: row.endedAt,
+        finalSourceLatestSeq: row.finalSourceLatestSeq,
+        finalScore: row.finalScore,
+      }
+    : { ...identity, status: row.status }
 }
 
 export function createApplication(bindings: ApplicationBindings) {
@@ -50,17 +59,18 @@ export function createApplication(bindings: ApplicationBindings) {
     now: nowUnixEpochMilliseconds,
     getOrCreateGuestPlayerRef: async (displayName) => getOrCreateGuestPlayerRef(db, displayName),
     hydrateParticipant: async (playerRef, locale) => hydrateParticipant(db, playerRef, locale),
-    listMatchRecords: async () => (await listMatchRows(db)).map(matchRecordFromRow),
+    listMatchRecords: async (query) => (await listMatchRows(db, query)).map(matchRecordFromRow),
     getMatchRecord: async (matchId) => {
       const row = await getMatchRow(db, matchId)
 
       return row ? matchRecordFromRow(row) : null
     },
+    getMatchRecords: async (matchIds) => (await getMatchRows(db, matchIds)).map(matchRecordFromRow),
     getProtocolArchive: async (matchId) => getProtocolArchive(db, matchId),
     beginMatchCreation: async (input) => beginMatchCreation(db, input),
     activateMatch: async (matchId) => activateMatch(db, matchId),
     archiveCompletedMatch: async (input) => archiveCompletedMatch(db, input),
-    markMatchFinished: async (matchId, endedAt) => markMatchFinished(db, matchId, endedAt),
+    markMatchFinished: async (input) => markMatchFinished(db, input),
     matchRoomClient: (matchId) => bindings.MATCH_ROOM.getByName(matchId),
   })
 }

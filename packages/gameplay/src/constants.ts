@@ -8,6 +8,7 @@ type LocalizedGameTitle = {
 
 export type GameMeta = {
   readonly title: LocalizedGameTitle
+  readonly shortGameTitle: LocalizedGameTitle
   readonly defaultFrameTargetPointsBySeat: BySeatNumber
 }
 

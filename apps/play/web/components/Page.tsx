@@ -6,11 +6,12 @@ import { cn } from './ui/utils'
 type PageProps = {
   title: string
   backLink?: { to: string; label: string }
+  headerAction?: ReactNode
   children: ReactNode
   className?: string
 }
 
-export function Page({ title, backLink, children, className }: PageProps) {
+export function Page({ title, backLink, headerAction, children, className }: PageProps) {
   return (
     <main className={cn('flex flex-1 flex-col gap-6 bg-background px-4 py-6 text-foreground', className)}>
       <header>
@@ -23,7 +24,10 @@ export function Page({ title, backLink, children, className }: PageProps) {
             {backLink.label}
           </Link>
         ) : null}
-        <h1 className="text-[32px] leading-tight font-bold tracking-[-0.025em]">{title}</h1>
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-[32px] leading-tight font-bold tracking-[-0.025em]">{title}</h1>
+          {headerAction}
+        </div>
       </header>
       {children}
     </main>

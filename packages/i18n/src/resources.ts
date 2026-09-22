@@ -168,9 +168,10 @@ export const resources = {
         scoreboard: {
           frames: 'Фрейми',
           frame: 'Фрейм',
-          frameWithNumber: 'Партія {{frameIndex}}',
+          frameWithNumber: 'Партія\u00a0{{frameIndex}}',
           points: 'Очки',
           raceToWins: 'до {{targetFrames}} перемог',
+          target: 'до\u00a0{{target}}',
         },
         protocol: {
           balls: {
@@ -239,7 +240,15 @@ export const resources = {
           unknown: '{{value}}',
         },
         sparring: {
-          noRecentMatches: 'Матчів ще немає.',
+          views: 'Стан матчів',
+          liveMatches: 'Наживо',
+          completedMatches: 'Завершені',
+          noLiveMatches: 'Активних або нещодавно завершених матчів немає.',
+          noCompletedMatches: 'Завершених матчів ще немає.',
+          pagination: 'Сторінки матчів',
+          previousPage: 'Назад',
+          nextPage: 'Далі',
+          pageNumber: 'Сторінка {{page}}',
           chooseAnotherGame: 'Інша гра',
           playerA: 'Гравець A',
           playerB: 'Гравець B',
@@ -439,9 +448,10 @@ export const resources = {
         scoreboard: {
           frames: 'Frames',
           frame: 'Frame',
-          frameWithNumber: 'Frame {{frameIndex}}',
+          frameWithNumber: 'Frame\u00a0{{frameIndex}}',
           points: 'Points',
           raceToWins: 'race to {{targetFrames}} wins',
+          target: 'to\u00a0{{target}}',
         },
         protocol: {
           balls: {
@@ -506,7 +516,15 @@ export const resources = {
           unknown: '{{value}}',
         },
         sparring: {
-          noRecentMatches: 'No matches yet.',
+          views: 'Match status',
+          liveMatches: 'Live',
+          completedMatches: 'Completed',
+          noLiveMatches: 'No live or recently completed matches.',
+          noCompletedMatches: 'No completed matches yet.',
+          pagination: 'Match pages',
+          previousPage: 'Previous',
+          nextPage: 'Next',
+          pageNumber: 'Page {{page}}',
           chooseAnotherGame: 'Another game',
           playerA: 'Player A',
           playerB: 'Player B',

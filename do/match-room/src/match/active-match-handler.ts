@@ -1,5 +1,11 @@
 import type { SparringMatchRoomProjection } from '@ks/competition'
-import type { MatchCommand, ProtocolEntry } from '@ks/core'
+import {
+  type MatchCommand,
+  type MatchScoreProjection,
+  type NonNegativeInteger,
+  projectMatchScore,
+  type ProtocolEntry,
+} from '@ks/core'
 
 import { type LiveConnectionCursor, LiveConnectionHandler } from '../live/live-connection-handler'
 import {
@@ -112,6 +118,14 @@ export class ActiveMatchHandler {
     }
   }
 
+  getScore(): ActiveScoreResult {
+    return {
+      _tag: 'active',
+      latestSeq: this.#state.latestSeq,
+      score: projectMatchScore(this.#state.match.project().state),
+    }
+  }
+
   liveConnectionCursor(): LiveConnectionCursor {
     return { matchId: this.#storedMatch.matchId, latestSeq: this.#storedMatch.latestSeq }
   }
@@ -135,6 +149,12 @@ export type ActiveProtocolResult = {
   readonly latestSeq: number
   readonly state: SparringMatchRoomProjection['state']
   readonly protocolEntries: readonly ProtocolEntry[]
+}
+
+export type ActiveScoreResult = {
+  readonly _tag: 'active'
+  readonly latestSeq: NonNegativeInteger
+  readonly score: MatchScoreProjection
 }
 
 type ActiveCommandResult =

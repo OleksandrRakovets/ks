@@ -10,16 +10,22 @@ separated only because the plumbing is missing.
 
 ## 1. Matches rows
 
-**Waiting on:** four fields on `MatchListEntry`. An agent has already started this work.
+**Implemented.** `MatchListEntry.score` carries the compact score projection and `latestSeq` carries
+its Accepted Command version. Active projections come from MatchRoom; finished projections are
+stored on the D1 Match row.
 
 Today the list can print two names and a game title, which is exactly why it reads as a database
 dump. The redesign turns each row into a small scoreboard, and that needs a score.
 
 ```ts
-readonly framesWonBySeat: BySeatNumber
-readonly currentFramePointsBySeat: BySeatNumber
-readonly matchTargetFrames: number
-readonly endedAt?: UnixEpochMilliseconds
+readonly latestSeq: NonNegativeInteger
+readonly score: {
+  readonly framesWonBySeat: BySeatNumber
+  readonly singleFramePointsBySeat: BySeatNumber | null
+  readonly matchTargetFrames: PositiveInteger
+  readonly frameTargetPointsBySeat: BySeatNumber
+  readonly activeFrame: { readonly frameIndex: PositiveInteger; readonly pointsBySeat: BySeatNumber } | null
+}
 ```
 
 The route picks which score to show — frames when `matchTargetFrames > 1`, current frame points
@@ -27,9 +33,11 @@ when it is 1, since `free-pyramid-long` is one frame to a point target. That dec
 route rather than being resolved in `@ks/application`, following the documented boundary that
 routes own presentation adaptation.
 
-Row shape, per the `matches.png` render:
+Row shape, based on the `matches.png` render:
 
-- Two stacked names with their scores right-aligned, then a meta line with the game and the time.
+- Two stacked names with their scores right-aligned, then a meta line with the game and start
+  timestamp. In the browser's current time zone, the timestamp is `HH:mm` today, `DD.MM` on another
+  day in the current year, and `DD.MM.YYYY` in another year.
 - Winner's name and numeral in `--hi` / `--bone` at 600; loser's in `--t-secondary` / `--t-muted`.
   This deliberately echoes the match Board so the two surfaces read as one product.
 - Active matches first under `Зараз грають`, with a green dot, a green-tinted border, and the
@@ -37,8 +45,7 @@ Row shape, per the `matches.png` render:
 
 **The time is the match start (`createdAt`)**, not the end. It is the only timestamp every row has,
 so the column never changes meaning between an active and a finished row, and a match running past
-midnight stays with the evening the players sat down. `endedAt` is listed above only because §3
-needs it.
+midnight stays with the evening the players sat down.
 
 ## 2. Day grouping on Matches
 

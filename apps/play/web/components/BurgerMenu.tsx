@@ -31,7 +31,8 @@ export function BurgerMenu({ placement }: { placement?: 'header' | 'navigation' 
   const isNewMatchRoute =
     location.pathname === sparringPath || location.pathname.startsWith(`${sparringPath}init/`)
 
-  const isMatchesRoute = location.pathname === localizedPath('/sparring/matches/', currentLocale)
+  const matchesPath = localizedPath('/sparring/matches/', currentLocale)
+  const isMatchesRoute = location.pathname.startsWith(matchesPath)
 
   function changeTheme(values: string[]) {
     const theme = values[0]
@@ -73,7 +74,7 @@ export function BurgerMenu({ placement }: { placement?: 'header' | 'navigation' 
               {t(keys.nav.newGame)}
             </Link>
             <Link
-              to={localizedPath('/sparring/matches/', currentLocale)}
+              to={matchesPath}
               onClick={close}
               aria-current={isMatchesRoute ? 'page' : undefined}
               className="flex min-h-12 items-center rounded-md px-3 text-muted-foreground outline-none hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring/40 aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-foreground"

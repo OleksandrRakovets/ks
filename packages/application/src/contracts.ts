@@ -1,9 +1,12 @@
 import { MatchCreationDefinition, type MatchStateFor, type SparringMatchRejection } from '@ks/competition'
-import type {
-  Control,
-  HydratedMatchParticipants,
-  MatchCommand,
+import {
+  type Control,
+  type HydratedMatchParticipants,
+  type MatchCommand,
   MatchId,
+  MatchScoreProjection,
+  NonNegativeInteger,
+  PositiveInteger,
   UnixEpochMilliseconds,
 } from '@ks/core'
 import type { GamePresentationFor, RegisteredGameKey } from '@ks/gameplay/definitions'
@@ -46,16 +49,77 @@ export type CreateMatchResult =
   | { readonly ok: true; readonly matchId: MatchId }
   | { readonly ok: false; readonly error: string; readonly status: number }
 
-export type MatchListEntry = Readonly<{
+type MatchListEntryIdentity = {
   matchId: MatchId
   gameKey: RegisteredGameKey
-  gameTitle: string
-  status: 'active' | 'finished'
+  shortGameTitle: string
   createdAt: UnixEpochMilliseconds
   participants: HydratedMatchParticipants
+  latestSeq: NonNegativeInteger
+  score: MatchScoreProjection
+}
+
+export type MatchListEntry = Readonly<
+  MatchListEntryIdentity &
+    ({ status: 'active'; endedAt: null } | { status: 'finished'; endedAt: UnixEpochMilliseconds })
+>
+
+export type MatchListScope = 'live' | 'completed'
+
+export const MATCH_LIST_DEFAULT_PAGE_SIZE = 10
+
+export const RECENT_COMPLETED_MATCH_WINDOW_MS = 15 * 60 * 1_000
+
+export const MatchListPagination = v.pipe(
+  v.object({ page: v.optional(PositiveInteger, 1) }),
+  v.check(
+    ({ page }) => Number.isSafeInteger((page - 1) * MATCH_LIST_DEFAULT_PAGE_SIZE),
+    'Match list offset exceeds the safe integer range',
+  ),
+  v.readonly(),
+)
+
+export type MatchListPagination = v.InferOutput<typeof MatchListPagination>
+
+export type MatchListPage = Readonly<{
+  matches: readonly MatchListEntry[]
+  page: PositiveInteger
+  hasNextPage: boolean
 }>
 
+export const MATCH_SCORE_POLL_MAX_MATCHES = MATCH_LIST_DEFAULT_PAGE_SIZE
+
+export const MatchScorePollEntry = v.pipe(
+  v.intersect([
+    v.object({
+      matchId: MatchId,
+      latestSeq: NonNegativeInteger,
+      score: MatchScoreProjection,
+    }),
+    v.variant('status', [
+      v.object({ status: v.literal('active'), endedAt: v.null() }),
+      v.object({ status: v.literal('finished'), endedAt: UnixEpochMilliseconds }),
+    ]),
+  ]),
+  v.readonly(),
+)
+
+export type MatchScorePollEntry = v.InferOutput<typeof MatchScorePollEntry>
+
+export const MatchScorePollResponse = v.pipe(
+  v.object({
+    matches: v.pipe(v.array(MatchScorePollEntry), v.maxLength(MATCH_SCORE_POLL_MAX_MATCHES), v.readonly()),
+  }),
+  v.readonly(),
+)
+
+export type MatchScorePollResponse = v.InferOutput<typeof MatchScorePollResponse>
+
 export type ReadMatchFailure = { readonly ok: false; readonly error: string; readonly status: number }
+
+export type ReadMatchScoresResult =
+  | { readonly ok: true; readonly matches: readonly MatchScorePollEntry[] }
+  | ReadMatchFailure
 
 export type ReadMatchControlResult<K extends RegisteredGameKey> =
   /** A prepared gameplay frame is frame-active even before it has commenced. */
@@ -109,7 +173,12 @@ export type ReadMatchProtocolResult<K extends RegisteredGameKey> =
 
 export type Application = {
   createMatch(input: CreateMatchInput): Promise<CreateMatchResult>
-  listMatches(locale: SupportedLocale): Promise<MatchListEntry[]>
+  listMatches(
+    scope: MatchListScope,
+    locale: SupportedLocale,
+    pagination?: MatchListPagination,
+  ): Promise<MatchListPage>
+  readMatchScores(matchIds: readonly MatchId[]): Promise<ReadMatchScoresResult>
   readMatchControl<K extends RegisteredGameKey>(
     matchId: MatchId,
     locale: SupportedLocale,

@@ -44,7 +44,7 @@ Competition composes match controls before game controls into one flat list. Mat
 
 | Store | Authority |
 | --- | --- |
-| D1 | Players, creating/active/finished match rows, completed protocol archive and final match state |
+| D1 | Players, creating/active/finished match rows, completed protocol archive and final match state, compact finished list-score projection |
 | MatchRoom SQLite | Active config, control secret, Accepted Commands and outcomes, monotonic sequence, terminal Final Match State, active/finalizing status |
 
 Accepted Commands are the active replay authority and are never mirrored to D1. Resident match state and derived Protocol are disposable caches; cold restoration validates and replays ordered commands through the same aggregate operation. Raw XState snapshots are not persisted.
@@ -53,7 +53,7 @@ Active restoration replays Accepted Commands after eviction. Finalizing paths re
 
 An accepted command advances gameplay before one synchronous SQLite transaction stores the Accepted Command and next sequence. When it completes the Match, that transaction also stores Final Match State and the `finalizing` status. Resident state and derived Protocol advance only after the commit; defects discard the cache so the next operation restores from durable commands.
 
-Finished match-state and Protocol reads use D1 only. Final Match State is persisted atomically with the match-completing acceptance and transferred with Protocol without application-side gameplay replay.
+Finished match-state and Protocol reads use D1 only. Final Match State is persisted atomically with the match-completing acceptance and transferred with Protocol without application-side gameplay replay. When D1 marks the Match finished, it also stores the Accepted Command cursor and a compact score projection on the Match row so list reads do not parse the Protocol archive. This projection is reproducible from canonical Final Match State and is not a second history authority.
 
 ## Match Lifecycle
 
@@ -78,12 +78,28 @@ MatchRoom finalizing Protocol + Final Match State
   -> application treats the transfer as canonical and checks D1 identity, lifecycle, and archive idempotency
   -> idempotently archive protocol and final match state in D1
   -> MatchRoom broadcasts match.ended and closes streams
-  -> D1 matches.status: active -> finished, storing endedAt
+  -> D1 matches.status: active -> finished, storing endedAt and the compact final score projection
 ```
 
 Until the final step succeeds, D1 remains active and the retained MatchRoom reports `finalizing`; a later relevant application request then retries the idempotent transfer, archival, and finalization steps. Finalization publishes the withheld terminal update, closes clients, and clears resident state without replaying history. Finished reads use D1 and do not access MatchRoom. Cleanup of retained finalizing storage is deferred until observed costs justify a separate retention mechanism.
 
 The generated control secret is stored in MatchRoom but is not exposed or checked by the current command path.
+
+## Match List Score Reads
+
+The live Match list loader reads Active Matches followed by Matches completed in the last 15 minutes;
+the completed loader reads only finished Matches. Both use offset-based pages of 10 rows and Match ID
+as a deterministic tie-breaker. One extra D1 row determines `hasNextPage` without triggering
+participant hydration or MatchRoom reads. Application reads compact finished scores directly from
+returned D1 rows and asks each selected Active MatchRoom for a coherent score and Accepted Command
+cursor. A room found finalizing resumes the existing completion orchestration before the list result
+is returned. The completed path neither selects MatchRoom nor starts browser polling.
+
+Play exposes `GET /api/sparring-matches/scores/` for bounded polling of 1–10 unique Match IDs.
+Application batch-reads their D1 lifecycle, reads Active MatchRooms in parallel, preserves request
+order, and returns replacement score projections rather than command deltas. The live list polls this
+endpoint approximately every 30 seconds while it contains Active Matches; the completed list does
+not poll.
 
 ## Live Updates
 
@@ -112,4 +128,4 @@ MatchRoom uses only the Durable Object Hibernation API for connected sockets and
 
 ## Deployment
 
-Both Workers use compatibility date `2026-08-11`. Deploy MatchRoom before Play because Play binds its namespace through `script_name: "ks-match-room"`. The project has not yet been deployed, so both initial migration histories still represent clean baselines.
+Both Workers use compatibility date `2026-08-11`. Deploy MatchRoom before Play because Play binds its namespace through `script_name: "ks-match-room"`. The project has not yet been deployed.
