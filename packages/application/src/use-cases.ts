@@ -1,6 +1,9 @@
 import { type CreateMatchRequest, type MatchStateFor } from '@ks/competition'
 import {
+  type Clock,
+  ClockFormatter,
   type Control,
+  type FormattedInstant,
   type HydratedMatchParticipant,
   type MatchCommand,
   type MatchId,
@@ -85,9 +88,9 @@ type MatchListScore =
     }
 
 type ApplicationDependencies = {
+  clock: Clock
   newMatchId(): MatchId
   newControlSecret(): string
-  now(): UnixEpochMilliseconds
   getOrCreateGuestPlayerRef(displayName: string): Promise<PlayerRef>
   hydrateParticipant(playerRef: PlayerRef, locale: SupportedLocale): Promise<HydratedMatchParticipant>
   listMatchRecords(
@@ -141,7 +144,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     if (!parsed.success) return { ok: false, error: 'Invalid match creation input', status: 400 }
     const matchId = dependencies.newMatchId()
     const controlSecret = dependencies.newControlSecret()
-    const createdAt = dependencies.now()
+    const createdAt = dependencies.clock.now()
     const { playerNames, ...requestInput } = parsed.output
 
     const [seatAPlayerRef, seatBPlayerRef] = await Promise.all([
@@ -184,6 +187,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     pagination?: MatchListPagination,
   ): Promise<MatchListPage> {
     const { page } = v.parse(MatchListPagination, pagination ?? {})
+    const now = dependencies.clock.now()
 
     const query: MatchListRecordQuery =
       scope === 'live'
@@ -191,7 +195,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
             scope,
             completedSince: v.parse(
               UnixEpochMilliseconds,
-              Math.max(0, dependencies.now() - RECENT_COMPLETED_MATCH_WINDOW_MS),
+              Math.max(0, now - RECENT_COMPLETED_MATCH_WINDOW_MS),
             ),
           }
         : { scope }
@@ -203,6 +207,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     })
 
     const pageRecords = records.slice(0, MATCH_LIST_DEFAULT_PAGE_SIZE)
+    const formattedNow = ClockFormatter.format(now, locale, dependencies.clock.timeZone)
 
     const matches: MatchListEntry[] = await Promise.all(
       pageRecords.map(async (record) => {
@@ -211,21 +216,41 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
           hydrateParticipants(record, locale),
         ])
 
+        const createdAt = ClockFormatter.format(record.createdAt, locale, dependencies.clock.timeZone)
+
         return {
           matchId: record.matchId,
           gameKey: record.gameKey,
           shortGameTitle: registry[record.gameKey].meta.shortGameTitle[locale],
-          createdAt: record.createdAt,
+          createdAtIso: createdAt.isoString,
+          createdAtLabel: matchCreatedAtLabel(createdAt, formattedNow),
           participants,
           ...score,
         }
       }),
     )
 
-    return {
+    const earliestRecentCompletionExpiry =
+      scope === 'live'
+        ? matches.reduce<number | undefined>((earliest, match) => {
+            if (match.status !== 'finished') return earliest
+            const expiresAt = match.endedAt + RECENT_COMPLETED_MATCH_WINDOW_MS
+
+            return earliest === undefined ? expiresAt : Math.min(earliest, expiresAt)
+          }, undefined)
+        : undefined
+
+    const result = {
       matches,
       page,
       hasNextPage: records.length > MATCH_LIST_DEFAULT_PAGE_SIZE,
+    }
+
+    if (earliestRecentCompletionExpiry === undefined) return result
+
+    return {
+      ...result,
+      recentCompletionExpiresAfterMs: Math.max(0, earliestRecentCompletionExpiry - now),
     }
   }
 
@@ -384,7 +409,6 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
 
   async function readMatchProtocol<K extends RegisteredGameKey>(
     matchId: MatchId,
-    timeZone: string,
     locale: SupportedLocale,
     expectedGameKey: K,
   ): Promise<ReadMatchProtocolResult<K>> {
@@ -399,7 +423,12 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
       B: match.participants.B.displayName,
     }
 
-    const protocolRows = renderProtocolRows(match.protocolEntries, seatNames, timeZone, locale)
+    const protocolRows = renderProtocolRows(
+      match.protocolEntries,
+      seatNames,
+      dependencies.clock.timeZone,
+      locale,
+    )
 
     return {
       ...control,
@@ -412,6 +441,19 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     await dependencies.archiveCompletedMatch(transfer)
     await dependencies.matchRoomClient(matchId).finalize()
     await dependencies.markMatchFinished(transfer)
+  }
+
+  function matchCreatedAtLabel(createdAt: FormattedInstant, today: FormattedInstant): string {
+    if (
+      createdAt.date.year === today.date.year &&
+      createdAt.date.month === today.date.month &&
+      createdAt.date.day === today.date.day
+    )
+      return createdAt.time
+
+    const date = `${createdAt.date.day}.${createdAt.date.month}`
+
+    return createdAt.date.year === today.date.year ? date : `${date}.${createdAt.date.year}`
   }
 
   async function readMatchScoreForList(record: MatchRecord): Promise<MatchListScore> {

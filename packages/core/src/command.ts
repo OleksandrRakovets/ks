@@ -1,7 +1,7 @@
 import * as v from 'valibot'
 
+import { UnixEpochMilliseconds } from './clock'
 import { CommandId } from './ids'
-import { UnixEpochMilliseconds } from './time'
 import { PositiveInteger, UnknownObject } from './valicombos'
 
 /**

@@ -4,9 +4,9 @@ import {
   type MatchScorePollEntry,
   MatchScorePollResponse,
 } from '@ks/application'
-import type { BySeatNumber, MatchId, MatchScoreProjection, Seat, UnixEpochMilliseconds } from '@ks/core'
+import type { BySeatNumber, MatchId, MatchScoreProjection, Seat } from '@ks/core'
 import { keys } from '@ks/i18n'
-import { useCallback, useEffect, useMemo, useReducer, useState } from 'react'
+import { useCallback, useEffect, useMemo, useReducer } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useRevalidator } from 'react-router'
 import * as v from 'valibot'
@@ -81,11 +81,6 @@ function MatchListContent({
 }) {
   const { t } = useTranslation()
   const locale = useRootLocale()
-  const [isClient, setIsClient] = useState(false)
-
-  // The browser timezone is unavailable during SSR; reveal local start times after hydration.
-  // oxlint-disable-next-line react/set-state-in-effect
-  useEffect(() => setIsClient(true), [])
 
   return (
     <Page title={t(keys.nav.matches)} headerAction={<MatchListViewToggle view={view} locale={locale} />}>
@@ -96,7 +91,7 @@ function MatchListContent({
       ) : (
         <MatchGrid>
           {matches.map((match) => (
-            <MatchRow key={match.matchId} match={match} locale={locale} isClient={isClient} />
+            <MatchRow key={match.matchId} match={match} locale={locale} />
           ))}
         </MatchGrid>
       )}
@@ -168,20 +163,11 @@ function MatchGrid({ children }: { children: React.ReactNode }) {
   return <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2">{children}</div>
 }
 
-function MatchRow({
-  match,
-  locale,
-  isClient,
-}: {
-  match: MatchListEntry
-  locale: 'uk' | 'en'
-  isClient: boolean
-}) {
+function MatchRow({ match, locale }: { match: MatchListEntry; locale: 'uk' | 'en' }) {
   const { t } = useTranslation()
   const score = displayedScore(match)
   const winner = match.status === 'finished' ? leadingSeat(match.score.framesWonBySeat) : undefined
 
-  const startLabel = isClient ? formatMatchStart(match.createdAt, locale) : undefined
   const activeFrame = match.gameKey === 'free-pyramid-long' ? null : match.score.activeFrame
 
   const activeFrameScore =
@@ -242,14 +228,10 @@ function MatchRow({
               </span>
             </>
           ) : null}
-          {startLabel !== undefined ? (
-            <>
-              {' · '}
-              <time dateTime={new Date(match.createdAt).toISOString()} className="tabular-nums">
-                {startLabel}
-              </time>
-            </>
-          ) : null}
+          {' · '}
+          <time dateTime={match.createdAtIso} className="tabular-nums">
+            {match.createdAtLabel}
+          </time>
         </span>
       </div>
     </Link>
@@ -485,27 +467,6 @@ function leadingSeat(score: BySeatNumber): Seat | undefined {
   if (score.B > score.A) return 'B'
 
   return undefined
-}
-
-function formatMatchStart(createdAt: UnixEpochMilliseconds, locale: 'uk' | 'en'): string {
-  const started = new Date(createdAt)
-  const today = new Date()
-
-  if (
-    started.getFullYear() === today.getFullYear() &&
-    started.getMonth() === today.getMonth() &&
-    started.getDate() === today.getDate()
-  ) {
-    return new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' }).format(started)
-  }
-
-  const date = `${twoDigits(started.getDate())}.${twoDigits(started.getMonth() + 1)}`
-
-  return started.getFullYear() === today.getFullYear() ? date : `${date}.${started.getFullYear()}`
-}
-
-function twoDigits(value: number): string {
-  return String(value).padStart(2, '0')
 }
 
 function matchListPagePath(locale: 'uk' | 'en', view: MatchListView, page: number): string {

@@ -11,11 +11,10 @@ import { commandMatchAction, type ControlLiveState, transitionControlLive } from
 
 const initial: ControlLiveState = { latestSeq: 4, suppressUntilSeq: 4, localSubmitInFlight: false }
 
-function makeActionContext(submitMatchCommand: Application['submitMatchCommand']): AppLoadContext {
+function makeContext(application: Partial<Application>): AppLoadContext {
   const provider = new RouterContextProvider()
-  // SAFETY: the test supplies only submitMatchCommand, which is all commandMatchAction reads from Application.
-  const application = { submitMatchCommand } as Application
-  provider.set(cloudflareContext, { application })
+  // SAFETY: each test supplies the Application operation used by the route under test.
+  provider.set(cloudflareContext, { application: application as Application })
 
   return provider
 }
@@ -25,13 +24,15 @@ describe('commandMatchAction adaptation', () => {
     const matchId = newMatchId()
     const commandId = newCommandId()
 
-    const context = makeActionContext(async () => ({
-      ok: true,
-      outcome: {
-        _tag: 'accepted',
-        acceptedSeq: 5,
-      },
-    }))
+    const context = makeContext({
+      submitMatchCommand: async () => ({
+        ok: true,
+        outcome: {
+          _tag: 'accepted',
+          acceptedSeq: 5,
+        },
+      }),
+    })
 
     const form = new FormData()
     form.set('command', JSON.stringify({ commandId, source: 'match', command: { type: 'frame.prepare' } }))
@@ -52,10 +53,12 @@ describe('commandMatchAction adaptation', () => {
     const matchId = newMatchId()
     const commandId = newCommandId()
 
-    const context = makeActionContext(async () => ({
-      ok: true,
-      outcome: { _tag: 'rejected', reason: { code: 'frame-already-active' } },
-    }))
+    const context = makeContext({
+      submitMatchCommand: async () => ({
+        ok: true,
+        outcome: { _tag: 'rejected', reason: { code: 'frame-already-active' } },
+      }),
+    })
 
     const form = new FormData()
     form.set('command', JSON.stringify({ commandId, source: 'match', command: { type: 'frame.prepare' } }))

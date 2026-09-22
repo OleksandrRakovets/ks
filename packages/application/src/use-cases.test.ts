@@ -1,6 +1,13 @@
 import { describe, expect, test } from 'bun:test'
 
-import { MatchId, newCommandId, PlayerRef, projectMatchScore, UnixEpochMilliseconds } from '@ks/core'
+import {
+  FixedClock,
+  MatchId,
+  newCommandId,
+  PlayerRef,
+  projectMatchScore,
+  UnixEpochMilliseconds,
+} from '@ks/core'
 import * as v from 'valibot'
 
 import { RECENT_COMPLETED_MATCH_WINDOW_MS } from './contracts'
@@ -14,6 +21,8 @@ const playerRefA = v.parse(PlayerRef, 'gp_01ARZ3NDEKTSV4RRFFQ69G5FAA')
 const playerRefB = v.parse(PlayerRef, 'gp_01ARZ3NDEKTSV4RRFFQ69G5FAB')
 
 const createdAt = v.parse(UnixEpochMilliseconds, 1_700_000_000_000)
+
+const clock = new FixedClock(new Date(createdAt), 'Europe/Kyiv')
 
 const state = {
   matchId,
@@ -84,9 +93,9 @@ function application(
   }
 
   return createApplicationWithDependencies({
+    clock,
     newMatchId: () => matchId,
     newControlSecret: () => 'control-secret-1234567890',
-    now: () => createdAt,
     getOrCreateGuestPlayerRef: async (name) => (name === 'A Player' ? playerRefA : playerRefB),
     hydrateParticipant: async (playerRef) => ({
       playerRef,
@@ -220,7 +229,17 @@ describe('trusted MatchRoom orchestration', () => {
     })
 
     expect(await app.listMatches('live', 'en')).toMatchObject({
-      matches: [{ matchId, status: 'active', endedAt: null, latestSeq: 3, score }],
+      matches: [
+        {
+          matchId,
+          status: 'active',
+          createdAtIso: '2023-11-14T22:13:20.000Z',
+          createdAtLabel: '00:13',
+          endedAt: null,
+          latestSeq: 3,
+          score,
+        },
+      ],
       page: 1,
       hasNextPage: false,
     })
@@ -230,11 +249,40 @@ describe('trusted MatchRoom orchestration', () => {
     })
   })
 
-  test('loads the completed list from stored projections without selecting MatchRoom', async () => {
+  test('reports when a recent completion leaves the live list window', async () => {
     const finalScore = projectMatchScore(transfer.finalState)
+    const endedAt = v.parse(UnixEpochMilliseconds, createdAt - 5 * 60 * 1_000)
 
     const app = application(selectedClient(), [], {
       overrides: {
+        listMatchRecords: async () => [
+          {
+            matchId,
+            gameKey: 'free-pyramid',
+            status: 'finished',
+            createdAt,
+            endedAt,
+            participantRefs: { A: playerRefA, B: playerRefB },
+            finalSourceLatestSeq: transfer.sourceLatestSeq,
+            finalScore,
+          },
+        ],
+      },
+    })
+
+    expect(await app.listMatches('live', 'en')).toMatchObject({
+      recentCompletionExpiresAfterMs: 10 * 60 * 1_000,
+    })
+  })
+
+  test('loads the completed list from stored projections without selecting MatchRoom', async () => {
+    const finalScore = projectMatchScore(transfer.finalState)
+
+    const nextDayClock = new FixedClock(new Date('2023-11-15T22:30:00.000Z'), 'Europe/Kyiv')
+
+    const app = application(selectedClient(), [], {
+      overrides: {
+        clock: nextDayClock,
         listMatchRecords: async (query) => {
           expect(query).toEqual({ scope: 'completed', limit: 11, offset: 0 })
 
@@ -259,6 +307,8 @@ describe('trusted MatchRoom orchestration', () => {
         {
           matchId,
           status: 'finished',
+          createdAtIso: '2023-11-14T22:13:20.000Z',
+          createdAtLabel: '15.11',
           endedAt: transfer.endedAt,
           latestSeq: transfer.sourceLatestSeq,
           score: finalScore,
@@ -313,7 +363,7 @@ describe('trusted MatchRoom orchestration', () => {
       }),
     })
 
-    const result = await application(room).readMatchProtocol(matchId, 'UTC', 'en', 'free-pyramid')
+    const result = await application(room).readMatchProtocol(matchId, 'en', 'free-pyramid')
 
     expect(result).toMatchObject({
       ok: true,
@@ -395,9 +445,7 @@ describe('trusted MatchRoom orchestration', () => {
       },
     })
 
-    expect(
-      await application(room, events).readMatchProtocol(matchId, 'UTC', 'en', 'free-pyramid'),
-    ).toMatchObject({
+    expect(await application(room, events).readMatchProtocol(matchId, 'en', 'free-pyramid')).toMatchObject({
       ok: true,
       state: { status: 'finished' },
     })

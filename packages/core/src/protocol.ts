@@ -1,8 +1,8 @@
 import * as v from 'valibot'
 
+import { UnixEpochMilliseconds } from './clock'
 import { CommandId } from './ids'
 import { BySeatNumber, GameKey, Seat } from './match'
-import { UnixEpochMilliseconds } from './time'
 import { NonNegativeInteger, PositiveInteger, SizedString, UnknownObject } from './valicombos'
 
 export const ProtocolEntrySource = v.picklist(['player', 'system'])

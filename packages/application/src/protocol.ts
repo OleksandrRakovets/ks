@@ -1,11 +1,11 @@
 import {
   type BySeatNumber,
+  ClockFormatter,
   type MatchId,
   type MatchState,
   type ProtocolEntries,
   ProtocolEntry,
   type Seat,
-  type UnixEpochMilliseconds,
 } from '@ks/core'
 import * as v from 'valibot'
 
@@ -43,8 +43,8 @@ export type ProtocolRow = Readonly<{
     pottedBalls?: readonly ProtocolBall[]
   }>
   score?: BySeatNumber | undefined
-  acceptedAt: UnixEpochMilliseconds
-  timeLabel: string
+  acceptedAtIso: string
+  acceptedAtLabel: string
 }>
 
 type ProtocolConfirmationRow = Pick<ProtocolRow, 'key' | 'message' | 'score'>
@@ -194,17 +194,14 @@ export function renderProtocolRows(
   locale = 'en',
 ): ProtocolRow[] {
   return entries.map((entry) => {
+    const acceptedAt = ClockFormatter.format(entry.acceptedAt, locale, timeZone)
+
     return {
       key: `protocol-${entry.acceptedSeq}-${entry.entryIndex}`,
       message: entryMessage(entry, seatNames),
       score: entry.scoreAfter,
-      acceptedAt: entry.acceptedAt,
-      timeLabel: new Date(entry.acceptedAt).toLocaleTimeString(locale, {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-        timeZone,
-      }),
+      acceptedAtIso: acceptedAt.isoString,
+      acceptedAtLabel: acceptedAt.time,
     }
   })
 }

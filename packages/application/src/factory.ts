@@ -1,5 +1,5 @@
 import type { D1Database } from '@cloudflare/workers-types'
-import { newMatchId, nowUnixEpochMilliseconds } from '@ks/core'
+import { type Clock, newMatchId } from '@ks/core'
 
 import { archiveCompletedMatch, markMatchFinished } from './d1/completed-matches'
 import { getOrCreateGuestPlayerRef } from './d1/guest-players'
@@ -50,13 +50,13 @@ function matchRecordFromRow(row: MatchRow) {
     : { ...identity, status: row.status }
 }
 
-export function createApplication(bindings: ApplicationBindings) {
+export function createApplication(bindings: ApplicationBindings, clock: Clock) {
   const db = createApplicationDatabaseClient(bindings.DB)
 
   return createApplicationWithDependencies({
+    clock,
     newMatchId,
     newControlSecret,
-    now: nowUnixEpochMilliseconds,
     getOrCreateGuestPlayerRef: async (displayName) => getOrCreateGuestPlayerRef(db, displayName),
     hydrateParticipant: async (playerRef, locale) => hydrateParticipant(db, playerRef, locale),
     listMatchRecords: async (query) => (await listMatchRows(db, query)).map(matchRecordFromRow),

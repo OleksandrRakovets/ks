@@ -1,4 +1,4 @@
-import { MatchListPagination, type MatchListScope, RECENT_COMPLETED_MATCH_WINDOW_MS } from '@ks/application'
+import { MatchListPagination, type MatchListScope } from '@ks/application'
 import * as v from 'valibot'
 
 import type { MatchListRouteData } from '../../features/match-list/match-list-page'
@@ -27,22 +27,10 @@ export async function loadMatchList(
     throw new Response('Match list not found', { status: 404 })
   }
 
-  const page = await requireApplication(context).listMatches(
-    scope,
-    localeFromContext(context),
-    pagination.output,
-  )
+  const locale = localeFromContext(context)
+  const page = await requireApplication(context).listMatches(scope, locale, pagination.output)
 
   if (scope === 'completed') return { view: scope, page, updates: { kind: 'none' } }
-
-  const recentCompletions = page.matches.filter((match) => match.status === 'finished')
-  const serverNow = Date.now()
-
-  const earliestExpiry = recentCompletions.reduce<number | undefined>((earliest, match) => {
-    const expiresAt = match.endedAt + RECENT_COMPLETED_MATCH_WINDOW_MS
-
-    return earliest === undefined ? expiresAt : Math.min(earliest, expiresAt)
-  }, undefined)
 
   return {
     view: scope,
@@ -50,7 +38,7 @@ export async function loadMatchList(
     updates: {
       kind: 'poll-scores',
       matchIds: page.matches.filter((match) => match.status === 'active').map((match) => match.matchId),
-      revalidateAfterMs: earliestExpiry === undefined ? undefined : Math.max(0, earliestExpiry - serverNow),
+      revalidateAfterMs: page.recentCompletionExpiresAfterMs,
     },
   }
 }

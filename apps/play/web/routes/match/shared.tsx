@@ -74,12 +74,7 @@ async function loadMatchProtocol<K extends RegisteredGameKey>(
   const matchId = matchIdFromParams(args.params)
   const locale = localeFromContext(args.context)
 
-  const result = await requireApplication(args.context).readMatchProtocol(
-    matchId,
-    'UTC',
-    locale,
-    expectedGameKey,
-  )
+  const result = await requireApplication(args.context).readMatchProtocol(matchId, locale, expectedGameKey)
 
   if (!result.ok) throw new Response(result.error, { status: result.status })
 

@@ -53,7 +53,8 @@ type MatchListEntryIdentity = {
   matchId: MatchId
   gameKey: RegisteredGameKey
   shortGameTitle: string
-  createdAt: UnixEpochMilliseconds
+  createdAtIso: string
+  createdAtLabel: string
   participants: HydratedMatchParticipants
   latestSeq: NonNegativeInteger
   score: MatchScoreProjection
@@ -85,6 +86,7 @@ export type MatchListPage = Readonly<{
   matches: readonly MatchListEntry[]
   page: PositiveInteger
   hasNextPage: boolean
+  recentCompletionExpiresAfterMs?: number
 }>
 
 export const MATCH_SCORE_POLL_MAX_MATCHES = MATCH_LIST_DEFAULT_PAGE_SIZE
@@ -191,7 +193,6 @@ export type Application = {
   ): Promise<SubmitMatchCommandResult>
   readMatchProtocol<K extends RegisteredGameKey>(
     matchId: MatchId,
-    timeZone: string,
     locale: SupportedLocale,
     expectedGameKey: K,
   ): Promise<ReadMatchProtocolResult<K>>

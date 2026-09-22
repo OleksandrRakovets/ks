@@ -28,9 +28,9 @@ export function ProtocolPanel(props: { rows: readonly ProtocolRow[]; emptyLabel:
           </span>
           <time
             className="shrink-0 text-[14px] text-muted-foreground tabular-nums"
-            dateTime={new Date(row.acceptedAt).toISOString()}
+            dateTime={row.acceptedAtIso}
           >
-            {row.timeLabel}
+            {row.acceptedAtLabel}
           </time>
         </article>
       ))}

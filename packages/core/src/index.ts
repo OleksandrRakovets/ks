@@ -10,7 +10,7 @@ export * from './ids'
 
 export * from './match'
 
-export * from './time'
+export * from './clock'
 
 export * from './valicombos'
 
