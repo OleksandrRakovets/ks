@@ -8,6 +8,7 @@ import { listGameKeys, type RegisteredGameKey } from './registry'
 
 const strilaValidCommands = [
   { type: 'frame.commence', seat: 'A' },
+  { type: 'respotted-black.opening.select', seat: 'B' },
   { type: 'pot.record', seat: 'A', pottedBalls: [1] },
   { type: 'miss.record', seat: 'A' },
   { type: 'foul.commit', seat: 'A' },

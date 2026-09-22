@@ -45,3 +45,24 @@ test('renders the dedicated table-cleared winner message', () => {
 
   expect(row?.message.key).toBe('match.protocol.system.winner-determined.table-cleared')
 })
+
+test('attributes the respotted-black opening selection to the chosen player', () => {
+  const row = renderProtocolRows(
+    [
+      {
+        ...entry,
+        source: 'player',
+        entryType: 'player-command',
+        seat: 'B',
+        body: { commandType: 'respotted-black.opening.select' },
+      },
+    ],
+    { A: 'Alice', B: 'Bob' },
+    'UTC',
+  )[0]
+
+  expect(row?.message).toEqual({
+    key: 'match.protocol.commands.respotted-black.opening.select',
+    actor: 'Bob',
+  })
+})

@@ -19,10 +19,23 @@ type MutableStrilaBallStatuses = {
 }
 
 function seatControls(
-  type: 'pot.record' | 'miss.record' | 'foul.commit',
+  type: 'respotted-black.opening.select' | 'pot.record' | 'miss.record' | 'foul.commit',
   prominence: GameControl['prominence'],
 ): GameControl[] {
   return (['A', 'B'] as const).map((seat) => ({ source: 'game', type, seat, fixedInput: {}, prominence }))
+}
+
+function controlsForSeat(
+  seat: Seat,
+  types: readonly ['pot.record', 'miss.record', 'foul.commit'],
+): GameControl[] {
+  return types.map((type, index) => ({
+    source: 'game',
+    type,
+    seat,
+    fixedInput: {},
+    prominence: index === 0 ? 'primary' : 'secondary',
+  }))
 }
 
 function deriveBallStatuses(
@@ -180,16 +193,27 @@ export function deriveStrilaControlProjection(snapshot: StrilaSparringFrameSnaps
         situationTitle: 'Ball in hand after foul',
         situationSummary: 'Record a legal pot, a miss, or another foul.',
       })
-    case 'respotted-black.opening':
+    case 'respotted-black.opening-selection':
       return controlProjection(snapshot, {
-        controls: [
-          ...seatControls('pot.record', 'primary'),
-          ...seatControls('miss.record', 'secondary'),
-          ...seatControls('foul.commit', 'secondary'),
-        ],
+        controls: seatControls('respotted-black.opening.select', 'primary'),
+        situationTitle: 'Choose respotted-black opener',
+        situationSummary: 'Toss the coin. The winner chooses who takes the opening shot.',
+      })
+    case 'respotted-black.opening': {
+      invariant(snapshot.context.respottedBlackOpeningSeat !== null, 'Respotted-black opener is required')
+
+      return controlProjection(snapshot, {
+        controls: controlsForSeat(snapshot.context.respottedBlackOpeningSeat, [
+          'pot.record',
+          'miss.record',
+          'foul.commit',
+        ]),
+        seat: snapshot.context.respottedBlackOpeningSeat,
         situationTitle: 'Respotted black opening',
         situationSummary: 'Only the black wins. Other potted outcomes lose the frame.',
       })
+    }
+
     case 'respotted-black.play':
       return controlProjection(snapshot, {
         controls: [...seatControls('pot.record', 'primary'), ...seatControls('foul.commit', 'secondary')],

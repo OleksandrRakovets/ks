@@ -86,6 +86,8 @@ function entryMessage(
       break
     case 'frame.commence':
       return { key: 'match.protocol.commands.frame.commence', actor }
+    case 'respotted-black.opening.select':
+      return { key: 'match.protocol.commands.respotted-black.opening.select', actor }
     case 'pot.record': {
       const pottedBalls = v.safeParse(PottedBalls, body.pottedBalls)
 

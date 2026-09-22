@@ -36,6 +36,21 @@ test('warns the affected player before a third consecutive cue-ball pot', () => 
   })
 })
 
+test('explains the toss before the respotted-black opening', () => {
+  let snapshot = sendEvent(createInitialSnapshot({ A: 9, B: 9 }), {
+    type: 'frame.commence',
+    seat: 'A',
+  })
+
+  snapshot = sendEvent(snapshot, { type: 'pot.record', seat: 'A', pottedBalls: [1, 2] })
+  snapshot = sendEvent(snapshot, { type: 'pot.record', seat: 'B', pottedBalls: [3, 4, 5, 6] })
+  snapshot = sendEvent(snapshot, { type: 'foul.commit', seat: 'B' })
+  snapshot = sendEvent(snapshot, { type: 'penalty.select', seat: 'A', choice: 'play-from-position' })
+  snapshot = sendEvent(snapshot, { type: 'pot.record', seat: 'A', pottedBalls: [0, 7] })
+
+  expect(deriveStrilaRuleNotes(snapshot)).toEqual([{ severity: 'info', code: 'respotted-black-opening-toss' }])
+})
+
 test('projects warning and information outcomes from last-colored-ball transitions', () => {
   let snapshot = sendEvent(createInitialSnapshot({ A: 9, B: 9 }), {
     type: 'frame.commence',

@@ -44,6 +44,7 @@ const FoulResponseChoice = v.picklist(['play-from-position', 'pass-position', 'b
 
 export const StrilaCommand = v.variant('type', [
   FrameCommenceCommand,
+  v.pipe(v.strictObject({ type: v.literal('respotted-black.opening.select'), seat: Seat }), v.readonly()),
   v.pipe(
     v.strictObject({ type: v.literal('pot.record'), seat: Seat, pottedBalls: PottedBalls }),
     v.readonly(),
@@ -64,6 +65,7 @@ export const StrilaPhase = v.picklist([
   'open-play',
   'foul-committed.penalty-selection',
   'foul-committed.ball-in-hand',
+  'respotted-black.opening-selection',
   'respotted-black.opening',
   'respotted-black.play',
   'winner-determined',
@@ -103,6 +105,7 @@ const StrilaContext = v.pipe(
       ),
     ),
     foulOffender: v.nullable(Seat),
+    respottedBlackOpeningSeat: v.nullable(Seat),
     winner: v.nullable(Seat),
     winnerDeterminationReason: v.nullable(WinnerDeterminationReason),
     continuationAllowed: v.boolean(),
@@ -158,6 +161,10 @@ const StrilaRuleNote = v.variant('code', [
     }),
     v.readonly(),
   ),
+  v.pipe(
+    v.object({ severity: v.literal('info'), code: v.literal('respotted-black-opening-toss') }),
+    v.readonly(),
+  ),
   v.pipe(v.object({ severity: v.literal('info'), code: v.literal('respotted-black-opening') }), v.readonly()),
   v.pipe(
     v.object({
@@ -209,6 +216,7 @@ const AutomaticFoulReason = v.picklist([
 
 const StrilaPlayerProtocolEntryBody = v.variant('commandType', [
   v.pipe(v.strictObject({ commandType: v.literal('frame.commence') }), v.readonly()),
+  v.pipe(v.strictObject({ commandType: v.literal('respotted-black.opening.select') }), v.readonly()),
   v.pipe(v.strictObject({ commandType: v.literal('pot.record'), pottedBalls: PottedBalls }), v.readonly()),
   v.pipe(v.strictObject({ commandType: v.literal('miss.record') }), v.readonly()),
   v.pipe(v.strictObject({ commandType: v.literal('foul.commit') }), v.readonly()),

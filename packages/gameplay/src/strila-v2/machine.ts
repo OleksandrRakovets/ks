@@ -22,7 +22,9 @@ const FoulSnapshotValue = v.strictObject({
   'foul-committed': v.picklist(['penalty-selection', 'ball-in-hand']),
 })
 
-const RespottedBlackSnapshotValue = v.strictObject({ 'respotted-black': v.picklist(['opening', 'play']) })
+const RespottedBlackSnapshotValue = v.strictObject({
+  'respotted-black': v.picklist(['opening-selection', 'opening', 'play']),
+})
 
 const StrilaSnapshotValue = v.union([StrilaPhase, FoulSnapshotValue, RespottedBlackSnapshotValue])
 
@@ -69,6 +71,8 @@ type FoulCommitEvent = Extract<StrilaCommand, { type: 'foul.commit' }>
 
 type PenaltySelectEvent = Extract<StrilaCommand, { type: 'penalty.select' }>
 
+type RespottedBlackOpeningSelectEvent = Extract<StrilaCommand, { type: 'respotted-black.opening.select' }>
+
 function potEvent(event: StrilaCommand): PotEvent {
   invariant(event.type === 'pot.record', `Expected pot.record event, received ${event.type}`)
 
@@ -92,6 +96,15 @@ function foulCommitEvent(event: StrilaCommand): FoulCommitEvent {
 
 function penaltySelectEvent(event: StrilaCommand): PenaltySelectEvent {
   invariant(event.type === 'penalty.select', `Expected penalty.select event, received ${event.type}`)
+
+  return event
+}
+
+function respottedBlackOpeningSelectEvent(event: StrilaCommand): RespottedBlackOpeningSelectEvent {
+  invariant(
+    event.type === 'respotted-black.opening.select',
+    `Expected respotted-black.opening.select event, received ${event.type}`,
+  )
 
   return event
 }
@@ -150,7 +163,19 @@ export const StrilaSparringFrameMachine = setup({
     isValidRespottedBlackOpeningPot: ({ context, event }) => {
       const e = potEvent(event)
 
-      return isAvailablePot(context, event) && e.pottedBalls.length === 1 && e.pottedBalls[0] === 7
+      return (
+        context.respottedBlackOpeningSeat === e.seat &&
+        isAvailablePot(context, event) &&
+        e.pottedBalls.length === 1 &&
+        e.pottedBalls[0] === 7
+      )
+    },
+    isRespottedBlackOpeningSeat: ({ context, event }) =>
+      'seat' in event && context.respottedBlackOpeningSeat === event.seat,
+    isAvailableRespottedBlackOpeningPot: ({ context, event }) => {
+      const e = potEvent(event)
+
+      return context.respottedBlackOpeningSeat === e.seat && isAvailablePot(context, event)
     },
     isTargetReachedAfterPot: ({ context, event }) => {
       const e = potEvent(event)
@@ -243,6 +268,12 @@ export const StrilaSparringFrameMachine = setup({
     setRespottedBlackOpening: assign({
       coloredBallsOnTable: RESPOTTED_BLACK,
       cueBallSerialPots: null,
+      respottedBlackOpeningSeat: null,
+    }),
+    selectRespottedBlackOpeningSeat: assign(({ event }) => {
+      const e = respottedBlackOpeningSelectEvent(event)
+
+      return { respottedBlackOpeningSeat: e.seat }
     }),
     setFoulResponse: assign(({ event }) => {
       const e = foulResponseEvent(event)
@@ -323,6 +354,7 @@ export const StrilaSparringFrameMachine = setup({
     pottedBallsBySeat: { A: [], B: [] },
     cueBallSerialPots: null,
     foulOffender: null,
+    respottedBlackOpeningSeat: null,
     winner: null,
     winnerDeterminationReason: null,
     continuationAllowed: false,
@@ -459,17 +491,20 @@ export const StrilaSparringFrameMachine = setup({
     },
 
     'respotted-black': {
-      initial: 'opening',
+      initial: 'opening-selection',
       onDone: {
         target: 'winner-determined',
       },
-      on: {
-        'foul.commit': {
-          target: '.determined',
-          actions: 'setFoulWinner',
-        },
-      },
       states: {
+        'opening-selection': {
+          on: {
+            'respotted-black.opening.select': {
+              target: 'opening',
+              actions: 'selectRespottedBlackOpeningSeat',
+            },
+          },
+        },
+
         opening: {
           on: {
             'pot.record': [
@@ -479,13 +514,19 @@ export const StrilaSparringFrameMachine = setup({
                 actions: 'applyRespottedBlackPot',
               },
               {
-                guard: 'isAvailablePot',
+                guard: 'isAvailableRespottedBlackOpeningPot',
                 target: 'determined',
                 actions: 'setRespottedBlackOpeningFoulWinner',
               },
             ],
             'miss.record': {
+              guard: 'isRespottedBlackOpeningSeat',
               target: 'play',
+            },
+            'foul.commit': {
+              guard: 'isRespottedBlackOpeningSeat',
+              target: 'determined',
+              actions: 'setFoulWinner',
             },
           },
         },
@@ -496,6 +537,10 @@ export const StrilaSparringFrameMachine = setup({
               guard: 'isAvailablePot',
               target: 'determined',
               actions: 'applyRespottedBlackPot',
+            },
+            'foul.commit': {
+              target: 'determined',
+              actions: 'setFoulWinner',
             },
           },
         },
