@@ -54,12 +54,17 @@ test('projects exact open-play controls and selectable balls', () => {
   expect(deriveStrilaControlProjection(snapshot).game.details.ballStatuses[1]).toBe('object')
 })
 
-test('projects open-play miss controls only while a cue-ball streak exists', () => {
+test('projects open-play miss controls only after two consecutive cue-ball pots', () => {
   let snapshot = sendEvent(createInitialSnapshot({ A: 9, B: 9 }), {
     type: 'frame.commence',
     seat: 'A',
   })
 
+  expect(deriveStrilaControlProjection(snapshot).controls.some(({ type }) => type === 'miss.record')).toBe(
+    false,
+  )
+
+  snapshot = sendEvent(snapshot, { type: 'pot.record', seat: 'A', pottedBalls: [0] })
   expect(deriveStrilaControlProjection(snapshot).controls.some(({ type }) => type === 'miss.record')).toBe(
     false,
   )

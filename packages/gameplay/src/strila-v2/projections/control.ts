@@ -103,17 +103,20 @@ export function deriveStrilaControlProjection(snapshot: StrilaSparringFrameSnaps
         situationTitle: 'Break-off',
         situationSummary: 'Waiting for the match to open the frame.',
       })
-    case 'open-play':
+    case 'open-play': {
+      const canRecordMiss = snapshot.context.cueBallSerialPots?.count === 2
+
       return controlProjection(snapshot, {
         controls: [
           ...seatControls('pot.record', 'primary'),
-          ...(snapshot.context.cueBallSerialPots === null ? [] : seatControls('miss.record', 'secondary')),
+          ...(canRecordMiss ? seatControls('miss.record', 'secondary') : []),
           ...seatControls('foul.commit', 'secondary'),
         ],
         situationTitle: 'Open play',
-        situationSummary:
-          snapshot.context.cueBallSerialPots === null ? 'Log pots or a foul.' : 'Log pots, a miss, or a foul.',
+        situationSummary: canRecordMiss ? 'Log pots, a miss, or a foul.' : 'Log pots or a foul.',
       })
+    }
+
     case 'foul-committed.penalty-selection': {
       invariant(
         snapshot.context.foulOffender !== null,
