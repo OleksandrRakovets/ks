@@ -28,11 +28,17 @@ function seatControls(
 function deriveBallStatuses(
   snapshot: StrilaSparringFrameSnapshot,
 ): StrilaGamePresentationDetails['ballStatuses'] {
-  const objectBalls = new Set(computeStrilaObjectBalls(snapshot.context.coloredBallsOnTable))
+  const phase = getPhase(snapshot)
+
+  const objectBalls = new Set(
+    phase === 'not-started'
+      ? snapshot.context.coloredBallsOnTable
+      : computeStrilaObjectBalls(snapshot.context.coloredBallsOnTable),
+  )
+
   const onTableColored = new Set(snapshot.context.coloredBallsOnTable)
 
-  const cueStatus: 'object' | 'on-table' =
-    getPhase(snapshot) === 'respotted-black.opening' ? 'on-table' : 'object'
+  const cueStatus: 'object' | 'on-table' = phase === 'respotted-black.opening' ? 'on-table' : 'object'
 
   const ballStatuses: MutableStrilaBallStatuses = {
     0: cueStatus,
@@ -76,16 +82,20 @@ function controlProjection(
     readonly seat?: Seat
   },
 ): GameControlProjection<StrilaGamePresentation> {
+  const phase = getPhase(snapshot)
+  const isPotCommandAvailable = args.controls.some((entry) => entry.type === 'pot.record')
+
   return {
     game: {
       gameKey: 'strila-v2',
       score: { ...snapshot.context.score },
       details: {
-        phase: getPhase(snapshot),
+        phase,
         seat: args.seat,
         situationTitle: args.situationTitle,
         situationSummary: args.situationSummary,
-        isPotCommandAvailable: args.controls.some((entry) => entry.type === 'pot.record'),
+        isBallSetVisible: phase === 'not-started' || isPotCommandAvailable,
+        isPotCommandAvailable,
         ballStatuses: deriveBallStatuses(snapshot),
         pottedBallsBySeat: snapshot.context.pottedBallsBySeat,
         ruleNotes: deriveStrilaRuleNotes(snapshot),

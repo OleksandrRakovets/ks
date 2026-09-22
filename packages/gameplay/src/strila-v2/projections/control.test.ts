@@ -5,6 +5,27 @@ import { groupControlsIntoSections } from '@ks/core'
 import { createInitialSnapshot, sendEvent } from '../machine'
 import { deriveStrilaControlProjection } from './control'
 
+test('projects every break-off ball as an object in a visible, non-selectable set', () => {
+  const projection = deriveStrilaControlProjection(createInitialSnapshot({ A: 9, B: 9 }))
+
+  expect(projection.game.details).toMatchObject({
+    phase: 'not-started',
+    isBallSetVisible: true,
+    isPotCommandAvailable: false,
+    ballStatuses: {
+      0: 'object',
+      1: 'object',
+      2: 'object',
+      3: 'object',
+      4: 'object',
+      5: 'object',
+      6: 'object',
+      7: 'object',
+    },
+  })
+  expect(projection.controls).toEqual([])
+})
+
 test('projects exact open-play controls and selectable balls', () => {
   const snapshot = sendEvent(createInitialSnapshot({ A: 9, B: 9 }), { type: 'frame.commence', seat: 'A' })
   const controlProjection = deriveStrilaControlProjection(snapshot)
@@ -16,6 +37,7 @@ test('projects exact open-play controls and selectable balls', () => {
       phase: 'open-play',
       situationTitle: 'Open play',
       situationSummary: 'Log pots or a foul.',
+      isBallSetVisible: true,
       isPotCommandAvailable: true,
       ballStatuses: {
         0: 'object',
