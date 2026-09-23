@@ -61,6 +61,14 @@ export async function hydrateParticipant(
 ): Promise<HydratedMatchParticipant> {
   const row = await loadPlayerRow(db, playerRef)
 
+  return participantFromPlayerRow(playerRef, locale, row)
+}
+
+export function participantFromPlayerRow(
+  playerRef: PlayerRef,
+  locale: SupportedLocale,
+  row: LocalizedPlayerRow | null,
+): HydratedMatchParticipant {
   if (!row)
     return v.parse(HydratedMatchParticipant, {
       playerRef,

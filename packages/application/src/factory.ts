@@ -65,9 +65,16 @@ export function createApplication(bindings: ApplicationBindings, clock: Clock) {
     newControlSecret,
     getOrCreateGuestPlayerRef: async (displayName) => getOrCreateGuestPlayerRef(db, displayName),
     hydrateParticipant: async (playerRef, locale) => hydrateParticipant(db, playerRef, locale),
-    listLiveMatchRecords: async (since) => (await listLiveMatchRows(db, since)).map(matchRecordFromRow),
-    listCompletedMatchRecords: async (range) =>
-      (await listCompletedMatchRows(db, range)).map(matchRecordFromRow),
+    listLiveMatchRecords: async (since, locale) =>
+      (await listLiveMatchRows(db, since, locale)).map((row) => ({
+        ...matchRecordFromRow(row),
+        participants: row.participants,
+      })),
+    listCompletedMatchRecords: async (range, locale) =>
+      (await listCompletedMatchRows(db, range, locale)).map((row) => ({
+        ...matchRecordFromRow(row),
+        participants: row.participants,
+      })),
     findCompletedMatchTime: async (query) => findCompletedMatchTime(db, query),
     getMatchRecord: async (matchId) => {
       const row = await getMatchRow(db, matchId)

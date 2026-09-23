@@ -1,11 +1,14 @@
 import { buildMatchConfig, CreateMatchRequest, createSparringMatch } from '@ks/competition'
 import {
+  GuestPlayerId,
   type MatchCommand,
   MatchId,
   newCommandId,
   PlayerRef,
+  projectMatchScore,
   type ProtocolEntry,
   UnixEpochMilliseconds,
+  VerifiedPlayerId,
 } from '@ks/core'
 import { applyD1Migrations, reset } from 'cloudflare:test'
 import { env } from 'cloudflare:workers'
@@ -21,6 +24,7 @@ import {
   listLiveMatchRows,
 } from '../../src/d1/matches'
 import { getProtocolArchive } from '../../src/d1/protocol-archives'
+import { guestPlayers, matches, verifiedPlayers } from '../../src/d1/schema'
 import { createApplicationDatabaseClient } from '../../src/d1/types'
 import type { MatchRoomCompletionTransfer } from '../../src/match-room-client'
 
@@ -127,9 +131,9 @@ describe('real D1 match lifecycle', () => {
 
     expect(await getMatchRow(db, matchId)).toMatchObject({ matchId, status: 'active' })
 
-    expect((await listLiveMatchRows(db, v.parse(UnixEpochMilliseconds, 0))).map((row) => row.matchId)).toEqual(
-      [newestMatchId, matchId, otherMatchId],
-    )
+    expect(
+      (await listLiveMatchRows(db, v.parse(UnixEpochMilliseconds, 0), 'en')).map((row) => row.matchId),
+    ).toEqual([newestMatchId, matchId, otherMatchId])
 
     const archive = {
       ...completedMatchTransfer(),
@@ -168,17 +172,87 @@ describe('real D1 match lifecycle', () => {
     ).toBe(archive.endedAt)
     expect(
       (
-        await listCompletedMatchRows(db, {
-          start: createdAt,
-          end: v.parse(UnixEpochMilliseconds, 4_000),
-        })
+        await listCompletedMatchRows(
+          db,
+          {
+            start: createdAt,
+            end: v.parse(UnixEpochMilliseconds, 4_000),
+          },
+          'en',
+        )
       ).map((row) => row.matchId),
     ).toEqual([otherMatchId, matchId])
     expect(await findCompletedMatchTime(db, { before: v.parse(UnixEpochMilliseconds, 3_000) })).toBe(createdAt)
     expect(await findCompletedMatchTime(db, { from: v.parse(UnixEpochMilliseconds, 2_000) })).toBe(3_000)
     expect(
-      (await listLiveMatchRows(db, v.parse(UnixEpochMilliseconds, 3_000))).map((row) => row.matchId),
+      (await listLiveMatchRows(db, v.parse(UnixEpochMilliseconds, 3_000), 'en')).map((row) => row.matchId),
     ).toEqual([newestMatchId, matchId, otherMatchId])
+  })
+
+  test('lists a crowded completed day with localized guest and verified names and missing-player fallback', async () => {
+    const db = createApplicationDatabaseClient(env.DB)
+    const verifiedRef = v.parse(PlayerRef, 'vp_01HX0000000000000000000002')
+    const missingRef = v.parse(PlayerRef, 'gp_01HX0000000000000000000003')
+
+    await db.insert(guestPlayers).values({
+      guestPlayerId: v.parse(GuestPlayerId, seatAPlayerRef.slice(3)),
+      firstNameUk: 'Галя',
+      lastNameUk: 'Гість',
+      firstNameEn: 'Gina',
+      lastNameEn: 'Guest',
+      createdAt,
+    })
+    await db.insert(verifiedPlayers).values({
+      verifiedPlayerId: v.parse(VerifiedPlayerId, verifiedRef.slice(3)),
+      firstNameUk: 'Віра',
+      lastNameUk: 'Тест',
+      firstNameEn: 'Vera',
+      lastNameEn: 'Verified',
+      createdAt,
+    })
+
+    const score = JSON.stringify(projectMatchScore(completedMatchTransfer().finalState))
+
+    const rows = Array.from({ length: 26 }, (_, index) => ({
+      matchId: v.parse(MatchId, `${matchId.slice(0, 24)}${String(index).padStart(2, '0')}`),
+      gameKey: 'free-pyramid' as const,
+      status: 'finished' as const,
+      createdAt: v.parse(UnixEpochMilliseconds, createdAt + index),
+      endedAt: v.parse(UnixEpochMilliseconds, createdAt + 1_000 + index),
+      seatAPlayerRef: index % 2 ? verifiedRef : seatAPlayerRef,
+      seatBPlayerRef: index === 0 ? missingRef : index % 2 ? seatAPlayerRef : verifiedRef,
+      finalSourceLatestSeq: 4,
+      finalScoreJson: score,
+    }))
+
+    for (const row of rows) await db.insert(matches).values(row)
+
+    const range = { start: createdAt, end: v.parse(UnixEpochMilliseconds, createdAt + 26) }
+    const uk = await listCompletedMatchRows(db, range, 'uk')
+    const en = await listCompletedMatchRows(db, range, 'en')
+
+    expect(uk.map((row) => row.matchId)).toEqual(rows.map((row) => row.matchId).reverse())
+    expect(uk[0]?.participants).toEqual({
+      A: { playerRef: verifiedRef, displayName: 'Віра Тест', shortDisplayName: 'В. Тест' },
+      B: { playerRef: seatAPlayerRef, displayName: 'Галя Гість', shortDisplayName: 'Г. Гість' },
+    })
+    expect(uk[1]?.participants).toEqual({
+      A: { playerRef: seatAPlayerRef, displayName: 'Галя Гість', shortDisplayName: 'Г. Гість' },
+      B: { playerRef: verifiedRef, displayName: 'Віра Тест', shortDisplayName: 'В. Тест' },
+    })
+    expect(uk[25]?.participants.B).toEqual({
+      playerRef: missingRef,
+      displayName: missingRef,
+      shortDisplayName: missingRef,
+    })
+    expect(en[0]?.participants.A).toMatchObject({
+      displayName: 'Vera Verified',
+      shortDisplayName: 'V. Verified',
+    })
+    expect(en[0]?.participants.B).toMatchObject({ displayName: 'Gina Guest', shortDisplayName: 'G. Guest' })
+    expect(
+      (await listLiveMatchRows(db, v.parse(UnixEpochMilliseconds, 0), 'en')).map((row) => row.matchId),
+    ).toEqual(rows.map((row) => row.matchId).reverse())
   })
 
   test('rejects conflicting persisted archive data without changing the active match row', async () => {

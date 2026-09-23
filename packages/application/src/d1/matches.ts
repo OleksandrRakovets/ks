@@ -1,9 +1,12 @@
 import { MatchId, MatchScoreProjection, NonNegativeInteger, PlayerRef, UnixEpochMilliseconds } from '@ks/core'
 import { RegisteredGameKey } from '@ks/gameplay/definitions'
+import type { SupportedLocale } from '@ks/i18n'
 import { and, asc, desc, eq, gte, inArray, lt, or, sql } from 'drizzle-orm'
+import { alias } from 'drizzle-orm/sqlite-core'
 import * as v from 'valibot'
 
-import { matches, StoredMatchStatus } from './schema'
+import { participantFromPlayerRow } from './players'
+import { guestPlayers, matches, StoredMatchStatus, verifiedPlayers } from './schema'
 import type { ApplicationDatabase } from './types'
 
 const MatchRowIdentity = {
@@ -56,10 +59,70 @@ const matchRowSelection = {
   finalScore: matches.finalScoreJson,
 }
 
-export async function listLiveMatchRows(db: ApplicationDatabase, completedSince: UnixEpochMilliseconds) {
-  const rows = await db
-    .select(matchRowSelection)
+const seatAGuest = alias(guestPlayers, 'seat_a_guest')
+
+const seatAVerified = alias(verifiedPlayers, 'seat_a_verified')
+
+const seatBGuest = alias(guestPlayers, 'seat_b_guest')
+
+const seatBVerified = alias(verifiedPlayers, 'seat_b_verified')
+
+/** Match only the ref's player kind; strip its prefix on the match side so each player PK stays indexed. */
+function joinedMatchRows(db: ApplicationDatabase) {
+  return db
+    .select({ ...matchRowSelection, seatAGuest, seatAVerified, seatBGuest, seatBVerified })
     .from(matches)
+    .leftJoin(
+      seatAGuest,
+      and(
+        sql`${matches.seatAPlayerRef} GLOB 'gp_*'`,
+        eq(seatAGuest.guestPlayerId, sql`substr(${matches.seatAPlayerRef}, 4)`),
+      ),
+    )
+    .leftJoin(
+      seatAVerified,
+      and(
+        sql`${matches.seatAPlayerRef} GLOB 'vp_*'`,
+        eq(seatAVerified.verifiedPlayerId, sql`substr(${matches.seatAPlayerRef}, 4)`),
+      ),
+    )
+    .leftJoin(
+      seatBGuest,
+      and(
+        sql`${matches.seatBPlayerRef} GLOB 'gp_*'`,
+        eq(seatBGuest.guestPlayerId, sql`substr(${matches.seatBPlayerRef}, 4)`),
+      ),
+    )
+    .leftJoin(
+      seatBVerified,
+      and(
+        sql`${matches.seatBPlayerRef} GLOB 'vp_*'`,
+        eq(seatBVerified.verifiedPlayerId, sql`substr(${matches.seatBPlayerRef}, 4)`),
+      ),
+    )
+}
+
+function parseJoinedMatchRow(
+  row: Awaited<ReturnType<typeof joinedMatchRows>>[number],
+  locale: SupportedLocale,
+) {
+  const match = v.parse(MatchRow, row)
+
+  return {
+    ...match,
+    participants: {
+      A: participantFromPlayerRow(match.seatAPlayerRef, locale, row.seatAGuest ?? row.seatAVerified),
+      B: participantFromPlayerRow(match.seatBPlayerRef, locale, row.seatBGuest ?? row.seatBVerified),
+    },
+  }
+}
+
+export async function listLiveMatchRows(
+  db: ApplicationDatabase,
+  completedSince: UnixEpochMilliseconds,
+  locale: SupportedLocale,
+) {
+  const rows = await joinedMatchRows(db)
     .where(
       or(
         eq(matches.status, StoredMatchStatus.active),
@@ -72,16 +135,15 @@ export async function listLiveMatchRows(db: ApplicationDatabase, completedSince:
       sql`${matches.matchId} DESC`,
     )
 
-  return rows.map((row) => v.parse(MatchRow, row))
+  return rows.map((row) => parseJoinedMatchRow(row, locale))
 }
 
 export async function listCompletedMatchRows(
   db: ApplicationDatabase,
   range: { readonly start: UnixEpochMilliseconds; readonly end: UnixEpochMilliseconds },
+  locale: SupportedLocale,
 ) {
-  const rows = await db
-    .select(matchRowSelection)
-    .from(matches)
+  const rows = await joinedMatchRows(db)
     .where(
       and(
         eq(matches.status, StoredMatchStatus.finished),
@@ -91,7 +153,7 @@ export async function listCompletedMatchRows(
     )
     .orderBy(sql`${matches.createdAt} DESC`, sql`${matches.matchId} DESC`)
 
-  return rows.map((row) => v.parse(MatchRow, row))
+  return rows.map((row) => parseJoinedMatchRow(row, locale))
 }
 
 /** Find one occupied completed-match day on either side of a UTC day boundary. */

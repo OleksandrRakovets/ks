@@ -64,6 +64,8 @@ type MatchRecord =
       finalScore: MatchScoreProjection
     })
 
+type MatchListRecord = MatchRecord & { participants: HydratedMatchParticipants }
+
 type MatchListScore =
   | {
       readonly status: 'active'
@@ -84,11 +86,17 @@ type ApplicationDependencies = {
   newControlSecret(): string
   getOrCreateGuestPlayerRef(displayName: string): Promise<PlayerRef>
   hydrateParticipant(playerRef: PlayerRef, locale: SupportedLocale): Promise<HydratedMatchParticipant>
-  listLiveMatchRecords(completedSince: UnixEpochMilliseconds): Promise<MatchRecord[]>
-  listCompletedMatchRecords(range: {
-    readonly start: UnixEpochMilliseconds
-    readonly end: UnixEpochMilliseconds
-  }): Promise<MatchRecord[]>
+  listLiveMatchRecords(
+    completedSince: UnixEpochMilliseconds,
+    locale: SupportedLocale,
+  ): Promise<MatchListRecord[]>
+  listCompletedMatchRecords(
+    range: {
+      readonly start: UnixEpochMilliseconds
+      readonly end: UnixEpochMilliseconds
+    },
+    locale: SupportedLocale,
+  ): Promise<MatchListRecord[]>
   findCompletedMatchTime(
     input: { readonly before: UnixEpochMilliseconds } | { readonly from: UnixEpochMilliseconds },
   ): Promise<UnixEpochMilliseconds | null>
@@ -185,6 +193,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
 
     const records = await dependencies.listLiveMatchRecords(
       v.parse(UnixEpochMilliseconds, Math.max(0, now - RECENT_COMPLETED_MATCH_WINDOW_MS)),
+      locale,
     )
 
     const matches = await projectListEntries(records, locale, formattedNow, (createdAt) =>
@@ -227,7 +236,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
       return { scope: 'completed', matches: [], day: null, previousDay: null, nextDay: null, isToday: false }
 
     const range = dependencies.clock.dayRange(day)
-    const records = await dependencies.listCompletedMatchRecords(range)
+    const records = await dependencies.listCompletedMatchRecords(range, locale)
     const matches = await projectListEntries(records, locale, formattedNow, (createdAt) => createdAt.time)
 
     const [previous, next] = await Promise.all([
@@ -246,17 +255,14 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
   }
 
   async function projectListEntries(
-    records: readonly MatchRecord[],
+    records: readonly MatchListRecord[],
     locale: SupportedLocale,
     formattedNow: FormattedInstant,
     label: (createdAt: FormattedInstant) => string,
   ): Promise<MatchListEntry[]> {
     return Promise.all(
       records.map(async (record) => {
-        const [score, participants] = await Promise.all([
-          readMatchScoreForList(record),
-          hydrateParticipants(record, locale),
-        ])
+        const score = await readMatchScoreForList(record)
 
         const createdAt = ClockFormatter.format(record.createdAt, locale, dependencies.clock.timeZone)
 
@@ -268,7 +274,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
           createdAtLabel: label(createdAt),
           createdAtDate: createdAt.date,
           createdAtIsToday: isSameLocalDate(createdAt, formattedNow),
-          participants,
+          participants: record.participants,
           ...score,
         }
       }),

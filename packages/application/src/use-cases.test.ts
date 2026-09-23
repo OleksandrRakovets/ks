@@ -20,6 +20,11 @@ const playerRefA = v.parse(PlayerRef, 'gp_01ARZ3NDEKTSV4RRFFQ69G5FAA')
 
 const playerRefB = v.parse(PlayerRef, 'gp_01ARZ3NDEKTSV4RRFFQ69G5FAB')
 
+const participants = {
+  A: { playerRef: playerRefA, displayName: 'Alice Alpha', shortDisplayName: 'A. Alpha' },
+  B: { playerRef: playerRefB, displayName: 'Bob Beta', shortDisplayName: 'B. Beta' },
+}
+
 const createdAt = v.parse(UnixEpochMilliseconds, 1_700_000_000_000)
 
 const clock = new FixedClock(new Date(createdAt), 'Europe/Kyiv')
@@ -211,8 +216,9 @@ describe('trusted MatchRoom orchestration', () => {
 
     const app = application(room, [], {
       overrides: {
-        listLiveMatchRecords: async (since) => {
+        listLiveMatchRecords: async (since, locale) => {
           expect(since).toBe(v.parse(UnixEpochMilliseconds, createdAt - RECENT_COMPLETED_MATCH_WINDOW_MS))
+          expect(locale).toBe('en')
 
           return [
             {
@@ -221,6 +227,7 @@ describe('trusted MatchRoom orchestration', () => {
               status: 'active',
               createdAt,
               participantRefs: { A: playerRefA, B: playerRefB },
+              participants,
             },
           ]
         },
@@ -239,6 +246,7 @@ describe('trusted MatchRoom orchestration', () => {
           endedAt: null,
           latestSeq: 3,
           score,
+          participants,
         },
       ],
       scope: 'live',
@@ -263,6 +271,7 @@ describe('trusted MatchRoom orchestration', () => {
             createdAt,
             endedAt,
             participantRefs: { A: playerRefA, B: playerRefB },
+            participants,
             finalSourceLatestSeq: transfer.sourceLatestSeq,
             finalScore,
           },
@@ -283,16 +292,20 @@ describe('trusted MatchRoom orchestration', () => {
     const app = application(selectedClient(), [], {
       overrides: {
         clock: nextDayClock,
+        hydrateParticipant: async () => {
+          throw new Error('List entries must use participants returned by the list read')
+        },
         findCompletedMatchTime: async (query) => {
           if ('before' in query && query.before === Number.MAX_SAFE_INTEGER) return createdAt
 
           return null
         },
-        listCompletedMatchRecords: async (range) => {
+        listCompletedMatchRecords: async (range, locale) => {
           expect(range).toEqual({
             start: v.parse(UnixEpochMilliseconds, Date.parse('2023-11-14T22:00:00Z')),
             end: v.parse(UnixEpochMilliseconds, Date.parse('2023-11-15T22:00:00Z')),
           })
+          expect(locale).toBe('en')
 
           return [
             {
@@ -302,6 +315,7 @@ describe('trusted MatchRoom orchestration', () => {
               createdAt,
               endedAt: transfer.endedAt,
               participantRefs: { A: playerRefA, B: playerRefB },
+              participants,
               finalSourceLatestSeq: transfer.sourceLatestSeq,
               finalScore,
             },
@@ -322,6 +336,7 @@ describe('trusted MatchRoom orchestration', () => {
           endedAt: transfer.endedAt,
           latestSeq: transfer.sourceLatestSeq,
           score: finalScore,
+          participants,
         },
       ],
       scope: 'completed',
