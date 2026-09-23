@@ -321,6 +321,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     matchId: MatchId,
     locale: SupportedLocale,
     expectedGameKey: K,
+    includeFinalizingProtocol: boolean,
   ): Promise<ReadKeyedMatchResult<K>> {
     const record = await dependencies.getMatchRecord(matchId)
 
@@ -337,13 +338,14 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     const roomResult = await roomClient.getControls()
 
     if (roomResult._tag === 'finalizing') {
-      await archiveAndMarkFinished(matchId)
-      const finishedRecord = await dependencies.getMatchRecord(matchId)
-
-      if (finishedRecord?.status !== 'finished')
-        throw new Error('Finalized Match is missing its finished D1 projection')
-
-      return readArchivedMatch(finishedRecord, locale, expectedGameKey)
+      return readFinalizingMatch(
+        record,
+        roomResult,
+        roomClient,
+        locale,
+        expectedGameKey,
+        includeFinalizingProtocol,
+      )
     }
 
     if (roomResult.state.matchId !== matchId || roomResult.state.gameKey !== expectedGameKey)
@@ -352,13 +354,14 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     const protocolResult = await roomClient.getProtocol()
 
     if (protocolResult._tag === 'finalizing') {
-      await archiveAndMarkFinished(matchId)
-      const finishedRecord = await dependencies.getMatchRecord(matchId)
-
-      if (finishedRecord?.status !== 'finished')
-        throw new Error('Finalized Match is missing its finished D1 projection')
-
-      return readArchivedMatch(finishedRecord, locale, expectedGameKey)
+      return readFinalizingMatch(
+        record,
+        protocolResult,
+        roomClient,
+        locale,
+        expectedGameKey,
+        includeFinalizingProtocol,
+      )
     }
 
     if (protocolResult.state.matchId !== matchId || protocolResult.state.gameKey !== expectedGameKey)
@@ -399,7 +402,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     locale: SupportedLocale,
     expectedGameKey: K,
   ): Promise<ReadMatchResult<K>> {
-    const match = await readKeyedMatch(matchId, locale, expectedGameKey)
+    const match = await readKeyedMatch(matchId, locale, expectedGameKey, false)
 
     if (!match.ok) return match
 
@@ -449,7 +452,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     locale: SupportedLocale,
     expectedGameKey: K,
   ): Promise<ReadMatchProtocolResult<K>> {
-    const match = await readKeyedMatch(matchId, locale, expectedGameKey)
+    const match = await readKeyedMatch(matchId, locale, expectedGameKey, true)
 
     if (!match.ok) return match
 
@@ -474,10 +477,20 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
   }
 
   async function archiveAndMarkFinished(matchId: MatchId): Promise<void> {
-    const transfer = await dependencies.matchRoomClient(matchId).prepareArchive()
-    await dependencies.archiveFinishedMatch(transfer)
-    await dependencies.matchRoomClient(matchId).finalize()
-    await dependencies.markMatchFinished(transfer)
+    let stage = 'prepare-archive'
+
+    try {
+      const transfer = await dependencies.matchRoomClient(matchId).prepareArchive()
+      stage = 'archive-in-d1'
+      await dependencies.archiveFinishedMatch(transfer)
+      stage = 'finalize-room'
+      await dependencies.matchRoomClient(matchId).finalize()
+      stage = 'mark-d1-finished'
+      await dependencies.markMatchFinished(transfer)
+    } catch (error) {
+      console.error({ event: 'match-archive.failed', matchId, stage, error })
+      throw error
+    }
   }
 
   function matchCreatedAtLabel(createdAt: FormattedInstant, today: FormattedInstant): string {
@@ -502,17 +515,12 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
 
     if (room._tag === 'active')
       return { status: 'active', endedAt: null, latestSeq: room.latestSeq, score: room.score }
-    await archiveAndMarkFinished(record.matchId)
-    const finished = await dependencies.getMatchRecord(record.matchId)
-
-    if (finished?.status !== 'finished')
-      throw new Error('Finalized Match is missing its finished D1 projection')
 
     return {
       status: 'finished',
-      endedAt: finished.endedAt,
-      latestSeq: finished.finalSourceLatestSeq,
-      score: finished.finalScore,
+      endedAt: room.endedAt,
+      latestSeq: room.latestSeq,
+      score: room.score,
     }
   }
 
@@ -520,6 +528,48 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     return {
       A: await dependencies.hydrateParticipant(record.participantRefs.A, locale),
       B: await dependencies.hydrateParticipant(record.participantRefs.B, locale),
+    }
+  }
+
+  async function readFinalizingMatch<K extends RegisteredGameKey>(
+    record: MatchRecord,
+    room: Extract<Awaited<ReturnType<MatchRoomClient['getControls']>>, { _tag: 'finalizing' }>,
+    roomClient: MatchRoomClient,
+    locale: SupportedLocale,
+    expectedGameKey: K,
+    includeProtocol: boolean,
+  ): Promise<ReadKeyedMatchResult<K>> {
+    if (room.state.matchId !== record.matchId || room.state.gameKey !== expectedGameKey)
+      throw new Error('MatchRoom finalizing identity conflicts with D1')
+
+    let protocolEntries: ProtocolEntries = []
+
+    if (includeProtocol) {
+      const transfer = await roomClient.prepareArchive()
+
+      if (
+        transfer.matchId !== record.matchId ||
+        transfer.gameKey !== expectedGameKey ||
+        transfer.sourceLatestSeq !== room.latestSeq ||
+        transfer.endedAt !== room.endedAt
+      )
+        throw new Error('MatchRoom finalizing Protocol conflicts with its final state')
+
+      protocolEntries = transfer.protocolEntries
+    }
+
+    const endedAt = ClockFormatter.format(room.endedAt, locale, dependencies.clock.timeZone)
+    const now = ClockFormatter.format(dependencies.clock.now(), locale, dependencies.clock.timeZone)
+
+    return {
+      ok: true,
+      state: { ...room.state, gameKey: expectedGameKey },
+      latestSeq: room.latestSeq,
+      endedAt,
+      endedAtIsToday: isSameLocalDate(endedAt, now),
+      participants: await hydrateParticipants(record, locale),
+      controls: [],
+      protocolEntries,
     }
   }
 

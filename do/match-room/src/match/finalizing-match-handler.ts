@@ -8,26 +8,23 @@ import type {
   ProtocolEntry,
   UnixEpochMilliseconds,
 } from '@ks/core'
+import { projectMatchScore } from '@ks/core'
 import type { RegisteredGameKey } from '@ks/gameplay/definitions'
 
-import { LiveConnectionHandler } from '../live/live-connection-handler'
 import { type CommandReceipt, MatchStorage, type StoredFinalizingMatch } from '../storage/match-storage'
 import { ResidentMatch, type ResidentState } from './resident-match'
 
 export class FinalizingMatchHandler {
   readonly #storage: MatchStorage
-  readonly #liveConnections: LiveConnectionHandler
   readonly #storedMatch: StoredFinalizingMatch
   #resident: ResidentMatch | null
 
   constructor(
     storage: MatchStorage,
-    liveConnections: LiveConnectionHandler,
     storedMatch: StoredFinalizingMatch,
     resident: ResidentMatch | null = null,
   ) {
     this.#storage = storage
-    this.#liveConnections = liveConnections
     this.#storedMatch = storedMatch
     this.#resident = resident
   }
@@ -48,16 +45,37 @@ export class FinalizingMatchHandler {
     }
   }
 
-  getControls(): FinalizingResult {
-    return { _tag: 'finalizing' }
+  getControls() {
+    this.#warnRead('controls')
+
+    return {
+      _tag: 'finalizing' as const,
+      state: this.#storedMatch.finalState,
+      latestSeq: this.#storedMatch.latestSeq,
+      endedAt: this.#storedMatch.endedAt,
+    }
   }
 
-  getProtocol(): FinalizingResult {
-    return { _tag: 'finalizing' }
+  getProtocol() {
+    this.#warnRead('protocol')
+
+    return {
+      _tag: 'finalizing' as const,
+      state: this.#storedMatch.finalState,
+      latestSeq: this.#storedMatch.latestSeq,
+      endedAt: this.#storedMatch.endedAt,
+    }
   }
 
-  getScore(): FinalizingResult {
-    return { _tag: 'finalizing' }
+  getScore() {
+    this.#warnRead('score')
+
+    return {
+      _tag: 'finalizing' as const,
+      latestSeq: this.#storedMatch.latestSeq,
+      endedAt: this.#storedMatch.endedAt,
+      score: projectMatchScore(this.#storedMatch.finalState),
+    }
   }
 
   prepareArchive(): FinishedMatchTransfer {
@@ -79,14 +97,18 @@ export class FinalizingMatchHandler {
   }
 
   finalize(): void {
-    this.#liveConnections.broadcast({
-      type: 'command-accepted',
-      acceptedSeq: this.#storedMatch.latestSeq,
-      endsMatch: true,
-    })
-    this.#liveConnections.closeAll()
     this.#resident?.clear()
     this.#resident = null
+  }
+
+  #warnRead(kind: 'controls' | 'protocol' | 'score'): void {
+    console.warn({
+      event: 'match-room.finalizing-read',
+      matchId: this.#storedMatch.matchId,
+      kind,
+      endedAt: this.#storedMatch.endedAt,
+      ageMs: Math.max(0, Date.now() - this.#storedMatch.endedAt),
+    })
   }
 
   #load(): ResidentState {

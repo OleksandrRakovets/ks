@@ -35,9 +35,26 @@ test('returns the compact score at the authoritative sequence', async () => {
   })
 })
 
-test('returns finalizing after a match-ending acceptance', async () => {
+test('returns durable final state and score after a match-ending acceptance', async () => {
   const { stub } = await initializedRoom()
   await makeRoomFinalizing(stub)
-  expect(await stub.getControls()).toEqual({ _tag: 'finalizing' })
-  expect(await stub.getScore()).toEqual({ _tag: 'finalizing' })
+  const controls = await stub.getControls()
+  expect(controls).toMatchObject({
+    _tag: 'finalizing',
+    latestSeq: 3,
+    state: { status: 'finished', framesWonBySeat: { A: 1, B: 0 } },
+    endedAt: expect.any(Number),
+  })
+  expect(await stub.getScore()).toEqual({
+    _tag: 'finalizing',
+    latestSeq: 3,
+    endedAt: controls.endedAt,
+    score: {
+      matchTargetFrames: 1,
+      frameTargetPointsBySeat: { A: 8, B: 8 },
+      framesWonBySeat: { A: 1, B: 0 },
+      singleFramePointsBySeat: { A: 0, B: 0 },
+      activeFrame: null,
+    },
+  })
 })

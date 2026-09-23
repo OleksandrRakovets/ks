@@ -81,8 +81,9 @@ export class ActiveMatchHandler {
         result.protocolEntryContents,
       )
 
-      // Delivery of the match-ending acceptance waits until application has archived the Match in D1.
-      if (!committed.streamUpdate.endsMatch) this.#liveConnections.broadcast(committed.streamUpdate)
+      this.#liveConnections.broadcast(committed.streamUpdate)
+
+      if (committed.streamUpdate.endsMatch) this.#liveConnections.closeAll()
 
       const response: ActiveCommandResult = {
         _tag: 'accepted',
