@@ -291,7 +291,7 @@ export function useControlLiveRevalidation(
       onCaughtUp: requestRevalidation,
       onUpdate: (update) =>
         applyLiveEvent(
-          update.completesMatch
+          update.endsMatch
             ? { type: 'match-finished', seq: update.acceptedSeq }
             : { type: 'update', seq: update.acceptedSeq },
         ),

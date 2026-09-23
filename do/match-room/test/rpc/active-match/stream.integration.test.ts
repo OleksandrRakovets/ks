@@ -3,7 +3,7 @@ import { env } from 'cloudflare:workers'
 import * as v from 'valibot'
 import { expect, test } from 'vitest'
 
-import { initializedRoom, makeRoomFinalizing, matchCompletingCommand, prepareCommand } from '../fixtures'
+import { initializedRoom, makeRoomFinalizing, matchEndingCommand, prepareCommand } from '../fixtures'
 
 function liveRequest(matchId: string, view: 'control' | 'protocol' = 'control'): Request {
   return new Request(`https://match-room/api/sparring-match/${matchId}/live/?contract=1&view=${view}`, {
@@ -38,7 +38,7 @@ test('rejects a routed identity mismatch before reading MatchRoom storage', asyn
   expect((await stub.fetch(liveRequest(newMatchId()))).status).toBe(400)
 })
 
-test('sends one catch-up cursor and broadcasts committed non-terminal acceptances', async () => {
+test('sends one catch-up cursor and broadcasts acceptances that do not end the Match', async () => {
   const { matchId, stub } = await initializedRoom()
   await stub.submitCommand(prepareCommand())
   const first = await connect(stub, matchId)
@@ -57,12 +57,12 @@ test('sends one catch-up cursor and broadcasts committed non-terminal acceptance
   expect(await live).toMatchObject({
     contractVersion: 1,
     type: 'update',
-    update: { acceptedSeq: 2, completesMatch: false },
+    update: { acceptedSeq: 2, endsMatch: false },
   })
   first.close()
 })
 
-test('withholds completing delivery, refuses new sockets, then delivers and closes during finalization', async () => {
+test('withholds the match-ending update, refuses new sockets, then delivers and closes during finalization', async () => {
   const { matchId, stub } = await initializedRoom()
   await stub.submitCommand(prepareCommand())
   await stub.submitCommand({
@@ -72,18 +72,18 @@ test('withholds completing delivery, refuses new sockets, then delivers and clos
   })
   const socket = await connect(stub, matchId)
   await nextMessage(socket)
-  await stub.submitCommand(matchCompletingCommand())
+  await stub.submitCommand(matchEndingCommand())
   expect((await stub.fetch(liveRequest(matchId))).status).toBe(410)
-  const terminal = nextMessage(socket)
+  const endingUpdate = nextMessage(socket)
 
   const closed = new Promise<CloseEvent>((resolve) => {
     socket.addEventListener('close', (event) => resolve(event), { once: true })
   })
 
   await stub.finalize()
-  expect(await terminal).toMatchObject({
+  expect(await endingUpdate).toMatchObject({
     type: 'update',
-    update: { acceptedSeq: 3, completesMatch: true },
+    update: { acceptedSeq: 3, endsMatch: true },
   })
   expect((await closed).code).toBe(4000)
 })

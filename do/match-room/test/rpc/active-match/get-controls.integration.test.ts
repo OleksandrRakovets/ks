@@ -35,7 +35,7 @@ test('returns the compact score at the authoritative sequence', async () => {
   })
 })
 
-test('returns finalizing after a match-completing acceptance', async () => {
+test('returns finalizing after a match-ending acceptance', async () => {
   const { stub } = await initializedRoom()
   await makeRoomFinalizing(stub)
   expect(await stub.getControls()).toEqual({ _tag: 'finalizing' })

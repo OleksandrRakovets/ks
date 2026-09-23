@@ -264,7 +264,7 @@ describe('SparringMatch', () => {
     })
   })
 
-  test('concession records concession, award, and match-completing lifecycle in order', () => {
+  test('concession records concession, award, and match-ending lifecycle in order', () => {
     const match = createSparringMatch(config(1))
     accept(match, { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } })
 

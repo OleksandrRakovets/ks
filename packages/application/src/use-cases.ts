@@ -423,7 +423,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     if (record.status !== 'active') return { ok: false, error: 'Unknown match', status: 404 }
     const result = await dependencies.matchRoomClient(matchId).submitCommand(command)
 
-    if (result._tag === 'accepted' && result.completesMatch) {
+    if (result._tag === 'accepted' && result.endsMatch) {
       await archiveAndMarkFinished(matchId)
 
       return { ok: true, outcome: { _tag: 'accepted', acceptedSeq: result.acceptedSeq } }
@@ -563,7 +563,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
   ): Extract<ReadMatchResult<K>, { ok: true }> {
     if (match.state.status === 'finished') {
       if (match.endedAt === undefined || match.endedAtIsToday === undefined)
-        throw new Error('Finished Match read is missing its completion time')
+        throw new Error('Finished Match read is missing its end time')
 
       return {
         ok: true,

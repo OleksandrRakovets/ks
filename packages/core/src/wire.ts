@@ -7,7 +7,7 @@ export const MatchStreamUpdate = v.pipe(
   v.object({
     type: v.literal('command-accepted'),
     acceptedSeq: PositiveInteger,
-    completesMatch: v.boolean(),
+    endsMatch: v.boolean(),
   }),
   v.readonly(),
 )

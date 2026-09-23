@@ -160,14 +160,14 @@ test('live client validates catch-up and sequences updates without replay', asyn
     JSON.stringify({
       contractVersion: 1,
       type: 'update',
-      update: { type: 'command-accepted', acceptedSeq: 4, completesMatch: false },
+      update: { type: 'command-accepted', acceptedSeq: 4, endsMatch: false },
     }),
   )
   socket.message(
     JSON.stringify({
       contractVersion: 1,
       type: 'update',
-      update: { type: 'command-accepted', acceptedSeq: 4, completesMatch: false },
+      update: { type: 'command-accepted', acceptedSeq: 4, endsMatch: false },
     }),
   )
   expect(caughtUp).toEqual([3])
@@ -177,7 +177,7 @@ test('live client validates catch-up and sequences updates without replay', asyn
   expect(socket.closeCalls).toBe(1)
 })
 
-test('live client stops and requests catch-up for a gapped completing update', () => {
+test('live client stops and requests catch-up for a gapped match-ending update', () => {
   FakeWebSocket.instances = []
   const matchId = newMatchId()
   const caughtUp: number[] = []
@@ -211,7 +211,7 @@ test('live client stops and requests catch-up for a gapped completing update', (
     JSON.stringify({
       contractVersion: 1,
       type: 'update',
-      update: { type: 'command-accepted', acceptedSeq: 4, completesMatch: true },
+      update: { type: 'command-accepted', acceptedSeq: 4, endsMatch: true },
     }),
   )
   expect(caughtUp).toEqual([4])

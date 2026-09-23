@@ -46,7 +46,7 @@ export class ActiveMatchHandler {
           response: {
             _tag: 'accepted',
             acceptedSeq: priorReceipt.receipt.acceptedSeq,
-            completesMatch: false,
+            endsMatch: false,
           },
         }
 
@@ -81,13 +81,13 @@ export class ActiveMatchHandler {
         result.protocolEntryContents,
       )
 
-      // Delivery of the match-completing acceptance waits until application has archived the Match in D1.
-      if (!committed.streamUpdate.completesMatch) this.#liveConnections.broadcast(committed.streamUpdate)
+      // Delivery of the match-ending acceptance waits until application has archived the Match in D1.
+      if (!committed.streamUpdate.endsMatch) this.#liveConnections.broadcast(committed.streamUpdate)
 
       const response: ActiveCommandResult = {
         _tag: 'accepted',
         acceptedSeq: committed.receipt.acceptedSeq,
-        completesMatch: committed.streamUpdate.completesMatch,
+        endsMatch: committed.streamUpdate.endsMatch,
       }
 
       if (committed.storedMatch.status === 'finalizing')
@@ -163,6 +163,6 @@ type ActiveCommandResult =
   | {
       readonly _tag: 'accepted'
       readonly acceptedSeq: number
-      readonly completesMatch: boolean
+      readonly endsMatch: boolean
     }
   | Extract<CommandReceipt, { _tag: 'rejected' }>

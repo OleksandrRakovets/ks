@@ -114,7 +114,7 @@ export function subscribeSparringMatchLive(args: {
       if (update.acceptedSeq !== serverSeq + 1) {
         args.onCaughtUp(update.acceptedSeq)
 
-        if (update.completesMatch) {
+        if (update.endsMatch) {
           args.onConnectionState('finished')
           stop()
 
@@ -129,7 +129,7 @@ export function subscribeSparringMatchLive(args: {
       serverSeq = update.acceptedSeq
       args.onUpdate(update)
 
-      if (update.completesMatch) stop()
+      if (update.endsMatch) stop()
     })
     current.addEventListener('close', (event) => {
       if (socket === current) socket = null

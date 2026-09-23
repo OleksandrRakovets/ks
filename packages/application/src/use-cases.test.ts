@@ -257,7 +257,7 @@ describe('trusted MatchRoom orchestration', () => {
     })
   })
 
-  test('reports when a recent completion leaves the live list window', async () => {
+  test('reports when a recently finished match leaves the live list window', async () => {
     const finalScore = projectMatchScore(transfer.finalState)
     const endedAt = v.parse(UnixEpochMilliseconds, createdAt - 5 * 60 * 1_000)
 
@@ -465,11 +465,11 @@ describe('trusted MatchRoom orchestration', () => {
     })
   })
 
-  test('archives, finalizes, and finishes after a match-completing Accepted Command', async () => {
+  test('archives, finalizes, and finishes after a match-ending Accepted Command', async () => {
     const events: string[] = []
 
     const room = selectedClient({
-      submitCommand: async () => ({ _tag: 'accepted', acceptedSeq: 1, completesMatch: true }),
+      submitCommand: async () => ({ _tag: 'accepted', acceptedSeq: 1, endsMatch: true }),
       prepareArchive: async () => {
         events.push('prepare')
 
@@ -612,7 +612,7 @@ describe('trusted MatchRoom orchestration', () => {
     let archiveAttempts = 0
 
     const room = selectedClient({
-      submitCommand: async () => ({ _tag: 'accepted', acceptedSeq: 1, completesMatch: true }),
+      submitCommand: async () => ({ _tag: 'accepted', acceptedSeq: 1, endsMatch: true }),
       prepareArchive: async () => transfer,
       finalize: async () => {
         events.push('finalize')
