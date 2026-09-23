@@ -474,6 +474,7 @@ function useMatchScorePolling(
 
     document.addEventListener('visibilitychange', catchUp)
     window.addEventListener('focus', catchUp)
+    window.addEventListener('online', catchUp)
     scheduleNextPoll()
 
     return () => {
@@ -482,6 +483,7 @@ function useMatchScorePolling(
       requestController?.abort()
       document.removeEventListener('visibilitychange', catchUp)
       window.removeEventListener('focus', catchUp)
+      window.removeEventListener('online', catchUp)
     }
   }, [activeMatches, dispatch, onMatchFinished])
 }

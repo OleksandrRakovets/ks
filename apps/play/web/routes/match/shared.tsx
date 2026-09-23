@@ -315,10 +315,12 @@ export function useControlLiveRevalidation(
 
     document.addEventListener('visibilitychange', catchUp)
     window.addEventListener('focus', catchUp)
+    window.addEventListener('online', catchUp)
 
     return () => {
       document.removeEventListener('visibilitychange', catchUp)
       window.removeEventListener('focus', catchUp)
+      window.removeEventListener('online', catchUp)
       subscription.stop()
     }
   }, [state.matchId, state.status])
@@ -383,10 +385,12 @@ export function useProtocolLiveRevalidation(state: MatchState, latestSeq: number
 
     document.addEventListener('visibilitychange', catchUp)
     window.addEventListener('focus', catchUp)
+    window.addEventListener('online', catchUp)
 
     return () => {
       document.removeEventListener('visibilitychange', catchUp)
       window.removeEventListener('focus', catchUp)
+      window.removeEventListener('online', catchUp)
       subscription.stop()
     }
   }, [state.matchId, state.status])

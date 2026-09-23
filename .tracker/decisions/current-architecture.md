@@ -115,7 +115,7 @@ Browser WebSocket
   -> caught-up cursor, then committed Accepted Command invalidations
 ```
 
-The browser validates the versioned shared wire contract and reconnects with bounded backoff. Loader projections remain authoritative: live messages only request revalidation. A connection receives one current cursor rather than replaying individual invalidations. Active Control and Protocol pages also revalidate on returning to a visible or focused tab even without a socket update; finished pages remove those listeners.
+The browser validates the versioned shared wire contract and reconnects with bounded backoff. Loader projections remain authoritative: live messages only request revalidation. A connection receives one current cursor rather than replaying individual invalidations. Active Control and Protocol pages also revalidate on returning to a visible or focused tab or receiving an `online` hint, even without a socket update; finished pages remove those listeners. The live list similarly polls on an `online` hint while visible. `offline` does not stop retries or disable controls because browser connectivity estimates do not establish whether Play is reachable.
 
 MatchRoom uses only the Durable Object Hibernation API for connected sockets and reconstructs connection metadata from serialized attachments. A new connection against a Finalizing Match returns `410`. The match-ending update is broadcast and sockets are closed when its command is accepted, before D1 archival; clients revalidate against either the room's final projection or D1's finished archive. Changing the read source later does not require a second notification.
 
