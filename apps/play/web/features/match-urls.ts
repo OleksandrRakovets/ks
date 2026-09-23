@@ -45,14 +45,3 @@ export function matchProtocolUrl(
 ): string {
   return localizedPath(`/match/${gameKey}/${matchId}/protocol/`, locale)
 }
-
-export function matchUrlForStatus(
-  gameKey: RegisteredGameKey,
-  matchId: MatchId,
-  status: 'active' | 'finished',
-  locale: SupportedLocale,
-): string {
-  return status === 'active'
-    ? matchControlUrl(gameKey, matchId, locale)
-    : matchProtocolUrl(gameKey, matchId, locale)
-}

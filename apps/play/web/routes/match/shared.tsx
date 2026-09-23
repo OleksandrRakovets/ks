@@ -22,9 +22,9 @@ type ControlSuccess<K extends RegisteredGameKey> = Extract<ReadMatchControlResul
 
 type ProtocolSuccess<K extends RegisteredGameKey> = Extract<ReadMatchProtocolResult<K>, { ok: true }>
 
-export type ControlRouteData<K extends RegisteredGameKey> = ControlSuccess<K> & { gameTitle: string }
+export type ControlRouteData<K extends RegisteredGameKey> = ControlSuccess<K> & { shortGameTitle: string }
 
-export type ProtocolRouteData<K extends RegisteredGameKey> = ProtocolSuccess<K> & { gameTitle: string }
+export type ProtocolRouteData<K extends RegisteredGameKey> = ProtocolSuccess<K> & { shortGameTitle: string }
 
 export type ProtocolPageData<K extends RegisteredGameKey> = {
   control: ControlRouteData<K>
@@ -64,7 +64,7 @@ export async function loadMatchControl<K extends RegisteredGameKey>(
 
   if (!result.ok) throw new Response(result.error, { status: result.status })
 
-  return { ...result, gameTitle: registry[expectedGameKey].meta.title[locale] }
+  return { ...result, shortGameTitle: registry[expectedGameKey].meta.shortGameTitle[locale] }
 }
 
 async function loadMatchProtocol<K extends RegisteredGameKey>(
@@ -78,7 +78,7 @@ async function loadMatchProtocol<K extends RegisteredGameKey>(
 
   if (!result.ok) throw new Response(result.error, { status: result.status })
 
-  return { ...result, gameTitle: registry[expectedGameKey].meta.title[locale] }
+  return { ...result, shortGameTitle: registry[expectedGameKey].meta.shortGameTitle[locale] }
 }
 
 export async function loadMatchProtocolPage<K extends RegisteredGameKey>(

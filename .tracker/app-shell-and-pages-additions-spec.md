@@ -1,12 +1,11 @@
 # App Shell And Pages — Additions
 
-Status: design approved, blocked on data or flows that do not exist yet.
+Status: implemented.
 Reference renders: `.tracker/app-shell-and-pages/`.
-Prerequisite: `.tracker/app-shell-and-pages-spec.md`, which is buildable today and must land first.
+Prerequisite: the implemented `.tracker/app-shell-and-pages-spec.md`.
 
-Each item below states exactly what it is waiting on, so it can be picked up the moment that
-arrives. Nothing here is speculative design — all of it is drawn in the reference renders. It is
-separated only because the plumbing is missing.
+These additions were separated from the App Shell slice because they originally required missing
+data or flows. The implementation status and durable behavior are recorded below.
 
 ## 1. Matches rows
 
@@ -49,53 +48,34 @@ midnight stays with the evening the players sat down.
 
 ## 2. Day grouping on Matches
 
-**Waiting on:** a decision about time zones.
+**Implemented.** Request-scoped time zones format and group completed matches by their local start
+date. Finished rows are ordered by `createdAt`, so groups remain contiguous and an overnight match
+stays under the day when play began.
 
-Grouping finished matches under `Сьогодні` and dated headings needs a local zone, and the app has
-none — `loadMatchProtocol` hardcodes `'UTC'`. Two workable routes:
-
-- Plumb a zone the way `readMatchProtocol` already accepts one, sourced from a cookie set on first
-  client render.
-- Group after hydration on the client, accepting that the first paint is ungrouped.
-
-Until this is settled the list ships ordered but ungrouped. **Do not print a local day derived from
-`'UTC'`** — a wrong date is worse than no date, and this one would be wrong for every Ukrainian
-user for two to three hours of every day.
+Groups use `Сьогодні` / `Today` for the current local day and `DD.MM.YYYY` otherwise.
 
 ## 3. Result closing line
 
-**Waiting on:** `endedAt` reaching the finished control result.
+**Implemented.** The finished control result carries D1's canonical `endedAt`, formatted in the
+requester's time zone, and the Result renders the centred completion line below the frame list.
 
-Per AGENTS.md the match-completing Accepted Command already stores `endedAt` alongside Final Match
-State, so the value exists in D1. It is simply not on `MatchState` or on the `controlState:
-'finished'` variant of `ReadMatchControlResult`.
-
-Once exposed, add one centred line below the frame list: `Завершено сьогодні о 19:42`. It shares
-the time zone problem in §2 and should not ship before that is settled either.
+Same-day copy reads `Завершено сьогодні о 19:42`; other days include `DD.MM.YYYY`.
 
 ## 4. Rematch
 
-**Waiting on:** a way to open Setup with players and settings prefilled.
+**Implemented.** `Реванш тим самим складом` opens Setup through a validated all-or-nothing query
+payload. It preserves seats, names, race length, per-seat targets, and Long Pyramid rack rollover.
+The mandatory toss remains fresh and unthrown.
 
 `Реванш тим самим складом`, pinned above the tabs on the Result screen, linking to Setup for the
 same game with both names already filled in. It is the thing players predictably want next, and the
 lower half of the Result screen is otherwise empty.
 
-The Setup route currently takes only `:gameKey` and holds names in component state, so this needs
-either query parameters the route reads into its initial state, or a dedicated entry point. Whoever
-implements it should decide which, and keep in mind:
-
-- Seats should probably swap, since the loser breaking or choosing is the usual courtesy. Worth
-  asking rather than assuming.
-- Per-seat targets and race length should carry over — a 50:15 handicap is a property of the pair,
-  not of one match.
-- The toss must still be thrown. It is mandatory by design and a rematch is not an exception.
-
-This was my proposal rather than a request, so it is the easiest item here to cut.
+Malformed, incomplete, or wrong-game query payloads fall back entirely to ordinary Setup defaults.
 
 ## 5. Acceptance
 
-Once the blockers clear, verify at 390×844 and 1280×900:
+Verify at 390×844 and 1280×900:
 
 1. Matches with an active match, two finished matches, and the empty state.
 2. Matches where one entry is `free-pyramid-long`, showing points rather than frames.

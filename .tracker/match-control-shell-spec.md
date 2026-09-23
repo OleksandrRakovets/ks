@@ -1,6 +1,6 @@
 # Match Control Shell And Zone Contract
 
-Status: implemented. Correction behavior and finished-match presentation remain deferred.
+Status: implemented. Correction behavior is tracked separately outside design review.
 Reference renders: `.tracker/match-control-shell/`.
 
 ## 1. Purpose

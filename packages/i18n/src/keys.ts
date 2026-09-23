@@ -98,6 +98,9 @@ export const keys = {
       target: 'match.scoreboard.target',
     },
     result: {
+      tabResult: 'match.result.tabResult',
+      winner: 'match.result.winner',
+      frames: 'match.result.frames',
       finishedTodayAt: 'match.result.finishedTodayAt',
       finishedOnAt: 'match.result.finishedOnAt',
     },
@@ -120,6 +123,7 @@ export const keys = {
       increaseMatchTarget: 'match.sparring.increaseMatchTarget',
       createMatch: 'match.sparring.createMatch',
       creatingMatch: 'match.sparring.creatingMatch',
+      rematchSamePlayers: 'match.sparring.rematchSamePlayers',
       matchControlTitle: 'match.sparring.matchControlTitle',
       tabControl: 'match.sparring.tabControl',
       tabProtocol: 'match.sparring.tabProtocol',

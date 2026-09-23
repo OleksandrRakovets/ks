@@ -13,6 +13,7 @@ import { matchControlUrl, matchProtocolUrl } from '../../match-urls'
 import { Board } from './board'
 import { LastActionBar } from './last-action-bar'
 import { OverflowSheet } from './overflow-sheet'
+import { RematchAction } from './rematch-action'
 import type { MatchControlData } from './types'
 
 export function MatchShell<K extends RegisteredGameKey>(props: {
@@ -28,7 +29,12 @@ export function MatchShell<K extends RegisteredGameKey>(props: {
 
   return (
     <main className="mx-auto flex h-dvh w-full max-w-match flex-col overflow-hidden bg-background text-foreground">
-      <header className="flex h-[52px] shrink-0 items-center gap-3 px-1.5">
+      <header
+        className={cn(
+          'flex h-[52px] shrink-0 items-center gap-3 pl-1.5',
+          props.data.controlState === 'finished' ? 'pr-4' : 'pr-1.5',
+        )}
+      >
         <Link
           to={localizedPath('/sparring/matches/', locale)}
           aria-label={t(keys.match.control.exit)}
@@ -42,23 +48,27 @@ export function MatchShell<K extends RegisteredGameKey>(props: {
           </strong>
           <span className="shrink-0 text-base leading-none">{ruleLabel(props.data, t)}</span>
         </div>
-        <OverflowSheet
-          controls={controlSections.tertiary}
-          names={{
-            A: props.data.participants.A.displayName,
-            B: props.data.participants.B.displayName,
-          }}
-          submitting={props.submitting}
-          onSubmit={props.onSubmit}
-        />
+        {props.data.controlState !== 'finished' ? (
+          <OverflowSheet
+            controls={controlSections.tertiary}
+            names={{
+              A: props.data.participants.A.displayName,
+              B: props.data.participants.B.displayName,
+            }}
+            submitting={props.submitting}
+            onSubmit={props.onSubmit}
+          />
+        ) : null}
       </header>
 
-      <Board data={props.data} />
+      {props.data.controlState !== 'finished' ? <Board data={props.data} /> : null}
 
       <div
         className={cn(
           'min-h-0 flex-1',
-          props.active === 'control' ? 'flex flex-col overflow-hidden' : 'overflow-y-auto overscroll-contain',
+          props.active === 'control' && props.data.controlState !== 'finished'
+            ? 'flex flex-col overflow-hidden'
+            : 'overflow-y-auto overscroll-contain',
         )}
       >
         {props.children}
@@ -68,16 +78,23 @@ export function MatchShell<K extends RegisteredGameKey>(props: {
         <LastActionBar entry={props.data.lastEntry} />
       ) : null}
 
+      {props.active === 'control' && props.data.controlState === 'finished' ? (
+        <RematchAction data={props.data} />
+      ) : null}
+
       <nav
         className="grid h-14 shrink-0 grid-cols-2 gap-1 bg-background px-2 py-1.5"
         aria-label={t(keys.appTitle)}
       >
         <MatchTab
           active={props.active === 'control'}
-          disabled={props.data.controlState === 'finished' && props.active !== 'control'}
           to={matchControlUrl(props.data.state.gameKey, props.data.state.matchId, locale)}
         >
-          {t(keys.match.sparring.tabControl)}
+          {t(
+            props.data.controlState === 'finished'
+              ? keys.match.result.tabResult
+              : keys.match.sparring.tabControl,
+          )}
         </MatchTab>
         <MatchTab
           active={props.active === 'protocol'}
@@ -98,20 +115,11 @@ function CloseIcon() {
   )
 }
 
-function MatchTab(props: { active: boolean; disabled?: boolean; to: string; children: ReactNode }) {
+function MatchTab(props: { active: boolean; to: string; children: ReactNode }) {
   const className = cn(
     'grid place-items-center rounded-lg text-base font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring/40',
     props.active ? 'bg-overlay text-foreground' : 'text-muted-foreground hover:text-foreground',
-    props.disabled === true && 'opacity-45',
   )
-
-  if (props.disabled === true) {
-    return (
-      <span aria-disabled className={className}>
-        {props.children}
-      </span>
-    )
-  }
 
   return (
     <Link to={props.to} aria-current={props.active ? 'page' : undefined} className={className}>
@@ -124,6 +132,8 @@ function contextLabel<K extends RegisteredGameKey>(
   data: MatchControlData<K>,
   t: ReturnType<typeof useTranslation>['t'],
 ): string {
+  if (data.controlState === 'finished') return data.shortGameTitle
+
   if (data.controlState === 'frame-active' && data.game.gameKey === 'free-pyramid-long') {
     return t(keys.match.control.longFreePyramid.rack, {
       rackNumber: data.game.details.currentRack.rackNumber,
@@ -139,6 +149,19 @@ function ruleLabel<K extends RegisteredGameKey>(
   data: MatchControlData<K>,
   t: ReturnType<typeof useTranslation>['t'],
 ): string {
+  if (data.controlState === 'finished') {
+    const { frameTargetPointsBySeat, matchTargetFrames } = data.state.targets
+
+    const target =
+      matchTargetFrames > 1
+        ? matchTargetFrames
+        : frameTargetPointsBySeat.A === frameTargetPointsBySeat.B
+          ? frameTargetPointsBySeat.A
+          : `${frameTargetPointsBySeat.A}/${frameTargetPointsBySeat.B}`
+
+    return t(keys.match.scoreboard.target, { target })
+  }
+
   if (data.controlState === 'frame-active' && data.game.gameKey === 'free-pyramid-long') {
     return t(keys.match.control.longFreePyramid.rackRollover, {
       count: data.game.details.rackRollover,

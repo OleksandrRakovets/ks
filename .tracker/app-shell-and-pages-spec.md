@@ -1,6 +1,6 @@
 # App Shell And Pages
 
-Status: prerequisite App Shell pages implemented. Result remains deferred with the Match Shell.
+Status: implemented, including the finished Result in the Match Shell.
 Reference renders: `.tracker/app-shell-and-pages/`.
 
 **Everything in this document can be built today.** No contract change, no new use case, no new
@@ -242,9 +242,8 @@ Lives in the Match Shell, so the tabs read `Результат` / `Проток�
 - `Партії`: one row per frame — index, then the frame's points with the frame winner's numeral at
   700, from `state.frames[].pointsBySeat`.
 
-Two elements in the reference render belong to the additions document and must be left out here:
-the closing line with the finish time, and the `Реванш` button. Without them the screen ends after
-the frame list, which is complete and correct on its own.
+The additions document owns the closing line with the finish time and the `Реванш` button. They now
+layer onto this baseline Result without changing its score and frame-list composition.
 
 ## 10. Typography and colour
 

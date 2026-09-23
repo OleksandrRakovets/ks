@@ -9,6 +9,7 @@ import { matchCommandForm, useControlLiveRevalidation } from '../../routes/match
 import { controlEffect, controlLabel } from './renderers/control-copy'
 import type { MatchControlRendererProps } from './renderers/types'
 import { ActionStack, type ControlPresentation } from './shell/action-stack'
+import { MatchResult } from './shell/match-result'
 import { MatchShell } from './shell/match-shell'
 import type { MatchControlData } from './shell/types'
 
@@ -32,7 +33,13 @@ export function MatchControlPage<K extends RegisteredGameKey>(props: {
       submitting={fetcher.state !== 'idle'}
       onSubmit={submitCommand}
     >
-      <div className="relative flex min-h-0 flex-1 flex-col justify-end">
+      <div
+        className={
+          props.data.controlState === 'finished'
+            ? 'relative'
+            : 'relative flex min-h-0 flex-1 flex-col justify-end'
+        }
+      >
         {fetcher.data?.ok === false ? (
           <p
             role="alert"
@@ -42,7 +49,9 @@ export function MatchControlPage<K extends RegisteredGameKey>(props: {
           </p>
         ) : null}
 
-        {props.data.controlState === 'frame-active' ? (
+        {props.data.controlState === 'finished' ? (
+          <MatchResult data={props.data} />
+        ) : props.data.controlState === 'frame-active' ? (
           <props.renderer
             game={props.data.game}
             controls={props.data.controls}
@@ -51,14 +60,14 @@ export function MatchControlPage<K extends RegisteredGameKey>(props: {
             submitting={fetcher.state !== 'idle'}
             onSubmitCommand={submitCommand}
           />
-        ) : props.data.controlState === 'between-frames' ? (
+        ) : (
           <ActionStack
             sections={groupControlsIntoSections(props.data.controls)}
             renderControl={(control) => genericControlPresentation(t, control)}
             submitting={fetcher.state !== 'idle'}
             onSubmit={submitCommand}
           />
-        ) : null}
+        )}
       </div>
     </MatchShell>
   )
