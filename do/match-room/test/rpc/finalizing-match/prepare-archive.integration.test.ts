@@ -5,7 +5,7 @@ import { expect, test } from 'vitest'
 import type { MatchRoom } from '../../../src/MatchRoom'
 import { captureRpcError, initializedRoom, makeRoomFinalizing } from '../fixtures'
 
-type CompletedMatchTransfer = Awaited<ReturnType<MatchRoom['prepareArchive']>>
+type FinishedMatchTransfer = Awaited<ReturnType<MatchRoom['prepareArchive']>>
 
 test('throws before a match-completing acceptance', async () => {
   const { stub } = await initializedRoom()
@@ -21,9 +21,9 @@ test('throws before a match-completing acceptance', async () => {
 test('derives the same completion transfer after eviction', async () => {
   const { matchId, stub } = await initializedRoom()
   const completingCommand = await makeRoomFinalizing(stub)
-  const warm: CompletedMatchTransfer = await stub.prepareArchive()
+  const warm: FinishedMatchTransfer = await stub.prepareArchive()
   await evictDurableObject(stub)
-  const restored: CompletedMatchTransfer = await env.MATCH_ROOM.getByName(matchId).prepareArchive()
+  const restored: FinishedMatchTransfer = await env.MATCH_ROOM.getByName(matchId).prepareArchive()
   expect(restored.matchId).toBe(matchId)
   expect(restored.sourceLatestSeq).toBe(3)
   expect(restored.finalState.status).toBe('finished')

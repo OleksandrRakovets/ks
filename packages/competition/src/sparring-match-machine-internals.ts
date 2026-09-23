@@ -30,7 +30,7 @@ export type SparringMatchLifecycleState =
       readonly activeFrame: ActiveSparringFrame
     })
   | (SparringMatchLifecycleStateBase & {
-      readonly phase: 'match-over'
+      readonly phase: 'finished'
       readonly winnerSeat: Seat
     })
 
@@ -55,7 +55,7 @@ export type SparringMatchLifecycleEvent =
       readonly outcome: FrameOutcome
     }
 
-const SparringMatchPhase = v.picklist(['between-frames', 'frame-in-progress', 'match-over'])
+const SparringMatchPhase = v.picklist(['between-frames', 'frame-in-progress', 'finished'])
 
 export type SparringMatchPhase = v.InferOutput<typeof SparringMatchPhase>
 
@@ -177,7 +177,7 @@ export const SparringMatchMachine = setup({
         'frame.completed': [
           {
             guard: 'isMatchWinningFrameComplete',
-            target: 'match-over',
+            target: 'finished',
             actions: ['recordCompletedFrame', 'setWinner'],
           },
           {
@@ -188,7 +188,7 @@ export const SparringMatchMachine = setup({
         ],
       },
     },
-    'match-over': {
+    finished: {
       type: 'final',
     },
   },
@@ -234,7 +234,7 @@ export function deriveLifecycleState(snapshot: SparringMatchSnapshot): SparringM
         nextFrameIndex: context.nextFrameIndex,
         activeFrame: context.activeFrame!,
       }
-    case 'match-over':
+    case 'finished':
       return {
         ...base,
         phase,

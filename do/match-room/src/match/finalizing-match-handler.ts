@@ -60,7 +60,7 @@ export class FinalizingMatchHandler {
     return { _tag: 'finalizing' }
   }
 
-  prepareArchive(): CompletedMatchTransfer {
+  prepareArchive(): FinishedMatchTransfer {
     const resident = this.#load()
     const projected = resident.match.project().state
 
@@ -116,7 +116,7 @@ export type FinalizingCommandResult =
     }
   | Extract<CommandReceipt, { _tag: 'rejected' }>
 
-export type CompletedMatchTransfer = {
+export type FinishedMatchTransfer = {
   readonly matchId: MatchId
   readonly gameKey: RegisteredGameKey
   readonly createdAt: UnixEpochMilliseconds

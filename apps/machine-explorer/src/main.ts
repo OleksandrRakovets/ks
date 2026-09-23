@@ -413,7 +413,7 @@ function renderMatchControls(snap: SparringMatchSnapshot) {
     }),
   )
 
-  if (phase === 'match-over') return
+  if (phase === 'finished') return
 
   if (phase === 'between-frames') {
     controls.append(

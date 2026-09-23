@@ -14,7 +14,7 @@ export default [
       route('sparring/', 'routes/sparring.tsx'),
       route('sparring/init/:gameKey/', 'routes/sparring-init/route.tsx'),
       route('sparring/matches/', 'routes/sparring-matches/live.tsx'),
-      route('sparring/matches/completed/:day?/', 'routes/sparring-matches/completed.tsx'),
+      route('sparring/matches/finished/:day?/', 'routes/sparring-matches/finished.tsx'),
     ]),
     route('match/strila-v2/:matchId/', 'routes/match/strila-v2-match.tsx'),
     route('match/strila-v2/:matchId/protocol/', 'routes/match/strila-v2-protocol.tsx'),

@@ -94,8 +94,8 @@ describe('control live transitions', () => {
     expect(transitionControlLive(echoed.state, { type: 'update', seq: 8 }).revalidate).toBe(true)
   })
 
-  test('match end revalidates even when its sequence is stale', () => {
-    expect(transitionControlLive(initial, { type: 'match-ended', seq: 3 })).toEqual({
+  test('finished match revalidates even when its sequence is stale', () => {
+    expect(transitionControlLive(initial, { type: 'match-finished', seq: 3 })).toEqual({
       state: initial,
       revalidate: true,
     })
@@ -215,7 +215,7 @@ test('live client stops and requests catch-up for a gapped completing update', (
     }),
   )
   expect(caughtUp).toEqual([4])
-  expect(states).toEqual(['connecting', 'completed'])
+  expect(states).toEqual(['connecting', 'finished'])
   expect(socket.closeCalls).toBe(1)
   subscription.stop()
 })

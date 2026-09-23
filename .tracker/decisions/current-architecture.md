@@ -44,7 +44,7 @@ Competition composes match controls before game controls into one flat list. Mat
 
 | Store | Authority |
 | --- | --- |
-| D1 | Players, creating/active/finished match rows, completed protocol archive and final match state, compact finished list-score projection |
+| D1 | Players, creating/active/finished match rows, final protocol archive and final match state, compact finished list-score projection |
 | MatchRoom SQLite | Active config, control secret, Accepted Commands and outcomes, monotonic sequence, terminal Final Match State, active/finalizing status |
 
 Accepted Commands are the active replay authority and are never mirrored to D1. Resident match state and derived Protocol are disposable caches; cold restoration validates and replays ordered commands through the same aggregate operation. Raw XState snapshots are not persisted.
@@ -69,39 +69,39 @@ Ordinary commands verify the match row's lifecycle, then write only to MatchRoom
 
 Application selects a named room once with `getByName(matchId)`. Initialization verifies that the routed Durable Object name equals the input Match ID, persists configuration idempotently, and reports conflicting configuration as `initialization-conflict`. Later RPC methods derive identity from the selected room and do not repeat the Match ID. Resident gameplay state is created lazily by the first active operation.
 
-Command retry equality compares decoded canonical values rather than serialized JSON. Identical accepted and rejected retries return their durable outcome. Reusing an ID with different content returns `command-id-conflict`. After finalization, retrying the terminal Accepted Command still reports `finalizesMatch: true`; retrying an earlier Accepted Command reports `false`.
+Command retry equality compares decoded canonical values rather than serialized JSON. Identical accepted and rejected retries return their durable outcome. Reusing an ID with different content returns `command-id-conflict`. After finalization, retrying the terminal Accepted Command still reports `completesMatch: true`; retrying an earlier Accepted Command reports `false`.
 
-`match.ended` is committed atomically with MatchRoom's `finalizing` status and withheld from live clients until archival succeeds:
+The `match-ended` Protocol entry is derived from the match-completing Accepted Command stored atomically with MatchRoom's `finalizing` status. Its live update is withheld until archival succeeds:
 
 ```text
 MatchRoom finalizing Protocol + Final Match State
   -> application treats the transfer as canonical and checks D1 identity, lifecycle, and archive idempotency
   -> idempotently archive protocol and final match state in D1
-  -> MatchRoom broadcasts match.ended and closes streams
+  -> MatchRoom broadcasts the completing update and closes streams
   -> D1 matches.status: active -> finished, storing endedAt and the compact final score projection
 ```
 
-Until the final step succeeds, D1 remains active and the retained MatchRoom reports `finalizing`; a later relevant application request then retries the idempotent transfer, archival, and finalization steps. Finalization publishes the withheld terminal update, closes clients, and clears resident state without replaying history. Finished reads use D1 and do not access MatchRoom. Cleanup of retained finalizing storage is deferred until observed costs justify a separate retention mechanism.
+Until the final step succeeds, D1 remains active and the retained MatchRoom reports `finalizing`; a later relevant application request then retries the idempotent transfer, archival, and finalization steps. MatchRoom retains the `finalizing` status even after D1 marks the Match finished. Finalization publishes the withheld terminal update, closes clients, and clears resident state without replaying history. Finished reads use D1 and do not access MatchRoom. Cleanup of retained finalizing storage is deferred until observed costs justify a separate retention mechanism.
 
 The generated control secret is stored in MatchRoom but is not exposed or checked by the current command path.
 
 ## Match List Score Reads
 
-The live Match list use case reads Active Matches followed by Matches completed in the last 15
-minutes; the completed use case reads only finished Matches started on one selected local calendar
-day. The live list has no row cap. `/sparring/matches/completed/:day?/` defaults to the newest
+The live Match list use case reads Active Matches followed by Matches finished in the last 15
+minutes; the finished use case reads only finished Matches started on one selected local calendar
+day. The live list has no row cap. `/sparring/matches/finished/:day?/` defaults to the newest
 occupied day and reads all finished rows in its UTC day interval; two single-row seeks against the
 `(status, created_at, match_id)` index discover adjacent occupied days without scanning empty dates.
 The application's Clock timezone defines day boundaries, including DST transitions, and Match ID
 breaks ties within a start timestamp. Application reads compact finished scores directly from D1
 rows and asks each selected Active MatchRoom for a coherent score and Accepted Command cursor. A room
 found finalizing resumes the existing completion orchestration before the list result is returned.
-The completed path neither selects MatchRoom nor starts browser polling.
+The finished path neither selects MatchRoom nor starts browser polling.
 
 Play exposes `GET /api/sparring-matches/live-scores/` for polling unique Active Match IDs.
 Application batch-reads their D1 lifecycle, reads Active MatchRooms in parallel, preserves request
 order, and returns replacement score projections rather than command deltas. The live list polls this
-endpoint approximately every 30 seconds while it contains Active Matches; the completed list does
+endpoint approximately every 30 seconds while it contains Active Matches; the finished list does
 not poll.
 
 ## Live Updates

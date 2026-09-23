@@ -15,18 +15,18 @@ import { env } from 'cloudflare:workers'
 import * as v from 'valibot'
 import { beforeEach, describe, expect, test } from 'vitest'
 
-import { archiveCompletedMatch, markMatchFinished, MatchCompletionError } from '../../src/d1/completed-matches'
+import { archiveFinishedMatch, markMatchFinished, MatchFinalizationError } from '../../src/d1/finished-matches'
 import { activateMatch, type ActiveMatchCatalogInput, beginMatchCreation } from '../../src/d1/match-lifecycle'
 import {
-  findCompletedMatchTime,
+  findFinishedMatchTime,
   getMatchRow,
-  listCompletedMatchRows,
+  listFinishedMatchRows,
   listLiveMatchRows,
 } from '../../src/d1/matches'
 import { getProtocolArchive } from '../../src/d1/protocol-archives'
 import { guestPlayers, matches, verifiedPlayers } from '../../src/d1/schema'
 import { createApplicationDatabaseClient } from '../../src/d1/types'
-import type { MatchRoomCompletionTransfer } from '../../src/match-room-client'
+import type { MatchRoomArchiveTransfer } from '../../src/match-room-client'
 
 const matchId = v.parse(MatchId, '01ARZ3NDEKTSV4RRFFQ69G5FAV')
 
@@ -56,7 +56,7 @@ function catalogInput(id = matchId, timestamp = createdAt): ActiveMatchCatalogIn
   return { matchId: id, gameKey: 'free-pyramid', seatAPlayerRef, seatBPlayerRef, createdAt: timestamp }
 }
 
-function completedMatchTransfer(id = matchId, timestamp = createdAt): MatchRoomCompletionTransfer {
+function finishedMatchTransfer(id = matchId, timestamp = createdAt): MatchRoomArchiveTransfer {
   const config = buildMatchConfig(id, createRequest)
   const session = createSparringMatch(config)
   const acceptedAt = v.parse(UnixEpochMilliseconds, timestamp + 1_000)
@@ -122,8 +122,8 @@ describe('real D1 match lifecycle', () => {
     const otherCreatedAt = v.parse(UnixEpochMilliseconds, 3_000)
     await beginMatchCreation(db, catalogInput(otherMatchId, otherCreatedAt))
     await activateMatch(db, otherMatchId)
-    const otherArchive = completedMatchTransfer(otherMatchId, otherCreatedAt)
-    await archiveCompletedMatch(db, otherArchive)
+    const otherArchive = finishedMatchTransfer(otherMatchId, otherCreatedAt)
+    await archiveFinishedMatch(db, otherArchive)
     await markMatchFinished(db, otherArchive)
     await beginMatchCreation(db, catalogInput(newestMatchId, v.parse(UnixEpochMilliseconds, 4_000)))
     await activateMatch(db, newestMatchId)
@@ -136,21 +136,21 @@ describe('real D1 match lifecycle', () => {
     ).toEqual([newestMatchId, matchId, otherMatchId])
 
     const archive = {
-      ...completedMatchTransfer(),
+      ...finishedMatchTransfer(),
       endedAt: v.parse(UnixEpochMilliseconds, 4_500),
     }
 
-    await archiveCompletedMatch(db, archive)
+    await archiveFinishedMatch(db, archive)
     expect(await getMatchRow(db, matchId)).toMatchObject({ status: 'active' })
     expect(await getProtocolArchive(db, matchId)).toMatchObject({
       sourceLatestSeq: archive.sourceLatestSeq,
       protocolVersion: 1,
       state: archive.finalState,
     })
-    await archiveCompletedMatch(db, archive)
+    await archiveFinishedMatch(db, archive)
     await expect(
-      archiveCompletedMatch(db, { ...archive, sourceLatestSeq: archive.sourceLatestSeq + 1 }),
-    ).rejects.toThrow(MatchCompletionError)
+      archiveFinishedMatch(db, { ...archive, sourceLatestSeq: archive.sourceLatestSeq + 1 }),
+    ).rejects.toThrow(MatchFinalizationError)
     expect(await getMatchRow(db, matchId)).toMatchObject({ status: 'active' })
 
     await markMatchFinished(db, archive)
@@ -172,7 +172,7 @@ describe('real D1 match lifecycle', () => {
     ).toBe(archive.endedAt)
     expect(
       (
-        await listCompletedMatchRows(
+        await listFinishedMatchRows(
           db,
           {
             start: createdAt,
@@ -182,14 +182,14 @@ describe('real D1 match lifecycle', () => {
         )
       ).map((row) => row.matchId),
     ).toEqual([otherMatchId, matchId])
-    expect(await findCompletedMatchTime(db, { before: v.parse(UnixEpochMilliseconds, 3_000) })).toBe(createdAt)
-    expect(await findCompletedMatchTime(db, { from: v.parse(UnixEpochMilliseconds, 2_000) })).toBe(3_000)
+    expect(await findFinishedMatchTime(db, { before: v.parse(UnixEpochMilliseconds, 3_000) })).toBe(createdAt)
+    expect(await findFinishedMatchTime(db, { from: v.parse(UnixEpochMilliseconds, 2_000) })).toBe(3_000)
     expect(
       (await listLiveMatchRows(db, v.parse(UnixEpochMilliseconds, 3_000), 'en')).map((row) => row.matchId),
     ).toEqual([newestMatchId, matchId, otherMatchId])
   })
 
-  test('lists a crowded completed day with localized guest and verified names and missing-player fallback', async () => {
+  test('lists a crowded finished-match day with localized guest and verified names and missing-player fallback', async () => {
     const db = createApplicationDatabaseClient(env.DB)
     const verifiedRef = v.parse(PlayerRef, 'vp_01HX0000000000000000000002')
     const missingRef = v.parse(PlayerRef, 'gp_01HX0000000000000000000003')
@@ -211,7 +211,7 @@ describe('real D1 match lifecycle', () => {
       createdAt,
     })
 
-    const score = JSON.stringify(projectMatchScore(completedMatchTransfer().finalState))
+    const score = JSON.stringify(projectMatchScore(finishedMatchTransfer().finalState))
 
     const rows = Array.from({ length: 26 }, (_, index) => ({
       matchId: v.parse(MatchId, `${matchId.slice(0, 24)}${String(index).padStart(2, '0')}`),
@@ -228,8 +228,8 @@ describe('real D1 match lifecycle', () => {
     for (const row of rows) await db.insert(matches).values(row)
 
     const range = { start: createdAt, end: v.parse(UnixEpochMilliseconds, createdAt + 26) }
-    const uk = await listCompletedMatchRows(db, range, 'uk')
-    const en = await listCompletedMatchRows(db, range, 'en')
+    const uk = await listFinishedMatchRows(db, range, 'uk')
+    const en = await listFinishedMatchRows(db, range, 'en')
 
     expect(uk.map((row) => row.matchId)).toEqual(rows.map((row) => row.matchId).reverse())
     expect(uk[0]?.participants).toEqual({
@@ -259,13 +259,13 @@ describe('real D1 match lifecycle', () => {
     const db = createApplicationDatabaseClient(env.DB)
     await beginMatchCreation(db, catalogInput())
     await activateMatch(db, matchId)
-    const archive = completedMatchTransfer()
+    const archive = finishedMatchTransfer()
     await env.DB.prepare(
       'INSERT INTO match_protocol_archives (match_id, source_latest_seq, protocol_version, rows_json, state_json, created_at) VALUES (?, ?, ?, ?, ?, ?)',
     )
       .bind(matchId, archive.sourceLatestSeq, 1, '[]', '{}', archive.endedAt)
       .run()
-    await expect(archiveCompletedMatch(db, archive)).rejects.toThrow(MatchCompletionError)
+    await expect(archiveFinishedMatch(db, archive)).rejects.toThrow(MatchFinalizationError)
     expect(await getMatchRow(db, matchId)).toMatchObject({ status: 'active' })
     expect(
       (
@@ -280,14 +280,14 @@ describe('real D1 match lifecycle', () => {
     const db = createApplicationDatabaseClient(env.DB)
     await beginMatchCreation(db, catalogInput())
     await activateMatch(db, matchId)
-    const archive = completedMatchTransfer()
-    await archiveCompletedMatch(db, archive)
+    const archive = finishedMatchTransfer()
+    await archiveFinishedMatch(db, archive)
     const conflictingEndedAt = archive.endedAt + 1
     await env.DB.prepare('UPDATE matches SET ended_at = ? WHERE match_id = ?')
       .bind(conflictingEndedAt, matchId)
       .run()
 
-    await expect(markMatchFinished(db, archive)).rejects.toThrow(MatchCompletionError)
+    await expect(markMatchFinished(db, archive)).rejects.toThrow(MatchFinalizationError)
     expect(await getMatchRow(db, matchId)).toMatchObject({ status: 'active' })
     expect(
       (await env.DB.prepare('SELECT ended_at FROM matches WHERE match_id = ?').bind(matchId).first())
@@ -299,13 +299,13 @@ describe('real D1 match lifecycle', () => {
     const db = createApplicationDatabaseClient(env.DB)
     await beginMatchCreation(db, catalogInput())
     await activateMatch(db, matchId)
-    const first = completedMatchTransfer()
+    const first = finishedMatchTransfer()
     const conflictingTimestamp = v.parse(UnixEpochMilliseconds, first.endedAt + 1)
 
     const candidates = [
       first,
       {
-        ...completedMatchTransfer(),
+        ...finishedMatchTransfer(),
         endedAt: conflictingTimestamp,
         protocolEntries: first.protocolEntries.map((entry) => ({
           ...entry,
@@ -315,7 +315,7 @@ describe('real D1 match lifecycle', () => {
     ]
 
     const results = await Promise.allSettled(
-      candidates.map(async (candidate) => archiveCompletedMatch(db, candidate)),
+      candidates.map(async (candidate) => archiveFinishedMatch(db, candidate)),
     )
 
     expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1)
@@ -374,7 +374,7 @@ describe('real D1 match lifecycle', () => {
 
   test('rejects a persisted zero source sequence', async () => {
     const db = createApplicationDatabaseClient(env.DB)
-    const state = completedMatchTransfer().finalState
+    const state = finishedMatchTransfer().finalState
     await seedArchive('[]', JSON.stringify(state), 1, 0)
     await expect(getProtocolArchive(db, matchId)).rejects.toThrow(
       `Protocol archive storage corruption for match ${matchId}`,
