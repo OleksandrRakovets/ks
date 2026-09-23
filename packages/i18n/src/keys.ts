@@ -97,8 +97,13 @@ export const keys = {
       raceToWins: 'match.scoreboard.raceToWins',
       target: 'match.scoreboard.target',
     },
+    result: {
+      finishedTodayAt: 'match.result.finishedTodayAt',
+      finishedOnAt: 'match.result.finishedOnAt',
+    },
     sparring: {
       views: 'match.sparring.views',
+      today: 'match.sparring.today',
       liveMatches: 'match.sparring.liveMatches',
       completedMatches: 'match.sparring.completedMatches',
       noLiveMatches: 'match.sparring.noLiveMatches',

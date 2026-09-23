@@ -173,6 +173,10 @@ export const resources = {
           raceToWins: 'до {{targetFrames}} перемог',
           target: 'до\u00a0{{target}}',
         },
+        result: {
+          finishedTodayAt: 'Завершено сьогодні о {{time}}',
+          finishedOnAt: 'Завершено {{date}} о {{time}}',
+        },
         protocol: {
           balls: {
             0: 'биток',
@@ -241,6 +245,7 @@ export const resources = {
         },
         sparring: {
           views: 'Стан матчів',
+          today: 'Сьогодні',
           liveMatches: 'Наживо',
           completedMatches: 'Завершені',
           noLiveMatches: 'Активних або нещодавно завершених матчів немає.',
@@ -453,6 +458,10 @@ export const resources = {
           raceToWins: 'race to {{targetFrames}} wins',
           target: 'to\u00a0{{target}}',
         },
+        result: {
+          finishedTodayAt: 'Completed today at {{time}}',
+          finishedOnAt: 'Completed on {{date}} at {{time}}',
+        },
         protocol: {
           balls: {
             0: 'cue ball',
@@ -517,6 +526,7 @@ export const resources = {
         },
         sparring: {
           views: 'Match status',
+          today: 'Today',
           liveMatches: 'Live',
           completedMatches: 'Completed',
           noLiveMatches: 'No live or recently completed matches.',

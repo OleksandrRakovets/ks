@@ -88,6 +88,8 @@ function MatchListContent({
         <p className="text-muted-foreground">
           {t(view === 'live' ? keys.match.sparring.noLiveMatches : keys.match.sparring.noCompletedMatches)}
         </p>
+      ) : view === 'completed' ? (
+        <CompletedMatchGroups matches={matches} locale={locale} />
       ) : (
         <MatchGrid>
           {matches.map((match) => (
@@ -133,6 +135,47 @@ function MatchListContent({
         </nav>
       ) : null}
     </Page>
+  )
+}
+
+function CompletedMatchGroups({
+  matches,
+  locale,
+}: {
+  matches: readonly MatchListEntry[]
+  locale: 'uk' | 'en'
+}) {
+  const { t } = useTranslation()
+  const groups = new Map<string, MatchListEntry[]>()
+
+  for (const match of matches) {
+    const { year, month, day } = match.createdAtDate
+    const key = `${year}-${month}-${day}`
+    const group = groups.get(key)
+
+    if (group === undefined) groups.set(key, [match])
+    else group.push(match)
+  }
+
+  return (
+    <div className="space-y-6">
+      {[...groups].map(([date, group]) => {
+        const first = group[0]
+
+        return (
+          <section key={date} aria-labelledby={`matches-${date}`}>
+            <h2 id={`matches-${date}`} className="mb-2.5 text-lg font-semibold text-foreground">
+              {first.createdAtIsToday ? t(keys.match.sparring.today) : localDateLabel(first.createdAtDate)}
+            </h2>
+            <MatchGrid>
+              {group.map((match) => (
+                <MatchRow key={match.matchId} match={match} locale={locale} />
+              ))}
+            </MatchGrid>
+          </section>
+        )
+      })}
+    </div>
   )
 }
 
@@ -473,4 +516,8 @@ function matchListPagePath(locale: 'uk' | 'en', view: MatchListView, page: numbe
   const path = localizedPath(view === 'live' ? '/sparring/matches/' : '/sparring/matches/completed/', locale)
 
   return page === 1 ? path : `${path}?${new URLSearchParams({ page: String(page) })}`
+}
+
+function localDateLabel(date: MatchListEntry['createdAtDate']): string {
+  return `${date.day}.${date.month}.${date.year}`
 }

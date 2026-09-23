@@ -116,6 +116,8 @@ type ReadKeyedMatchSuccess<K extends RegisteredGameKey> = {
   ok: true
   state: MatchStateFor<K>
   latestSeq: number
+  endedAt?: FormattedInstant
+  endedAtIsToday?: boolean
   participants: HydratedMatchParticipants
   game?: GamePresentationFor<K>
   controls: readonly Control[]
@@ -224,6 +226,8 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
           shortGameTitle: registry[record.gameKey].meta.shortGameTitle[locale],
           createdAtIso: createdAt.isoString,
           createdAtLabel: matchCreatedAtLabel(createdAt, formattedNow),
+          createdAtDate: createdAt.date,
+          createdAtIsToday: isSameLocalDate(createdAt, formattedNow),
           participants,
           ...score,
         }
@@ -309,8 +313,12 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
 
     if (roomResult._tag === 'finalizing') {
       await archiveAndFinishRoom(matchId)
+      const finishedRecord = await dependencies.getMatchRecord(matchId)
 
-      return readArchivedMatch(record, locale, expectedGameKey)
+      if (finishedRecord?.status !== 'finished')
+        throw new Error('Finalized Match is missing its finished D1 projection')
+
+      return readArchivedMatch(finishedRecord, locale, expectedGameKey)
     }
 
     if (roomResult.state.matchId !== matchId || roomResult.state.gameKey !== expectedGameKey)
@@ -320,8 +328,12 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
 
     if (protocolResult._tag === 'finalizing') {
       await archiveAndFinishRoom(matchId)
+      const finishedRecord = await dependencies.getMatchRecord(matchId)
 
-      return readArchivedMatch(record, locale, expectedGameKey)
+      if (finishedRecord?.status !== 'finished')
+        throw new Error('Finalized Match is missing its finished D1 projection')
+
+      return readArchivedMatch(finishedRecord, locale, expectedGameKey)
     }
 
     if (protocolResult.state.matchId !== matchId || protocolResult.state.gameKey !== expectedGameKey)
@@ -444,12 +456,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
   }
 
   function matchCreatedAtLabel(createdAt: FormattedInstant, today: FormattedInstant): string {
-    if (
-      createdAt.date.year === today.date.year &&
-      createdAt.date.month === today.date.month &&
-      createdAt.date.day === today.date.day
-    )
-      return createdAt.time
+    if (isSameLocalDate(createdAt, today)) return createdAt.time
 
     const date = `${createdAt.date.day}.${createdAt.date.month}`
 
@@ -492,7 +499,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
   }
 
   async function readArchivedMatch<K extends RegisteredGameKey>(
-    record: MatchRecord,
+    record: Extract<MatchRecord, { status: 'finished' }>,
     locale: SupportedLocale,
     expectedGameKey: K,
   ): Promise<ReadKeyedMatchResult<K>> {
@@ -511,11 +518,15 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     const state = archive.state
 
     if (state.gameKey !== expectedGameKey) return { ok: false, error: 'Unknown match', status: 404 }
+    const endedAt = ClockFormatter.format(record.endedAt, locale, dependencies.clock.timeZone)
+    const now = ClockFormatter.format(dependencies.clock.now(), locale, dependencies.clock.timeZone)
 
     return {
       ok: true,
       state: { ...state, gameKey: expectedGameKey },
       latestSeq: archive.sourceLatestSeq,
+      endedAt,
+      endedAtIsToday: isSameLocalDate(endedAt, now),
       participants: await hydrateParticipants(record, locale),
       controls: [],
       protocolEntries: archive.entries,
@@ -527,11 +538,30 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
   ): Extract<ReadMatchControlResult<K>, { ok: true }> {
     const { game: _game, protocolEntries: _protocolEntries, ...withoutGame } = match
 
-    if (match.state.status === 'finished') return { ...withoutGame, controlState: 'finished', controls: [] }
+    if (match.state.status === 'finished') {
+      if (match.endedAt === undefined || match.endedAtIsToday === undefined)
+        throw new Error('Finished Match read is missing its completion time')
+
+      return {
+        ...withoutGame,
+        endedAt: match.endedAt,
+        endedAtIsToday: match.endedAtIsToday,
+        controlState: 'finished',
+        controls: [],
+      }
+    }
 
     return match.game
       ? { ...withoutGame, controlState: 'frame-active', game: match.game, controls: match.controls }
       : { ...withoutGame, controlState: 'between-frames', controls: match.controls }
+  }
+
+  function isSameLocalDate(left: FormattedInstant, right: FormattedInstant): boolean {
+    return (
+      left.date.year === right.date.year &&
+      left.date.month === right.date.month &&
+      left.date.day === right.date.day
+    )
   }
 
   return {

@@ -136,7 +136,11 @@ describe('real D1 match lifecycle', () => {
       otherMatchId,
     ])
 
-    const archive = completedMatchTransfer()
+    const archive = {
+      ...completedMatchTransfer(),
+      endedAt: v.parse(UnixEpochMilliseconds, 4_500),
+    }
+
     await archiveCompletedMatch(db, archive)
     expect(await getMatchRow(db, matchId)).toMatchObject({ status: 'active' })
     expect(await getProtocolArchive(db, matchId)).toMatchObject({
@@ -179,7 +183,7 @@ describe('real D1 match lifecycle', () => {
           offset: 0,
         })
       ).map((row) => row.matchId),
-    ).toEqual([newestMatchId, otherMatchId])
+    ).toEqual([newestMatchId, matchId, otherMatchId])
   })
 
   test('rejects conflicting persisted archive data without changing the active match row', async () => {

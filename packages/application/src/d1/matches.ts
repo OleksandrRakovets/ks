@@ -78,7 +78,7 @@ export async function listMatchRows(
           sql`CASE WHEN ${matches.status} = ${StoredMatchStatus.finished} THEN ${matches.endedAt} ELSE ${matches.createdAt} END DESC`,
           sql`${matches.matchId} DESC`,
         ]
-      : [sql`${matches.endedAt} DESC`, sql`${matches.matchId} DESC`]
+      : [sql`${matches.createdAt} DESC`, sql`${matches.matchId} DESC`]
 
   const rows = await db
     .select(matchRowSelection)

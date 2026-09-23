@@ -235,6 +235,8 @@ describe('trusted MatchRoom orchestration', () => {
           status: 'active',
           createdAtIso: '2023-11-14T22:13:20.000Z',
           createdAtLabel: '00:13',
+          createdAtDate: { year: '2023', month: '11', day: '15' },
+          createdAtIsToday: true,
           endedAt: null,
           latestSeq: 3,
           score,
@@ -309,6 +311,8 @@ describe('trusted MatchRoom orchestration', () => {
           status: 'finished',
           createdAtIso: '2023-11-14T22:13:20.000Z',
           createdAtLabel: '15.11',
+          createdAtDate: { year: '2023', month: '11', day: '15' },
+          createdAtIsToday: false,
           endedAt: transfer.endedAt,
           latestSeq: transfer.sourceLatestSeq,
           score: finalScore,
@@ -409,6 +413,7 @@ describe('trusted MatchRoom orchestration', () => {
 
   test('resumes archival when a control read discovers finalizing', async () => {
     const events: string[] = []
+    const nextDayClock = new FixedClock(new Date('2023-11-15T22:30:00.000Z'), 'Europe/Kyiv')
 
     const room = selectedClient({
       getControls: async () => ({ _tag: 'finalizing' }),
@@ -418,10 +423,22 @@ describe('trusted MatchRoom orchestration', () => {
       },
     })
 
-    expect(await application(room, events).readMatchControl(matchId, 'en', 'free-pyramid')).toMatchObject({
+    expect(
+      await application(room, events, { overrides: { clock: nextDayClock } }).readMatchControl(
+        matchId,
+        'en',
+        'free-pyramid',
+      ),
+    ).toMatchObject({
       ok: true,
       controlState: 'finished',
       state: { status: 'finished' },
+      endedAt: {
+        isoString: '2023-11-14T22:13:21.000Z',
+        time: '00:13',
+        date: { year: '2023', month: '11', day: '15' },
+      },
+      endedAtIsToday: false,
       controls: [],
     })
     expect(events).toEqual(['archive', 'finalize', 'finish'])

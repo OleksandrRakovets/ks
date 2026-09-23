@@ -1,6 +1,7 @@
 import { MatchCreationDefinition, type MatchStateFor, type SparringMatchRejection } from '@ks/competition'
 import {
   type Control,
+  type FormattedInstant,
   type HydratedMatchParticipants,
   type MatchCommand,
   MatchId,
@@ -55,6 +56,8 @@ type MatchListEntryIdentity = {
   shortGameTitle: string
   createdAtIso: string
   createdAtLabel: string
+  createdAtDate: FormattedInstant['date']
+  createdAtIsToday: boolean
   participants: HydratedMatchParticipants
   latestSeq: NonNegativeInteger
   score: MatchScoreProjection
@@ -152,6 +155,8 @@ export type ReadMatchControlResult<K extends RegisteredGameKey> =
       readonly controlState: 'finished'
       readonly state: MatchStateFor<K>
       readonly latestSeq: number
+      readonly endedAt: FormattedInstant
+      readonly endedAtIsToday: boolean
       readonly game?: never
       readonly controls: readonly []
       readonly participants: HydratedMatchParticipants
