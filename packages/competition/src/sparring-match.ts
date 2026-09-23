@@ -205,7 +205,7 @@ class ResidentSparringMatch implements SparringMatch {
         ? lifecycle.activeFrame.frameIndex
         : (lifecycle.completedFrames.at(-1)?.frameIndex ?? 0)
 
-    const state: MatchState = {
+    const stateWithoutConfiguration: MatchState = {
       matchId: lifecycle.config.matchId,
       gameKey: lifecycle.config.gameKey,
       targets: lifecycle.config.targets,
@@ -214,6 +214,11 @@ class ResidentSparringMatch implements SparringMatch {
       framesWonBySeat: lifecycle.framesWonBySeat,
       frames,
     }
+
+    const state: MatchState =
+      lifecycle.config.gameConfiguration === undefined
+        ? stateWithoutConfiguration
+        : { ...stateWithoutConfiguration, gameConfiguration: lifecycle.config.gameConfiguration }
 
     const matchControls: Control[] = []
 

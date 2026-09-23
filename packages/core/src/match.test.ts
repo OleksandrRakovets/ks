@@ -46,6 +46,7 @@ describe('match value schemas', () => {
       matchId: v.parse(MatchId, '01ARZ3NDEKTSV4RRFFQ69G5FAV'),
       gameKey: 'historical-game',
       targets: { frameTargetPointsBySeat: { A: 8, B: 8 }, matchTargetFrames: 1 },
+      gameConfiguration: { rackRollover: 15 },
       status: 'finished',
       currentFrameIndex: 1,
       framesWonBySeat: { A: 1, B: 0 },
@@ -53,6 +54,7 @@ describe('match value schemas', () => {
     })
 
     expect(state.gameKey).toBe('historical-game')
+    expect(state.gameConfiguration).toEqual({ rackRollover: 15 })
   })
 
   test('projects only an unfinished current Frame as active', () => {

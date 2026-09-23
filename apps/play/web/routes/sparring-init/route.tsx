@@ -1,5 +1,5 @@
 import { type CreateMatchInput, DisplayName } from '@ks/application'
-import { Seat } from '@ks/core'
+import { PositiveInteger, Seat } from '@ks/core'
 import { isRegisteredGameKey, registry } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
 import { useMemo, useState } from 'react'
@@ -29,13 +29,29 @@ import { parsePositiveInt, parseRackRollover, safeNormalizeDisplayName } from '.
 type LoaderData = {
   title: string
   profile: MatchCreateProfile
+  initialPlayerNames: { A: string; B: string }
 }
+
+const QueryPositiveInteger = v.pipe(v.string(), v.regex(/^[1-9]\d*$/), v.transform(Number), PositiveInteger)
+
+const RematchSetupQuery = v.pipe(
+  v.object({
+    seatAName: DisplayName,
+    seatBName: DisplayName,
+    matchTargetFrames: QueryPositiveInteger,
+    targetA: QueryPositiveInteger,
+    targetB: QueryPositiveInteger,
+  }),
+  v.check(({ seatAName, seatBName }) => seatAName !== seatBName),
+)
 
 export async function loader({
   params,
+  request,
   context,
 }: {
   params: { gameKey?: string }
+  request: Request
   context: AppLoadContext
 }): Promise<LoaderData> {
   const gameKey = params.gameKey
@@ -45,10 +61,73 @@ export async function loader({
   }
 
   const locale = localeFromContext(context)
+  const profile = createProfileForGame(gameKey)
+  const rematch = rematchSetupFromUrl(request.url, profile)
 
   return {
     title: registry[gameKey].meta.title[locale],
-    profile: createProfileForGame(gameKey),
+    profile: rematch === null ? profile : profileWithRematchDefaults(profile, rematch),
+    initialPlayerNames: rematch?.playerNames ?? { A: '', B: '' },
+  }
+}
+
+function rematchSetupFromUrl(
+  url: string,
+  profile: MatchCreateProfile,
+): Pick<CreateMatchInput, 'playerNames' | 'targets' | 'gameConfiguration'> | null {
+  const search = new URL(url).searchParams
+
+  if (search.get('rematch') !== '1') return null
+
+  const parsed = v.safeParse(RematchSetupQuery, {
+    seatAName: search.get('seatAName'),
+    seatBName: search.get('seatBName'),
+    matchTargetFrames: search.get('matchTargetFrames'),
+    targetA: search.get('targetA'),
+    targetB: search.get('targetB'),
+  })
+
+  if (!parsed.success) return null
+
+  if (
+    profile.matchTargetFrames.mode === 'fixed' &&
+    parsed.output.matchTargetFrames !== profile.matchTargetFrames.fixedValue
+  )
+    return null
+
+  const rackRollover = parseRackRollover(search.get('rackRollover'))
+
+  if (profile.rackRollover ? rackRollover === null : search.has('rackRollover')) return null
+
+  const rematch = {
+    playerNames: { A: parsed.output.seatAName, B: parsed.output.seatBName },
+    targets: {
+      matchTargetFrames: parsed.output.matchTargetFrames,
+      frameTargetPointsBySeat: { A: parsed.output.targetA, B: parsed.output.targetB },
+    },
+  }
+
+  return rackRollover === null ? rematch : { ...rematch, gameConfiguration: { rackRollover } }
+}
+
+function profileWithRematchDefaults(
+  profile: MatchCreateProfile,
+  rematch: Pick<CreateMatchInput, 'playerNames' | 'targets' | 'gameConfiguration'>,
+): MatchCreateProfile {
+  const defaults: MatchCreateProfile = {
+    ...profile,
+    defaultFrameTargetPointsBySeat: rematch.targets.frameTargetPointsBySeat,
+    matchTargetFrames:
+      profile.matchTargetFrames.mode === 'fixed'
+        ? profile.matchTargetFrames
+        : { ...profile.matchTargetFrames, defaultValue: rematch.targets.matchTargetFrames },
+  }
+
+  if (!profile.rackRollover || !rematch.gameConfiguration?.rackRollover) return defaults
+
+  return {
+    ...defaults,
+    rackRollover: { ...profile.rackRollover, defaultValue: rematch.gameConfiguration.rackRollover },
   }
 }
 
@@ -149,14 +228,17 @@ function throwInvalidSetup(): never {
 export default function SparringInitRoute() {
   const { t } = useTranslation()
   const locale = useRootLocale()
-  const { profile, title } = useLoaderData<typeof loader>()
+  const { initialPlayerNames, profile, title } = useLoaderData<typeof loader>()
   const navigation = useNavigation()
   const isPending = navigation.state !== 'idle'
   const recentPlayers = useRecentPlayers()
-  const [seatAName, setSeatAName] = useState('')
-  const [seatBName, setSeatBName] = useState('')
+  const [seatAName, setSeatAName] = useState(initialPlayerNames.A)
+  const [seatBName, setSeatBName] = useState(initialPlayerNames.B)
   const [firstBreakerSeat, setFirstBreakerSeat] = useState<Seat | null>(null)
-  const [hasValidInputs, setHasValidInputs] = useState(false)
+
+  const [hasValidInputs, setHasValidInputs] = useState(
+    initialPlayerNames.A.length > 0 && initialPlayerNames.B.length > 0,
+  )
 
   const normalizedSeatAName = safeNormalizeDisplayName(seatAName)
   const normalizedSeatBName = safeNormalizeDisplayName(seatBName)

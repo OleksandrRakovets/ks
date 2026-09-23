@@ -4,7 +4,7 @@ import { Link } from 'react-router'
 import { Page } from '@/components/Page'
 import { Badge, Card, CardFooter, CardHeader, CardTitle } from '@/components/ui'
 
-import { localizedPath } from '../locale'
+import { matchSetupUrl } from '../features/match-urls'
 import { useRootLocale } from '../root'
 
 export default function SparringRoute() {
@@ -147,7 +147,7 @@ function GameCard({
     >
       {playable ? (
         <Link
-          to={localizedPath(`/sparring/init/${gameKey}/`, locale)}
+          to={matchSetupUrl(gameKey, locale)}
           aria-label={playLabel}
           className="absolute inset-0 z-10 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset"
         />

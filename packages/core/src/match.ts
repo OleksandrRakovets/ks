@@ -115,6 +115,7 @@ export const MatchState = v.pipe(
     matchId: MatchId,
     gameKey: GameKey,
     targets: MatchTargets,
+    gameConfiguration: v.optional(GameConfiguration),
     status: v.picklist(['active', 'finished']),
     currentFrameIndex: NonNegativeInteger,
     framesWonBySeat: BySeatNumber,
