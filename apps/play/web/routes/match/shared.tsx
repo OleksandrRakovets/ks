@@ -284,6 +284,13 @@ export function useControlLiveRevalidation(
   useEffect(() => {
     if (state.status !== 'active') return undefined
 
+    function catchUp() {
+      if (document.visibilityState !== 'visible' || revalidatorStateRef.current !== 'idle') return
+
+      revalidatorStateRef.current = 'loading'
+      void revalidateRef.current()
+    }
+
     const subscription = subscribeSparringMatchLive({
       matchId: state.matchId,
       pageKind: 'control',
@@ -306,7 +313,14 @@ export function useControlLiveRevalidation(
       },
     })
 
-    return () => subscription.stop()
+    document.addEventListener('visibilitychange', catchUp)
+    window.addEventListener('focus', catchUp)
+
+    return () => {
+      document.removeEventListener('visibilitychange', catchUp)
+      window.removeEventListener('focus', catchUp)
+      subscription.stop()
+    }
   }, [state.matchId, state.status])
 
   return () => {
@@ -343,6 +357,13 @@ export function useProtocolLiveRevalidation(state: MatchState, latestSeq: number
   useEffect(() => {
     if (state.status !== 'active') return undefined
 
+    function catchUp() {
+      if (document.visibilityState !== 'visible' || revalidatorStateRef.current !== 'idle') return
+
+      revalidatorStateRef.current = 'loading'
+      void revalidateRef.current()
+    }
+
     const subscription = subscribeSparringMatchLive({
       matchId: state.matchId,
       pageKind: 'protocol',
@@ -360,6 +381,13 @@ export function useProtocolLiveRevalidation(state: MatchState, latestSeq: number
       },
     })
 
-    return () => subscription.stop()
+    document.addEventListener('visibilitychange', catchUp)
+    window.addEventListener('focus', catchUp)
+
+    return () => {
+      document.removeEventListener('visibilitychange', catchUp)
+      window.removeEventListener('focus', catchUp)
+      subscription.stop()
+    }
   }, [state.matchId, state.status])
 }
