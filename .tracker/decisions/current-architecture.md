@@ -87,15 +87,18 @@ The generated control secret is stored in MatchRoom but is not exposed or checke
 
 ## Match List Score Reads
 
-The live Match list loader reads Active Matches followed by Matches completed in the last 15 minutes;
-the completed loader reads only finished Matches. Both use offset-based pages of 10 rows and Match ID
-as a deterministic tie-breaker. One extra D1 row determines `hasNextPage` without triggering
-participant hydration or MatchRoom reads. Application reads compact finished scores directly from
-returned D1 rows and asks each selected Active MatchRoom for a coherent score and Accepted Command
-cursor. A room found finalizing resumes the existing completion orchestration before the list result
-is returned. The completed path neither selects MatchRoom nor starts browser polling.
+The live Match list use case reads Active Matches followed by Matches completed in the last 15
+minutes; the completed use case reads only finished Matches started on one selected local calendar
+day. The live list has no row cap. `/sparring/matches/completed/:day?/` defaults to the newest
+occupied day and reads all finished rows in its UTC day interval; two single-row seeks against the
+`(status, created_at, match_id)` index discover adjacent occupied days without scanning empty dates.
+The application's Clock timezone defines day boundaries, including DST transitions, and Match ID
+breaks ties within a start timestamp. Application reads compact finished scores directly from D1
+rows and asks each selected Active MatchRoom for a coherent score and Accepted Command cursor. A room
+found finalizing resumes the existing completion orchestration before the list result is returned.
+The completed path neither selects MatchRoom nor starts browser polling.
 
-Play exposes `GET /api/sparring-matches/scores/` for bounded polling of 1–10 unique Match IDs.
+Play exposes `GET /api/sparring-matches/live-scores/` for polling unique Active Match IDs.
 Application batch-reads their D1 lifecycle, reads Active MatchRooms in parallel, preserves request
 order, and returns replacement score projections rather than command deltas. The live list polls this
 endpoint approximately every 30 seconds while it contains Active Matches; the completed list does

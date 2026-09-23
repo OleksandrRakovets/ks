@@ -1,6 +1,6 @@
 import { MatchId, MatchScoreProjection, NonNegativeInteger, PlayerRef, UnixEpochMilliseconds } from '@ks/core'
 import { RegisteredGameKey } from '@ks/gameplay/definitions'
-import { and, eq, gte, inArray, or, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, inArray, lt, or, sql } from 'drizzle-orm'
 import * as v from 'valibot'
 
 import { matches, StoredMatchStatus } from './schema'
@@ -56,39 +56,65 @@ const matchRowSelection = {
   finalScore: matches.finalScoreJson,
 }
 
-export async function listMatchRows(
-  db: ApplicationDatabase,
-  input: { readonly limit: number; readonly offset: number } & (
-    | { readonly scope: 'live'; readonly completedSince: UnixEpochMilliseconds }
-    | { readonly scope: 'completed' }
-  ),
-) {
-  const where =
-    input.scope === 'live'
-      ? or(
-          eq(matches.status, StoredMatchStatus.active),
-          and(eq(matches.status, StoredMatchStatus.finished), gte(matches.endedAt, input.completedSince)),
-        )
-      : eq(matches.status, StoredMatchStatus.finished)
-
-  const ordering =
-    input.scope === 'live'
-      ? [
-          sql`CASE WHEN ${matches.status} = ${StoredMatchStatus.finished} THEN 1 ELSE 0 END`,
-          sql`CASE WHEN ${matches.status} = ${StoredMatchStatus.finished} THEN ${matches.endedAt} ELSE ${matches.createdAt} END DESC`,
-          sql`${matches.matchId} DESC`,
-        ]
-      : [sql`${matches.createdAt} DESC`, sql`${matches.matchId} DESC`]
-
+export async function listLiveMatchRows(db: ApplicationDatabase, completedSince: UnixEpochMilliseconds) {
   const rows = await db
     .select(matchRowSelection)
     .from(matches)
-    .where(where)
-    .orderBy(...ordering)
-    .limit(input.limit)
-    .offset(input.offset)
+    .where(
+      or(
+        eq(matches.status, StoredMatchStatus.active),
+        and(eq(matches.status, StoredMatchStatus.finished), gte(matches.endedAt, completedSince)),
+      ),
+    )
+    .orderBy(
+      sql`CASE WHEN ${matches.status} = ${StoredMatchStatus.finished} THEN 1 ELSE 0 END`,
+      sql`CASE WHEN ${matches.status} = ${StoredMatchStatus.finished} THEN ${matches.endedAt} ELSE ${matches.createdAt} END DESC`,
+      sql`${matches.matchId} DESC`,
+    )
 
   return rows.map((row) => v.parse(MatchRow, row))
+}
+
+export async function listCompletedMatchRows(
+  db: ApplicationDatabase,
+  range: { readonly start: UnixEpochMilliseconds; readonly end: UnixEpochMilliseconds },
+) {
+  const rows = await db
+    .select(matchRowSelection)
+    .from(matches)
+    .where(
+      and(
+        eq(matches.status, StoredMatchStatus.finished),
+        gte(matches.createdAt, range.start),
+        lt(matches.createdAt, range.end),
+      ),
+    )
+    .orderBy(sql`${matches.createdAt} DESC`, sql`${matches.matchId} DESC`)
+
+  return rows.map((row) => v.parse(MatchRow, row))
+}
+
+/** Find one occupied completed-match day on either side of a UTC day boundary. */
+export async function findCompletedMatchTime(
+  db: ApplicationDatabase,
+  input: { readonly before: UnixEpochMilliseconds } | { readonly from: UnixEpochMilliseconds },
+): Promise<UnixEpochMilliseconds | null> {
+  const older = 'before' in input
+
+  const row = await db
+    .select({ createdAt: matches.createdAt })
+    .from(matches)
+    .where(
+      and(
+        eq(matches.status, StoredMatchStatus.finished),
+        older ? lt(matches.createdAt, input.before) : gte(matches.createdAt, input.from),
+      ),
+    )
+    .orderBy(older ? desc(matches.createdAt) : asc(matches.createdAt))
+    .limit(1)
+    .get()
+
+  return row?.createdAt ?? null
 }
 
 export async function getMatchRow(db: ApplicationDatabase, matchId: MatchId) {

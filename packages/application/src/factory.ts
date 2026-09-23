@@ -4,7 +4,13 @@ import { type Clock, newMatchId } from '@ks/core'
 import { archiveCompletedMatch, markMatchFinished } from './d1/completed-matches'
 import { getOrCreateGuestPlayerRef } from './d1/guest-players'
 import { activateMatch, beginMatchCreation } from './d1/match-lifecycle'
-import { getMatchRow, getMatchRows, listMatchRows } from './d1/matches'
+import {
+  findCompletedMatchTime,
+  getMatchRow,
+  getMatchRows,
+  listCompletedMatchRows,
+  listLiveMatchRows,
+} from './d1/matches'
 import { hydrateParticipant } from './d1/players'
 import { getProtocolArchive } from './d1/protocol-archives'
 import { createApplicationDatabaseClient } from './d1/types'
@@ -59,7 +65,10 @@ export function createApplication(bindings: ApplicationBindings, clock: Clock) {
     newControlSecret,
     getOrCreateGuestPlayerRef: async (displayName) => getOrCreateGuestPlayerRef(db, displayName),
     hydrateParticipant: async (playerRef, locale) => hydrateParticipant(db, playerRef, locale),
-    listMatchRecords: async (query) => (await listMatchRows(db, query)).map(matchRecordFromRow),
+    listLiveMatchRecords: async (since) => (await listLiveMatchRows(db, since)).map(matchRecordFromRow),
+    listCompletedMatchRecords: async (range) =>
+      (await listCompletedMatchRows(db, range)).map(matchRecordFromRow),
+    findCompletedMatchTime: async (query) => findCompletedMatchTime(db, query),
     getMatchRecord: async (matchId) => {
       const row = await getMatchRow(db, matchId)
 

@@ -14,7 +14,12 @@ import { beforeEach, describe, expect, test } from 'vitest'
 
 import { archiveCompletedMatch, markMatchFinished, MatchCompletionError } from '../../src/d1/completed-matches'
 import { activateMatch, type ActiveMatchCatalogInput, beginMatchCreation } from '../../src/d1/match-lifecycle'
-import { getMatchRow, listMatchRows } from '../../src/d1/matches'
+import {
+  findCompletedMatchTime,
+  getMatchRow,
+  listCompletedMatchRows,
+  listLiveMatchRows,
+} from '../../src/d1/matches'
 import { getProtocolArchive } from '../../src/d1/protocol-archives'
 import { createApplicationDatabaseClient } from '../../src/d1/types'
 import type { MatchRoomCompletionTransfer } from '../../src/match-room-client'
@@ -122,19 +127,9 @@ describe('real D1 match lifecycle', () => {
 
     expect(await getMatchRow(db, matchId)).toMatchObject({ matchId, status: 'active' })
 
-    const liveQuery = {
-      scope: 'live' as const,
-      completedSince: v.parse(UnixEpochMilliseconds, 0),
-      limit: 2,
-    }
-
-    expect((await listMatchRows(db, { ...liveQuery, offset: 0 })).map((row) => row.matchId)).toEqual([
-      newestMatchId,
-      matchId,
-    ])
-    expect((await listMatchRows(db, { ...liveQuery, offset: 2 })).map((row) => row.matchId)).toEqual([
-      otherMatchId,
-    ])
+    expect((await listLiveMatchRows(db, v.parse(UnixEpochMilliseconds, 0))).map((row) => row.matchId)).toEqual(
+      [newestMatchId, matchId, otherMatchId],
+    )
 
     const archive = {
       ...completedMatchTransfer(),
@@ -172,17 +167,17 @@ describe('real D1 match lifecycle', () => {
         ?.ended_at,
     ).toBe(archive.endedAt)
     expect(
-      (await listMatchRows(db, { scope: 'completed', limit: 10, offset: 0 })).map((row) => row.matchId),
-    ).toEqual([otherMatchId, matchId])
-    expect(
       (
-        await listMatchRows(db, {
-          scope: 'live',
-          completedSince: v.parse(UnixEpochMilliseconds, 3_000),
-          limit: 10,
-          offset: 0,
+        await listCompletedMatchRows(db, {
+          start: createdAt,
+          end: v.parse(UnixEpochMilliseconds, 4_000),
         })
       ).map((row) => row.matchId),
+    ).toEqual([otherMatchId, matchId])
+    expect(await findCompletedMatchTime(db, { before: v.parse(UnixEpochMilliseconds, 3_000) })).toBe(createdAt)
+    expect(await findCompletedMatchTime(db, { from: v.parse(UnixEpochMilliseconds, 2_000) })).toBe(3_000)
+    expect(
+      (await listLiveMatchRows(db, v.parse(UnixEpochMilliseconds, 3_000))).map((row) => row.matchId),
     ).toEqual([newestMatchId, matchId, otherMatchId])
   })
 

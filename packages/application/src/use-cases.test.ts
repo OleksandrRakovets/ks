@@ -10,7 +10,7 @@ import {
 } from '@ks/core'
 import * as v from 'valibot'
 
-import { RECENT_COMPLETED_MATCH_WINDOW_MS } from './contracts'
+import { MatchScorePollResponse, RECENT_COMPLETED_MATCH_WINDOW_MS } from './contracts'
 import type { MatchRoomClient, MatchRoomCompletionTransfer } from './match-room-client'
 import { createApplicationWithDependencies } from './use-cases'
 
@@ -102,7 +102,9 @@ function application(
       displayName: playerRef,
       shortDisplayName: playerRef,
     }),
-    listMatchRecords: async () => [],
+    listLiveMatchRecords: async () => [],
+    listCompletedMatchRecords: async () => [],
+    findCompletedMatchTime: async () => null,
     getMatchRecord: async () => matchRecord(),
     getMatchRecords: async () => [matchRecord()],
     getProtocolArchive: async () => ({
@@ -209,13 +211,8 @@ describe('trusted MatchRoom orchestration', () => {
 
     const app = application(room, [], {
       overrides: {
-        listMatchRecords: async (query) => {
-          expect(query).toEqual({
-            scope: 'live',
-            completedSince: v.parse(UnixEpochMilliseconds, createdAt - RECENT_COMPLETED_MATCH_WINDOW_MS),
-            limit: 11,
-            offset: 0,
-          })
+        listLiveMatchRecords: async (since) => {
+          expect(since).toBe(v.parse(UnixEpochMilliseconds, createdAt - RECENT_COMPLETED_MATCH_WINDOW_MS))
 
           return [
             {
@@ -230,7 +227,7 @@ describe('trusted MatchRoom orchestration', () => {
       },
     })
 
-    expect(await app.listMatches('live', 'en')).toMatchObject({
+    expect(await app.listLiveMatches('en')).toMatchObject({
       matches: [
         {
           matchId,
@@ -244,8 +241,7 @@ describe('trusted MatchRoom orchestration', () => {
           score,
         },
       ],
-      page: 1,
-      hasNextPage: false,
+      scope: 'live',
     })
     expect(await app.readMatchScores([matchId])).toEqual({
       ok: true,
@@ -259,7 +255,7 @@ describe('trusted MatchRoom orchestration', () => {
 
     const app = application(selectedClient(), [], {
       overrides: {
-        listMatchRecords: async () => [
+        listLiveMatchRecords: async () => [
           {
             matchId,
             gameKey: 'free-pyramid',
@@ -274,7 +270,7 @@ describe('trusted MatchRoom orchestration', () => {
       },
     })
 
-    expect(await app.listMatches('live', 'en')).toMatchObject({
+    expect(await app.listLiveMatches('en')).toMatchObject({
       recentCompletionExpiresAfterMs: 10 * 60 * 1_000,
     })
   })
@@ -287,8 +283,16 @@ describe('trusted MatchRoom orchestration', () => {
     const app = application(selectedClient(), [], {
       overrides: {
         clock: nextDayClock,
-        listMatchRecords: async (query) => {
-          expect(query).toEqual({ scope: 'completed', limit: 11, offset: 0 })
+        findCompletedMatchTime: async (query) => {
+          if ('before' in query && query.before === Number.MAX_SAFE_INTEGER) return createdAt
+
+          return null
+        },
+        listCompletedMatchRecords: async (range) => {
+          expect(range).toEqual({
+            start: v.parse(UnixEpochMilliseconds, Date.parse('2023-11-14T22:00:00Z')),
+            end: v.parse(UnixEpochMilliseconds, Date.parse('2023-11-15T22:00:00Z')),
+          })
 
           return [
             {
@@ -306,13 +310,13 @@ describe('trusted MatchRoom orchestration', () => {
       },
     })
 
-    expect(await app.listMatches('completed', 'en')).toMatchObject({
+    expect(await app.listCompletedMatches('en')).toMatchObject({
       matches: [
         {
           matchId,
           status: 'finished',
           createdAtIso: '2023-11-14T22:13:20.000Z',
-          createdAtLabel: '15.11',
+          createdAtLabel: '00:13',
           createdAtDate: { year: '2023', month: '11', day: '15' },
           createdAtIsToday: false,
           endedAt: transfer.endedAt,
@@ -320,9 +324,76 @@ describe('trusted MatchRoom orchestration', () => {
           score: finalScore,
         },
       ],
-      page: 1,
-      hasNextPage: false,
+      scope: 'completed',
+      day: '2023-11-15',
+      previousDay: null,
+      nextDay: null,
+      isToday: false,
     })
+  })
+
+  test('skips calendar gaps using only the two indexed neighboring instants', async () => {
+    const selected = '2023-11-20'
+    const before = v.parse(UnixEpochMilliseconds, Date.parse('2023-11-19T22:00:00Z'))
+    const from = v.parse(UnixEpochMilliseconds, Date.parse('2023-11-20T22:00:00Z'))
+    const newer = v.parse(UnixEpochMilliseconds, Date.parse('2023-11-25T23:00:00Z'))
+    const seeks: unknown[] = []
+
+    const app = application(selectedClient(), [], {
+      overrides: {
+        listCompletedMatchRecords: async (range) => {
+          expect(range).toEqual({ start: before, end: from })
+
+          return []
+        },
+        findCompletedMatchTime: async (query) => {
+          seeks.push(query)
+
+          return 'before' in query ? createdAt : newer
+        },
+      },
+    })
+
+    expect(await app.listCompletedMatches('en', selected)).toEqual({
+      scope: 'completed',
+      matches: [],
+      day: selected,
+      previousDay: '2023-11-15',
+      nextDay: '2023-11-26',
+      isToday: false,
+    })
+    expect(seeks).toEqual([{ before }, { from }])
+  })
+
+  test('polls more than ten finished score projections without truncating or reordering them', async () => {
+    const ids = Array.from({ length: 12 }, (_, index) =>
+      v.parse(MatchId, `${matchId.slice(0, 24)}${String(index).padStart(2, '0')}`),
+    )
+
+    const finalScore = projectMatchScore(transfer.finalState)
+
+    const app = application(selectedClient(), [], {
+      overrides: {
+        getMatchRecords: async (requested) =>
+          requested.map((id) => ({
+            matchId: id,
+            gameKey: 'free-pyramid',
+            status: 'finished' as const,
+            createdAt,
+            endedAt: transfer.endedAt,
+            participantRefs: { A: playerRefA, B: playerRefB },
+            finalSourceLatestSeq: transfer.sourceLatestSeq,
+            finalScore,
+          })),
+      },
+    })
+
+    const result = await app.readMatchScores(ids)
+    expect(result.ok).toBe(true)
+
+    if (!result.ok) return
+    expect(result.matches.map((match) => match.matchId)).toEqual(ids)
+    expect(v.safeParse(MatchScorePollResponse, { matches: result.matches }).success).toBe(true)
   })
 
   test('reads Protocol and Control projections at the Control cursor', async () => {

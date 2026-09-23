@@ -19,11 +19,12 @@ import * as v from 'valibot'
 
 import type {
   Application,
+  CompletedMatchListPage,
   CreateMatchResult,
   HydratedMatchParticipants,
+  LiveMatchListPage,
+  MatchListDay,
   MatchListEntry,
-  MatchListPage,
-  MatchListScope,
   MatchScorePollEntry,
   ReadMatchFailure,
   ReadMatchProtocolResult,
@@ -31,13 +32,7 @@ import type {
   ReadMatchScoresResult,
   SubmitMatchCommandResult,
 } from './contracts'
-import {
-  CreateMatchInput,
-  MATCH_LIST_DEFAULT_PAGE_SIZE,
-  MATCH_SCORE_POLL_MAX_MATCHES,
-  MatchListPagination,
-  RECENT_COMPLETED_MATCH_WINDOW_MS,
-} from './contracts'
+import { CreateMatchInput, RECENT_COMPLETED_MATCH_WINDOW_MS } from './contracts'
 import type {
   MatchRoomClient,
   MatchRoomCompletionTransfer,
@@ -69,10 +64,6 @@ type MatchRecord =
       finalScore: MatchScoreProjection
     })
 
-type MatchListRecordQuery =
-  | { readonly scope: 'live'; readonly completedSince: UnixEpochMilliseconds }
-  | { readonly scope: 'completed' }
-
 type MatchListScore =
   | {
       readonly status: 'active'
@@ -93,9 +84,14 @@ type ApplicationDependencies = {
   newControlSecret(): string
   getOrCreateGuestPlayerRef(displayName: string): Promise<PlayerRef>
   hydrateParticipant(playerRef: PlayerRef, locale: SupportedLocale): Promise<HydratedMatchParticipant>
-  listMatchRecords(
-    input: MatchListRecordQuery & { readonly limit: number; readonly offset: number },
-  ): Promise<MatchRecord[]>
+  listLiveMatchRecords(completedSince: UnixEpochMilliseconds): Promise<MatchRecord[]>
+  listCompletedMatchRecords(range: {
+    readonly start: UnixEpochMilliseconds
+    readonly end: UnixEpochMilliseconds
+  }): Promise<MatchRecord[]>
+  findCompletedMatchTime(
+    input: { readonly before: UnixEpochMilliseconds } | { readonly from: UnixEpochMilliseconds },
+  ): Promise<UnixEpochMilliseconds | null>
   getMatchRecord(matchId: MatchId): Promise<MatchRecord | null>
   getMatchRecords(matchIds: readonly MatchId[]): Promise<MatchRecord[]>
   getProtocolArchive(matchId: MatchId): Promise<ProtocolArchiveRecord | null>
@@ -183,36 +179,80 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     return { ok: true, matchId }
   }
 
-  async function listMatches(
-    scope: MatchListScope,
-    locale: SupportedLocale,
-    pagination?: MatchListPagination,
-  ): Promise<MatchListPage> {
-    const { page } = v.parse(MatchListPagination, pagination ?? {})
+  async function listLiveMatches(locale: SupportedLocale): Promise<LiveMatchListPage> {
     const now = dependencies.clock.now()
-
-    const query: MatchListRecordQuery =
-      scope === 'live'
-        ? {
-            scope,
-            completedSince: v.parse(
-              UnixEpochMilliseconds,
-              Math.max(0, now - RECENT_COMPLETED_MATCH_WINDOW_MS),
-            ),
-          }
-        : { scope }
-
-    const records = await dependencies.listMatchRecords({
-      ...query,
-      limit: MATCH_LIST_DEFAULT_PAGE_SIZE + 1,
-      offset: (page - 1) * MATCH_LIST_DEFAULT_PAGE_SIZE,
-    })
-
-    const pageRecords = records.slice(0, MATCH_LIST_DEFAULT_PAGE_SIZE)
     const formattedNow = ClockFormatter.format(now, locale, dependencies.clock.timeZone)
 
-    const matches: MatchListEntry[] = await Promise.all(
-      pageRecords.map(async (record) => {
+    const records = await dependencies.listLiveMatchRecords(
+      v.parse(UnixEpochMilliseconds, Math.max(0, now - RECENT_COMPLETED_MATCH_WINDOW_MS)),
+    )
+
+    const matches = await projectListEntries(records, locale, formattedNow, (createdAt) =>
+      matchCreatedAtLabel(createdAt, formattedNow),
+    )
+
+    const earliestRecentCompletionExpiry = matches.reduce<number | undefined>((earliest, match) => {
+      if (match.status !== 'finished') return earliest
+      const expiresAt = match.endedAt + RECENT_COMPLETED_MATCH_WINDOW_MS
+
+      return earliest === undefined ? expiresAt : Math.min(earliest, expiresAt)
+    }, undefined)
+
+    return earliestRecentCompletionExpiry === undefined
+      ? { scope: 'live', matches }
+      : {
+          scope: 'live',
+          matches,
+          recentCompletionExpiresAfterMs: Math.max(0, earliestRecentCompletionExpiry - now),
+        }
+  }
+
+  async function listCompletedMatches(
+    locale: SupportedLocale,
+    requestedDay?: MatchListDay,
+  ): Promise<CompletedMatchListPage> {
+    const now = dependencies.clock.now()
+    const formattedNow = ClockFormatter.format(now, locale, dependencies.clock.timeZone)
+
+    const latest =
+      requestedDay === undefined
+        ? await dependencies.findCompletedMatchTime({
+            before: v.parse(UnixEpochMilliseconds, Number.MAX_SAFE_INTEGER),
+          })
+        : null
+
+    const day = requestedDay ?? (latest === null ? null : localDay(latest, locale))
+
+    if (day === null)
+      return { scope: 'completed', matches: [], day: null, previousDay: null, nextDay: null, isToday: false }
+
+    const range = dependencies.clock.dayRange(day)
+    const records = await dependencies.listCompletedMatchRecords(range)
+    const matches = await projectListEntries(records, locale, formattedNow, (createdAt) => createdAt.time)
+
+    const [previous, next] = await Promise.all([
+      dependencies.findCompletedMatchTime({ before: range.start }),
+      dependencies.findCompletedMatchTime({ from: range.end }),
+    ])
+
+    return {
+      scope: 'completed',
+      matches,
+      day,
+      previousDay: previous === null ? null : localDay(previous, locale),
+      nextDay: next === null ? null : localDay(next, locale),
+      isToday: day === localDay(now, locale),
+    }
+  }
+
+  async function projectListEntries(
+    records: readonly MatchRecord[],
+    locale: SupportedLocale,
+    formattedNow: FormattedInstant,
+    label: (createdAt: FormattedInstant) => string,
+  ): Promise<MatchListEntry[]> {
+    return Promise.all(
+      records.map(async (record) => {
         const [score, participants] = await Promise.all([
           readMatchScoreForList(record),
           hydrateParticipants(record, locale),
@@ -225,7 +265,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
           gameKey: record.gameKey,
           shortGameTitle: registry[record.gameKey].meta.shortGameTitle[locale],
           createdAtIso: createdAt.isoString,
-          createdAtLabel: matchCreatedAtLabel(createdAt, formattedNow),
+          createdAtLabel: label(createdAt),
           createdAtDate: createdAt.date,
           createdAtIsToday: isSameLocalDate(createdAt, formattedNow),
           participants,
@@ -233,38 +273,17 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
         }
       }),
     )
+  }
 
-    const earliestRecentCompletionExpiry =
-      scope === 'live'
-        ? matches.reduce<number | undefined>((earliest, match) => {
-            if (match.status !== 'finished') return earliest
-            const expiresAt = match.endedAt + RECENT_COMPLETED_MATCH_WINDOW_MS
+  function localDay(instant: UnixEpochMilliseconds, locale: SupportedLocale): MatchListDay {
+    const { year, month, day } = ClockFormatter.format(instant, locale, dependencies.clock.timeZone).date
 
-            return earliest === undefined ? expiresAt : Math.min(earliest, expiresAt)
-          }, undefined)
-        : undefined
-
-    const result = {
-      matches,
-      page,
-      hasNextPage: records.length > MATCH_LIST_DEFAULT_PAGE_SIZE,
-    }
-
-    if (earliestRecentCompletionExpiry === undefined) return result
-
-    return {
-      ...result,
-      recentCompletionExpiresAfterMs: Math.max(0, earliestRecentCompletionExpiry - now),
-    }
+    return `${year}-${month}-${day}`
   }
 
   async function readMatchScores(matchIds: readonly MatchId[]): Promise<ReadMatchScoresResult> {
-    if (
-      matchIds.length < 1 ||
-      matchIds.length > MATCH_SCORE_POLL_MAX_MATCHES ||
-      new Set(matchIds).size !== matchIds.length
-    )
-      throw new Error(`Match score batch must contain 1 to ${MATCH_SCORE_POLL_MAX_MATCHES} unique Matches`)
+    if (matchIds.length < 1 || new Set(matchIds).size !== matchIds.length)
+      throw new Error('Match score batch must contain unique Matches')
 
     const recordsById = new Map(
       (await dependencies.getMatchRecords(matchIds)).map((record) => [record.matchId, record]),
@@ -586,7 +605,8 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
 
   return {
     createMatch,
-    listMatches,
+    listLiveMatches,
+    listCompletedMatches,
     readMatchScores,
     readMatch,
     submitMatchCommand,

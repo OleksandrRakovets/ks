@@ -1,24 +1,15 @@
-import { MATCH_SCORE_POLL_MAX_MATCHES } from '@ks/application'
 import { MatchId } from '@ks/core'
 import * as v from 'valibot'
 
 import { requireApplication } from '../server/context'
-import type { Route } from './+types/api-sparring-match-scores'
+import type { Route } from './+types/api-sparring-match-live-scores'
 
 export async function loader({ request, context }: Route.LoaderArgs) {
   const url = new URL(request.url)
   const values = url.searchParams.getAll('matchId')
 
-  if (
-    values.length < 1 ||
-    values.length > MATCH_SCORE_POLL_MAX_MATCHES ||
-    url.searchParams.size !== values.length ||
-    new Set(values).size !== values.length
-  )
-    return Response.json(
-      { error: `Expected 1 to ${MATCH_SCORE_POLL_MAX_MATCHES} unique Match IDs` },
-      { status: 400 },
-    )
+  if (values.length < 1 || url.searchParams.size !== values.length || new Set(values).size !== values.length)
+    return Response.json({ error: 'Expected unique Match IDs' }, { status: 400 })
   const matchIds = v.safeParse(v.array(MatchId), values)
 
   if (!matchIds.success) return Response.json({ error: 'Invalid Match ID' }, { status: 400 })

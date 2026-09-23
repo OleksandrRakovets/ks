@@ -84,12 +84,20 @@ function MatchListContent({
 
   return (
     <Page title={t(keys.nav.matches)} headerAction={<MatchListViewToggle view={view} locale={locale} />}>
+      {page.scope === 'completed' && page.day !== null ? (
+        <CompletedDayNavigation page={page} locale={locale} heading />
+      ) : null}
+
       {matches.length === 0 ? (
         <p className="text-muted-foreground">
-          {t(view === 'live' ? keys.match.sparring.noLiveMatches : keys.match.sparring.noCompletedMatches)}
+          {t(
+            view === 'live'
+              ? keys.match.sparring.noLiveMatches
+              : page.scope === 'completed' && page.day !== null
+                ? keys.match.sparring.noCompletedMatchesOnDay
+                : keys.match.sparring.noCompletedMatches,
+          )}
         </p>
-      ) : view === 'completed' ? (
-        <CompletedMatchGroups matches={matches} locale={locale} />
       ) : (
         <MatchGrid>
           {matches.map((match) => (
@@ -98,84 +106,82 @@ function MatchListContent({
         </MatchGrid>
       )}
 
-      {page.page > 1 || page.hasNextPage ? (
-        <nav
-          aria-label={t(keys.match.sparring.pagination)}
-          className="grid grid-cols-[1fr_auto_1fr] items-center gap-3"
-        >
-          {page.page > 1 ? (
-            <Button
-              nativeButton={false}
-              render={<Link to={matchListPagePath(locale, view, page.page - 1)} prefetch="intent" />}
-              variant="outline"
-              size="touch"
-              className="justify-self-start"
-            >
-              {t(keys.match.sparring.previousPage)}
-            </Button>
-          ) : (
-            <span />
-          )}
-          <span className="text-muted-foreground tabular-nums">
-            {t(keys.match.sparring.pageNumber, { page: page.page })}
-          </span>
-          {page.hasNextPage ? (
-            <Button
-              nativeButton={false}
-              render={<Link to={matchListPagePath(locale, view, page.page + 1)} prefetch="intent" />}
-              variant="outline"
-              size="touch"
-              className="justify-self-end"
-            >
-              {t(keys.match.sparring.nextPage)}
-            </Button>
-          ) : (
-            <span />
-          )}
-        </nav>
+      {page.scope === 'completed' && page.day !== null && matches.length > 10 ? (
+        <CompletedDayNavigation page={page} locale={locale} />
       ) : null}
     </Page>
   )
 }
 
-function CompletedMatchGroups({
-  matches,
+function CompletedDayNavigation({
+  page,
   locale,
+  heading = false,
 }: {
-  matches: readonly MatchListEntry[]
+  page: Extract<MatchListPageData, { scope: 'completed' }>
   locale: 'uk' | 'en'
+  heading?: boolean
 }) {
   const { t } = useTranslation()
-  const groups = new Map<string, MatchListEntry[]>()
 
-  for (const match of matches) {
-    const { year, month, day } = match.createdAtDate
-    const key = `${year}-${month}-${day}`
-    const group = groups.get(key)
+  if (page.day === null) return null
 
-    if (group === undefined) groups.set(key, [match])
-    else group.push(match)
-  }
+  const date = page.day
+  const label = page.isToday ? t(keys.match.sparring.today) : localDateLabel(date)
 
   return (
-    <div className="space-y-6">
-      {[...groups].map(([date, group]) => {
-        const first = group[0]
+    <nav aria-label={t(keys.match.sparring.days)} className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+      {page.previousDay === null ? (
+        <span />
+      ) : (
+        <Button
+          nativeButton={false}
+          render={<Link to={matchListDayPath(locale, page.previousDay)} prefetch="intent" />}
+          variant="outline"
+          size="touch"
+          className="min-w-12 gap-1 justify-self-start px-3"
+        >
+          <DayArrow />
+          <span className="max-[370px]:sr-only">{t(keys.match.sparring.previousDay)}</span>
+        </Button>
+      )}
+      {heading ? (
+        <h2 className="px-2 py-2 text-center text-lg font-semibold tabular-nums">
+          <time dateTime={date}>{label}</time>
+        </h2>
+      ) : (
+        <span className="px-2 py-2 text-center text-lg font-semibold tabular-nums">
+          <time dateTime={date}>{label}</time>
+        </span>
+      )}
+      {page.nextDay === null ? (
+        <span />
+      ) : (
+        <Button
+          nativeButton={false}
+          render={<Link to={matchListDayPath(locale, page.nextDay)} prefetch="intent" />}
+          variant="outline"
+          size="touch"
+          className="min-w-12 gap-1 justify-self-end px-3"
+        >
+          <span className="max-[370px]:sr-only">{t(keys.match.sparring.nextDay)}</span>
+          <DayArrow forward />
+        </Button>
+      )}
+    </nav>
+  )
+}
 
-        return (
-          <section key={date} aria-labelledby={`matches-${date}`}>
-            <h2 id={`matches-${date}`} className="mb-2.5 text-lg font-semibold text-foreground">
-              {first.createdAtIsToday ? t(keys.match.sparring.today) : localDateLabel(first.createdAtDate)}
-            </h2>
-            <MatchGrid>
-              {group.map((match) => (
-                <MatchRow key={match.matchId} match={match} locale={locale} />
-              ))}
-            </MatchGrid>
-          </section>
-        )
-      })}
-    </div>
+function DayArrow({ forward = false }: { forward?: boolean }) {
+  return (
+    <svg
+      aria-hidden
+      className={cn('size-5 shrink-0', forward && 'rotate-180')}
+      viewBox="0 0 20 20"
+      fill="none"
+    >
+      <path d="m12 5-5 5 5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
   )
 }
 
@@ -417,7 +423,7 @@ function useMatchScorePolling(
 
         for (const match of requestedMatches) search.append('matchId', match.matchId)
 
-        const response = await fetch(`/api/sparring-matches/scores/?${search}`, {
+        const response = await fetch(`/api/sparring-matches/live-scores/?${search}`, {
           headers: { Accept: 'application/json' },
           signal: controller.signal,
         })
@@ -512,12 +518,12 @@ function leadingSeat(score: BySeatNumber): Seat | undefined {
   return undefined
 }
 
-function matchListPagePath(locale: 'uk' | 'en', view: MatchListView, page: number): string {
-  const path = localizedPath(view === 'live' ? '/sparring/matches/' : '/sparring/matches/completed/', locale)
-
-  return page === 1 ? path : `${path}?${new URLSearchParams({ page: String(page) })}`
+function matchListDayPath(locale: 'uk' | 'en', day: string): string {
+  return localizedPath(`/sparring/matches/completed/${day}/`, locale)
 }
 
-function localDateLabel(date: MatchListEntry['createdAtDate']): string {
-  return `${date.day}.${date.month}.${date.year}`
+function localDateLabel(date: string): string {
+  const [year, month, day] = date.split('-')
+
+  return `${day}.${month}.${year}`
 }

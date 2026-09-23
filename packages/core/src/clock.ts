@@ -19,6 +19,8 @@ export function nowUnixEpochMilliseconds(): UnixEpochMilliseconds {
 /** Supplies wall-clock time and the IANA zone used for local calendar representation. */
 export interface Clock {
   now(): UnixEpochMilliseconds
+  /** UTC bounds of a calendar day in this Clock's zone, including daylight-saving transitions. */
+  dayRange(day: string): { start: UnixEpochMilliseconds; end: UnixEpochMilliseconds }
   readonly timeZone: string
 }
 
@@ -31,6 +33,10 @@ export class SystemClock implements Clock {
 
   now(): UnixEpochMilliseconds {
     return nowUnixEpochMilliseconds()
+  }
+
+  dayRange(day: string) {
+    return dayRange(day, this.timeZone)
   }
 }
 
@@ -45,6 +51,10 @@ export class FixedClock implements Clock {
 
   now(): UnixEpochMilliseconds {
     return v.parse(UnixEpochMilliseconds, this.fixedDate.getTime())
+  }
+
+  dayRange(day: string) {
+    return dayRange(day, this.timeZone)
   }
 }
 
@@ -84,4 +94,37 @@ export class ClockFormatter {
       date: { year, month, day },
     }
   }
+}
+
+function dayRange(day: string, timeZone: string) {
+  const startDay = Date.parse(`${day}T00:00:00Z`)
+
+  const formatter = new Intl.DateTimeFormat('en', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    timeZone,
+  })
+
+  function startOf(target: number): UnixEpochMilliseconds {
+    const estimate = target
+    let low = Math.max(0, estimate - 36 * 3_600_000)
+    let high = estimate + 36 * 3_600_000
+
+    while (low < high) {
+      const middle = low + Math.floor((high - low) / 2)
+      const parts = formatter.formatToParts(middle)
+      const year = Number(parts.find((part) => part.type === 'year')?.value)
+      const month = Number(parts.find((part) => part.type === 'month')?.value)
+      const day = Number(parts.find((part) => part.type === 'day')?.value)
+      const local = Date.UTC(year, month - 1, day)
+
+      if (local < target) low = middle + 1
+      else high = middle
+    }
+
+    return v.parse(UnixEpochMilliseconds, low)
+  }
+
+  return { start: startOf(startDay), end: startOf(startDay + 86_400_000) }
 }

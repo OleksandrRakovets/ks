@@ -7,7 +7,6 @@ import {
   MatchId,
   MatchScoreProjection,
   NonNegativeInteger,
-  PositiveInteger,
   UnixEpochMilliseconds,
 } from '@ks/core'
 import type { GamePresentationFor, RegisteredGameKey } from '@ks/gameplay/definitions'
@@ -68,31 +67,36 @@ export type MatchListEntry = Readonly<
     ({ status: 'active'; endedAt: null } | { status: 'finished'; endedAt: UnixEpochMilliseconds })
 >
 
-export type MatchListScope = 'live' | 'completed'
-
-export const MATCH_LIST_DEFAULT_PAGE_SIZE = 10
-
 export const RECENT_COMPLETED_MATCH_WINDOW_MS = 15 * 60 * 1_000
 
-export const MatchListPagination = v.pipe(
-  v.object({ page: v.optional(PositiveInteger, 1) }),
-  v.check(
-    ({ page }) => Number.isSafeInteger((page - 1) * MATCH_LIST_DEFAULT_PAGE_SIZE),
-    'Match list offset exceeds the safe integer range',
-  ),
-  v.readonly(),
+export const MatchListDay = v.pipe(
+  v.string(),
+  v.regex(/^\d{4}-\d{2}-\d{2}$/),
+  v.check((day) => {
+    const instant = Date.parse(`${day}T00:00:00Z`)
+
+    return Number.isFinite(instant) && instant >= 0 && new Date(instant).toISOString().slice(0, 10) === day
+  }),
 )
 
-export type MatchListPagination = v.InferOutput<typeof MatchListPagination>
+export type MatchListDay = v.InferOutput<typeof MatchListDay>
 
-export type MatchListPage = Readonly<{
+export type LiveMatchListPage = Readonly<{
+  scope: 'live'
   matches: readonly MatchListEntry[]
-  page: PositiveInteger
-  hasNextPage: boolean
   recentCompletionExpiresAfterMs?: number
 }>
 
-export const MATCH_SCORE_POLL_MAX_MATCHES = MATCH_LIST_DEFAULT_PAGE_SIZE
+export type CompletedMatchListPage = Readonly<{
+  scope: 'completed'
+  matches: readonly MatchListEntry[]
+  day: MatchListDay | null
+  previousDay: MatchListDay | null
+  nextDay: MatchListDay | null
+  isToday: boolean
+}>
+
+export type MatchListPage = LiveMatchListPage | CompletedMatchListPage
 
 export const MatchScorePollEntry = v.pipe(
   v.intersect([
@@ -113,7 +117,7 @@ export type MatchScorePollEntry = v.InferOutput<typeof MatchScorePollEntry>
 
 export const MatchScorePollResponse = v.pipe(
   v.object({
-    matches: v.pipe(v.array(MatchScorePollEntry), v.maxLength(MATCH_SCORE_POLL_MAX_MATCHES), v.readonly()),
+    matches: v.pipe(v.array(MatchScorePollEntry), v.readonly()),
   }),
   v.readonly(),
 )
@@ -187,11 +191,8 @@ export type ReadMatchProtocolResult<K extends RegisteredGameKey> =
 
 export type Application = {
   createMatch(input: CreateMatchInput): Promise<CreateMatchResult>
-  listMatches(
-    scope: MatchListScope,
-    locale: SupportedLocale,
-    pagination?: MatchListPagination,
-  ): Promise<MatchListPage>
+  listLiveMatches(locale: SupportedLocale): Promise<LiveMatchListPage>
+  listCompletedMatches(locale: SupportedLocale, day?: MatchListDay): Promise<CompletedMatchListPage>
   readMatchScores(matchIds: readonly MatchId[]): Promise<ReadMatchScoresResult>
   readMatch<K extends RegisteredGameKey>(
     matchId: MatchId,

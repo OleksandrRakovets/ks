@@ -27,4 +27,22 @@ describe('Unix epoch milliseconds', () => {
       date: { year: '2026', month: '09', day: '23' },
     })
   })
+
+  test('bounds local days across both Kyiv clock changes and a date-line offset', () => {
+    const kyiv = new FixedClock(new Date('2026-03-29T00:00:00Z'), 'Europe/Kyiv')
+    const spring = kyiv.dayRange('2026-03-29')
+    expect(new Date(spring.start).toISOString()).toBe('2026-03-28T22:00:00.000Z')
+    expect(new Date(spring.end).toISOString()).toBe('2026-03-29T21:00:00.000Z')
+
+    const autumn = kyiv.dayRange('2026-10-25')
+    expect(new Date(autumn.start).toISOString()).toBe('2026-10-24T21:00:00.000Z')
+    expect(new Date(autumn.end).toISOString()).toBe('2026-10-25T22:00:00.000Z')
+
+    const auckland = new FixedClock(new Date('2026-09-23T00:00:00Z'), 'Pacific/Auckland').dayRange(
+      '2026-09-23',
+    )
+
+    expect(new Date(auckland.start).toISOString()).toBe('2026-09-22T12:00:00.000Z')
+    expect(new Date(auckland.end).toISOString()).toBe('2026-09-23T12:00:00.000Z')
+  })
 })
