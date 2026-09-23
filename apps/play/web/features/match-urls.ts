@@ -30,12 +30,8 @@ export function matchSetupUrl(
   return `${path}?${search.toString()}`
 }
 
-export function matchControlUrl(
-  gameKey: RegisteredGameKey,
-  matchId: MatchId,
-  locale: SupportedLocale,
-): string {
-  return localizedPath(`/match/${gameKey}/${matchId}/control/`, locale)
+export function matchUrl(gameKey: RegisteredGameKey, matchId: MatchId, locale: SupportedLocale): string {
+  return localizedPath(`/match/${gameKey}/${matchId}/`, locale)
 }
 
 export function matchProtocolUrl(

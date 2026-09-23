@@ -1,4 +1,4 @@
-import type { ReadMatchControlResult, ReadMatchProtocolResult } from '@ks/application'
+import type { ReadMatchProtocolResult, ReadMatchResult } from '@ks/application'
 import { MatchCommand, MatchId, type MatchState } from '@ks/core'
 import { type RegisteredGameKey, registry } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
@@ -18,18 +18,21 @@ type RouteArgs = {
   context: AppLoadContext
 }
 
-type ControlSuccess<K extends RegisteredGameKey> = Extract<ReadMatchControlResult<K>, { ok: true }>
+type MatchSuccess<K extends RegisteredGameKey> = Extract<ReadMatchResult<K>, { ok: true }>
 
 type ProtocolSuccess<K extends RegisteredGameKey> = Extract<ReadMatchProtocolResult<K>, { ok: true }>
 
-export type ControlRouteData<K extends RegisteredGameKey> = ControlSuccess<K> & { shortGameTitle: string }
+export type MatchRouteData<K extends RegisteredGameKey> = MatchSuccess<K> & { shortGameTitle: string }
 
 export type ProtocolRouteData<K extends RegisteredGameKey> = ProtocolSuccess<K> & { shortGameTitle: string }
 
-export type ProtocolPageData<K extends RegisteredGameKey> = {
-  control: ControlRouteData<K>
-  protocol: ProtocolRouteData<K>
-}
+type MatchPageDecision<Data extends { lifecycle: 'active' | 'finished' }> =
+  | { readonly page: 'control'; readonly match: Extract<Data, { lifecycle: 'active' }> }
+  | { readonly page: 'result'; readonly match: Extract<Data, { lifecycle: 'finished' }> }
+
+export type MatchPageData<K extends RegisteredGameKey> = MatchPageDecision<MatchRouteData<K>>
+
+export type ProtocolPageData<K extends RegisteredGameKey> = MatchPageDecision<ProtocolRouteData<K>>
 
 export type ControlActionData =
   | { ok: true; acceptedSeqMax: number | null }
@@ -54,17 +57,20 @@ function matchIdFromParams(params: RouteArgs['params']): MatchId {
   return matchId.output
 }
 
-export async function loadMatchControl<K extends RegisteredGameKey>(
+export async function loadMatchPage<K extends RegisteredGameKey>(
   args: RouteArgs,
   expectedGameKey: K,
-): Promise<ControlRouteData<K>> {
+): Promise<MatchPageData<K>> {
   const matchId = matchIdFromParams(args.params)
   const locale = localeFromContext(args.context)
-  const result = await requireApplication(args.context).readMatchControl(matchId, locale, expectedGameKey)
+  const result = await requireApplication(args.context).readMatch(matchId, locale, expectedGameKey)
 
   if (!result.ok) throw new Response(result.error, { status: result.status })
 
-  return { ...result, shortGameTitle: registry[expectedGameKey].meta.shortGameTitle[locale] }
+  return decideMatchPage({
+    ...result,
+    shortGameTitle: registry[expectedGameKey].meta.shortGameTitle[locale],
+  })
 }
 
 async function loadMatchProtocol<K extends RegisteredGameKey>(
@@ -87,7 +93,16 @@ export async function loadMatchProtocolPage<K extends RegisteredGameKey>(
 ): Promise<ProtocolPageData<K>> {
   const protocol = await loadMatchProtocol(args, expectedGameKey)
 
-  return { control: protocol, protocol }
+  return decideMatchPage(protocol)
+}
+
+function decideMatchPage<Data extends { lifecycle: 'active' | 'finished' }>(
+  match: Data,
+): MatchPageDecision<Data> {
+  // SAFETY: lifecycle is the checked discriminant used by both Extract branches.
+  return match.lifecycle === 'finished'
+    ? { page: 'result', match: match as Extract<Data, { lifecycle: 'finished' }> }
+    : { page: 'control', match: match as Extract<Data, { lifecycle: 'active' }> }
 }
 
 function commandErrorKey(error: string): ControlActionErrorKey {

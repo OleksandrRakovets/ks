@@ -6,13 +6,13 @@ import { useTranslation } from 'react-i18next'
 import { cn } from '@/components/ui/utils'
 import { StrilaBall as StrilaBallVisual } from '@/features/strila-ball'
 
-import type { MatchControlData } from './types'
+import type { ActiveMatchData } from './types'
 
-export function Board<K extends RegisteredGameKey>({ data }: { data: MatchControlData<K> }) {
+export function Board<K extends RegisteredGameKey>({ data }: { data: ActiveMatchData<K> }) {
   const { t } = useTranslation()
 
   const frameScore =
-    data.controlState === 'frame-active'
+    data.controlPhase === 'frame-active'
       ? data.game.score
       : data.state.currentFrameIndex > 0
         ? data.state.frames[data.state.currentFrameIndex - 1].pointsBySeat
@@ -45,14 +45,14 @@ export function Board<K extends RegisteredGameKey>({ data }: { data: MatchContro
         />
       </div>
 
-      {data.controlState === 'frame-active' && data.game.gameKey === 'strila-v2' ? (
+      {data.controlPhase === 'frame-active' && data.game.gameKey === 'strila-v2' ? (
         <div className="mt-1 grid grid-cols-2 gap-4">
           <StrilaReconciliation balls={data.game.details.pottedBallsBySeat.A} align="left" />
           <StrilaReconciliation balls={data.game.details.pottedBallsBySeat.B} align="right" />
         </div>
       ) : null}
 
-      {data.controlState === 'frame-active' && data.game.gameKey === 'free-pyramid-long' ? (
+      {data.controlPhase === 'frame-active' && data.game.gameKey === 'free-pyramid-long' ? (
         <>
           <div className="mt-1 grid grid-cols-2 gap-4">
             <RackReconciliation count={data.game.details.currentRack.scoreBySeat.A} align="left" />

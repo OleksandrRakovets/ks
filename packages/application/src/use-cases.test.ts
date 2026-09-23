@@ -187,8 +187,10 @@ describe('trusted MatchRoom orchestration', () => {
       }),
     })
 
-    expect(await application(room).readMatchControl(matchId, 'en', 'free-pyramid')).toMatchObject({
+    expect(await application(room).readMatch(matchId, 'en', 'free-pyramid')).toMatchObject({
       ok: true,
+      lifecycle: 'active',
+      controlPhase: 'between-frames',
       latestSeq: 0,
       state,
     })
@@ -424,14 +426,14 @@ describe('trusted MatchRoom orchestration', () => {
     })
 
     expect(
-      await application(room, events, { overrides: { clock: nextDayClock } }).readMatchControl(
+      await application(room, events, { overrides: { clock: nextDayClock } }).readMatch(
         matchId,
         'en',
         'free-pyramid',
       ),
     ).toMatchObject({
       ok: true,
-      controlState: 'finished',
+      lifecycle: 'finished',
       state: { status: 'finished' },
       endedAt: {
         isoString: '2023-11-14T22:13:21.000Z',
@@ -439,7 +441,6 @@ describe('trusted MatchRoom orchestration', () => {
         date: { year: '2023', month: '11', day: '15' },
       },
       endedAtIsToday: false,
-      controls: [],
     })
     expect(events).toEqual(['archive', 'finalize', 'finish'])
   })

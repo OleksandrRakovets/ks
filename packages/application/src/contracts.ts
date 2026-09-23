@@ -126,12 +126,18 @@ export type ReadMatchScoresResult =
   | { readonly ok: true; readonly matches: readonly MatchScorePollEntry[] }
   | ReadMatchFailure
 
-export type ReadMatchControlResult<K extends RegisteredGameKey> =
+type MatchStateForLifecycle<
+  K extends RegisteredGameKey,
+  Lifecycle extends 'active' | 'finished',
+> = MatchStateFor<K> & { readonly status: Lifecycle }
+
+export type ReadMatchResult<K extends RegisteredGameKey> =
   /** A prepared gameplay frame is frame-active even before it has commenced. */
   | {
       readonly ok: true
-      readonly controlState: 'frame-active'
-      readonly state: MatchStateFor<K>
+      readonly lifecycle: 'active'
+      readonly controlPhase: 'frame-active'
+      readonly state: MatchStateForLifecycle<K, 'active'>
       readonly latestSeq: number
       readonly game: GamePresentationFor<K>
       readonly controls: readonly Control[]
@@ -141,8 +147,10 @@ export type ReadMatchControlResult<K extends RegisteredGameKey> =
     }
   | {
       readonly ok: true
-      readonly controlState: 'between-frames'
-      readonly state: MatchStateFor<K>
+      readonly lifecycle: 'active'
+      /** Complete match-level control phase between frames, distinct from tertiary overflow controls. */
+      readonly controlPhase: 'between-frames'
+      readonly state: MatchStateForLifecycle<K, 'active'>
       readonly latestSeq: number
       readonly game?: never
       readonly controls: readonly Control[]
@@ -152,13 +160,12 @@ export type ReadMatchControlResult<K extends RegisteredGameKey> =
     }
   | {
       readonly ok: true
-      readonly controlState: 'finished'
-      readonly state: MatchStateFor<K>
+      readonly lifecycle: 'finished'
+      readonly state: MatchStateForLifecycle<K, 'finished'>
       readonly latestSeq: number
       readonly endedAt: FormattedInstant
       readonly endedAtIsToday: boolean
       readonly game?: never
-      readonly controls: readonly []
       readonly participants: HydratedMatchParticipants
     }
   | ReadMatchFailure
@@ -173,7 +180,7 @@ export type SparringMatchLiveAdmission =
   | { readonly _tag: 'finished' }
 
 export type ReadMatchProtocolResult<K extends RegisteredGameKey> =
-  | (Extract<ReadMatchControlResult<K>, { readonly ok: true }> & {
+  | (Extract<ReadMatchResult<K>, { readonly ok: true }> & {
       readonly protocolRows: readonly ProtocolRow[]
     })
   | ReadMatchFailure
@@ -186,11 +193,11 @@ export type Application = {
     pagination?: MatchListPagination,
   ): Promise<MatchListPage>
   readMatchScores(matchIds: readonly MatchId[]): Promise<ReadMatchScoresResult>
-  readMatchControl<K extends RegisteredGameKey>(
+  readMatch<K extends RegisteredGameKey>(
     matchId: MatchId,
     locale: SupportedLocale,
     expectedGameKey: K,
-  ): Promise<ReadMatchControlResult<K>>
+  ): Promise<ReadMatchResult<K>>
   submitMatchCommand(
     matchId: MatchId,
     command: MatchCommand,

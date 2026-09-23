@@ -17,7 +17,7 @@ import { cn } from '@/components/ui/utils'
 
 import { localizedPath } from '../../locale'
 import { useRootLocale } from '../../root'
-import { matchControlUrl } from '../match-urls'
+import { matchUrl } from '../match-urls'
 
 export type MatchListView = 'live' | 'completed'
 
@@ -218,7 +218,7 @@ function MatchRow({ match, locale }: { match: MatchListEntry; locale: 'uk' | 'en
 
   return (
     <Link
-      to={matchControlUrl(match.gameKey, match.matchId, locale)}
+      to={matchUrl(match.gameKey, match.matchId, locale)}
       className="block rounded-xl border border-border bg-card px-4 py-3.5 transition-colors outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/30"
     >
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-4 gap-y-1">

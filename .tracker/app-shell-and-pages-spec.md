@@ -229,10 +229,9 @@ added: the informal alternatives are slower than throwing here.
 
 ## 9. Result
 
-Replaces the redirect from a finished match to Протокол. The control route already receives
-`controlState: 'finished'` with full `state` and `participants`, so this needs **no contract
-change**: the route renders a result instead of the Action Stack, and `matchUrlForStatus` stops
-sending finished matches to Протокол.
+The stable primary Match route renders Result when its loader receives the finished lifecycle arm;
+the URL does not encode Control or Result. Protocol remains a separate route because it is an
+independently selectable surface in either lifecycle state.
 
 Lives in the Match Shell, so the tabs read `Результат` / `Протокол` and ✕ exits to Matches.
 

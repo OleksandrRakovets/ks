@@ -4,17 +4,32 @@ import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useFetcher } from 'react-router'
 
-import type { ControlActionData } from '../../routes/match/shared'
+import type { ControlActionData, MatchPageData } from '../../routes/match/shared'
 import { matchCommandForm, useControlLiveRevalidation } from '../../routes/match/shared'
 import { controlEffect, controlLabel } from './renderers/control-copy'
 import type { MatchControlRendererProps } from './renderers/types'
 import { ActionStack, type ControlPresentation } from './shell/action-stack'
 import { MatchResult } from './shell/match-result'
-import { MatchShell } from './shell/match-shell'
-import type { MatchControlData } from './shell/types'
+import { MatchControlShell, MatchResultShell } from './shell/match-shell'
+import type { ActiveMatchData } from './shell/types'
 
-export function MatchControlPage<K extends RegisteredGameKey>(props: {
-  data: MatchControlData<K>
+export function MatchPage<K extends RegisteredGameKey>(props: {
+  data: MatchPageData<K>
+  renderer: (props: MatchControlRendererProps<GamePresentationFor<K>>) => ReactNode
+}) {
+  if (props.data.page === 'result') {
+    return (
+      <MatchResultShell active="result" data={props.data.match}>
+        <MatchResult data={props.data.match} />
+      </MatchResultShell>
+    )
+  }
+
+  return <MatchControlPage data={props.data.match} renderer={props.renderer} />
+}
+
+function MatchControlPage<K extends RegisteredGameKey>(props: {
+  data: ActiveMatchData<K>
   renderer: (props: MatchControlRendererProps<GamePresentationFor<K>>) => ReactNode
 }) {
   const { t } = useTranslation()
@@ -27,19 +42,13 @@ export function MatchControlPage<K extends RegisteredGameKey>(props: {
   }
 
   return (
-    <MatchShell
+    <MatchControlShell
       active="control"
       data={props.data}
       submitting={fetcher.state !== 'idle'}
       onSubmit={submitCommand}
     >
-      <div
-        className={
-          props.data.controlState === 'finished'
-            ? 'relative'
-            : 'relative flex min-h-0 flex-1 flex-col justify-end'
-        }
-      >
+      <div className="relative flex min-h-0 flex-1 flex-col justify-end">
         {fetcher.data?.ok === false ? (
           <p
             role="alert"
@@ -49,9 +58,7 @@ export function MatchControlPage<K extends RegisteredGameKey>(props: {
           </p>
         ) : null}
 
-        {props.data.controlState === 'finished' ? (
-          <MatchResult data={props.data} />
-        ) : props.data.controlState === 'frame-active' ? (
+        {props.data.controlPhase === 'frame-active' ? (
           <props.renderer
             game={props.data.game}
             controls={props.data.controls}
@@ -61,19 +68,39 @@ export function MatchControlPage<K extends RegisteredGameKey>(props: {
             onSubmitCommand={submitCommand}
           />
         ) : (
-          <ActionStack
-            sections={groupControlsIntoSections(props.data.controls)}
-            renderControl={(control) => genericControlPresentation(t, control)}
+          <BetweenFramesActions
+            controls={props.data.controls}
+            t={t}
             submitting={fetcher.state !== 'idle'}
             onSubmit={submitCommand}
           />
         )}
       </div>
-    </MatchShell>
+    </MatchControlShell>
   )
 }
 
-function genericControlPresentation(
+/**
+ * The complete match-level control phase after a frame ends. This is separate from tertiary
+ * controls, which remain available in the shell's overflow menu during gameplay phases.
+ */
+function BetweenFramesActions(props: {
+  controls: readonly Control[]
+  t: ReturnType<typeof useTranslation>['t']
+  submitting: boolean
+  onSubmit: (command: MatchCommand) => void
+}) {
+  return (
+    <ActionStack
+      sections={groupControlsIntoSections(props.controls)}
+      renderControl={(control) => betweenFramesControlPresentation(props.t, control)}
+      submitting={props.submitting}
+      onSubmit={props.onSubmit}
+    />
+  )
+}
+
+function betweenFramesControlPresentation(
   t: ReturnType<typeof useTranslation>['t'],
   control: Control,
 ): ControlPresentation {

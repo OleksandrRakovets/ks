@@ -25,9 +25,9 @@ import type {
   MatchListPage,
   MatchListScope,
   MatchScorePollEntry,
-  ReadMatchControlResult,
   ReadMatchFailure,
   ReadMatchProtocolResult,
+  ReadMatchResult,
   ReadMatchScoresResult,
   SubmitMatchCommandResult,
 } from './contracts'
@@ -369,16 +369,16 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     return result
   }
 
-  async function readMatchControl<K extends RegisteredGameKey>(
+  async function readMatch<K extends RegisteredGameKey>(
     matchId: MatchId,
     locale: SupportedLocale,
     expectedGameKey: K,
-  ): Promise<ReadMatchControlResult<K>> {
+  ): Promise<ReadMatchResult<K>> {
     const match = await readKeyedMatch(matchId, locale, expectedGameKey)
 
     if (!match.ok) return match
 
-    return toControlResult(match)
+    return toMatchResult(match)
   }
 
   async function submitMatchCommand(
@@ -428,7 +428,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
 
     if (!match.ok) return match
 
-    const control = toControlResult(match)
+    const result = toMatchResult(match)
 
     const seatNames = {
       A: match.participants.A.displayName,
@@ -443,7 +443,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     )
 
     return {
-      ...control,
+      ...result,
       protocolRows: match.state.status === 'active' ? protocolRows.reverse() : protocolRows,
     }
   }
@@ -533,27 +533,47 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     }
   }
 
-  function toControlResult<K extends RegisteredGameKey>(
+  function toMatchResult<K extends RegisteredGameKey>(
     match: ReadKeyedMatchSuccess<K>,
-  ): Extract<ReadMatchControlResult<K>, { ok: true }> {
-    const { game: _game, protocolEntries: _protocolEntries, ...withoutGame } = match
-
+  ): Extract<ReadMatchResult<K>, { ok: true }> {
     if (match.state.status === 'finished') {
       if (match.endedAt === undefined || match.endedAtIsToday === undefined)
         throw new Error('Finished Match read is missing its completion time')
 
       return {
-        ...withoutGame,
+        ok: true,
+        lifecycle: 'finished',
+        state: { ...match.state, status: 'finished' },
+        latestSeq: match.latestSeq,
         endedAt: match.endedAt,
         endedAtIsToday: match.endedAtIsToday,
-        controlState: 'finished',
-        controls: [],
+        participants: match.participants,
       }
     }
 
-    return match.game
-      ? { ...withoutGame, controlState: 'frame-active', game: match.game, controls: match.controls }
-      : { ...withoutGame, controlState: 'between-frames', controls: match.controls }
+    const active =
+      match.lastEntry === undefined
+        ? {
+            ok: true as const,
+            lifecycle: 'active' as const,
+            state: { ...match.state, status: 'active' as const },
+            latestSeq: match.latestSeq,
+            controls: match.controls,
+            participants: match.participants,
+          }
+        : {
+            ok: true as const,
+            lifecycle: 'active' as const,
+            state: { ...match.state, status: 'active' as const },
+            latestSeq: match.latestSeq,
+            controls: match.controls,
+            participants: match.participants,
+            lastEntry: match.lastEntry,
+          }
+
+    if (match.game) return { ...active, controlPhase: 'frame-active', game: match.game }
+
+    return { ...active, controlPhase: 'between-frames' }
   }
 
   function isSameLocalDate(left: FormattedInstant, right: FormattedInstant): boolean {
@@ -568,7 +588,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     createMatch,
     listMatches,
     readMatchScores,
-    readMatchControl,
+    readMatch,
     submitMatchCommand,
     readMatchProtocol,
     admitSparringMatchLive: async (matchId) => {

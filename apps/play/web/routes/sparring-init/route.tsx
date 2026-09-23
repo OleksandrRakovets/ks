@@ -10,7 +10,7 @@ import * as v from 'valibot'
 import { Page } from '@/components/Page'
 import { Button } from '@/components/ui'
 
-import { matchControlUrl } from '../../features/match-urls'
+import { matchUrl } from '../../features/match-urls'
 import { localeFromContext, localizedPath } from '../../locale'
 import { useRootLocale } from '../../root'
 import type { AppLoadContext } from '../../server/context'
@@ -211,7 +211,7 @@ export async function action({
     throw new Response('Could not create match', { status: result.status })
   }
 
-  return redirect(matchControlUrl(gameKey, result.matchId, localeFromContext(context)))
+  return redirect(matchUrl(gameKey, result.matchId, localeFromContext(context)))
 }
 
 function stringFormValue(form: FormData, key: string): string {

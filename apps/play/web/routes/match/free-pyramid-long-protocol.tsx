@@ -13,7 +13,5 @@ export function action(args: Route.ActionArgs) {
 }
 
 export default function FreePyramidLongProtocolRoute() {
-  const data = useLoaderData<typeof loader>()
-
-  return <MatchProtocolPage control={data.control} protocol={data.protocol} />
+  return <MatchProtocolPage data={useLoaderData<typeof loader>()} />
 }

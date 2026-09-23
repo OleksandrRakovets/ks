@@ -7,9 +7,9 @@ import { Button } from '@/components/ui'
 import { useRootLocale } from '@/root'
 
 import { matchSetupUrl } from '../../match-urls'
-import type { MatchControlData } from './types'
+import type { FinishedMatchData } from './types'
 
-export function RematchAction<K extends RegisteredGameKey>(props: { data: MatchControlData<K> }) {
+export function RematchAction<K extends RegisteredGameKey>(props: { data: FinishedMatchData<K> }) {
   const { t } = useTranslation()
   const locale = useRootLocale()
   const { state } = props.data

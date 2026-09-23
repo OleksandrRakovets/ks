@@ -1,4 +1,4 @@
-import { groupControlsIntoSections, type MatchCommand } from '@ks/core'
+import { groupControlsIntoSections, type MatchCommand, type MatchId } from '@ks/core'
 import type { RegisteredGameKey } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
 import type { ReactNode } from 'react'
@@ -9,30 +9,101 @@ import { cn } from '@/components/ui/utils'
 import { localizedPath } from '@/locale'
 import { useRootLocale } from '@/root'
 
-import { matchControlUrl, matchProtocolUrl } from '../../match-urls'
+import { matchProtocolUrl, matchUrl } from '../../match-urls'
 import { Board } from './board'
 import { LastActionBar } from './last-action-bar'
 import { OverflowSheet } from './overflow-sheet'
 import { RematchAction } from './rematch-action'
-import type { MatchControlData } from './types'
+import type { ActiveMatchData, FinishedMatchData } from './types'
 
-export function MatchShell<K extends RegisteredGameKey>(props: {
+export function MatchControlShell<K extends RegisteredGameKey>(props: {
   active: 'control' | 'protocol'
-  data: MatchControlData<K>
+  data: ActiveMatchData<K>
   children: ReactNode
   submitting: boolean
   onSubmit: (command: MatchCommand) => void
 }) {
   const { t } = useTranslation()
-  const locale = useRootLocale()
   const controlSections = groupControlsIntoSections(props.data.controls)
+
+  return (
+    <MatchShell
+      active={props.active === 'control' ? 'primary' : 'protocol'}
+      state={props.data.state}
+      headerTitle={controlContextLabel(props.data, t)}
+      headerRule={controlRuleLabel(props.data, t)}
+      headerAction={
+        <OverflowSheet
+          controls={controlSections.tertiary}
+          names={{
+            A: props.data.participants.A.displayName,
+            B: props.data.participants.B.displayName,
+          }}
+          submitting={props.submitting}
+          onSubmit={props.onSubmit}
+        />
+      }
+      board={<Board data={props.data} />}
+      contentClassName={
+        props.active === 'control' ? 'flex flex-col overflow-hidden' : 'overflow-y-auto overscroll-contain'
+      }
+      footer={
+        props.active === 'control' && props.data.lastEntry ? (
+          <LastActionBar entry={props.data.lastEntry} />
+        ) : null
+      }
+      primaryTabLabel={t(keys.match.sparring.tabControl)}
+    >
+      {props.children}
+    </MatchShell>
+  )
+}
+
+export function MatchResultShell<K extends RegisteredGameKey>(props: {
+  active: 'result' | 'protocol'
+  data: FinishedMatchData<K>
+  children: ReactNode
+}) {
+  const { t } = useTranslation()
+
+  return (
+    <MatchShell
+      active={props.active === 'result' ? 'primary' : 'protocol'}
+      state={props.data.state}
+      headerTitle={props.data.shortGameTitle}
+      headerRule={resultRuleLabel(props.data, t)}
+      headerAction={null}
+      board={null}
+      contentClassName="overflow-y-auto overscroll-contain"
+      footer={props.active === 'result' ? <RematchAction data={props.data} /> : null}
+      primaryTabLabel={t(keys.match.result.tabResult)}
+    >
+      {props.children}
+    </MatchShell>
+  )
+}
+
+function MatchShell(props: {
+  active: 'primary' | 'protocol'
+  state: { readonly gameKey: RegisteredGameKey; readonly matchId: MatchId }
+  headerTitle: string
+  headerRule: string
+  headerAction: ReactNode
+  board: ReactNode
+  contentClassName: string
+  footer: ReactNode
+  primaryTabLabel: string
+  children: ReactNode
+}) {
+  const { t } = useTranslation()
+  const locale = useRootLocale()
 
   return (
     <main className="mx-auto flex h-dvh w-full max-w-match flex-col overflow-hidden bg-background text-foreground">
       <header
         className={cn(
           'flex h-[52px] shrink-0 items-center gap-3 pl-1.5',
-          props.data.controlState === 'finished' ? 'pr-4' : 'pr-1.5',
+          props.headerAction === null ? 'pr-4' : 'pr-1.5',
         )}
       >
         <Link
@@ -43,62 +114,31 @@ export function MatchShell<K extends RegisteredGameKey>(props: {
           <CloseIcon />
         </Link>
         <div className="flex min-w-0 flex-1 items-center justify-between gap-4">
-          <strong className="truncate text-[17px] leading-none font-semibold">
-            {contextLabel(props.data, t)}
-          </strong>
-          <span className="shrink-0 text-base leading-none">{ruleLabel(props.data, t)}</span>
+          <strong className="truncate text-[17px] leading-none font-semibold">{props.headerTitle}</strong>
+          <span className="shrink-0 text-base leading-none">{props.headerRule}</span>
         </div>
-        {props.data.controlState !== 'finished' ? (
-          <OverflowSheet
-            controls={controlSections.tertiary}
-            names={{
-              A: props.data.participants.A.displayName,
-              B: props.data.participants.B.displayName,
-            }}
-            submitting={props.submitting}
-            onSubmit={props.onSubmit}
-          />
-        ) : null}
+        {props.headerAction}
       </header>
 
-      {props.data.controlState !== 'finished' ? <Board data={props.data} /> : null}
+      {props.board}
 
-      <div
-        className={cn(
-          'min-h-0 flex-1',
-          props.active === 'control' && props.data.controlState !== 'finished'
-            ? 'flex flex-col overflow-hidden'
-            : 'overflow-y-auto overscroll-contain',
-        )}
-      >
-        {props.children}
-      </div>
+      <div className={cn('min-h-0 flex-1', props.contentClassName)}>{props.children}</div>
 
-      {props.active === 'control' && props.data.controlState !== 'finished' && props.data.lastEntry ? (
-        <LastActionBar entry={props.data.lastEntry} />
-      ) : null}
-
-      {props.active === 'control' && props.data.controlState === 'finished' ? (
-        <RematchAction data={props.data} />
-      ) : null}
+      {props.footer}
 
       <nav
         className="grid h-14 shrink-0 grid-cols-2 gap-1 bg-background px-2 py-1.5"
         aria-label={t(keys.appTitle)}
       >
         <MatchTab
-          active={props.active === 'control'}
-          to={matchControlUrl(props.data.state.gameKey, props.data.state.matchId, locale)}
+          active={props.active === 'primary'}
+          to={matchUrl(props.state.gameKey, props.state.matchId, locale)}
         >
-          {t(
-            props.data.controlState === 'finished'
-              ? keys.match.result.tabResult
-              : keys.match.sparring.tabControl,
-          )}
+          {props.primaryTabLabel}
         </MatchTab>
         <MatchTab
           active={props.active === 'protocol'}
-          to={matchProtocolUrl(props.data.state.gameKey, props.data.state.matchId, locale)}
+          to={matchProtocolUrl(props.state.gameKey, props.state.matchId, locale)}
         >
           {t(keys.match.sparring.tabProtocol)}
         </MatchTab>
@@ -128,13 +168,11 @@ function MatchTab(props: { active: boolean; to: string; children: ReactNode }) {
   )
 }
 
-function contextLabel<K extends RegisteredGameKey>(
-  data: MatchControlData<K>,
+function controlContextLabel<K extends RegisteredGameKey>(
+  data: ActiveMatchData<K>,
   t: ReturnType<typeof useTranslation>['t'],
 ): string {
-  if (data.controlState === 'finished') return data.shortGameTitle
-
-  if (data.controlState === 'frame-active' && data.game.gameKey === 'free-pyramid-long') {
+  if (data.controlPhase === 'frame-active' && data.game.gameKey === 'free-pyramid-long') {
     return t(keys.match.control.longFreePyramid.rack, {
       rackNumber: data.game.details.currentRack.rackNumber,
     })
@@ -145,24 +183,11 @@ function contextLabel<K extends RegisteredGameKey>(
   })
 }
 
-function ruleLabel<K extends RegisteredGameKey>(
-  data: MatchControlData<K>,
+function controlRuleLabel<K extends RegisteredGameKey>(
+  data: ActiveMatchData<K>,
   t: ReturnType<typeof useTranslation>['t'],
 ): string {
-  if (data.controlState === 'finished') {
-    const { frameTargetPointsBySeat, matchTargetFrames } = data.state.targets
-
-    const target =
-      matchTargetFrames > 1
-        ? matchTargetFrames
-        : frameTargetPointsBySeat.A === frameTargetPointsBySeat.B
-          ? frameTargetPointsBySeat.A
-          : `${frameTargetPointsBySeat.A}/${frameTargetPointsBySeat.B}`
-
-    return t(keys.match.scoreboard.target, { target })
-  }
-
-  if (data.controlState === 'frame-active' && data.game.gameKey === 'free-pyramid-long') {
+  if (data.controlPhase === 'frame-active' && data.game.gameKey === 'free-pyramid-long') {
     return t(keys.match.control.longFreePyramid.rackRollover, {
       count: data.game.details.rackRollover,
     })
@@ -171,4 +196,20 @@ function ruleLabel<K extends RegisteredGameKey>(
   return t(keys.match.scoreboard.raceToWins, {
     targetFrames: data.state.targets.matchTargetFrames,
   })
+}
+
+function resultRuleLabel<K extends RegisteredGameKey>(
+  data: FinishedMatchData<K>,
+  t: ReturnType<typeof useTranslation>['t'],
+): string {
+  const { frameTargetPointsBySeat, matchTargetFrames } = data.state.targets
+
+  const target =
+    matchTargetFrames > 1
+      ? matchTargetFrames
+      : frameTargetPointsBySeat.A === frameTargetPointsBySeat.B
+        ? frameTargetPointsBySeat.A
+        : `${frameTargetPointsBySeat.A}/${frameTargetPointsBySeat.B}`
+
+  return t(keys.match.scoreboard.target, { target })
 }

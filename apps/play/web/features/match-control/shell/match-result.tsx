@@ -6,11 +6,9 @@ import { Badge } from '@/components/ui'
 import { cn } from '@/components/ui/utils'
 import { MatchFinishedAt } from '@/features/match-control/match-finished-at'
 
-import type { MatchControlData } from './types'
+import type { FinishedMatchData } from './types'
 
-type FinishedMatchControlData = Extract<MatchControlData, { controlState: 'finished' }>
-
-export function MatchResult({ data }: { data: FinishedMatchControlData }) {
+export function MatchResult({ data }: { data: FinishedMatchData }) {
   const { t } = useTranslation()
   const winnerSeat: Seat = data.state.framesWonBySeat.A > data.state.framesWonBySeat.B ? 'A' : 'B'
   const loserSeat = opponentOf(winnerSeat)

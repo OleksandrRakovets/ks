@@ -1,17 +1,17 @@
-import type { ReadMatchControlResult } from '@ks/application'
+import type { ReadMatchResult } from '@ks/application'
 import type { RegisteredGameKey } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
 import { useTranslation } from 'react-i18next'
 
-type FinishedControlData = Extract<
-  ReadMatchControlResult<RegisteredGameKey>,
-  { readonly ok: true; readonly controlState: 'finished' }
+type FinishedMatchData = Extract<
+  ReadMatchResult<RegisteredGameKey>,
+  { readonly ok: true; readonly lifecycle: 'finished' }
 >
 
 export function MatchFinishedAt({
   endedAt,
   endedAtIsToday,
-}: Pick<FinishedControlData, 'endedAt' | 'endedAtIsToday'>) {
+}: Pick<FinishedMatchData, 'endedAt' | 'endedAtIsToday'>) {
   const { t } = useTranslation()
   const date = `${endedAt.date.day}.${endedAt.date.month}.${endedAt.date.year}`
 

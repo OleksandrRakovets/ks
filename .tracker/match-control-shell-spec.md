@@ -209,7 +209,7 @@ band, so it costs no extra height.
 
 Rendered when either:
 
-- `controlState === 'between-frames'`, i.e. the projection offers seatless `neutral` Controls; or
+- `controlPhase === 'between-frames'`, i.e. the projection offers seatless `neutral` Controls; or
 - the game renderer returns one.
 
 Strila returns one for phase `foul-committed.penalty-selection`. This is safe and verified: that
@@ -308,7 +308,7 @@ suffix in the Last Action Bar. The score target suffix is 20px and is not an exc
 
 ## 11. Required changes
 
-**`@ks/application`** — one contract addition. `ReadMatchControlResult`'s `frame-active` and
+**`@ks/application`** — one contract addition. `ReadMatchResult`'s `frame-active` and
 `between-frames` variants gain the latest player-authored, potentially correctable Protocol entry
 at or before the Control cursor:
 
@@ -317,7 +317,7 @@ at or before the Control cursor:
 readonly lastEntry?: Pick<ProtocolRow, 'key' | 'message' | 'score'>
 ```
 
-`timeLabel` is deliberately excluded so `readMatchControl` does not need a time zone parameter; the
+`timeLabel` is deliberately excluded so `readMatch` does not need a time zone parameter; the
 bar shows no timestamp.
 
 **`packages/i18n`** — new keys for the Overflow Sheet title, the Correction label, the Takeover
@@ -338,7 +338,7 @@ their files; the directory has no export bundle. Primary export first, private h
 the `showMore`/`showLess` tertiary disclosure in both the Strila and Long Pyramid renderers. Their
 i18n keys go with them.
 
-**Adapted** — the five concrete, game-keyed control routes under `apps/play/web/routes/match/`
+**Adapted** — the five concrete, game-keyed primary Match routes under `apps/play/web/routes/match/`
 compose the shell instead of `MatchNavigation` + `ScoreBox`. The five concrete Protocol routes use
 the same shell and Board so the tabs and exit stay identical across both tabs while preserving each
 route's concrete schema and types. Per-game renderers keep
