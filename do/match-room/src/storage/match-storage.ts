@@ -9,8 +9,8 @@ import {
   MatchState,
   type MatchStreamUpdate,
   NonNegativeInteger,
-  nowUnixEpochMilliseconds,
   PositiveInteger,
+  SystemClock,
   UnixEpochMilliseconds,
 } from '@ks/core'
 import { RegisteredGameKey } from '@ks/gameplay/definitions'
@@ -24,6 +24,7 @@ import * as schema from './schema'
 
 export class MatchStorage {
   readonly #db
+  readonly #clock = new SystemClock()
 
   constructor(storage: DurableObjectStorage) {
     this.#db = drizzle(storage)
@@ -110,7 +111,7 @@ export class MatchStorage {
     const acceptedCommand = v.parse(AcceptedCommand, {
       ...args.command,
       acceptedSeq: args.match.latestSeq + 1,
-      acceptedAt: nowUnixEpochMilliseconds(),
+      acceptedAt: this.#clock.nowMs(),
     })
 
     const endsMatch = args.finalState !== null

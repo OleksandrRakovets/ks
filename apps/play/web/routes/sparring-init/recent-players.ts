@@ -1,4 +1,4 @@
-import { nowUnixEpochMilliseconds, UnixEpochMilliseconds } from '@ks/core'
+import { SystemClock, UnixEpochMilliseconds } from '@ks/core'
 import { useSyncExternalStore } from 'react'
 import * as v from 'valibot'
 
@@ -72,7 +72,7 @@ function subscribeRecentPlayers() {
 }
 
 export function rememberRecentPlayers(names: string[]) {
-  const now = nowUnixEpochMilliseconds()
+  const now = new SystemClock().nowMs()
   const existing = getClientRecentPlayers()
   const byName = new Map(existing.map((player) => [normalizeRecentKey(player.name), player]))
 

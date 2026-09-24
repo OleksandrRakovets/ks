@@ -63,7 +63,7 @@ export function createApplication(bindings: ApplicationBindings, clock: Clock) {
     clock,
     newMatchId,
     newControlSecret,
-    getOrCreateGuestPlayerRef: async (displayName) => getOrCreateGuestPlayerRef(db, displayName),
+    getOrCreateGuestPlayerRef: async (displayName) => getOrCreateGuestPlayerRef(db, displayName, clock),
     hydrateParticipant: async (playerRef, locale) => hydrateParticipant(db, playerRef, locale),
     listLiveMatchRecords: async (since, locale) =>
       (await listLiveMatchRows(db, since, locale)).map((row) => ({

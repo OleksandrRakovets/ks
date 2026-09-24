@@ -59,7 +59,12 @@ export function MatchResult({ data }: { data: FinishedMatchData }) {
         </ol>
       </div>
 
-      <MatchFinishedAt endedAt={data.endedAt} endedAtIsToday={data.endedAtIsToday} />
+      <MatchFinishedAt
+        endedAtIso={data.endedAtIso}
+        endedAtTime={data.endedAtTime}
+        endedAtDate={data.endedAtDate}
+        endedAtIsToday={data.endedAtIsToday}
+      />
     </section>
   )
 }

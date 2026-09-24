@@ -557,24 +557,23 @@ describe('trusted MatchRoom orchestration', () => {
       }),
     })
 
-    expect(
-      await application(room, events, { overrides: { clock: nextDayClock } }).readMatch(
-        matchId,
-        'en',
-        'free-pyramid',
-      ),
-    ).toMatchObject({
+    const result = await application(room, events, { overrides: { clock: nextDayClock } }).readMatch(
+      matchId,
+      'en',
+      'free-pyramid',
+    )
+
+    expect(result).toMatchObject({
       ok: true,
       lifecycle: 'finished',
       state: { status: 'finished' },
       latestSeq: 2,
-      endedAt: {
-        isoString: '2023-11-14T22:13:21.000Z',
-        time: '00:13',
-        date: { year: '2023', month: '11', day: '15' },
-      },
+      endedAtIso: '2023-11-14T22:13:21.000Z',
+      endedAtTime: '00:13',
+      endedAtDate: { year: '2023', month: '11', day: '15' },
       endedAtIsToday: false,
     })
+    expect(result).not.toHaveProperty('endedAt')
     expect(events).toEqual([])
   })
 

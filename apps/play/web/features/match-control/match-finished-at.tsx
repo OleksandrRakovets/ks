@@ -9,18 +9,20 @@ type FinishedMatchData = Extract<
 >
 
 export function MatchFinishedAt({
-  endedAt,
+  endedAtIso,
+  endedAtTime,
+  endedAtDate,
   endedAtIsToday,
-}: Pick<FinishedMatchData, 'endedAt' | 'endedAtIsToday'>) {
+}: Pick<FinishedMatchData, 'endedAtIso' | 'endedAtTime' | 'endedAtDate' | 'endedAtIsToday'>) {
   const { t } = useTranslation()
-  const date = `${endedAt.date.day}.${endedAt.date.month}.${endedAt.date.year}`
+  const date = `${endedAtDate.day}.${endedAtDate.month}.${endedAtDate.year}`
 
   return (
     <p className="px-4 py-[18px] text-center text-base text-muted-foreground">
-      <time dateTime={endedAt.isoString}>
+      <time dateTime={endedAtIso}>
         {t(endedAtIsToday ? keys.match.result.finishedTodayAt : keys.match.result.finishedOnAt, {
           date,
-          time: endedAt.time,
+          time: endedAtTime,
         })}
       </time>
     </p>

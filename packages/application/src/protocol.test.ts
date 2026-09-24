@@ -1,16 +1,18 @@
 import { expect, test } from 'bun:test'
 
-import { newCommandId, UnixEpochMilliseconds } from '@ks/core'
+import { FixedClock, newCommandId, UnixEpochMilliseconds } from '@ks/core'
 import * as v from 'valibot'
 
 import { renderProtocolRows } from './protocol'
+
+const clock = new FixedClock(new Date('2026-09-22T21:30:00Z'), 'Europe/Kyiv')
 
 const entry = {
   gameKey: 'strila-v2',
   acceptedSeq: 1,
   entryIndex: 0,
   causedByCommandId: newCommandId(),
-  acceptedAt: v.parse(UnixEpochMilliseconds, 1),
+  acceptedAt: v.parse(UnixEpochMilliseconds, Date.parse('2026-09-22T21:15:00Z')),
   frameIndex: 1,
   source: 'system' as const,
   entryType: 'frame-prepared',
@@ -19,11 +21,11 @@ const entry = {
 }
 
 test('adapts normalized Protocol entries directly', () => {
-  const row = renderProtocolRows([entry], { A: 'Alice', B: 'Bob' }, 'UTC')[0]
+  const row = renderProtocolRows([entry], { A: 'Alice', B: 'Bob' }, clock)[0]
   expect(row).toMatchObject({
     key: 'protocol-1-0',
-    acceptedAtIso: '1970-01-01T00:00:00.001Z',
-    acceptedAtLabel: '00:00',
+    acceptedAtIso: '2026-09-22T21:15:00.000Z',
+    acceptedAtLabel: '00:15',
     message: { actor: 'Alice', params: { frameIndex: '1' } },
   })
 })
@@ -38,7 +40,7 @@ test('renders the dedicated table-cleared winner message', () => {
       },
     ],
     { A: 'Alice', B: 'Bob' },
-    'UTC',
+    clock,
   )[0]
 
   expect(row?.message.key).toBe('match.protocol.system.winner-determined.table-cleared')

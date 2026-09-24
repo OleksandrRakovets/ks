@@ -1,6 +1,6 @@
 import {
   type BySeatNumber,
-  ClockFormatter,
+  type Clock,
   type MatchId,
   type MatchState,
   type ProtocolEntries,
@@ -190,15 +190,10 @@ function entryMessage(
 export function renderProtocolRows(
   entries: readonly ProtocolEntry[],
   seatNames: SeatNames,
-  timeZone: string,
-  locale = 'en',
+  clock: Clock,
 ): ProtocolRow[] {
   return entries.map((entry) => {
-    const { isoString: acceptedAtIso, time: acceptedAtLabel } = ClockFormatter.format(
-      entry.acceptedAt,
-      locale,
-      timeZone,
-    )
+    const { isoString: acceptedAtIso, time: acceptedAtLabel } = clock.instantPresentation(entry.acceptedAt)
 
     return {
       key: `protocol-${entry.acceptedSeq}-${entry.entryIndex}`,
