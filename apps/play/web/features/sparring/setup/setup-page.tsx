@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Form, useNavigation } from 'react-router'
 
-import { Page } from '@/components/Page'
+import { Page } from '@/components/page'
 import { Button } from '@/components/ui'
 import { localizedPath } from '@/locale'
 import { useRootLocale } from '@/root'

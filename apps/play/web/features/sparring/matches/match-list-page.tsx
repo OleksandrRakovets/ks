@@ -11,7 +11,7 @@ import { useTranslation } from 'react-i18next'
 import { Link, useRevalidator } from 'react-router'
 import * as v from 'valibot'
 
-import { Page } from '@/components/Page'
+import { Page } from '@/components/page'
 import { Button, SegmentedNavigation, SegmentedNavigationLink } from '@/components/ui'
 import { cn } from '@/components/ui/utils'
 import { matchUrl } from '@/features/sparring/urls'

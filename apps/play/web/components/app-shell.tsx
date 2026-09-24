@@ -5,8 +5,8 @@ import { Link } from 'react-router'
 import { localizedPath } from '@/locale'
 import { useRootLocale } from '@/root'
 
-import { BrandWordmark } from './BrandWordmark'
-import { BurgerMenu } from './BurgerMenu'
+import { BrandWordmark } from './brand-wordmark'
+import { BurgerMenu } from './burger-menu'
 
 export function AppShell() {
   const { t } = useTranslation()

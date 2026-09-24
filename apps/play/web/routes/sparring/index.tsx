@@ -1,7 +1,7 @@
 import type { RegisteredGameKey } from '@ks/gameplay/definitions'
 import { Link } from 'react-router'
 
-import { Page } from '@/components/Page'
+import { Page } from '@/components/page'
 import { Badge, Card, CardFooter, CardHeader, CardTitle } from '@/components/ui'
 import { matchSetupUrl } from '@/features/sparring/urls'
 import { useRootLocale } from '@/root'
