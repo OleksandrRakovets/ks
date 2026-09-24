@@ -257,6 +257,51 @@ describe('trusted MatchRoom orchestration', () => {
     })
   })
 
+  test('reads finalizing scores for the live list and polling without archiving', async () => {
+    const events: string[] = []
+
+    const score = {
+      matchTargetFrames: 1,
+      frameTargetPointsBySeat: { A: 8, B: 8 },
+      framesWonBySeat: { A: 1, B: 0 },
+      singleFramePointsBySeat: { A: 8, B: 3 },
+      activeFrame: null,
+    }
+
+    const room = selectedClient({
+      getScore: async () => ({
+        _tag: 'finalizing',
+        endedAt: transfer.endedAt,
+        latestSeq: 4,
+        score,
+      }),
+    })
+
+    const app = application(room, events, {
+      overrides: {
+        listLiveMatchRecords: async () => [
+          {
+            matchId,
+            gameKey: 'free-pyramid',
+            status: 'active',
+            createdAt,
+            participantRefs: { A: playerRefA, B: playerRefB },
+            participants,
+          },
+        ],
+      },
+    })
+
+    expect(await app.listLiveMatches('en')).toMatchObject({
+      matches: [{ matchId, status: 'finished', endedAt: transfer.endedAt, latestSeq: 4, score }],
+    })
+    expect(await app.readMatchScores([matchId])).toEqual({
+      ok: true,
+      matches: [{ matchId, status: 'finished', endedAt: transfer.endedAt, latestSeq: 4, score }],
+    })
+    expect(events).toEqual([])
+  })
+
   test('reports when a recently finished match leaves the live list window', async () => {
     const finalScore = projectMatchScore(transfer.finalState)
     const endedAt = v.parse(UnixEpochMilliseconds, createdAt - 5 * 60 * 1_000)
@@ -499,39 +544,65 @@ describe('trusted MatchRoom orchestration', () => {
     ).toEqual({ _tag: 'finished' })
   })
 
-  test('resumes archival when a control read discovers finalizing', async () => {
+  test('reads finalizing controls from MatchRoom without archiving', async () => {
     const events: string[] = []
     const nextDayClock = new FixedClock(new Date('2023-11-15T22:30:00.000Z'), 'Europe/Kyiv')
 
     const room = selectedClient({
-      getControls: async () => ({ _tag: 'finalizing' }),
-      prepareArchive: async () => transfer,
-      finalize: async () => {
-        events.push('finalize')
-      },
+      getControls: async () => ({
+        _tag: 'finalizing',
+        state: transfer.finalState,
+        latestSeq: 2,
+        endedAt: transfer.endedAt,
+      }),
     })
 
-    expect(
-      await application(room, events, { overrides: { clock: nextDayClock } }).readMatch(
-        matchId,
-        'en',
-        'free-pyramid',
-      ),
-    ).toMatchObject({
+    const result = await application(room, events, { overrides: { clock: nextDayClock } }).readMatch(
+      matchId,
+      'en',
+      'free-pyramid',
+    )
+
+    expect(result).toMatchObject({
       ok: true,
       lifecycle: 'finished',
       state: { status: 'finished' },
-      endedAt: {
-        isoString: '2023-11-14T22:13:21.000Z',
-        time: '00:13',
-        date: { year: '2023', month: '11', day: '15' },
-      },
+      latestSeq: 2,
+      endedAtIso: '2023-11-14T22:13:21.000Z',
+      endedAtTime: '00:13',
+      endedAtDate: { year: '2023', month: '11', day: '15' },
       endedAtIsToday: false,
     })
-    expect(events).toEqual(['archive', 'finalize', 'finish'])
+    expect(result).not.toHaveProperty('endedAt')
+    expect(events).toEqual([])
   })
 
-  test('resumes archival when a Protocol read discovers finalizing', async () => {
+  test('reads the final result without Protocol replay when the Match ends between room calls', async () => {
+    const room = selectedClient({
+      getControls: async () => ({
+        _tag: 'active',
+        latestSeq: 0,
+        state,
+        game: undefined,
+        controls: [],
+      }),
+      getProtocol: async () => ({
+        _tag: 'finalizing',
+        state: transfer.finalState,
+        latestSeq: 2,
+        endedAt: transfer.endedAt,
+      }),
+    })
+
+    expect(await application(room).readMatch(matchId, 'en', 'free-pyramid')).toMatchObject({
+      ok: true,
+      lifecycle: 'finished',
+      latestSeq: 2,
+      state: { status: 'finished' },
+    })
+  })
+
+  test('reads finalizing Protocol when the Match ends between room calls without archiving', async () => {
     const events: string[] = []
 
     const room = selectedClient({
@@ -542,18 +613,39 @@ describe('trusted MatchRoom orchestration', () => {
         game: undefined,
         controls: [],
       }),
-      getProtocol: async () => ({ _tag: 'finalizing' }),
-      prepareArchive: async () => transfer,
-      finalize: async () => {
-        events.push('finalize')
-      },
+      getProtocol: async () => ({
+        _tag: 'finalizing',
+        state: transfer.finalState,
+        latestSeq: 2,
+        endedAt: transfer.endedAt,
+      }),
+      prepareArchive: async () => ({
+        ...transfer,
+        sourceLatestSeq: 2,
+        protocolEntries: [
+          {
+            acceptedSeq: 2,
+            entryIndex: 0,
+            causedByCommandId: newCommandId(),
+            acceptedAt: transfer.endedAt,
+            frameIndex: 1,
+            gameKey: 'free-pyramid',
+            source: 'system',
+            entryType: 'match-ended',
+            seat: 'A',
+            body: {},
+          },
+        ],
+      }),
     })
 
     expect(await application(room, events).readMatchProtocol(matchId, 'en', 'free-pyramid')).toMatchObject({
       ok: true,
       state: { status: 'finished' },
+      latestSeq: 2,
+      protocolRows: [{ key: 'protocol-2-0', message: { key: 'match.protocol.system.match-ended' } }],
     })
-    expect(events).toEqual(['archive', 'finalize', 'finish'])
+    expect(events).toEqual([])
   })
 
   test('resumes archival when Command submission discovers finalizing', async () => {

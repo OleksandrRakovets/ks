@@ -62,7 +62,7 @@ test('sends one catch-up cursor and broadcasts acceptances that do not end the M
   first.close()
 })
 
-test('withholds the match-ending update, refuses new sockets, then delivers and closes during finalization', async () => {
+test('broadcasts and closes on the durable match-ending command before archive preparation', async () => {
   const { matchId, stub } = await initializedRoom()
   await stub.submitCommand(prepareCommand())
   await stub.submitCommand({
@@ -72,23 +72,23 @@ test('withholds the match-ending update, refuses new sockets, then delivers and 
   })
   const socket = await connect(stub, matchId)
   await nextMessage(socket)
-  await stub.submitCommand(matchEndingCommand())
-  expect((await stub.fetch(liveRequest(matchId))).status).toBe(410)
   const endingUpdate = nextMessage(socket)
 
   const closed = new Promise<CloseEvent>((resolve) => {
     socket.addEventListener('close', (event) => resolve(event), { once: true })
   })
 
-  await stub.finalize()
+  await stub.submitCommand(matchEndingCommand())
   expect(await endingUpdate).toMatchObject({
     type: 'update',
     update: { acceptedSeq: 3, endsMatch: true },
   })
   expect((await closed).code).toBe(4000)
+  expect((await stub.fetch(liveRequest(matchId))).status).toBe(410)
+  await stub.finalize()
 })
 
-test('client closure is harmless before later broadcast and finalization', async () => {
+test('client closure is harmless before match end and finalization', async () => {
   const { matchId, stub } = await initializedRoom()
   const socket = await connect(stub, matchId)
   await nextMessage(socket)

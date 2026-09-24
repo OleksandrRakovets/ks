@@ -1,4 +1,4 @@
-import { formatPlayerRef, newGuestPlayerId, nowUnixEpochMilliseconds, type PlayerRef } from '@ks/core'
+import { type Clock, formatPlayerRef, newGuestPlayerId, type PlayerRef } from '@ks/core'
 import { and, eq } from 'drizzle-orm'
 
 import { guestPlayers } from './schema'
@@ -17,6 +17,7 @@ function splitGuestDisplayName(displayName: string): PlayerName {
 export async function getOrCreateGuestPlayerRef(
   db: ApplicationDatabase,
   displayName: string,
+  clock: Clock,
 ): Promise<PlayerRef> {
   const { firstName, lastName } = splitGuestDisplayName(displayName)
 
@@ -42,7 +43,7 @@ export async function getOrCreateGuestPlayerRef(
     lastNameUk: lastName,
     firstNameEn: firstName,
     lastNameEn: lastName,
-    createdAt: nowUnixEpochMilliseconds(),
+    createdAt: clock.nowMs(),
   })
 
   return formatPlayerRef('gp', guestPlayerId)

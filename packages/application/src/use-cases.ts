@@ -1,10 +1,9 @@
 import { type CreateMatchRequest, type MatchStateFor } from '@ks/competition'
 import {
   type Clock,
-  ClockFormatter,
   type Control,
-  type FormattedInstant,
   type HydratedMatchParticipant,
+  type InstantPresentation,
   type MatchCommand,
   type MatchId,
   type MatchScoreProjection,
@@ -120,7 +119,7 @@ type ReadKeyedMatchSuccess<K extends RegisteredGameKey> = {
   ok: true
   state: MatchStateFor<K>
   latestSeq: number
-  endedAt?: FormattedInstant
+  endedAtPresentation?: InstantPresentation
   endedAtIsToday?: boolean
   participants: HydratedMatchParticipants
   game?: GamePresentationFor<K>
@@ -150,7 +149,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     if (!parsed.success) return { ok: false, error: 'Invalid match creation input', status: 400 }
     const matchId = dependencies.newMatchId()
     const controlSecret = dependencies.newControlSecret()
-    const createdAt = dependencies.clock.now()
+    const createdAt = dependencies.clock.nowMs()
     const { playerNames, ...requestInput } = parsed.output
 
     const [seatAPlayerRef, seatBPlayerRef] = await Promise.all([
@@ -188,16 +187,16 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
   }
 
   async function listLiveMatches(locale: SupportedLocale): Promise<LiveMatchListPage> {
-    const now = dependencies.clock.now()
-    const formattedNow = ClockFormatter.format(now, locale, dependencies.clock.timeZone)
+    const now = dependencies.clock.nowMs()
+    const formattedNow = dependencies.clock.instantPresentation(now)
 
     const records = await dependencies.listLiveMatchRecords(
       v.parse(UnixEpochMilliseconds, Math.max(0, now - RECENT_FINISHED_MATCH_WINDOW_MS)),
       locale,
     )
 
-    const matches = await projectListEntries(records, locale, formattedNow, (createdAt) =>
-      matchCreatedAtLabel(createdAt, formattedNow),
+    const matches = await projectListEntries(records, locale, formattedNow, (formattedCreatedAt) =>
+      matchCreatedAtLabel(formattedCreatedAt, formattedNow),
     )
 
     const earliestRecentFinishedMatchExpiry = matches.reduce<number | undefined>((earliest, match) => {
@@ -220,8 +219,8 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     locale: SupportedLocale,
     requestedDay?: MatchListDay,
   ): Promise<FinishedMatchListPage> {
-    const now = dependencies.clock.now()
-    const formattedNow = ClockFormatter.format(now, locale, dependencies.clock.timeZone)
+    const now = dependencies.clock.nowMs()
+    const formattedNow = dependencies.clock.instantPresentation(now)
 
     const latest =
       requestedDay === undefined
@@ -230,14 +229,20 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
           })
         : null
 
-    const day = requestedDay ?? (latest === null ? null : localDay(latest, locale))
+    const day = requestedDay ?? (latest === null ? null : localDay(latest))
 
     if (day === null)
       return { scope: 'finished', matches: [], day: null, previousDay: null, nextDay: null, isToday: false }
 
     const range = dependencies.clock.dayRange(day)
     const records = await dependencies.listFinishedMatchRecords(range, locale)
-    const matches = await projectListEntries(records, locale, formattedNow, (createdAt) => createdAt.time)
+
+    const matches = await projectListEntries(
+      records,
+      locale,
+      formattedNow,
+      (formattedCreatedAt) => formattedCreatedAt.time,
+    )
 
     const [previous, next] = await Promise.all([
       dependencies.findFinishedMatchTime({ before: range.start }),
@@ -248,32 +253,32 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
       scope: 'finished',
       matches,
       day,
-      previousDay: previous === null ? null : localDay(previous, locale),
-      nextDay: next === null ? null : localDay(next, locale),
-      isToday: day === localDay(now, locale),
+      previousDay: previous === null ? null : localDay(previous),
+      nextDay: next === null ? null : localDay(next),
+      isToday: day === localDay(now),
     }
   }
 
   async function projectListEntries(
     records: readonly MatchListRecord[],
     locale: SupportedLocale,
-    formattedNow: FormattedInstant,
-    label: (createdAt: FormattedInstant) => string,
+    formattedNow: InstantPresentation,
+    label: (formattedCreatedAt: InstantPresentation) => string,
   ): Promise<MatchListEntry[]> {
     return Promise.all(
       records.map(async (record) => {
         const score = await readMatchScoreForList(record)
 
-        const createdAt = ClockFormatter.format(record.createdAt, locale, dependencies.clock.timeZone)
+        const formattedCreatedAt = dependencies.clock.instantPresentation(record.createdAt)
 
         return {
           matchId: record.matchId,
           gameKey: record.gameKey,
           shortGameTitle: registry[record.gameKey].meta.shortGameTitle[locale],
-          createdAtIso: createdAt.isoString,
-          createdAtLabel: label(createdAt),
-          createdAtDate: createdAt.date,
-          createdAtIsToday: isSameLocalDate(createdAt, formattedNow),
+          createdAtIso: formattedCreatedAt.isoString,
+          createdAtLabel: label(formattedCreatedAt),
+          createdAtDate: formattedCreatedAt.date,
+          createdAtIsToday: isSameLocalDate(formattedCreatedAt, formattedNow),
           participants: record.participants,
           ...score,
         }
@@ -281,8 +286,8 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     )
   }
 
-  function localDay(instant: UnixEpochMilliseconds, locale: SupportedLocale): MatchListDay {
-    const { year, month, day } = ClockFormatter.format(instant, locale, dependencies.clock.timeZone).date
+  function localDay(instant: UnixEpochMilliseconds): MatchListDay {
+    const { year, month, day } = dependencies.clock.instantPresentation(instant).date
 
     return `${year}-${month}-${day}`
   }
@@ -321,6 +326,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     matchId: MatchId,
     locale: SupportedLocale,
     expectedGameKey: K,
+    view: 'match' | 'protocol',
   ): Promise<ReadKeyedMatchResult<K>> {
     const record = await dependencies.getMatchRecord(matchId)
 
@@ -337,13 +343,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     const roomResult = await roomClient.getControls()
 
     if (roomResult._tag === 'finalizing') {
-      await archiveAndMarkFinished(matchId)
-      const finishedRecord = await dependencies.getMatchRecord(matchId)
-
-      if (finishedRecord?.status !== 'finished')
-        throw new Error('Finalized Match is missing its finished D1 projection')
-
-      return readArchivedMatch(finishedRecord, locale, expectedGameKey)
+      return readFinalizingMatch(record, roomResult, roomClient, locale, expectedGameKey, view)
     }
 
     if (roomResult.state.matchId !== matchId || roomResult.state.gameKey !== expectedGameKey)
@@ -352,13 +352,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     const protocolResult = await roomClient.getProtocol()
 
     if (protocolResult._tag === 'finalizing') {
-      await archiveAndMarkFinished(matchId)
-      const finishedRecord = await dependencies.getMatchRecord(matchId)
-
-      if (finishedRecord?.status !== 'finished')
-        throw new Error('Finalized Match is missing its finished D1 projection')
-
-      return readArchivedMatch(finishedRecord, locale, expectedGameKey)
+      return readFinalizingMatch(record, protocolResult, roomClient, locale, expectedGameKey, view)
     }
 
     if (protocolResult.state.matchId !== matchId || protocolResult.state.gameKey !== expectedGameKey)
@@ -399,7 +393,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     locale: SupportedLocale,
     expectedGameKey: K,
   ): Promise<ReadMatchResult<K>> {
-    const match = await readKeyedMatch(matchId, locale, expectedGameKey)
+    const match = await readKeyedMatch(matchId, locale, expectedGameKey, 'match')
 
     if (!match.ok) return match
 
@@ -449,7 +443,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     locale: SupportedLocale,
     expectedGameKey: K,
   ): Promise<ReadMatchProtocolResult<K>> {
-    const match = await readKeyedMatch(matchId, locale, expectedGameKey)
+    const match = await readKeyedMatch(matchId, locale, expectedGameKey, 'protocol')
 
     if (!match.ok) return match
 
@@ -460,12 +454,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
       B: match.participants.B.displayName,
     }
 
-    const protocolRows = renderProtocolRows(
-      match.protocolEntries,
-      seatNames,
-      dependencies.clock.timeZone,
-      locale,
-    )
+    const protocolRows = renderProtocolRows(match.protocolEntries, seatNames, dependencies.clock)
 
     return {
       ...result,
@@ -474,18 +463,33 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
   }
 
   async function archiveAndMarkFinished(matchId: MatchId): Promise<void> {
-    const transfer = await dependencies.matchRoomClient(matchId).prepareArchive()
-    await dependencies.archiveFinishedMatch(transfer)
-    await dependencies.matchRoomClient(matchId).finalize()
-    await dependencies.markMatchFinished(transfer)
+    let stage = 'prepare-archive'
+
+    try {
+      const transfer = await dependencies.matchRoomClient(matchId).prepareArchive()
+      stage = 'archive-in-d1'
+      await dependencies.archiveFinishedMatch(transfer)
+      stage = 'finalize-room'
+      await dependencies.matchRoomClient(matchId).finalize()
+      stage = 'mark-d1-finished'
+      await dependencies.markMatchFinished(transfer)
+    } catch (error) {
+      console.error({ event: 'match-archive.failed', matchId, stage, error })
+      throw error
+    }
   }
 
-  function matchCreatedAtLabel(createdAt: FormattedInstant, today: FormattedInstant): string {
-    if (isSameLocalDate(createdAt, today)) return createdAt.time
+  function matchCreatedAtLabel(
+    formattedCreatedAt: InstantPresentation,
+    formattedNow: InstantPresentation,
+  ): string {
+    if (isSameLocalDate(formattedCreatedAt, formattedNow)) return formattedCreatedAt.time
 
-    const date = `${createdAt.date.day}.${createdAt.date.month}`
+    const date = `${formattedCreatedAt.date.day}.${formattedCreatedAt.date.month}`
 
-    return createdAt.date.year === today.date.year ? date : `${date}.${createdAt.date.year}`
+    return formattedCreatedAt.date.year === formattedNow.date.year
+      ? date
+      : `${date}.${formattedCreatedAt.date.year}`
   }
 
   async function readMatchScoreForList(record: MatchRecord): Promise<MatchListScore> {
@@ -502,17 +506,12 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
 
     if (room._tag === 'active')
       return { status: 'active', endedAt: null, latestSeq: room.latestSeq, score: room.score }
-    await archiveAndMarkFinished(record.matchId)
-    const finished = await dependencies.getMatchRecord(record.matchId)
-
-    if (finished?.status !== 'finished')
-      throw new Error('Finalized Match is missing its finished D1 projection')
 
     return {
       status: 'finished',
-      endedAt: finished.endedAt,
-      latestSeq: finished.finalSourceLatestSeq,
-      score: finished.finalScore,
+      endedAt: room.endedAt,
+      latestSeq: room.latestSeq,
+      score: room.score,
     }
   }
 
@@ -520,6 +519,48 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     return {
       A: await dependencies.hydrateParticipant(record.participantRefs.A, locale),
       B: await dependencies.hydrateParticipant(record.participantRefs.B, locale),
+    }
+  }
+
+  async function readFinalizingMatch<K extends RegisteredGameKey>(
+    record: MatchRecord,
+    room: Extract<Awaited<ReturnType<MatchRoomClient['getControls']>>, { _tag: 'finalizing' }>,
+    roomClient: MatchRoomClient,
+    locale: SupportedLocale,
+    expectedGameKey: K,
+    view: 'match' | 'protocol',
+  ): Promise<ReadKeyedMatchResult<K>> {
+    if (room.state.matchId !== record.matchId || room.state.gameKey !== expectedGameKey)
+      throw new Error('MatchRoom finalizing identity conflicts with D1')
+
+    let protocolEntries: ProtocolEntries = []
+
+    if (view === 'protocol') {
+      const transfer = await roomClient.prepareArchive()
+
+      if (
+        transfer.matchId !== record.matchId ||
+        transfer.gameKey !== expectedGameKey ||
+        transfer.sourceLatestSeq !== room.latestSeq ||
+        transfer.endedAt !== room.endedAt
+      )
+        throw new Error('MatchRoom finalizing Protocol conflicts with its final state')
+
+      protocolEntries = transfer.protocolEntries
+    }
+
+    const endedAtPresentation = dependencies.clock.instantPresentation(room.endedAt)
+    const formattedNow = dependencies.clock.nowPresentation()
+
+    return {
+      ok: true,
+      state: { ...room.state, gameKey: expectedGameKey },
+      latestSeq: room.latestSeq,
+      endedAtPresentation,
+      endedAtIsToday: isSameLocalDate(endedAtPresentation, formattedNow),
+      participants: await hydrateParticipants(record, locale),
+      controls: [],
+      protocolEntries,
     }
   }
 
@@ -543,15 +584,15 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     const state = archive.state
 
     if (state.gameKey !== expectedGameKey) return { ok: false, error: 'Unknown match', status: 404 }
-    const endedAt = ClockFormatter.format(record.endedAt, locale, dependencies.clock.timeZone)
-    const now = ClockFormatter.format(dependencies.clock.now(), locale, dependencies.clock.timeZone)
+    const endedAtPresentation = dependencies.clock.instantPresentation(record.endedAt)
+    const formattedNow = dependencies.clock.nowPresentation()
 
     return {
       ok: true,
       state: { ...state, gameKey: expectedGameKey },
       latestSeq: archive.sourceLatestSeq,
-      endedAt,
-      endedAtIsToday: isSameLocalDate(endedAt, now),
+      endedAtPresentation,
+      endedAtIsToday: isSameLocalDate(endedAtPresentation, formattedNow),
       participants: await hydrateParticipants(record, locale),
       controls: [],
       protocolEntries: archive.entries,
@@ -562,7 +603,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     match: ReadKeyedMatchSuccess<K>,
   ): Extract<ReadMatchResult<K>, { ok: true }> {
     if (match.state.status === 'finished') {
-      if (match.endedAt === undefined || match.endedAtIsToday === undefined)
+      if (match.endedAtPresentation === undefined || match.endedAtIsToday === undefined)
         throw new Error('Finished Match read is missing its end time')
 
       return {
@@ -570,7 +611,9 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
         lifecycle: 'finished',
         state: { ...match.state, status: 'finished' },
         latestSeq: match.latestSeq,
-        endedAt: match.endedAt,
+        endedAtIso: match.endedAtPresentation.isoString,
+        endedAtTime: match.endedAtPresentation.time,
+        endedAtDate: match.endedAtPresentation.date,
         endedAtIsToday: match.endedAtIsToday,
         participants: match.participants,
       }
@@ -601,7 +644,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     return { ...active, controlPhase: 'between-frames' }
   }
 
-  function isSameLocalDate(left: FormattedInstant, right: FormattedInstant): boolean {
+  function isSameLocalDate(left: InstantPresentation, right: InstantPresentation): boolean {
     return (
       left.date.year === right.date.year &&
       left.date.month === right.date.month &&

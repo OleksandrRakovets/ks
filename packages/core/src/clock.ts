@@ -12,68 +12,38 @@ function toUnixEpochMilliseconds(value: number): UnixEpochMilliseconds {
 
 export const UnixEpochMilliseconds = v.pipe(NonNegativeInteger, v.transform(toUnixEpochMilliseconds))
 
-export function nowUnixEpochMilliseconds(): UnixEpochMilliseconds {
-  return v.parse(UnixEpochMilliseconds, Date.now())
-}
-
-/** Supplies wall-clock time and the IANA zone used for local calendar representation. */
+/** Supplies wall-clock instants and their presentation in one IANA zone. */
 export interface Clock {
-  now(): UnixEpochMilliseconds
+  /** Returns an absolute instant in Unix epoch milliseconds; the zone does not affect it. */
+  nowMs(): UnixEpochMilliseconds
+  /** Returns UTC ISO, zero-padded date parts in this clock's zone, and 24-hour time; the zone is not carried in the result. */
+  instantPresentation(instant: UnixEpochMilliseconds): InstantPresentation
+  /** Presents this clock's current instant in its zone, without choosing a surface-specific label. */
+  nowPresentation(): InstantPresentation
   /** UTC bounds of a calendar day in this Clock's zone, including daylight-saving transitions. */
   dayRange(day: string): { start: UnixEpochMilliseconds; end: UnixEpochMilliseconds }
-  readonly timeZone: string
 }
 
+/** Uses the system's current instant and one zone for calendar presentation. */
 export class SystemClock implements Clock {
-  readonly timeZone: string
+  readonly #timeZone: string
 
   constructor(timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone) {
-    this.timeZone = timeZone
+    this.#timeZone = timeZone
   }
 
-  now(): UnixEpochMilliseconds {
-    return nowUnixEpochMilliseconds()
+  nowMs(): UnixEpochMilliseconds {
+    return v.parse(UnixEpochMilliseconds, Date.now())
   }
 
-  dayRange(day: string) {
-    return dayRange(day, this.timeZone)
-  }
-}
-
-export class FixedClock implements Clock {
-  readonly fixedDate: Date
-  readonly timeZone: string
-
-  constructor(fixedDate: Date, timeZone: string) {
-    this.fixedDate = fixedDate
-    this.timeZone = timeZone
-  }
-
-  now(): UnixEpochMilliseconds {
-    return v.parse(UnixEpochMilliseconds, this.fixedDate.getTime())
-  }
-
-  dayRange(day: string) {
-    return dayRange(day, this.timeZone)
-  }
-}
-
-export type FormattedInstant = Readonly<{
-  isoString: string
-  time: string
-  date: Readonly<{ year: string; month: string; day: string }>
-}>
-
-/** Formats instants in a requested zone while preserving their canonical UTC ISO value. */
-export class ClockFormatter {
-  static format(value: UnixEpochMilliseconds, locale: string, timeZone: string): FormattedInstant {
-    const date = new Date(value)
+  instantPresentation(instant: UnixEpochMilliseconds): InstantPresentation {
+    const date = new Date(instant)
 
     const dateParts = new Intl.DateTimeFormat('en', {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
-      timeZone,
+      timeZone: this.#timeZone,
     }).formatToParts(date)
 
     const year = dateParts.find((part) => part.type === 'year')?.value
@@ -85,16 +55,43 @@ export class ClockFormatter {
 
     return {
       isoString: date.toISOString(),
-      time: new Intl.DateTimeFormat(locale, {
+      time: new Intl.DateTimeFormat('en', {
         hour: '2-digit',
         minute: '2-digit',
         hourCycle: 'h23',
-        timeZone,
+        timeZone: this.#timeZone,
       }).format(date),
       date: { year, month, day },
     }
   }
+
+  nowPresentation(): InstantPresentation {
+    return this.instantPresentation(this.nowMs())
+  }
+
+  dayRange(day: string) {
+    return dayRange(day, this.#timeZone)
+  }
 }
+
+export class FixedClock extends SystemClock {
+  readonly fixedDate: Date
+
+  constructor(fixedDate: Date, timeZone: string) {
+    super(timeZone)
+    this.fixedDate = fixedDate
+  }
+
+  override nowMs(): UnixEpochMilliseconds {
+    return v.parse(UnixEpochMilliseconds, this.fixedDate.getTime())
+  }
+}
+
+export type InstantPresentation = Readonly<{
+  isoString: string
+  time: string
+  date: Readonly<{ year: string; month: string; day: string }>
+}>
 
 function dayRange(day: string, timeZone: string) {
   const startDay = Date.parse(`${day}T00:00:00Z`)

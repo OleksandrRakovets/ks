@@ -49,11 +49,11 @@ Competition composes match controls before game controls into one flat list. Mat
 
 Accepted Commands are the active replay authority and are never mirrored to D1. Resident match state and derived Protocol are disposable caches; cold restoration validates and replays ordered commands through the same aggregate operation. Raw XState snapshots are not persisted.
 
-Active restoration replays Accepted Commands after eviction. Finalizing paths remain replay-free except when `prepareArchive` derives Protocol and verifies the replayed Final Match State, so gameplay compatibility must be preserved through archive preparation.
+Active restoration replays Accepted Commands after eviction. Finalizing state and score reads use the durable Final Match State without replay; Protocol reads and `prepareArchive` replay Accepted Commands and verify the Final Match State against that history.
 
 An accepted command advances gameplay before one synchronous SQLite transaction stores the Accepted Command and next sequence. When it ends the Match, that transaction also stores Final Match State and the `finalizing` status. Resident state and derived Protocol advance only after the commit; defects discard the cache so the next operation restores from durable commands.
 
-Finished match-state and Protocol reads use D1 only. Final Match State is persisted atomically with the match-ending acceptance and transferred with Protocol without application-side gameplay replay. When D1 marks the Match finished, it also stores the Accepted Command cursor and a compact score projection on the Match row so list reads do not parse the Protocol archive. This projection is reproducible from canonical Final Match State and is not a second history authority.
+Finished match-state and Protocol reads use D1 only. While D1 remains active but MatchRoom is finalizing, match pages and live-list scores display the room's finished game projection without changing D1. Final Match State is persisted atomically with the match-ending acceptance and transferred with Protocol without application-side gameplay replay. When D1 marks the Match finished, it also stores the Accepted Command cursor and a compact score projection on the Match row so list reads do not parse the Protocol archive. This projection is reproducible from canonical Final Match State and is not a second history authority.
 
 ## Match Lifecycle
 
@@ -71,17 +71,17 @@ Application selects a named room once with `getByName(matchId)`. Initialization 
 
 Command retry equality compares decoded canonical values rather than serialized JSON. Identical accepted and rejected retries return their durable outcome. Reusing an ID with different content returns `command-id-conflict`. After finalization, retrying the match-ending Accepted Command still reports `endsMatch: true`; retrying an earlier Accepted Command reports `false`.
 
-The `match-ended` Protocol entry is derived from the match-ending Accepted Command stored atomically with MatchRoom's `finalizing` status. Its live update is withheld until archival succeeds:
+The `match-ended` Protocol entry is derived from the match-ending Accepted Command stored atomically with MatchRoom's `finalizing` status. MatchRoom broadcasts the match-ending update and closes sockets immediately after the commit, before archival:
 
 ```text
-MatchRoom finalizing Protocol + Final Match State
+MatchRoom finalizing Protocol + Final Match State; broadcast match-ending update
   -> application treats the transfer as canonical and checks D1 identity, lifecycle, and archive idempotency
   -> idempotently archive protocol and final match state in D1
-  -> MatchRoom broadcasts the match-ending update and closes streams
+  -> MatchRoom clears its resident cache
   -> D1 matches.status: active -> finished, storing endedAt and the compact final score projection
 ```
 
-Until the final step succeeds, D1 remains active and the retained MatchRoom reports `finalizing`; a later relevant application request then retries the idempotent transfer, archival, and finalization steps. MatchRoom retains the `finalizing` status even after D1 marks the Match finished. Finalization publishes the withheld match-ending update, closes clients, and clears resident state without replaying history. Finished reads use D1 and do not access MatchRoom. Cleanup of retained finalizing storage is deferred until observed costs justify a separate retention mechanism.
+Until the final step succeeds, D1 remains active and the retained MatchRoom reports `finalizing`. GETs return the room's final projection without writing; only Protocol-page GETs derive entries via the read-only `prepareArchive` transfer. A later POST to that room can retry the idempotent transfer, archival, and finish steps. Archival failures are logged with their stage, and finalizing-room reads warn with the match ID and age since its end; a read warning can also be a normal race with the POST. There is no background retry, so an interrupted POST with no later retry can leave D1 active indefinitely. MatchRoom retains `finalizing` even after D1 marks the Match finished. Finished D1 reads do not access MatchRoom. Cleanup of retained finalizing storage is deferred until observed costs justify a separate retention mechanism.
 
 The generated control secret is stored in MatchRoom but is not exposed or checked by the current command path.
 
@@ -95,7 +95,8 @@ occupied day and reads all finished rows in its UTC day interval; two single-row
 The application's Clock timezone defines day boundaries, including DST transitions, and Match ID
 breaks ties within a start timestamp. Application reads compact finished scores directly from D1
 rows and asks each selected Active MatchRoom for a coherent score and Accepted Command cursor. A room
-found finalizing resumes the existing archival and finish steps before the list result is returned.
+found finalizing returns its final score and end time without changing D1; the live list presents
+the game as finished even while archival remains pending. Only D1-finished rows enter the finished list.
 The finished path neither selects MatchRoom nor starts browser polling.
 
 Play exposes `GET /api/sparring-matches/live-scores/` for polling unique Active Match IDs.
@@ -114,9 +115,9 @@ Browser WebSocket
   -> caught-up cursor, then committed Accepted Command invalidations
 ```
 
-The browser validates the versioned shared wire contract and reconnects with bounded backoff. Loader projections remain authoritative: live messages only request revalidation. A connection receives one current cursor rather than replaying individual invalidations.
+The browser validates the versioned shared wire contract and reconnects with bounded backoff. Loader projections remain authoritative: live messages only request revalidation. A connection receives one current cursor rather than replaying individual invalidations. Active Control and Protocol pages also revalidate on returning to a visible or focused tab or receiving an `online` hint, even without a socket update; finished pages remove those listeners. The live list similarly polls on an `online` hint while visible. `offline` does not stop retries or disable controls because browser connectivity estimates do not establish whether Play is reachable.
 
-MatchRoom uses only the Durable Object Hibernation API for connected sockets and reconstructs connection metadata from serialized attachments. A new connection against a Finalizing Match returns `410`. The match-ending update remains withheld until finalization after archive success; MatchRoom then broadcasts it and closes sockets with the shared finish code so clients revalidate against D1's finished representation.
+MatchRoom uses only the Durable Object Hibernation API for connected sockets and reconstructs connection metadata from serialized attachments. A new connection against a Finalizing Match returns `410`. The match-ending update is broadcast and sockets are closed when its command is accepted, before D1 archival; clients revalidate against either the room's final projection or D1's finished archive. Changing the read source later does not require a second notification.
 
 ## Persistence Boundaries
 

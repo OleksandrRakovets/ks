@@ -22,9 +22,9 @@ type MatchSuccess<K extends RegisteredGameKey> = Extract<ReadMatchResult<K>, { o
 
 type ProtocolSuccess<K extends RegisteredGameKey> = Extract<ReadMatchProtocolResult<K>, { ok: true }>
 
-export type MatchRouteData<K extends RegisteredGameKey> = MatchSuccess<K> & { shortGameTitle: string }
+type MatchRouteData<K extends RegisteredGameKey> = MatchSuccess<K> & { shortGameTitle: string }
 
-export type ProtocolRouteData<K extends RegisteredGameKey> = ProtocolSuccess<K> & { shortGameTitle: string }
+type ProtocolRouteData<K extends RegisteredGameKey> = ProtocolSuccess<K> & { shortGameTitle: string }
 
 type MatchPageDecision<Data extends { lifecycle: 'active' | 'finished' }> =
   | { readonly page: 'control'; readonly match: Extract<Data, { lifecycle: 'active' }> }
@@ -284,6 +284,13 @@ export function useControlLiveRevalidation(
   useEffect(() => {
     if (state.status !== 'active') return undefined
 
+    function catchUp() {
+      if (document.visibilityState !== 'visible' || revalidatorStateRef.current !== 'idle') return
+
+      revalidatorStateRef.current = 'loading'
+      void revalidateRef.current()
+    }
+
     const subscription = subscribeSparringMatchLive({
       matchId: state.matchId,
       pageKind: 'control',
@@ -306,7 +313,16 @@ export function useControlLiveRevalidation(
       },
     })
 
-    return () => subscription.stop()
+    document.addEventListener('visibilitychange', catchUp)
+    window.addEventListener('focus', catchUp)
+    window.addEventListener('online', catchUp)
+
+    return () => {
+      document.removeEventListener('visibilitychange', catchUp)
+      window.removeEventListener('focus', catchUp)
+      window.removeEventListener('online', catchUp)
+      subscription.stop()
+    }
   }, [state.matchId, state.status])
 
   return () => {
@@ -343,6 +359,13 @@ export function useProtocolLiveRevalidation(state: MatchState, latestSeq: number
   useEffect(() => {
     if (state.status !== 'active') return undefined
 
+    function catchUp() {
+      if (document.visibilityState !== 'visible' || revalidatorStateRef.current !== 'idle') return
+
+      revalidatorStateRef.current = 'loading'
+      void revalidateRef.current()
+    }
+
     const subscription = subscribeSparringMatchLive({
       matchId: state.matchId,
       pageKind: 'protocol',
@@ -360,6 +383,15 @@ export function useProtocolLiveRevalidation(state: MatchState, latestSeq: number
       },
     })
 
-    return () => subscription.stop()
+    document.addEventListener('visibilitychange', catchUp)
+    window.addEventListener('focus', catchUp)
+    window.addEventListener('online', catchUp)
+
+    return () => {
+      document.removeEventListener('visibilitychange', catchUp)
+      window.removeEventListener('focus', catchUp)
+      window.removeEventListener('online', catchUp)
+      subscription.stop()
+    }
   }, [state.matchId, state.status])
 }

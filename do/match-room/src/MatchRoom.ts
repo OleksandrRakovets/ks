@@ -40,7 +40,6 @@ export class MatchRoom extends DurableObject<Env> {
       if (outcome.next)
         this.#handler = new FinalizingMatchHandler(
           this.#storage,
-          this.#liveConnections,
           outcome.next.storedMatch,
           outcome.next.resident,
         )
@@ -114,7 +113,7 @@ export class MatchRoom extends DurableObject<Env> {
     this.#handler =
       storedMatch.status === 'active'
         ? new ActiveMatchHandler(this.#storage, this.#liveConnections, storedMatch)
-        : new FinalizingMatchHandler(this.#storage, this.#liveConnections, storedMatch)
+        : new FinalizingMatchHandler(this.#storage, storedMatch)
 
     return this.#handler
   }

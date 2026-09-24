@@ -39,7 +39,7 @@ test('does not replay commands after archive preparation', async () => {
   await expect(env.MATCH_ROOM.getByName(matchId).finalize()).resolves.toBeUndefined()
 })
 
-test('finalizing lightweight reads do not reconstruct corrupt command history', async () => {
+test('finalizing projections avoid replay while archive preparation detects corrupt history', async () => {
   const { matchId, stub } = await initializedRoom()
   await makeRoomFinalizing(stub)
   await runInDurableObject(stub, (_room, state) => {
@@ -48,8 +48,15 @@ test('finalizing lightweight reads do not reconstruct corrupt command history', 
   await evictDurableObject(stub)
   const restored = env.MATCH_ROOM.getByName(matchId)
 
-  await expect(restored.getControls()).resolves.toEqual({ _tag: 'finalizing' })
-  await expect(restored.getProtocol()).resolves.toEqual({ _tag: 'finalizing' })
+  await expect(restored.getControls()).resolves.toMatchObject({
+    _tag: 'finalizing',
+    state: { status: 'finished' },
+  })
+  await expect(restored.getScore()).resolves.toMatchObject({ _tag: 'finalizing', latestSeq: 3 })
+  await expect(restored.getProtocol()).resolves.toMatchObject({
+    _tag: 'finalizing',
+    state: { status: 'finished' },
+  })
 
   const response = await restored.fetch(
     new Request(`https://match-room/api/sparring-match/${matchId}/live/?contract=1&view=control`, {

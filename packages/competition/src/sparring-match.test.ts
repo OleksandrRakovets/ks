@@ -6,11 +6,13 @@ import {
   type MatchConfig,
   newCommandId,
   newMatchId,
-  nowUnixEpochMilliseconds,
+  SystemClock,
 } from '@ks/core'
 
 import { parseProtocolEntryContent } from './protocol'
 import { createSparringMatch, restoreSparringMatch } from './sparring-match'
+
+const clock = new SystemClock()
 
 function config(target = 2): MatchConfig {
   return {
@@ -59,7 +61,7 @@ describe('SparringMatch', () => {
       history.push({
         ...submitted,
         acceptedSeq: history.length + 1,
-        acceptedAt: nowUnixEpochMilliseconds(),
+        acceptedAt: clock.nowMs(),
       })
     }
 
@@ -101,7 +103,7 @@ describe('SparringMatch', () => {
       history.push({
         ...submitted,
         acceptedSeq: history.length + 1,
-        acceptedAt: nowUnixEpochMilliseconds(),
+        acceptedAt: clock.nowMs(),
       })
     }
 
@@ -135,7 +137,7 @@ describe('SparringMatch', () => {
     history.push({
       ...awarded.command,
       acceptedSeq: history.length + 1,
-      acceptedAt: nowUnixEpochMilliseconds(),
+      acceptedAt: clock.nowMs(),
     })
 
     // SAFETY: this fixture is built from typed accepted results immediately above.
@@ -176,7 +178,7 @@ describe('SparringMatch', () => {
       history.push({
         ...submitted,
         acceptedSeq: history.length + 1,
-        acceptedAt: nowUnixEpochMilliseconds(),
+        acceptedAt: clock.nowMs(),
       })
     }
 

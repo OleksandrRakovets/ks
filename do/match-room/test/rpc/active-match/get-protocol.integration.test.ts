@@ -1,4 +1,4 @@
-import { evictDurableObject } from 'cloudflare:test'
+import { evictDurableObject, runInDurableObject } from 'cloudflare:test'
 import { env } from 'cloudflare:workers'
 import { expect, test } from 'vitest'
 
@@ -29,8 +29,21 @@ test('returns Protocol at sequence zero and restores accepted entries after evic
   })
 })
 
-test('returns finalizing after a match-ending acceptance', async () => {
+test('serves finalizing state without replay and derives Protocol for the archive transfer', async () => {
   const { stub } = await initializedRoom()
   await makeRoomFinalizing(stub)
-  expect(await stub.getProtocol()).toEqual({ _tag: 'finalizing' })
+  expect(await stub.getProtocol()).toMatchObject({
+    _tag: 'finalizing',
+    latestSeq: 3,
+    state: { status: 'finished', framesWonBySeat: { A: 1, B: 0 } },
+  })
+  expect(
+    await runInDurableObject(stub, async (room) => {
+      const transfer = await room.prepareArchive()
+
+      return transfer.protocolEntries.some(
+        (entry) => entry.acceptedSeq === 3 && entry.entryType === 'match-ended',
+      )
+    }),
+  ).toBe(true)
 })

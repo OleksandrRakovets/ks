@@ -1,12 +1,6 @@
 import { expect, test } from 'bun:test'
 
-import {
-  type AcceptedCommand,
-  type MatchConfig,
-  newCommandId,
-  newMatchId,
-  nowUnixEpochMilliseconds,
-} from '@ks/core'
+import { type AcceptedCommand, type MatchConfig, newCommandId, newMatchId, SystemClock } from '@ks/core'
 
 import { createSparringMatch, restoreSparringMatch, SparringMatchHistoryError } from './sparring-match'
 
@@ -26,7 +20,7 @@ function prepared(): AcceptedCommand {
 
   if (result._tag !== 'accepted') throw new Error('Expected acceptance')
 
-  return { ...result.command, acceptedSeq: 1, acceptedAt: nowUnixEpochMilliseconds() }
+  return { ...result.command, acceptedSeq: 1, acceptedAt: new SystemClock().nowMs() }
 }
 
 test('restoration rejects a noncanonical or incompatible stored command', () => {
