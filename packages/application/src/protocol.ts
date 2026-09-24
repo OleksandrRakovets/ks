@@ -194,14 +194,18 @@ export function renderProtocolRows(
   locale = 'en',
 ): ProtocolRow[] {
   return entries.map((entry) => {
-    const formattedAcceptedAt = ClockFormatter.format(entry.acceptedAt, locale, timeZone)
+    const { isoString: acceptedAtIso, time: acceptedAtLabel } = ClockFormatter.format(
+      entry.acceptedAt,
+      locale,
+      timeZone,
+    )
 
     return {
       key: `protocol-${entry.acceptedSeq}-${entry.entryIndex}`,
       message: entryMessage(entry, seatNames),
       score: entry.scoreAfter,
-      acceptedAtIso: formattedAcceptedAt.isoString,
-      acceptedAtLabel: formattedAcceptedAt.time,
+      acceptedAtIso,
+      acceptedAtLabel,
     }
   })
 }
