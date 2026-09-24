@@ -53,7 +53,7 @@ Active restoration replays Accepted Commands after eviction. Finalizing state an
 
 An accepted command advances gameplay before one synchronous SQLite transaction stores the Accepted Command and next sequence. When it ends the Match, that transaction also stores Final Match State and the `finalizing` status. Resident state and derived Protocol advance only after the commit; defects discard the cache so the next operation restores from durable commands.
 
-D1-finished match-state and Protocol reads use D1 only. While D1 remains active but MatchRoom is finalizing, match pages and live-list scores display the room's finished game projection without changing D1. Final Match State is persisted atomically with the match-ending acceptance and transferred with Protocol without application-side gameplay replay. When D1 marks the Match finished, it also stores the Accepted Command cursor and a compact score projection on the Match row so list reads do not parse the Protocol archive. This projection is reproducible from canonical Final Match State and is not a second history authority.
+Finished match-state and Protocol reads use D1 only. While D1 remains active but MatchRoom is finalizing, match pages and live-list scores display the room's finished game projection without changing D1. Final Match State is persisted atomically with the match-ending acceptance and transferred with Protocol without application-side gameplay replay. When D1 marks the Match finished, it also stores the Accepted Command cursor and a compact score projection on the Match row so list reads do not parse the Protocol archive. This projection is reproducible from canonical Final Match State and is not a second history authority.
 
 ## Match Lifecycle
 
