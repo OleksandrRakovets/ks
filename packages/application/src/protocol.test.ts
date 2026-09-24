@@ -58,7 +58,7 @@ test('attributes the respotted-black opening selection to the chosen player', ()
       },
     ],
     { A: 'Alice', B: 'Bob' },
-    'UTC',
+    clock,
   )[0]
 
   expect(row?.message).toEqual({
