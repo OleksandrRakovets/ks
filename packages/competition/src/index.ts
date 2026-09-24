@@ -2,4 +2,4 @@ export * from './matches'
 
 export * from './protocol'
 
-export * from './sparring-match'
+export * from './match'

@@ -2,48 +2,48 @@ import { type BySeatNumber, type FrameOutcome, type MatchConfig, opponentOf, typ
 import * as v from 'valibot'
 import { assign, initialTransition, setup, type SnapshotFrom, transition } from 'xstate'
 
-type CompletedSparringFrame = {
+type CompletedFrame = {
   readonly frameIndex: number
   readonly breakerSeat: Seat
   readonly outcome: FrameOutcome
 }
 
-type ActiveSparringFrame = {
+type ActiveFrame = {
   readonly frameIndex: number
   readonly breakerSeat: Seat
 }
 
-type SparringMatchLifecycleStateBase = {
+type MatchLifecycleStateBase = {
   readonly config: MatchConfig
-  readonly completedFrames: readonly CompletedSparringFrame[]
+  readonly completedFrames: readonly CompletedFrame[]
   readonly framesWonBySeat: BySeatNumber
 }
 
-export type SparringMatchLifecycleState =
-  | (SparringMatchLifecycleStateBase & {
+export type MatchLifecycleState =
+  | (MatchLifecycleStateBase & {
       readonly phase: 'between-frames'
       readonly nextFrameIndex: number
     })
-  | (SparringMatchLifecycleStateBase & {
+  | (MatchLifecycleStateBase & {
       readonly phase: 'frame-in-progress'
       readonly nextFrameIndex: number
-      readonly activeFrame: ActiveSparringFrame
+      readonly activeFrame: ActiveFrame
     })
-  | (SparringMatchLifecycleStateBase & {
+  | (MatchLifecycleStateBase & {
       readonly phase: 'finished'
       readonly winnerSeat: Seat
     })
 
-export type SparringMatchMachineContext = {
+export type MatchMachineContext = {
   readonly config: MatchConfig
-  readonly completedFrames: readonly CompletedSparringFrame[]
+  readonly completedFrames: readonly CompletedFrame[]
   readonly framesWonBySeat: BySeatNumber
   readonly nextFrameIndex: number
-  readonly activeFrame: ActiveSparringFrame | null
+  readonly activeFrame: ActiveFrame | null
   readonly winnerSeat: Seat | null
 }
 
-export type SparringMatchLifecycleEvent =
+export type MatchLifecycleEvent =
   | {
       readonly type: 'frame.prepared'
       readonly frameIndex: number
@@ -55,9 +55,9 @@ export type SparringMatchLifecycleEvent =
       readonly outcome: FrameOutcome
     }
 
-const SparringMatchPhase = v.picklist(['between-frames', 'frame-in-progress', 'finished'])
+const MatchPhase = v.picklist(['between-frames', 'frame-in-progress', 'finished'])
 
-export type SparringMatchPhase = v.InferOutput<typeof SparringMatchPhase>
+export type MatchPhase = v.InferOutput<typeof MatchPhase>
 
 function expectedBreakerSeat(config: MatchConfig, frameIndex: number): Seat {
   return frameIndex % 2 === 1 ? config.firstBreakerSeat : opponentOf(config.firstBreakerSeat)
@@ -78,12 +78,12 @@ function isMatchTargetReached(
   return framesWonBySeat[winnerSeat] >= matchTargetFrames
 }
 
-export const SparringMatchMachine = setup({
+export const MatchMachine = setup({
   types: {
     // SAFETY: XState reads this assertion value only to capture the declared context contract.
-    context: {} as SparringMatchMachineContext,
+    context: {} as MatchMachineContext,
     // SAFETY: XState reads this assertion value only to capture the declared event contract.
-    events: {} as SparringMatchLifecycleEvent,
+    events: {} as MatchLifecycleEvent,
     // SAFETY: XState reads this assertion value only to capture the declared input contract.
     input: {} as MatchConfig,
   },
@@ -152,7 +152,7 @@ export const SparringMatchMachine = setup({
     }),
   },
 }).createMachine({
-  id: 'sparring-match',
+  id: 'match',
   initial: 'between-frames',
   context: ({ input }) => ({
     config: input,
@@ -194,23 +194,23 @@ export const SparringMatchMachine = setup({
   },
 })
 
-export type SparringMatchSnapshot = SnapshotFrom<typeof SparringMatchMachine>
+export type MatchSnapshot = SnapshotFrom<typeof MatchMachine>
 
-export function getSparringMatchPhase(snapshot: SparringMatchSnapshot): SparringMatchPhase {
+export function getMatchPhase(snapshot: MatchSnapshot): MatchPhase {
   return getPhase(snapshot)
 }
 
-export function createInitialSnapshot(config: MatchConfig): SparringMatchSnapshot {
-  const [snapshot] = initialTransition(SparringMatchMachine, config)
+export function createInitialSnapshot(config: MatchConfig): MatchSnapshot {
+  const [snapshot] = initialTransition(MatchMachine, config)
 
   return snapshot
 }
 
-function getPhase(snapshot: SparringMatchSnapshot): SparringMatchPhase {
-  return v.parse(SparringMatchPhase, snapshot.value)
+function getPhase(snapshot: MatchSnapshot): MatchPhase {
+  return v.parse(MatchPhase, snapshot.value)
 }
 
-export function deriveLifecycleState(snapshot: SparringMatchSnapshot): SparringMatchLifecycleState {
+export function deriveLifecycleState(snapshot: MatchSnapshot): MatchLifecycleState {
   const phase = getPhase(snapshot)
   const context = snapshot.context
 
@@ -242,23 +242,20 @@ export function deriveLifecycleState(snapshot: SparringMatchSnapshot): SparringM
       }
   }
 
-  throw new Error('Unsupported sparring match phase')
+  throw new Error('Unsupported match phase')
 }
 
-export function sendLifecycleEvent(
-  snapshot: SparringMatchSnapshot,
-  event: SparringMatchLifecycleEvent,
-): SparringMatchSnapshot {
+export function sendLifecycleEvent(snapshot: MatchSnapshot, event: MatchLifecycleEvent): MatchSnapshot {
   const phase = getPhase(snapshot)
 
   if (!snapshot.can(event)) {
-    throw new Error(`Invalid sparring lifecycle event ${event.type} in phase ${phase}`)
+    throw new Error(`Invalid match lifecycle event ${event.type} in phase ${phase}`)
   }
 
-  const [nextSnapshot] = transition(SparringMatchMachine, snapshot, event)
+  const [nextSnapshot] = transition(MatchMachine, snapshot, event)
 
   if (nextSnapshot === snapshot) {
-    throw new Error(`Invalid sparring lifecycle event ${event.type} in phase ${phase}`)
+    throw new Error(`Invalid match lifecycle event ${event.type} in phase ${phase}`)
   }
 
   return nextSnapshot

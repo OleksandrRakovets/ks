@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test'
 
 import { type AcceptedCommand, type MatchConfig, newCommandId, newMatchId, SystemClock } from '@ks/core'
 
-import { createSparringMatch, restoreSparringMatch, SparringMatchHistoryError } from './sparring-match'
+import { createMatch, MatchHistoryError, restoreMatch } from './match'
 
 const config: MatchConfig = {
   matchId: newMatchId(),
@@ -12,7 +12,7 @@ const config: MatchConfig = {
 }
 
 function prepared(): AcceptedCommand {
-  const result = createSparringMatch(config).execute({
+  const result = createMatch(config).execute({
     commandId: newCommandId(),
     source: 'match',
     command: { type: 'frame.prepare' },
@@ -25,7 +25,5 @@ function prepared(): AcceptedCommand {
 
 test('restoration rejects a noncanonical or incompatible stored command', () => {
   const record = prepared()
-  expect(() => restoreSparringMatch(config, [{ ...record, command: { extra: true } }])).toThrow(
-    SparringMatchHistoryError,
-  )
+  expect(() => restoreMatch(config, [{ ...record, command: { extra: true } }])).toThrow(MatchHistoryError)
 })

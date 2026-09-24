@@ -16,20 +16,20 @@ import { GameCommandRejection, type GameplaySession, parseGameCommand } from '@k
 import { createGameplaySession } from '@ks/gameplay/server'
 import * as v from 'valibot'
 
-import type { MatchStateFor } from './matches'
 import {
   createInitialSnapshot,
   deriveLifecycleState,
+  type MatchSnapshot,
   sendLifecycleEvent,
-  type SparringMatchSnapshot,
-} from './sparring-match-machine-internals'
+} from './match-machine-internals'
+import type { MatchStateFor } from './matches'
 
 type MatchCommandParseFailure = {
   readonly code: 'unsupported-match-command'
   readonly commandType: string
 }
 
-export const SparringMatchRejection = v.variant('code', [
+export const MatchRejection = v.variant('code', [
   v.pipe(v.object({ code: v.literal('frame-already-active') }), v.readonly()),
   v.pipe(v.object({ code: v.literal('no-active-frame') }), v.readonly()),
   v.pipe(v.object({ code: v.literal('wrong-breaker'), expectedSeat: Seat }), v.readonly()),
@@ -37,18 +37,18 @@ export const SparringMatchRejection = v.variant('code', [
   v.pipe(v.object({ code: v.literal('game-command-rejected'), reason: GameCommandRejection }), v.readonly()),
 ])
 
-export type SparringMatchRejection = v.InferOutput<typeof SparringMatchRejection>
+export type MatchRejection = v.InferOutput<typeof MatchRejection>
 
 type MatchCommandResult =
   | { readonly _tag: 'parse-failed'; readonly reason: MatchCommandParseFailure }
-  | { readonly _tag: 'rejected'; readonly reason: SparringMatchRejection }
+  | { readonly _tag: 'rejected'; readonly reason: MatchRejection }
   | {
       readonly _tag: 'accepted'
       readonly command: MatchCommand
       readonly protocolEntryContents: readonly ProtocolEntryContent[]
     }
 
-type SparringMatchRoomProjectionFor<K extends RegisteredGameKey> =
+type MatchRoomProjectionFor<K extends RegisteredGameKey> =
   | {
       readonly state: MatchStateFor<K>
       readonly game: GamePresentationFor<K>
@@ -60,11 +60,11 @@ type SparringMatchRoomProjectionFor<K extends RegisteredGameKey> =
       readonly controls: readonly Control[]
     }
 
-export type SparringMatchRoomProjection = {
-  [K in RegisteredGameKey]: SparringMatchRoomProjectionFor<K>
+export type MatchRoomProjection = {
+  [K in RegisteredGameKey]: MatchRoomProjectionFor<K>
 }[RegisteredGameKey]
 
-export interface SparringMatch {
+export interface Match {
   /**
    * Executes one untrusted control command and speculatively advances resident state on acceptance.
    * The caller must discard this resident if accepted content cannot subsequently be persisted.
@@ -73,16 +73,16 @@ export interface SparringMatch {
   execute(command: MatchCommand): MatchCommandResult
 
   /** Returns current semantic state and controls without storage cursor metadata. */
-  project(): SparringMatchRoomProjection
+  project(): MatchRoomProjection
 
   /** Game-owned result, retained when gameplay is discarded after the frame ends. */
   gameResult(): GameResult | null
 }
 
-export class SparringMatchHistoryError extends Error {
+export class MatchHistoryError extends Error {
   constructor(message: string) {
     super(message)
-    this.name = 'SparringMatchHistoryError'
+    this.name = 'MatchHistoryError'
   }
 }
 
@@ -150,12 +150,12 @@ function concedeControl(seat: Seat): Control {
   return { source: 'match', type: 'frame.concede', fixedInput: {}, seat, prominence: 'tertiary' }
 }
 
-class ResidentSparringMatch implements SparringMatch {
-  private snapshot: SparringMatchSnapshot
+class ResidentMatch implements Match {
+  private snapshot: MatchSnapshot
   private gameplay: AnyCorrelatedGameplay | null
   #completedGameResult: GameResult | null = null
 
-  constructor(snapshot: SparringMatchSnapshot, gameplay: AnyCorrelatedGameplay | null) {
+  constructor(snapshot: MatchSnapshot, gameplay: AnyCorrelatedGameplay | null) {
     this.snapshot = snapshot
     this.gameplay = gameplay
   }
@@ -189,7 +189,7 @@ class ResidentSparringMatch implements SparringMatch {
     return this.applyGameCommand(gameKey, parsed.command, command)
   }
 
-  project(): SparringMatchRoomProjection {
+  project(): MatchRoomProjection {
     const lifecycle = deriveLifecycleState(this.snapshot)
 
     const frames: FrameState[] = lifecycle.completedFrames.map((frame) => ({
@@ -240,7 +240,7 @@ class ResidentSparringMatch implements SparringMatch {
 
     if (lifecycle.phase !== 'frame-in-progress') {
       // SAFETY: state retains the registered game key parsed from this lifecycle; no gameplay exists in this phase.
-      return { state, game: undefined, controls: matchControls } as SparringMatchRoomProjection
+      return { state, game: undefined, controls: matchControls } as MatchRoomProjection
     }
 
     const gameplay = requireGameplay(gameKeyOf(lifecycle.config.gameKey), this.gameplay)
@@ -267,7 +267,7 @@ class ResidentSparringMatch implements SparringMatch {
       state,
       game: gameControlProjection.game,
       controls,
-    } as SparringMatchRoomProjection
+    } as MatchRoomProjection
   }
 
   private applyMatchCommand(
@@ -420,10 +420,9 @@ class ResidentSparringMatch implements SparringMatch {
   restore(command: AcceptedCommand): readonly ProtocolEntryContent[] {
     const result = this.execute(command)
 
-    if (result._tag === 'parse-failed') throw new SparringMatchHistoryError('Malformed stored Match Command')
+    if (result._tag === 'parse-failed') throw new MatchHistoryError('Malformed stored Match Command')
 
-    if (result._tag !== 'accepted')
-      throw new SparringMatchHistoryError('Stored accepted Command is not executable')
+    if (result._tag !== 'accepted') throw new MatchHistoryError('Stored accepted Command is not executable')
 
     return result.protocolEntryContents
   }
@@ -433,25 +432,22 @@ class ResidentSparringMatch implements SparringMatch {
  * Drafts semantic creation content without constructing resident state.
  * @throws A Valibot parse error when the configuration uses an unregistered game key.
  */
-export function createSparringMatch(config: MatchConfig): SparringMatch {
-  return createResidentSparringMatch(config)
+export function createMatch(config: MatchConfig): Match {
+  return createResidentMatch(config)
 }
 
-function createResidentSparringMatch(config: MatchConfig): ResidentSparringMatch {
+function createResidentMatch(config: MatchConfig): ResidentMatch {
   gameKeyOf(config.gameKey)
 
-  return new ResidentSparringMatch(createInitialSnapshot(config), null)
+  return new ResidentMatch(createInitialSnapshot(config), null)
 }
 
 /**
  * Restores disposable resident state from envelope-validated semantic command batches.
- * @throws SparringMatchHistoryError when accepted history is impossible or incompatible with current rules.
+ * @throws MatchHistoryError when accepted history is impossible or incompatible with current rules.
  */
-export function restoreSparringMatch(
-  config: MatchConfig,
-  history: readonly AcceptedCommand[],
-): RestoredSparringMatch {
-  const resident = createResidentSparringMatch(config)
+export function restoreMatch(config: MatchConfig, history: readonly AcceptedCommand[]): RestoredMatch {
+  const resident = createResidentMatch(config)
 
   try {
     const accepted = history.map((acceptedCommand) => ({
@@ -461,13 +457,13 @@ export function restoreSparringMatch(
 
     return { match: resident, accepted }
   } catch (error) {
-    if (error instanceof SparringMatchHistoryError) throw error
-    throw new SparringMatchHistoryError(error instanceof Error ? error.message : 'History restoration failed')
+    if (error instanceof MatchHistoryError) throw error
+    throw new MatchHistoryError(error instanceof Error ? error.message : 'History restoration failed')
   }
 }
 
-export type RestoredSparringMatch = {
-  readonly match: SparringMatch
+export type RestoredMatch = {
+  readonly match: Match
   readonly accepted: readonly {
     readonly acceptedCommand: AcceptedCommand
     readonly protocolEntryContents: readonly ProtocolEntryContent[]

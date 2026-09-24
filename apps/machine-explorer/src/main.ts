@@ -1,9 +1,5 @@
 import { buildMatchConfig, type CreateMatchRequest } from '@ks/competition'
-import {
-  getSparringMatchPhase,
-  SparringMatchMachine,
-  type SparringMatchSnapshot,
-} from '@ks/competition/sparring-match-machine'
+import { getMatchPhase, MatchMachine, type MatchSnapshot } from '@ks/competition/match-machine'
 import { formatPlayerRef, newMatchId } from '@ks/core'
 import {
   getLongFreePyramidFramePhase,
@@ -154,7 +150,7 @@ function buildExplorerMatchConfig() {
 }
 
 function buildMatchActor() {
-  const actor = createActor(SparringMatchMachine, {
+  const actor = createActor(MatchMachine, {
     input: buildExplorerMatchConfig(),
     inspect: inspectorInspect,
   })
@@ -365,7 +361,7 @@ function frameTargetRow(onApply: () => void) {
 
 function renderMatch() {
   const snap = matchActor.getSnapshot()
-  const phase = getSparringMatchPhase(snap)
+  const phase = getMatchPhase(snap)
   status.innerHTML = `
     <div class="state-label">${phase}</div>
     <div class="context-block">${JSON.stringify(snap.context, null, 2)}</div>
@@ -374,8 +370,8 @@ function renderMatch() {
   renderMatchControls(snap)
 }
 
-function renderMatchControls(snap: SparringMatchSnapshot) {
-  const phase = getSparringMatchPhase(snap)
+function renderMatchControls(snap: MatchSnapshot) {
+  const phase = getMatchPhase(snap)
   const ctx = snap.context
   controls.innerHTML = ''
   controls.append(
@@ -429,7 +425,7 @@ function renderMatchControls(snap: SparringMatchSnapshot) {
   )
 }
 
-function completeMatchFrame(snap: SparringMatchSnapshot, winnerSeat: 'A' | 'B') {
+function completeMatchFrame(snap: MatchSnapshot, winnerSeat: 'A' | 'B') {
   const activeFrame = snap.context.activeFrame
 
   if (!activeFrame) return

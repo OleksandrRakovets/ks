@@ -4,7 +4,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./sparring-match-machine": "./src/sparring-match-machine.ts"
+    "./match-machine": "./src/match-machine.ts"
   },
   "dependencies": {
     "@ks/core": "workspace:*",
