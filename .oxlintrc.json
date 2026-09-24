@@ -137,13 +137,6 @@
       }
     },
     {
-      // Runtime-indexed frame and test-socket lookups stay defensive despite TypeScript's array indexing.
-      "files": ["apps/play/web/routes/match/**/*.{ts,tsx}"],
-      "rules": {
-        "typescript/no-unnecessary-condition": "off"
-      }
-    },
-    {
       // Cloudflare's test boundary exposes a few runtime-safe bindings and callbacks as any/error types.
       "files": ["packages/application/test/**/*.ts", "do/match-room/test/**/*.ts"],
       "rules": {

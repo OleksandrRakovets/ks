@@ -69,7 +69,7 @@ The app has two chrome types. Do not add a third.
 
 ## Game index
 
-The shelf is curated per locale as JSX in `routes/sparring.tsx`. Its copy, including game names,
+The shelf is curated per locale as JSX in `routes/sparring/index.tsx`. Its copy, including game names,
 lives there rather than in i18n or the gameplay registry so the owner can edit it independently.
 Setup uses registry names. Adding a game means writing its card, not adding a data row.
 

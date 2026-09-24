@@ -3,9 +3,10 @@ import type { SupportedLocale } from '@ks/i18n'
 import { useTranslation } from 'react-i18next'
 import { Link, useFetcher, useLocation } from 'react-router'
 
-import { localizedPath, pathForLocale } from '../locale'
-import { useRootLocale, useRootTheme } from '../root'
-import type { AppTheme } from '../server/theme'
+import { localizedPath, pathForLocale } from '@/locale'
+import { useRootLocale, useRootTheme } from '@/root'
+import type { AppTheme } from '@/server/theme'
+
 import { Button, ResponsiveMenu, Separator, ToggleGroup, ToggleGroupItem } from './ui'
 
 const THEME_OPTIONS: { value: AppTheme; labelKey: string }[] = [
@@ -29,7 +30,7 @@ export function BurgerMenu({ placement }: { placement?: 'header' | 'navigation' 
   const sparringPath = localizedPath('/sparring/', currentLocale)
 
   const isNewMatchRoute =
-    location.pathname === sparringPath || location.pathname.startsWith(`${sparringPath}init/`)
+    location.pathname === sparringPath || location.pathname.startsWith(`${sparringPath}setup/`)
 
   const matchesPath = localizedPath('/sparring/matches/', currentLocale)
   const isMatchesRoute = location.pathname.startsWith(matchesPath)

@@ -2,8 +2,9 @@ import { keys } from '@ks/i18n'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 
-import { localizedPath } from '../locale'
-import { useRootLocale } from '../root'
+import { localizedPath } from '@/locale'
+import { useRootLocale } from '@/root'
+
 import { BrandWordmark } from './BrandWordmark'
 import { BurgerMenu } from './BurgerMenu'
 

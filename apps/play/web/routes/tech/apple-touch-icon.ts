@@ -1,4 +1,5 @@
-import { iconBasePath, iconVariantFromContext } from '../../server/icon-assets'
+import { iconBasePath, iconVariantFromContext } from '@/server/icon-assets'
+
 import type { Route } from './+types/apple-touch-icon'
 
 export function loader({ context }: Route.LoaderArgs) {

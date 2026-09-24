@@ -2,7 +2,7 @@ import { keys } from '@ks/i18n'
 import { useTranslation } from 'react-i18next'
 // import { Link } from 'react-router'
 
-import { BrandWordmark } from '../components/BrandWordmark'
+import { BrandWordmark } from '@/components/BrandWordmark'
 
 export default function Index() {
   const { t } = useTranslation()

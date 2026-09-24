@@ -51,12 +51,12 @@ These commands overlap. Choose the appropriate gate; do not rerun its constituen
 - Schemas use Valibot. Prefer built-in actions such as `v.trim()` and `v.parseJson()`. Give the inferred type the exact name as the schema (the core package already does this).
 - Use core seat contracts (`Seat`, `BySeatNumber`, `opponentOf`) rather than local equivalents.
 - Keep one `game` path; gameplay runtimes own game-specific semantics.
-- UI components have one consumer and live in `apps/play/web/components/ui`.
+- Play's UI is app-local, not a workspace package. Generic primitives live in `apps/play/web/components/ui`; reusable product visuals or interactions with explicit props may live in `apps/play/web/components`. Keep feature-specific or one-off UI with its feature owner.
 
 ## Authority And Lifecycle
 
 - Accepted Commands, their sequence, and command outcomes are authoritative in each MatchRoom's SQLite database. MatchRoom derives Protocol entries from Accepted Commands; do not mirror active command history into D1.
-- D1 owns players, the `matches` table, and completed protocol archives with final match state.
+- D1 owns players, the `sparring_matches` table, and completed protocol archives with final match state.
 - Resident match/gameplay state and derived Protocol are a disposable cache restored by replaying Accepted Commands; raw XState snapshots are not persisted.
 - The match-completing Accepted Command atomically stores Final Match State and `endedAt`. Application treats MatchRoom's Protocol and Final Match State transfer as canonical, checks D1 identity/lifecycle and archive idempotency, archives it without gameplay replay, asks MatchRoom to broadcast/close streams, then marks the match row finished. Finalizing MatchRoom storage is retained.
 - Finished reads use D1 and must not access the retained MatchRoom.

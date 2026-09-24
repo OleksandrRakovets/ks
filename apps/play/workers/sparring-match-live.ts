@@ -32,7 +32,7 @@ export async function handleSparringMatchLiveRequest(
     return new Response('Invalid live request', { status: 400 })
 
   try {
-    const admission = await application.admitSparringMatchLive(matchId.output)
+    const admission = await application.sparring.admitMatchLive(matchId.output)
 
     if (admission._tag === 'unknown') return new Response('Unknown match', { status: 404 })
 
