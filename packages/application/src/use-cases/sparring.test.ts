@@ -10,9 +10,9 @@ import {
 } from '@ks/core'
 import * as v from 'valibot'
 
-import { MatchScorePollResponse, RECENT_FINISHED_MATCH_WINDOW_MS } from './contracts'
-import type { MatchRoomArchiveTransfer, MatchRoomClient } from './match-room-client'
-import { createApplicationWithDependencies } from './use-cases'
+import { MatchScorePollResponse, RECENT_FINISHED_MATCH_WINDOW_MS } from '../contracts/sparring'
+import type { MatchRoomArchiveTransfer, MatchRoomClient } from '../match-room-client'
+import { createSparringApplicationWithDependencies } from './sparring'
 
 const matchId = v.parse(MatchId, '01ARZ3NDEKTSV4RRFFQ69G5FAV')
 
@@ -67,9 +67,9 @@ function selectedClient(overrides: Partial<MatchRoomClient> = {}): MatchRoomClie
   }
 }
 
-type Dependencies = Parameters<typeof createApplicationWithDependencies>[0]
+type Dependencies = Parameters<typeof createSparringApplicationWithDependencies>[0]
 
-function application(
+function sparring(
   room: MatchRoomClient,
   events: string[] = [],
   options: {
@@ -98,7 +98,7 @@ function application(
       : { ...identity, status }
   }
 
-  return createApplicationWithDependencies({
+  return createSparringApplicationWithDependencies({
     clock,
     newMatchId: () => matchId,
     newControlSecret: () => 'control-secret-1234567890',
@@ -174,7 +174,7 @@ describe('trusted MatchRoom orchestration', () => {
     })
 
     expect(
-      await application(room, events).createMatch({
+      await sparring(room, events).createMatch({
         gameKey: 'free-pyramid',
         targets: state.targets,
         firstBreakerSeat: 'A',
@@ -201,7 +201,7 @@ describe('trusted MatchRoom orchestration', () => {
       }),
     })
 
-    expect(await application(room).readMatch(matchId, 'en', 'free-pyramid')).toMatchObject({
+    expect(await sparring(room).readMatch(matchId, 'en', 'free-pyramid')).toMatchObject({
       ok: true,
       lifecycle: 'active',
       controlPhase: 'between-frames',
@@ -221,7 +221,7 @@ describe('trusted MatchRoom orchestration', () => {
 
     const room = selectedClient({ getScore: async () => ({ _tag: 'active', latestSeq: 3, score }) })
 
-    const app = application(room, [], {
+    const app = sparring(room, [], {
       overrides: {
         listLiveMatchRecords: async (since, locale) => {
           expect(since).toBe(v.parse(UnixEpochMilliseconds, createdAt - RECENT_FINISHED_MATCH_WINDOW_MS))
@@ -284,7 +284,7 @@ describe('trusted MatchRoom orchestration', () => {
       }),
     })
 
-    const app = application(room, events, {
+    const app = sparring(room, events, {
       overrides: {
         listLiveMatchRecords: async () => [
           {
@@ -313,7 +313,7 @@ describe('trusted MatchRoom orchestration', () => {
     const finalScore = projectMatchScore(transfer.finalState)
     const endedAt = v.parse(UnixEpochMilliseconds, createdAt - 5 * 60 * 1_000)
 
-    const app = application(selectedClient(), [], {
+    const app = sparring(selectedClient(), [], {
       overrides: {
         listLiveMatchRecords: async () => [
           {
@@ -341,7 +341,7 @@ describe('trusted MatchRoom orchestration', () => {
 
     const nextDayClock = new FixedClock(new Date('2023-11-15T22:30:00.000Z'), 'Europe/Kyiv')
 
-    const app = application(selectedClient(), [], {
+    const app = sparring(selectedClient(), [], {
       overrides: {
         clock: nextDayClock,
         hydrateParticipant: async () => {
@@ -406,7 +406,7 @@ describe('trusted MatchRoom orchestration', () => {
     const newer = v.parse(UnixEpochMilliseconds, Date.parse('2023-11-25T23:00:00Z'))
     const seeks: unknown[] = []
 
-    const app = application(selectedClient(), [], {
+    const app = sparring(selectedClient(), [], {
       overrides: {
         listFinishedMatchRecords: async (range) => {
           expect(range).toEqual({ start: before, end: from })
@@ -439,7 +439,7 @@ describe('trusted MatchRoom orchestration', () => {
 
     const finalScore = projectMatchScore(transfer.finalState)
 
-    const app = application(selectedClient(), [], {
+    const app = sparring(selectedClient(), [], {
       overrides: {
         getMatchRecords: async (requested) =>
           requested.map((id) => ({
@@ -507,7 +507,7 @@ describe('trusted MatchRoom orchestration', () => {
       }),
     })
 
-    const result = await application(room).readMatchProtocol(matchId, 'en', 'free-pyramid')
+    const result = await sparring(room).readMatchProtocol(matchId, 'en', 'free-pyramid')
 
     expect(result).toMatchObject({
       ok: true,
@@ -532,7 +532,7 @@ describe('trusted MatchRoom orchestration', () => {
       },
     })
 
-    const result = await application(room, events).submitMatchCommand(
+    const result = await sparring(room, events).submitMatchCommand(
       matchId,
       { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } },
       'free-pyramid',
@@ -543,11 +543,11 @@ describe('trusted MatchRoom orchestration', () => {
   })
 
   test('admits only active Matches to their live transport', async () => {
-    expect(await application(selectedClient()).admitSparringMatchLive(matchId)).toEqual({
+    expect(await sparring(selectedClient()).admitMatchLive(matchId)).toEqual({
       _tag: 'admitted',
     })
     expect(
-      await application(selectedClient(), [], { initialStatus: 'finished' }).admitSparringMatchLive(matchId),
+      await sparring(selectedClient(), [], { initialStatus: 'finished' }).admitMatchLive(matchId),
     ).toEqual({ _tag: 'finished' })
   })
 
@@ -565,7 +565,7 @@ describe('trusted MatchRoom orchestration', () => {
       }),
     })
 
-    const result = await application(room, events, { overrides: { clock: nextDayClock } }).readMatch(
+    const result = await sparring(room, events, { overrides: { clock: nextDayClock } }).readMatch(
       matchId,
       'en',
       'free-pyramid',
@@ -603,7 +603,7 @@ describe('trusted MatchRoom orchestration', () => {
       }),
     })
 
-    expect(await application(room).readMatch(matchId, 'en', 'free-pyramid')).toMatchObject({
+    expect(await sparring(room).readMatch(matchId, 'en', 'free-pyramid')).toMatchObject({
       ok: true,
       lifecycle: 'finished',
       latestSeq: 2,
@@ -649,7 +649,7 @@ describe('trusted MatchRoom orchestration', () => {
       }),
     })
 
-    expect(await application(room, events).readMatchProtocol(matchId, 'en', 'free-pyramid')).toMatchObject({
+    expect(await sparring(room, events).readMatchProtocol(matchId, 'en', 'free-pyramid')).toMatchObject({
       ok: true,
       state: { status: 'finished' },
       latestSeq: 2,
@@ -670,7 +670,7 @@ describe('trusted MatchRoom orchestration', () => {
     })
 
     expect(
-      await application(room, events).submitMatchCommand(
+      await sparring(room, events).submitMatchCommand(
         matchId,
         { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } },
         'free-pyramid',
@@ -682,7 +682,7 @@ describe('trusted MatchRoom orchestration', () => {
   test('returns malformed nested Commands as invalid request data', async () => {
     const room = selectedClient({ submitCommand: async () => ({ _tag: 'invalid-command' }) })
     expect(
-      await application(room).submitMatchCommand(
+      await sparring(room).submitMatchCommand(
         matchId,
         { commandId: newCommandId(), source: 'match', command: { type: 'unsupported' } },
         'free-pyramid',
@@ -696,7 +696,7 @@ describe('trusted MatchRoom orchestration', () => {
     let error: Error | undefined
 
     try {
-      await application(room).submitMatchCommand(
+      await sparring(room).submitMatchCommand(
         matchId,
         { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } },
         'free-pyramid',
@@ -721,7 +721,7 @@ describe('trusted MatchRoom orchestration', () => {
       },
     })
 
-    const app = application(room, events, {
+    const app = sparring(room, events, {
       overrides: {
         archiveFinishedMatch: async () => {
           archiveAttempts += 1

@@ -13,7 +13,7 @@ Browser
                            -> per-match SQLite
 ```
 
-Play owns HTTP and presentation adaptation. `@ks/application` owns use-case orchestration, private D1 access, active-versus-finished read routing, and cross-store finalization. MatchRoom owns serialized active-match execution, persistence, replay, and hibernatable WebSocket fan-out.
+Play owns HTTP and presentation adaptation. `@ks/application` exposes the current player-operated workflows through `application.sparring` and owns their use-case orchestration, private D1 access, active-versus-finished read routing, and cross-store finalization. MatchRoom owns serialized active-match execution, persistence, replay, and hibernatable WebSocket fan-out.
 
 Play and MatchRoom are independently built Cloudflare Workers. MatchRoom has no public route or D1 binding; its `fetch` method serves only WebSocket handshakes forwarded to a selected object by Play. Play reaches it through an external Durable Object binding. Play and application import `@ks/match-room` type-only: application derives its private capability from the server class, and Play's generated binding verifies that the selected RPC stub is structurally compatible.
 
@@ -27,7 +27,7 @@ core <- gameplay <- competition
 
 - `core` defines shared IDs, schemas, seats, Protocol values, and generic contracts.
 - `gameplay` defines registered games, frame machines, commands, and coherent derivation of separate game presentation and flat controls.
-- `competition` defines sparring lifecycle, match execution, restoration, and room projection.
+- `competition` defines match lifecycle, execution, restoration, and room projection.
 - `application` and MatchRoom consume the domain independently. Application has only a type-only dependency on MatchRoom for its private RPC capability.
 
 Game keys come from `packages/gameplay/src/registry.ts`. Each game has an explicit primary Match route and Protocol route. The primary route loader maps the application lifecycle once to the mutually exclusive Control or Result page; the stable URL does not encode lifecycle state. Commands share the `game` path, while gameplay owns their semantics.

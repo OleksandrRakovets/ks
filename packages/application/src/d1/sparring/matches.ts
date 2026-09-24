@@ -5,9 +5,9 @@ import { and, asc, desc, eq, gte, inArray, lt, or, sql } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/sqlite-core'
 import * as v from 'valibot'
 
-import { participantFromPlayerRow } from './players'
-import { guestPlayers, sparringMatches, StoredMatchStatus, verifiedPlayers } from './schema'
-import type { ApplicationDatabase } from './types'
+import { participantFromPlayerRow } from '../players'
+import { guestPlayers, sparringMatches, StoredMatchStatus, verifiedPlayers } from '../schema'
+import type { ApplicationDatabase } from '../types'
 
 const MatchRowIdentity = {
   matchId: MatchId,

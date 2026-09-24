@@ -1,4 +1,4 @@
-import { buildMatchConfig, CreateMatchRequest, createSparringMatch } from '@ks/competition'
+import { buildMatchConfig, createMatch, CreateMatchRequest } from '@ks/competition'
 import {
   GuestPlayerId,
   type MatchCommand,
@@ -15,16 +15,24 @@ import { env } from 'cloudflare:workers'
 import * as v from 'valibot'
 import { beforeEach, describe, expect, test } from 'vitest'
 
-import { archiveFinishedMatch, markMatchFinished, MatchFinalizationError } from '../../src/d1/finished-matches'
-import { getFinishedMatchArchive, getProtocolArchive } from '../../src/d1/match-archives'
-import { activateMatch, type ActiveMatchCatalogInput, beginMatchCreation } from '../../src/d1/match-lifecycle'
+import { guestPlayers, sparringMatches, verifiedPlayers } from '../../src/d1/schema'
+import {
+  archiveFinishedMatch,
+  markMatchFinished,
+  MatchFinalizationError,
+} from '../../src/d1/sparring/finished-matches'
+import { getFinishedMatchArchive, getProtocolArchive } from '../../src/d1/sparring/match-archives'
+import {
+  activateMatch,
+  type ActiveMatchCatalogInput,
+  beginMatchCreation,
+} from '../../src/d1/sparring/match-lifecycle'
 import {
   findFinishedMatchTime,
   getMatchRow,
   listFinishedMatchRows,
   listLiveMatchRows,
-} from '../../src/d1/matches'
-import { guestPlayers, sparringMatches, verifiedPlayers } from '../../src/d1/schema'
+} from '../../src/d1/sparring/matches'
 import { createApplicationDatabaseClient } from '../../src/d1/types'
 import type { MatchRoomArchiveTransfer } from '../../src/match-room-client'
 
@@ -58,7 +66,7 @@ function catalogInput(id = matchId, timestamp = createdAt): ActiveMatchCatalogIn
 
 function finishedMatchTransfer(id = matchId, timestamp = createdAt): MatchRoomArchiveTransfer {
   const config = buildMatchConfig(id, createRequest)
-  const session = createSparringMatch(config)
+  const session = createMatch(config)
   const acceptedAt = v.parse(UnixEpochMilliseconds, timestamp + 1_000)
   const protocolEntries: ProtocolEntry[] = []
   let acceptedSeq = 0

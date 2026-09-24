@@ -1,21 +1,22 @@
 import type { D1Database } from '@cloudflare/workers-types'
 import { type Clock, newMatchId } from '@ks/core'
 
-import { archiveFinishedMatch, markMatchFinished } from './d1/finished-matches'
+import type { Application } from './contracts'
 import { getOrCreateGuestPlayerRef } from './d1/guest-players'
-import { getFinishedMatchArchive, getProtocolArchive } from './d1/match-archives'
-import { activateMatch, beginMatchCreation } from './d1/match-lifecycle'
+import { hydrateParticipant } from './d1/players'
+import { archiveFinishedMatch, markMatchFinished } from './d1/sparring/finished-matches'
+import { getFinishedMatchArchive, getProtocolArchive } from './d1/sparring/match-archives'
+import { activateMatch, beginMatchCreation } from './d1/sparring/match-lifecycle'
 import {
   findFinishedMatchTime,
   getMatchRow,
   getMatchRows,
   listFinishedMatchRows,
   listLiveMatchRows,
-} from './d1/matches'
-import { hydrateParticipant } from './d1/players'
+} from './d1/sparring/matches'
 import { createApplicationDatabaseClient } from './d1/types'
 import type { MatchRoomNamespace } from './match-room-client'
-import { createApplicationWithDependencies } from './use-cases'
+import { createSparringApplicationWithDependencies } from './use-cases/sparring'
 
 export type ApplicationBindings = {
   DB: D1Database
@@ -56,10 +57,10 @@ function matchRecordFromRow(row: MatchRow) {
     : { ...identity, status: row.status }
 }
 
-export function createApplication(bindings: ApplicationBindings, clock: Clock) {
+export function createApplication(bindings: ApplicationBindings, clock: Clock): Application {
   const db = createApplicationDatabaseClient(bindings.DB)
 
-  return createApplicationWithDependencies({
+  const sparring = createSparringApplicationWithDependencies({
     clock,
     newMatchId,
     newControlSecret,
@@ -90,4 +91,6 @@ export function createApplication(bindings: ApplicationBindings, clock: Clock) {
     markMatchFinished: async (input) => markMatchFinished(db, input),
     matchRoomClient: (matchId) => bindings.MATCH_ROOM.getByName(matchId),
   })
+
+  return { sparring }
 }

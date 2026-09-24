@@ -10,9 +10,9 @@ import {
   ProtocolArchiveCorruptionError,
   type ProtocolArchiveRecord,
   UnsupportedProtocolArchiveVersionError,
-} from '../protocol'
-import { sparringMatchArchives } from './schema'
-import type { ApplicationDatabase } from './types'
+} from '../../protocol'
+import { sparringMatchArchives } from '../schema'
+import type { ApplicationDatabase } from '../types'
 
 const ArchiveStateStorageRow = v.pipe(
   v.object({

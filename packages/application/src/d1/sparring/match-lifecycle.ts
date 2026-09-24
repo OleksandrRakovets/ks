@@ -2,8 +2,8 @@ import type { MatchId, PlayerRef, UnixEpochMilliseconds } from '@ks/core'
 import type { RegisteredGameKey } from '@ks/gameplay/definitions'
 import { eq } from 'drizzle-orm'
 
-import { sparringMatches, StoredMatchStatus } from './schema'
-import type { ApplicationDatabase } from './types'
+import { sparringMatches, StoredMatchStatus } from '../schema'
+import type { ApplicationDatabase } from '../types'
 
 export type ActiveMatchCatalogInput = {
   matchId: MatchId

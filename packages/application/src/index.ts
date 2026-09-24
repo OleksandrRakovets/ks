@@ -1,7 +1,8 @@
+export type { Application } from './contracts'
+
 export type {
-  Application,
   SubmitMatchCommandResult,
-  CreateMatchResult,
+  CreateSparringMatchResult,
   FinishedMatchListPage,
   HydratedMatchParticipant,
   HydratedMatchParticipants,
@@ -12,17 +13,18 @@ export type {
   ReadMatchResult,
   ReadMatchProtocolResult,
   ReadMatchScoresResult,
+  SparringApplication,
   SparringMatchLiveAdmission,
-} from './contracts'
+} from './contracts/sparring'
 
 export {
-  CreateMatchInput,
+  CreateSparringMatchInput,
   DisplayName,
   MatchListDay,
   MatchScorePollEntry,
   MatchScorePollResponse,
   RECENT_FINISHED_MATCH_WINDOW_MS,
-} from './contracts'
+} from './contracts/sparring'
 
 export { createApplication, type ApplicationBindings } from './factory'
 

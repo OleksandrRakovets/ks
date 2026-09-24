@@ -22,8 +22,7 @@ import type { SupportedLocale } from '@ks/i18n'
 import * as v from 'valibot'
 
 import type {
-  Application,
-  CreateMatchResult,
+  CreateSparringMatchResult,
   FinishedMatchListPage,
   HydratedMatchParticipants,
   LiveMatchListPage,
@@ -34,14 +33,15 @@ import type {
   ReadMatchProtocolResult,
   ReadMatchResult,
   ReadMatchScoresResult,
+  SparringApplication,
   SubmitMatchCommandResult,
-} from './contracts'
-import { CreateMatchInput, RECENT_FINISHED_MATCH_WINDOW_MS } from './contracts'
+} from '../contracts/sparring'
+import { CreateSparringMatchInput, RECENT_FINISHED_MATCH_WINDOW_MS } from '../contracts/sparring'
 import type {
   MatchRoomArchiveTransfer,
   MatchRoomClient,
   MatchRoomInitializationInput,
-} from './match-room-client'
+} from '../match-room-client'
 import {
   type FinishedMatchArchiveRecord,
   ProtocolArchiveCorruptionError,
@@ -49,7 +49,7 @@ import {
   renderLastCorrectableProtocolRow,
   renderProtocolRows,
   UnsupportedProtocolArchiveVersionError,
-} from './protocol'
+} from '../protocol'
 
 type CatalogMatchStatus = 'creating' | 'active' | 'finished'
 
@@ -85,7 +85,7 @@ type MatchListScore =
       readonly score: MatchScoreProjection
     }
 
-type ApplicationDependencies = {
+type SparringApplicationDependencies = {
   clock: Clock
   newMatchId(): MatchId
   newControlSecret(): string
@@ -150,9 +150,11 @@ function archiveReadFailure(error: Error): ReadMatchFailure | null {
   return null
 }
 
-export function createApplicationWithDependencies(dependencies: ApplicationDependencies): Application {
-  async function createMatch(input: CreateMatchInput): Promise<CreateMatchResult> {
-    const parsed = v.safeParse(CreateMatchInput, input)
+export function createSparringApplicationWithDependencies(
+  dependencies: SparringApplicationDependencies,
+): SparringApplication {
+  async function createMatch(input: CreateSparringMatchInput): Promise<CreateSparringMatchResult> {
+    const parsed = v.safeParse(CreateSparringMatchInput, input)
 
     if (!parsed.success) return { ok: false, error: 'Invalid match creation input', status: 400 }
     const matchId = dependencies.newMatchId()
@@ -675,7 +677,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     readMatch,
     submitMatchCommand,
     readMatchProtocol,
-    admitSparringMatchLive: async (matchId) => {
+    admitMatchLive: async (matchId) => {
       const record = await dependencies.getMatchRecord(matchId)
 
       if (!record) return { _tag: 'unknown' }

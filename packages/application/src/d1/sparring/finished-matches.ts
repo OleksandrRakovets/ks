@@ -9,10 +9,10 @@ import { GameResult, type GameResult as GameResultValue } from '@ks/gameplay/def
 import { and, eq, isNull, or } from 'drizzle-orm'
 import * as v from 'valibot'
 
-import type { MatchRoomArchiveTransfer } from '../match-room-client'
-import { PROTOCOL_ARCHIVE_VERSION } from '../protocol'
-import { sparringMatchArchives, sparringMatches, StoredMatchStatus } from './schema'
-import type { ApplicationDatabase } from './types'
+import type { MatchRoomArchiveTransfer } from '../../match-room-client'
+import { PROTOCOL_ARCHIVE_VERSION } from '../../protocol'
+import { sparringMatchArchives, sparringMatches, StoredMatchStatus } from '../schema'
+import type { ApplicationDatabase } from '../types'
 
 export class MatchFinalizationError extends Error {
   constructor(message: string) {
