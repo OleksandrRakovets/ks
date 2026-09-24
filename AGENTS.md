@@ -24,6 +24,7 @@ Consult the relevant definitions in CONTEXT.md when introducing or changing doma
 - Boundary check: `bun run check:boundaries`
 - Local D1: `bun run db:migrate:local`, `bun run db:seed:local`, `bun run db:studio:local`
 - Database migration workflows: `.tracker/db.md`
+- UI design rules: `.tracker/design.md`
 
 `typegen` intentionally runs directly before the single root `tsc --build`. Keep it outside Turbo unless generated-output caching provides measured value; there are no per-package typecheck tasks for Turbo to schedule.
 
