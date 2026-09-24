@@ -1,6 +1,6 @@
 import { Outlet, redirect } from 'react-router'
 
-import { localeContext, localeFromPathname } from '@/i18n'
+import { localeContext } from '@/i18n'
 
 import '@/base.css'
 
@@ -14,7 +14,7 @@ export const middleware: Route.MiddlewareFunction[] = [
       throw redirect(`/en/${url.search}`, 308)
     }
 
-    context.set(localeContext, localeFromPathname(url.pathname))
+    context.set(localeContext, url.pathname.startsWith('/en/') ? 'en' : 'uk')
   },
 ]
 

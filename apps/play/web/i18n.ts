@@ -8,10 +8,6 @@ export function localeFromContext(context: Pick<RouterContextProvider, 'get'>): 
   return context.get(localeContext)
 }
 
-export function localeFromPathname(pathname: string): SupportedLocale {
-  return pathname === '/en' || pathname.startsWith('/en/') ? 'en' : 'uk'
-}
-
 export function localizedPath(path: string, locale: SupportedLocale): string {
   return locale === 'en' ? `/en${path}` : path
 }
