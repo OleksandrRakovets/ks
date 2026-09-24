@@ -10,8 +10,8 @@ function start(targetPointsBySeat?: BySeatNumber): StrilaSparringFrameSnapshot {
   return createInitialSnapshot(targetPointsBySeat ?? StrilaMeta.defaultTargetPoints)
 }
 
-// A:6, B:8, only ball 7 left → A pots 7 → 8:8, table empty → respotted-black.opening
-function reachRespottedBlack(): StrilaSparringFrameSnapshot {
+// A:6, B:8, only ball 7 left → A pots 7 → 8:8, table empty → respotted-black opening selection
+function reachRespottedBlackSelection(): StrilaSparringFrameSnapshot {
   let snap = start()
   snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
   snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [1] })
@@ -25,9 +25,16 @@ function reachRespottedBlack(): StrilaSparringFrameSnapshot {
   snap = sendEvent(snap, { type: 'foul.commit', seat: 'A' })
   snap = sendEvent(snap, { type: 'penalty.select', seat: 'B', choice: 'play-from-position' }) // B:8
   snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [7] }) // A:8, table empty → 8:8
-  expect(getPhase(snap)).toBe('respotted-black.opening')
+  expect(getPhase(snap)).toBe('respotted-black.opening-selection')
 
   return snap
+}
+
+function reachRespottedBlack(openingSeat: Seat = 'A'): StrilaSparringFrameSnapshot {
+  return sendEvent(reachRespottedBlackSelection(), {
+    type: 'respotted-black.opening.select',
+    seat: openingSeat,
+  })
 }
 
 describe('machine-sparring: basic', () => {
@@ -174,7 +181,9 @@ describe('machine-sparring: empty table', () => {
       expect(snap.context.score).toEqual(scenario.score)
       expect(snap.context.winner).toBe(scenario.winner)
       expect(snap.context.winnerDeterminationReason).toBe(scenario.reason)
-      expect(getPhase(snap)).toBe(scenario.winner === null ? 'respotted-black.opening' : 'winner-determined')
+      expect(getPhase(snap)).toBe(
+        scenario.winner === null ? 'respotted-black.opening-selection' : 'winner-determined',
+      )
       expect(snap.context.coloredBallsOnTable).toEqual(scenario.winner === null ? [7] : [])
     })
   }
@@ -193,7 +202,7 @@ describe('machine-sparring: empty table', () => {
     snap = sendEvent(snap, { type: 'penalty.select', seat: 'A', choice: 'ball-in-hand' })
     snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [7] })
     expect(snap.context.score).toEqual({ A: 8, B: tie ? 8 : 6 })
-    expect(getPhase(snap)).toBe(tie ? 'respotted-black.opening' : 'winner-determined')
+    expect(getPhase(snap)).toBe(tie ? 'respotted-black.opening-selection' : 'winner-determined')
     expect(snap.context.winner).toBe(tie ? null : 'A')
     expect(snap.context.coloredBallsOnTable).toEqual(tie ? [7] : [])
   })
@@ -427,15 +436,39 @@ describe('machine-sparring: respotted black', () => {
     snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [0, 7] })
 
     expect(snap.context.score).toEqual({ A: 8, B: 8 })
-    expect(getPhase(snap)).toBe('respotted-black.opening')
+    expect(getPhase(snap)).toBe('respotted-black.opening-selection')
     expect(snap.context.cueBallSerialPots).toBeNull()
+    expect(snap.context.respottedBlackOpeningSeat).toBeNull()
   })
 
-  test('entering respotted-black.opening after 8:8 tie with last ball potted', () => {
-    const snap = reachRespottedBlack()
+  test('selecting the respotted-black opener records the chosen seat', () => {
+    const waiting = reachRespottedBlackSelection()
+
+    expect(() => sendEvent(waiting, { type: 'pot.record', seat: 'A', pottedBalls: [7] })).toThrow(
+      'Invalid Strila event pot.record in phase respotted-black.opening-selection',
+    )
+
+    const snap = sendEvent(waiting, { type: 'respotted-black.opening.select', seat: 'B' })
 
     expect(snap.context.score).toEqual({ A: 8, B: 8 })
     expect(snap.context.coloredBallsOnTable).toEqual([7])
+    expect(snap.context.respottedBlackOpeningSeat).toBe('B')
+    expect(getPhase(snap)).toBe('respotted-black.opening')
+  })
+
+  test('only the selected player may take the respotted-black opening shot', () => {
+    const snap = reachRespottedBlack('B')
+
+    expect(() => sendEvent(snap, { type: 'miss.record', seat: 'A' })).toThrow(
+      'Invalid Strila event miss.record in phase respotted-black.opening',
+    )
+    expect(() => sendEvent(snap, { type: 'foul.commit', seat: 'A' })).toThrow(
+      'Invalid Strila event foul.commit in phase respotted-black.opening',
+    )
+    expect(() => sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [7] })).toThrow(
+      'Invalid Strila event pot.record in phase respotted-black.opening',
+    )
+    expect(() => sendEvent(snap, { type: 'miss.record', seat: 'B' })).not.toThrow()
   })
 
   test('opening black pot determines winner', () => {

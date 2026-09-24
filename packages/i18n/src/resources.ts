@@ -96,14 +96,16 @@ export const resources = {
           },
           messages: {
             'cue-ball-and-colored-is-foul':
-              'Забиття битка разом із кольоровою кулею призведе до фолу. Очки за такий удар не нарахуються.',
+              'Забити битка разом із кольоровою кулею — фол. Очки за такий удар не нарахуються.',
             'manual-foul-cue-ball-response':
-              'Якщо під час фолу биток забито або він вилетів за межі столу, суперник має продовжити гру з руки в будь-якому місці столу. Бонусні очки за такий фол не нараховуються.',
+              'Якщо під час фолу биток забито або він покинув межі столу, суперник має продовжити гру з руки в будь-якому місці столу. Бонусні очки не нараховуються.',
             'third-consecutive-cue-ball-pot': 'Наступне забиття битка — фол.',
+            'respotted-black-opening-toss':
+              'Додаткова чорна куля. Переможець жеребу обирає, хто виконає перший удар.',
             'respotted-black-opening': 'У цій фазі першим ударом можна забити лише чорну кулю.',
             'last-colored-ball-frame-ball': '{{ball}} — партійна куля.',
             'last-colored-ball-pot-respots-black':
-              'Забита {{ball}} куля призведе до повторного виставлення чорної.',
+              'Забита {{ball}} куля призведе до виставлення додаткової чорної.',
             'last-colored-ball-pot-winner': 'Забита {{ball}} куля принесе перемогу в партії супернику.',
             'rack-started': 'Початок піраміди {{rackNumber}}',
           },
@@ -113,8 +115,15 @@ export const resources = {
           },
           perGameContainer: 'Керування грою',
           strila: {
-            container: 'Керування стрілою',
-            ballGrid: 'Сітка куль',
+            container: 'Керування Стрілою',
+            ballGrid: 'Перелік куль',
+            openingToss: {
+              title: 'Хто виконує перший удар?',
+              coinInAir: 'Монета в повітрі...',
+              chooseOpener: '{{name}} обирає, хто виконує перший удар',
+              tossCoin: 'Підкинути монету',
+              playerOpens: '{{name}} виконує перший удар',
+            },
             balls: {
               0: 'Биток',
               1: 'Червона',
@@ -144,7 +153,7 @@ export const resources = {
             ballLabel: '{{ball}} ({{status}})',
           },
           longFreePyramid: {
-            rackStatus: 'Стан піраміди довгої вільної піраміди',
+            rackStatus: 'Стан піраміди у грі з продовженням',
             rack: 'Піраміда {{rackNumber}}',
             rackRollover: 'нова з {{count}}',
             ballsOnTable: 'на столі {{count}}',
@@ -161,7 +170,7 @@ export const resources = {
           correction: 'Виправити',
           frames: 'партії',
           takeover: {
-            foulActor: '{{player}} зробив фол.',
+            foulActor: '{{player}} порушив правила.',
             foulChooser: '{{player}} обирає продовження.',
           },
         },
@@ -217,6 +226,9 @@ export const resources = {
                 'ball-in-hand': 'Куля з руки',
                 default: 'Обрано штраф',
               },
+            },
+            'respotted-black': {
+              opening: { select: 'Виконує перший удар на додатковій чорній' },
             },
           },
           system: {
@@ -390,6 +402,8 @@ export const resources = {
             'manual-foul-cue-ball-response':
               'If the cue ball was potted or left the table as a result of the foul stroke, the opponent must play from ball in hand. No foul bonus points may be awarded.',
             'third-consecutive-cue-ball-pot': 'Another cue-ball pot is a foul.',
+            'respotted-black-opening-toss':
+              'When the score is tied, the black is respotted. The coin-toss winner chooses who takes the opening shot.',
             'respotted-black-opening':
               'During this phase, only the black ball may be potted on the opening shot.',
             'last-colored-ball-frame-ball': '{{ball}} is the frame ball.',
@@ -405,6 +419,13 @@ export const resources = {
           strila: {
             container: 'Strila container',
             ballGrid: 'Ball grid',
+            openingToss: {
+              title: 'Who takes the opening shot?',
+              coinInAir: 'Coin is in the air...',
+              chooseOpener: '{{name}} chooses who takes the opening shot',
+              tossCoin: 'Toss coin',
+              playerOpens: '{{name}} takes the opening shot',
+            },
             balls: {
               0: 'Cue ball',
               1: 'Red',
@@ -503,6 +524,9 @@ export const resources = {
                 'ball-in-hand': 'Ball in hand',
                 default: 'Penalty selected',
               },
+            },
+            'respotted-black': {
+              opening: { select: 'Takes the respotted-black opening shot' },
             },
           },
           system: {

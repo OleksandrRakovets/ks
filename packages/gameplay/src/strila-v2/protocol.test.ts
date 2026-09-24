@@ -117,3 +117,43 @@ test.each([
     },
   ])
 })
+
+test('records respotted-black declaration and the selected opening player', () => {
+  let previous = sendEvent(createInitialSnapshot({ A: 9, B: 9 }), { type: 'frame.commence', seat: 'A' })
+  previous = sendEvent(previous, { type: 'pot.record', seat: 'A', pottedBalls: [1, 2] })
+  previous = sendEvent(previous, { type: 'pot.record', seat: 'B', pottedBalls: [3, 4, 5, 6] })
+  previous = sendEvent(previous, { type: 'foul.commit', seat: 'B' })
+  previous = sendEvent(previous, { type: 'penalty.select', seat: 'A', choice: 'play-from-position' })
+
+  const tyingPot: StrilaCommand = { type: 'pot.record', seat: 'A', pottedBalls: [0, 7] }
+  const selection = sendEvent(previous, tyingPot)
+  expect(createStrilaProtocolEntries({ previous, command: tyingPot, next: selection })).toEqual([
+    {
+      gameKey: 'strila-v2',
+      source: 'player',
+      entryType: 'player-command',
+      seat: 'A',
+      scoreAfter: { A: 8, B: 8 },
+      body: { commandType: 'pot.record', pottedBalls: [0, 7] },
+    },
+    {
+      gameKey: 'strila-v2',
+      source: 'system',
+      entryType: 'system-note',
+      seat: 'A',
+      body: { systemType: 'respotted-black-declared' },
+    },
+  ])
+
+  const chooseOpener: StrilaCommand = { type: 'respotted-black.opening.select', seat: 'B' }
+  const opening = sendEvent(selection, chooseOpener)
+  expect(createStrilaProtocolEntries({ previous: selection, command: chooseOpener, next: opening })).toEqual([
+    {
+      gameKey: 'strila-v2',
+      source: 'player',
+      entryType: 'player-command',
+      seat: 'B',
+      body: { commandType: 'respotted-black.opening.select' },
+    },
+  ])
+})

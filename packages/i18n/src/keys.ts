@@ -77,6 +77,13 @@ export const keys = {
         container: 'match.control.strila.container',
         ballGrid: 'match.control.strila.ballGrid',
         ballLabel: 'match.control.strila.ballLabel',
+        openingToss: {
+          title: 'match.control.strila.openingToss.title',
+          coinInAir: 'match.control.strila.openingToss.coinInAir',
+          chooseOpener: 'match.control.strila.openingToss.chooseOpener',
+          tossCoin: 'match.control.strila.openingToss.tossCoin',
+          playerOpens: 'match.control.strila.openingToss.playerOpens',
+        },
       },
       longFreePyramid: {
         rackStatus: 'match.control.longFreePyramid.rackStatus',

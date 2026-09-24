@@ -16,6 +16,9 @@ export function deriveStrilaRuleNotes(
     case 'foul-committed.ball-in-hand':
       ruleNotes.push({ severity: 'warning', code: 'cue-ball-and-colored-is-foul' })
       break
+    case 'respotted-black.opening-selection':
+      ruleNotes.push({ severity: 'info', code: 'respotted-black-opening-toss' })
+      break
     case 'respotted-black.opening':
       ruleNotes.push({ severity: 'info', code: 'respotted-black-opening' })
       break
@@ -82,7 +85,7 @@ function lastColoredBallRuleNotes(
 
     const phase = getPhase(candidate)
 
-    if (phase === 'respotted-black.opening') {
+    if (phase === 'respotted-black.opening-selection') {
       return { seat, result: { type: 'respotted-black' as const } }
     }
 

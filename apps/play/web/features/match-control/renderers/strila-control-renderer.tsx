@@ -1,4 +1,4 @@
-import { type Control, groupControlsIntoSections, opponentOf } from '@ks/core'
+import { type Control, groupControlsIntoSections, opponentOf, type Seat } from '@ks/core'
 import {
   type StrilaBall as StrilaBallValue,
   type StrilaGamePresentation,
@@ -10,12 +10,13 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { cn } from '@/components/ui/utils'
+import { SeatChoiceToss } from '@/features/seat-choice-toss'
 import { StrilaBall } from '@/features/strila-ball'
 
 import { ActionStack, type ControlPresentation } from '../shell/action-stack'
 import { Takeover } from '../shell/takeover'
 import { controlEffect, controlLabel } from './control-copy'
-import type { MatchControlRendererProps } from './types'
+import { matchCommandFromControl, type MatchControlRendererProps } from './types'
 
 type StrilaRuleNote = StrilaGamePresentation['details']['ruleNotes'][number]
 
@@ -28,6 +29,11 @@ export function StrilaControlRenderer(props: MatchControlRendererProps<StrilaGam
   const penaltyControls =
     details.phase === 'foul-committed.penalty-selection'
       ? [...sections.primary.A, ...sections.primary.B, ...sections.secondary.A, ...sections.secondary.B]
+      : []
+
+  const openingSelectionControls =
+    details.phase === 'respotted-black.opening-selection'
+      ? props.controls.filter(({ type }) => type === 'respotted-black.opening.select')
       : []
 
   function submit(command: Parameters<typeof props.onSubmitCommand>[0]) {
@@ -72,12 +78,65 @@ export function StrilaControlRenderer(props: MatchControlRendererProps<StrilaGam
             submitting={props.submitting}
             onSubmit={submit}
           />
+        ) : openingSelectionControls.length > 0 ? (
+          <RespottedBlackOpeningToss
+            controls={openingSelectionControls}
+            notes={details.ruleNotes}
+            participants={props.participants}
+            submitting={props.submitting}
+            onSubmit={submit}
+          />
         ) : undefined
       }
       renderControl={renderControl}
       submitting={props.submitting}
       onSubmit={submit}
     />
+  )
+}
+
+function RespottedBlackOpeningToss(props: {
+  controls: readonly Control[]
+  notes: readonly StrilaRuleNote[]
+  participants: MatchControlRendererProps<StrilaGamePresentation>['participants']
+  submitting: boolean
+  onSubmit: MatchControlRendererProps<StrilaGamePresentation>['onSubmitCommand']
+}) {
+  const { t } = useTranslation()
+
+  function selectOpeningSeat(seat: Seat | null) {
+    if (seat === null) return
+    const control = props.controls.find((candidate) => candidate.seat === seat)
+
+    if (control) props.onSubmit(matchCommandFromControl(control))
+  }
+
+  return (
+    <section
+      className="grid gap-3 bg-raised px-3 py-3.5 [@media(min-height:740px)]:py-4 [@media(min-height:820px)]:py-5"
+      aria-labelledby="respotted-black-opening-toss-heading"
+    >
+      <RuleNotes notes={props.notes} participants={props.participants} />
+      <SeatChoiceToss
+        headingId="respotted-black-opening-toss-heading"
+        playerNames={{
+          A: props.participants.A.displayName,
+          B: props.participants.B.displayName,
+        }}
+        selectedSeat={null}
+        disabled={props.submitting}
+        title={t(keys.match.control.strila.openingToss.title)}
+        coinInAir={t(keys.match.control.strila.openingToss.coinInAir)}
+        chooseSeat={(winnerName) =>
+          t(keys.match.control.strila.openingToss.chooseOpener, { name: winnerName })
+        }
+        tossCoin={t(keys.match.control.strila.openingToss.tossCoin)}
+        seatChoiceLabel={(playerName) =>
+          t(keys.match.control.strila.openingToss.playerOpens, { name: playerName })
+        }
+        onSelectedSeatChange={selectOpeningSeat}
+      />
+    </section>
   )
 }
 
@@ -257,6 +316,7 @@ function ruleMessageLines(
   switch (note.code) {
     case 'cue-ball-and-colored-is-foul':
     case 'manual-foul-cue-ball-response':
+    case 'respotted-black-opening-toss':
     case 'respotted-black-opening':
       return [{ text: t(`match.control.messages.${note.code}`) }]
     case 'third-consecutive-cue-ball-pot':

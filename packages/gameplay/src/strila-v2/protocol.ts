@@ -25,6 +25,7 @@ function playerEntry(
   const body = (() => {
     switch (command.type) {
       case 'frame.commence':
+      case 'respotted-black.opening.select':
       case 'miss.record':
       case 'foul.commit':
       case 'frame.award':
@@ -78,7 +79,10 @@ export function createStrilaProtocolEntries(args: {
 
   const entries: [StrilaProtocolEntry, ...StrilaProtocolEntry[]] = [playerEntry(previous, command, next)]
 
-  if (getPhase(previous) !== 'respotted-black.opening' && getPhase(next) === 'respotted-black.opening') {
+  if (
+    getPhase(previous) !== 'respotted-black.opening-selection' &&
+    getPhase(next) === 'respotted-black.opening-selection'
+  ) {
     entries.push(
       v.parse(StrilaProtocolEntry, {
         gameKey: 'strila-v2',
