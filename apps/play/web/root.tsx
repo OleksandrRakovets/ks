@@ -8,13 +8,12 @@ import {
   Outlet,
   Scripts,
   ScrollRestoration,
-  useLocation,
   useRouteError,
   useRouteLoaderData,
 } from 'react-router'
 
 import type { Route } from './+types/root'
-import { localeFromContext, localeFromPathname } from './i18n'
+import { localeFromContext } from './i18n'
 import { iconBasePath, iconThemeColor, iconVariantFromContext } from './server/icon-assets'
 import { type AppTheme, themeFromCookie } from './server/theme'
 
@@ -36,6 +35,7 @@ export function loader({ request, context }: Route.LoaderArgs) {
   }
 }
 
+/** Exposes the root loader's request-context locale to React components. */
 export function useRootLocale(): SupportedLocale {
   const data = useRouteLoaderData<RootLoaderData>('root')
 
@@ -50,8 +50,7 @@ export function useRootTheme(): AppTheme {
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const data = useRouteLoaderData<RootLoaderData>('root')
-  const { pathname } = useLocation()
-  const locale = localeFromPathname(pathname)
+  const locale = useRootLocale()
   const theme = data?.theme ?? 'club-dark'
   const iconVariant = data?.iconVariant ?? 'amber'
   const iconPath = iconBasePath(iconVariant)

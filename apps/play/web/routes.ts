@@ -40,5 +40,6 @@ export default [
     ),
     route('top-secret/preview/', 'routes/preview/index.tsx'),
     route('top-secret/preview/ui/', 'routes/preview/ui.tsx'),
+    route('*', 'routes/not-found.tsx'),
   ]),
 ] satisfies RouteConfig

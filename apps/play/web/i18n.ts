@@ -1,6 +1,7 @@
 import type { SupportedLocale } from '@ks/i18n'
 import { createContext, type RouterContextProvider } from 'react-router'
 
+/** The key is shared by the module; its value lives in each request's RouterContextProvider. */
 export const localeContext = createContext<SupportedLocale>('uk')
 
 export function localeFromContext(context: Pick<RouterContextProvider, 'get'>): SupportedLocale {
