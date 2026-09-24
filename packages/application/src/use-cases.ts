@@ -196,8 +196,8 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
       locale,
     )
 
-    const matches = await projectListEntries(records, locale, formattedNow, (createdAt) =>
-      matchCreatedAtLabel(createdAt, formattedNow),
+    const matches = await projectListEntries(records, locale, formattedNow, (formattedCreatedAt) =>
+      matchCreatedAtLabel(formattedCreatedAt, formattedNow),
     )
 
     const earliestRecentFinishedMatchExpiry = matches.reduce<number | undefined>((earliest, match) => {
@@ -237,7 +237,13 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
 
     const range = dependencies.clock.dayRange(day)
     const records = await dependencies.listFinishedMatchRecords(range, locale)
-    const matches = await projectListEntries(records, locale, formattedNow, (createdAt) => createdAt.time)
+
+    const matches = await projectListEntries(
+      records,
+      locale,
+      formattedNow,
+      (formattedCreatedAt) => formattedCreatedAt.time,
+    )
 
     const [previous, next] = await Promise.all([
       dependencies.findFinishedMatchTime({ before: range.start }),
@@ -258,22 +264,22 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     records: readonly MatchListRecord[],
     locale: SupportedLocale,
     formattedNow: FormattedInstant,
-    label: (createdAt: FormattedInstant) => string,
+    label: (formattedCreatedAt: FormattedInstant) => string,
   ): Promise<MatchListEntry[]> {
     return Promise.all(
       records.map(async (record) => {
         const score = await readMatchScoreForList(record)
 
-        const createdAt = ClockFormatter.format(record.createdAt, locale, dependencies.clock.timeZone)
+        const formattedCreatedAt = ClockFormatter.format(record.createdAt, locale, dependencies.clock.timeZone)
 
         return {
           matchId: record.matchId,
           gameKey: record.gameKey,
           shortGameTitle: registry[record.gameKey].meta.shortGameTitle[locale],
-          createdAtIso: createdAt.isoString,
-          createdAtLabel: label(createdAt),
-          createdAtDate: createdAt.date,
-          createdAtIsToday: isSameLocalDate(createdAt, formattedNow),
+          createdAtIso: formattedCreatedAt.isoString,
+          createdAtLabel: label(formattedCreatedAt),
+          createdAtDate: formattedCreatedAt.date,
+          createdAtIsToday: isSameLocalDate(formattedCreatedAt, formattedNow),
           participants: record.participants,
           ...score,
         }
@@ -321,7 +327,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     matchId: MatchId,
     locale: SupportedLocale,
     expectedGameKey: K,
-    includeFinalizingProtocol: boolean,
+    view: 'match' | 'protocol',
   ): Promise<ReadKeyedMatchResult<K>> {
     const record = await dependencies.getMatchRecord(matchId)
 
@@ -338,14 +344,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     const roomResult = await roomClient.getControls()
 
     if (roomResult._tag === 'finalizing') {
-      return readFinalizingMatch(
-        record,
-        roomResult,
-        roomClient,
-        locale,
-        expectedGameKey,
-        includeFinalizingProtocol,
-      )
+      return readFinalizingMatch(record, roomResult, roomClient, locale, expectedGameKey, view)
     }
 
     if (roomResult.state.matchId !== matchId || roomResult.state.gameKey !== expectedGameKey)
@@ -354,14 +353,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     const protocolResult = await roomClient.getProtocol()
 
     if (protocolResult._tag === 'finalizing') {
-      return readFinalizingMatch(
-        record,
-        protocolResult,
-        roomClient,
-        locale,
-        expectedGameKey,
-        includeFinalizingProtocol,
-      )
+      return readFinalizingMatch(record, protocolResult, roomClient, locale, expectedGameKey, view)
     }
 
     if (protocolResult.state.matchId !== matchId || protocolResult.state.gameKey !== expectedGameKey)
@@ -402,7 +394,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     locale: SupportedLocale,
     expectedGameKey: K,
   ): Promise<ReadMatchResult<K>> {
-    const match = await readKeyedMatch(matchId, locale, expectedGameKey, false)
+    const match = await readKeyedMatch(matchId, locale, expectedGameKey, 'match')
 
     if (!match.ok) return match
 
@@ -452,7 +444,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     locale: SupportedLocale,
     expectedGameKey: K,
   ): Promise<ReadMatchProtocolResult<K>> {
-    const match = await readKeyedMatch(matchId, locale, expectedGameKey, true)
+    const match = await readKeyedMatch(matchId, locale, expectedGameKey, 'protocol')
 
     if (!match.ok) return match
 
@@ -493,12 +485,14 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     }
   }
 
-  function matchCreatedAtLabel(createdAt: FormattedInstant, today: FormattedInstant): string {
-    if (isSameLocalDate(createdAt, today)) return createdAt.time
+  function matchCreatedAtLabel(formattedCreatedAt: FormattedInstant, formattedNow: FormattedInstant): string {
+    if (isSameLocalDate(formattedCreatedAt, formattedNow)) return formattedCreatedAt.time
 
-    const date = `${createdAt.date.day}.${createdAt.date.month}`
+    const date = `${formattedCreatedAt.date.day}.${formattedCreatedAt.date.month}`
 
-    return createdAt.date.year === today.date.year ? date : `${date}.${createdAt.date.year}`
+    return formattedCreatedAt.date.year === formattedNow.date.year
+      ? date
+      : `${date}.${formattedCreatedAt.date.year}`
   }
 
   async function readMatchScoreForList(record: MatchRecord): Promise<MatchListScore> {
@@ -537,14 +531,14 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     roomClient: MatchRoomClient,
     locale: SupportedLocale,
     expectedGameKey: K,
-    includeProtocol: boolean,
+    view: 'match' | 'protocol',
   ): Promise<ReadKeyedMatchResult<K>> {
     if (room.state.matchId !== record.matchId || room.state.gameKey !== expectedGameKey)
       throw new Error('MatchRoom finalizing identity conflicts with D1')
 
     let protocolEntries: ProtocolEntries = []
 
-    if (includeProtocol) {
+    if (view === 'protocol') {
       const transfer = await roomClient.prepareArchive()
 
       if (
@@ -558,15 +552,15 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
       protocolEntries = transfer.protocolEntries
     }
 
-    const endedAt = ClockFormatter.format(room.endedAt, locale, dependencies.clock.timeZone)
-    const now = ClockFormatter.format(dependencies.clock.now(), locale, dependencies.clock.timeZone)
+    const formattedEndedAt = ClockFormatter.format(room.endedAt, locale, dependencies.clock.timeZone)
+    const formattedNow = ClockFormatter.format(dependencies.clock.now(), locale, dependencies.clock.timeZone)
 
     return {
       ok: true,
       state: { ...room.state, gameKey: expectedGameKey },
       latestSeq: room.latestSeq,
-      endedAt,
-      endedAtIsToday: isSameLocalDate(endedAt, now),
+      endedAt: formattedEndedAt,
+      endedAtIsToday: isSameLocalDate(formattedEndedAt, formattedNow),
       participants: await hydrateParticipants(record, locale),
       controls: [],
       protocolEntries,
@@ -593,15 +587,15 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     const state = archive.state
 
     if (state.gameKey !== expectedGameKey) return { ok: false, error: 'Unknown match', status: 404 }
-    const endedAt = ClockFormatter.format(record.endedAt, locale, dependencies.clock.timeZone)
-    const now = ClockFormatter.format(dependencies.clock.now(), locale, dependencies.clock.timeZone)
+    const formattedEndedAt = ClockFormatter.format(record.endedAt, locale, dependencies.clock.timeZone)
+    const formattedNow = ClockFormatter.format(dependencies.clock.now(), locale, dependencies.clock.timeZone)
 
     return {
       ok: true,
       state: { ...state, gameKey: expectedGameKey },
       latestSeq: archive.sourceLatestSeq,
-      endedAt,
-      endedAtIsToday: isSameLocalDate(endedAt, now),
+      endedAt: formattedEndedAt,
+      endedAtIsToday: isSameLocalDate(formattedEndedAt, formattedNow),
       participants: await hydrateParticipants(record, locale),
       controls: [],
       protocolEntries: archive.entries,
