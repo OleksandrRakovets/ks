@@ -19,8 +19,8 @@ import * as v from 'valibot'
 
 import type {
   Application,
-  CompletedMatchListPage,
   CreateMatchResult,
+  FinishedMatchListPage,
   HydratedMatchParticipants,
   LiveMatchListPage,
   MatchListDay,
@@ -32,10 +32,10 @@ import type {
   ReadMatchScoresResult,
   SubmitMatchCommandResult,
 } from './contracts'
-import { CreateMatchInput, RECENT_COMPLETED_MATCH_WINDOW_MS } from './contracts'
+import { CreateMatchInput, RECENT_FINISHED_MATCH_WINDOW_MS } from './contracts'
 import type {
+  MatchRoomArchiveTransfer,
   MatchRoomClient,
-  MatchRoomCompletionTransfer,
   MatchRoomInitializationInput,
 } from './match-room-client'
 import {
@@ -87,17 +87,17 @@ type ApplicationDependencies = {
   getOrCreateGuestPlayerRef(displayName: string): Promise<PlayerRef>
   hydrateParticipant(playerRef: PlayerRef, locale: SupportedLocale): Promise<HydratedMatchParticipant>
   listLiveMatchRecords(
-    completedSince: UnixEpochMilliseconds,
+    finishedSince: UnixEpochMilliseconds,
     locale: SupportedLocale,
   ): Promise<MatchListRecord[]>
-  listCompletedMatchRecords(
+  listFinishedMatchRecords(
     range: {
       readonly start: UnixEpochMilliseconds
       readonly end: UnixEpochMilliseconds
     },
     locale: SupportedLocale,
   ): Promise<MatchListRecord[]>
-  findCompletedMatchTime(
+  findFinishedMatchTime(
     input: { readonly before: UnixEpochMilliseconds } | { readonly from: UnixEpochMilliseconds },
   ): Promise<UnixEpochMilliseconds | null>
   getMatchRecord(matchId: MatchId): Promise<MatchRecord | null>
@@ -111,8 +111,8 @@ type ApplicationDependencies = {
     createdAt: UnixEpochMilliseconds
   }): Promise<void>
   activateMatch(matchId: MatchId): Promise<void>
-  archiveCompletedMatch(input: MatchRoomCompletionTransfer): Promise<void>
-  markMatchFinished(input: MatchRoomCompletionTransfer): Promise<void>
+  archiveFinishedMatch(input: MatchRoomArchiveTransfer): Promise<void>
+  markMatchFinished(input: MatchRoomArchiveTransfer): Promise<void>
   matchRoomClient(matchId: MatchId): MatchRoomClient
 }
 
@@ -192,7 +192,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     const formattedNow = ClockFormatter.format(now, locale, dependencies.clock.timeZone)
 
     const records = await dependencies.listLiveMatchRecords(
-      v.parse(UnixEpochMilliseconds, Math.max(0, now - RECENT_COMPLETED_MATCH_WINDOW_MS)),
+      v.parse(UnixEpochMilliseconds, Math.max(0, now - RECENT_FINISHED_MATCH_WINDOW_MS)),
       locale,
     )
 
@@ -200,32 +200,32 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
       matchCreatedAtLabel(createdAt, formattedNow),
     )
 
-    const earliestRecentCompletionExpiry = matches.reduce<number | undefined>((earliest, match) => {
+    const earliestRecentFinishedMatchExpiry = matches.reduce<number | undefined>((earliest, match) => {
       if (match.status !== 'finished') return earliest
-      const expiresAt = match.endedAt + RECENT_COMPLETED_MATCH_WINDOW_MS
+      const expiresAt = match.endedAt + RECENT_FINISHED_MATCH_WINDOW_MS
 
       return earliest === undefined ? expiresAt : Math.min(earliest, expiresAt)
     }, undefined)
 
-    return earliestRecentCompletionExpiry === undefined
+    return earliestRecentFinishedMatchExpiry === undefined
       ? { scope: 'live', matches }
       : {
           scope: 'live',
           matches,
-          recentCompletionExpiresAfterMs: Math.max(0, earliestRecentCompletionExpiry - now),
+          recentFinishedMatchExpiresAfterMs: Math.max(0, earliestRecentFinishedMatchExpiry - now),
         }
   }
 
-  async function listCompletedMatches(
+  async function listFinishedMatches(
     locale: SupportedLocale,
     requestedDay?: MatchListDay,
-  ): Promise<CompletedMatchListPage> {
+  ): Promise<FinishedMatchListPage> {
     const now = dependencies.clock.now()
     const formattedNow = ClockFormatter.format(now, locale, dependencies.clock.timeZone)
 
     const latest =
       requestedDay === undefined
-        ? await dependencies.findCompletedMatchTime({
+        ? await dependencies.findFinishedMatchTime({
             before: v.parse(UnixEpochMilliseconds, Number.MAX_SAFE_INTEGER),
           })
         : null
@@ -233,19 +233,19 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     const day = requestedDay ?? (latest === null ? null : localDay(latest, locale))
 
     if (day === null)
-      return { scope: 'completed', matches: [], day: null, previousDay: null, nextDay: null, isToday: false }
+      return { scope: 'finished', matches: [], day: null, previousDay: null, nextDay: null, isToday: false }
 
     const range = dependencies.clock.dayRange(day)
-    const records = await dependencies.listCompletedMatchRecords(range, locale)
+    const records = await dependencies.listFinishedMatchRecords(range, locale)
     const matches = await projectListEntries(records, locale, formattedNow, (createdAt) => createdAt.time)
 
     const [previous, next] = await Promise.all([
-      dependencies.findCompletedMatchTime({ before: range.start }),
-      dependencies.findCompletedMatchTime({ from: range.end }),
+      dependencies.findFinishedMatchTime({ before: range.start }),
+      dependencies.findFinishedMatchTime({ from: range.end }),
     ])
 
     return {
-      scope: 'completed',
+      scope: 'finished',
       matches,
       day,
       previousDay: previous === null ? null : localDay(previous, locale),
@@ -337,7 +337,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     const roomResult = await roomClient.getControls()
 
     if (roomResult._tag === 'finalizing') {
-      await archiveAndFinishRoom(matchId)
+      await archiveAndMarkFinished(matchId)
       const finishedRecord = await dependencies.getMatchRecord(matchId)
 
       if (finishedRecord?.status !== 'finished')
@@ -352,7 +352,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     const protocolResult = await roomClient.getProtocol()
 
     if (protocolResult._tag === 'finalizing') {
-      await archiveAndFinishRoom(matchId)
+      await archiveAndMarkFinished(matchId)
       const finishedRecord = await dependencies.getMatchRecord(matchId)
 
       if (finishedRecord?.status !== 'finished')
@@ -423,14 +423,14 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     if (record.status !== 'active') return { ok: false, error: 'Unknown match', status: 404 }
     const result = await dependencies.matchRoomClient(matchId).submitCommand(command)
 
-    if (result._tag === 'accepted' && result.completesMatch) {
-      await archiveAndFinishRoom(matchId)
+    if (result._tag === 'accepted' && result.endsMatch) {
+      await archiveAndMarkFinished(matchId)
 
       return { ok: true, outcome: { _tag: 'accepted', acceptedSeq: result.acceptedSeq } }
     }
 
     if (result._tag === 'finalizing') {
-      await archiveAndFinishRoom(matchId)
+      await archiveAndMarkFinished(matchId)
 
       return { ok: false, error: 'match-locked', status: 409 }
     }
@@ -473,9 +473,9 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     }
   }
 
-  async function archiveAndFinishRoom(matchId: MatchId): Promise<void> {
+  async function archiveAndMarkFinished(matchId: MatchId): Promise<void> {
     const transfer = await dependencies.matchRoomClient(matchId).prepareArchive()
-    await dependencies.archiveCompletedMatch(transfer)
+    await dependencies.archiveFinishedMatch(transfer)
     await dependencies.matchRoomClient(matchId).finalize()
     await dependencies.markMatchFinished(transfer)
   }
@@ -502,7 +502,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
 
     if (room._tag === 'active')
       return { status: 'active', endedAt: null, latestSeq: room.latestSeq, score: room.score }
-    await archiveAndFinishRoom(record.matchId)
+    await archiveAndMarkFinished(record.matchId)
     const finished = await dependencies.getMatchRecord(record.matchId)
 
     if (finished?.status !== 'finished')
@@ -539,7 +539,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
       throw error
     }
 
-    if (!archive) return { ok: false, error: 'Missing completed match archive', status: 500 }
+    if (!archive) return { ok: false, error: 'Missing finished match archive', status: 500 }
     const state = archive.state
 
     if (state.gameKey !== expectedGameKey) return { ok: false, error: 'Unknown match', status: 404 }
@@ -563,7 +563,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
   ): Extract<ReadMatchResult<K>, { ok: true }> {
     if (match.state.status === 'finished') {
       if (match.endedAt === undefined || match.endedAtIsToday === undefined)
-        throw new Error('Finished Match read is missing its completion time')
+        throw new Error('Finished Match read is missing its end time')
 
       return {
         ok: true,
@@ -612,7 +612,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
   return {
     createMatch,
     listLiveMatches,
-    listCompletedMatches,
+    listFinishedMatches,
     readMatchScores,
     readMatch,
     submitMatchCommand,

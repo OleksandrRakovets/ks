@@ -4,7 +4,7 @@ import { expect, test } from 'vitest'
 
 import { captureRpcError, initializedRoom, makeRoomFinalizing } from '../fixtures'
 
-test('throws before a match-completing acceptance', async () => {
+test('throws before a match-ending acceptance', async () => {
   const { stub } = await initializedRoom()
   expect(
     (

@@ -19,7 +19,7 @@ import { localizedPath } from '../../locale'
 import { useRootLocale } from '../../root'
 import { matchUrl } from '../match-urls'
 
-export type MatchListView = 'live' | 'completed'
+export type MatchListView = 'live' | 'finished'
 
 export type MatchListUpdates =
   | {
@@ -84,8 +84,8 @@ function MatchListContent({
 
   return (
     <Page title={t(keys.nav.matches)} headerAction={<MatchListViewToggle view={view} locale={locale} />}>
-      {page.scope === 'completed' && page.day !== null ? (
-        <CompletedDayNavigation page={page} locale={locale} heading />
+      {page.scope === 'finished' && page.day !== null ? (
+        <FinishedDayNavigation page={page} locale={locale} heading />
       ) : null}
 
       {matches.length === 0 ? (
@@ -93,9 +93,9 @@ function MatchListContent({
           {t(
             view === 'live'
               ? keys.match.sparring.noLiveMatches
-              : page.scope === 'completed' && page.day !== null
-                ? keys.match.sparring.noCompletedMatchesOnDay
-                : keys.match.sparring.noCompletedMatches,
+              : page.scope === 'finished' && page.day !== null
+                ? keys.match.sparring.noFinishedMatchesOnDay
+                : keys.match.sparring.noFinishedMatches,
           )}
         </p>
       ) : (
@@ -106,19 +106,19 @@ function MatchListContent({
         </MatchGrid>
       )}
 
-      {page.scope === 'completed' && page.day !== null && matches.length > 10 ? (
-        <CompletedDayNavigation page={page} locale={locale} />
+      {page.scope === 'finished' && page.day !== null && matches.length > 10 ? (
+        <FinishedDayNavigation page={page} locale={locale} />
       ) : null}
     </Page>
   )
 }
 
-function CompletedDayNavigation({
+function FinishedDayNavigation({
   page,
   locale,
   heading = false,
 }: {
-  page: Extract<MatchListPageData, { scope: 'completed' }>
+  page: Extract<MatchListPageData, { scope: 'finished' }>
   locale: 'uk' | 'en'
   heading?: boolean
 }) {
@@ -199,10 +199,10 @@ function MatchListViewToggle({ view, locale }: { view: MatchListView; locale: 'u
         {t(keys.match.sparring.liveMatches)}
       </SegmentedNavigationLink>
       <SegmentedNavigationLink
-        active={view === 'completed'}
-        render={<Link to={localizedPath('/sparring/matches/completed/', locale)} prefetch="intent" />}
+        active={view === 'finished'}
+        render={<Link to={localizedPath('/sparring/matches/finished/', locale)} prefetch="intent" />}
       >
-        {t(keys.match.sparring.completedMatches)}
+        {t(keys.match.sparring.finishedMatches)}
       </SegmentedNavigationLink>
     </SegmentedNavigation>
   )
@@ -519,7 +519,7 @@ function leadingSeat(score: BySeatNumber): Seat | undefined {
 }
 
 function matchListDayPath(locale: 'uk' | 'en', day: string): string {
-  return localizedPath(`/sparring/matches/completed/${day}/`, locale)
+  return localizedPath(`/sparring/matches/finished/${day}/`, locale)
 }
 
 function localDateLabel(date: string): string {

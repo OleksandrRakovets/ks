@@ -2,7 +2,7 @@ export type {
   Application,
   SubmitMatchCommandResult,
   CreateMatchResult,
-  CompletedMatchListPage,
+  FinishedMatchListPage,
   HydratedMatchParticipant,
   HydratedMatchParticipants,
   LiveMatchListPage,
@@ -21,7 +21,7 @@ export {
   MatchListDay,
   MatchScorePollEntry,
   MatchScorePollResponse,
-  RECENT_COMPLETED_MATCH_WINDOW_MS,
+  RECENT_FINISHED_MATCH_WINDOW_MS,
 } from './contracts'
 
 export { createApplication, type ApplicationBindings } from './factory'

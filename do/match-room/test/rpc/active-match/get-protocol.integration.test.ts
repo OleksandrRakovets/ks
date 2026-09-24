@@ -29,7 +29,7 @@ test('returns Protocol at sequence zero and restores accepted entries after evic
   })
 })
 
-test('returns finalizing after a match-completing acceptance', async () => {
+test('returns finalizing after a match-ending acceptance', async () => {
   const { stub } = await initializedRoom()
   await makeRoomFinalizing(stub)
   expect(await stub.getProtocol()).toEqual({ _tag: 'finalizing' })

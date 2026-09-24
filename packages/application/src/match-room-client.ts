@@ -10,7 +10,7 @@ export type MatchRoomClient = Pick<
 
 export type MatchRoomInitializationInput = Parameters<MatchRoomClient['initialize']>[0]
 
-export type MatchRoomCompletionTransfer = Awaited<ReturnType<MatchRoomClient['prepareArchive']>>
+export type MatchRoomArchiveTransfer = Awaited<ReturnType<MatchRoomClient['prepareArchive']>>
 
 export type MatchRoomNamespace = {
   getByName(name: MatchId): MatchRoomClient

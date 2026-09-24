@@ -7,7 +7,7 @@ export const MatchStreamUpdate = v.pipe(
   v.object({
     type: v.literal('command-accepted'),
     acceptedSeq: PositiveInteger,
-    completesMatch: v.boolean(),
+    endsMatch: v.boolean(),
   }),
   v.readonly(),
 )
@@ -63,6 +63,6 @@ export const SparringMatchLiveServerMessage = v.variant('type', [
 
 export type SparringMatchLiveServerMessage = v.InferOutput<typeof SparringMatchLiveServerMessage>
 
-export const SPARRING_MATCH_LIVE_COMPLETED_CLOSE_CODE = 4000
+export const SPARRING_MATCH_LIVE_FINISHED_CLOSE_CODE = 4000
 
-export const SPARRING_MATCH_LIVE_COMPLETED_CLOSE_REASON = 'match-completed'
+export const SPARRING_MATCH_LIVE_FINISHED_CLOSE_REASON = 'match-finished'

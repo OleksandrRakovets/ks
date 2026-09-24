@@ -10,8 +10,8 @@ import {
 } from '@ks/core'
 import * as v from 'valibot'
 
-import { MatchScorePollResponse, RECENT_COMPLETED_MATCH_WINDOW_MS } from './contracts'
-import type { MatchRoomClient, MatchRoomCompletionTransfer } from './match-room-client'
+import { MatchScorePollResponse, RECENT_FINISHED_MATCH_WINDOW_MS } from './contracts'
+import type { MatchRoomArchiveTransfer, MatchRoomClient } from './match-room-client'
 import { createApplicationWithDependencies } from './use-cases'
 
 const matchId = v.parse(MatchId, '01ARZ3NDEKTSV4RRFFQ69G5FAV')
@@ -39,7 +39,7 @@ const state = {
   frames: [],
 }
 
-const transfer: MatchRoomCompletionTransfer = {
+const transfer: MatchRoomArchiveTransfer = {
   matchId,
   gameKey: 'free-pyramid',
   createdAt,
@@ -108,8 +108,8 @@ function application(
       shortDisplayName: playerRef,
     }),
     listLiveMatchRecords: async () => [],
-    listCompletedMatchRecords: async () => [],
-    findCompletedMatchTime: async () => null,
+    listFinishedMatchRecords: async () => [],
+    findFinishedMatchTime: async () => null,
     getMatchRecord: async () => matchRecord(),
     getMatchRecords: async () => [matchRecord()],
     getProtocolArchive: async () => ({
@@ -137,7 +137,7 @@ function application(
     activateMatch: async () => {
       events.push('activate')
     },
-    archiveCompletedMatch: async () => {
+    archiveFinishedMatch: async () => {
       events.push('archive')
     },
     markMatchFinished: async () => {
@@ -217,7 +217,7 @@ describe('trusted MatchRoom orchestration', () => {
     const app = application(room, [], {
       overrides: {
         listLiveMatchRecords: async (since, locale) => {
-          expect(since).toBe(v.parse(UnixEpochMilliseconds, createdAt - RECENT_COMPLETED_MATCH_WINDOW_MS))
+          expect(since).toBe(v.parse(UnixEpochMilliseconds, createdAt - RECENT_FINISHED_MATCH_WINDOW_MS))
           expect(locale).toBe('en')
 
           return [
@@ -257,7 +257,7 @@ describe('trusted MatchRoom orchestration', () => {
     })
   })
 
-  test('reports when a recent completion leaves the live list window', async () => {
+  test('reports when a recently finished match leaves the live list window', async () => {
     const finalScore = projectMatchScore(transfer.finalState)
     const endedAt = v.parse(UnixEpochMilliseconds, createdAt - 5 * 60 * 1_000)
 
@@ -280,11 +280,11 @@ describe('trusted MatchRoom orchestration', () => {
     })
 
     expect(await app.listLiveMatches('en')).toMatchObject({
-      recentCompletionExpiresAfterMs: 10 * 60 * 1_000,
+      recentFinishedMatchExpiresAfterMs: 10 * 60 * 1_000,
     })
   })
 
-  test('loads the completed list from stored projections without selecting MatchRoom', async () => {
+  test('loads the finished list from stored projections without selecting MatchRoom', async () => {
     const finalScore = projectMatchScore(transfer.finalState)
 
     const nextDayClock = new FixedClock(new Date('2023-11-15T22:30:00.000Z'), 'Europe/Kyiv')
@@ -295,12 +295,12 @@ describe('trusted MatchRoom orchestration', () => {
         hydrateParticipant: async () => {
           throw new Error('List entries must use participants returned by the list read')
         },
-        findCompletedMatchTime: async (query) => {
+        findFinishedMatchTime: async (query) => {
           if ('before' in query && query.before === Number.MAX_SAFE_INTEGER) return createdAt
 
           return null
         },
-        listCompletedMatchRecords: async (range, locale) => {
+        listFinishedMatchRecords: async (range, locale) => {
           expect(range).toEqual({
             start: v.parse(UnixEpochMilliseconds, Date.parse('2023-11-14T22:00:00Z')),
             end: v.parse(UnixEpochMilliseconds, Date.parse('2023-11-15T22:00:00Z')),
@@ -324,7 +324,7 @@ describe('trusted MatchRoom orchestration', () => {
       },
     })
 
-    expect(await app.listCompletedMatches('en')).toMatchObject({
+    expect(await app.listFinishedMatches('en')).toMatchObject({
       matches: [
         {
           matchId,
@@ -339,7 +339,7 @@ describe('trusted MatchRoom orchestration', () => {
           participants,
         },
       ],
-      scope: 'completed',
+      scope: 'finished',
       day: '2023-11-15',
       previousDay: null,
       nextDay: null,
@@ -356,12 +356,12 @@ describe('trusted MatchRoom orchestration', () => {
 
     const app = application(selectedClient(), [], {
       overrides: {
-        listCompletedMatchRecords: async (range) => {
+        listFinishedMatchRecords: async (range) => {
           expect(range).toEqual({ start: before, end: from })
 
           return []
         },
-        findCompletedMatchTime: async (query) => {
+        findFinishedMatchTime: async (query) => {
           seeks.push(query)
 
           return 'before' in query ? createdAt : newer
@@ -369,8 +369,8 @@ describe('trusted MatchRoom orchestration', () => {
       },
     })
 
-    expect(await app.listCompletedMatches('en', selected)).toEqual({
-      scope: 'completed',
+    expect(await app.listFinishedMatches('en', selected)).toEqual({
+      scope: 'finished',
       matches: [],
       day: selected,
       previousDay: '2023-11-15',
@@ -465,11 +465,11 @@ describe('trusted MatchRoom orchestration', () => {
     })
   })
 
-  test('archives, finalizes, and finishes after a match-completing Accepted Command', async () => {
+  test('archives, finalizes, and finishes after a match-ending Accepted Command', async () => {
     const events: string[] = []
 
     const room = selectedClient({
-      submitCommand: async () => ({ _tag: 'accepted', acceptedSeq: 1, completesMatch: true }),
+      submitCommand: async () => ({ _tag: 'accepted', acceptedSeq: 1, endsMatch: true }),
       prepareArchive: async () => {
         events.push('prepare')
 
@@ -612,7 +612,7 @@ describe('trusted MatchRoom orchestration', () => {
     let archiveAttempts = 0
 
     const room = selectedClient({
-      submitCommand: async () => ({ _tag: 'accepted', acceptedSeq: 1, completesMatch: true }),
+      submitCommand: async () => ({ _tag: 'accepted', acceptedSeq: 1, endsMatch: true }),
       prepareArchive: async () => transfer,
       finalize: async () => {
         events.push('finalize')
@@ -621,7 +621,7 @@ describe('trusted MatchRoom orchestration', () => {
 
     const app = application(room, events, {
       overrides: {
-        archiveCompletedMatch: async () => {
+        archiveFinishedMatch: async () => {
           archiveAttempts += 1
           events.push(archiveAttempts === 1 ? 'archive-persisted-response-lost' : 'archive-retry')
 

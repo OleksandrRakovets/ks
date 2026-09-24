@@ -1,8 +1,8 @@
 import {
   MatchId,
   type MatchStreamUpdate,
-  SPARRING_MATCH_LIVE_COMPLETED_CLOSE_CODE,
-  SPARRING_MATCH_LIVE_COMPLETED_CLOSE_REASON,
+  SPARRING_MATCH_LIVE_FINISHED_CLOSE_CODE,
+  SPARRING_MATCH_LIVE_FINISHED_CLOSE_REASON,
   SparringMatchLiveContractVersion,
   SparringMatchLivePageKind,
   SparringMatchLiveQuery,
@@ -95,7 +95,7 @@ export class LiveConnectionHandler {
   closeAll(): void {
     for (const socket of this.#ctx.getWebSockets()) {
       try {
-        socket.close(SPARRING_MATCH_LIVE_COMPLETED_CLOSE_CODE, SPARRING_MATCH_LIVE_COMPLETED_CLOSE_REASON)
+        socket.close(SPARRING_MATCH_LIVE_FINISHED_CLOSE_CODE, SPARRING_MATCH_LIVE_FINISHED_CLOSE_REASON)
       } catch {
         // The peer may already have disconnected.
       }

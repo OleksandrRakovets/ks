@@ -1,14 +1,14 @@
 import type { D1Database } from '@cloudflare/workers-types'
 import { type Clock, newMatchId } from '@ks/core'
 
-import { archiveCompletedMatch, markMatchFinished } from './d1/completed-matches'
+import { archiveFinishedMatch, markMatchFinished } from './d1/finished-matches'
 import { getOrCreateGuestPlayerRef } from './d1/guest-players'
 import { activateMatch, beginMatchCreation } from './d1/match-lifecycle'
 import {
-  findCompletedMatchTime,
+  findFinishedMatchTime,
   getMatchRow,
   getMatchRows,
-  listCompletedMatchRows,
+  listFinishedMatchRows,
   listLiveMatchRows,
 } from './d1/matches'
 import { hydrateParticipant } from './d1/players'
@@ -70,12 +70,12 @@ export function createApplication(bindings: ApplicationBindings, clock: Clock) {
         ...matchRecordFromRow(row),
         participants: row.participants,
       })),
-    listCompletedMatchRecords: async (range, locale) =>
-      (await listCompletedMatchRows(db, range, locale)).map((row) => ({
+    listFinishedMatchRecords: async (range, locale) =>
+      (await listFinishedMatchRows(db, range, locale)).map((row) => ({
         ...matchRecordFromRow(row),
         participants: row.participants,
       })),
-    findCompletedMatchTime: async (query) => findCompletedMatchTime(db, query),
+    findFinishedMatchTime: async (query) => findFinishedMatchTime(db, query),
     getMatchRecord: async (matchId) => {
       const row = await getMatchRow(db, matchId)
 
@@ -85,7 +85,7 @@ export function createApplication(bindings: ApplicationBindings, clock: Clock) {
     getProtocolArchive: async (matchId) => getProtocolArchive(db, matchId),
     beginMatchCreation: async (input) => beginMatchCreation(db, input),
     activateMatch: async (matchId) => activateMatch(db, matchId),
-    archiveCompletedMatch: async (input) => archiveCompletedMatch(db, input),
+    archiveFinishedMatch: async (input) => archiveFinishedMatch(db, input),
     markMatchFinished: async (input) => markMatchFinished(db, input),
     matchRoomClient: (matchId) => bindings.MATCH_ROOM.getByName(matchId),
   })

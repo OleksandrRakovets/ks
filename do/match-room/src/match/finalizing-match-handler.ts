@@ -44,7 +44,7 @@ export class FinalizingMatchHandler {
     return {
       _tag: 'accepted',
       acceptedSeq: prior.receipt.acceptedSeq,
-      completesMatch: prior.receipt.acceptedSeq === this.#storedMatch.latestSeq,
+      endsMatch: prior.receipt.acceptedSeq === this.#storedMatch.latestSeq,
     }
   }
 
@@ -60,7 +60,7 @@ export class FinalizingMatchHandler {
     return { _tag: 'finalizing' }
   }
 
-  prepareArchive(): CompletedMatchTransfer {
+  prepareArchive(): FinishedMatchTransfer {
     const resident = this.#load()
     const projected = resident.match.project().state
 
@@ -82,7 +82,7 @@ export class FinalizingMatchHandler {
     this.#liveConnections.broadcast({
       type: 'command-accepted',
       acceptedSeq: this.#storedMatch.latestSeq,
-      completesMatch: true,
+      endsMatch: true,
     })
     this.#liveConnections.closeAll()
     this.#resident?.clear()
@@ -112,11 +112,11 @@ export type FinalizingCommandResult =
   | {
       readonly _tag: 'accepted'
       readonly acceptedSeq: number
-      readonly completesMatch: boolean
+      readonly endsMatch: boolean
     }
   | Extract<CommandReceipt, { _tag: 'rejected' }>
 
-export type CompletedMatchTransfer = {
+export type FinishedMatchTransfer = {
   readonly matchId: MatchId
   readonly gameKey: RegisteredGameKey
   readonly createdAt: UnixEpochMilliseconds

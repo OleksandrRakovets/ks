@@ -171,7 +171,7 @@ export type ControlLiveEvent =
   | { type: 'submit-finished' }
   | { type: 'accepted'; seq: number }
   | { type: 'update'; seq: number }
-  | { type: 'match-ended'; seq: number }
+  | { type: 'match-finished'; seq: number }
 
 export type ControlLiveTransition = {
   state: ControlLiveState
@@ -201,7 +201,7 @@ export function transitionControlLive(
     }
   }
 
-  if (event.type === 'match-ended') {
+  if (event.type === 'match-finished') {
     return {
       state: { ...state, latestSeq: Math.max(state.latestSeq, event.seq) },
       revalidate: true,
@@ -251,7 +251,7 @@ export function useControlLiveRevalidation(
   }
 
   function applyLiveEvent(event: ControlLiveEvent) {
-    if (event.type === 'update' || event.type === 'match-ended') {
+    if (event.type === 'update' || event.type === 'match-finished') {
       targetSeqRef.current = Math.max(targetSeqRef.current, event.seq)
     }
 
@@ -291,13 +291,13 @@ export function useControlLiveRevalidation(
       onCaughtUp: requestRevalidation,
       onUpdate: (update) =>
         applyLiveEvent(
-          update.completesMatch
-            ? { type: 'match-ended', seq: update.acceptedSeq }
+          update.endsMatch
+            ? { type: 'match-finished', seq: update.acceptedSeq }
             : { type: 'update', seq: update.acceptedSeq },
         ),
       onConnectionState: (connectionState) => {
         if (
-          (connectionState === 'disconnected' || connectionState === 'completed') &&
+          (connectionState === 'disconnected' || connectionState === 'finished') &&
           revalidatorStateRef.current === 'idle'
         ) {
           revalidatorStateRef.current = 'loading'
@@ -351,7 +351,7 @@ export function useProtocolLiveRevalidation(state: MatchState, latestSeq: number
       onUpdate: (update) => requestRevalidation(update.acceptedSeq),
       onConnectionState: (connectionState) => {
         if (
-          (connectionState === 'disconnected' || connectionState === 'completed') &&
+          (connectionState === 'disconnected' || connectionState === 'finished') &&
           revalidatorStateRef.current === 'idle'
         ) {
           revalidatorStateRef.current = 'loading'

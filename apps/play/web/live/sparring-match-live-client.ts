@@ -1,7 +1,7 @@
 import {
   type MatchId,
   type MatchStreamUpdate,
-  SPARRING_MATCH_LIVE_COMPLETED_CLOSE_CODE,
+  SPARRING_MATCH_LIVE_FINISHED_CLOSE_CODE,
   SparringMatchLiveServerMessage,
 } from '@ks/core'
 import * as v from 'valibot'
@@ -10,7 +10,7 @@ export type SparringMatchLiveConnectionState =
   | 'connecting'
   | 'connected'
   | 'disconnected'
-  | 'completed'
+  | 'finished'
   | 'invalid-message'
 
 export type SparringMatchLiveSubscription = { stop(): void }
@@ -114,8 +114,8 @@ export function subscribeSparringMatchLive(args: {
       if (update.acceptedSeq !== serverSeq + 1) {
         args.onCaughtUp(update.acceptedSeq)
 
-        if (update.completesMatch) {
-          args.onConnectionState('completed')
+        if (update.endsMatch) {
+          args.onConnectionState('finished')
           stop()
 
           return
@@ -129,15 +129,15 @@ export function subscribeSparringMatchLive(args: {
       serverSeq = update.acceptedSeq
       args.onUpdate(update)
 
-      if (update.completesMatch) stop()
+      if (update.endsMatch) stop()
     })
     current.addEventListener('close', (event) => {
       if (socket === current) socket = null
 
       if (stopped) return
 
-      if (event.code === SPARRING_MATCH_LIVE_COMPLETED_CLOSE_CODE) {
-        args.onConnectionState('completed')
+      if (event.code === SPARRING_MATCH_LIVE_FINISHED_CLOSE_CODE) {
+        args.onConnectionState('finished')
         stop()
 
         return

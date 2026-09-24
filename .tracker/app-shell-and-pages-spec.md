@@ -280,7 +280,7 @@ At 390×844 and 1280×900:
 6. Setup before names are valid, and after; the toss before and after it is thrown, including
    handing the break to the opponent.
 7. Setup with lopsided targets such as 50 and 15.
-8. Result for a completed race, and for a match decided by concede.
+8. Result for a finished race, and for a match decided by concede.
 9. No computed font size below 16px anywhere except the cases named in §10.
 10. `Костянтин Кулик` and `Владислав Косогов` throughout.
 

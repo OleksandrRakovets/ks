@@ -119,14 +119,14 @@ function parseJoinedMatchRow(
 
 export async function listLiveMatchRows(
   db: ApplicationDatabase,
-  completedSince: UnixEpochMilliseconds,
+  finishedSince: UnixEpochMilliseconds,
   locale: SupportedLocale,
 ) {
   const rows = await joinedMatchRows(db)
     .where(
       or(
         eq(matches.status, StoredMatchStatus.active),
-        and(eq(matches.status, StoredMatchStatus.finished), gte(matches.endedAt, completedSince)),
+        and(eq(matches.status, StoredMatchStatus.finished), gte(matches.endedAt, finishedSince)),
       ),
     )
     .orderBy(
@@ -138,7 +138,7 @@ export async function listLiveMatchRows(
   return rows.map((row) => parseJoinedMatchRow(row, locale))
 }
 
-export async function listCompletedMatchRows(
+export async function listFinishedMatchRows(
   db: ApplicationDatabase,
   range: { readonly start: UnixEpochMilliseconds; readonly end: UnixEpochMilliseconds },
   locale: SupportedLocale,
@@ -156,8 +156,8 @@ export async function listCompletedMatchRows(
   return rows.map((row) => parseJoinedMatchRow(row, locale))
 }
 
-/** Find one occupied completed-match day on either side of a UTC day boundary. */
-export async function findCompletedMatchTime(
+/** Find one occupied finished-match day on either side of a UTC day boundary. */
+export async function findFinishedMatchTime(
   db: ApplicationDatabase,
   input: { readonly before: UnixEpochMilliseconds } | { readonly from: UnixEpochMilliseconds },
 ): Promise<UnixEpochMilliseconds | null> {

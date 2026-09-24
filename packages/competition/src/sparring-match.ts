@@ -209,7 +209,7 @@ class ResidentSparringMatch implements SparringMatch {
       matchId: lifecycle.config.matchId,
       gameKey: lifecycle.config.gameKey,
       targets: lifecycle.config.targets,
-      status: lifecycle.phase === 'match-over' ? 'finished' : 'active',
+      status: lifecycle.phase === 'finished' ? 'finished' : 'active',
       currentFrameIndex,
       framesWonBySeat: lifecycle.framesWonBySeat,
       frames,
@@ -268,7 +268,7 @@ class ResidentSparringMatch implements SparringMatch {
   ): MatchCommandResult {
     const lifecycle = deriveLifecycleState(this.snapshot)
 
-    if (lifecycle.phase === 'match-over') return { _tag: 'rejected', reason: { code: 'match-already-over' } }
+    if (lifecycle.phase === 'finished') return { _tag: 'rejected', reason: { code: 'match-already-over' } }
 
     if (command.type === 'frame.prepare') {
       if (lifecycle.phase !== 'between-frames')
@@ -350,7 +350,7 @@ class ResidentSparringMatch implements SparringMatch {
   ): MatchCommandResult {
     const lifecycle = deriveLifecycleState(this.snapshot)
 
-    if (lifecycle.phase === 'match-over') return { _tag: 'rejected', reason: { code: 'match-already-over' } }
+    if (lifecycle.phase === 'finished') return { _tag: 'rejected', reason: { code: 'match-already-over' } }
 
     if (lifecycle.phase !== 'frame-in-progress' || !this.gameplay)
       return { _tag: 'rejected', reason: { code: 'no-active-frame' } }
@@ -394,7 +394,7 @@ class ResidentSparringMatch implements SparringMatch {
     })
     const resulting = deriveLifecycleState(this.snapshot)
 
-    if (resulting.phase === 'match-over')
+    if (resulting.phase === 'finished')
       protocolEntryContents.push({
         gameKey: lifecycle.config.gameKey,
         frameIndex: lifecycle.activeFrame.frameIndex,

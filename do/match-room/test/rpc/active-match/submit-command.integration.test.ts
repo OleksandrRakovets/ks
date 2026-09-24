@@ -7,7 +7,7 @@ import {
   captureRpcError,
   commenceCommand,
   initializedRoom,
-  matchCompletingCommand,
+  matchEndingCommand,
   prepareCommand,
 } from '../fixtures'
 
@@ -19,7 +19,7 @@ test('persists accepted and rejected outcomes and retries them after eviction', 
   expect(await stub.submitCommand(accepted)).toEqual({
     _tag: 'accepted',
     acceptedSeq: 1,
-    completesMatch: false,
+    endsMatch: false,
   })
   await evictDurableObject(stub)
   const restored = env.MATCH_ROOM.getByName(matchId)
@@ -30,7 +30,7 @@ test('persists accepted and rejected outcomes and retries them after eviction', 
   expect(await restored.submitCommand(accepted)).toEqual({
     _tag: 'accepted',
     acceptedSeq: 1,
-    completesMatch: false,
+    endsMatch: false,
   })
 })
 
@@ -62,7 +62,7 @@ test('returns malformed nested Commands as data without poisoning the stub', asy
   expect(await stub.submitCommand(prepareCommand())).toEqual({
     _tag: 'accepted',
     acceptedSeq: 1,
-    completesMatch: false,
+    endsMatch: false,
   })
 })
 
@@ -74,7 +74,7 @@ test('serializes concurrent Commands into one authoritative accepted order', asy
     stub.submitCommand(prepareCommand()),
   ])
 
-  expect(results).toContainEqual({ _tag: 'accepted', acceptedSeq: 1, completesMatch: false })
+  expect(results).toContainEqual({ _tag: 'accepted', acceptedSeq: 1, endsMatch: false })
   expect(results).toContainEqual({ _tag: 'rejected', reason: { code: 'frame-already-active' } })
 })
 
@@ -97,41 +97,41 @@ test('discards speculative resident state and rolls back both writes after persi
   expect(await stub.submitCommand(prepareCommand())).toEqual({
     _tag: 'accepted',
     acceptedSeq: 1,
-    completesMatch: false,
+    endsMatch: false,
   })
 })
 
-test('a match-completing retry still reports completesMatch while an earlier accepted retry does not', async () => {
+test('a match-ending retry still reports endsMatch while an earlier accepted retry does not', async () => {
   const { matchId, stub } = await initializedRoom()
   const rejected = commenceCommand()
   await stub.submitCommand(rejected)
   const earlier = prepareCommand()
   await stub.submitCommand(earlier)
   await stub.submitCommand(commenceCommand())
-  const completingCommand = matchCompletingCommand()
-  expect(await stub.submitCommand(completingCommand)).toEqual({
+  const endingCommand = matchEndingCommand()
+  expect(await stub.submitCommand(endingCommand)).toEqual({
     _tag: 'accepted',
     acceptedSeq: 3,
-    completesMatch: true,
+    endsMatch: true,
   })
-  expect(await stub.submitCommand(completingCommand)).toEqual({
+  expect(await stub.submitCommand(endingCommand)).toEqual({
     _tag: 'accepted',
     acceptedSeq: 3,
-    completesMatch: true,
+    endsMatch: true,
   })
   expect(await stub.submitCommand(earlier)).toEqual({
     _tag: 'accepted',
     acceptedSeq: 1,
-    completesMatch: false,
+    endsMatch: false,
   })
   expect(await stub.submitCommand(prepareCommand())).toEqual({ _tag: 'finalizing' })
 
   await evictDurableObject(stub)
   const restored = env.MATCH_ROOM.getByName(matchId)
-  expect(await restored.submitCommand(completingCommand)).toEqual({
+  expect(await restored.submitCommand(endingCommand)).toEqual({
     _tag: 'accepted',
     acceptedSeq: 3,
-    completesMatch: true,
+    endsMatch: true,
   })
   expect(await restored.submitCommand(rejected)).toEqual({
     _tag: 'rejected',
@@ -139,10 +139,10 @@ test('a match-completing retry still reports completesMatch while an earlier acc
   })
   expect(
     await restored.submitCommand({
-      ...completingCommand,
+      ...endingCommand,
       command: {
-        ...completingCommand.command,
-        seat: completingCommand.command.seat === 'A' ? 'B' : 'A',
+        ...endingCommand.command,
+        seat: endingCommand.command.seat === 'A' ? 'B' : 'A',
       },
     }),
   ).toEqual({ _tag: 'command-id-conflict' })

@@ -48,7 +48,7 @@ midnight stays with the evening the players sat down.
 
 ## 2. Day grouping on Matches
 
-**Implemented.** Request-scoped time zones format and group completed matches by their local start
+**Implemented.** Request-scoped time zones format and group finished matches by their local start
 date. Finished rows are ordered by `createdAt`, so groups remain contiguous and an overnight match
 stays under the day when play began.
 
@@ -57,7 +57,7 @@ Groups use `Сьогодні` / `Today` for the current local day and `DD.MM.YYY
 ## 3. Result closing line
 
 **Implemented.** The finished control result carries D1's canonical `endedAt`, formatted in the
-requester's time zone, and the Result renders the centred completion line below the frame list.
+requester's time zone, and the Result renders the centred end-time line below the frame list.
 
 Same-day copy reads `Завершено сьогодні о 19:42`; other days include `DD.MM.YYYY`.
 

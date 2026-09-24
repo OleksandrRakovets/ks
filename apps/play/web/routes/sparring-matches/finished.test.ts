@@ -4,17 +4,17 @@ import type { Application } from '@ks/application'
 import { RouterContextProvider } from 'react-router'
 
 import { cloudflareContext } from '../../server/context'
-import { loader } from './completed'
+import { loader } from './finished'
 
-function context(listCompletedMatches: Application['listCompletedMatches']): RouterContextProvider {
+function context(listFinishedMatches: Application['listFinishedMatches']): RouterContextProvider {
   const provider = new RouterContextProvider()
-  // SAFETY: the route under test uses only listCompletedMatches.
-  provider.set(cloudflareContext, { application: { listCompletedMatches } as Application })
+  // SAFETY: the route under test uses only listFinishedMatches.
+  provider.set(cloudflareContext, { application: { listFinishedMatches } as Application })
 
   return provider
 }
 
-describe('completed match day route', () => {
+describe('finished match day route', () => {
   test('accepts a real local date from the route and defaults when absent', async () => {
     const calls: unknown[] = []
 
@@ -22,7 +22,7 @@ describe('completed match day route', () => {
       calls.push(args)
 
       return {
-        scope: 'completed',
+        scope: 'finished',
         matches: [],
         day: '2028-02-29',
         previousDay: null,

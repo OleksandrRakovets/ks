@@ -67,7 +67,7 @@ export type MatchListEntry = Readonly<
     ({ status: 'active'; endedAt: null } | { status: 'finished'; endedAt: UnixEpochMilliseconds })
 >
 
-export const RECENT_COMPLETED_MATCH_WINDOW_MS = 15 * 60 * 1_000
+export const RECENT_FINISHED_MATCH_WINDOW_MS = 15 * 60 * 1_000
 
 export const MatchListDay = v.pipe(
   v.string(),
@@ -84,11 +84,11 @@ export type MatchListDay = v.InferOutput<typeof MatchListDay>
 export type LiveMatchListPage = Readonly<{
   scope: 'live'
   matches: readonly MatchListEntry[]
-  recentCompletionExpiresAfterMs?: number
+  recentFinishedMatchExpiresAfterMs?: number
 }>
 
-export type CompletedMatchListPage = Readonly<{
-  scope: 'completed'
+export type FinishedMatchListPage = Readonly<{
+  scope: 'finished'
   matches: readonly MatchListEntry[]
   day: MatchListDay | null
   previousDay: MatchListDay | null
@@ -96,7 +96,7 @@ export type CompletedMatchListPage = Readonly<{
   isToday: boolean
 }>
 
-export type MatchListPage = LiveMatchListPage | CompletedMatchListPage
+export type MatchListPage = LiveMatchListPage | FinishedMatchListPage
 
 export const MatchScorePollEntry = v.pipe(
   v.intersect([
@@ -192,7 +192,7 @@ export type ReadMatchProtocolResult<K extends RegisteredGameKey> =
 export type Application = {
   createMatch(input: CreateMatchInput): Promise<CreateMatchResult>
   listLiveMatches(locale: SupportedLocale): Promise<LiveMatchListPage>
-  listCompletedMatches(locale: SupportedLocale, day?: MatchListDay): Promise<CompletedMatchListPage>
+  listFinishedMatches(locale: SupportedLocale, day?: MatchListDay): Promise<FinishedMatchListPage>
   readMatchScores(matchIds: readonly MatchId[]): Promise<ReadMatchScoresResult>
   readMatch<K extends RegisteredGameKey>(
     matchId: MatchId,

@@ -8,15 +8,15 @@ import {
 import { and, eq, isNull, or } from 'drizzle-orm'
 import * as v from 'valibot'
 
-import type { MatchRoomCompletionTransfer } from '../match-room-client'
+import type { MatchRoomArchiveTransfer } from '../match-room-client'
 import { PROTOCOL_ARCHIVE_VERSION } from '../protocol'
 import { matches, matchProtocolArchives, StoredMatchStatus } from './schema'
 import type { ApplicationDatabase } from './types'
 
-export class MatchCompletionError extends Error {
+export class MatchFinalizationError extends Error {
   constructor(message: string) {
     super(message)
-    this.name = 'MatchCompletionError'
+    this.name = 'MatchFinalizationError'
   }
 }
 
@@ -93,9 +93,9 @@ function isStructuralObject(value: StructuralValue): value is StructuralObject {
   return value !== null && !isStructuralArray(value) && Object(value) === value
 }
 
-export async function archiveCompletedMatch(
+export async function archiveFinishedMatch(
   db: ApplicationDatabase,
-  input: MatchRoomCompletionTransfer,
+  input: MatchRoomArchiveTransfer,
 ): Promise<void> {
   const archive = {
     matchId: input.matchId,
@@ -124,10 +124,10 @@ export async function archiveCompletedMatch(
     storedMatch.gameKey !== input.gameKey ||
     storedMatch.createdAt !== input.createdAt
   )
-    throw new MatchCompletionError('Completed match identity conflicts with D1')
+    throw new MatchFinalizationError('Finished match identity conflicts with D1')
 
   if (storedMatch.status !== StoredMatchStatus.active && storedMatch.status !== StoredMatchStatus.finished)
-    throw new MatchCompletionError('Completed match is not ready to archive')
+    throw new MatchFinalizationError('Finished match is not ready to archive')
 
   const inserted = await db
     .insert(matchProtocolArchives)
@@ -144,12 +144,12 @@ export async function archiveCompletedMatch(
       .get())
 
   if (!persistedArchive || !semanticArchiveEqual(persistedArchive, archive))
-    throw new MatchCompletionError('Completed match archive conflicts with existing data')
+    throw new MatchFinalizationError('Finished match archive conflicts with existing data')
 }
 
 export async function markMatchFinished(
   db: ApplicationDatabase,
-  input: MatchRoomCompletionTransfer,
+  input: MatchRoomArchiveTransfer,
 ): Promise<void> {
   const finalScoreJson = JSON.stringify(projectMatchScore(input.finalState))
 
@@ -194,5 +194,5 @@ export async function markMatchFinished(
     result[0].finalSourceLatestSeq !== input.sourceLatestSeq ||
     result[0].finalScoreJson !== finalScoreJson
   )
-    throw new MatchCompletionError('Completed match is not ready to finish')
+    throw new MatchFinalizationError('Finished match is not ready to mark finished')
 }

@@ -12,7 +12,10 @@ A Match that may accept Commands. Its authoritative history and current state re
 _Avoid_: Live Match
 
 **Finalizing Match**:
-A Match whose match-completing Accepted Command and Final Match State are durable, but whose completed Protocol has not yet finished archival and MatchRoom finalization. It no longer accepts Commands. Its MatchRoom remains durably finalizing after D1 marks the Match finished.
+A Match whose match-ending Accepted Command and Final Match State are durable. It has ended and no longer accepts new Commands. Its MatchRoom retains the finalizing status even after its Protocol is archived and D1 marks the Match finished.
+
+**Finished Match**:
+A Match that has ended, whose final Protocol and Final Match State are archived by application in D1, and whose D1 row is marked finished. Finished reads use D1, not the retained MatchRoom.
 
 **Sparring Match**:
 A two-player match scored by the players themselves, without a dedicated referee or secretary. It deliberately supports less officiating detail and fewer statistics than a tournament match may require.

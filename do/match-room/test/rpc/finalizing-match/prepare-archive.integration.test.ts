@@ -5,9 +5,9 @@ import { expect, test } from 'vitest'
 import type { MatchRoom } from '../../../src/MatchRoom'
 import { captureRpcError, initializedRoom, makeRoomFinalizing } from '../fixtures'
 
-type CompletedMatchTransfer = Awaited<ReturnType<MatchRoom['prepareArchive']>>
+type FinishedMatchTransfer = Awaited<ReturnType<MatchRoom['prepareArchive']>>
 
-test('throws before a match-completing acceptance', async () => {
+test('throws before a match-ending acceptance', async () => {
   const { stub } = await initializedRoom()
   expect(
     (
@@ -18,24 +18,23 @@ test('throws before a match-completing acceptance', async () => {
   ).toContain('active Match')
 })
 
-test('derives the same completion transfer after eviction', async () => {
+test('derives the same archive transfer after eviction', async () => {
   const { matchId, stub } = await initializedRoom()
-  const completingCommand = await makeRoomFinalizing(stub)
-  const warm: CompletedMatchTransfer = await stub.prepareArchive()
+  const endingCommand = await makeRoomFinalizing(stub)
+  const warm: FinishedMatchTransfer = await stub.prepareArchive()
   await evictDurableObject(stub)
-  const restored: CompletedMatchTransfer = await env.MATCH_ROOM.getByName(matchId).prepareArchive()
+  const restored: FinishedMatchTransfer = await env.MATCH_ROOM.getByName(matchId).prepareArchive()
   expect(restored.matchId).toBe(matchId)
   expect(restored.sourceLatestSeq).toBe(3)
   expect(restored.finalState.status).toBe('finished')
-  const completionEntries = restored.protocolEntries.filter((entry) => entry.acceptedSeq === 3)
-  expect(completionEntries).toHaveLength(3)
+  const endingEntries = restored.protocolEntries.filter((entry) => entry.acceptedSeq === 3)
+  expect(endingEntries).toHaveLength(3)
   expect(
-    completionEntries.every(
-      (entry) =>
-        entry.causedByCommandId === completingCommand.commandId && entry.acceptedAt === restored.endedAt,
+    endingEntries.every(
+      (entry) => entry.causedByCommandId === endingCommand.commandId && entry.acceptedAt === restored.endedAt,
     ),
   ).toBe(true)
-  expect(completionEntries.map((entry) => entry.entryIndex)).toEqual([0, 1, 2])
+  expect(endingEntries.map((entry) => entry.entryIndex)).toEqual([0, 1, 2])
   expect(restored).toEqual(warm)
 })
 

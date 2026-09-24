@@ -113,7 +113,7 @@ export class MatchStorage {
       acceptedAt: nowUnixEpochMilliseconds(),
     })
 
-    const completesMatch = args.finalState !== null
+    const endsMatch = args.finalState !== null
 
     return this.#db.transaction((tx) => {
       tx.insert(schema.commands)
@@ -132,9 +132,9 @@ export class MatchStorage {
         .update(schema.activeMatches)
         .set({
           latestSeq: acceptedCommand.acceptedSeq,
-          status: completesMatch ? 'finalizing' : 'active',
+          status: endsMatch ? 'finalizing' : 'active',
           finalStateJson: args.finalState ? JSON.stringify(args.finalState) : null,
-          endedAt: completesMatch ? acceptedCommand.acceptedAt : null,
+          endedAt: endsMatch ? acceptedCommand.acceptedAt : null,
         })
         .where(
           and(
@@ -152,7 +152,7 @@ export class MatchStorage {
         streamUpdate: {
           type: 'command-accepted',
           acceptedSeq: acceptedCommand.acceptedSeq,
-          completesMatch,
+          endsMatch,
         },
         storedMatch:
           args.finalState === null
