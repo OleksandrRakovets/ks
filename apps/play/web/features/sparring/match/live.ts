@@ -1,4 +1,5 @@
 import type { MatchCommand, MatchState } from '@ks/core'
+import { keys } from '@ks/i18n'
 import { useEffect, useRef } from 'react'
 import { useRevalidator } from 'react-router'
 
@@ -125,6 +126,11 @@ export function useControlLiveRevalidation(
   useEffect(() => {
     if (fetcher.data?.ok === true && fetcher.data.acceptedSeqMax != null) {
       applyLiveEvent({ type: 'accepted', seq: fetcher.data.acceptedSeqMax })
+    } else if (
+      fetcher.data?.ok === false &&
+      fetcher.data.errorKey === keys.match.control.correctionUnavailable
+    ) {
+      void revalidateRef.current()
     }
   }, [fetcher.data])
   useEffect(() => {

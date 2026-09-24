@@ -1,5 +1,6 @@
 import {
   type AcceptedCommand,
+  CommandId,
   type Control,
   type FrameOutcome,
   type FrameState,
@@ -7,6 +8,7 @@ import {
   type MatchConfig,
   type MatchState,
   opponentOf,
+  PositiveInteger,
   type ProtocolEntryContent,
   Seat,
 } from '@ks/core'
@@ -35,6 +37,7 @@ export const MatchRejection = v.variant('code', [
   v.pipe(v.object({ code: v.literal('wrong-breaker'), expectedSeat: Seat }), v.readonly()),
   v.pipe(v.object({ code: v.literal('match-already-over') }), v.readonly()),
   v.pipe(v.object({ code: v.literal('game-command-rejected'), reason: GameCommandRejection }), v.readonly()),
+  v.pipe(v.object({ code: v.literal('correction-not-available') }), v.readonly()),
 ])
 
 export type MatchRejection = v.InferOutput<typeof MatchRejection>
@@ -47,6 +50,10 @@ type MatchCommandResult =
       readonly command: MatchCommand
       readonly protocolEntryContents: readonly ProtocolEntryContent[]
     }
+
+type CorrectionResult =
+  | { readonly result: Extract<MatchCommandResult, { _tag: 'accepted' }>; readonly match: ResidentMatch }
+  | { readonly result: Exclude<MatchCommandResult, { _tag: 'accepted' }>; readonly match?: never }
 
 type MatchRoomProjectionFor<K extends RegisteredGameKey> =
   | {
@@ -100,6 +107,46 @@ const MatchLifecycleCommand = v.variant('type', [
 ])
 
 type MatchLifecycleCommand = v.InferOutput<typeof MatchLifecycleCommand>
+
+const CorrectionCommand = v.pipe(
+  v.strictObject({
+    type: v.literal('action.correct'),
+    targetSeq: PositiveInteger,
+    targetCommandId: CommandId,
+  }),
+  v.readonly(),
+)
+
+export function isCorrectableCommand(command: MatchCommand): boolean {
+  return (
+    command.source === 'game' &&
+    command.command.type !== 'frame.commence' &&
+    command.command.type !== 'frame.award'
+  )
+}
+
+export function isCorrectionCommand(command: MatchCommand): boolean {
+  return command.source === 'match' && command.command.type === 'action.correct'
+}
+
+function latestUncorrectedCommand(history: readonly AcceptedCommand[]): AcceptedCommand | undefined {
+  const corrected = new Set<number>()
+
+  for (let index = history.length - 1; index >= 0; index -= 1) {
+    const accepted = history[index]
+
+    if (!accepted) continue
+
+    if (isCorrectionCommand(accepted)) {
+      const parsed = v.parse(CorrectionCommand, accepted.command)
+      corrected.add(parsed.targetSeq)
+    } else if (!corrected.has(accepted.acceptedSeq)) {
+      return accepted
+    }
+  }
+
+  return undefined
+}
 
 function gameKeyOf(value: string): RegisteredGameKey {
   return v.parse(RegisteredGameKey, value)
@@ -447,13 +494,23 @@ function createResidentMatch(config: MatchConfig): ResidentMatch {
  * @throws MatchHistoryError when accepted history is impossible or incompatible with current rules.
  */
 export function restoreMatch(config: MatchConfig, history: readonly AcceptedCommand[]): RestoredMatch {
-  const resident = createResidentMatch(config)
+  let resident = createResidentMatch(config)
 
   try {
-    const accepted = history.map((acceptedCommand) => ({
-      acceptedCommand,
-      protocolEntryContents: resident.restore(acceptedCommand),
-    }))
+    const accepted = history.map((acceptedCommand, index) => {
+      if (isCorrectionCommand(acceptedCommand)) {
+        const correction = correctMatch(config, history.slice(0, index), acceptedCommand)
+
+        if (correction.result._tag !== 'accepted' || !correction.match)
+          throw new MatchHistoryError('Stored Correction is not executable')
+
+        resident = correction.match
+
+        return { acceptedCommand, protocolEntryContents: correction.result.protocolEntryContents }
+      }
+
+      return { acceptedCommand, protocolEntryContents: resident.restore(acceptedCommand) }
+    })
 
     return { match: resident, accepted }
   } catch (error) {
@@ -462,8 +519,65 @@ export function restoreMatch(config: MatchConfig, history: readonly AcceptedComm
   }
 }
 
+/** Compensates only the latest eligible game action, restoring its entire prior semantic state. */
+export function correctMatch(
+  config: MatchConfig,
+  history: readonly AcceptedCommand[],
+  command: MatchCommand,
+): CorrectionResult {
+  const parsed = v.safeParse(CorrectionCommand, command.command)
+
+  if (command.source !== 'match' || !parsed.success)
+    return {
+      result: {
+        _tag: 'parse-failed',
+        reason: { code: 'unsupported-match-command', commandType: 'action.correct' },
+      },
+    }
+
+  const target = latestUncorrectedCommand(history)
+
+  if (
+    !target ||
+    !isCorrectableCommand(target) ||
+    target.acceptedSeq !== parsed.output.targetSeq ||
+    target.commandId !== parsed.output.targetCommandId
+  )
+    return { result: { _tag: 'rejected', reason: { code: 'correction-not-available' } } }
+
+  const prefix = history.filter((accepted) => accepted.acceptedSeq < target.acceptedSeq)
+  const replay = restoreMatch(config, prefix).match
+  const state = replay.project().state
+  const frame = state.frames.at(-1)
+  const gameCommand = parseGameCommand(gameKeyOf(config.gameKey), target.command)
+
+  if (!frame || frame.winnerSeat || gameCommand._tag !== 'parsed')
+    throw new MatchHistoryError('Correction target has no active game action')
+
+  // Replaying the target identifies every derived entry; the returned resident must exclude it.
+  const originalContents = replay.restore(target)
+  const before = restoreMatch(config, prefix).match
+
+  return {
+    match: before,
+    result: {
+      _tag: 'accepted',
+      command,
+      protocolEntryContents: originalContents.map((original, targetEntryIndex) => ({
+        gameKey: config.gameKey,
+        frameIndex: frame.frameIndex,
+        source: original.source,
+        entryType: 'action-corrected',
+        seat: original.seat,
+        scoreAfter: frame.pointsBySeat,
+        body: { targetSeq: target.acceptedSeq, targetCommandId: target.commandId, targetEntryIndex },
+      })),
+    },
+  }
+}
+
 export type RestoredMatch = {
-  readonly match: Match
+  readonly match: ResidentMatch
   readonly accepted: readonly {
     readonly acceptedCommand: AcceptedCommand
     readonly protocolEntryContents: readonly ProtocolEntryContent[]

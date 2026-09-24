@@ -1,8 +1,11 @@
 import {
   type BySeatNumber,
   type Clock,
+  CommandId,
   type MatchId,
   type MatchState,
+  NonNegativeInteger,
+  PositiveInteger,
   type ProtocolEntries,
   ProtocolEntry,
   type Seat,
@@ -41,24 +44,36 @@ type SeatNames = Readonly<{ A: string; B: string }>
 
 export type ProtocolRow = Readonly<{
   key: string
-  message: Readonly<{
-    key: string
-    actor?: string | undefined
-    params?: Readonly<Record<string, string | number>>
-    pottedBalls?: readonly ProtocolBall[]
-  }>
+  message: ProtocolMessage
   score?: BySeatNumber | undefined
   acceptedAtIso: string
   acceptedAtLabel: string
 }>
 
-type ProtocolConfirmationRow = Pick<ProtocolRow, 'key' | 'message' | 'score'>
+type ProtocolMessage = Readonly<{
+  key: string
+  actor?: string | undefined
+  params?: Readonly<Record<string, string | number>>
+  pottedBalls?: readonly ProtocolBall[]
+  correctedAction?: ProtocolMessage
+}>
+
+export type LastActionRow = Pick<ProtocolRow, 'key' | 'message' | 'score'> &
+  Readonly<{
+    target?: { acceptedSeq: number; commandId: CommandId }
+  }>
 
 const ProtocolBall = v.picklist([0, 1, 2, 3, 4, 5, 6, 7])
 
 type ProtocolBall = v.InferOutput<typeof ProtocolBall>
 
 const PottedBalls = v.pipe(v.array(ProtocolBall), v.minLength(1))
+
+const CorrectionTarget = v.object({
+  targetSeq: PositiveInteger,
+  targetCommandId: CommandId,
+  targetEntryIndex: v.optional(NonNegativeInteger),
+})
 
 const ProtocolMessageBody = v.object({
   commandType: v.optional(v.string()),
@@ -202,9 +217,30 @@ export function renderProtocolRows(
   return entries.map((entry) => {
     const { isoString: acceptedAtIso, time: acceptedAtLabel } = clock.instantPresentation(entry.acceptedAt)
 
+    const correction =
+      entry.entryType === 'action-corrected' ? v.safeParse(CorrectionTarget, entry.body) : null
+
+    const original =
+      correction?.success === true
+        ? entries.find(
+            (candidate) =>
+              candidate.acceptedSeq === correction.output.targetSeq &&
+              candidate.causedByCommandId === correction.output.targetCommandId &&
+              (correction.output.targetEntryIndex === undefined
+                ? candidate.source === 'player'
+                : candidate.entryIndex === correction.output.targetEntryIndex),
+          )
+        : undefined
+
     return {
       key: `protocol-${entry.acceptedSeq}-${entry.entryIndex}`,
-      message: entryMessage(entry, seatNames),
+      message: original
+        ? {
+            key: 'match.protocol.actionCorrected',
+            actor: original.source === 'player' ? seatNames[original.seat] : undefined,
+            correctedAction: entryMessage(original, seatNames),
+          }
+        : entryMessage(entry, seatNames),
       score: entry.scoreAfter,
       acceptedAtIso,
       acceptedAtLabel,
@@ -213,23 +249,32 @@ export function renderProtocolRows(
 }
 
 /**
- * Selects the latest player-authored entry for the control surface's confirmation line.
+ * Selects the latest uncorrected player-authored action for the control surface's confirmation line.
  *
  * One Accepted Command can append system entries after the player's entry (for example winner
- * determination and frame completion). Those entries remain in Protocol, but showing one here
- * would hide the participant and table-side action that a future Correction could compensate for.
+ * determination and frame completion). Those and corrected actions remain in Protocol, but
+ * neither displaces the earlier action that can still be compensated for.
  */
-export function renderLastCorrectableProtocolRow(
+export function renderLastActionRow(
   entries: readonly ProtocolEntry[],
   seatNames: SeatNames,
   maxAcceptedSeq: number,
-): ProtocolConfirmationRow | undefined {
+): LastActionRow | undefined {
   let entry: ProtocolEntry | undefined
+  const corrected = new Set<string>()
 
   for (let index = entries.length - 1; index >= 0; index -= 1) {
     const candidate = entries[index]
 
-    if (candidate && candidate.acceptedSeq <= maxAcceptedSeq && candidate.source === 'player') {
+    if (!candidate || candidate.acceptedSeq > maxAcceptedSeq) continue
+
+    if (candidate.entryType === 'action-corrected') {
+      const target = v.parse(CorrectionTarget, candidate.body)
+      corrected.add(`${target.targetSeq}:${target.targetCommandId}`)
+    } else if (
+      candidate.source === 'player' &&
+      !corrected.has(`${candidate.acceptedSeq}:${candidate.causedByCommandId}`)
+    ) {
       entry = candidate
       break
     }
@@ -237,9 +282,20 @@ export function renderLastCorrectableProtocolRow(
 
   if (!entry) return undefined
 
-  return {
+  const row: LastActionRow = {
     key: `protocol-${entry.acceptedSeq}-${entry.entryIndex}`,
     message: entryMessage(entry, seatNames),
     score: entry.scoreAfter,
   }
+
+  if (
+    entry.entryType === 'player-command' &&
+    !['frame.commence', 'frame.award'].includes(String(entry.body.commandType))
+  )
+    return {
+      ...row,
+      target: { acceptedSeq: entry.acceptedSeq, commandId: entry.causedByCommandId },
+    }
+
+  return row
 }

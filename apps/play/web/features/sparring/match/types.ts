@@ -27,6 +27,7 @@ export type ControlActionData =
         | typeof keys.match.control.commandRejectedByRules
         | typeof keys.match.control.unknownMatch
         | typeof keys.match.control.matchLocked
+        | typeof keys.match.control.correctionUnavailable
     }
 
 export type ActiveMatchData<K extends RegisteredGameKey = RegisteredGameKey> = Extract<

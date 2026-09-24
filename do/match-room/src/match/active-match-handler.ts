@@ -1,4 +1,4 @@
-import type { MatchRoomProjection } from '@ks/competition'
+import { correctMatch, isCorrectionCommand, type MatchRoomProjection } from '@ks/competition'
 import {
   type MatchCommand,
   type MatchScoreProjection,
@@ -54,7 +54,16 @@ export class ActiveMatchHandler {
     }
 
     try {
-      const result = this.#state.match.execute(command)
+      const correction = isCorrectionCommand(command)
+        ? correctMatch(
+            this.#storedMatch.config,
+            this.#storage.readAcceptedCommands(this.#storedMatch),
+            command,
+          )
+        : null
+
+      const nextMatch = correction?.match ?? this.#state.match
+      const result = correction?.result ?? nextMatch.execute(command)
 
       if (result._tag === 'parse-failed') return { response: { _tag: 'invalid-command' } }
 
@@ -67,19 +76,20 @@ export class ActiveMatchHandler {
           }),
         }
 
-      const state = this.#state.match.project().state
+      const state = nextMatch.project().state
 
       const committed = this.#storage.commitAcceptedCommand({
         match: this.#storedMatch,
         command: result.command,
         finalState: state.status === 'finished' ? state : null,
-        gameResult: this.#state.match.gameResult(),
+        gameResult: nextMatch.gameResult(),
       })
 
       this.#state = this.#resident.advance(
         this.#state,
         committed.acceptedCommand,
         result.protocolEntryContents,
+        nextMatch,
       )
 
       this.#liveConnections.broadcast(committed.streamUpdate)

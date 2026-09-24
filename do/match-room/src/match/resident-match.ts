@@ -32,6 +32,7 @@ export class ResidentMatch {
     prior: ResidentState,
     acceptedCommand: AcceptedCommand,
     contents: readonly ProtocolEntryContent[],
+    match: Match = prior.match,
   ): ResidentState {
     if (this.#cache !== prior || acceptedCommand.acceptedSeq !== prior.latestSeq + 1)
       throw new Error('MatchRoom resident cursor mismatch')
@@ -39,7 +40,7 @@ export class ResidentMatch {
 
     const state = {
       latestSeq: acceptedCommand.acceptedSeq,
-      match: prior.match,
+      match,
       protocolEntries: [...prior.protocolEntries, ...promoted],
     }
 

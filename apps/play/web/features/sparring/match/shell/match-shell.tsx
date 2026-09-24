@@ -44,7 +44,15 @@ export function MatchControlShell<K extends RegisteredGameKey>(props: {
       }
       board={<Board data={props.data} />}
       contentClassName="flex flex-col overflow-hidden"
-      footer={props.data.lastEntry ? <LastCommandBar entry={props.data.lastEntry} /> : null}
+      footer={
+        props.data.lastEntry ? (
+          <LastCommandBar
+            entry={props.data.lastEntry}
+            submitting={props.submitting}
+            onSubmit={props.onSubmit}
+          />
+        ) : null
+      }
       primaryTabLabel={t(keys.match.sparring.tabControl)}
     >
       {props.children}

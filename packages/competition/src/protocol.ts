@@ -1,4 +1,12 @@
-import { BySeatNumber, FrameWinReason, ProtocolEntryContent, UnknownObject } from '@ks/core'
+import {
+  BySeatNumber,
+  CommandId,
+  FrameWinReason,
+  NonNegativeInteger,
+  PositiveInteger,
+  ProtocolEntryContent,
+  UnknownObject,
+} from '@ks/core'
 import { RegisteredGameKey } from '@ks/gameplay/definitions'
 import { parseGameProtocolEntry } from '@ks/gameplay/server'
 import * as v from 'valibot'
@@ -37,6 +45,21 @@ export const MatchLifecycleProtocolEntry = v.variant('entryType', [
   ),
   v.pipe(
     v.object({ ...ProtocolEntryContent.entries, entryType: v.literal('match-ended'), body: v.object({}) }),
+    v.readonly(),
+  ),
+  v.pipe(
+    v.object({
+      ...ProtocolEntryContent.entries,
+      entryType: v.literal('action-corrected'),
+      body: v.pipe(
+        v.strictObject({
+          targetSeq: PositiveInteger,
+          targetCommandId: CommandId,
+          targetEntryIndex: v.optional(NonNegativeInteger),
+        }),
+        v.readonly(),
+      ),
+    }),
     v.readonly(),
   ),
 ])

@@ -46,7 +46,7 @@ import {
   type FinishedMatchArchiveRecord,
   ProtocolArchiveCorruptionError,
   type ProtocolArchiveRecord,
-  renderLastCorrectableProtocolRow,
+  renderLastActionRow,
   renderProtocolRows,
   UnsupportedProtocolArchiveVersionError,
 } from '../protocol'
@@ -133,7 +133,7 @@ type ReadKeyedMatchSuccess<K extends RegisteredGameKey> = {
   gameResult?: GameResult | null
   controls: readonly Control[]
   protocolEntries: ProtocolEntries
-  lastEntry?: NonNullable<ReturnType<typeof renderLastCorrectableProtocolRow>>
+  lastEntry?: NonNullable<ReturnType<typeof renderLastActionRow>>
 }
 
 type ReadKeyedMatchResult<K extends RegisteredGameKey> = ReadKeyedMatchSuccess<K> | ReadMatchFailure
@@ -404,7 +404,7 @@ export function createSparringApplicationWithDependencies(
       (entry) => entry.acceptedSeq <= roomResult.latestSeq,
     )
 
-    const lastEntry = renderLastCorrectableProtocolRow(protocolEntries, seatNames, roomResult.latestSeq)
+    const lastEntry = renderLastActionRow(protocolEntries, seatNames, roomResult.latestSeq)
 
     const result: ReadKeyedMatchSuccess<K> = {
       ok: true,

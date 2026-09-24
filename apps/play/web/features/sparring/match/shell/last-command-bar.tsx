@@ -1,12 +1,18 @@
-import type { ProtocolRow } from '@ks/application'
+import type { LastActionRow } from '@ks/application'
+import { type MatchCommand, newCommandId } from '@ks/core'
 import { keys } from '@ks/i18n'
 import { useTranslation } from 'react-i18next'
 
 import { StrilaBall } from '@/components/strila-ball'
 import { protocolRowLabel } from '@/features/sparring/match/protocol/protocol-copy'
 
-export function LastCommandBar({ entry }: { entry: Pick<ProtocolRow, 'key' | 'message' | 'score'> }) {
+export function LastCommandBar(props: {
+  entry: LastActionRow
+  submitting: boolean
+  onSubmit: (command: MatchCommand) => void
+}) {
   const { t } = useTranslation()
+  const { entry } = props
 
   return (
     <section className="flex min-h-[68px] shrink-0 items-center gap-3 bg-background px-4 py-2">
@@ -33,14 +39,28 @@ export function LastCommandBar({ entry }: { entry: Pick<ProtocolRow, 'key' | 'me
           ) : null}
         </p>
       </div>
-      <button
-        type="button"
-        disabled
-        className="flex min-h-11 shrink-0 items-center gap-2 rounded-lg bg-overlay px-4 text-base font-medium disabled:opacity-45"
-      >
-        <CorrectionIcon />
-        {t(keys.match.control.correction)}
-      </button>
+      {entry.target ? (
+        <button
+          type="button"
+          disabled={props.submitting}
+          onClick={() => {
+            if (!entry.target) return
+            props.onSubmit({
+              commandId: newCommandId(),
+              source: 'match',
+              command: {
+                type: 'action.correct',
+                targetSeq: entry.target.acceptedSeq,
+                targetCommandId: entry.target.commandId,
+              },
+            })
+          }}
+          className="flex min-h-11 shrink-0 items-center gap-2 rounded-lg bg-overlay px-4 text-base font-medium disabled:opacity-45"
+        >
+          <CorrectionIcon />
+          {t(keys.match.control.correction)}
+        </button>
+      ) : null}
     </section>
   )
 }
