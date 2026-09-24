@@ -76,7 +76,7 @@ function outputWinner(context: PyramidContext): Seat {
   return context.winner
 }
 
-export const PyramidSparringFrameMachine = setup({
+export const PyramidFrameMachine = setup({
   types: {
     // SAFETY: XState's setup API uses empty values solely to capture these compile-time contracts.
     context: {} as PyramidContext,
@@ -163,7 +163,7 @@ export const PyramidSparringFrameMachine = setup({
     }),
   },
 }).createMachine({
-  id: 'pyramid-sparring',
+  id: 'pyramid-frame',
   initial: 'not-started',
   context: ({ input }) => ({
     score: { A: 0, B: 0 },
@@ -241,34 +241,31 @@ export const PyramidSparringFrameMachine = setup({
   }),
 })
 
-export type PyramidSparringFrameSnapshot = SnapshotFrom<typeof PyramidSparringFrameMachine>
+export type PyramidFrameSnapshot = SnapshotFrom<typeof PyramidFrameMachine>
 
 export function createInitialSnapshot(
   rules: PyramidRules,
   targetPointsBySeat: BySeatNumber,
-): PyramidSparringFrameSnapshot {
-  const [snapshot] = initialTransition(PyramidSparringFrameMachine, { targetPointsBySeat, rules })
+): PyramidFrameSnapshot {
+  const [snapshot] = initialTransition(PyramidFrameMachine, { targetPointsBySeat, rules })
 
   return snapshot
 }
 
-export function getPyramidSparringFramePhase(snapshot: PyramidSparringFrameSnapshot): PyramidPhase {
+export function getPyramidFramePhase(snapshot: PyramidFrameSnapshot): PyramidPhase {
   return getPhase(snapshot)
 }
 
-export function getPhase(snapshot: PyramidSparringFrameSnapshot): PyramidPhase {
+export function getPhase(snapshot: PyramidFrameSnapshot): PyramidPhase {
   return v.parse(PyramidPhase, snapshot.value)
 }
 
-export function sendEvent(
-  snapshot: PyramidSparringFrameSnapshot,
-  event: PyramidCommand,
-): PyramidSparringFrameSnapshot {
+export function sendEvent(snapshot: PyramidFrameSnapshot, event: PyramidCommand): PyramidFrameSnapshot {
   if (!snapshot.can(event)) {
     throw new Error(`Invalid Pyramid event ${event.type} in phase ${getPhase(snapshot)}`)
   }
 
-  const [nextSnapshot] = transition(PyramidSparringFrameMachine, snapshot, event)
+  const [nextSnapshot] = transition(PyramidFrameMachine, snapshot, event)
 
   return nextSnapshot
 }

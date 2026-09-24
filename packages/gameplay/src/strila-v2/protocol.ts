@@ -2,9 +2,9 @@ import invariant from 'tiny-invariant'
 import * as v from 'valibot'
 
 import { type StrilaCommand, StrilaProtocolEntry } from './definitions'
-import { getPhase, type StrilaSparringFrameSnapshot } from './machine'
+import { getPhase, type StrilaFrameSnapshot } from './machine'
 
-function isMixedBallInHandPot(previous: StrilaSparringFrameSnapshot, command: StrilaCommand): boolean {
+function isMixedBallInHandPot(previous: StrilaFrameSnapshot, command: StrilaCommand): boolean {
   return (
     getPhase(previous) === 'foul-committed.ball-in-hand' &&
     command.type === 'pot.record' &&
@@ -13,14 +13,14 @@ function isMixedBallInHandPot(previous: StrilaSparringFrameSnapshot, command: St
   )
 }
 
-function scoreChanged(previous: StrilaSparringFrameSnapshot, next: StrilaSparringFrameSnapshot): boolean {
+function scoreChanged(previous: StrilaFrameSnapshot, next: StrilaFrameSnapshot): boolean {
   return previous.context.score.A !== next.context.score.A || previous.context.score.B !== next.context.score.B
 }
 
 function playerEntry(
-  previous: StrilaSparringFrameSnapshot,
+  previous: StrilaFrameSnapshot,
   command: StrilaCommand,
-  next: StrilaSparringFrameSnapshot,
+  next: StrilaFrameSnapshot,
 ): StrilaProtocolEntry {
   const body = (() => {
     switch (command.type) {
@@ -49,7 +49,7 @@ function playerEntry(
   })
 }
 
-function isThirdConsecutiveCueBallPot(previous: StrilaSparringFrameSnapshot, command: StrilaCommand): boolean {
+function isThirdConsecutiveCueBallPot(previous: StrilaFrameSnapshot, command: StrilaCommand): boolean {
   return (
     getPhase(previous) === 'open-play' &&
     previous.context.cueBallSerialPots?.seat === command.seat &&
@@ -59,10 +59,7 @@ function isThirdConsecutiveCueBallPot(previous: StrilaSparringFrameSnapshot, com
   )
 }
 
-function isRespottedBlackOpeningIllegalPot(
-  previous: StrilaSparringFrameSnapshot,
-  command: StrilaCommand,
-): boolean {
+function isRespottedBlackOpeningIllegalPot(previous: StrilaFrameSnapshot, command: StrilaCommand): boolean {
   return (
     getPhase(previous) === 'respotted-black.opening' &&
     command.type === 'pot.record' &&
@@ -71,9 +68,9 @@ function isRespottedBlackOpeningIllegalPot(
 }
 
 export function createStrilaProtocolEntries(args: {
-  readonly previous: StrilaSparringFrameSnapshot
+  readonly previous: StrilaFrameSnapshot
   readonly command: StrilaCommand
-  readonly next: StrilaSparringFrameSnapshot
+  readonly next: StrilaFrameSnapshot
 }): [StrilaProtocolEntry, ...StrilaProtocolEntry[]] {
   const { previous, command, next } = args
 

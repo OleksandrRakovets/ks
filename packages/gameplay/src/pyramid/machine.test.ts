@@ -3,7 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import { type BySeatNumber, FrameOutcome } from '@ks/core'
 import * as v from 'valibot'
 
-import { createInitialSnapshot, getPhase, type PyramidSparringFrameSnapshot, sendEvent } from './machine'
+import { createInitialSnapshot, getPhase, type PyramidFrameSnapshot, sendEvent } from './machine'
 import { type PyramidRules, PyramidRuleSpecificsByGameKey } from './rules'
 
 const FREE_RULES = PyramidRuleSpecificsByGameKey['free-pyramid']
@@ -14,14 +14,11 @@ const COMBINED_OLD_RULES = PyramidRuleSpecificsByGameKey['combined-pyramid-old']
 
 const DEFAULT_TARGET: BySeatNumber = { A: 8, B: 8 }
 
-function start(
-  rules: PyramidRules = FREE_RULES,
-  target: BySeatNumber = DEFAULT_TARGET,
-): PyramidSparringFrameSnapshot {
+function start(rules: PyramidRules = FREE_RULES, target: BySeatNumber = DEFAULT_TARGET): PyramidFrameSnapshot {
   return createInitialSnapshot(rules, target)
 }
 
-describe('PyramidSparringFrameMachine: basic', () => {
+describe('PyramidFrameMachine: basic', () => {
   test('frame.commence enters open-play', () => {
     const snap = sendEvent(start(), { type: 'frame.commence', seat: 'A' })
 
@@ -108,7 +105,7 @@ describe('PyramidSparringFrameMachine: basic', () => {
   })
 })
 
-describe('PyramidSparringFrameMachine: foul handling', () => {
+describe('PyramidFrameMachine: foul handling', () => {
   test('opponent-plus-one foul awards point to opponent', () => {
     let snap = start()
     snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
@@ -182,7 +179,7 @@ describe('PyramidSparringFrameMachine: foul handling', () => {
   })
 })
 
-describe('PyramidSparringFrameMachine: rules selection', () => {
+describe('PyramidFrameMachine: rules selection', () => {
   test('free-pyramid allows +4 preset', () => {
     let snap = start(FREE_RULES)
     snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
@@ -210,7 +207,7 @@ describe('PyramidSparringFrameMachine: rules selection', () => {
   })
 })
 
-describe('PyramidSparringFrameMachine: handicap', () => {
+describe('PyramidFrameMachine: handicap', () => {
   test('asymmetric targets allow lower-target seat to win first', () => {
     let snap = start(FREE_RULES, { A: 3, B: 8 })
     snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })

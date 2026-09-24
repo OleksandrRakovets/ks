@@ -4,14 +4,14 @@ import { type BySeatNumber, FrameOutcome, type Seat } from '@ks/core'
 import * as v from 'valibot'
 
 import { type StrilaCommand, StrilaMeta } from './definitions'
-import { createInitialSnapshot, getPhase, sendEvent, type StrilaSparringFrameSnapshot } from './machine'
+import { createInitialSnapshot, getPhase, sendEvent, type StrilaFrameSnapshot } from './machine'
 
-function start(targetPointsBySeat?: BySeatNumber): StrilaSparringFrameSnapshot {
+function start(targetPointsBySeat?: BySeatNumber): StrilaFrameSnapshot {
   return createInitialSnapshot(targetPointsBySeat ?? StrilaMeta.defaultTargetPoints)
 }
 
 // A:6, B:8, only ball 7 left → A pots 7 → 8:8, table empty → respotted-black opening selection
-function reachRespottedBlackSelection(): StrilaSparringFrameSnapshot {
+function reachRespottedBlackSelection(): StrilaFrameSnapshot {
   let snap = start()
   snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
   snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [1] })
@@ -30,14 +30,14 @@ function reachRespottedBlackSelection(): StrilaSparringFrameSnapshot {
   return snap
 }
 
-function reachRespottedBlack(openingSeat: Seat = 'A'): StrilaSparringFrameSnapshot {
+function reachRespottedBlack(openingSeat: Seat = 'A'): StrilaFrameSnapshot {
   return sendEvent(reachRespottedBlackSelection(), {
     type: 'respotted-black.opening.select',
     seat: openingSeat,
   })
 }
 
-describe('machine-sparring: basic', () => {
+describe('StrilaFrameMachine: basic', () => {
   test('frame.commence enters open-play for seat', () => {
     const snap = sendEvent(start(), { type: 'frame.commence', seat: 'A' })
 
@@ -78,7 +78,7 @@ describe('machine-sparring: basic', () => {
   })
 })
 
-describe('machine-sparring: empty table', () => {
+describe('StrilaFrameMachine: empty table', () => {
   const cases: readonly {
     name: string
     targets?: BySeatNumber
@@ -251,7 +251,7 @@ describe('machine-sparring: empty table', () => {
   })
 })
 
-describe('machine-sparring: foul handling', () => {
+describe('StrilaFrameMachine: foul handling', () => {
   test('first two post-foul cue-ball pots build a new streak and the third is an automatic foul', () => {
     let snap = sendEvent(start(), { type: 'frame.commence', seat: 'A' })
     snap = sendEvent(snap, { type: 'foul.commit', seat: 'A' })
@@ -426,7 +426,7 @@ describe('machine-sparring: foul handling', () => {
   })
 })
 
-describe('machine-sparring: respotted black', () => {
+describe('StrilaFrameMachine: respotted black', () => {
   test('entering respotted black clears a cue-ball streak created by the tying shot', () => {
     let snap = sendEvent(start(), { type: 'frame.commence', seat: 'A' })
     snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [1, 2] })
@@ -558,7 +558,7 @@ describe('machine-sparring: respotted black', () => {
   })
 })
 
-describe('machine-sparring: handicap', () => {
+describe('StrilaFrameMachine: handicap', () => {
   test('handicap target lets A win at 6 after three pots', () => {
     let snap = start({ A: 6, B: 9 })
     snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
@@ -573,7 +573,7 @@ describe('machine-sparring: handicap', () => {
   })
 })
 
-describe('machine-sparring: continued break after winner', () => {
+describe('StrilaFrameMachine: continued break after winner', () => {
   test('pot.record in winner-determined continues scoring for winner', () => {
     let snap = start()
     snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
@@ -632,7 +632,7 @@ describe('machine-sparring: continued break after winner', () => {
   })
 })
 
-describe('machine-sparring: ball validation', () => {
+describe('StrilaFrameMachine: ball validation', () => {
   test('rejects events that are invalid for the current phase', () => {
     const snap = start()
 

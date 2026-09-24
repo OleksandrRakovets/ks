@@ -11,16 +11,16 @@ import {
 import type { StrilaCommand } from './definitions'
 import {
   createInitialSnapshot,
-  getStrilaSparringFramePhase,
-  StrilaSparringFrameMachine,
-  type StrilaSparringFrameSnapshot,
+  getStrilaFramePhase,
+  StrilaFrameMachine,
+  type StrilaFrameSnapshot,
 } from './machine'
 import { deriveStrilaControlProjection } from './projections/control'
 import { createStrilaProtocolEntries } from './protocol'
 
 class StrilaGameplaySession implements GameplaySession<'strila-v2'> {
   readonly gameKey = 'strila-v2' as const
-  #snapshot: StrilaSparringFrameSnapshot
+  #snapshot: StrilaFrameSnapshot
 
   constructor(args: GameplaySessionCreateArgsFor<'strila-v2'>) {
     this.#snapshot = createInitialSnapshot({ ...args.targetPointsBySeat })
@@ -30,7 +30,7 @@ class StrilaGameplaySession implements GameplaySession<'strila-v2'> {
     const previous = this.#snapshot
 
     if (!previous.can(command)) return commandNotAvailable()
-    const [candidate] = transition(StrilaSparringFrameMachine, previous, command)
+    const [candidate] = transition(StrilaFrameMachine, previous, command)
     const gameProtocolEntries = createStrilaProtocolEntries({ previous, command, next: candidate })
     const outcome = candidate.status === 'done' ? candidate.output : undefined
 
@@ -53,7 +53,7 @@ class StrilaGameplaySession implements GameplaySession<'strila-v2'> {
     return this.#snapshot.can({ type: 'frame.commence', seat })
   }
   canConcede() {
-    const phase = getStrilaSparringFramePhase(this.#snapshot)
+    const phase = getStrilaFramePhase(this.#snapshot)
 
     return phase !== 'winner-determined' && phase !== 'frame-over'
   }

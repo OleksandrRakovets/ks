@@ -1,5 +1,1 @@
-export {
-  getPyramidSparringFramePhase,
-  PyramidSparringFrameMachine,
-  type PyramidSparringFrameSnapshot,
-} from '../src/pyramid/machine'
+export { getPyramidFramePhase, PyramidFrameMachine, type PyramidFrameSnapshot } from '../src/pyramid/machine'

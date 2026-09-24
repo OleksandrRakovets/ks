@@ -8,8 +8,8 @@ import { ballsOnTableFromRacks, currentRack, removedByRack, totalScore } from '.
 import {
   createInitialSnapshot,
   getPhase,
-  LongFreePyramidSparringFrameMachine,
-  type LongFreePyramidSparringFrameSnapshot,
+  LongFreePyramidFrameMachine,
+  type LongFreePyramidFrameSnapshot,
   sendEvent,
 } from './machine'
 
@@ -18,16 +18,16 @@ const DEFAULT_TARGET: BySeatNumber = { A: 30, B: 30 }
 function start(
   rackRollover: 14 | 15 = 14,
   target: BySeatNumber = DEFAULT_TARGET,
-): LongFreePyramidSparringFrameSnapshot {
+): LongFreePyramidFrameSnapshot {
   return createInitialSnapshot({ targetPointsBySeat: target, rackRollover })
 }
 
-describe('LongFreePyramidSparringFrameMachine: configuration', () => {
+describe('LongFreePyramidFrameMachine: configuration', () => {
   test('rejects invalid rackRollover at machine input boundary', () => {
     // SAFETY: 13 is intentionally invalid rackRollover for direct actor construction test.
     const invalidRollover = 13 as 14
 
-    const actor = createActor(LongFreePyramidSparringFrameMachine, {
+    const actor = createActor(LongFreePyramidFrameMachine, {
       input: { targetPointsBySeat: DEFAULT_TARGET, rackRollover: invalidRollover },
     })
 
@@ -56,7 +56,7 @@ describe('LongFreePyramidSparringFrameMachine: configuration', () => {
   })
 })
 
-describe('LongFreePyramidSparringFrameMachine: initial and commence', () => {
+describe('LongFreePyramidFrameMachine: initial and commence', () => {
   test('starts not-started with one empty rack', () => {
     const snap = start()
     expect(getPhase(snap)).toBe('not-started')
@@ -71,7 +71,7 @@ describe('LongFreePyramidSparringFrameMachine: initial and commence', () => {
   })
 })
 
-describe('LongFreePyramidSparringFrameMachine: scoring and racks', () => {
+describe('LongFreePyramidFrameMachine: scoring and racks', () => {
   test('accumulates multi-rack totals', () => {
     let snap = start(14, { A: 30, B: 30 })
     snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
@@ -145,7 +145,7 @@ describe('LongFreePyramidSparringFrameMachine: scoring and racks', () => {
   test('rejects foul when no balls remain on the current rack', () => {
     let snap = start(15, { A: 30, B: 30 })
     snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
-    snap = LongFreePyramidSparringFrameMachine.resolveState({
+    snap = LongFreePyramidFrameMachine.resolveState({
       ...snap,
       value: 'open-play',
       context: {
@@ -162,7 +162,7 @@ describe('LongFreePyramidSparringFrameMachine: scoring and racks', () => {
   })
 })
 
-describe('LongFreePyramidSparringFrameMachine: winner flow', () => {
+describe('LongFreePyramidFrameMachine: winner flow', () => {
   test('target by pot enters winner-determined', () => {
     let snap = start(15, { A: 4, B: 4 })
     snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })

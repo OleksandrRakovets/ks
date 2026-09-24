@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test'
 
 import { groupControlsIntoSections } from '@ks/core'
 
-import { createInitialSnapshot, LongFreePyramidSparringFrameMachine, sendEvent } from '../machine'
+import { createInitialSnapshot, LongFreePyramidFrameMachine, sendEvent } from '../machine'
 import { deriveLongFreePyramidControlProjection } from './control'
 
 test('projects presentation and limits selectable pots to balls remaining', () => {
@@ -11,7 +11,7 @@ test('projects presentation and limits selectable pots to balls remaining', () =
     seat: 'A',
   })
 
-  snapshot = LongFreePyramidSparringFrameMachine.resolveState({
+  snapshot = LongFreePyramidFrameMachine.resolveState({
     ...snapshot,
     context: { ...snapshot.context, racks: [{ rackNumber: 1, scoreBySeat: { A: 14, B: 0 } }] },
   })

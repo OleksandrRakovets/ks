@@ -79,7 +79,7 @@ function finalizeScoringUpdate(args: {
   }
 }
 
-export const LongFreePyramidSparringFrameMachine = setup({
+export const LongFreePyramidFrameMachine = setup({
   types: {
     // SAFETY: XState's setup API uses empty values solely to capture these compile-time contracts.
     context: {} as LongFreePyramidContext,
@@ -212,7 +212,7 @@ export const LongFreePyramidSparringFrameMachine = setup({
     }),
   },
 }).createMachine({
-  id: 'long-free-pyramid-sparring',
+  id: 'long-free-pyramid-frame',
   initial: 'not-started',
   context: ({ input }) => ({
     racks: [{ rackNumber: 1, scoreBySeat: zeroScore() }],
@@ -302,35 +302,31 @@ export const LongFreePyramidSparringFrameMachine = setup({
   },
 })
 
-export type LongFreePyramidSparringFrameSnapshot = SnapshotFrom<typeof LongFreePyramidSparringFrameMachine>
+export type LongFreePyramidFrameSnapshot = SnapshotFrom<typeof LongFreePyramidFrameMachine>
 
-export function createInitialSnapshot(
-  input: LongFreePyramidMachineInput,
-): LongFreePyramidSparringFrameSnapshot {
-  const [snapshot] = initialTransition(LongFreePyramidSparringFrameMachine, input)
+export function createInitialSnapshot(input: LongFreePyramidMachineInput): LongFreePyramidFrameSnapshot {
+  const [snapshot] = initialTransition(LongFreePyramidFrameMachine, input)
 
   return snapshot
 }
 
-export function getLongFreePyramidSparringFramePhase(
-  snapshot: LongFreePyramidSparringFrameSnapshot,
-): LongFreePyramidPhase {
+export function getLongFreePyramidFramePhase(snapshot: LongFreePyramidFrameSnapshot): LongFreePyramidPhase {
   return getPhase(snapshot)
 }
 
-export function getPhase(snapshot: LongFreePyramidSparringFrameSnapshot): LongFreePyramidPhase {
+export function getPhase(snapshot: LongFreePyramidFrameSnapshot): LongFreePyramidPhase {
   return v.parse(LongFreePyramidPhase, snapshot.value)
 }
 
 export function sendEvent(
-  snapshot: LongFreePyramidSparringFrameSnapshot,
+  snapshot: LongFreePyramidFrameSnapshot,
   event: LongFreePyramidCommand,
-): LongFreePyramidSparringFrameSnapshot {
+): LongFreePyramidFrameSnapshot {
   if (!snapshot.can(event)) {
     throw new Error(`Invalid Long free pyramid event ${event.type} in phase ${getPhase(snapshot)}`)
   }
 
-  const [nextSnapshot] = transition(LongFreePyramidSparringFrameMachine, snapshot, event)
+  const [nextSnapshot] = transition(LongFreePyramidFrameMachine, snapshot, event)
 
   return nextSnapshot
 }

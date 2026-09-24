@@ -3,7 +3,7 @@ import * as v from 'valibot'
 
 import { totalScore } from './calculations'
 import type { LongFreePyramidCommand } from './definitions'
-import type { LongFreePyramidSparringFrameSnapshot } from './machine'
+import type { LongFreePyramidFrameSnapshot } from './machine'
 
 const LongFreePyramidProtocolEntryBody = v.variant('commandType', [
   v.pipe(v.strictObject({ commandType: v.literal('frame.commence') }), v.readonly()),
@@ -30,10 +30,7 @@ export const LongFreePyramidProtocolEntry = v.pipe(
 
 export type LongFreePyramidProtocolEntry = v.InferOutput<typeof LongFreePyramidProtocolEntry>
 
-function scoreChanged(
-  previous: LongFreePyramidSparringFrameSnapshot,
-  next: LongFreePyramidSparringFrameSnapshot,
-): boolean {
+function scoreChanged(previous: LongFreePyramidFrameSnapshot, next: LongFreePyramidFrameSnapshot): boolean {
   const previousScore = totalScore(previous.context.racks)
   const nextScore = totalScore(next.context.racks)
 
@@ -43,8 +40,8 @@ function scoreChanged(
 function protocolEntry(args: {
   readonly seat: 'A' | 'B'
   readonly body: LongFreePyramidProtocolEntryBody
-  readonly previous: LongFreePyramidSparringFrameSnapshot
-  readonly next: LongFreePyramidSparringFrameSnapshot
+  readonly previous: LongFreePyramidFrameSnapshot
+  readonly next: LongFreePyramidFrameSnapshot
 }) {
   const nextScore = totalScore(args.next.context.racks)
 
@@ -59,9 +56,9 @@ function protocolEntry(args: {
 }
 
 export function createLongFreePyramidProtocolEntries(args: {
-  readonly previous: LongFreePyramidSparringFrameSnapshot
+  readonly previous: LongFreePyramidFrameSnapshot
   readonly command: LongFreePyramidCommand
-  readonly next: LongFreePyramidSparringFrameSnapshot
+  readonly next: LongFreePyramidFrameSnapshot
 }): [LongFreePyramidProtocolEntry] {
   const { previous, command, next } = args
 

@@ -3,10 +3,10 @@ import { type Seat } from '@ks/core'
 import type { GameControl, GameControlProjection } from '../../constants'
 import { ballsOnTableFromRacks, currentRack, removedByRack, totalScore } from '../calculations'
 import type { LongFreePyramidGamePresentation, LongFreePyramidGamePresentationState } from '../definitions'
-import { getPhase, type LongFreePyramidSparringFrameSnapshot } from '../machine'
+import { getPhase, type LongFreePyramidFrameSnapshot } from '../machine'
 
 export function deriveLongFreePyramidControlProjection(
-  snapshot: LongFreePyramidSparringFrameSnapshot,
+  snapshot: LongFreePyramidFrameSnapshot,
 ): GameControlProjection<LongFreePyramidGamePresentation> {
   const phase = getPhase(snapshot)
   const ballsOnTable = ballsOnTableFromRacks(snapshot.context.racks)

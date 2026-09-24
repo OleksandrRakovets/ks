@@ -2,7 +2,7 @@ import { GameProtocolEntry, PositiveInteger } from '@ks/core'
 import * as v from 'valibot'
 
 import type { PyramidCommand } from './definitions'
-import type { PyramidSparringFrameSnapshot } from './machine'
+import type { PyramidFrameSnapshot } from './machine'
 import type { PyramidRules } from './rules'
 
 const PyramidProtocolEntryBody = v.variant('commandType', [
@@ -33,7 +33,7 @@ export const PyramidProtocolEntry = v.pipe(
 
 export type PyramidProtocolEntry = v.InferOutput<typeof PyramidProtocolEntry>
 
-function scoreChanged(previous: PyramidSparringFrameSnapshot, next: PyramidSparringFrameSnapshot): boolean {
+function scoreChanged(previous: PyramidFrameSnapshot, next: PyramidFrameSnapshot): boolean {
   return previous.context.score.A !== next.context.score.A || previous.context.score.B !== next.context.score.B
 }
 
@@ -41,8 +41,8 @@ function protocolEntry(args: {
   readonly gameKey: PyramidRules['gameKey']
   readonly seat: 'A' | 'B'
   readonly body: PyramidProtocolEntryBody
-  readonly previous: PyramidSparringFrameSnapshot
-  readonly next: PyramidSparringFrameSnapshot
+  readonly previous: PyramidFrameSnapshot
+  readonly next: PyramidFrameSnapshot
 }) {
   return v.parse(PyramidProtocolEntry, {
     gameKey: args.gameKey,
@@ -55,9 +55,9 @@ function protocolEntry(args: {
 }
 
 export function createPyramidProtocolEntries(args: {
-  readonly previous: PyramidSparringFrameSnapshot
+  readonly previous: PyramidFrameSnapshot
   readonly command: PyramidCommand
-  readonly next: PyramidSparringFrameSnapshot
+  readonly next: PyramidFrameSnapshot
   readonly rules: PyramidRules
 }): [PyramidProtocolEntry] {
   const { previous, command, next, rules } = args

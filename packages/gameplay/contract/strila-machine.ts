@@ -1,5 +1,1 @@
-export {
-  getStrilaSparringFramePhase,
-  StrilaSparringFrameMachine,
-  type StrilaSparringFrameSnapshot,
-} from '../src/strila-v2/machine'
+export { getStrilaFramePhase, StrilaFrameMachine, type StrilaFrameSnapshot } from '../src/strila-v2/machine'

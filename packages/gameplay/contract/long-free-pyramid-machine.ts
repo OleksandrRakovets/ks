@@ -1,5 +1,5 @@
 export {
-  getLongFreePyramidSparringFramePhase,
-  LongFreePyramidSparringFrameMachine,
-  type LongFreePyramidSparringFrameSnapshot,
+  getLongFreePyramidFramePhase,
+  LongFreePyramidFrameMachine,
+  type LongFreePyramidFrameSnapshot,
 } from '../src/long-free-pyramid/machine'

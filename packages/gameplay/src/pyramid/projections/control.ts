@@ -2,10 +2,10 @@ import invariant from 'tiny-invariant'
 
 import { type GameControl, type GameControlProjection } from '../../constants'
 import type { AnyPyramidGamePresentation, PyramidGamePresentationFor } from '../definitions'
-import { getPhase, type PyramidSparringFrameSnapshot } from '../machine'
+import { getPhase, type PyramidFrameSnapshot } from '../machine'
 import type { PyramidGameKey, PyramidRulesFor } from '../rules'
 
-function pyramidDetails(snapshot: PyramidSparringFrameSnapshot) {
+function pyramidDetails(snapshot: PyramidFrameSnapshot) {
   return {
     phase: getPhase(snapshot),
     winner: snapshot.context.winner ?? undefined,
@@ -13,7 +13,7 @@ function pyramidDetails(snapshot: PyramidSparringFrameSnapshot) {
 }
 
 export function derivePyramidControlProjection<K extends PyramidGameKey>(
-  snapshot: PyramidSparringFrameSnapshot,
+  snapshot: PyramidFrameSnapshot,
   rules: PyramidRulesFor<K>,
 ): GameControlProjection<PyramidGamePresentationFor<K>> {
   const phase = getPhase(snapshot)

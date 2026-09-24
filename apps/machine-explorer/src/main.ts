@@ -6,31 +6,27 @@ import {
 } from '@ks/competition/sparring-match-machine'
 import { formatPlayerRef, newMatchId } from '@ks/core'
 import {
-  getLongFreePyramidSparringFramePhase,
-  LongFreePyramidSparringFrameMachine,
-  type LongFreePyramidSparringFrameSnapshot,
+  getLongFreePyramidFramePhase,
+  LongFreePyramidFrameMachine,
+  type LongFreePyramidFrameSnapshot,
 } from '@ks/gameplay/long-free-pyramid-machine'
 import {
-  getPyramidSparringFramePhase,
-  PyramidSparringFrameMachine,
-  type PyramidSparringFrameSnapshot,
+  getPyramidFramePhase,
+  PyramidFrameMachine,
+  type PyramidFrameSnapshot,
 } from '@ks/gameplay/pyramid-machine'
-import {
-  getStrilaSparringFramePhase,
-  StrilaSparringFrameMachine,
-  type StrilaSparringFrameSnapshot,
-} from '@ks/gameplay/strila-machine'
+import { getStrilaFramePhase, StrilaFrameMachine, type StrilaFrameSnapshot } from '@ks/gameplay/strila-machine'
 import { createBrowserInspector } from '@statelyai/inspect'
 import { type ActorRefFrom, createActor } from 'xstate'
 
 type FrameGameKey = 'strila-v2' | 'free-pyramid' | 'free-pyramid-long'
 
 type FrameRuntime =
-  | { readonly gameKey: 'strila-v2'; readonly actor: ActorRefFrom<typeof StrilaSparringFrameMachine> }
-  | { readonly gameKey: 'free-pyramid'; readonly actor: ActorRefFrom<typeof PyramidSparringFrameMachine> }
+  | { readonly gameKey: 'strila-v2'; readonly actor: ActorRefFrom<typeof StrilaFrameMachine> }
+  | { readonly gameKey: 'free-pyramid'; readonly actor: ActorRefFrom<typeof PyramidFrameMachine> }
   | {
       readonly gameKey: 'free-pyramid-long'
-      readonly actor: ActorRefFrom<typeof LongFreePyramidSparringFrameMachine>
+      readonly actor: ActorRefFrom<typeof LongFreePyramidFrameMachine>
     }
 
 type Mode = 'frame' | 'match'
@@ -93,7 +89,7 @@ function buildFrameActor(): FrameRuntime {
     case 'strila-v2':
       return {
         gameKey: frameGame,
-        actor: createActor(StrilaSparringFrameMachine, {
+        actor: createActor(StrilaFrameMachine, {
           input: { targetPointsBySeat: { A: targetA, B: targetB } },
           inspect: inspectorInspect,
         }),
@@ -101,7 +97,7 @@ function buildFrameActor(): FrameRuntime {
     case 'free-pyramid':
       return {
         gameKey: frameGame,
-        actor: createActor(PyramidSparringFrameMachine, {
+        actor: createActor(PyramidFrameMachine, {
           input: { targetPointsBySeat: { A: targetA, B: targetB }, rules: FREE_PYRAMID_RULES },
           inspect: inspectorInspect,
         }),
@@ -109,7 +105,7 @@ function buildFrameActor(): FrameRuntime {
     case 'free-pyramid-long':
       return {
         gameKey: frameGame,
-        actor: createActor(LongFreePyramidSparringFrameMachine, {
+        actor: createActor(LongFreePyramidFrameMachine, {
           input: { targetPointsBySeat: { A: targetA, B: targetB }, rackRollover: 14 },
           inspect: inspectorInspect,
         }),
@@ -203,11 +199,8 @@ function renderFrame() {
   }
 }
 
-function renderStrilaFrame(
-  snap: StrilaSparringFrameSnapshot,
-  actor: ActorRefFrom<typeof StrilaSparringFrameMachine>,
-) {
-  const phase = getStrilaSparringFramePhase(snap)
+function renderStrilaFrame(snap: StrilaFrameSnapshot, actor: ActorRefFrom<typeof StrilaFrameMachine>) {
+  const phase = getStrilaFramePhase(snap)
   const ctx = snap.context
   status.innerHTML = `
     <div class="state-label">${phase}</div>
@@ -248,11 +241,8 @@ function renderStrilaFrame(
   )
 }
 
-function renderPyramidFrame(
-  snap: PyramidSparringFrameSnapshot,
-  actor: ActorRefFrom<typeof PyramidSparringFrameMachine>,
-) {
-  const phase = getPyramidSparringFramePhase(snap)
+function renderPyramidFrame(snap: PyramidFrameSnapshot, actor: ActorRefFrom<typeof PyramidFrameMachine>) {
+  const phase = getPyramidFramePhase(snap)
   status.innerHTML = `
     <div class="state-label">${phase}</div>
     <div class="context-block">${JSON.stringify(snap.context, null, 2)}</div>
@@ -293,10 +283,10 @@ function renderPyramidFrame(
 }
 
 function renderLongFreePyramidFrame(
-  snap: LongFreePyramidSparringFrameSnapshot,
-  actor: ActorRefFrom<typeof LongFreePyramidSparringFrameMachine>,
+  snap: LongFreePyramidFrameSnapshot,
+  actor: ActorRefFrom<typeof LongFreePyramidFrameMachine>,
 ) {
-  const phase = getLongFreePyramidSparringFramePhase(snap)
+  const phase = getLongFreePyramidFramePhase(snap)
   status.innerHTML = `
     <div class="state-label">${phase}</div>
     <div class="context-block">${JSON.stringify(snap.context, null, 2)}</div>

@@ -10,7 +10,7 @@ import {
   type StrilaGamePresentationDetails,
   StrilaMeta,
 } from '../definitions'
-import { getPhase, type StrilaSparringFrameSnapshot } from '../machine'
+import { getPhase, type StrilaFrameSnapshot } from '../machine'
 import { computeStrilaObjectBalls } from './computeds'
 import { deriveStrilaRuleNotes } from './rule-notes'
 
@@ -38,9 +38,7 @@ function controlsForSeat(
   }))
 }
 
-function deriveBallStatuses(
-  snapshot: StrilaSparringFrameSnapshot,
-): StrilaGamePresentationDetails['ballStatuses'] {
+function deriveBallStatuses(snapshot: StrilaFrameSnapshot): StrilaGamePresentationDetails['ballStatuses'] {
   const phase = getPhase(snapshot)
 
   const objectBalls = new Set(
@@ -90,7 +88,7 @@ function deriveBallStatuses(
 }
 
 function controlProjection(
-  snapshot: StrilaSparringFrameSnapshot,
+  snapshot: StrilaFrameSnapshot,
   args: {
     readonly controls: readonly GameControl[]
     readonly situationTitle: string
@@ -121,7 +119,7 @@ function controlProjection(
   }
 }
 
-export function deriveStrilaControlProjection(snapshot: StrilaSparringFrameSnapshot) {
+export function deriveStrilaControlProjection(snapshot: StrilaFrameSnapshot) {
   switch (getPhase(snapshot)) {
     case 'not-started':
       return controlProjection(snapshot, {

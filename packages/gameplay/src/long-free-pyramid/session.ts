@@ -13,15 +13,15 @@ import type { LongFreePyramidCommand } from './definitions'
 import {
   createInitialSnapshot,
   getPhase,
-  LongFreePyramidSparringFrameMachine,
-  type LongFreePyramidSparringFrameSnapshot,
+  LongFreePyramidFrameMachine,
+  type LongFreePyramidFrameSnapshot,
 } from './machine'
 import { deriveLongFreePyramidControlProjection } from './projections/control'
 import { createLongFreePyramidProtocolEntries } from './protocol'
 
 class LongFreePyramidGameplaySession implements GameplaySession<'free-pyramid-long'> {
   readonly gameKey = 'free-pyramid-long' as const
-  #snapshot: LongFreePyramidSparringFrameSnapshot
+  #snapshot: LongFreePyramidFrameSnapshot
 
   constructor(args: GameplaySessionCreateArgsFor<'free-pyramid-long'>) {
     this.#snapshot = createInitialSnapshot({
@@ -34,7 +34,7 @@ class LongFreePyramidGameplaySession implements GameplaySession<'free-pyramid-lo
     const previous = this.#snapshot
 
     if (!previous.can(command)) return commandNotAvailable()
-    const [candidate] = transition(LongFreePyramidSparringFrameMachine, previous, command)
+    const [candidate] = transition(LongFreePyramidFrameMachine, previous, command)
     const gameProtocolEntries = createLongFreePyramidProtocolEntries({ previous, command, next: candidate })
     const outcome = candidate.status === 'done' ? candidate.output : undefined
 

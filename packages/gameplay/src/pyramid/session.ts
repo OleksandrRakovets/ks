@@ -11,19 +11,14 @@ import {
 } from '../gameplay-session'
 import type { GamePresentationFor } from '../registry'
 import type { PyramidCommand } from './definitions'
-import {
-  createInitialSnapshot,
-  getPhase,
-  PyramidSparringFrameMachine,
-  type PyramidSparringFrameSnapshot,
-} from './machine'
+import { createInitialSnapshot, getPhase, PyramidFrameMachine, type PyramidFrameSnapshot } from './machine'
 import { derivePyramidControlProjection } from './projections/control'
 import { createPyramidProtocolEntries } from './protocol'
 import { type PyramidGameKey, type PyramidRulesFor, PyramidRuleSpecificsByGameKey } from './rules'
 
 class PyramidGameplaySession<K extends PyramidGameKey> implements GameplaySession<K> {
   readonly gameKey: K
-  #snapshot: PyramidSparringFrameSnapshot
+  #snapshot: PyramidFrameSnapshot
   readonly #rules: PyramidRulesFor<K>
 
   constructor(gameKey: K, args: GameplaySessionCreateArgsFor<K>, rules: PyramidRulesFor<K>) {
@@ -36,7 +31,7 @@ class PyramidGameplaySession<K extends PyramidGameKey> implements GameplaySessio
     const previous = this.#snapshot
 
     if (!previous.can(command)) return commandNotAvailable()
-    const [candidate] = transition(PyramidSparringFrameMachine, previous, command)
+    const [candidate] = transition(PyramidFrameMachine, previous, command)
 
     const gameProtocolEntries = createPyramidProtocolEntries({
       previous,

@@ -14,7 +14,7 @@ import {
 
 const RESPOTTED_BLACK: readonly StrilaColoredBall[] = [7]
 
-type StrilaSparringFrameMachineInput = {
+type StrilaFrameMachineInput = {
   targetPointsBySeat: BySeatNumber | undefined
 }
 
@@ -132,14 +132,14 @@ function isAvailablePot(context: StrilaContext, event: StrilaCommand): boolean {
   )
 }
 
-export const StrilaSparringFrameMachine = setup({
+export const StrilaFrameMachine = setup({
   types: {
     // SAFETY: XState's setup API uses empty values solely to capture these compile-time contracts.
     context: {} as StrilaContext,
     // SAFETY: XState's setup API uses empty values solely to capture these compile-time contracts.
     events: {} as StrilaCommand,
     // SAFETY: XState's setup API uses empty values solely to capture these compile-time contracts.
-    input: {} as StrilaSparringFrameMachineInput,
+    input: {} as StrilaFrameMachineInput,
   },
   guards: {
     isAvailablePot: ({ context, event }) => isAvailablePot(context, event),
@@ -345,7 +345,7 @@ export const StrilaSparringFrameMachine = setup({
     }),
   },
 }).createMachine({
-  id: 'strila-sparring',
+  id: 'strila-frame',
   initial: 'not-started',
   context: ({ input }) => ({
     score: { A: 0, B: 0 },
@@ -454,17 +454,17 @@ export const StrilaSparringFrameMachine = setup({
               },
               {
                 guard: 'isTargetReachedAfterPot',
-                target: '#strila-sparring.winner-determined',
+                target: '#strila-frame.winner-determined',
                 actions: ['applyPot', 'setWinnerFromTarget', 'allowContinuation'],
               },
               {
                 guard: 'isTableClearedWithLeader',
-                target: '#strila-sparring.winner-determined',
+                target: '#strila-frame.winner-determined',
                 actions: ['applyPot', 'setWinnerFromClearedTable'],
               },
               {
                 guard: 'isRespottedBlackTrigger',
-                target: '#strila-sparring.respotted-black',
+                target: '#strila-frame.respotted-black',
                 actions: ['applyPot', 'setRespottedBlackOpening'],
               },
               {
@@ -577,19 +577,19 @@ export const StrilaSparringFrameMachine = setup({
   }),
 })
 
-export type StrilaSparringFrameSnapshot = SnapshotFrom<typeof StrilaSparringFrameMachine>
+export type StrilaFrameSnapshot = SnapshotFrom<typeof StrilaFrameMachine>
 
-export function createInitialSnapshot(targetPointsBySeat: BySeatNumber): StrilaSparringFrameSnapshot {
-  const [snapshot] = initialTransition(StrilaSparringFrameMachine, { targetPointsBySeat })
+export function createInitialSnapshot(targetPointsBySeat: BySeatNumber): StrilaFrameSnapshot {
+  const [snapshot] = initialTransition(StrilaFrameMachine, { targetPointsBySeat })
 
   return snapshot
 }
 
-export function getStrilaSparringFramePhase(snapshot: StrilaSparringFrameSnapshot): StrilaPhase {
+export function getStrilaFramePhase(snapshot: StrilaFrameSnapshot): StrilaPhase {
   return getPhase(snapshot)
 }
 
-export function getPhase(snapshot: StrilaSparringFrameSnapshot): StrilaPhase {
+export function getPhase(snapshot: StrilaFrameSnapshot): StrilaPhase {
   const value = v.parse(StrilaSnapshotValue, snapshot.value)
   const phase = v.safeParse(StrilaPhase, value)
 
@@ -607,15 +607,12 @@ export function getPhase(snapshot: StrilaSparringFrameSnapshot): StrilaPhase {
   throw new Error(`Unknown Strila phase: ${JSON.stringify(value)}`)
 }
 
-export function sendEvent(
-  snapshot: StrilaSparringFrameSnapshot,
-  event: StrilaCommand,
-): StrilaSparringFrameSnapshot {
+export function sendEvent(snapshot: StrilaFrameSnapshot, event: StrilaCommand): StrilaFrameSnapshot {
   if (!snapshot.can(event)) {
     throw new Error(`Invalid Strila event ${event.type} in phase ${getPhase(snapshot)}`)
   }
 
-  const [nextSnapshot] = transition(StrilaSparringFrameMachine, snapshot, event)
+  const [nextSnapshot] = transition(StrilaFrameMachine, snapshot, event)
 
   return nextSnapshot
 }

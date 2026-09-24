@@ -2,10 +2,10 @@ import { type Seat } from '@ks/core'
 import invariant from 'tiny-invariant'
 
 import { type StrilaGamePresentationDetails } from '../definitions'
-import { getPhase, sendEvent, type StrilaSparringFrameSnapshot } from '../machine'
+import { getPhase, sendEvent, type StrilaFrameSnapshot } from '../machine'
 
 export function deriveStrilaRuleNotes(
-  snapshot: StrilaSparringFrameSnapshot,
+  snapshot: StrilaFrameSnapshot,
 ): StrilaGamePresentationDetails['ruleNotes'] {
   const ruleNotes: StrilaGamePresentationDetails['ruleNotes'][number][] = []
 
@@ -61,9 +61,7 @@ function normalizeRuleNotes(entries: StrilaGamePresentationDetails['ruleNotes'])
 /**
  * Projects the possible frame consequences of potting the sole remaining colored ball.
  */
-function lastColoredBallRuleNotes(
-  snapshot: StrilaSparringFrameSnapshot,
-): StrilaGamePresentationDetails['ruleNotes'] {
+function lastColoredBallRuleNotes(snapshot: StrilaFrameSnapshot): StrilaGamePresentationDetails['ruleNotes'] {
   const phase = getPhase(snapshot)
 
   // Other phases either use respotted-black rules or no longer offer ordinary pot controls.
