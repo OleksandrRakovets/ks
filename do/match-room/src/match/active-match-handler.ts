@@ -1,4 +1,4 @@
-import type { SparringMatchRoomProjection } from '@ks/competition'
+import type { MatchRoomProjection } from '@ks/competition'
 import {
   type MatchCommand,
   type MatchScoreProjection,
@@ -144,12 +144,12 @@ type ActiveCommandOutcome = {
 export type ActiveControlsResult = {
   readonly _tag: 'active'
   readonly latestSeq: number
-} & SparringMatchRoomProjection
+} & MatchRoomProjection
 
 export type ActiveProtocolResult = {
   readonly _tag: 'active'
   readonly latestSeq: number
-  readonly state: SparringMatchRoomProjection['state']
+  readonly state: MatchRoomProjection['state']
   readonly protocolEntries: readonly ProtocolEntry[]
 }
 

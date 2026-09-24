@@ -1,6 +1,6 @@
 import { isDeepStrictEqual } from 'node:util'
 
-import { SparringMatchRejection } from '@ks/competition'
+import { MatchRejection } from '@ks/competition'
 import {
   AcceptedCommand,
   MatchCommand,
@@ -83,7 +83,7 @@ export class MatchStorage {
   commitRejectedCommand(args: {
     matchId: MatchId
     command: MatchCommand
-    reason: SparringMatchRejection
+    reason: MatchRejection
   }): Extract<CommandReceipt, { _tag: 'rejected' }> {
     this.#db
       .insert(schema.commands)
@@ -213,7 +213,7 @@ export class MatchStorage {
 
 const CommandReceipt = v.variant('_tag', [
   v.pipe(v.object({ _tag: v.literal('accepted'), acceptedSeq: PositiveInteger }), v.readonly()),
-  v.pipe(v.object({ _tag: v.literal('rejected'), reason: SparringMatchRejection }), v.readonly()),
+  v.pipe(v.object({ _tag: v.literal('rejected'), reason: MatchRejection }), v.readonly()),
 ])
 
 export type CommandReceipt = v.InferOutput<typeof CommandReceipt>

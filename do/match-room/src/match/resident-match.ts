@@ -1,4 +1,4 @@
-import { restoreSparringMatch, type SparringMatch } from '@ks/competition'
+import { type Match, restoreMatch } from '@ks/competition'
 import { type AcceptedCommand, type MatchConfig, ProtocolEntry, type ProtocolEntryContent } from '@ks/core'
 import * as v from 'valibot'
 
@@ -12,7 +12,7 @@ export class ResidentMatch {
 
   restore(config: MatchConfig, latestSeq: number, commands: AcceptedCommand[]): ResidentState {
     try {
-      const restored = restoreSparringMatch(config, commands)
+      const restored = restoreMatch(config, commands)
 
       const protocolEntries = restored.accepted.flatMap(({ acceptedCommand, protocolEntryContents }) =>
         this.#promote(acceptedCommand, protocolEntryContents),
@@ -67,6 +67,6 @@ export class ResidentMatch {
 
 export type ResidentState = {
   readonly latestSeq: number
-  readonly match: SparringMatch
+  readonly match: Match
   readonly protocolEntries: readonly ProtocolEntry[]
 }
