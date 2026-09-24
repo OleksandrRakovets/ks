@@ -195,6 +195,30 @@ fi
 echo "Installing workspace dependencies..."
 bun install --frozen-lockfile
 
+# A refreshed orb can inherit ignored Wrangler state from an older project snapshot.
+# Only discard local D1 when its applied migration history no longer belongs to this checkout.
+stale_d1="$(python3 - <<'PY'
+from pathlib import Path
+import sqlite3
+
+expected = {str(path.relative_to('d1/migrations')) for path in Path('d1/migrations').glob('*/migration.sql')}
+databases = Path('apps/play/.wrangler/state/v3/d1/miniflare-D1DatabaseObject').glob('*.sqlite')
+for path in databases:
+    if path.name == 'metadata.sqlite':
+        continue
+    with sqlite3.connect(f'file:{path}?mode=ro', uri=True) as db:
+        tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+        applied = {row[0] for row in db.execute('SELECT name FROM d1_migrations')} if 'd1_migrations' in tables else set()
+        if applied - expected or ('d1_migrations' not in tables and tables - {'_cf_METADATA', 'sqlite_sequence'}):
+            print('yes')
+            break
+PY
+)"
+if [[ "$stale_d1" == yes ]]; then
+  echo "Discarding stale local D1 state from an older orb snapshot..."
+  rm -rf -- apps/play/.wrangler/state/v3/d1
+fi
+
 echo "Applying local D1 migrations..."
 CI=1 bun run db:migrate:local
 
