@@ -22,9 +22,9 @@ type MatchSuccess<K extends RegisteredGameKey> = Extract<ReadMatchResult<K>, { o
 
 type ProtocolSuccess<K extends RegisteredGameKey> = Extract<ReadMatchProtocolResult<K>, { ok: true }>
 
-export type MatchRouteData<K extends RegisteredGameKey> = MatchSuccess<K> & { shortGameTitle: string }
+type MatchRouteData<K extends RegisteredGameKey> = MatchSuccess<K> & { shortGameTitle: string }
 
-export type ProtocolRouteData<K extends RegisteredGameKey> = ProtocolSuccess<K> & { shortGameTitle: string }
+type ProtocolRouteData<K extends RegisteredGameKey> = ProtocolSuccess<K> & { shortGameTitle: string }
 
 type MatchPageDecision<Data extends { lifecycle: 'active' | 'finished' }> =
   | { readonly page: 'control'; readonly match: Extract<Data, { lifecycle: 'active' }> }

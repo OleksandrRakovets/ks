@@ -126,7 +126,7 @@ export class FinalizingMatchHandler {
   }
 }
 
-export type FinalizingResult = { readonly _tag: 'finalizing' }
+type FinalizingResult = { readonly _tag: 'finalizing' }
 
 export type FinalizingCommandResult =
   | FinalizingResult

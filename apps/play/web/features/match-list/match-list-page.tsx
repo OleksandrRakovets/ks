@@ -19,9 +19,9 @@ import { localizedPath } from '../../locale'
 import { useRootLocale } from '../../root'
 import { matchUrl } from '../match-urls'
 
-export type MatchListView = 'live' | 'finished'
+type MatchListView = 'live' | 'finished'
 
-export type MatchListUpdates =
+type MatchListUpdates =
   | {
       readonly kind: 'poll-scores'
       readonly matchIds: readonly MatchId[]
