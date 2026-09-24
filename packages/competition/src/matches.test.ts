@@ -43,15 +43,23 @@ describe('match creation helpers', () => {
     const longRequest = v.parse(CreateMatchRequest, {
       ...request,
       gameKey: 'free-pyramid-long',
+      targets: { ...request.targets, matchTargetFrames: 1 },
       gameConfiguration: { rackRollover: 14 },
     })
+
+    expect(
+      v.safeParse(CreateMatchRequest, {
+        ...longRequest,
+        targets: { ...longRequest.targets, matchTargetFrames: 2 },
+      }).success,
+    ).toBe(false)
 
     const matchId = newMatchId()
 
     expect(buildMatchConfig(matchId, longRequest)).toEqual({
       matchId,
       gameKey: 'free-pyramid-long',
-      targets: request.targets,
+      targets: longRequest.targets,
       firstBreakerSeat: 'A',
       gameConfiguration: { rackRollover: 14 },
     })

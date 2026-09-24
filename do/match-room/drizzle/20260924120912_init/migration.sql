@@ -6,6 +6,7 @@ CREATE TABLE `active_matches` (
 	`status` text NOT NULL,
 	`created_at` integer NOT NULL,
 	`final_state_json` text,
+	`game_result_json` text,
 	`ended_at` integer,
 	CONSTRAINT "active_matches_finalizing_fields" CHECK(("status" = 'active' AND "final_state_json" IS NULL AND "ended_at" IS NULL) OR ("status" = 'finalizing' AND "final_state_json" IS NOT NULL AND "ended_at" IS NOT NULL))
 );

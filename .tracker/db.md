@@ -38,7 +38,7 @@ bunx wrangler d1 execute ks --local --config apps/play/wrangler.jsonc \
   --command "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;"
 
 bunx wrangler d1 execute ks --local --config apps/play/wrangler.jsonc \
-  --command "SELECT match_id, game_key, status, datetime(created_at / 1000, 'unixepoch', 'localtime') AS created_at FROM matches ORDER BY created_at DESC LIMIT 20;"
+  --command "SELECT match_id, game_key, status, datetime(created_at / 1000, 'unixepoch', 'localtime') AS created_at FROM sparring_matches ORDER BY created_at DESC LIMIT 20;"
 ```
 
 Replace `--local` with `--remote` only intentionally. `wrangler d1 execute` is not read-only.

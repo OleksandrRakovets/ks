@@ -16,6 +16,7 @@ import * as v from 'valibot'
 import { beforeEach, describe, expect, test } from 'vitest'
 
 import { archiveFinishedMatch, markMatchFinished, MatchFinalizationError } from '../../src/d1/finished-matches'
+import { getFinishedMatchArchive, getProtocolArchive } from '../../src/d1/match-archives'
 import { activateMatch, type ActiveMatchCatalogInput, beginMatchCreation } from '../../src/d1/match-lifecycle'
 import {
   findFinishedMatchTime,
@@ -23,8 +24,7 @@ import {
   listFinishedMatchRows,
   listLiveMatchRows,
 } from '../../src/d1/matches'
-import { getProtocolArchive } from '../../src/d1/protocol-archives'
-import { guestPlayers, matches, verifiedPlayers } from '../../src/d1/schema'
+import { guestPlayers, sparringMatches, verifiedPlayers } from '../../src/d1/schema'
 import { createApplicationDatabaseClient } from '../../src/d1/types'
 import type { MatchRoomArchiveTransfer } from '../../src/match-room-client'
 
@@ -100,6 +100,7 @@ function finishedMatchTransfer(id = matchId, timestamp = createdAt): MatchRoomAr
     endedAt: acceptedAt,
     protocolEntries,
     finalState: { ...finalState, status: 'finished' as const },
+    gameResult: null,
   }
 }
 
@@ -167,7 +168,7 @@ describe('real D1 match lifecycle', () => {
       },
     })
     expect(
-      (await env.DB.prepare('SELECT ended_at FROM matches WHERE match_id = ?').bind(matchId).first())
+      (await env.DB.prepare('SELECT ended_at FROM sparring_matches WHERE match_id = ?').bind(matchId).first())
         ?.ended_at,
     ).toBe(archive.endedAt)
     expect(
@@ -225,7 +226,7 @@ describe('real D1 match lifecycle', () => {
       finalScoreJson: score,
     }))
 
-    for (const row of rows) await db.insert(matches).values(row)
+    for (const row of rows) await db.insert(sparringMatches).values(row)
 
     const range = { start: createdAt, end: v.parse(UnixEpochMilliseconds, createdAt + 26) }
     const uk = await listFinishedMatchRows(db, range, 'uk')
@@ -261,7 +262,7 @@ describe('real D1 match lifecycle', () => {
     await activateMatch(db, matchId)
     const archive = finishedMatchTransfer()
     await env.DB.prepare(
-      'INSERT INTO match_protocol_archives (match_id, source_latest_seq, protocol_version, rows_json, state_json, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+      'INSERT INTO sparring_match_archives (match_id, source_latest_seq, protocol_version, rows_json, state_json, created_at) VALUES (?, ?, ?, ?, ?, ?)',
     )
       .bind(matchId, archive.sourceLatestSeq, 1, '[]', '{}', archive.endedAt)
       .run()
@@ -269,7 +270,7 @@ describe('real D1 match lifecycle', () => {
     expect(await getMatchRow(db, matchId)).toMatchObject({ status: 'active' })
     expect(
       (
-        await env.DB.prepare('SELECT state_json FROM match_protocol_archives WHERE match_id = ?')
+        await env.DB.prepare('SELECT state_json FROM sparring_match_archives WHERE match_id = ?')
           .bind(matchId)
           .first()
       )?.state_json,
@@ -283,14 +284,14 @@ describe('real D1 match lifecycle', () => {
     const archive = finishedMatchTransfer()
     await archiveFinishedMatch(db, archive)
     const conflictingEndedAt = archive.endedAt + 1
-    await env.DB.prepare('UPDATE matches SET ended_at = ? WHERE match_id = ?')
+    await env.DB.prepare('UPDATE sparring_matches SET ended_at = ? WHERE match_id = ?')
       .bind(conflictingEndedAt, matchId)
       .run()
 
     await expect(markMatchFinished(db, archive)).rejects.toThrow(MatchFinalizationError)
     expect(await getMatchRow(db, matchId)).toMatchObject({ status: 'active' })
     expect(
-      (await env.DB.prepare('SELECT ended_at FROM matches WHERE match_id = ?').bind(matchId).first())
+      (await env.DB.prepare('SELECT ended_at FROM sparring_matches WHERE match_id = ?').bind(matchId).first())
         ?.ended_at,
     ).toBe(conflictingEndedAt)
   })
@@ -327,8 +328,45 @@ describe('real D1 match lifecycle', () => {
         protocolVersion: 1,
         entries: candidate.protocolEntries,
         state: candidate.finalState,
+        gameResult: candidate.gameResult,
       })),
     ).toContainEqual(await getProtocolArchive(db, matchId))
+  })
+
+  test('reads the long-game result without loading Protocol rows and rejects a changed archive retry', async () => {
+    const db = createApplicationDatabaseClient(env.DB)
+    await beginMatchCreation(db, { ...catalogInput(), gameKey: 'free-pyramid-long' })
+    await activateMatch(db, matchId)
+    const base = finishedMatchTransfer()
+
+    const archive = {
+      ...base,
+      gameKey: 'free-pyramid-long' as const,
+      finalState: { ...base.finalState, gameKey: 'free-pyramid-long' },
+      gameResult: {
+        gameKey: 'free-pyramid-long' as const,
+        racks: [{ rackNumber: 1, scoreBySeat: { A: 2, B: 0 } }],
+      },
+    }
+
+    await archiveFinishedMatch(db, archive)
+    await archiveFinishedMatch(db, archive)
+    await expect(
+      archiveFinishedMatch(db, {
+        ...archive,
+        gameResult: { ...archive.gameResult, racks: [{ rackNumber: 1, scoreBySeat: { A: 1, B: 1 } }] },
+      }),
+    ).rejects.toThrow(MatchFinalizationError)
+
+    await env.DB.prepare('UPDATE sparring_match_archives SET rows_json = ? WHERE match_id = ?')
+      .bind('[', matchId)
+      .run()
+
+    expect(await getFinishedMatchArchive(db, matchId)).toMatchObject({
+      state: archive.finalState,
+      gameResult: archive.gameResult,
+    })
+    await expect(getProtocolArchive(db, matchId)).rejects.toThrow('Protocol archive storage corruption')
   })
 
   test('reads a locally seeded historical game key archive', async () => {
@@ -389,7 +427,7 @@ async function seedArchive(
   sourceLatestSeq = 4,
 ): Promise<void> {
   await env.DB.prepare(
-    'INSERT INTO match_protocol_archives (match_id, source_latest_seq, protocol_version, rows_json, state_json, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+    'INSERT INTO sparring_match_archives (match_id, source_latest_seq, protocol_version, rows_json, state_json, created_at) VALUES (?, ?, ?, ?, ?, ?)',
   )
     .bind(matchId, sourceLatestSeq, protocolVersion, rowsJson, stateJson, 2_000)
     .run()

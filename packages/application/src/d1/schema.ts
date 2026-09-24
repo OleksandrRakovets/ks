@@ -18,8 +18,8 @@ export const StoredMatchStatus = {
 
 export type StoredMatchStatus = (typeof StoredMatchStatus)[keyof typeof StoredMatchStatus]
 
-export const matches = sqliteTable(
-  'matches',
+export const sparringMatches = sqliteTable(
+  'sparring_matches',
   {
     matchId: text('match_id').$type<MatchId>().primaryKey(),
     gameKey: text('game_key').$type<RegisteredGameKey>().notNull(),
@@ -32,26 +32,27 @@ export const matches = sqliteTable(
     finalScoreJson: text('final_score_json'),
   },
   (table) => [
-    index('matches_status_created_at_match_id_idx').on(table.status, table.createdAt, table.matchId),
-    index('matches_status_ended_at_match_id_idx').on(table.status, table.endedAt, table.matchId),
-    check('matches_distinct_players', sql`${table.seatAPlayerRef} != ${table.seatBPlayerRef}`),
+    index('sparring_matches_status_created_at_match_id_idx').on(table.status, table.createdAt, table.matchId),
+    index('sparring_matches_status_ended_at_match_id_idx').on(table.status, table.endedAt, table.matchId),
+    check('sparring_matches_distinct_players', sql`${table.seatAPlayerRef} != ${table.seatBPlayerRef}`),
     check(
-      'matches_seat_a_player_ref_format',
+      'sparring_matches_seat_a_player_ref_format',
       sql`${table.seatAPlayerRef} GLOB 'gp_*' OR ${table.seatAPlayerRef} GLOB 'vp_*'`,
     ),
     check(
-      'matches_seat_b_player_ref_format',
+      'sparring_matches_seat_b_player_ref_format',
       sql`${table.seatBPlayerRef} GLOB 'gp_*' OR ${table.seatBPlayerRef} GLOB 'vp_*'`,
     ),
   ],
 )
 
-export const matchProtocolArchives = sqliteTable('match_protocol_archives', {
+export const sparringMatchArchives = sqliteTable('sparring_match_archives', {
   matchId: text('match_id').$type<MatchId>().primaryKey(),
   sourceLatestSeq: integer('source_latest_seq').notNull(),
   protocolVersion: integer('protocol_version').notNull(),
   rowsJson: text('rows_json').notNull(),
   stateJson: text('state_json').notNull(),
+  gameResultJson: text('game_result_json'),
   createdAt: integer('created_at').$type<UnixEpochMilliseconds>().notNull(),
 })
 

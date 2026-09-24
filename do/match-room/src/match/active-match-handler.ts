@@ -73,6 +73,7 @@ export class ActiveMatchHandler {
         match: this.#storedMatch,
         command: result.command,
         finalState: state.status === 'finished' ? state : null,
+        gameResult: this.#state.match.gameResult(),
       })
 
       this.#state = this.#resident.advance(

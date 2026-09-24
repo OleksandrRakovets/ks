@@ -47,6 +47,7 @@ const transfer: MatchRoomArchiveTransfer = {
   endedAt: v.parse(UnixEpochMilliseconds, 1_700_000_001_000),
   protocolEntries: [],
   finalState: { ...state, status: 'finished' },
+  gameResult: null,
 }
 
 function selectedClient(overrides: Partial<MatchRoomClient> = {}): MatchRoomClient {
@@ -112,6 +113,11 @@ function application(
     findFinishedMatchTime: async () => null,
     getMatchRecord: async () => matchRecord(),
     getMatchRecords: async () => [matchRecord()],
+    getFinishedMatchArchive: async () => ({
+      sourceLatestSeq: 1,
+      state: transfer.finalState,
+      gameResult: null,
+    }),
     getProtocolArchive: async () => ({
       sourceLatestSeq: 1,
       protocolVersion: 1,
@@ -130,6 +136,7 @@ function application(
         },
       ],
       state: transfer.finalState,
+      gameResult: null,
     }),
     beginMatchCreation: async () => {
       events.push('begin')
@@ -552,6 +559,7 @@ describe('trusted MatchRoom orchestration', () => {
       getControls: async () => ({
         _tag: 'finalizing',
         state: transfer.finalState,
+        gameResult: null,
         latestSeq: 2,
         endedAt: transfer.endedAt,
       }),
@@ -589,6 +597,7 @@ describe('trusted MatchRoom orchestration', () => {
       getProtocol: async () => ({
         _tag: 'finalizing',
         state: transfer.finalState,
+        gameResult: null,
         latestSeq: 2,
         endedAt: transfer.endedAt,
       }),
@@ -616,6 +625,7 @@ describe('trusted MatchRoom orchestration', () => {
       getProtocol: async () => ({
         _tag: 'finalizing',
         state: transfer.finalState,
+        gameResult: null,
         latestSeq: 2,
         endedAt: transfer.endedAt,
       }),

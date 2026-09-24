@@ -7,6 +7,7 @@ import {
   ProtocolEntry,
   type Seat,
 } from '@ks/core'
+import type { GameResult } from '@ks/gameplay/definitions'
 import * as v from 'valibot'
 
 export const PROTOCOL_ARCHIVE_VERSION = 1 as const
@@ -25,12 +26,16 @@ export class ProtocolArchiveCorruptionError extends Error {
   }
 }
 
-export type ProtocolArchiveRecord = Readonly<{
+type ArchiveStateRecord = Readonly<{
   sourceLatestSeq: number
-  protocolVersion: typeof PROTOCOL_ARCHIVE_VERSION
-  entries: ProtocolEntries
   state: MatchState
+  gameResult: GameResult | null
 }>
+
+export type FinishedMatchArchiveRecord = ArchiveStateRecord & Readonly<{ entries?: never }>
+
+export type ProtocolArchiveRecord = ArchiveStateRecord &
+  Readonly<{ protocolVersion: typeof PROTOCOL_ARCHIVE_VERSION; entries: ProtocolEntries }>
 
 type SeatNames = Readonly<{ A: string; B: string }>
 

@@ -12,6 +12,7 @@ export function MatchResult({ data }: { data: FinishedMatchData }) {
   const { t } = useTranslation()
   const winnerSeat: Seat = data.state.framesWonBySeat.A > data.state.framesWonBySeat.B ? 'A' : 'B'
   const loserSeat = opponentOf(winnerSeat)
+  const isLongPyramid = data.state.gameKey === 'free-pyramid-long'
 
   return (
     <section className="px-4 pt-7 pb-8">
@@ -33,31 +34,56 @@ export function MatchResult({ data }: { data: FinishedMatchData }) {
                 seat === loserSeat && 'font-bold opacity-65',
               )}
             >
-              {data.state.framesWonBySeat[seat]}
+              {isLongPyramid ? data.state.frames[0]?.pointsBySeat[seat] : data.state.framesWonBySeat[seat]}
             </p>
           </div>
         ))}
       </div>
 
-      <div className="mt-6 pt-5">
-        <h2 className="text-base font-semibold text-muted-foreground">{t(keys.match.result.frames)}</h2>
-        <ol className="mt-2">
-          {data.state.frames.map((frame) => (
-            <li
-              key={frame.frameIndex}
-              className="grid min-h-12 grid-cols-[1fr_auto_1fr] items-center border-b border-divider first:border-t"
-            >
-              <span className="text-muted-foreground tabular-nums">{frame.frameIndex}</span>
-              <span className="flex items-baseline gap-2 text-xl tabular-nums">
-                <FramePoints value={frame.pointsBySeat.A} winner={frame.winnerSeat === 'A'} />
-                <span className="text-muted-foreground">:</span>
-                <FramePoints value={frame.pointsBySeat.B} winner={frame.winnerSeat === 'B'} />
-              </span>
-              <span />
-            </li>
-          ))}
-        </ol>
-      </div>
+      {!isLongPyramid ? (
+        <div className="mt-6 pt-5">
+          <h2 className="text-base font-semibold text-muted-foreground">{t(keys.match.result.frames)}</h2>
+          <ol className="mt-2">
+            {data.state.frames.map((frame) => (
+              <li
+                key={frame.frameIndex}
+                className="grid min-h-12 grid-cols-[1fr_auto_1fr] items-center border-b border-divider first:border-t"
+              >
+                <span className="text-muted-foreground tabular-nums">{frame.frameIndex}</span>
+                <span className="flex items-baseline gap-2 text-xl tabular-nums">
+                  <FramePoints value={frame.pointsBySeat.A} winner={frame.winnerSeat === 'A'} />
+                  <span className="text-muted-foreground">:</span>
+                  <FramePoints value={frame.pointsBySeat.B} winner={frame.winnerSeat === 'B'} />
+                </span>
+                <span />
+              </li>
+            ))}
+          </ol>
+        </div>
+      ) : null}
+
+      {data.gameResult?.gameKey === 'free-pyramid-long' ? (
+        <div className="mt-6 pt-5">
+          <h2 className="text-base font-semibold text-muted-foreground">{t(keys.match.result.racks)}</h2>
+          <ol className="mt-2">
+            {data.gameResult.racks.map((rack) => (
+              <li
+                key={rack.rackNumber}
+                className="grid min-h-12 grid-cols-[1fr_auto] items-center border-b border-divider first:border-t"
+              >
+                <span className="text-muted-foreground">
+                  {t(keys.match.control.longFreePyramid.rack, { rackNumber: rack.rackNumber })}
+                </span>
+                <span className="text-xl tabular-nums">
+                  {rack.scoreBySeat.A}
+                  <span className="px-2 text-muted-foreground">:</span>
+                  {rack.scoreBySeat.B}
+                </span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      ) : null}
 
       <MatchFinishedAt
         endedAtIso={data.endedAtIso}

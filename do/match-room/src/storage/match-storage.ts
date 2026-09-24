@@ -13,7 +13,7 @@ import {
   SystemClock,
   UnixEpochMilliseconds,
 } from '@ks/core'
-import { RegisteredGameKey } from '@ks/gameplay/definitions'
+import { GameResult, type GameResult as GameResultValue, RegisteredGameKey } from '@ks/gameplay/definitions'
 import { and, asc, eq, isNotNull } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/durable-sqlite'
 import { migrate } from 'drizzle-orm/durable-sqlite/migrator'
@@ -45,6 +45,7 @@ export class MatchStorage {
         latestSeq: 0,
         status: 'active',
         finalStateJson: null,
+        gameResultJson: null,
         endedAt: null,
       })
       .run()
@@ -102,6 +103,7 @@ export class MatchStorage {
     match: StoredActiveMatch
     command: MatchCommand
     finalState: MatchState | null
+    gameResult: GameResultValue | null
   }): {
     acceptedCommand: AcceptedCommand
     receipt: Extract<CommandReceipt, { _tag: 'accepted' }>
@@ -135,6 +137,7 @@ export class MatchStorage {
           latestSeq: acceptedCommand.acceptedSeq,
           status: endsMatch ? 'finalizing' : 'active',
           finalStateJson: args.finalState ? JSON.stringify(args.finalState) : null,
+          gameResultJson: args.gameResult ? JSON.stringify(args.gameResult) : null,
           endedAt: endsMatch ? acceptedCommand.acceptedAt : null,
         })
         .where(
@@ -157,12 +160,13 @@ export class MatchStorage {
         },
         storedMatch:
           args.finalState === null
-            ? { ...args.match, latestSeq: acceptedCommand.acceptedSeq }
+            ? { ...args.match, latestSeq: acceptedCommand.acceptedSeq, gameResult: args.gameResult }
             : {
                 ...args.match,
                 latestSeq: acceptedCommand.acceptedSeq,
                 status: 'finalizing',
                 finalState: args.finalState,
+                gameResult: args.gameResult,
                 endedAt: acceptedCommand.acceptedAt,
               },
       }
@@ -229,6 +233,7 @@ const StoredMatchFields = {
   configJson: v.pipe(v.string(), v.parseJson(), ActiveMatchConfig),
   latestSeq: NonNegativeInteger,
   createdAt: UnixEpochMilliseconds,
+  gameResultJson: v.nullable(v.pipe(v.string(), v.parseJson(), GameResult)),
 }
 
 const StoredActiveMatch = v.pipe(
@@ -238,12 +243,16 @@ const StoredActiveMatch = v.pipe(
     finalStateJson: v.null(),
     endedAt: v.null(),
   }),
-  v.transform(({ configJson, finalStateJson, ...row }) => ({
+  v.transform(({ configJson, finalStateJson, gameResultJson, ...row }) => ({
     ...row,
     config: configJson,
     finalState: finalStateJson,
+    gameResult: gameResultJson,
   })),
-  v.check((row) => row.matchId === row.config.matchId),
+  v.check(
+    (row) =>
+      row.matchId === row.config.matchId && (!row.gameResult || row.gameResult.gameKey === row.config.gameKey),
+  ),
   v.readonly(),
 )
 
@@ -254,10 +263,11 @@ const StoredFinalizingMatch = v.pipe(
     finalStateJson: v.pipe(v.string(), v.parseJson(), MatchState),
     endedAt: UnixEpochMilliseconds,
   }),
-  v.transform(({ configJson, finalStateJson, ...row }) => ({
+  v.transform(({ configJson, finalStateJson, gameResultJson, ...row }) => ({
     ...row,
     config: configJson,
     finalState: finalStateJson,
+    gameResult: gameResultJson,
   })),
   v.check(
     (row) =>
@@ -265,7 +275,10 @@ const StoredFinalizingMatch = v.pipe(
       row.finalState.status === 'finished' &&
       row.finalState.matchId === row.matchId &&
       row.finalState.gameKey === row.config.gameKey &&
-      isDeepStrictEqual(row.finalState.targets, row.config.targets),
+      isDeepStrictEqual(row.finalState.targets, row.config.targets) &&
+      (row.config.gameKey === 'free-pyramid-long'
+        ? row.gameResult?.gameKey === row.config.gameKey
+        : row.gameResult === null),
   ),
   v.readonly(),
 )

@@ -2,6 +2,7 @@ import type { BySeatNumber, FrameOutcome, GameProtocolEntry, Seat } from '@ks/co
 import * as v from 'valibot'
 
 import type { GameControl } from './constants'
+import type { GameResult } from './game-result'
 import type { GameCommandFor, GamePresentationFor, RegisteredGameKey } from './registry'
 
 export const GameCommandRejection = v.pipe(
@@ -51,6 +52,9 @@ export interface GameplaySession<K extends RegisteredGameKey> {
 
   /** Coherently derives game presentation and its flat controls from the same resident snapshot. */
   deriveControls(): { readonly game: GamePresentationFor<K>; readonly controls: readonly GameControl[] }
+
+  /** Returns game-owned result data when this game has a bespoke finished presentation. */
+  deriveResult?(): GameResult
 }
 
 export const commandNotAvailable = (): GameCommandExecution => ({

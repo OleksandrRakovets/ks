@@ -1,30 +1,69 @@
 import { parseProtocolEntryContent } from '@ks/competition'
 import { MatchId, MatchState, PositiveInteger, ProtocolEntries, type ProtocolEntry } from '@ks/core'
-import { isRegisteredGameKey } from '@ks/gameplay/definitions'
+import { GameResult, isRegisteredGameKey } from '@ks/gameplay/definitions'
 import { eq } from 'drizzle-orm'
 import * as v from 'valibot'
 
 import {
+  type FinishedMatchArchiveRecord,
   PROTOCOL_ARCHIVE_VERSION,
   ProtocolArchiveCorruptionError,
   type ProtocolArchiveRecord,
   UnsupportedProtocolArchiveVersionError,
 } from '../protocol'
-import { matchProtocolArchives } from './schema'
+import { sparringMatchArchives } from './schema'
 import type { ApplicationDatabase } from './types'
 
-const ProtocolArchiveStorageRow = v.pipe(
+const ArchiveStateStorageRow = v.pipe(
   v.object({
     matchId: MatchId,
     sourceLatestSeq: PositiveInteger,
-    protocolVersion: v.literal(PROTOCOL_ARCHIVE_VERSION),
-    rowsJson: v.pipe(v.string(), v.parseJson(), ProtocolEntries),
     stateJson: v.pipe(v.string(), v.parseJson(), MatchState),
+    gameResultJson: v.nullable(v.pipe(v.string(), v.parseJson(), GameResult)),
   }),
-  v.transform(({ rowsJson, stateJson, ...row }) => ({ ...row, entries: rowsJson, state: stateJson })),
+  v.transform(({ stateJson, gameResultJson, ...row }) => ({
+    ...row,
+    state: stateJson,
+    gameResult: gameResultJson,
+  })),
   v.check((value) => value.state.status === 'finished', 'Archive state is not finished'),
   v.check((value) => value.state.matchId === value.matchId, 'Archive match ID does not match state'),
+  v.check(
+    (value) =>
+      value.state.gameKey === 'free-pyramid-long'
+        ? value.gameResult?.gameKey === value.state.gameKey
+        : value.gameResult === null,
+    'Archive game result does not match game',
+  ),
 )
+
+const archiveStateSelection = {
+  matchId: sparringMatchArchives.matchId,
+  sourceLatestSeq: sparringMatchArchives.sourceLatestSeq,
+  stateJson: sparringMatchArchives.stateJson,
+  gameResultJson: sparringMatchArchives.gameResultJson,
+}
+
+export async function getFinishedMatchArchive(
+  db: ApplicationDatabase,
+  matchId: MatchId,
+): Promise<FinishedMatchArchiveRecord | null> {
+  const row = await db
+    .select(archiveStateSelection)
+    .from(sparringMatchArchives)
+    .where(eq(sparringMatchArchives.matchId, matchId))
+    .get()
+
+  if (!row) return null
+
+  try {
+    const { matchId: _matchId, ...archive } = v.parse(ArchiveStateStorageRow, row)
+
+    return archive
+  } catch {
+    throw new ProtocolArchiveCorruptionError(matchId)
+  }
+}
 
 export async function getProtocolArchive(
   db: ApplicationDatabase,
@@ -32,21 +71,20 @@ export async function getProtocolArchive(
 ): Promise<ProtocolArchiveRecord | null> {
   const row = await db
     .select({
-      matchId: matchProtocolArchives.matchId,
-      sourceLatestSeq: matchProtocolArchives.sourceLatestSeq,
-      protocolVersion: matchProtocolArchives.protocolVersion,
-      rowsJson: matchProtocolArchives.rowsJson,
-      stateJson: matchProtocolArchives.stateJson,
+      ...archiveStateSelection,
+      protocolVersion: sparringMatchArchives.protocolVersion,
+      rowsJson: sparringMatchArchives.rowsJson,
     })
-    .from(matchProtocolArchives)
-    .where(eq(matchProtocolArchives.matchId, matchId))
+    .from(sparringMatchArchives)
+    .where(eq(sparringMatchArchives.matchId, matchId))
     .get()
 
   if (!row) return null
 
   try {
-    const parsed = v.parse(ProtocolArchiveStorageRow, row)
-    const { matchId: _matchId, entries, ...archive } = parsed
+    const { matchId: _matchId, ...archive } = v.parse(ArchiveStateStorageRow, row)
+    const protocolVersion = v.parse(v.literal(PROTOCOL_ARCHIVE_VERSION), row.protocolVersion)
+    const entries = v.parse(v.pipe(v.string(), v.parseJson(), ProtocolEntries), row.rowsJson)
     const gameKey = archive.state.gameKey
 
     const normalizeEntry = (entry: ProtocolEntry): ProtocolEntry => {
@@ -67,6 +105,7 @@ export async function getProtocolArchive(
 
     return {
       ...archive,
+      protocolVersion,
       entries: normalizedEntries,
     }
   } catch {

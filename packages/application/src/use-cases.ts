@@ -12,7 +12,12 @@ import {
   type ProtocolEntries,
   UnixEpochMilliseconds,
 } from '@ks/core'
-import { type GamePresentationFor, type RegisteredGameKey, registry } from '@ks/gameplay/definitions'
+import {
+  type GamePresentationFor,
+  type GameResult,
+  type RegisteredGameKey,
+  registry,
+} from '@ks/gameplay/definitions'
 import type { SupportedLocale } from '@ks/i18n'
 import * as v from 'valibot'
 
@@ -38,6 +43,7 @@ import type {
   MatchRoomInitializationInput,
 } from './match-room-client'
 import {
+  type FinishedMatchArchiveRecord,
   ProtocolArchiveCorruptionError,
   type ProtocolArchiveRecord,
   renderLastCorrectableProtocolRow,
@@ -101,6 +107,7 @@ type ApplicationDependencies = {
   ): Promise<UnixEpochMilliseconds | null>
   getMatchRecord(matchId: MatchId): Promise<MatchRecord | null>
   getMatchRecords(matchIds: readonly MatchId[]): Promise<MatchRecord[]>
+  getFinishedMatchArchive(matchId: MatchId): Promise<FinishedMatchArchiveRecord | null>
   getProtocolArchive(matchId: MatchId): Promise<ProtocolArchiveRecord | null>
   beginMatchCreation(input: {
     matchId: MatchId
@@ -123,6 +130,7 @@ type ReadKeyedMatchSuccess<K extends RegisteredGameKey> = {
   endedAtIsToday?: boolean
   participants: HydratedMatchParticipants
   game?: GamePresentationFor<K>
+  gameResult?: GameResult | null
   controls: readonly Control[]
   protocolEntries: ProtocolEntries
   lastEntry?: NonNullable<ReturnType<typeof renderLastCorrectableProtocolRow>>
@@ -334,7 +342,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
       return { ok: false, error: 'Unknown match', status: 404 }
 
     if (record.status === 'finished') {
-      return readArchivedMatch(record, locale, expectedGameKey)
+      return readArchivedMatch(record, locale, expectedGameKey, view)
     }
 
     if (record.status !== 'active') return { ok: false, error: 'Unknown match', status: 404 }
@@ -555,6 +563,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     return {
       ok: true,
       state: { ...room.state, gameKey: expectedGameKey },
+      gameResult: room.gameResult,
       latestSeq: room.latestSeq,
       endedAtPresentation,
       endedAtIsToday: isSameLocalDate(endedAtPresentation, formattedNow),
@@ -568,11 +577,15 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     record: Extract<MatchRecord, { status: 'finished' }>,
     locale: SupportedLocale,
     expectedGameKey: K,
+    view: 'match' | 'protocol',
   ): Promise<ReadKeyedMatchResult<K>> {
-    let archive: ProtocolArchiveRecord | null
+    let archive: FinishedMatchArchiveRecord | ProtocolArchiveRecord | null
 
     try {
-      archive = await dependencies.getProtocolArchive(record.matchId)
+      archive =
+        view === 'protocol'
+          ? await dependencies.getProtocolArchive(record.matchId)
+          : await dependencies.getFinishedMatchArchive(record.matchId)
     } catch (error) {
       const failure = error instanceof Error ? archiveReadFailure(error) : null
 
@@ -590,12 +603,13 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
     return {
       ok: true,
       state: { ...state, gameKey: expectedGameKey },
+      gameResult: archive.gameResult,
       latestSeq: archive.sourceLatestSeq,
       endedAtPresentation,
       endedAtIsToday: isSameLocalDate(endedAtPresentation, formattedNow),
       participants: await hydrateParticipants(record, locale),
       controls: [],
-      protocolEntries: archive.entries,
+      protocolEntries: archive.entries ?? [],
     }
   }
 
@@ -610,6 +624,7 @@ export function createApplicationWithDependencies(dependencies: ApplicationDepen
         ok: true,
         lifecycle: 'finished',
         state: { ...match.state, status: 'finished' },
+        gameResult: match.gameResult ?? null,
         latestSeq: match.latestSeq,
         endedAtIso: match.endedAtPresentation.isoString,
         endedAtTime: match.endedAtPresentation.time,

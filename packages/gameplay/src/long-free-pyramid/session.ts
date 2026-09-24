@@ -64,6 +64,15 @@ class LongFreePyramidGameplaySession implements GameplaySession<'free-pyramid-lo
   deriveControls() {
     return deriveLongFreePyramidControlProjection(this.#snapshot)
   }
+  deriveResult() {
+    return {
+      gameKey: this.gameKey,
+      racks: this.#snapshot.context.racks.map((rack) => ({
+        rackNumber: rack.rackNumber,
+        scoreBySeat: { ...rack.scoreBySeat },
+      })),
+    }
+  }
 }
 
 export function createLongFreePyramidGameplaySession(

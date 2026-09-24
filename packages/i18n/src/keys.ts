@@ -101,6 +101,7 @@ export const keys = {
       tabResult: 'match.result.tabResult',
       winner: 'match.result.winner',
       frames: 'match.result.frames',
+      racks: 'match.result.racks',
       finishedTodayAt: 'match.result.finishedTodayAt',
       finishedOnAt: 'match.result.finishedOnAt',
     },

@@ -9,7 +9,7 @@ import type {
   UnixEpochMilliseconds,
 } from '@ks/core'
 import { projectMatchScore } from '@ks/core'
-import type { RegisteredGameKey } from '@ks/gameplay/definitions'
+import type { GameResult, RegisteredGameKey } from '@ks/gameplay/definitions'
 
 import { type CommandReceipt, MatchStorage, type StoredFinalizingMatch } from '../storage/match-storage'
 import { ResidentMatch, type ResidentState } from './resident-match'
@@ -51,6 +51,7 @@ export class FinalizingMatchHandler {
     return {
       _tag: 'finalizing' as const,
       state: this.#storedMatch.finalState,
+      gameResult: this.#storedMatch.gameResult,
       latestSeq: this.#storedMatch.latestSeq,
       endedAt: this.#storedMatch.endedAt,
     }
@@ -62,6 +63,7 @@ export class FinalizingMatchHandler {
     return {
       _tag: 'finalizing' as const,
       state: this.#storedMatch.finalState,
+      gameResult: this.#storedMatch.gameResult,
       latestSeq: this.#storedMatch.latestSeq,
       endedAt: this.#storedMatch.endedAt,
     }
@@ -85,6 +87,9 @@ export class FinalizingMatchHandler {
     if (!isDeepStrictEqual(projected, this.#storedMatch.finalState))
       throw new Error('MatchRoom final state does not match accepted history')
 
+    if (!isDeepStrictEqual(resident.match.gameResult(), this.#storedMatch.gameResult))
+      throw new Error('MatchRoom game result does not match accepted history')
+
     return {
       matchId: this.#storedMatch.matchId,
       gameKey: this.#storedMatch.config.gameKey,
@@ -93,6 +98,7 @@ export class FinalizingMatchHandler {
       endedAt: this.#storedMatch.endedAt,
       protocolEntries: resident.protocolEntries,
       finalState: this.#storedMatch.finalState,
+      gameResult: this.#storedMatch.gameResult,
     }
   }
 
@@ -146,4 +152,5 @@ export type FinishedMatchTransfer = {
   readonly endedAt: UnixEpochMilliseconds
   readonly protocolEntries: readonly ProtocolEntry[]
   readonly finalState: MatchState
+  readonly gameResult: GameResult | null
 }

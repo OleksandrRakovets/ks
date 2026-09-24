@@ -9,7 +9,7 @@ import {
   NonNegativeInteger,
   UnixEpochMilliseconds,
 } from '@ks/core'
-import type { GamePresentationFor, RegisteredGameKey } from '@ks/gameplay/definitions'
+import type { GamePresentationFor, GameResult, RegisteredGameKey } from '@ks/gameplay/definitions'
 import type { SupportedLocale } from '@ks/i18n'
 import * as v from 'valibot'
 
@@ -172,6 +172,7 @@ export type ReadMatchResult<K extends RegisteredGameKey> =
       readonly endedAtDate: InstantPresentation['date']
       readonly endedAtIsToday: boolean
       readonly game?: never
+      readonly gameResult: GameResult | null
       readonly participants: HydratedMatchParticipants
     }
   | ReadMatchFailure

@@ -3,6 +3,7 @@ import { type Clock, newMatchId } from '@ks/core'
 
 import { archiveFinishedMatch, markMatchFinished } from './d1/finished-matches'
 import { getOrCreateGuestPlayerRef } from './d1/guest-players'
+import { getFinishedMatchArchive, getProtocolArchive } from './d1/match-archives'
 import { activateMatch, beginMatchCreation } from './d1/match-lifecycle'
 import {
   findFinishedMatchTime,
@@ -12,7 +13,6 @@ import {
   listLiveMatchRows,
 } from './d1/matches'
 import { hydrateParticipant } from './d1/players'
-import { getProtocolArchive } from './d1/protocol-archives'
 import { createApplicationDatabaseClient } from './d1/types'
 import type { MatchRoomNamespace } from './match-room-client'
 import { createApplicationWithDependencies } from './use-cases'
@@ -82,6 +82,7 @@ export function createApplication(bindings: ApplicationBindings, clock: Clock) {
       return row ? matchRecordFromRow(row) : null
     },
     getMatchRecords: async (matchIds) => (await getMatchRows(db, matchIds)).map(matchRecordFromRow),
+    getFinishedMatchArchive: async (matchId) => getFinishedMatchArchive(db, matchId),
     getProtocolArchive: async (matchId) => getProtocolArchive(db, matchId),
     beginMatchCreation: async (input) => beginMatchCreation(db, input),
     activateMatch: async (matchId) => activateMatch(db, matchId),
