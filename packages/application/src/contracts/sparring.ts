@@ -60,6 +60,7 @@ type MatchListEntryIdentity = {
   participants: HydratedMatchParticipants
   latestSeq: NonNegativeInteger
   score: MatchScoreProjection
+  hasCustomFrameTarget: boolean
 }
 
 export type MatchListEntry = Readonly<
@@ -174,6 +175,7 @@ export type ReadMatchResult<K extends RegisteredGameKey> =
       readonly game?: never
       readonly gameResult: GameResult | null
       readonly participants: HydratedMatchParticipants
+      readonly hasCustomFrameTarget: boolean
     }
   | ReadMatchFailure
 

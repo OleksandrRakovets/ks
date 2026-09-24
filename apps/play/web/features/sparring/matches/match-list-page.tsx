@@ -215,6 +215,7 @@ function MatchRow({ match, locale }: { match: MatchListEntry; locale: 'uk' | 'en
   const { t } = useTranslation()
   const score = displayedScore(match)
   const winner = match.status === 'finished' ? leadingSeat(match.score.framesWonBySeat) : undefined
+  const showPlayerTargets = match.hasCustomFrameTarget
 
   const activeFrame = match.gameKey === 'free-pyramid-long' ? null : match.score.activeFrame
 
@@ -229,6 +230,7 @@ function MatchRow({ match, locale }: { match: MatchListEntry; locale: 'uk' | 'en
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-4 gap-y-1">
         <PlayerName
           name={match.participants.A.displayName}
+          target={showPlayerTargets ? match.score.frameTargetPointsBySeat.A : undefined}
           emphasized={winner === undefined || winner === 'A'}
           strong={match.status === 'finished'}
         />
@@ -239,6 +241,7 @@ function MatchRow({ match, locale }: { match: MatchListEntry; locale: 'uk' | 'en
         />
         <PlayerName
           name={match.participants.B.displayName}
+          target={showPlayerTargets ? match.score.frameTargetPointsBySeat.B : undefined}
           emphasized={winner === undefined || winner === 'B'}
           strong={match.status === 'finished'}
         />
@@ -256,7 +259,8 @@ function MatchRow({ match, locale }: { match: MatchListEntry; locale: 'uk' | 'en
             {t(match.status === 'active' ? keys.status.live : keys.status.finished)}
           </span>
           <span>{match.shortGameTitle}</span>
-          {match.status === 'active' ? (
+          {(match.status === 'active' && !showPlayerTargets) ||
+          (match.hasCustomFrameTarget && match.score.matchTargetFrames > 1) ? (
             <>
               {' · '}
               <span>
@@ -295,17 +299,30 @@ function LiveDot({ className }: { className?: string }) {
   )
 }
 
-function PlayerName({ name, emphasized, strong }: { name: string; emphasized: boolean; strong: boolean }) {
+function PlayerName({
+  name,
+  target,
+  emphasized,
+  strong,
+}: {
+  name: string
+  target?: number
+  emphasized: boolean
+  strong: boolean
+}) {
   return (
     <span
       className={cn(
-        'truncate text-[18px] leading-snug',
+        'flex min-w-0 items-baseline gap-1 text-[18px] leading-snug',
         emphasized
           ? cn(strong ? 'font-semibold' : 'font-normal', 'text-[var(--bone)]')
           : 'text-muted-foreground',
       )}
     >
-      {name}
+      <span className="truncate">{name}</span>
+      {target === undefined ? null : (
+        <span className="shrink-0 text-sm font-normal text-muted-foreground tabular-nums">/{target}</span>
+      )}
     </span>
   )
 }

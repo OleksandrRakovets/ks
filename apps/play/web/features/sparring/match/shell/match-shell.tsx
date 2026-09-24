@@ -204,12 +204,18 @@ function resultRuleLabel<K extends RegisteredGameKey>(
 ): string {
   const { frameTargetPointsBySeat, matchTargetFrames } = data.state.targets
 
-  const target =
-    matchTargetFrames > 1
-      ? matchTargetFrames
-      : frameTargetPointsBySeat.A === frameTargetPointsBySeat.B
+  if (data.state.gameKey === 'free-pyramid-long') {
+    const target =
+      frameTargetPointsBySeat.A === frameTargetPointsBySeat.B
         ? frameTargetPointsBySeat.A
         : `${frameTargetPointsBySeat.A}/${frameTargetPointsBySeat.B}`
 
-  return t(keys.match.scoreboard.target, { target })
+    return t(keys.match.scoreboard.target, { target })
+  }
+
+  const race = t(keys.match.scoreboard.target, { target: matchTargetFrames })
+
+  if (!data.hasCustomFrameTarget) return race
+
+  return `${race} (${frameTargetPointsBySeat.A}/${frameTargetPointsBySeat.B})`
 }

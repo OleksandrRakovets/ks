@@ -291,6 +291,7 @@ export function createSparringApplicationWithDependencies(
           createdAtIsToday: isSameLocalDate(formattedCreatedAt, formattedNow),
           participants: record.participants,
           ...score,
+          hasCustomFrameTarget: hasCustomFrameTarget(record.gameKey, score.score.frameTargetPointsBySeat),
         }
       }),
     )
@@ -633,6 +634,10 @@ export function createSparringApplicationWithDependencies(
         endedAtDate: match.endedAtPresentation.date,
         endedAtIsToday: match.endedAtIsToday,
         participants: match.participants,
+        hasCustomFrameTarget: hasCustomFrameTarget(
+          match.state.gameKey,
+          match.state.targets.frameTargetPointsBySeat,
+        ),
       }
     }
 
@@ -690,4 +695,13 @@ export function createSparringApplicationWithDependencies(
       return { _tag: 'admitted' }
     },
   }
+}
+
+function hasCustomFrameTarget(
+  gameKey: RegisteredGameKey,
+  target: MatchScoreProjection['frameTargetPointsBySeat'],
+): boolean {
+  const defaults = registry[gameKey].meta.defaultFrameTargetPointsBySeat
+
+  return target.A !== defaults.A || target.B !== defaults.B
 }

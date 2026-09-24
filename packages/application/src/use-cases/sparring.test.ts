@@ -254,6 +254,7 @@ describe('trusted MatchRoom orchestration', () => {
           latestSeq: 3,
           score,
           participants,
+          hasCustomFrameTarget: false,
         },
       ],
       scope: 'live',
@@ -262,6 +263,49 @@ describe('trusted MatchRoom orchestration', () => {
       ok: true,
       matches: [{ matchId, status: 'active', endedAt: null, latestSeq: 3, score }],
     })
+  })
+
+  test('marks a changed target on either seat in list and finished match reads', async () => {
+    for (const frameTargetPointsBySeat of [
+      { A: 10, B: 8 },
+      { A: 8, B: 6 },
+    ]) {
+      const customState = { ...state, targets: { frameTargetPointsBySeat, matchTargetFrames: 1 } }
+      const score = projectMatchScore(customState)
+
+      const room = selectedClient({
+        getScore: async () => ({ _tag: 'active', latestSeq: 0, score }),
+        getControls: async () => ({
+          _tag: 'finalizing',
+          state: { ...customState, status: 'finished' },
+          gameResult: null,
+          latestSeq: 1,
+          endedAt: transfer.endedAt,
+        }),
+      })
+
+      const app = sparring(room, [], {
+        overrides: {
+          listLiveMatchRecords: async () => [
+            {
+              matchId,
+              gameKey: 'free-pyramid',
+              status: 'active',
+              createdAt,
+              participantRefs: { A: playerRefA, B: playerRefB },
+              participants,
+            },
+          ],
+        },
+      })
+
+      expect((await app.listLiveMatches('en')).matches[0]?.hasCustomFrameTarget).toBe(true)
+      expect(await app.readMatch(matchId, 'en', 'free-pyramid')).toMatchObject({
+        ok: true,
+        lifecycle: 'finished',
+        hasCustomFrameTarget: true,
+      })
+    }
   })
 
   test('reads finalizing scores for the live list and polling without archiving', async () => {
@@ -389,6 +433,7 @@ describe('trusted MatchRoom orchestration', () => {
           latestSeq: transfer.sourceLatestSeq,
           score: finalScore,
           participants,
+          hasCustomFrameTarget: false,
         },
       ],
       scope: 'finished',
