@@ -1,6 +1,6 @@
-import type { SupportedLocale } from '@ks/i18n'
-import { keys } from '@ks/i18n'
-import { useTranslation } from 'react-i18next'
+import { keys, resources, type SupportedLocale } from '@ks/i18n'
+import i18next, { type i18n as I18nInstance } from 'i18next'
+import { I18nextProvider, initReactI18next, useTranslation } from 'react-i18next'
 import {
   isRouteErrorResponse,
   Links,
@@ -8,13 +8,13 @@ import {
   Outlet,
   Scripts,
   ScrollRestoration,
+  useLocation,
   useRouteError,
   useRouteLoaderData,
 } from 'react-router'
 
 import type { Route } from './+types/root'
-import { i18n } from './i18n'
-import { localeFromContext } from './locale'
+import { localeFromContext, localeFromPathname } from './i18n'
 import { iconBasePath, iconThemeColor, iconVariantFromContext } from './server/icon-assets'
 import { type AppTheme, themeFromCookie } from './server/theme'
 
@@ -50,16 +50,11 @@ export function useRootTheme(): AppTheme {
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const data = useRouteLoaderData<RootLoaderData>('root')
-  const locale = data?.locale ?? 'uk'
+  const { pathname } = useLocation()
+  const locale = localeFromPathname(pathname)
   const theme = data?.theme ?? 'club-dark'
   const iconVariant = data?.iconVariant ?? 'amber'
   const iconPath = iconBasePath(iconVariant)
-
-  // The DOM library declares document globally, but server rendering does not provide it at runtime.
-  // oxlint-disable-next-line typescript/no-unnecessary-condition
-  if (globalThis.document === undefined && i18n.resolvedLanguage !== locale) {
-    void i18n.changeLanguage(locale)
-  }
 
   const htmlClass = theme === 'club-light' ? 'club-light' : theme === 'club-dark' ? 'club-dark' : ''
 
@@ -80,7 +75,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Links />
       </head>
       <body>
-        {children}
+        <I18nextProvider i18n={i18nInstances[locale]}>{children}</I18nextProvider>
         <ScrollRestoration />
         <Scripts />
       </body>
@@ -118,4 +113,23 @@ export function ErrorBoundary() {
       </div>
     </main>
   )
+}
+
+/** Instances are shared across requests; keep each locale's language and resources fixed. */
+const i18nInstances = {
+  uk: createI18nInstance('uk'),
+  en: createI18nInstance('en'),
+} satisfies Record<SupportedLocale, I18nInstance>
+
+function createI18nInstance(locale: SupportedLocale): I18nInstance {
+  const instance = i18next.createInstance()
+
+  void instance.use(initReactI18next).init({
+    resources,
+    lng: locale,
+    fallbackLng: 'en',
+    interpolation: { escapeValue: false },
+  })
+
+  return instance
 }

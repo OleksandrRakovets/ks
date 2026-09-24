@@ -3,7 +3,7 @@ import type { SupportedLocale } from '@ks/i18n'
 import { useTranslation } from 'react-i18next'
 import { Link, useFetcher, useLocation } from 'react-router'
 
-import { localizedPath, pathForLocale } from '@/locale'
+import { localizedPath, pathForLocale } from '@/i18n'
 import { useRootLocale, useRootTheme } from '@/root'
 import type { AppTheme } from '@/server/theme'
 

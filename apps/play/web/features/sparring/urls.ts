@@ -3,7 +3,7 @@ import type { MatchId } from '@ks/core'
 import type { RegisteredGameKey } from '@ks/gameplay/definitions'
 import type { SupportedLocale } from '@ks/i18n'
 
-import { localizedPath } from '@/locale'
+import { localizedPath } from '@/i18n'
 
 export function matchSetupUrl(
   gameKey: RegisteredGameKey,

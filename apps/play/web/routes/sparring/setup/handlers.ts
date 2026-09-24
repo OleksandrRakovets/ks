@@ -10,7 +10,7 @@ import {
   type RackRolloverOption,
 } from '@/features/sparring/setup/profile'
 import { matchUrl } from '@/features/sparring/urls'
-import { localeFromContext } from '@/locale'
+import { localeFromContext } from '@/i18n'
 import type { AppLoadContext } from '@/server/context'
 import { requireApplication } from '@/server/context'
 

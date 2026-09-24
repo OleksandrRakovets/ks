@@ -1,26 +1,27 @@
-import { resources, type SupportedLocale } from '@ks/i18n'
-import i18n from 'i18next'
-import { initReactI18next } from 'react-i18next'
+import type { SupportedLocale } from '@ks/i18n'
+import { createContext, type RouterContextProvider } from 'react-router'
 
-function normalizeLocale(value: string | null | undefined): SupportedLocale {
-  return value === 'uk' ? 'uk' : 'en'
+export const localeContext = createContext<SupportedLocale>('uk')
+
+export function localeFromContext(context: Pick<RouterContextProvider, 'get'>): SupportedLocale {
+  return context.get(localeContext)
 }
 
-function pickLocale(): SupportedLocale {
-  // The DOM library declares document globally, but server rendering does not provide it at runtime.
-  // oxlint-disable-next-line typescript/no-unnecessary-condition
-  if (globalThis.document === undefined) {
-    return 'uk'
-  }
-
-  return normalizeLocale(globalThis.document.documentElement.lang)
+export function localeFromPathname(pathname: string): SupportedLocale {
+  return pathname === '/en' || pathname.startsWith('/en/') ? 'en' : 'uk'
 }
 
-void i18n.use(initReactI18next).init({
-  resources,
-  lng: pickLocale(),
-  fallbackLng: 'en',
-  interpolation: { escapeValue: false },
-})
+export function localizedPath(path: string, locale: SupportedLocale): string {
+  return locale === 'en' ? `/en${path}` : path
+}
 
-export { i18n }
+export function pathForLocale(
+  pathname: string,
+  search: string,
+  hash: string,
+  locale: SupportedLocale,
+): string {
+  const pathWithoutLocale = pathname === '/en/' ? '/' : pathname.replace(/^\/en(?=\/)/, '')
+
+  return `${localizedPath(pathWithoutLocale, locale)}${search}${hash}`
+}

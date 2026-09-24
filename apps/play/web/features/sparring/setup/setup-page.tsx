@@ -6,7 +6,7 @@ import { Form, useNavigation } from 'react-router'
 
 import { Page } from '@/components/page'
 import { Button } from '@/components/ui'
-import { localizedPath } from '@/locale'
+import { localizedPath } from '@/i18n'
 import { useRootLocale } from '@/root'
 
 import {

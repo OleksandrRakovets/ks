@@ -8,7 +8,7 @@ import { Link } from 'react-router'
 import { cn } from '@/components/ui/utils'
 import type { ActiveMatchData, FinishedMatchData } from '@/features/sparring/match/types'
 import { matchProtocolUrl, matchUrl } from '@/features/sparring/urls'
-import { localizedPath } from '@/locale'
+import { localizedPath } from '@/i18n'
 import { useRootLocale } from '@/root'
 
 import { Board } from './board'

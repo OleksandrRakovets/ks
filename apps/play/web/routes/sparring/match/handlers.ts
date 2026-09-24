@@ -9,7 +9,7 @@ import type {
   MatchPageDecision,
   ProtocolPageData,
 } from '@/features/sparring/match/types'
-import { localeFromContext } from '@/locale'
+import { localeFromContext } from '@/i18n'
 import type { AppLoadContext } from '@/server/context'
 import { requireApplication } from '@/server/context'
 
