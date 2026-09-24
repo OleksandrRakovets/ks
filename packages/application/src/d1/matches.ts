@@ -6,7 +6,7 @@ import { alias } from 'drizzle-orm/sqlite-core'
 import * as v from 'valibot'
 
 import { participantFromPlayerRow } from './players'
-import { guestPlayers, matches, StoredMatchStatus, verifiedPlayers } from './schema'
+import { guestPlayers, sparringMatches, StoredMatchStatus, verifiedPlayers } from './schema'
 import type { ApplicationDatabase } from './types'
 
 const MatchRowIdentity = {
@@ -48,15 +48,15 @@ const MatchRow = v.pipe(
 )
 
 const matchRowSelection = {
-  matchId: matches.matchId,
-  gameKey: matches.gameKey,
-  status: matches.status,
-  createdAt: matches.createdAt,
-  endedAt: matches.endedAt,
-  seatAPlayerRef: matches.seatAPlayerRef,
-  seatBPlayerRef: matches.seatBPlayerRef,
-  finalSourceLatestSeq: matches.finalSourceLatestSeq,
-  finalScore: matches.finalScoreJson,
+  matchId: sparringMatches.matchId,
+  gameKey: sparringMatches.gameKey,
+  status: sparringMatches.status,
+  createdAt: sparringMatches.createdAt,
+  endedAt: sparringMatches.endedAt,
+  seatAPlayerRef: sparringMatches.seatAPlayerRef,
+  seatBPlayerRef: sparringMatches.seatBPlayerRef,
+  finalSourceLatestSeq: sparringMatches.finalSourceLatestSeq,
+  finalScore: sparringMatches.finalScoreJson,
 }
 
 const seatAGuest = alias(guestPlayers, 'seat_a_guest')
@@ -71,33 +71,33 @@ const seatBVerified = alias(verifiedPlayers, 'seat_b_verified')
 function joinedMatchRows(db: ApplicationDatabase) {
   return db
     .select({ ...matchRowSelection, seatAGuest, seatAVerified, seatBGuest, seatBVerified })
-    .from(matches)
+    .from(sparringMatches)
     .leftJoin(
       seatAGuest,
       and(
-        sql`${matches.seatAPlayerRef} GLOB 'gp_*'`,
-        eq(seatAGuest.guestPlayerId, sql`substr(${matches.seatAPlayerRef}, 4)`),
+        sql`${sparringMatches.seatAPlayerRef} GLOB 'gp_*'`,
+        eq(seatAGuest.guestPlayerId, sql`substr(${sparringMatches.seatAPlayerRef}, 4)`),
       ),
     )
     .leftJoin(
       seatAVerified,
       and(
-        sql`${matches.seatAPlayerRef} GLOB 'vp_*'`,
-        eq(seatAVerified.verifiedPlayerId, sql`substr(${matches.seatAPlayerRef}, 4)`),
+        sql`${sparringMatches.seatAPlayerRef} GLOB 'vp_*'`,
+        eq(seatAVerified.verifiedPlayerId, sql`substr(${sparringMatches.seatAPlayerRef}, 4)`),
       ),
     )
     .leftJoin(
       seatBGuest,
       and(
-        sql`${matches.seatBPlayerRef} GLOB 'gp_*'`,
-        eq(seatBGuest.guestPlayerId, sql`substr(${matches.seatBPlayerRef}, 4)`),
+        sql`${sparringMatches.seatBPlayerRef} GLOB 'gp_*'`,
+        eq(seatBGuest.guestPlayerId, sql`substr(${sparringMatches.seatBPlayerRef}, 4)`),
       ),
     )
     .leftJoin(
       seatBVerified,
       and(
-        sql`${matches.seatBPlayerRef} GLOB 'vp_*'`,
-        eq(seatBVerified.verifiedPlayerId, sql`substr(${matches.seatBPlayerRef}, 4)`),
+        sql`${sparringMatches.seatBPlayerRef} GLOB 'vp_*'`,
+        eq(seatBVerified.verifiedPlayerId, sql`substr(${sparringMatches.seatBPlayerRef}, 4)`),
       ),
     )
 }
@@ -125,14 +125,17 @@ export async function listLiveMatchRows(
   const rows = await joinedMatchRows(db)
     .where(
       or(
-        eq(matches.status, StoredMatchStatus.active),
-        and(eq(matches.status, StoredMatchStatus.finished), gte(matches.endedAt, finishedSince)),
+        eq(sparringMatches.status, StoredMatchStatus.active),
+        and(
+          eq(sparringMatches.status, StoredMatchStatus.finished),
+          gte(sparringMatches.endedAt, finishedSince),
+        ),
       ),
     )
     .orderBy(
-      sql`CASE WHEN ${matches.status} = ${StoredMatchStatus.finished} THEN 1 ELSE 0 END`,
-      sql`CASE WHEN ${matches.status} = ${StoredMatchStatus.finished} THEN ${matches.endedAt} ELSE ${matches.createdAt} END DESC`,
-      sql`${matches.matchId} DESC`,
+      sql`CASE WHEN ${sparringMatches.status} = ${StoredMatchStatus.finished} THEN 1 ELSE 0 END`,
+      sql`CASE WHEN ${sparringMatches.status} = ${StoredMatchStatus.finished} THEN ${sparringMatches.endedAt} ELSE ${sparringMatches.createdAt} END DESC`,
+      sql`${sparringMatches.matchId} DESC`,
     )
 
   return rows.map((row) => parseJoinedMatchRow(row, locale))
@@ -146,12 +149,12 @@ export async function listFinishedMatchRows(
   const rows = await joinedMatchRows(db)
     .where(
       and(
-        eq(matches.status, StoredMatchStatus.finished),
-        gte(matches.createdAt, range.start),
-        lt(matches.createdAt, range.end),
+        eq(sparringMatches.status, StoredMatchStatus.finished),
+        gte(sparringMatches.createdAt, range.start),
+        lt(sparringMatches.createdAt, range.end),
       ),
     )
-    .orderBy(sql`${matches.createdAt} DESC`, sql`${matches.matchId} DESC`)
+    .orderBy(sql`${sparringMatches.createdAt} DESC`, sql`${sparringMatches.matchId} DESC`)
 
   return rows.map((row) => parseJoinedMatchRow(row, locale))
 }
@@ -164,15 +167,15 @@ export async function findFinishedMatchTime(
   const older = 'before' in input
 
   const row = await db
-    .select({ createdAt: matches.createdAt })
-    .from(matches)
+    .select({ createdAt: sparringMatches.createdAt })
+    .from(sparringMatches)
     .where(
       and(
-        eq(matches.status, StoredMatchStatus.finished),
-        older ? lt(matches.createdAt, input.before) : gte(matches.createdAt, input.from),
+        eq(sparringMatches.status, StoredMatchStatus.finished),
+        older ? lt(sparringMatches.createdAt, input.before) : gte(sparringMatches.createdAt, input.from),
       ),
     )
-    .orderBy(older ? desc(matches.createdAt) : asc(matches.createdAt))
+    .orderBy(older ? desc(sparringMatches.createdAt) : asc(sparringMatches.createdAt))
     .limit(1)
     .get()
 
@@ -180,14 +183,22 @@ export async function findFinishedMatchTime(
 }
 
 export async function getMatchRow(db: ApplicationDatabase, matchId: MatchId) {
-  const row = await db.select(matchRowSelection).from(matches).where(eq(matches.matchId, matchId)).get()
+  const row = await db
+    .select(matchRowSelection)
+    .from(sparringMatches)
+    .where(eq(sparringMatches.matchId, matchId))
+    .get()
 
   return row ? v.parse(MatchRow, row) : null
 }
 
 export async function getMatchRows(db: ApplicationDatabase, matchIds: readonly MatchId[]) {
   if (matchIds.length === 0) return []
-  const rows = await db.select(matchRowSelection).from(matches).where(inArray(matches.matchId, matchIds))
+
+  const rows = await db
+    .select(matchRowSelection)
+    .from(sparringMatches)
+    .where(inArray(sparringMatches.matchId, matchIds))
 
   return rows.map((row) => v.parse(MatchRow, row))
 }

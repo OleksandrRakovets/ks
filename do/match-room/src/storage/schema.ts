@@ -12,6 +12,7 @@ export const activeMatches = sqliteTable(
     status: text('status').$type<'active' | 'finalizing'>().notNull(),
     createdAt: integer('created_at').$type<UnixEpochMilliseconds>().notNull(),
     finalStateJson: text('final_state_json'),
+    gameResultJson: text('game_result_json'),
     endedAt: integer('ended_at').$type<UnixEpochMilliseconds>(),
   },
   (table) => [

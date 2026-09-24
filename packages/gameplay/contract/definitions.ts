@@ -7,7 +7,12 @@ export {
   type GameCommandFor,
 } from '../src/registry'
 
-export { type LongFreePyramidGamePresentation } from '../src/long-free-pyramid/definitions'
+export {
+  type LongFreePyramidGamePresentation,
+  LongFreePyramidResult,
+} from '../src/long-free-pyramid/definitions'
+
+export { GameResult } from '../src/game-result'
 
 export {
   type CombinedPyramidGamePresentation,

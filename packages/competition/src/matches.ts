@@ -25,6 +25,10 @@ export const MatchCreationDefinition = v.pipe(
       value.gameConfiguration?.rackRollover === 15,
     'Long free pyramid requires rack rollover configuration',
   ),
+  v.check(
+    (value) => value.gameKey !== 'free-pyramid-long' || value.targets.matchTargetFrames === 1,
+    'Long free pyramid requires a single frame',
+  ),
   v.readonly(),
 )
 

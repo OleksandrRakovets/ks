@@ -1,7 +1,7 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "23b47149-03c9-4d56-bba2-c776bd16c664",
+  "id": "6f46603d-605c-42e5-b2f6-94881582172a",
   "prevIds": ["00000000-0000-0000-0000-000000000000"],
   "ddl": [
     {
@@ -79,6 +79,16 @@
       "default": null,
       "generated": null,
       "name": "final_state_json",
+      "entityType": "columns",
+      "table": "active_matches"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "game_result_json",
       "entityType": "columns",
       "table": "active_matches"
     },

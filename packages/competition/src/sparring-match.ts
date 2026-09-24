@@ -10,7 +10,7 @@ import {
   type ProtocolEntryContent,
   Seat,
 } from '@ks/core'
-import { type GamePresentationFor, RegisteredGameKey } from '@ks/gameplay/definitions'
+import { type GamePresentationFor, type GameResult, RegisteredGameKey } from '@ks/gameplay/definitions'
 import type { GameCommandFor } from '@ks/gameplay/definitions'
 import { GameCommandRejection, type GameplaySession, parseGameCommand } from '@ks/gameplay/server'
 import { createGameplaySession } from '@ks/gameplay/server'
@@ -74,6 +74,9 @@ export interface SparringMatch {
 
   /** Returns current semantic state and controls without storage cursor metadata. */
   project(): SparringMatchRoomProjection
+
+  /** Game-owned result, retained when gameplay is discarded after the frame ends. */
+  gameResult(): GameResult | null
 }
 
 export class SparringMatchHistoryError extends Error {
@@ -150,10 +153,15 @@ function concedeControl(seat: Seat): Control {
 class ResidentSparringMatch implements SparringMatch {
   private snapshot: SparringMatchSnapshot
   private gameplay: AnyCorrelatedGameplay | null
+  #completedGameResult: GameResult | null = null
 
   constructor(snapshot: SparringMatchSnapshot, gameplay: AnyCorrelatedGameplay | null) {
     this.snapshot = snapshot
     this.gameplay = gameplay
+  }
+
+  gameResult(): GameResult | null {
+    return this.gameplay?.session.deriveResult?.() ?? this.#completedGameResult
   }
 
   execute(command: MatchCommand): MatchCommandResult {
@@ -403,6 +411,7 @@ class ResidentSparringMatch implements SparringMatch {
         seat: resulting.winnerSeat,
         body: {},
       })
+    this.#completedGameResult = this.gameplay?.session.deriveResult?.() ?? null
     this.gameplay = null
 
     return { _tag: 'accepted', command: acceptedCommand, protocolEntryContents }

@@ -2,7 +2,7 @@ import type { MatchId, PlayerRef, UnixEpochMilliseconds } from '@ks/core'
 import type { RegisteredGameKey } from '@ks/gameplay/definitions'
 import { eq } from 'drizzle-orm'
 
-import { matches, StoredMatchStatus } from './schema'
+import { sparringMatches, StoredMatchStatus } from './schema'
 import type { ApplicationDatabase } from './types'
 
 export type ActiveMatchCatalogInput = {
@@ -18,7 +18,7 @@ export async function beginMatchCreation(
   input: ActiveMatchCatalogInput,
 ): Promise<void> {
   await db
-    .insert(matches)
+    .insert(sparringMatches)
     .values({
       matchId: input.matchId,
       gameKey: input.gameKey,
@@ -27,18 +27,18 @@ export async function beginMatchCreation(
       status: StoredMatchStatus.creating,
       createdAt: input.createdAt,
     })
-    .onConflictDoNothing({ target: matches.matchId })
+    .onConflictDoNothing({ target: sparringMatches.matchId })
 
   const stored = await db
     .select({
-      gameKey: matches.gameKey,
-      seatAPlayerRef: matches.seatAPlayerRef,
-      seatBPlayerRef: matches.seatBPlayerRef,
-      status: matches.status,
-      createdAt: matches.createdAt,
+      gameKey: sparringMatches.gameKey,
+      seatAPlayerRef: sparringMatches.seatAPlayerRef,
+      seatBPlayerRef: sparringMatches.seatBPlayerRef,
+      status: sparringMatches.status,
+      createdAt: sparringMatches.createdAt,
     })
-    .from(matches)
-    .where(eq(matches.matchId, input.matchId))
+    .from(sparringMatches)
+    .where(eq(sparringMatches.matchId, input.matchId))
     .get()
 
   if (
@@ -54,5 +54,8 @@ export async function beginMatchCreation(
 }
 
 export async function activateMatch(db: ApplicationDatabase, matchId: MatchId): Promise<void> {
-  await db.update(matches).set({ status: StoredMatchStatus.active }).where(eq(matches.matchId, matchId))
+  await db
+    .update(sparringMatches)
+    .set({ status: StoredMatchStatus.active })
+    .where(eq(sparringMatches.matchId, matchId))
 }

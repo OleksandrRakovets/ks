@@ -5,12 +5,13 @@ import {
   ProtocolEntries,
   type ProtocolEntries as ProtocolEntriesValue,
 } from '@ks/core'
+import { GameResult, type GameResult as GameResultValue } from '@ks/gameplay/definitions'
 import { and, eq, isNull, or } from 'drizzle-orm'
 import * as v from 'valibot'
 
 import type { MatchRoomArchiveTransfer } from '../match-room-client'
 import { PROTOCOL_ARCHIVE_VERSION } from '../protocol'
-import { matches, matchProtocolArchives, StoredMatchStatus } from './schema'
+import { sparringMatchArchives, sparringMatches, StoredMatchStatus } from './schema'
 import type { ApplicationDatabase } from './types'
 
 export class MatchFinalizationError extends Error {
@@ -26,6 +27,7 @@ function semanticArchiveEqual(
     protocolVersion: number
     rowsJson: string
     stateJson: string
+    gameResultJson: string | null
     createdAt: number
   },
   right: typeof left,
@@ -40,14 +42,20 @@ function semanticArchiveEqual(
   const rightRows = v.safeParse(v.pipe(v.string(), v.parseJson(), ProtocolEntries), right.rowsJson)
   const leftState = v.safeParse(v.pipe(v.string(), v.parseJson(), MatchState), left.stateJson)
   const rightState = v.safeParse(v.pipe(v.string(), v.parseJson(), MatchState), right.stateJson)
+  const resultSchema = v.nullable(v.pipe(v.string(), v.parseJson(), GameResult))
+  const leftResult = v.safeParse(resultSchema, left.gameResultJson)
+  const rightResult = v.safeParse(resultSchema, right.gameResultJson)
 
   return (
     leftRows.success &&
     rightRows.success &&
     leftState.success &&
     rightState.success &&
+    leftResult.success &&
+    rightResult.success &&
     structuralEqual(leftRows.output, rightRows.output) &&
-    structuralEqual(leftState.output, rightState.output)
+    structuralEqual(leftState.output, rightState.output) &&
+    structuralEqual(leftResult.output, rightResult.output)
   )
 }
 
@@ -61,6 +69,7 @@ type StructuralValue =
   | StructuralObject
   | MatchStateValue
   | ProtocolEntriesValue
+  | GameResultValue
 
 type StructuralObject = { readonly [key: string]: StructuralValue }
 
@@ -103,19 +112,20 @@ export async function archiveFinishedMatch(
     protocolVersion: PROTOCOL_ARCHIVE_VERSION,
     rowsJson: JSON.stringify(input.protocolEntries),
     stateJson: JSON.stringify(input.finalState),
+    gameResultJson: input.gameResult === null ? null : JSON.stringify(input.gameResult),
     createdAt: input.endedAt,
   }
 
   const storedMatch = await db
     .select({
-      matchId: matches.matchId,
-      gameKey: matches.gameKey,
-      status: matches.status,
-      createdAt: matches.createdAt,
-      endedAt: matches.endedAt,
+      matchId: sparringMatches.matchId,
+      gameKey: sparringMatches.gameKey,
+      status: sparringMatches.status,
+      createdAt: sparringMatches.createdAt,
+      endedAt: sparringMatches.endedAt,
     })
-    .from(matches)
-    .where(eq(matches.matchId, input.matchId))
+    .from(sparringMatches)
+    .where(eq(sparringMatches.matchId, input.matchId))
     .get()
 
   if (
@@ -130,17 +140,17 @@ export async function archiveFinishedMatch(
     throw new MatchFinalizationError('Finished match is not ready to archive')
 
   const inserted = await db
-    .insert(matchProtocolArchives)
+    .insert(sparringMatchArchives)
     .values(archive)
-    .onConflictDoNothing({ target: matchProtocolArchives.matchId })
+    .onConflictDoNothing({ target: sparringMatchArchives.matchId })
     .returning()
 
   const persistedArchive =
     inserted[0] ??
     (await db
       .select()
-      .from(matchProtocolArchives)
-      .where(eq(matchProtocolArchives.matchId, input.matchId))
+      .from(sparringMatchArchives)
+      .where(eq(sparringMatchArchives.matchId, input.matchId))
       .get())
 
   if (!persistedArchive || !semanticArchiveEqual(persistedArchive, archive))
@@ -154,7 +164,7 @@ export async function markMatchFinished(
   const finalScoreJson = JSON.stringify(projectMatchScore(input.finalState))
 
   const result = await db
-    .update(matches)
+    .update(sparringMatches)
     .set({
       status: StoredMatchStatus.finished,
       endedAt: input.endedAt,
@@ -163,28 +173,28 @@ export async function markMatchFinished(
     })
     .where(
       and(
-        eq(matches.matchId, input.matchId),
+        eq(sparringMatches.matchId, input.matchId),
         or(
           and(
-            eq(matches.status, StoredMatchStatus.active),
-            isNull(matches.endedAt),
-            isNull(matches.finalSourceLatestSeq),
-            isNull(matches.finalScoreJson),
+            eq(sparringMatches.status, StoredMatchStatus.active),
+            isNull(sparringMatches.endedAt),
+            isNull(sparringMatches.finalSourceLatestSeq),
+            isNull(sparringMatches.finalScoreJson),
           ),
           and(
-            eq(matches.status, StoredMatchStatus.finished),
-            eq(matches.endedAt, input.endedAt),
-            eq(matches.finalSourceLatestSeq, input.sourceLatestSeq),
-            eq(matches.finalScoreJson, finalScoreJson),
+            eq(sparringMatches.status, StoredMatchStatus.finished),
+            eq(sparringMatches.endedAt, input.endedAt),
+            eq(sparringMatches.finalSourceLatestSeq, input.sourceLatestSeq),
+            eq(sparringMatches.finalScoreJson, finalScoreJson),
           ),
         ),
       ),
     )
     .returning({
-      status: matches.status,
-      endedAt: matches.endedAt,
-      finalSourceLatestSeq: matches.finalSourceLatestSeq,
-      finalScoreJson: matches.finalScoreJson,
+      status: sparringMatches.status,
+      endedAt: sparringMatches.endedAt,
+      finalSourceLatestSeq: sparringMatches.finalSourceLatestSeq,
+      finalScoreJson: sparringMatches.finalScoreJson,
     })
 
   if (
