@@ -38,7 +38,7 @@ export default [
       'sparring/match/combined-pyramid-old/:matchId/protocol/',
       'routes/sparring/match/combined-pyramid-old-protocol.tsx',
     ),
-    route('top-secret/preview/', 'preview/index.tsx'),
-    route('top-secret/preview/ui/', 'preview/ui.tsx'),
+    route('top-secret/preview/', 'routes/preview/index.tsx'),
+    route('top-secret/preview/ui/', 'routes/preview/ui.tsx'),
   ]),
 ] satisfies RouteConfig
