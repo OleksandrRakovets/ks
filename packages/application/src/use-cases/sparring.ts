@@ -386,7 +386,7 @@ export function createSparringApplicationWithDependencies(
     }
 
     const room = await roomClient.getProtocol()
-    const protocolEntries = canonicalProtocolEntries(room.protocolEntries)
+    const protocolEntries = room.protocolEntries
 
     if (room._tag === 'finalizing')
       return readFinalizingMatch(record, room, protocolEntries, locale, expectedGameKey)
@@ -574,13 +574,6 @@ export function createSparringApplicationWithDependencies(
       participants: await hydrateParticipants(record, locale),
       protocolEntries,
     }
-  }
-
-  function canonicalProtocolEntries(
-    entries: Awaited<ReturnType<MatchRoomClient['getProtocol']>>['protocolEntries'],
-  ): ProtocolEntries {
-    // SAFETY: MatchRoom narrows only the JSON-decoded body for Cloudflare RPC serializability.
-    return entries as ProtocolEntries
   }
 
   async function readArchivedMatch<K extends RegisteredGameKey>(

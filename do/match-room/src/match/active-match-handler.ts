@@ -3,7 +3,7 @@ import { isDeepStrictEqual } from 'node:util'
 import { type Match, restoreMatchCheckpoint } from '@ks/competition'
 import { type MatchCommand } from '@ks/core'
 
-import type { GetControlsResult, GetProtocolResult, GetScoreResult, ProtocolReadEntry } from '../contracts'
+import type { GetControlsResult, GetProtocolResult, GetScoreResult } from '../contracts'
 import { type LiveConnectionCursor, LiveConnectionHandler } from '../live/live-connection-handler'
 import type { CommandReceipt, StoredActiveMatch } from '../storage/definitions'
 import { MatchStorage } from '../storage/match-storage'
@@ -81,14 +81,11 @@ export class ActiveMatchHandler {
   }
 
   getProtocol() {
-    // SAFETY: persisted entries were decoded from JSON, so their otherwise-unknown bodies are JSON-safe over RPC.
-    const protocolEntries = this.#storage.readProtocol(this.#storedMatch) as readonly ProtocolReadEntry[]
-
     return {
       _tag: 'active',
       latestSeq: this.#storedMatch.latestSeq,
       ...this.#storage.readCurrentPresentation(this.#storedMatch),
-      protocolEntries,
+      protocolEntries: this.#storage.readProtocol(this.#storedMatch),
     } satisfies Extract<GetProtocolResult, { _tag: 'active' }>
   }
 

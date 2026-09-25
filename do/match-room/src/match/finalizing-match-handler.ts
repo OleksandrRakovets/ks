@@ -2,13 +2,7 @@ import { isDeepStrictEqual } from 'node:util'
 
 import type { MatchCommand } from '@ks/core'
 
-import type {
-  FinishedMatchTransfer,
-  GetControlsResult,
-  GetProtocolResult,
-  GetScoreResult,
-  ProtocolReadEntry,
-} from '../contracts'
+import type { FinishedMatchTransfer, GetControlsResult, GetProtocolResult, GetScoreResult } from '../contracts'
 import type { CommandReceipt, StoredFinalizingMatch } from '../storage/definitions'
 import { MatchStorage } from '../storage/match-storage'
 
@@ -51,8 +45,6 @@ export class FinalizingMatchHandler {
 
   getProtocol() {
     this.#warnRead('protocol')
-    // SAFETY: persisted entries were decoded from JSON, so their otherwise-unknown bodies are JSON-safe over RPC.
-    const protocolEntries = this.#storage.readProtocol(this.#storedMatch) as readonly ProtocolReadEntry[]
 
     return {
       _tag: 'finalizing' as const,
@@ -60,7 +52,7 @@ export class FinalizingMatchHandler {
       gameResult: this.#storedMatch.gameResult,
       latestSeq: this.#storedMatch.latestSeq,
       endedAt: this.#storedMatch.endedAt,
-      protocolEntries,
+      protocolEntries: this.#storage.readProtocol(this.#storedMatch),
     } satisfies Extract<GetProtocolResult, { _tag: 'finalizing' }>
   }
 

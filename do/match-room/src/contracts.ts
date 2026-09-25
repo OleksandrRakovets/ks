@@ -22,19 +22,14 @@ export type GetControlsResult = ActiveControlsResult | FinalizingControlsResult
 type ActiveProtocolResult = {
   readonly _tag: 'active'
   readonly latestSeq: NonNegativeInteger
-  readonly protocolEntries: readonly ProtocolReadEntry[]
+  readonly protocolEntries: readonly ProtocolEntry[]
 } & MatchRoomPresentation
 
 type FinalizingProtocolResult = FinalizingReadResult & {
-  readonly protocolEntries: readonly ProtocolReadEntry[]
+  readonly protocolEntries: readonly ProtocolEntry[]
 }
 
 export type GetProtocolResult = ActiveProtocolResult | FinalizingProtocolResult
-
-/** A canonical persisted Protocol Entry narrowed to its JSON-safe RPC representation. */
-export type ProtocolReadEntry = Omit<ProtocolEntry, 'body'> & {
-  readonly body: object
-}
 
 type ActiveScoreResult = {
   readonly _tag: 'active'
