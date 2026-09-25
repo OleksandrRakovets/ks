@@ -3,6 +3,7 @@ import { evictDurableObject, runInDurableObject } from 'cloudflare:test'
 import { env } from 'cloudflare:workers'
 import { expect, test } from 'vitest'
 
+import type { GetProtocolResult } from '../../../src/contracts'
 import {
   captureRpcError,
   initialization,
@@ -171,7 +172,7 @@ test('restores nested Strila foul state and archives a natural award after evict
       command: { type: 'penalty.select', seat: 'B', choice: 'pass-position' },
     }),
   ).toEqual({ _tag: 'accepted', acceptedSeq: 4, endsMatch: false })
-  const restoredProtocol = await restored.getProtocol()
+  const restoredProtocol = rpcProtocolResult(await restored.getProtocol())
   expect(restoredProtocol).toMatchObject({
     _tag: 'active',
     latestSeq: 4,
@@ -265,3 +266,8 @@ test('returns durable final state and score after a match-ending acceptance', as
     },
   })
 })
+
+/** Retains the public contract when Cloudflare's Rpc.Result reduces the canonical unknown body to never. */
+function rpcProtocolResult(result: GetProtocolResult): GetProtocolResult {
+  return result
+}
