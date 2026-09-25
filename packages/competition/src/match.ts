@@ -1,5 +1,4 @@
 import {
-  type AcceptedCommand,
   type Control,
   type FrameOutcome,
   type FrameState,
@@ -88,13 +87,6 @@ export interface Match {
 
   /** Game-owned result, retained when gameplay is discarded after the frame ends. */
   gameResult(): GameResult | null
-}
-
-export class MatchHistoryError extends Error {
-  constructor(message: string) {
-    super(message)
-    this.name = 'MatchHistoryError'
-  }
 }
 
 type CorrelatedGameplay<K extends RegisteredGameKey> = {
@@ -447,16 +439,6 @@ class ResidentMatch implements Match {
 
     return { _tag: 'accepted', command: acceptedCommand, protocolEntryContents }
   }
-
-  restore(command: AcceptedCommand): readonly ProtocolEntryContent[] {
-    const result = this.execute(command)
-
-    if (result._tag === 'parse-failed') throw new MatchHistoryError('Malformed stored Match Command')
-
-    if (result._tag !== 'accepted') throw new MatchHistoryError('Stored accepted Command is not executable')
-
-    return result.protocolEntryContents
-  }
 }
 
 /**
@@ -502,32 +484,4 @@ function createResidentMatch(config: MatchConfig): ResidentMatch {
   gameKeyOf(config.gameKey)
 
   return new ResidentMatch(createInitialSnapshot(config), null)
-}
-
-/**
- * Restores disposable resident state from envelope-validated semantic command batches.
- * @throws MatchHistoryError when accepted history is impossible or incompatible with current rules.
- */
-export function restoreMatch(config: MatchConfig, history: readonly AcceptedCommand[]): RestoredMatch {
-  const resident = createResidentMatch(config)
-
-  try {
-    const accepted = history.map((acceptedCommand) => ({
-      acceptedCommand,
-      protocolEntryContents: resident.restore(acceptedCommand),
-    }))
-
-    return { match: resident, accepted }
-  } catch (error) {
-    if (error instanceof MatchHistoryError) throw error
-    throw new MatchHistoryError(error instanceof Error ? error.message : 'History restoration failed')
-  }
-}
-
-export type RestoredMatch = {
-  readonly match: Match
-  readonly accepted: readonly {
-    readonly acceptedCommand: AcceptedCommand
-    readonly protocolEntryContents: readonly ProtocolEntryContent[]
-  }[]
 }

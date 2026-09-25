@@ -1,18 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 
-import {
-  type AcceptedCommand,
-  type MatchCommand,
-  type MatchConfig,
-  newCommandId,
-  newMatchId,
-  SystemClock,
-} from '@ks/core'
+import { type MatchCommand, type MatchConfig, newCommandId, newMatchId } from '@ks/core'
 
-import { createMatch, restoreMatch } from './match'
+import { createMatch } from './match'
 import { parseProtocolEntryContent } from './protocol'
-
-const clock = new SystemClock()
 
 function config(target = 2): MatchConfig {
   return {
@@ -32,7 +23,7 @@ function accept(match: ReturnType<typeof createMatch>, command: Parameters<typeo
 }
 
 describe('Match', () => {
-  test('creation is outside history and prepare emits a focal-seat lifecycle entry', () => {
+  test('creation precedes command execution and prepare emits a focal-seat lifecycle entry', () => {
     const match = createMatch(config())
     expect(match.project().state.currentFrameIndex).toBe(0)
     expect(
@@ -43,36 +34,7 @@ describe('Match', () => {
     })
   })
 
-  test('restores accepted commands and correlates newly derived Protocol', () => {
-    const matchConfig = config()
-    const warm = createMatch(matchConfig)
-    const history: AcceptedCommand[] = []
-
-    for (const submitted of [
-      { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } },
-      { commandId: newCommandId(), source: 'match', command: { type: 'frame.commence', seat: 'A' } },
-      {
-        commandId: newCommandId(),
-        source: 'game',
-        command: { type: 'pot.record', pottedBallCount: 1, seat: 'A' },
-      },
-    ] satisfies MatchCommand[]) {
-      accept(warm, submitted)
-      history.push({
-        ...submitted,
-        acceptedSeq: history.length + 1,
-        acceptedAt: clock.nowMs(),
-      })
-    }
-
-    // SAFETY: this fixture is built from typed accepted results immediately above.
-    const persisted = JSON.parse(JSON.stringify(history)) as AcceptedCommand[]
-    const restored = restoreMatch(matchConfig, persisted)
-    expect(restored.match.project()).toEqual(warm.project())
-    expect(restored.accepted.map(({ acceptedCommand }) => acceptedCommand)).toEqual(persisted)
-  })
-
-  test('accepts and restores a below-target Strila outcome before and after award', () => {
+  test('accepts a below-target Strila outcome and emits canonical Protocol through award', () => {
     const matchConfig: MatchConfig = {
       ...config(1),
       gameKey: 'strila-v2',
@@ -80,7 +42,6 @@ describe('Match', () => {
     }
 
     const match = createMatch(matchConfig)
-    const history: AcceptedCommand[] = []
 
     for (const submitted of [
       { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } },
@@ -100,20 +61,11 @@ describe('Match', () => {
 
       for (const entry of accepted.protocolEntryContents)
         expect(parseProtocolEntryContent(entry)).toEqual(entry)
-      history.push({
-        ...submitted,
-        acceptedSeq: history.length + 1,
-        acceptedAt: clock.nowMs(),
-      })
     }
 
-    // SAFETY: this fixture is built from typed accepted results immediately above.
-    const persisted = JSON.parse(JSON.stringify(history)) as AcceptedCommand[]
-    const restored = restoreMatch(matchConfig, persisted).match
-    expect(restored.project()).toEqual(match.project())
-    expect(restored.project().state.framesWonBySeat).toEqual({ A: 0, B: 0 })
+    expect(match.project().state.framesWonBySeat).toEqual({ A: 0, B: 0 })
 
-    const awarded = accept(restored, {
+    const awarded = accept(match, {
       commandId: newCommandId(),
       source: 'game',
       command: { type: 'frame.award', seat: 'A' },
@@ -129,93 +81,11 @@ describe('Match', () => {
       scoreAfter: { A: 8, B: 6 },
       body: { winReason: 'game-rules' },
     })
-    expect(restored.project().state).toMatchObject({
+    expect(match.project().state).toMatchObject({
       status: 'finished',
       framesWonBySeat: { A: 1, B: 0 },
       frames: [{ winnerSeat: 'A', pointsBySeat: { A: 8, B: 6 } }],
     })
-    history.push({
-      ...awarded.command,
-      acceptedSeq: history.length + 1,
-      acceptedAt: clock.nowMs(),
-    })
-
-    // SAFETY: this fixture is built from typed accepted results immediately above.
-    const completed = restoreMatch(matchConfig, JSON.parse(JSON.stringify(history)) as AcceptedCommand[]).match
-
-    expect(completed.project()).toEqual(restored.project())
-  })
-
-  test('restores a Strila cue-ball streak cleared by an open-play miss', () => {
-    const matchConfig: MatchConfig = {
-      ...config(),
-      gameKey: 'strila-v2',
-      targets: { frameTargetPointsBySeat: { A: 9, B: 9 }, matchTargetFrames: 2 },
-    }
-
-    const resident = createMatch(matchConfig)
-    const history: AcceptedCommand[] = []
-
-    for (const submitted of [
-      { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } },
-      { commandId: newCommandId(), source: 'match', command: { type: 'frame.commence', seat: 'A' } },
-      {
-        commandId: newCommandId(),
-        source: 'game',
-        command: { type: 'pot.record', seat: 'A', pottedBalls: [0] },
-      },
-      {
-        commandId: newCommandId(),
-        source: 'game',
-        command: { type: 'pot.record', seat: 'A', pottedBalls: [0] },
-      },
-      { commandId: newCommandId(), source: 'game', command: { type: 'miss.record', seat: 'B' } },
-    ] satisfies MatchCommand[]) {
-      accept(resident, submitted)
-      history.push({
-        ...submitted,
-        acceptedSeq: history.length + 1,
-        acceptedAt: clock.nowMs(),
-      })
-    }
-
-    const restored = restoreMatch(
-      matchConfig,
-      // SAFETY: this fixture is built from typed accepted results immediately above.
-      JSON.parse(JSON.stringify(history)) as AcceptedCommand[],
-    ).match
-
-    expect(restored.project()).toEqual(resident.project())
-
-    const nextCuePot = {
-      commandId: newCommandId(),
-      source: 'game',
-      command: { type: 'pot.record', seat: 'A', pottedBalls: [0] },
-    } satisfies MatchCommand
-
-    const residentResult = accept(resident, nextCuePot)
-    const restoredResult = accept(restored, nextCuePot)
-    expect(restoredResult).toEqual(residentResult)
-    expect(restored.project()).toEqual(resident.project())
-    expect(restored.project().controls.filter(({ type }) => type === 'miss.record')).toHaveLength(0)
-    expect(restoredResult.protocolEntryContents).toContainEqual({
-      gameKey: 'strila-v2',
-      frameIndex: 1,
-      source: 'player',
-      entryType: 'player-command',
-      seat: 'A',
-      scoreAfter: { A: 3, B: 0 },
-      body: { commandType: 'pot.record', pottedBalls: [0] },
-    })
-
-    const secondCuePot = {
-      ...nextCuePot,
-      commandId: newCommandId(),
-    }
-
-    expect(accept(restored, secondCuePot)).toEqual(accept(resident, secondCuePot))
-    expect(restored.project()).toEqual(resident.project())
-    expect(restored.project().controls.filter(({ type }) => type === 'miss.record')).toHaveLength(2)
   })
 
   test('plays a multi-frame race through game scoring with alternating breakers', () => {
