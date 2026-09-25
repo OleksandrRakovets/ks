@@ -93,6 +93,109 @@ test('pyramid rule-specific negative score survives restore for old combined rul
   expect(restored.execute(command)).toEqual(match.execute(command))
 })
 
+test('restored winner-determined gameplay produces the final outcome and complete Protocol on award', () => {
+  const match = createMatch({
+    ...config('free-pyramid', 1),
+    targets: { frameTargetPointsBySeat: { A: 3, B: 5 }, matchTargetFrames: 1 },
+  })
+
+  send(match, 'match', { type: 'frame.prepare' })
+  send(match, 'match', { type: 'frame.commence', seat: 'B' })
+  send(match, 'game', { type: 'pot.record', seat: 'B', pottedBallCount: 1 })
+  send(match, 'game', { type: 'pot.record', seat: 'A', pottedBallCount: 2 })
+  send(match, 'game', { type: 'pot.record', seat: 'A', pottedBallCount: 1 })
+  expect(match.exportCheckpoint().gameplay?.state.value).toBe('winner-determined')
+
+  const restored = roundTrip(match)
+
+  const command = {
+    commandId: newCommandId(),
+    source: 'game',
+    command: { type: 'frame.award', seat: 'A' },
+  } as const
+
+  const expected = {
+    _tag: 'accepted',
+    command,
+    protocolEntryContents: [
+      {
+        gameKey: 'free-pyramid',
+        frameIndex: 1,
+        source: 'player',
+        entryType: 'player-command',
+        seat: 'A',
+        body: { commandType: 'frame.award' },
+      },
+      {
+        gameKey: 'free-pyramid',
+        frameIndex: 1,
+        source: 'system',
+        entryType: 'frame-awarded',
+        seat: 'A',
+        scoreAfter: { A: 3, B: 1 },
+        body: { winReason: 'game-rules' },
+      },
+      {
+        gameKey: 'free-pyramid',
+        frameIndex: 1,
+        source: 'system',
+        entryType: 'match-ended',
+        seat: 'A',
+        body: {},
+      },
+    ],
+  } as const
+
+  expect(restored.execute(command)).toEqual(expected)
+  expect(match.execute(command)).toEqual(expected)
+  expect(restored.project()).toEqual(match.project())
+  expect(restored.project().state).toMatchObject({
+    status: 'finished',
+    currentFrameIndex: 1,
+    framesWonBySeat: { A: 1, B: 0 },
+    frames: [{ frameIndex: 1, breakerSeat: 'B', winnerSeat: 'A', pointsBySeat: { A: 3, B: 1 } }],
+  })
+  expect(roundTrip(restored).project()).toEqual(restored.project())
+})
+
+test('long pyramid awaiting-award restores a foul-determined winner and retained rack result', () => {
+  const match = createMatch({
+    ...config('free-pyramid-long', 1),
+    targets: { frameTargetPointsBySeat: { A: 4, B: 2 }, matchTargetFrames: 1 },
+  })
+
+  send(match, 'match', { type: 'frame.prepare' })
+  send(match, 'match', { type: 'frame.commence', seat: 'B' })
+  send(match, 'game', { type: 'foul.commit', seat: 'A' })
+  send(match, 'game', { type: 'foul.commit', seat: 'A' })
+  expect(match.exportCheckpoint().gameplay?.state.value).toBe('awaiting-award')
+
+  const restored = roundTrip(match)
+
+  const command = {
+    commandId: newCommandId(),
+    source: 'game',
+    command: { type: 'frame.award', seat: 'B' },
+  } as const
+
+  const result = restored.execute(command)
+
+  expect(result).toEqual(match.execute(command))
+  expect(result).toMatchObject({
+    _tag: 'accepted',
+    protocolEntryContents: [
+      { entryType: 'player-command', body: { commandType: 'frame.award' } },
+      { entryType: 'frame-awarded', seat: 'B', scoreAfter: { A: 0, B: 2 }, body: { winReason: 'game-rules' } },
+      { entryType: 'match-ended', seat: 'B' },
+    ],
+  })
+  expect(restored.project().state).toMatchObject({ status: 'finished', framesWonBySeat: { A: 0, B: 1 } })
+  expect(roundTrip(restored).gameResult()).toEqual({
+    gameKey: 'free-pyramid-long',
+    racks: [{ rackNumber: 1, scoreBySeat: { A: 0, B: 2 } }],
+  })
+})
+
 test('long pyramid rack rollover and retained result after completed frame', () => {
   const match = createMatch(config('free-pyramid-long', 1))
   send(match, 'match', { type: 'frame.prepare' })
@@ -184,6 +287,22 @@ test('rejects inconsistent persisted aggregates and corrupted hidden rule contex
     v.parse(MatchCheckpoint, {
       ...checkpoint,
       gameplay: { ...gameplay, state: { ...gameplay.state, value: 'unknown-phase' } },
+    }),
+  ).toThrow()
+})
+
+test('rejects an unsupported game key even without active gameplay', () => {
+  const checkpoint = createMatch(config('free-pyramid')).exportCheckpoint()
+  expect(() =>
+    restoreMatchCheckpoint({
+      ...checkpoint,
+      lifecycle: {
+        ...checkpoint.lifecycle,
+        context: {
+          ...checkpoint.lifecycle.context,
+          config: { ...checkpoint.lifecycle.context.config, gameKey: 'unregistered-game' },
+        },
+      },
     }),
   ).toThrow()
 })

@@ -479,6 +479,7 @@ export function restoreMatchCheckpoint(input: MatchCheckpoint): Match {
   const checkpoint = v.parse(MatchCheckpoint, input)
   const lifecycle = restoreLifecycleSnapshot(checkpoint.lifecycle)
   const config = checkpoint.lifecycle.context.config
+  gameKeyOf(config.gameKey)
   const phase = checkpoint.lifecycle.value
   const gameplay = checkpoint.gameplay
 
