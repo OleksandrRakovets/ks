@@ -3,7 +3,7 @@ import { useLoaderData } from 'react-router'
 import * as v from 'valibot'
 
 import { MatchListPage } from '@/features/sparring/matches/match-list-page'
-import { localeFromContext } from '@/locale'
+import { localeFromContext } from '@/i18n'
 import { requireApplication } from '@/server/context'
 
 import type { Route } from './+types/finished'

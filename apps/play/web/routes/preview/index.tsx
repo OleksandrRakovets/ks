@@ -1,7 +1,7 @@
 import { Link } from 'react-router'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui'
-import { localizedPath } from '@/locale'
+import { localizedPath } from '@/i18n'
 import { useRootLocale } from '@/root'
 
 const previewPages = [

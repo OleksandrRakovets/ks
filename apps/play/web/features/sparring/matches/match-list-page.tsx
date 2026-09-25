@@ -15,7 +15,7 @@ import { Page } from '@/components/page'
 import { Button, SegmentedNavigation, SegmentedNavigationLink } from '@/components/ui'
 import { cn } from '@/components/ui/utils'
 import { matchUrl } from '@/features/sparring/urls'
-import { localizedPath } from '@/locale'
+import { localizedPath } from '@/i18n'
 import { useRootLocale } from '@/root'
 
 type MatchListView = 'live' | 'finished'

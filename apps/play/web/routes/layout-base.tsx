@@ -1,9 +1,8 @@
 import { Outlet, redirect } from 'react-router'
 
-import '@/i18n'
+import { localeContext } from '@/i18n'
 
 import '@/base.css'
-import { localeContext } from '@/locale'
 
 import type { Route } from './+types/layout-base'
 
