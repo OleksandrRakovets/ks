@@ -1,4 +1,6 @@
-import type { MatchRoomProjection } from '@ks/competition'
+import { isDeepStrictEqual } from 'node:util'
+
+import { type Match, type MatchRoomProjection, restoreMatchCheckpoint } from '@ks/competition'
 import {
   type MatchCommand,
   type MatchScoreProjection,
@@ -36,7 +38,7 @@ export class ActiveMatchHandler {
       return priorReceipt.receipt
     }
 
-    const match = this.#storage.readCurrentMatch(this.#header)
+    const match = this.#restoreMatch()
     const result = match.execute(command)
 
     if (result._tag === 'parse-failed') return { _tag: 'invalid-command' }
@@ -69,7 +71,7 @@ export class ActiveMatchHandler {
   }
 
   getControls(): ActiveControlsResult {
-    const projection = this.#storage.readCurrentMatch(this.#header).project()
+    const projection = this.#restoreMatch().project()
 
     return {
       _tag: 'active',
@@ -98,6 +100,20 @@ export class ActiveMatchHandler {
 
   liveConnectionCursor(): LiveConnectionCursor {
     return { matchId: this.#header.matchId, latestSeq: this.#header.latestSeq }
+  }
+
+  #restoreMatch(): Match {
+    const { checkpoint, state } = this.#storage.readCurrentCheckpoint(this.#header)
+
+    try {
+      const match = restoreMatchCheckpoint(checkpoint)
+
+      if (!isDeepStrictEqual(match.project().state, state)) throw new Error('projection mismatch')
+
+      return match
+    } catch {
+      throw new Error('MatchRoom checkpoint storage corruption')
+    }
   }
 }
 

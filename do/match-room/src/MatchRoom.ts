@@ -29,11 +29,7 @@ export class MatchRoom extends DurableObject<Env> {
   }
 
   async submitCommand(command: MatchCommand) {
-    const handler = this.#requireHandler()
-
-    if (handler instanceof FinalizingMatchHandler) return handler.submitCommand(command)
-
-    return handler.submitCommand(command)
+    return this.#requireHandler().submitCommand(command)
   }
 
   async getControls() {

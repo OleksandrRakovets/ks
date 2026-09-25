@@ -1,13 +1,6 @@
 import { isDeepStrictEqual } from 'node:util'
 
-import {
-  createMatch,
-  type Match,
-  MatchCheckpoint,
-  MatchRejection,
-  type MatchRoomProjection,
-  restoreMatchCheckpoint,
-} from '@ks/competition'
+import { MatchCheckpoint, MatchRejection, type MatchRoomProjection } from '@ks/competition'
 import {
   AcceptedCommand,
   Control,
@@ -52,19 +45,16 @@ export class MatchStorage {
   }
 
   commitCreation(initialization: MatchCreation): void {
-    const { config, ...values } = initialization
-    const match = createMatch(config)
-    const projection = match.project()
-
     this.#db.transaction((tx) => {
       tx.insert(schema.activeMatches)
         .values({
-          ...values,
-          matchId: config.matchId,
-          configJson: JSON.stringify(config),
+          controlSecret: initialization.controlSecret,
+          createdAt: initialization.createdAt,
+          matchId: initialization.config.matchId,
+          configJson: JSON.stringify(initialization.config),
           latestSeq: 0,
           currentCheckpointSeq: 0,
-          scoreJson: JSON.stringify(projectMatchScore(projection.state)),
+          scoreJson: JSON.stringify(projectMatchScore(initialization.projection.state)),
           status: 'active',
           finalStateJson: null,
           gameResultJson: null,
@@ -75,9 +65,9 @@ export class MatchStorage {
         .values({
           seq: 0,
           previousCheckpointSeq: null,
-          aggregateJson: JSON.stringify(match.exportCheckpoint()),
-          stateJson: JSON.stringify(projection.state),
-          projectionJson: JSON.stringify(projection),
+          aggregateJson: JSON.stringify(initialization.checkpoint),
+          stateJson: JSON.stringify(initialization.projection.state),
+          projectionJson: JSON.stringify(initialization.projection),
           lastPlayerAcceptedSeq: null,
           lastPlayerEntryIndex: null,
         })
@@ -214,7 +204,7 @@ export class MatchStorage {
           scoreJson: JSON.stringify(score),
           status: endsMatch ? 'finalizing' : 'active',
           finalStateJson: endsMatch ? JSON.stringify(args.projection.state) : null,
-          gameResultJson: args.gameResult ? JSON.stringify(args.gameResult) : null,
+          gameResultJson: endsMatch && args.gameResult ? JSON.stringify(args.gameResult) : null,
           endedAt: endsMatch ? acceptedCommand.acceptedAt : null,
         })
         .where(
@@ -240,24 +230,16 @@ export class MatchStorage {
     })
   }
 
-  /** Only executable reads hydrate and validate the aggregate blob. */
-  readCurrentMatch(header: StoredActiveMatch): Match {
+  /** Only executable reads decode the aggregate blob. The caller restores and checks its projection. */
+  readCurrentCheckpoint(header: StoredActiveMatch) {
     try {
       const row = this.#checkpointRow(header.currentCheckpointSeq)
       const checkpoint = v.parse(v.pipe(v.string(), v.parseJson(), MatchCheckpoint), row.aggregateJson)
 
       if (!isDeepStrictEqual(checkpoint.lifecycle.context.config, header.config))
         throw new Error('config mismatch')
-      const match = restoreMatchCheckpoint(checkpoint)
-      const state = this.#decodeState(row.stateJson, header)
 
-      if (
-        !isDeepStrictEqual(match.project().state, state) ||
-        !isDeepStrictEqual(projectMatchScore(state), header.score)
-      )
-        throw new Error('projection mismatch')
-
-      return match
+      return { checkpoint, state: this.#decodeState(row.stateJson, header) }
     } catch {
       throw new Error('MatchRoom checkpoint storage corruption')
     }
@@ -441,6 +423,7 @@ const StoredActiveMatch = v.pipe(
     ...StoredMatchFields,
     status: v.literal('active'),
     finalStateJson: v.null(),
+    gameResultJson: v.null(),
     endedAt: v.null(),
   }),
   v.transform(({ configJson, finalStateJson, gameResultJson, scoreJson, ...row }) => ({
@@ -450,12 +433,7 @@ const StoredActiveMatch = v.pipe(
     gameResult: gameResultJson,
     score: scoreJson,
   })),
-  v.check(
-    (row) =>
-      row.matchId === row.config.matchId &&
-      row.currentCheckpointSeq <= row.latestSeq &&
-      (!row.gameResult || row.gameResult.gameKey === row.config.gameKey),
-  ),
+  v.check((row) => row.matchId === row.config.matchId && row.currentCheckpointSeq <= row.latestSeq),
   v.readonly(),
 )
 
@@ -501,6 +479,8 @@ export type MatchCreation = {
   readonly config: MatchConfig
   readonly controlSecret: string
   readonly createdAt: UnixEpochMilliseconds
+  readonly checkpoint: MatchCheckpoint
+  readonly projection: MatchRoomProjection
 }
 
 function decodeCommand(row: typeof schema.commands.$inferSelect): MatchCommand {

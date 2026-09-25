@@ -1,5 +1,5 @@
 import { newCommandId, newMatchId } from '@ks/core'
-import { evictDurableObject } from 'cloudflare:test'
+import { evictDurableObject, runInDurableObject } from 'cloudflare:test'
 import { env } from 'cloudflare:workers'
 import { expect, test } from 'vitest'
 
@@ -35,6 +35,15 @@ test.each([14, 15] as const)(
       await submit('game', { type: 'pot.record', seat: 'A', pottedBallCount: count })
     await submit('game', { type: 'pot.record', seat: 'B', pottedBallCount: rollover - 12 })
 
+    await runInDurableObject(stub, (_room, state) => {
+      expect(
+        state.storage.sql
+          .exec<{ game_result_json: string | null }>('SELECT game_result_json FROM active_matches')
+          .one().game_result_json,
+      ).toBeNull()
+    })
+    expect(await stub.getScore()).toMatchObject({ _tag: 'active', latestSeq: 6 })
+
     const racks = [
       { rackNumber: 1, scoreBySeat: { A: 12, B: rollover - 12 } },
       { rackNumber: 2, scoreBySeat: { A: 0, B: 0 } },
@@ -57,6 +66,13 @@ test.each([14, 15] as const)(
     expect(await finalizing.getControls()).toMatchObject({
       _tag: 'finalizing',
       gameResult: { gameKey: 'free-pyramid-long', racks },
+    })
+    await runInDurableObject(finalizing, (_room, state) => {
+      expect(
+        state.storage.sql
+          .exec<{ game_result_json: string | null }>('SELECT game_result_json FROM active_matches')
+          .one().game_result_json,
+      ).not.toBeNull()
     })
     const transfer: FinishedMatchTransfer = await finalizing.prepareArchive()
     expect(transfer.gameResult).toEqual({ gameKey: 'free-pyramid-long', racks })

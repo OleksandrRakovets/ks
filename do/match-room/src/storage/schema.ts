@@ -40,11 +40,11 @@ export const checkpoints = sqliteTable(
   (table) => [
     check(
       'checkpoints_reference_fields',
-      sql`(${table.lastPlayerAcceptedSeq} IS NULL AND ${table.lastPlayerEntryIndex} IS NULL) OR (${table.lastPlayerAcceptedSeq} > 0 AND ${table.lastPlayerEntryIndex} >= 0)`,
+      sql`(${table.lastPlayerAcceptedSeq} IS NULL AND ${table.lastPlayerEntryIndex} IS NULL) OR (${table.lastPlayerAcceptedSeq} IS NOT NULL AND ${table.lastPlayerAcceptedSeq} > 0 AND ${table.lastPlayerEntryIndex} IS NOT NULL AND ${table.lastPlayerEntryIndex} >= 0)`,
     ),
     check(
       'checkpoints_predecessor',
-      sql`(${table.seq} = 0 AND ${table.previousCheckpointSeq} IS NULL) OR (${table.seq} > 0 AND ${table.previousCheckpointSeq} >= 0 AND ${table.previousCheckpointSeq} < ${table.seq})`,
+      sql`(${table.seq} = 0 AND ${table.previousCheckpointSeq} IS NULL) OR (${table.seq} > 0 AND ${table.previousCheckpointSeq} IS NOT NULL AND ${table.previousCheckpointSeq} >= 0 AND ${table.previousCheckpointSeq} < ${table.seq})`,
     ),
   ],
 )

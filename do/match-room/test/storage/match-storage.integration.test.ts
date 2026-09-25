@@ -1,4 +1,4 @@
-import { buildMatchConfig, CreateMatchRequest } from '@ks/competition'
+import { buildMatchConfig, createMatch, CreateMatchRequest } from '@ks/competition'
 import { newCommandId, newMatchId, PlayerRef, UnixEpochMilliseconds } from '@ks/core'
 import { runInDurableObject } from 'cloudflare:test'
 import { env } from 'cloudflare:workers'
@@ -35,10 +35,13 @@ test('stores canonical values and compares durable Command retries semantically'
   await runInDurableObject(env.MATCH_ROOM.getByName(matchId), (_room, state) => {
     const storage = new MatchStorage(state.storage)
     storage.migrate()
+    const match = createMatch(config)
     storage.commitCreation({
       config,
       controlSecret,
       createdAt,
+      checkpoint: match.exportCheckpoint(),
+      projection: match.project(),
     })
     storage.commitRejectedCommand({ matchId, command, reason: { code: 'no-active-frame' } })
 
@@ -58,6 +61,40 @@ test('stores canonical values and compares durable Command retries semantically'
     ).toEqual({
       _tag: 'command-id-conflict',
     })
+  })
+})
+
+test('SQLite rejects incomplete checkpoint predecessors and paired player references', async () => {
+  const matchId = newMatchId()
+  const stub = env.MATCH_ROOM.getByName(matchId)
+  await stub.initialize({ ...request, matchId, controlSecret, createdAt })
+
+  await runInDurableObject(stub, (_room, state) => {
+    const insert = (seq: number, predecessor: number | null, playerSeq: number | null, index: number | null) =>
+      state.storage.sql.exec(
+        `INSERT INTO checkpoints
+          (seq, previous_checkpoint_seq, aggregate_json, state_json, projection_json,
+           last_player_accepted_seq, last_player_entry_index)
+         VALUES (?, ?, '{}', '{}', '{}', ?, ?)`,
+        seq,
+        predecessor,
+        playerSeq,
+        index,
+      )
+
+    expect(
+      state.storage.sql
+        .exec<{ seq: number; previous_checkpoint_seq: number | null }>(
+          'SELECT seq, previous_checkpoint_seq FROM checkpoints',
+        )
+        .one(),
+    ).toEqual({ seq: 0, previous_checkpoint_seq: null })
+    expect(() => insert(1, null, null, null)).toThrow()
+    expect(() => insert(1, 0, 1, null)).toThrow()
+    expect(() => insert(1, 0, null, 0)).toThrow()
+    expect(() => insert(1, 1, null, null)).toThrow()
+    expect(() => insert(1, 0, null, null)).not.toThrow()
+    expect(() => insert(2, 1, 1, 0)).not.toThrow()
   })
 })
 
