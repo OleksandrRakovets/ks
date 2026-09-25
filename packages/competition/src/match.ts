@@ -565,15 +565,18 @@ export function correctMatch(
     result: {
       _tag: 'accepted',
       command,
-      protocolEntryContents: originalContents.map((original, targetEntryIndex) => ({
-        gameKey: config.gameKey,
-        frameIndex: frame.frameIndex,
-        source: original.source,
-        entryType: 'command-corrected',
-        seat: original.seat,
-        scoreAfter: frame.pointsBySeat,
-        body: { targetSeq: target.acceptedSeq, targetCommandId: target.commandId, targetEntryIndex },
-      })),
+      // Compensate derived outcomes latest-first, but retain each original entry's index as the link.
+      protocolEntryContents: originalContents
+        .map((original, targetEntryIndex) => ({
+          gameKey: config.gameKey,
+          frameIndex: frame.frameIndex,
+          source: original.source,
+          entryType: 'command-corrected',
+          seat: original.seat,
+          scoreAfter: frame.pointsBySeat,
+          body: { targetSeq: target.acceptedSeq, targetCommandId: target.commandId, targetEntryIndex },
+        }))
+        .reverse(),
     },
   }
 }

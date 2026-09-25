@@ -38,6 +38,7 @@ const foul: ProtocolEntry = {
 const correction: ProtocolEntry = {
   ...pot,
   acceptedSeq: 4,
+  entryIndex: 1,
   causedByCommandId: newCommandId(),
   entryType: 'command-corrected',
   scoreAfter: { A: 2, B: 0 },
@@ -46,7 +47,7 @@ const correction: ProtocolEntry = {
 
 const foulCorrection: ProtocolEntry = {
   ...correction,
-  entryIndex: 1,
+  entryIndex: 0,
   source: 'system',
   body: { targetSeq: 3, targetCommandId: originalId, targetEntryIndex: 1 },
 }
@@ -101,7 +102,7 @@ test('links both correction entries to their own original without adding a stack
     scoreAfter: { A: 1, B: 0 },
   }
 
-  const entries = [earlier, pot, foul, correction, foulCorrection]
+  const entries = [earlier, pot, foul, foulCorrection, correction]
 
   expect(renderLastCommandRow(entries, names, 4)?.target).toEqual({
     acceptedSeq: 2,
@@ -109,14 +110,14 @@ test('links both correction entries to their own original without adding a stack
   })
   const rows = renderProtocolRows(entries, names, clock)
   expect(rows[3]?.message).toMatchObject({
-    actor: 'Богдан',
-    correctedEntry: { key: 'match.protocol.commands.pot.record.balls' },
-  })
-  expect(rows[4]?.message).toMatchObject({
     key: 'match.protocol.commandCorrected',
     correctedEntry: { key: 'match.protocol.system.automatic-foul.third-consecutive-cue-ball-pot' },
   })
-  expect(rows[4]?.message.actor).toBeUndefined()
+  expect(rows[3]?.message.actor).toBeUndefined()
+  expect(rows[4]?.message).toMatchObject({
+    actor: 'Богдан',
+    correctedEntry: { key: 'match.protocol.commands.pot.record.balls' },
+  })
 })
 
 test('does not target a stale command or frame lifecycle entry', () => {

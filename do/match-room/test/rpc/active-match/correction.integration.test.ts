@@ -168,24 +168,28 @@ test('persists the third cue-ball pot and system-foul corrections as one stack s
   const protocol = await stub.getProtocol()
   expect(protocol).toMatchObject({
     latestSeq: 6,
-    protocolEntries: expect.arrayContaining([
-      expect.objectContaining({ acceptedSeq: 5, entryIndex: 0, source: 'player' }),
-      expect.objectContaining({ acceptedSeq: 5, entryIndex: 1, source: 'system' }),
-      expect.objectContaining({
+    protocolEntries: [
+      { acceptedSeq: 1 },
+      { acceptedSeq: 2 },
+      { acceptedSeq: 3 },
+      { acceptedSeq: 4 },
+      { acceptedSeq: 5, entryIndex: 0, source: 'player' },
+      { acceptedSeq: 5, entryIndex: 1, source: 'system' },
+      {
         acceptedSeq: 6,
         entryIndex: 0,
-        source: 'player',
-        entryType: 'command-corrected',
-        body: { targetSeq: 5, targetCommandId: pots[2]!.commandId, targetEntryIndex: 0 },
-      }),
-      expect.objectContaining({
-        acceptedSeq: 6,
-        entryIndex: 1,
         source: 'system',
         entryType: 'command-corrected',
         body: { targetSeq: 5, targetCommandId: pots[2]!.commandId, targetEntryIndex: 1 },
-      }),
-    ]),
+      },
+      {
+        acceptedSeq: 6,
+        entryIndex: 1,
+        source: 'player',
+        entryType: 'command-corrected',
+        body: { targetSeq: 5, targetCommandId: pots[2]!.commandId, targetEntryIndex: 0 },
+      },
+    ],
   })
   await evictDurableObject(stub)
   const restored = env.MATCH_ROOM.getByName(matchId)

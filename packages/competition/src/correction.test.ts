@@ -70,16 +70,16 @@ test('compensates the third cue-ball pot and its automatic foul while retaining 
     protocolEntryContents: [
       {
         entryType: 'command-corrected',
+        source: 'system',
+        scoreAfter: { A: 2, B: 0 },
+        body: { targetSeq: target.acceptedSeq, targetCommandId: target.commandId, targetEntryIndex: 1 },
+      },
+      {
+        entryType: 'command-corrected',
         source: 'player',
         seat: 'A',
         scoreAfter: { A: 2, B: 0 },
         body: { targetSeq: target.acceptedSeq, targetCommandId: target.commandId, targetEntryIndex: 0 },
-      },
-      {
-        entryType: 'command-corrected',
-        source: 'system',
-        scoreAfter: { A: 2, B: 0 },
-        body: { targetSeq: target.acceptedSeq, targetCommandId: target.commandId, targetEntryIndex: 1 },
       },
     ],
   })
@@ -96,8 +96,8 @@ test('compensates the third cue-ball pot and its automatic foul while retaining 
     { systemType: 'automatic-foul', reason: 'third-consecutive-cue-ball-pot' },
   ])
   expect(restored.accepted[5]?.protocolEntryContents).toMatchObject([
-    { source: 'player', body: { targetSeq: 5, targetEntryIndex: 0 } },
     { source: 'system', body: { targetSeq: 5, targetEntryIndex: 1 } },
+    { source: 'player', body: { targetSeq: 5, targetEntryIndex: 0 } },
   ])
 
   const next = {
