@@ -25,7 +25,7 @@ export const activeMatches = sqliteTable(
   ],
 )
 
-/** Immutable executable state and read projection at each ordinary acceptance (including creation at 0). */
+/** Immutable executable state and read presentation at each ordinary acceptance (including creation at 0). */
 export const checkpoints = sqliteTable(
   'checkpoints',
   {
@@ -33,7 +33,7 @@ export const checkpoints = sqliteTable(
     previousCheckpointSeq: integer('previous_checkpoint_seq'),
     aggregateJson: text('aggregate_json').notNull(),
     stateJson: text('state_json').notNull(),
-    projectionJson: text('projection_json').notNull(),
+    gamePresentationJson: text('game_presentation_json'),
     lastPlayerAcceptedSeq: integer('last_player_accepted_seq'),
     lastPlayerEntryIndex: integer('last_player_entry_index'),
   },

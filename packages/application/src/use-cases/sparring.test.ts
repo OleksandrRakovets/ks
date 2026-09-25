@@ -503,7 +503,7 @@ describe('trusted MatchRoom orchestration', () => {
     expect(v.safeParse(MatchScorePollResponse, { matches: result.matches }).success).toBe(true)
   })
 
-  test('reads Protocol with its own durable projection without a Controls call', async () => {
+  test('reads Protocol with its own durable presentation without a Controls call', async () => {
     const commandId = newCommandId()
 
     const room = selectedClient({
@@ -512,7 +512,6 @@ describe('trusted MatchRoom orchestration', () => {
         latestSeq: 2,
         state: { ...state, currentFrameIndex: 1 },
         game: undefined,
-        controls: [],
         protocolEntries: [
           {
             acceptedSeq: 1,
@@ -550,6 +549,8 @@ describe('trusted MatchRoom orchestration', () => {
       state: { currentFrameIndex: 1 },
       protocolRows: [{ key: 'protocol-2-0' }, { key: 'protocol-1-0' }],
     })
+    expect(result).not.toHaveProperty('controls')
+    expect(result).not.toHaveProperty('lastEntry')
   })
 
   test('archives, finalizes, and finishes after a match-ending Accepted Command', async () => {

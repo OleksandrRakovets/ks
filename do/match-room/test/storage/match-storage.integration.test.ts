@@ -41,7 +41,7 @@ test('stores canonical values and compares durable Command retries semantically'
       controlSecret,
       createdAt,
       checkpoint: match.exportCheckpoint(),
-      projection: match.project(),
+      presentation: match.project(),
     })
     storage.commitRejectedCommand({ matchId, command, reason: { code: 'no-active-frame' } })
 
@@ -73,9 +73,9 @@ test('SQLite rejects incomplete checkpoint predecessors and paired player refere
     const insert = (seq: number, predecessor: number | null, playerSeq: number | null, index: number | null) =>
       state.storage.sql.exec(
         `INSERT INTO checkpoints
-          (seq, previous_checkpoint_seq, aggregate_json, state_json, projection_json,
+          (seq, previous_checkpoint_seq, aggregate_json, state_json, game_presentation_json,
            last_player_accepted_seq, last_player_entry_index)
-         VALUES (?, ?, '{}', '{}', '{}', ?, ?)`,
+         VALUES (?, ?, '{}', '{}', NULL, ?, ?)`,
         seq,
         predecessor,
         playerSeq,

@@ -1,7 +1,7 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "962ecc15-4ed3-4d0f-ae09-a3d3c28420df",
+  "id": "2566ced3-191c-4955-b8a2-5fdf7584f587",
   "prevIds": ["6f46603d-605c-42e5-b2f6-94881582172a"],
   "ddl": [
     {
@@ -172,11 +172,11 @@
     },
     {
       "type": "text",
-      "notNull": true,
+      "notNull": false,
       "autoincrement": false,
       "default": null,
       "generated": null,
-      "name": "projection_json",
+      "name": "game_presentation_json",
       "entityType": "columns",
       "table": "checkpoints"
     },
@@ -353,13 +353,13 @@
       "table": "active_matches"
     },
     {
-      "value": "(\"last_player_accepted_seq\" IS NULL AND \"last_player_entry_index\" IS NULL) OR (\"last_player_accepted_seq\" > 0 AND \"last_player_entry_index\" >= 0)",
+      "value": "(\"last_player_accepted_seq\" IS NULL AND \"last_player_entry_index\" IS NULL) OR (\"last_player_accepted_seq\" IS NOT NULL AND \"last_player_accepted_seq\" > 0 AND \"last_player_entry_index\" IS NOT NULL AND \"last_player_entry_index\" >= 0)",
       "name": "checkpoints_reference_fields",
       "entityType": "checks",
       "table": "checkpoints"
     },
     {
-      "value": "(\"seq\" = 0 AND \"previous_checkpoint_seq\" IS NULL) OR (\"seq\" > 0 AND \"previous_checkpoint_seq\" >= 0 AND \"previous_checkpoint_seq\" < \"seq\")",
+      "value": "(\"seq\" = 0 AND \"previous_checkpoint_seq\" IS NULL) OR (\"seq\" > 0 AND \"previous_checkpoint_seq\" IS NOT NULL AND \"previous_checkpoint_seq\" >= 0 AND \"previous_checkpoint_seq\" < \"seq\")",
       "name": "checkpoints_predecessor",
       "entityType": "checks",
       "table": "checkpoints"

@@ -3,11 +3,11 @@ CREATE TABLE `checkpoints` (
 	`previous_checkpoint_seq` integer,
 	`aggregate_json` text NOT NULL,
 	`state_json` text NOT NULL,
-	`projection_json` text NOT NULL,
+	`game_presentation_json` text,
 	`last_player_accepted_seq` integer,
 	`last_player_entry_index` integer,
-	CONSTRAINT "checkpoints_reference_fields" CHECK(("last_player_accepted_seq" IS NULL AND "last_player_entry_index" IS NULL) OR ("last_player_accepted_seq" > 0 AND "last_player_entry_index" >= 0)),
-	CONSTRAINT "checkpoints_predecessor" CHECK(("seq" = 0 AND "previous_checkpoint_seq" IS NULL) OR ("seq" > 0 AND "previous_checkpoint_seq" >= 0 AND "previous_checkpoint_seq" < "seq"))
+	CONSTRAINT "checkpoints_reference_fields" CHECK(("last_player_accepted_seq" IS NULL AND "last_player_entry_index" IS NULL) OR ("last_player_accepted_seq" IS NOT NULL AND "last_player_accepted_seq" > 0 AND "last_player_entry_index" IS NOT NULL AND "last_player_entry_index" >= 0)),
+	CONSTRAINT "checkpoints_predecessor" CHECK(("seq" = 0 AND "previous_checkpoint_seq" IS NULL) OR ("seq" > 0 AND "previous_checkpoint_seq" IS NOT NULL AND "previous_checkpoint_seq" >= 0 AND "previous_checkpoint_seq" < "seq"))
 );
 --> statement-breakpoint
 CREATE TABLE `protocol_entries` (

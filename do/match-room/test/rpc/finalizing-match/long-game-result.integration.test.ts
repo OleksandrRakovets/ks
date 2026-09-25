@@ -55,6 +55,27 @@ test.each([14, 15] as const)(
       _tag: 'active',
       game: { details: { rackHistory: racks } },
     })
+    const protocol = await restored.getProtocol()
+    expect(protocol).toMatchObject({
+      _tag: 'active',
+      game: { details: { rackHistory: racks } },
+    })
+    expect(protocol).not.toHaveProperty('controls')
+    await runInDurableObject(restored, (_room, state) => {
+      const stored = state.storage.sql
+        .exec<{ game_presentation_json: string }>(
+          `SELECT game_presentation_json
+           FROM checkpoints
+           WHERE seq = (SELECT current_checkpoint_seq FROM active_matches)`,
+        )
+        .one()
+
+      expect(JSON.parse(stored.game_presentation_json)).toMatchObject({
+        details: { rackHistory: racks },
+      })
+      expect(stored.game_presentation_json).not.toContain('controls')
+      expect(stored.game_presentation_json).not.toContain('state')
+    })
 
     await restored.submitCommand({
       commandId: newCommandId(),

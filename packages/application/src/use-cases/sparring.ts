@@ -131,7 +131,7 @@ type ReadKeyedMatchSuccess<K extends RegisteredGameKey> = {
   participants: HydratedMatchParticipants
   game?: GamePresentationFor<K>
   gameResult?: GameResult | null
-  controls: readonly Control[]
+  controls?: readonly Control[]
   protocolEntries: ProtocolEntries
   lastEntry?: NonNullable<ReturnType<typeof renderLastCorrectableProtocolRow>>
 }
@@ -365,24 +365,24 @@ export function createSparringApplicationWithDependencies(
 
     const protocolEntries = 'protocolEntries' in roomResult ? roomResult.protocolEntries : []
 
-    const lastEntry = renderLastCorrectableProtocolRow(
+    const lastEntry =
       'lastPlayerEntry' in roomResult
-        ? roomResult.lastPlayerEntry
-          ? [roomResult.lastPlayerEntry]
-          : []
-        : protocolEntries,
-      seatNames,
-      roomResult.latestSeq,
-    )
+        ? renderLastCorrectableProtocolRow(
+            roomResult.lastPlayerEntry ? [roomResult.lastPlayerEntry] : [],
+            seatNames,
+            roomResult.latestSeq,
+          )
+        : undefined
 
     const result: ReadKeyedMatchSuccess<K> = {
       ok: true,
       state: { ...roomResult.state, gameKey: expectedGameKey },
       latestSeq: roomResult.latestSeq,
       participants,
-      controls: roomResult.controls,
       protocolEntries,
     }
+
+    if ('controls' in roomResult) result.controls = roomResult.controls
 
     if (lastEntry !== undefined) result.lastEntry = lastEntry
 
@@ -452,8 +452,6 @@ export function createSparringApplicationWithDependencies(
 
     if (!match.ok) return match
 
-    const result = toMatchResult(match)
-
     const seatNames = {
       A: match.participants.A.displayName,
       B: match.participants.B.displayName,
@@ -461,10 +459,22 @@ export function createSparringApplicationWithDependencies(
 
     const protocolRows = renderProtocolRows(match.protocolEntries, seatNames, dependencies.clock)
 
-    return {
-      ...result,
-      protocolRows: match.state.status === 'active' ? protocolRows.reverse() : protocolRows,
+    if (match.state.status === 'finished') {
+      return { ...toFinishedMatchResult(match), protocolRows }
     }
+
+    const active = {
+      ok: true as const,
+      lifecycle: 'active' as const,
+      state: { ...match.state, status: 'active' as const },
+      latestSeq: match.latestSeq,
+      participants: match.participants,
+      protocolRows: protocolRows.reverse(),
+    }
+
+    return match.game
+      ? { ...active, controlPhase: 'frame-active', game: match.game }
+      : { ...active, controlPhase: 'between-frames' }
   }
 
   async function archiveAndMarkFinished(matchId: MatchId): Promise<void> {
@@ -565,7 +575,6 @@ export function createSparringApplicationWithDependencies(
       endedAtPresentation,
       endedAtIsToday: isSameLocalDate(endedAtPresentation, formattedNow),
       participants: await hydrateParticipants(record, locale),
-      controls: [],
       protocolEntries,
     }
   }
@@ -605,7 +614,6 @@ export function createSparringApplicationWithDependencies(
       endedAtPresentation,
       endedAtIsToday: isSameLocalDate(endedAtPresentation, formattedNow),
       participants: await hydrateParticipants(record, locale),
-      controls: [],
       protocolEntries: archive.entries ?? [],
     }
   }
@@ -614,26 +622,10 @@ export function createSparringApplicationWithDependencies(
     match: ReadKeyedMatchSuccess<K>,
   ): Extract<ReadMatchResult<K>, { ok: true }> {
     if (match.state.status === 'finished') {
-      if (match.endedAtPresentation === undefined || match.endedAtIsToday === undefined)
-        throw new Error('Finished Match read is missing its end time')
-
-      return {
-        ok: true,
-        lifecycle: 'finished',
-        state: { ...match.state, status: 'finished' },
-        gameResult: match.gameResult ?? null,
-        latestSeq: match.latestSeq,
-        endedAtIso: match.endedAtPresentation.isoString,
-        endedAtTime: match.endedAtPresentation.time,
-        endedAtDate: match.endedAtPresentation.date,
-        endedAtIsToday: match.endedAtIsToday,
-        participants: match.participants,
-        hasCustomFrameTarget: hasCustomFrameTarget(
-          match.state.gameKey,
-          match.state.targets.frameTargetPointsBySeat,
-        ),
-      }
+      return toFinishedMatchResult(match)
     }
+
+    if (match.controls === undefined) throw new Error('Active Match controls read is missing controls')
 
     const active =
       match.lastEntry === undefined
@@ -658,6 +650,32 @@ export function createSparringApplicationWithDependencies(
     if (match.game) return { ...active, controlPhase: 'frame-active', game: match.game }
 
     return { ...active, controlPhase: 'between-frames' }
+  }
+
+  function toFinishedMatchResult<K extends RegisteredGameKey>(
+    match: ReadKeyedMatchSuccess<K>,
+  ): Extract<ReadMatchResult<K>, { ok: true; lifecycle: 'finished' }> {
+    if (match.state.status !== 'finished') throw new Error('Active Match cannot be shown as finished')
+
+    if (match.endedAtPresentation === undefined || match.endedAtIsToday === undefined)
+      throw new Error('Finished Match read is missing its end time')
+
+    return {
+      ok: true,
+      lifecycle: 'finished',
+      state: { ...match.state, status: 'finished' },
+      gameResult: match.gameResult ?? null,
+      latestSeq: match.latestSeq,
+      endedAtIso: match.endedAtPresentation.isoString,
+      endedAtTime: match.endedAtPresentation.time,
+      endedAtDate: match.endedAtPresentation.date,
+      endedAtIsToday: match.endedAtIsToday,
+      participants: match.participants,
+      hasCustomFrameTarget: hasCustomFrameTarget(
+        match.state.gameKey,
+        match.state.targets.frameTargetPointsBySeat,
+      ),
+    }
   }
 
   function isSameLocalDate(left: InstantPresentation, right: InstantPresentation): boolean {

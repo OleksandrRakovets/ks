@@ -24,7 +24,7 @@ export function initializeMatch(storage: MatchStorage, input: InitializeMatchInp
     controlSecret: input.controlSecret,
     createdAt: input.createdAt,
     checkpoint: match.exportCheckpoint(),
-    projection: match.project(),
+    presentation: match.project(),
   })
 
   return { _tag: 'initialized', matchId: config.matchId }

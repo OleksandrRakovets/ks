@@ -1,9 +1,8 @@
 import { isDeepStrictEqual } from 'node:util'
 
-import { MatchCheckpoint, MatchRejection, type MatchRoomProjection } from '@ks/competition'
+import { MatchCheckpoint, MatchRejection, type MatchRoomPresentation } from '@ks/competition'
 import {
   AcceptedCommand,
-  Control,
   MatchCommand,
   MatchConfig,
   MatchId,
@@ -54,7 +53,7 @@ export class MatchStorage {
           configJson: JSON.stringify(initialization.config),
           latestSeq: 0,
           currentCheckpointSeq: 0,
-          scoreJson: JSON.stringify(projectMatchScore(initialization.projection.state)),
+          scoreJson: JSON.stringify(projectMatchScore(initialization.presentation.state)),
           status: 'active',
           finalStateJson: null,
           gameResultJson: null,
@@ -66,8 +65,11 @@ export class MatchStorage {
           seq: 0,
           previousCheckpointSeq: null,
           aggregateJson: JSON.stringify(initialization.checkpoint),
-          stateJson: JSON.stringify(initialization.projection.state),
-          projectionJson: JSON.stringify(initialization.projection),
+          stateJson: JSON.stringify(initialization.presentation.state),
+          gamePresentationJson:
+            initialization.presentation.game === undefined
+              ? null
+              : JSON.stringify(initialization.presentation.game),
           lastPlayerAcceptedSeq: null,
           lastPlayerEntryIndex: null,
         })
@@ -127,7 +129,7 @@ export class MatchStorage {
     match: StoredActiveMatch
     command: MatchCommand
     checkpoint: MatchCheckpoint
-    projection: MatchRoomProjection
+    presentation: MatchRoomPresentation
     protocolEntryContents: readonly ProtocolEntryContent[]
     gameResult: GameResultValue | null
   }): {
@@ -140,7 +142,7 @@ export class MatchStorage {
       acceptedAt: this.#clock.nowMs(),
     })
 
-    const endsMatch = args.projection.state.status === 'finished'
+    const endsMatch = args.presentation.state.status === 'finished'
 
     const entries = args.protocolEntryContents.map((content, entryIndex) =>
       v.parse(ProtocolEntry, {
@@ -160,7 +162,7 @@ export class MatchStorage {
       .find((entry) => entry.source === 'player')
 
     const prior = this.#checkpointRow(args.match.currentCheckpointSeq)
-    const score = projectMatchScore(args.projection.state)
+    const score = projectMatchScore(args.presentation.state)
 
     return this.#db.transaction((tx) => {
       tx.insert(schema.commands)
@@ -180,8 +182,9 @@ export class MatchStorage {
           seq: acceptedCommand.acceptedSeq,
           previousCheckpointSeq: args.match.currentCheckpointSeq,
           aggregateJson: JSON.stringify(args.checkpoint),
-          stateJson: JSON.stringify(args.projection.state),
-          projectionJson: JSON.stringify(args.projection),
+          stateJson: JSON.stringify(args.presentation.state),
+          gamePresentationJson:
+            args.presentation.game === undefined ? null : JSON.stringify(args.presentation.game),
           lastPlayerAcceptedSeq: lastPlayer?.acceptedSeq ?? prior.lastPlayerAcceptedSeq,
           lastPlayerEntryIndex: lastPlayer?.entryIndex ?? prior.lastPlayerEntryIndex,
         })
@@ -203,7 +206,7 @@ export class MatchStorage {
           currentCheckpointSeq: acceptedCommand.acceptedSeq,
           scoreJson: JSON.stringify(score),
           status: endsMatch ? 'finalizing' : 'active',
-          finalStateJson: endsMatch ? JSON.stringify(args.projection.state) : null,
+          finalStateJson: endsMatch ? JSON.stringify(args.presentation.state) : null,
           gameResultJson: endsMatch && args.gameResult ? JSON.stringify(args.gameResult) : null,
           endedAt: endsMatch ? acceptedCommand.acceptedAt : null,
         })
@@ -249,37 +252,24 @@ export class MatchStorage {
     return this.#decodeState(this.#checkpointRow(header.currentCheckpointSeq).stateJson, header)
   }
 
-  readCurrentProjection(header: StoredActiveMatch): MatchRoomProjection {
+  readCurrentPresentation(header: StoredActiveMatch): MatchRoomPresentation {
     const row = this.#checkpointRow(header.currentCheckpointSeq)
 
     try {
-      const projection = v.parse(
-        v.pipe(
-          v.string(),
-          v.parseJson(),
-          v.object({
-            state: MatchState,
-            game: v.optional(v.unknown()),
-            controls: v.array(Control),
-          }),
-        ),
-        row.projectionJson,
-      )
+      const state = this.#decodeState(row.stateJson, header)
 
-      if (!isDeepStrictEqual(projection.state, this.#decodeState(row.stateJson, header)))
-        throw new Error('state mismatch')
+      const game =
+        row.gamePresentationJson === null
+          ? undefined
+          : v.parse(
+              v.pipe(v.string(), v.parseJson(), registry[header.config.gameKey].presentationSchema),
+              row.gamePresentationJson,
+            )
 
-      if (
-        projection.game !== undefined &&
-        !v.is(registry[header.config.gameKey].presentationSchema, projection.game)
-      )
-        throw new Error('game mismatch')
-
-      // SAFETY: the state is validated against the current registered key and the optional game
-      // presentation against that key's schema; Control is validated above.
-      return projection as MatchRoomProjection
+      // SAFETY: state and game presentation are validated against the same registered game key.
+      return { state, game } as MatchRoomPresentation
     } catch {
-      throw new Error('MatchRoom checkpoint projection storage corruption')
+      throw new Error('MatchRoom checkpoint presentation storage corruption')
     }
   }
 
@@ -480,7 +470,7 @@ export type MatchCreation = {
   readonly controlSecret: string
   readonly createdAt: UnixEpochMilliseconds
   readonly checkpoint: MatchCheckpoint
-  readonly projection: MatchRoomProjection
+  readonly presentation: MatchRoomPresentation
 }
 
 function decodeCommand(row: typeof schema.commands.$inferSelect): MatchCommand {

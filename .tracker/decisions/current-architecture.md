@@ -32,7 +32,7 @@ core <- gameplay <- competition
 
 Game keys come from `packages/gameplay/src/registry.ts`. Each game has an explicit primary Match route and Protocol route. The primary route loader maps the application lifecycle once to the mutually exclusive Control or Result page; the stable URL does not encode lifecycle state. Commands share the `game` path, while gameplay owns their semantics.
 
-Competition composes match controls before game controls into one flat list. MatchRoom returns a request-local projection as match state, optional correlated game presentation, and flat controls. Application preserves those shapes and lifecycle arms; Play alone groups controls into stable presentation sections for layout. MatchRoom RPC is a trusted typed capability and does not reparse these values at that seam.
+Competition composes match controls before game controls into one flat list. The scoring RPC restores a request-local aggregate and returns match state, optional correlated game presentation, and flat controls. The Protocol RPC returns persisted match state, optional correlated game presentation, and canonical Protocol entries without controls. Application preserves those distinct read contracts; Play alone groups scoring controls into stable presentation sections for layout. MatchRoom RPC is a trusted typed capability and does not reparse these values at that seam.
 
 ### Schema Conventions
 
@@ -45,11 +45,11 @@ Competition composes match controls before game controls into one flat list. Mat
 | Store | Authority |
 | --- | --- |
 | D1 | Players, creating/active/finished match rows, final protocol archive and final match state, compact finished list-score projection |
-| MatchRoom SQLite | Active config, control secret, Accepted Commands and outcomes, monotonic acceptance sequence, current checkpoint pointer, complete Protocol entries, immutable executable checkpoints and read projections, Final Match State, active/finalizing status |
+| MatchRoom SQLite | Active config, control secret, Accepted Commands and outcomes, monotonic acceptance sequence, current checkpoint pointer, complete Protocol entries, immutable executable checkpoints with Match State and optional game presentation, Final Match State, active/finalizing status |
 
 Accepted Commands and their outcomes are the immutable acceptance ledger and are never mirrored to D1. Checkpoint 0 is committed with the initial match header. Every ordinary acceptance atomically inserts a new checkpoint referencing the prior current checkpoint (not necessarily the previous acceptance sequence), complete indexed Protocol entries and the command receipt, and updates the header's acceptance cursor, current pointer, and compact score. Rejection inserts a receipt only. No aggregate is retained across requests.
 
-New commands and active controls restore the validated aggregate checkpoint locally. Receipt lookup precedes restoration. Active Protocol pages use persisted read projections and ordered canonical Protocol rows; score and socket handshake read only the header. Finalizing state and score use durable terminal fields; `prepareArchive` checks the final state against the checkpoint state projection and transfers canonical Protocol without replay. Persisted checkpoints contain XState snapshot values/contexts, not running actors. Rule changes are not deployed while matches are active; no checkpoint version routing or replay fallback exists.
+New commands and active controls restore the validated aggregate checkpoint locally. Receipt lookup precedes restoration. Active Protocol pages use the checkpoint's single Match State, optional game presentation, and ordered canonical Protocol rows without restoring a machine; controls are never persisted. Score and socket handshake read only the header. Finalizing state and score use durable terminal fields; `prepareArchive` checks the final state against the checkpoint state and transfers canonical Protocol without replay. Persisted checkpoints contain XState snapshot values/contexts, not running actors. Rule changes are not deployed while matches are active; no checkpoint version routing or replay fallback exists.
 
 An accepted command advances a request-local aggregate before one synchronous SQLite transaction stores its receipt, checkpoint, Protocol and header. When it ends the Match, that transaction also stores Final Match State and the `finalizing` status. A failed write discards the speculative aggregate; broadcast and socket close occur only after commit.
 

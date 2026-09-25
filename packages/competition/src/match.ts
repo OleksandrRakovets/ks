@@ -56,21 +56,23 @@ type MatchCommandResult =
       readonly protocolEntryContents: readonly ProtocolEntryContent[]
     }
 
-type MatchRoomProjectionFor<K extends RegisteredGameKey> =
+type MatchRoomPresentationFor<K extends RegisteredGameKey> =
   | {
       readonly state: MatchStateFor<K>
       readonly game: GamePresentationFor<K>
-      readonly controls: readonly Control[]
     }
   | {
       readonly state: MatchStateFor<K>
       readonly game: undefined
-      readonly controls: readonly Control[]
     }
 
-export type MatchRoomProjection = {
-  [K in RegisteredGameKey]: MatchRoomProjectionFor<K>
+export type MatchRoomPresentation = {
+  [K in RegisteredGameKey]: MatchRoomPresentationFor<K>
 }[RegisteredGameKey]
+
+export type MatchRoomProjection = MatchRoomPresentation & {
+  readonly controls: readonly Control[]
+}
 
 export interface Match {
   exportCheckpoint(): MatchCheckpoint

@@ -1,6 +1,11 @@
 import { isDeepStrictEqual } from 'node:util'
 
-import { type Match, type MatchRoomProjection, restoreMatchCheckpoint } from '@ks/competition'
+import {
+  type Match,
+  type MatchRoomPresentation,
+  type MatchRoomProjection,
+  restoreMatchCheckpoint,
+} from '@ks/competition'
 import {
   type MatchCommand,
   type MatchScoreProjection,
@@ -50,11 +55,13 @@ export class ActiveMatchHandler {
         reason: result.reason,
       })
 
+    const projection = match.project()
+
     const committed = this.#storage.commitAcceptedCommand({
       match: this.#header,
       command: result.command,
       checkpoint: match.exportCheckpoint(),
-      projection: match.project(),
+      presentation: projection,
       protocolEntryContents: result.protocolEntryContents,
       gameResult: match.gameResult(),
     })
@@ -85,7 +92,7 @@ export class ActiveMatchHandler {
     return {
       _tag: 'active',
       latestSeq: this.#header.latestSeq,
-      ...this.#storage.readCurrentProjection(this.#header),
+      ...this.#storage.readCurrentPresentation(this.#header),
       protocolEntries: this.#storage.readProtocol(this.#header),
     }
   }
@@ -127,7 +134,7 @@ export type ActiveProtocolResult = {
   readonly _tag: 'active'
   readonly latestSeq: number
   readonly protocolEntries: readonly ProtocolEntry[]
-} & MatchRoomProjection
+} & MatchRoomPresentation
 
 export type ActiveScoreResult = {
   readonly _tag: 'active'
