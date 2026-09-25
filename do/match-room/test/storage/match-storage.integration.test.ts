@@ -61,7 +61,7 @@ test('stores canonical values and compares durable Command retries semantically'
   })
 })
 
-test('reconstructs flat Accepted Commands from its authoritative cursor', async () => {
+test('reads complete durable Protocol independently of old command payloads', async () => {
   const matchId = newMatchId()
   const stub = env.MATCH_ROOM.getByName(matchId)
   await stub.initialize({ ...request, matchId, controlSecret, createdAt })
@@ -83,14 +83,35 @@ test('reconstructs flat Accepted Commands from its authoritative cursor', async 
     const match = storage.match()
 
     if (!match) throw new Error('Expected Match')
-    expect(storage.readAcceptedCommands(match)).toEqual(
-      commands.map((command, index) => expect.objectContaining({ ...command, acceptedSeq: index + 1 })),
-    )
+
+    expect(match).toMatchObject({ latestSeq: 3, currentCheckpointSeq: 3 })
+    expect(
+      state.storage.sql
+        .exec<{
+          seq: number
+          previous_checkpoint_seq: number | null
+        }>('SELECT seq, previous_checkpoint_seq FROM checkpoints ORDER BY seq')
+        .toArray(),
+    ).toEqual([
+      { seq: 0, previous_checkpoint_seq: null },
+      { seq: 1, previous_checkpoint_seq: 0 },
+      { seq: 2, previous_checkpoint_seq: 1 },
+      { seq: 3, previous_checkpoint_seq: 2 },
+    ])
+
+    expect(storage.readProtocol(match).map((entry) => entry.acceptedSeq)).toEqual([1, 2, 3, 3, 3])
+    expect(storage.readCurrentState(match)).toMatchObject({
+      status: 'finished',
+      framesWonBySeat: { A: 1, B: 0 },
+    })
     state.storage.sql.exec(
       `UPDATE commands SET request_json = ? WHERE accepted_seq = 1`,
       JSON.stringify({ ...commands[0], commandId: newCommandId() }),
     )
-    expect(() => storage.readAcceptedCommands(match)).toThrow('commands storage corruption')
+    expect(storage.readProtocol(match)[0]).toMatchObject({
+      acceptedSeq: 1,
+      causedByCommandId: commands[0]?.commandId,
+    })
   })
 })
 
@@ -103,11 +124,12 @@ test('rejects multiple Match rows as corrupt authority', async () => {
     const otherConfig = buildMatchConfig(otherMatchId, request)
     state.storage.sql.exec(
       `INSERT INTO active_matches
-        (match_id, control_secret, config_json, latest_seq, status, created_at, final_state_json, ended_at)
-       VALUES (?, ?, ?, 0, 'active', ?, NULL, NULL)`,
+        (match_id, control_secret, config_json, latest_seq, current_checkpoint_seq, score_json, status, created_at, final_state_json, ended_at)
+       VALUES (?, ?, ?, 0, 0, ?, 'active', ?, NULL, NULL)`,
       otherMatchId,
       controlSecret,
       JSON.stringify(otherConfig),
+      state.storage.sql.exec<{ score_json: string }>('SELECT score_json FROM active_matches').one().score_json,
       createdAt,
     )
     expect(() => new MatchStorage(state.storage).match()).toThrow('multiple Match rows')

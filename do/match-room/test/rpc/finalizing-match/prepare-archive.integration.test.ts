@@ -38,7 +38,7 @@ test('derives the same archive transfer after eviction', async () => {
   expect(restored).toEqual(warm)
 })
 
-test('rejects a schema-valid persisted final state that disagrees with replay', async () => {
+test('rejects a schema-valid persisted final state that disagrees with the checkpoint projection', async () => {
   const { matchId, stub } = await initializedRoom()
   await makeRoomFinalizing(stub)
   await runInDurableObject(stub, (_room, state) => {
@@ -60,5 +60,5 @@ test('rejects a schema-valid persisted final state that disagrees with replay', 
         await env.MATCH_ROOM.getByName(matchId).prepareArchive()
       })
     ).message,
-  ).toContain('final state does not match accepted history')
+  ).toContain('active_matches storage corruption')
 })

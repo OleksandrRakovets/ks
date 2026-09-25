@@ -351,32 +351,7 @@ export function createSparringApplicationWithDependencies(
     if (record.status !== 'active') return { ok: false, error: 'Unknown match', status: 404 }
 
     const roomClient = dependencies.matchRoomClient(matchId)
-
-    if (view === 'protocol') {
-      const roomResult = await roomClient.getProtocol()
-
-      if (roomResult._tag === 'finalizing') {
-        return readFinalizingMatch(record, roomResult, roomClient, locale, expectedGameKey, view)
-      }
-
-      if (roomResult.state.matchId !== matchId || roomResult.state.gameKey !== expectedGameKey)
-        throw new Error('MatchRoom active identity conflicts with D1')
-
-      const result: ReadKeyedMatchSuccess<K> = {
-        ok: true,
-        state: { ...roomResult.state, gameKey: expectedGameKey },
-        latestSeq: roomResult.latestSeq,
-        participants: await hydrateParticipants(record, locale),
-        controls: [],
-        protocolEntries: roomResult.protocolEntries,
-      }
-
-      if (roomResult.game !== undefined) result.game = roomResult.game
-
-      return result
-    }
-
-    const roomResult = await roomClient.getControls()
+    const roomResult = view === 'match' ? await roomClient.getControls() : await roomClient.getProtocol()
 
     if (roomResult._tag === 'finalizing') {
       return readFinalizingMatch(record, roomResult, roomClient, locale, expectedGameKey, view)
@@ -385,26 +360,20 @@ export function createSparringApplicationWithDependencies(
     if (roomResult.state.matchId !== matchId || roomResult.state.gameKey !== expectedGameKey)
       throw new Error('MatchRoom active identity conflicts with D1')
 
-    const protocolResult = await roomClient.getProtocol()
-
-    if (protocolResult._tag === 'finalizing') {
-      return readFinalizingMatch(record, protocolResult, roomClient, locale, expectedGameKey, view)
-    }
-
-    if (protocolResult.state.matchId !== matchId || protocolResult.state.gameKey !== expectedGameKey)
-      throw new Error('MatchRoom active identity conflicts with D1')
-
-    if (protocolResult.latestSeq < roomResult.latestSeq)
-      throw new Error('MatchRoom Protocol cursor trails its Control projection')
-
     const participants = await hydrateParticipants(record, locale)
     const seatNames = { A: participants.A.displayName, B: participants.B.displayName }
 
-    const protocolEntries = protocolResult.protocolEntries.filter(
-      (entry) => entry.acceptedSeq <= roomResult.latestSeq,
-    )
+    const protocolEntries = 'protocolEntries' in roomResult ? roomResult.protocolEntries : []
 
-    const lastEntry = renderLastCorrectableProtocolRow(protocolEntries, seatNames, roomResult.latestSeq)
+    const lastEntry = renderLastCorrectableProtocolRow(
+      'lastPlayerEntry' in roomResult
+        ? roomResult.lastPlayerEntry
+          ? [roomResult.lastPlayerEntry]
+          : []
+        : protocolEntries,
+      seatNames,
+      roomResult.latestSeq,
+    )
 
     const result: ReadKeyedMatchSuccess<K> = {
       ok: true,
@@ -483,6 +452,8 @@ export function createSparringApplicationWithDependencies(
 
     if (!match.ok) return match
 
+    const result = toMatchResult(match)
+
     const seatNames = {
       A: match.participants.A.displayName,
       B: match.participants.B.displayName,
@@ -490,22 +461,10 @@ export function createSparringApplicationWithDependencies(
 
     const protocolRows = renderProtocolRows(match.protocolEntries, seatNames, dependencies.clock)
 
-    if (match.state.status === 'finished') {
-      return { ...toMatchResult(match), protocolRows }
+    return {
+      ...result,
+      protocolRows: match.state.status === 'active' ? protocolRows.reverse() : protocolRows,
     }
-
-    const active = {
-      ok: true as const,
-      lifecycle: 'active' as const,
-      state: { ...match.state, status: 'active' as const },
-      latestSeq: match.latestSeq,
-      participants: match.participants,
-      protocolRows: protocolRows.reverse(),
-    }
-
-    return match.game
-      ? { ...active, controlPhase: 'frame-active', game: match.game }
-      : { ...active, controlPhase: 'between-frames' }
   }
 
   async function archiveAndMarkFinished(matchId: MatchId): Promise<void> {

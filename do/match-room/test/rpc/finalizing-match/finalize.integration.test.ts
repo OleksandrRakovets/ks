@@ -39,7 +39,7 @@ test('does not replay commands after archive preparation', async () => {
   await expect(env.MATCH_ROOM.getByName(matchId).finalize()).resolves.toBeUndefined()
 })
 
-test('finalizing projections avoid replay while archive preparation detects corrupt history', async () => {
+test('finalizing projections and archive ignore old command request payloads', async () => {
   const { matchId, stub } = await initializedRoom()
   await makeRoomFinalizing(stub)
   await runInDurableObject(stub, (_room, state) => {
@@ -65,10 +65,9 @@ test('finalizing projections avoid replay while archive preparation detects corr
   )
 
   expect(response.status).toBe(410)
-  await expect(
-    captureRpcError(async () => {
-      await restored.prepareArchive()
-    }),
-  ).resolves.toMatchObject({ message: expect.stringContaining('commands storage corruption') })
+  await expect(restored.prepareArchive()).resolves.toMatchObject({
+    sourceLatestSeq: 3,
+    protocolEntries: expect.arrayContaining([expect.objectContaining({ acceptedSeq: 1 })]),
+  })
   await expect(restored.finalize()).resolves.toBeUndefined()
 })

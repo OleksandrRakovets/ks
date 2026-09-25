@@ -11,7 +11,6 @@ import { MatchStorage } from './storage/match-storage'
 export class MatchRoom extends DurableObject<Env> {
   readonly #storage: MatchStorage
   readonly #liveConnections: LiveConnectionHandler
-  #handler: ActiveMatchHandler | FinalizingMatchHandler | null = null
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
@@ -34,21 +33,7 @@ export class MatchRoom extends DurableObject<Env> {
 
     if (handler instanceof FinalizingMatchHandler) return handler.submitCommand(command)
 
-    try {
-      const outcome = handler.submitCommand(command)
-
-      if (outcome.next)
-        this.#handler = new FinalizingMatchHandler(
-          this.#storage,
-          outcome.next.storedMatch,
-          outcome.next.resident,
-        )
-
-      return outcome.response
-    } catch (error) {
-      this.#handler = null
-      throw error
-    }
+    return handler.submitCommand(command)
   }
 
   async getControls() {
@@ -102,19 +87,15 @@ export class MatchRoom extends DurableObject<Env> {
     const handler = this.#requireHandler()
 
     if (handler instanceof ActiveMatchHandler) throw new Error('Cannot finalize active Match')
-    handler.finalize()
   }
 
   #requireHandler(): ActiveMatchHandler | FinalizingMatchHandler {
-    if (this.#handler) return this.#handler
     const storedMatch = this.#storage.match()
 
     if (!storedMatch) throw new Error('MatchRoom storage missing')
-    this.#handler =
-      storedMatch.status === 'active'
-        ? new ActiveMatchHandler(this.#storage, this.#liveConnections, storedMatch)
-        : new FinalizingMatchHandler(this.#storage, storedMatch)
 
-    return this.#handler
+    return storedMatch.status === 'active'
+      ? new ActiveMatchHandler(this.#storage, this.#liveConnections, storedMatch)
+      : new FinalizingMatchHandler(this.#storage, storedMatch)
   }
 }

@@ -55,9 +55,9 @@ These commands overlap. Choose the appropriate gate; do not rerun its constituen
 
 ## Authority And Lifecycle
 
-- Accepted Commands, their sequence, and command outcomes are authoritative in each MatchRoom's SQLite database. MatchRoom derives Protocol entries from Accepted Commands; do not mirror active command history into D1.
+- Accepted Commands, their sequence, and command outcomes are authoritative in each MatchRoom's SQLite database. MatchRoom persists complete canonical Protocol entries at acceptance; do not mirror active command history into D1.
 - D1 owns players, the `sparring_matches` table, and completed protocol archives with final match state.
-- Resident match/gameplay state and derived Protocol are a disposable cache restored by replaying Accepted Commands; raw XState snapshots are not persisted.
+- MatchRoom persists complete aggregate checkpoints; command execution restores a request-local aggregate from the current checkpoint. Read projections, scores, and Protocol are durable and do not replay Accepted Commands.
 - The match-completing Accepted Command atomically stores Final Match State and `endedAt`. Application treats MatchRoom's Protocol and Final Match State transfer as canonical, checks D1 identity/lifecycle and archive idempotency, archives it without gameplay replay, asks MatchRoom to broadcast/close streams, then marks the match row finished. Finalizing MatchRoom storage is retained.
 - Finished reads use D1 and must not access the retained MatchRoom.
 

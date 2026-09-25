@@ -8,25 +8,17 @@ import type {
   ProtocolEntry,
   UnixEpochMilliseconds,
 } from '@ks/core'
-import { projectMatchScore } from '@ks/core'
 import type { GameResult, RegisteredGameKey } from '@ks/gameplay/definitions'
 
 import { type CommandReceipt, MatchStorage, type StoredFinalizingMatch } from '../storage/match-storage'
-import { ResidentMatch, type ResidentState } from './resident-match'
 
 export class FinalizingMatchHandler {
   readonly #storage: MatchStorage
   readonly #storedMatch: StoredFinalizingMatch
-  #resident: ResidentMatch | null
 
-  constructor(
-    storage: MatchStorage,
-    storedMatch: StoredFinalizingMatch,
-    resident: ResidentMatch | null = null,
-  ) {
+  constructor(storage: MatchStorage, storedMatch: StoredFinalizingMatch) {
     this.#storage = storage
     this.#storedMatch = storedMatch
-    this.#resident = resident
   }
 
   submitCommand(command: MatchCommand): FinalizingCommandResult {
@@ -76,19 +68,15 @@ export class FinalizingMatchHandler {
       _tag: 'finalizing' as const,
       latestSeq: this.#storedMatch.latestSeq,
       endedAt: this.#storedMatch.endedAt,
-      score: projectMatchScore(this.#storedMatch.finalState),
+      score: this.#storedMatch.score,
     }
   }
 
   prepareArchive(): FinishedMatchTransfer {
-    const resident = this.#load()
-    const projected = resident.match.project().state
+    const state = this.#storage.readCurrentState(this.#storedMatch)
 
-    if (!isDeepStrictEqual(projected, this.#storedMatch.finalState))
-      throw new Error('MatchRoom final state does not match accepted history')
-
-    if (!isDeepStrictEqual(resident.match.gameResult(), this.#storedMatch.gameResult))
-      throw new Error('MatchRoom game result does not match accepted history')
+    if (!isDeepStrictEqual(state, this.#storedMatch.finalState))
+      throw new Error('MatchRoom final state does not match checkpoint projection')
 
     return {
       matchId: this.#storedMatch.matchId,
@@ -96,15 +84,10 @@ export class FinalizingMatchHandler {
       createdAt: this.#storedMatch.createdAt,
       sourceLatestSeq: this.#storedMatch.latestSeq,
       endedAt: this.#storedMatch.endedAt,
-      protocolEntries: resident.protocolEntries,
+      protocolEntries: this.#storage.readProtocol(this.#storedMatch),
       finalState: this.#storedMatch.finalState,
       gameResult: this.#storedMatch.gameResult,
     }
-  }
-
-  finalize(): void {
-    this.#resident?.clear()
-    this.#resident = null
   }
 
   #warnRead(kind: 'controls' | 'protocol' | 'score'): void {
@@ -115,20 +98,6 @@ export class FinalizingMatchHandler {
       endedAt: this.#storedMatch.endedAt,
       ageMs: Math.max(0, Date.now() - this.#storedMatch.endedAt),
     })
-  }
-
-  #load(): ResidentState {
-    const resident = this.#resident ?? new ResidentMatch()
-    this.#resident = resident
-
-    return (
-      resident.lookup(this.#storedMatch.latestSeq) ??
-      resident.restore(
-        this.#storedMatch.config,
-        this.#storedMatch.latestSeq,
-        this.#storage.readAcceptedCommands(this.#storedMatch),
-      )
-    )
   }
 }
 

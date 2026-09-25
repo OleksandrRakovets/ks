@@ -3,157 +3,115 @@ import {
   type MatchCommand,
   type MatchScoreProjection,
   type NonNegativeInteger,
-  projectMatchScore,
   type ProtocolEntry,
 } from '@ks/core'
 
 import { type LiveConnectionCursor, LiveConnectionHandler } from '../live/live-connection-handler'
-import {
-  type CommandReceipt,
-  MatchStorage,
-  type StoredActiveMatch,
-  type StoredFinalizingMatch,
-} from '../storage/match-storage'
-import { ResidentMatch, type ResidentState } from './resident-match'
+import { type CommandReceipt, MatchStorage, type StoredActiveMatch } from '../storage/match-storage'
 
 export class ActiveMatchHandler {
   readonly #storage: MatchStorage
   readonly #liveConnections: LiveConnectionHandler
-  readonly #resident: ResidentMatch
-  #storedMatch: StoredActiveMatch
-  #state: ResidentState
+  readonly #header: StoredActiveMatch
 
-  constructor(storage: MatchStorage, liveConnections: LiveConnectionHandler, storedMatch: StoredActiveMatch) {
+  constructor(storage: MatchStorage, liveConnections: LiveConnectionHandler, header: StoredActiveMatch) {
     this.#storage = storage
     this.#liveConnections = liveConnections
-    this.#storedMatch = storedMatch
-    this.#resident = new ResidentMatch()
-    this.#state = this.#resident.restore(
-      storedMatch.config,
-      storedMatch.latestSeq,
-      storage.readAcceptedCommands(storedMatch),
-    )
+    this.#header = header
   }
 
-  submitCommand(command: MatchCommand): ActiveCommandOutcome {
+  submitCommand(command: MatchCommand): ActiveCommandResult {
     const priorReceipt = this.#storage.findCommandReceipt(command)
 
     if (priorReceipt) {
-      if (priorReceipt._tag === 'command-id-conflict') return { response: priorReceipt }
+      if (priorReceipt._tag === 'command-id-conflict') return priorReceipt
 
       if (priorReceipt.receipt._tag === 'accepted')
         return {
-          response: {
-            _tag: 'accepted',
-            acceptedSeq: priorReceipt.receipt.acceptedSeq,
-            endsMatch: false,
-          },
+          _tag: 'accepted',
+          acceptedSeq: priorReceipt.receipt.acceptedSeq,
+          endsMatch: false,
         }
 
-      return { response: priorReceipt.receipt }
+      return priorReceipt.receipt
     }
 
-    try {
-      const result = this.#state.match.execute(command)
+    const match = this.#storage.readCurrentMatch(this.#header)
+    const result = match.execute(command)
 
-      if (result._tag === 'parse-failed') return { response: { _tag: 'invalid-command' } }
+    if (result._tag === 'parse-failed') return { _tag: 'invalid-command' }
 
-      if (result._tag === 'rejected')
-        return {
-          response: this.#storage.commitRejectedCommand({
-            matchId: this.#storedMatch.matchId,
-            command,
-            reason: result.reason,
-          }),
-        }
-
-      const state = this.#state.match.project().state
-
-      const committed = this.#storage.commitAcceptedCommand({
-        match: this.#storedMatch,
-        command: result.command,
-        finalState: state.status === 'finished' ? state : null,
-        gameResult: this.#state.match.gameResult(),
+    if (result._tag === 'rejected')
+      return this.#storage.commitRejectedCommand({
+        matchId: this.#header.matchId,
+        command,
+        reason: result.reason,
       })
 
-      this.#state = this.#resident.advance(
-        this.#state,
-        committed.acceptedCommand,
-        result.protocolEntryContents,
-      )
+    const committed = this.#storage.commitAcceptedCommand({
+      match: this.#header,
+      command: result.command,
+      checkpoint: match.exportCheckpoint(),
+      projection: match.project(),
+      protocolEntryContents: result.protocolEntryContents,
+      gameResult: match.gameResult(),
+    })
 
-      this.#liveConnections.broadcast(committed.streamUpdate)
+    this.#liveConnections.broadcast(committed.streamUpdate)
 
-      if (committed.streamUpdate.endsMatch) this.#liveConnections.closeAll()
+    if (committed.streamUpdate.endsMatch) this.#liveConnections.closeAll()
 
-      const response: ActiveCommandResult = {
-        _tag: 'accepted',
-        acceptedSeq: committed.receipt.acceptedSeq,
-        endsMatch: committed.streamUpdate.endsMatch,
-      }
-
-      if (committed.storedMatch.status === 'finalizing')
-        return { response, next: { storedMatch: committed.storedMatch, resident: this.#resident } }
-      this.#storedMatch = committed.storedMatch
-
-      return { response }
-    } catch (error) {
-      this.#resident.clear()
-      throw error
+    return {
+      _tag: 'accepted',
+      acceptedSeq: committed.receipt.acceptedSeq,
+      endsMatch: committed.streamUpdate.endsMatch,
     }
   }
 
   getControls(): ActiveControlsResult {
+    const projection = this.#storage.readCurrentMatch(this.#header).project()
+
     return {
       _tag: 'active',
-      latestSeq: this.#storedMatch.latestSeq,
-      ...this.#state.match.project(),
+      latestSeq: this.#header.latestSeq,
+      ...projection,
+      lastPlayerEntry: this.#storage.readLastPlayerEntry(this.#header),
     }
   }
 
   getProtocol(): ActiveProtocolResult {
-    const { state, game } = this.#state.match.project()
-
     return {
       _tag: 'active',
-      latestSeq: this.#state.latestSeq,
-      state,
-      game,
-      protocolEntries: this.#state.protocolEntries,
+      latestSeq: this.#header.latestSeq,
+      ...this.#storage.readCurrentProjection(this.#header),
+      protocolEntries: this.#storage.readProtocol(this.#header),
     }
   }
 
   getScore(): ActiveScoreResult {
     return {
       _tag: 'active',
-      latestSeq: this.#state.latestSeq,
-      score: projectMatchScore(this.#state.match.project().state),
+      latestSeq: this.#header.latestSeq,
+      score: this.#header.score,
     }
   }
 
   liveConnectionCursor(): LiveConnectionCursor {
-    return { matchId: this.#storedMatch.matchId, latestSeq: this.#storedMatch.latestSeq }
-  }
-}
-
-type ActiveCommandOutcome = {
-  readonly response: ActiveCommandResult
-  readonly next?: {
-    readonly storedMatch: StoredFinalizingMatch
-    readonly resident: ResidentMatch
+    return { matchId: this.#header.matchId, latestSeq: this.#header.latestSeq }
   }
 }
 
 export type ActiveControlsResult = {
   readonly _tag: 'active'
   readonly latestSeq: number
+  readonly lastPlayerEntry: ProtocolEntry | null
 } & MatchRoomProjection
 
 export type ActiveProtocolResult = {
   readonly _tag: 'active'
   readonly latestSeq: number
   readonly protocolEntries: readonly ProtocolEntry[]
-} & Omit<MatchRoomProjection, 'controls'>
+} & MatchRoomProjection
 
 export type ActiveScoreResult = {
   readonly _tag: 'active'

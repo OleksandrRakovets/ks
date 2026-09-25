@@ -92,6 +92,19 @@ test('discards speculative resident state and rolls back both writes after persi
     expect(
       state.storage.sql.exec<{ count: number }>('SELECT count(*) AS count FROM commands').one().count,
     ).toBe(0)
+    expect(
+      state.storage.sql.exec<{ count: number }>('SELECT count(*) AS count FROM checkpoints').one().count,
+    ).toBe(1)
+    expect(
+      state.storage.sql.exec<{ count: number }>('SELECT count(*) AS count FROM protocol_entries').one().count,
+    ).toBe(0)
+    expect(
+      state.storage.sql
+        .exec<{ latest_seq: number; current_checkpoint_seq: number }>(
+          'SELECT latest_seq, current_checkpoint_seq FROM active_matches',
+        )
+        .one(),
+    ).toEqual({ latest_seq: 0, current_checkpoint_seq: 0 })
     state.storage.sql.exec('DROP TRIGGER fail_cursor')
   })
   expect(await stub.submitCommand(prepareCommand())).toEqual({

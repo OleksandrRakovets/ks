@@ -13,7 +13,7 @@ Browser
                            -> per-match SQLite
 ```
 
-Play owns HTTP and presentation adaptation. `@ks/application` exposes the current player-operated workflows through `application.sparring` and owns their use-case orchestration, private D1 access, active-versus-finished read routing, and cross-store finalization. MatchRoom owns serialized active-match execution, persistence, replay, and hibernatable WebSocket fan-out.
+Play owns HTTP and presentation adaptation. `@ks/application` exposes the current player-operated workflows through `application.sparring` and owns their use-case orchestration, private D1 access, active-versus-finished read routing, and cross-store finalization. MatchRoom owns serialized active-match execution, SQLite checkpoints and Protocol, and hibernatable WebSocket fan-out.
 
 Play and MatchRoom are independently built Cloudflare Workers. MatchRoom has no public route or D1 binding; its `fetch` method serves only WebSocket handshakes forwarded to a selected object by Play. Play reaches it through an external Durable Object binding. Play and application import `@ks/match-room` type-only: application derives its private capability from the server class, and Play's generated binding verifies that the selected RPC stub is structurally compatible.
 
@@ -32,7 +32,7 @@ core <- gameplay <- competition
 
 Game keys come from `packages/gameplay/src/registry.ts`. Each game has an explicit primary Match route and Protocol route. The primary route loader maps the application lifecycle once to the mutually exclusive Control or Result page; the stable URL does not encode lifecycle state. Commands share the `game` path, while gameplay owns their semantics.
 
-Competition composes match controls before game controls into one flat list. MatchRoom returns each coherent resident projection as match state, optional correlated game presentation, and flat controls. Application preserves those shapes and lifecycle arms; Play alone groups controls into stable presentation sections for layout. MatchRoom RPC is a trusted typed capability and does not reparse these values at that seam.
+Competition composes match controls before game controls into one flat list. MatchRoom returns a request-local projection as match state, optional correlated game presentation, and flat controls. Application preserves those shapes and lifecycle arms; Play alone groups controls into stable presentation sections for layout. MatchRoom RPC is a trusted typed capability and does not reparse these values at that seam.
 
 ### Schema Conventions
 
@@ -45,13 +45,13 @@ Competition composes match controls before game controls into one flat list. Mat
 | Store | Authority |
 | --- | --- |
 | D1 | Players, creating/active/finished match rows, final protocol archive and final match state, compact finished list-score projection |
-| MatchRoom SQLite | Active config, control secret, Accepted Commands and outcomes, monotonic sequence, Final Match State after the Match ends, active/finalizing status |
+| MatchRoom SQLite | Active config, control secret, Accepted Commands and outcomes, monotonic acceptance sequence, current checkpoint pointer, complete Protocol entries, immutable executable checkpoints and read projections, Final Match State, active/finalizing status |
 
-Accepted Commands are the active replay authority and are never mirrored to D1. Resident match state and derived Protocol are disposable caches; cold restoration validates and replays ordered commands through the same aggregate operation. Raw XState snapshots are not persisted.
+Accepted Commands and their outcomes are the immutable acceptance ledger and are never mirrored to D1. Checkpoint 0 is committed with the initial match header. Every ordinary acceptance atomically inserts a new checkpoint referencing the prior current checkpoint (not necessarily the previous acceptance sequence), complete indexed Protocol entries and the command receipt, and updates the header's acceptance cursor, current pointer, and compact score. Rejection inserts a receipt only. No aggregate is retained across requests.
 
-Active restoration replays Accepted Commands after eviction. Finalizing state and score reads use the durable Final Match State without replay; Protocol reads and `prepareArchive` replay Accepted Commands and verify the Final Match State against that history.
+New commands and active controls restore the validated aggregate checkpoint locally. Receipt lookup precedes restoration. Active Protocol pages use persisted read projections and ordered canonical Protocol rows; score and socket handshake read only the header. Finalizing state and score use durable terminal fields; `prepareArchive` checks the final state against the checkpoint state projection and transfers canonical Protocol without replay. Persisted checkpoints contain XState snapshot values/contexts, not running actors. Rule changes are not deployed while matches are active; no checkpoint version routing or replay fallback exists.
 
-An accepted command advances gameplay before one synchronous SQLite transaction stores the Accepted Command and next sequence. When it ends the Match, that transaction also stores Final Match State and the `finalizing` status. Resident state and derived Protocol advance only after the commit; defects discard the cache so the next operation restores from durable commands.
+An accepted command advances a request-local aggregate before one synchronous SQLite transaction stores its receipt, checkpoint, Protocol and header. When it ends the Match, that transaction also stores Final Match State and the `finalizing` status. A failed write discards the speculative aggregate; broadcast and socket close occur only after commit.
 
 Finished match-state and Protocol reads use D1 only. While D1 remains active but MatchRoom is finalizing, match pages and live-list scores display the room's finished game projection without changing D1. Final Match State is persisted atomically with the match-ending acceptance and transferred with Protocol without application-side gameplay replay. When D1 marks the Match finished, it also stores the Accepted Command cursor and a compact score projection on the Match row so list reads do not parse the Protocol archive. This projection is reproducible from canonical Final Match State and is not a second history authority.
 
@@ -67,21 +67,21 @@ D1 matches.status: creating
 
 Ordinary commands verify the match row's lifecycle, then write only to MatchRoom. `commandId` receipts make retries idempotent and reject reuse with a different canonical request. A valid Command envelope whose nested match/game command is unsupported returns `invalid-command`; malformed browser input remains an expected HTTP failure rather than an RPC exception.
 
-Application selects a named room once with `getByName(matchId)`. Initialization verifies that the routed Durable Object name equals the input Match ID, persists configuration idempotently, and reports conflicting configuration as `initialization-conflict`. Later RPC methods derive identity from the selected room and do not repeat the Match ID. Resident gameplay state is created lazily by the first active operation.
+Application selects a named room once with `getByName(matchId)`. Initialization verifies that the routed Durable Object name equals the input Match ID, persists configuration idempotently, and reports conflicting configuration as `initialization-conflict`. Later RPC methods derive identity from the selected room and do not repeat the Match ID. Each executable operation restores its own aggregate.
 
 Command retry equality compares decoded canonical values rather than serialized JSON. Identical accepted and rejected retries return their durable outcome. Reusing an ID with different content returns `command-id-conflict`. After finalization, retrying the match-ending Accepted Command still reports `endsMatch: true`; retrying an earlier Accepted Command reports `false`.
 
-The `match-ended` Protocol entry is derived from the match-ending Accepted Command stored atomically with MatchRoom's `finalizing` status. MatchRoom broadcasts the match-ending update and closes sockets immediately after the commit, before archival:
+The `match-ended` Protocol entry is stored with the match-ending Accepted Command atomically with MatchRoom's `finalizing` status. MatchRoom broadcasts the match-ending update and closes sockets immediately after the commit, before archival:
 
 ```text
 MatchRoom finalizing Protocol + Final Match State; broadcast match-ending update
   -> application treats the transfer as canonical and checks D1 identity, lifecycle, and archive idempotency
   -> idempotently archive protocol and final match state in D1
-  -> MatchRoom clears its resident cache
+  -> MatchRoom.finalize verifies its retained finalizing lifecycle
   -> D1 matches.status: active -> finished, storing endedAt and the compact final score projection
 ```
 
-Until the final step succeeds, D1 remains active and the retained MatchRoom reports `finalizing`. GETs return the room's final projection without writing; only Protocol-page GETs derive entries via the read-only `prepareArchive` transfer. A later POST to that room can retry the idempotent transfer, archival, and finish steps. Archival failures are logged with their stage, and finalizing-room reads warn with the match ID and age since its end; a read warning can also be a normal race with the POST. There is no background retry, so an interrupted POST with no later retry can leave D1 active indefinitely. MatchRoom retains `finalizing` even after D1 marks the Match finished. Finished D1 reads do not access MatchRoom. Cleanup of retained finalizing storage is deferred until observed costs justify a separate retention mechanism.
+Until the final step succeeds, D1 remains active and the retained MatchRoom reports `finalizing`. GETs return the room's final projection without writing; only Protocol-page GETs read entries via the read-only `prepareArchive` transfer. A later POST to that room can retry the idempotent transfer, archival, and finish steps. Archival failures are logged with their stage, and finalizing-room reads warn with the match ID and age since its end; a read warning can also be a normal race with the POST. There is no background retry, so an interrupted POST with no later retry can leave D1 active indefinitely. MatchRoom retains `finalizing` even after D1 marks the Match finished. Finished D1 reads do not access MatchRoom. Cleanup of retained finalizing storage is deferred until observed costs justify a separate retention mechanism.
 
 The generated control secret is stored in MatchRoom but is not exposed or checked by the current command path.
 

@@ -192,13 +192,7 @@ describe('trusted MatchRoom orchestration', () => {
         state,
         game: undefined,
         controls: [],
-      }),
-      getProtocol: async () => ({
-        _tag: 'active',
-        latestSeq: 0,
-        state,
-        game: undefined,
-        protocolEntries: [],
+        lastPlayerEntry: null,
       }),
     })
 
@@ -509,7 +503,7 @@ describe('trusted MatchRoom orchestration', () => {
     expect(v.safeParse(MatchScorePollResponse, { matches: result.matches }).success).toBe(true)
   })
 
-  test('reads Protocol presentation without Controls-only payload or RPC calls', async () => {
+  test('reads Protocol with its own durable projection without a Controls call', async () => {
     const commandId = newCommandId()
 
     const room = selectedClient({
@@ -518,6 +512,7 @@ describe('trusted MatchRoom orchestration', () => {
         latestSeq: 2,
         state: { ...state, currentFrameIndex: 1 },
         game: undefined,
+        controls: [],
         protocolEntries: [
           {
             acceptedSeq: 1,
@@ -555,8 +550,6 @@ describe('trusted MatchRoom orchestration', () => {
       state: { currentFrameIndex: 1 },
       protocolRows: [{ key: 'protocol-2-0' }, { key: 'protocol-1-0' }],
     })
-    expect(result).not.toHaveProperty('controls')
-    expect(result).not.toHaveProperty('lastEntry')
   })
 
   test('archives, finalizes, and finishes after a match-ending Accepted Command', async () => {
@@ -627,7 +620,7 @@ describe('trusted MatchRoom orchestration', () => {
     expect(events).toEqual([])
   })
 
-  test('reads the final result without Protocol replay when the Match ends between room calls', async () => {
+  test('reads active controls without a second Protocol call', async () => {
     const room = selectedClient({
       getControls: async () => ({
         _tag: 'active',
@@ -635,21 +628,15 @@ describe('trusted MatchRoom orchestration', () => {
         state,
         game: undefined,
         controls: [],
-      }),
-      getProtocol: async () => ({
-        _tag: 'finalizing',
-        state: transfer.finalState,
-        gameResult: null,
-        latestSeq: 2,
-        endedAt: transfer.endedAt,
+        lastPlayerEntry: null,
       }),
     })
 
     expect(await sparring(room).readMatch(matchId, 'en', 'free-pyramid')).toMatchObject({
       ok: true,
-      lifecycle: 'finished',
-      latestSeq: 2,
-      state: { status: 'finished' },
+      lifecycle: 'active',
+      latestSeq: 0,
+      state: { status: 'active' },
     })
   })
 
@@ -657,13 +644,6 @@ describe('trusted MatchRoom orchestration', () => {
     const events: string[] = []
 
     const room = selectedClient({
-      getControls: async () => ({
-        _tag: 'active',
-        latestSeq: 0,
-        state,
-        game: undefined,
-        controls: [],
-      }),
       getProtocol: async () => ({
         _tag: 'finalizing',
         state: transfer.finalState,
