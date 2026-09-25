@@ -32,7 +32,29 @@ export class ResidentMatch {
     prior: ResidentState,
     acceptedCommand: AcceptedCommand,
     contents: readonly ProtocolEntryContent[],
-    match: Match = prior.match,
+  ): ResidentState {
+    return this.#publish(prior, acceptedCommand, contents, prior.match)
+  }
+
+  /** Replaces the semantic state but appends the Correction at the next Protocol cursor. */
+  rewind(
+    prior: ResidentState,
+    acceptedCommand: AcceptedCommand,
+    contents: readonly ProtocolEntryContent[],
+    match: Match,
+  ): ResidentState {
+    return this.#publish(prior, acceptedCommand, contents, match)
+  }
+
+  clear(): void {
+    this.#cache = null
+  }
+
+  #publish(
+    prior: ResidentState,
+    acceptedCommand: AcceptedCommand,
+    contents: readonly ProtocolEntryContent[],
+    match: Match,
   ): ResidentState {
     if (this.#cache !== prior || acceptedCommand.acceptedSeq !== prior.latestSeq + 1)
       throw new Error('MatchRoom resident cursor mismatch')
@@ -47,10 +69,6 @@ export class ResidentMatch {
     this.#cache = state
 
     return state
-  }
-
-  clear(): void {
-    this.#cache = null
   }
 
   #promote(command: AcceptedCommand, contents: readonly ProtocolEntryContent[]): ProtocolEntry[] {

@@ -72,7 +72,7 @@ const PottedBalls = v.pipe(v.array(ProtocolBall), v.minLength(1))
 const CorrectionTarget = v.object({
   targetSeq: PositiveInteger,
   targetCommandId: CommandId,
-  targetEntryIndex: v.optional(NonNegativeInteger),
+  targetEntryIndex: NonNegativeInteger,
 })
 
 const ProtocolMessageBody = v.object({
@@ -217,29 +217,9 @@ export function renderProtocolRows(
   return entries.map((entry) => {
     const { isoString: acceptedAtIso, time: acceptedAtLabel } = clock.instantPresentation(entry.acceptedAt)
 
-    const correction = isCorrectionEntry(entry) ? v.safeParse(CorrectionTarget, entry.body) : null
-
-    const original =
-      correction?.success === true
-        ? entries.find(
-            (candidate) =>
-              candidate.acceptedSeq === correction.output.targetSeq &&
-              candidate.causedByCommandId === correction.output.targetCommandId &&
-              (correction.output.targetEntryIndex === undefined
-                ? candidate.source === 'player'
-                : candidate.entryIndex === correction.output.targetEntryIndex),
-          )
-        : undefined
-
     return {
       key: `protocol-${entry.acceptedSeq}-${entry.entryIndex}`,
-      message: original
-        ? {
-            key: 'match.protocol.commandCorrected',
-            actor: original.source === 'player' ? seatNames[original.seat] : undefined,
-            correctedEntry: entryMessage(original, seatNames),
-          }
-        : entryMessage(entry, seatNames),
+      message: correctionMessage(entry, entries, seatNames) ?? entryMessage(entry, seatNames),
       score: entry.scoreAfter,
       acceptedAtIso,
       acceptedAtLabel,
@@ -267,7 +247,7 @@ export function renderLastCommandRow(
 
     if (!candidate || candidate.acceptedSeq > maxAcceptedSeq) continue
 
-    if (isCorrectionEntry(candidate)) {
+    if (candidate.entryType === 'command-corrected') {
       const target = v.parse(CorrectionTarget, candidate.body)
       corrected.add(`${target.targetSeq}:${target.targetCommandId}`)
     } else if (
@@ -299,6 +279,28 @@ export function renderLastCommandRow(
   return row
 }
 
-function isCorrectionEntry(entry: ProtocolEntry): boolean {
-  return entry.entryType === 'command-corrected' || entry.entryType === 'action-corrected'
+function correctionMessage(
+  entry: ProtocolEntry,
+  entries: readonly ProtocolEntry[],
+  seatNames: SeatNames,
+): ProtocolMessage | undefined {
+  if (entry.entryType !== 'command-corrected') return undefined
+  const target = v.safeParse(CorrectionTarget, entry.body)
+
+  if (!target.success) return undefined
+
+  const original = entries.find(
+    (candidate) =>
+      candidate.acceptedSeq === target.output.targetSeq &&
+      candidate.causedByCommandId === target.output.targetCommandId &&
+      candidate.entryIndex === target.output.targetEntryIndex,
+  )
+
+  if (!original) return undefined
+
+  return {
+    key: 'match.protocol.commandCorrected',
+    actor: original.source === 'player' ? seatNames[original.seat] : undefined,
+    correctedEntry: entryMessage(original, seatNames),
+  }
 }

@@ -110,8 +110,7 @@ type MatchLifecycleCommand = v.InferOutput<typeof MatchLifecycleCommand>
 
 const CorrectionCommand = v.pipe(
   v.strictObject({
-    // Older Accepted Commands must remain replayable after the wire name changes.
-    type: v.picklist(['command.correct', 'action.correct']),
+    type: v.literal('command.correct'),
     targetSeq: PositiveInteger,
     targetCommandId: CommandId,
   }),
@@ -127,10 +126,7 @@ export function isCorrectableCommand(command: MatchCommand): boolean {
 }
 
 export function isCorrectionCommand(command: MatchCommand): boolean {
-  return (
-    command.source === 'match' &&
-    (command.command.type === 'command.correct' || command.command.type === 'action.correct')
-  )
+  return command.source === 'match' && command.command.type === 'command.correct'
 }
 
 function latestUncorrectedCommand(history: readonly AcceptedCommand[]): AcceptedCommand | undefined {
@@ -503,6 +499,8 @@ export function restoreMatch(config: MatchConfig, history: readonly AcceptedComm
   try {
     const accepted = history.map((acceptedCommand, index) => {
       if (isCorrectionCommand(acceptedCommand)) {
+        // A Correction is an Accepted Command, not a gameplay event. Replay only earlier Commands
+        // to derive the compensated state and its linked entries, then continue the history.
         const correction = correctMatch(config, history.slice(0, index), acceptedCommand)
 
         if (correction.result._tag !== 'accepted' || !correction.match)
@@ -571,7 +569,7 @@ export function correctMatch(
         gameKey: config.gameKey,
         frameIndex: frame.frameIndex,
         source: original.source,
-        entryType: parsed.output.type === 'command.correct' ? 'command-corrected' : 'action-corrected',
+        entryType: 'command-corrected',
         seat: original.seat,
         scoreAfter: frame.pointsBySeat,
         body: { targetSeq: target.acceptedSeq, targetCommandId: target.commandId, targetEntryIndex },

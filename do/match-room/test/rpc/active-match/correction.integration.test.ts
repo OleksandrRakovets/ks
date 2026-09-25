@@ -11,7 +11,7 @@ import {
   prepareCommand,
 } from '../fixtures'
 
-test('restores a legacy correction and its original command after eviction', async () => {
+test('restores a correction and its original command after eviction', async () => {
   const { matchId, stub } = await initializedRoom()
   await stub.submitCommand(prepareCommand())
   await stub.submitCommand(commenceCommand())
@@ -35,7 +35,7 @@ test('restores a legacy correction and its original command after eviction', asy
   const correction = {
     commandId: newCommandId(),
     source: 'match' as const,
-    command: { type: 'action.correct', targetSeq: 4, targetCommandId: mistaken.commandId },
+    command: { type: 'command.correct', targetSeq: 4, targetCommandId: mistaken.commandId },
   }
 
   expect(await stub.submitCommand(correction)).toEqual({ _tag: 'accepted', acceptedSeq: 5, endsMatch: false })
@@ -51,7 +51,7 @@ test('restores a legacy correction and its original command after eviction', asy
       expect.objectContaining({
         acceptedSeq: 5,
         source: 'player',
-        entryType: 'action-corrected',
+        entryType: 'command-corrected',
         seat: 'A',
         scoreAfter: { A: 0, B: 1 },
         body: { targetSeq: 4, targetCommandId: mistaken.commandId, targetEntryIndex: 0 },

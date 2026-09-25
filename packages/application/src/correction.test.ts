@@ -41,11 +41,6 @@ const correction: ProtocolEntry = {
   causedByCommandId: newCommandId(),
   entryType: 'command-corrected',
   scoreAfter: { A: 2, B: 0 },
-  body: { targetSeq: 3, targetCommandId: originalId },
-}
-
-const indexedCorrection: ProtocolEntry = {
-  ...correction,
   body: { targetSeq: 3, targetCommandId: originalId, targetEntryIndex: 0 },
 }
 
@@ -82,7 +77,7 @@ test('shows the preceding uncorrected command after compensation', () => {
   const earlierCorrection: ProtocolEntry = {
     ...correction,
     acceptedSeq: 5,
-    body: { targetSeq: 2, targetCommandId: earlier.causedByCommandId },
+    body: { targetSeq: 2, targetCommandId: earlier.causedByCommandId, targetEntryIndex: 0 },
   }
 
   expect(renderLastCommandRow([earlier, pot, foul, correction, earlierCorrection], names, 5)).toBeUndefined()
@@ -106,7 +101,7 @@ test('links both correction entries to their own original without adding a stack
     scoreAfter: { A: 1, B: 0 },
   }
 
-  const entries = [earlier, pot, foul, indexedCorrection, foulCorrection]
+  const entries = [earlier, pot, foul, correction, foulCorrection]
 
   expect(renderLastCommandRow(entries, names, 4)?.target).toEqual({
     acceptedSeq: 2,
@@ -122,15 +117,6 @@ test('links both correction entries to their own original without adding a stack
     correctedEntry: { key: 'match.protocol.system.automatic-foul.third-consecutive-cue-ball-pot' },
   })
   expect(rows[4]?.message.actor).toBeUndefined()
-})
-
-test('renders and skips legacy correction entries after restoration', () => {
-  const legacy: ProtocolEntry = { ...correction, entryType: 'action-corrected' }
-  expect(renderLastCommandRow([pot, foul, legacy], names, 4)?.target).toBeUndefined()
-  expect(renderProtocolRows([pot, foul, legacy], names, clock)[2]?.message).toMatchObject({
-    key: 'match.protocol.commandCorrected',
-    correctedEntry: { key: 'match.protocol.commands.pot.record.balls' },
-  })
 })
 
 test('does not target a stale command or frame lifecycle entry', () => {

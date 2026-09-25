@@ -1,4 +1,4 @@
-import { correctMatch, isCorrectionCommand, type MatchRoomProjection } from '@ks/competition'
+import { correctMatch, isCorrectionCommand, type Match, type MatchRoomProjection } from '@ks/competition'
 import {
   type MatchCommand,
   type MatchScoreProjection,
@@ -54,63 +54,86 @@ export class ActiveMatchHandler {
     }
 
     try {
-      const correction = isCorrectionCommand(command)
-        ? correctMatch(
-            this.#storedMatch.config,
-            this.#storage.readAcceptedCommands(this.#storedMatch),
-            command,
-          )
-        : null
-
-      const nextMatch = correction?.match ?? this.#state.match
-      const result = correction?.result ?? nextMatch.execute(command)
-
-      if (result._tag === 'parse-failed') return { response: { _tag: 'invalid-command' } }
-
-      if (result._tag === 'rejected')
-        return {
-          response: this.#storage.commitRejectedCommand({
-            matchId: this.#storedMatch.matchId,
-            command,
-            reason: result.reason,
-          }),
-        }
-
-      const state = nextMatch.project().state
-
-      const committed = this.#storage.commitAcceptedCommand({
-        match: this.#storedMatch,
-        command: result.command,
-        finalState: state.status === 'finished' ? state : null,
-        gameResult: nextMatch.gameResult(),
-      })
-
-      this.#state = this.#resident.advance(
-        this.#state,
-        committed.acceptedCommand,
-        result.protocolEntryContents,
-        nextMatch,
-      )
-
-      this.#liveConnections.broadcast(committed.streamUpdate)
-
-      if (committed.streamUpdate.endsMatch) this.#liveConnections.closeAll()
-
-      const response: ActiveCommandResult = {
-        _tag: 'accepted',
-        acceptedSeq: committed.receipt.acceptedSeq,
-        endsMatch: committed.streamUpdate.endsMatch,
-      }
-
-      if (committed.storedMatch.status === 'finalizing')
-        return { response, next: { storedMatch: committed.storedMatch, resident: this.#resident } }
-      this.#storedMatch = committed.storedMatch
-
-      return { response }
+      return isCorrectionCommand(command)
+        ? this.#submitCorrection(command)
+        : this.#submitRegularCommand(command)
     } catch (error) {
       this.#resident.clear()
       throw error
     }
+  }
+
+  #submitRegularCommand(command: MatchCommand): ActiveCommandOutcome {
+    const result = this.#state.match.execute(command)
+
+    if (result._tag !== 'accepted') return this.#failed(command, result)
+    const committed = this.#commit(result, this.#state.match)
+    this.#state = this.#resident.advance(this.#state, committed.acceptedCommand, result.protocolEntryContents)
+
+    return this.#accepted(committed)
+  }
+
+  #submitCorrection(command: MatchCommand): ActiveCommandOutcome {
+    const correction = correctMatch(
+      this.#storedMatch.config,
+      this.#storage.readAcceptedCommands(this.#storedMatch),
+      command,
+    )
+
+    if (!correction.match) return this.#failed(command, correction.result)
+    const committed = this.#commit(correction.result, correction.match)
+    this.#state = this.#resident.rewind(
+      this.#state,
+      committed.acceptedCommand,
+      correction.result.protocolEntryContents,
+      correction.match,
+    )
+
+    return this.#accepted(committed)
+  }
+
+  #failed(
+    command: MatchCommand,
+    result: Exclude<ReturnType<Match['execute']>, { _tag: 'accepted' }>,
+  ): ActiveCommandOutcome {
+    if (result._tag === 'parse-failed') return { response: { _tag: 'invalid-command' } }
+
+    return {
+      response: this.#storage.commitRejectedCommand({
+        matchId: this.#storedMatch.matchId,
+        command,
+        reason: result.reason,
+      }),
+    }
+  }
+
+  #commit(result: Extract<ReturnType<Match['execute']>, { _tag: 'accepted' }>, match: Match) {
+    const state = match.project().state
+
+    return this.#storage.commitAcceptedCommand({
+      match: this.#storedMatch,
+      command: result.command,
+      finalState: state.status === 'finished' ? state : null,
+      gameResult: match.gameResult(),
+    })
+  }
+
+  #accepted(committed: ReturnType<MatchStorage['commitAcceptedCommand']>): ActiveCommandOutcome {
+    this.#liveConnections.broadcast(committed.streamUpdate)
+
+    if (committed.streamUpdate.endsMatch) this.#liveConnections.closeAll()
+
+    const response: ActiveCommandResult = {
+      _tag: 'accepted',
+      acceptedSeq: committed.receipt.acceptedSeq,
+      endsMatch: committed.streamUpdate.endsMatch,
+    }
+
+    if (committed.storedMatch.status === 'finalizing')
+      return { response, next: { storedMatch: committed.storedMatch, resident: this.#resident } }
+    this.#storedMatch = committed.storedMatch
+
+    return { response }
   }
 
   getControls(): ActiveControlsResult {
