@@ -1,4 +1,4 @@
-import { type BySeatNumber, type FrameOutcome, type MatchConfig, opponentOf, type Seat } from '@ks/core'
+import { BySeatNumber, FrameOutcome, MatchConfig, opponentOf, Seat } from '@ks/core'
 import * as v from 'valibot'
 import { assign, initialTransition, setup, type SnapshotFrom, transition } from 'xstate'
 
@@ -41,6 +41,66 @@ export type MatchMachineContext = {
   readonly nextFrameIndex: number
   readonly activeFrame: ActiveFrame | null
   readonly winnerSeat: Seat | null
+}
+
+export const MatchMachineCheckpoint = v.object({
+  value: v.picklist(['between-frames', 'frame-in-progress', 'finished']),
+  context: v.object({
+    config: MatchConfig,
+    completedFrames: v.pipe(
+      v.array(
+        v.object({
+          frameIndex: v.pipe(v.number(), v.integer(), v.minValue(1)),
+          breakerSeat: Seat,
+          outcome: FrameOutcome,
+        }),
+      ),
+      v.readonly(),
+    ),
+    framesWonBySeat: BySeatNumber,
+    nextFrameIndex: v.pipe(v.number(), v.integer(), v.minValue(1)),
+    activeFrame: v.nullable(
+      v.object({ frameIndex: v.pipe(v.number(), v.integer(), v.minValue(1)), breakerSeat: Seat }),
+    ),
+    winnerSeat: v.nullable(Seat),
+  }),
+})
+
+export type MatchMachineCheckpoint = v.InferOutput<typeof MatchMachineCheckpoint>
+
+export function restoreLifecycleSnapshot(checkpoint: MatchMachineCheckpoint): MatchSnapshot {
+  const { value, context } = v.parse(MatchMachineCheckpoint, checkpoint)
+  const wins = { A: 0, B: 0 }
+
+  for (const [index, frame] of context.completedFrames.entries()) {
+    if (
+      frame.frameIndex !== index + 1 ||
+      frame.breakerSeat !== expectedBreakerSeat(context.config, frame.frameIndex)
+    )
+      throw new Error('Invalid completed frame sequence')
+    wins[frame.outcome.winnerSeat]++
+  }
+
+  if (
+    wins.A !== context.framesWonBySeat.A ||
+    wins.B !== context.framesWonBySeat.B ||
+    context.nextFrameIndex !== context.completedFrames.length + 1 ||
+    (value === 'frame-in-progress') !== (context.activeFrame !== null) ||
+    (context.activeFrame !== null &&
+      (context.activeFrame.frameIndex !== context.nextFrameIndex ||
+        context.activeFrame.breakerSeat !== expectedBreakerSeat(context.config, context.nextFrameIndex))) ||
+    (value === 'finished') !== (context.winnerSeat !== null) ||
+    (value === 'finished' &&
+      (context.winnerSeat === null ||
+        wins[context.winnerSeat] < context.config.targets.matchTargetFrames ||
+        context.completedFrames.at(-1)?.outcome.winnerSeat !== context.winnerSeat)) ||
+    (value !== 'finished' &&
+      (wins.A >= context.config.targets.matchTargetFrames ||
+        wins.B >= context.config.targets.matchTargetFrames))
+  )
+    throw new Error('Inconsistent match lifecycle checkpoint')
+
+  return MatchMachine.resolveState({ value, context })
 }
 
 export type MatchLifecycleEvent =

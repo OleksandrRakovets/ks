@@ -4,6 +4,7 @@ import * as v from 'valibot'
 import type { GameControl } from './constants'
 import type { GameResult } from './game-result'
 import type { GameCommandFor, GamePresentationFor, RegisteredGameKey } from './registry'
+import type { GameplayCheckpoint } from './session-factory'
 
 export const GameCommandRejection = v.pipe(
   v.object({ code: v.literal('command-not-available') }),
@@ -33,6 +34,9 @@ export type GameplaySessionCreateArgsFor<K extends RegisteredGameKey> = Gameplay
 /** Resident gameplay for one active frame of a registered game. */
 export interface GameplaySession<K extends RegisteredGameKey> {
   readonly gameKey: K
+
+  /** Plain machine state, including hidden rule context; no runtime snapshot methods. */
+  exportCheckpoint(): GameplayCheckpoint['state']
 
   /**
    * Executes one trusted typed game command.

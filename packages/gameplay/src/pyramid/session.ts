@@ -10,21 +10,36 @@ import {
   type GameplaySessionCreateArgsFor,
 } from '../gameplay-session'
 import type { GamePresentationFor } from '../registry'
-import type { PyramidCommand } from './definitions'
+import { type PyramidCommand, PyramidContext, PyramidPhase } from './definitions'
 import { createInitialSnapshot, getPhase, PyramidFrameMachine, type PyramidFrameSnapshot } from './machine'
 import { derivePyramidControlProjection } from './projections/control'
 import { createPyramidProtocolEntries } from './protocol'
 import { type PyramidGameKey, type PyramidRulesFor, PyramidRuleSpecificsByGameKey } from './rules'
+
+export const PyramidCheckpoint = v.object({ value: PyramidPhase, context: PyramidContext })
+
+export type PyramidCheckpoint = v.InferOutput<typeof PyramidCheckpoint>
 
 class PyramidGameplaySession<K extends PyramidGameKey> implements GameplaySession<K> {
   readonly gameKey: K
   #snapshot: PyramidFrameSnapshot
   readonly #rules: PyramidRulesFor<K>
 
-  constructor(gameKey: K, args: GameplaySessionCreateArgsFor<K>, rules: PyramidRulesFor<K>) {
+  constructor(
+    gameKey: K,
+    args: GameplaySessionCreateArgsFor<K>,
+    rules: PyramidRulesFor<K>,
+    checkpoint?: PyramidCheckpoint,
+  ) {
     this.gameKey = gameKey
     this.#rules = rules
-    this.#snapshot = createInitialSnapshot(this.#rules, { ...args.targetPointsBySeat })
+    this.#snapshot = checkpoint
+      ? PyramidFrameMachine.resolveState(checkpoint)
+      : createInitialSnapshot(this.#rules, { ...args.targetPointsBySeat })
+  }
+
+  exportCheckpoint(): PyramidCheckpoint {
+    return { value: this.#snapshot.value, context: this.#snapshot.context }
   }
 
   execute(command: PyramidCommand): GameCommandExecution {
@@ -109,4 +124,31 @@ export function createPyramidGameplaySession(
   }
 
   throw new Error('Unsupported pyramid game')
+}
+
+export function restorePyramidGameplaySession<K extends PyramidGameKey>(
+  gameKey: K,
+  checkpoint: PyramidCheckpoint,
+): GameplaySession<K> {
+  const rules = PyramidRuleSpecificsByGameKey[gameKey]
+  const state = v.parse(PyramidCheckpoint, checkpoint)
+
+  if (
+    state.value === 'frame-over' ||
+    state.context.rules.gameKey !== gameKey ||
+    state.context.rules.allowNegative !== rules.allowNegative ||
+    state.context.rules.foulPenalty !== rules.foulPenalty ||
+    state.context.rules.shotPointOptions.length !== rules.shotPointOptions.length ||
+    state.context.rules.shotPointOptions.some((option, index) => option !== rules.shotPointOptions[index]) ||
+    (state.value === 'winner-determined') !== (state.context.winner !== null)
+  )
+    throw new Error('Pyramid checkpoint rules or phase do not match the game')
+
+  // SAFETY: indexed rules correspond to the selected key.
+  return new PyramidGameplaySession(
+    gameKey,
+    { targetPointsBySeat: state.context.targetPoints },
+    state.context.rules as PyramidRulesFor<K>,
+    state,
+  )
 }

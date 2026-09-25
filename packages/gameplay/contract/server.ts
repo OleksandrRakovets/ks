@@ -4,4 +4,4 @@ export { parseGameCommand } from '../src/parse-game-command'
 
 export { parseGameProtocolEntry } from '../src/parse-game-protocol-entry'
 
-export { createGameplaySession } from '../src/session-factory'
+export { createGameplaySession, restoreGameplaySession, GameplayCheckpoint } from '../src/session-factory'

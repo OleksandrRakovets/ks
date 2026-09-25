@@ -89,7 +89,7 @@ const PottedBallsBySeat = v.pipe(
   v.readonly(),
 )
 
-const StrilaContext = v.pipe(
+export const StrilaContext = v.pipe(
   v.object({
     score: BySeatNumber,
     targetPoints: BySeatNumber,

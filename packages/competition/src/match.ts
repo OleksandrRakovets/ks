@@ -10,16 +10,24 @@ import {
   type ProtocolEntryContent,
   Seat,
 } from '@ks/core'
-import { type GamePresentationFor, type GameResult, RegisteredGameKey } from '@ks/gameplay/definitions'
+import { type GamePresentationFor, GameResult, RegisteredGameKey } from '@ks/gameplay/definitions'
 import type { GameCommandFor } from '@ks/gameplay/definitions'
-import { GameCommandRejection, type GameplaySession, parseGameCommand } from '@ks/gameplay/server'
+import {
+  GameCommandRejection,
+  GameplayCheckpoint,
+  type GameplaySession,
+  parseGameCommand,
+  restoreGameplaySession,
+} from '@ks/gameplay/server'
 import { createGameplaySession } from '@ks/gameplay/server'
 import * as v from 'valibot'
 
 import {
   createInitialSnapshot,
   deriveLifecycleState,
+  MatchMachineCheckpoint,
   type MatchSnapshot,
+  restoreLifecycleSnapshot,
   sendLifecycleEvent,
 } from './match-machine-internals'
 import type { MatchStateFor } from './matches'
@@ -64,7 +72,17 @@ export type MatchRoomProjection = {
   [K in RegisteredGameKey]: MatchRoomProjectionFor<K>
 }[RegisteredGameKey]
 
+/** Complete executable aggregate state; storage cursor and Protocol are deliberately separate. */
+export const MatchCheckpoint = v.object({
+  lifecycle: MatchMachineCheckpoint,
+  gameplay: v.nullable(GameplayCheckpoint),
+  completedGameResult: v.nullable(GameResult),
+})
+
+export type MatchCheckpoint = v.InferOutput<typeof MatchCheckpoint>
+
 export interface Match {
+  exportCheckpoint(): MatchCheckpoint
   /**
    * Executes one untrusted control command and speculatively advances resident state on acceptance.
    * The caller must discard this resident if accepted content cannot subsequently be persisted.
@@ -155,9 +173,29 @@ class ResidentMatch implements Match {
   private gameplay: AnyCorrelatedGameplay | null
   #completedGameResult: GameResult | null = null
 
-  constructor(snapshot: MatchSnapshot, gameplay: AnyCorrelatedGameplay | null) {
+  constructor(
+    snapshot: MatchSnapshot,
+    gameplay: AnyCorrelatedGameplay | null,
+    completedGameResult: GameResult | null = null,
+  ) {
     this.snapshot = snapshot
     this.gameplay = gameplay
+    this.#completedGameResult = completedGameResult
+  }
+
+  exportCheckpoint(): MatchCheckpoint {
+    const gameplay = this.gameplay
+
+    return {
+      lifecycle: {
+        value: this.snapshot.value,
+        context: this.snapshot.context,
+      },
+      gameplay: gameplay
+        ? v.parse(GameplayCheckpoint, { gameKey: gameplay.key, state: gameplay.session.exportCheckpoint() })
+        : null,
+      completedGameResult: this.#completedGameResult,
+    }
   }
 
   gameResult(): GameResult | null {
@@ -434,6 +472,36 @@ class ResidentMatch implements Match {
  */
 export function createMatch(config: MatchConfig): Match {
   return createResidentMatch(config)
+}
+
+/** Validates persisted state and restores one local executable aggregate without replay. */
+export function restoreMatchCheckpoint(input: MatchCheckpoint): Match {
+  const checkpoint = v.parse(MatchCheckpoint, input)
+  const lifecycle = restoreLifecycleSnapshot(checkpoint.lifecycle)
+  const config = checkpoint.lifecycle.context.config
+  const phase = checkpoint.lifecycle.value
+  const gameplay = checkpoint.gameplay
+
+  if (
+    (phase === 'frame-in-progress') !== (gameplay !== null) ||
+    (gameplay !== null && gameplay.gameKey !== config.gameKey) ||
+    (gameplay !== null &&
+      (gameplay.state.context.targetPoints.A !== config.targets.frameTargetPointsBySeat.A ||
+        gameplay.state.context.targetPoints.B !== config.targets.frameTargetPointsBySeat.B)) ||
+    (gameplay?.gameKey === 'free-pyramid-long' &&
+      gameplay.state.context.rackRollover !== config.gameConfiguration?.rackRollover) ||
+    (checkpoint.completedGameResult !== null && config.gameKey !== 'free-pyramid-long') ||
+    (checkpoint.completedGameResult === null &&
+      config.gameKey === 'free-pyramid-long' &&
+      checkpoint.lifecycle.context.completedFrames.length > 0)
+  )
+    throw new Error('Inconsistent match checkpoint')
+
+  // SAFETY: restoration dispatches by the validated key, preserving session/key correlation.
+  const correlated =
+    gameplay && ({ key: gameplay.gameKey, session: restoreGameplaySession(gameplay) } as AnyCorrelatedGameplay)
+
+  return new ResidentMatch(lifecycle, correlated, checkpoint.completedGameResult)
 }
 
 function createResidentMatch(config: MatchConfig): ResidentMatch {

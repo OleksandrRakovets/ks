@@ -26,7 +26,11 @@ const RespottedBlackSnapshotValue = v.strictObject({
   'respotted-black': v.picklist(['opening-selection', 'opening', 'play']),
 })
 
-const StrilaSnapshotValue = v.union([StrilaPhase, FoulSnapshotValue, RespottedBlackSnapshotValue])
+export const StrilaSnapshotValue = v.union([
+  v.picklist(['not-started', 'open-play', 'winner-determined', 'frame-over']),
+  FoulSnapshotValue,
+  RespottedBlackSnapshotValue,
+])
 
 function pointsForPottedBalls(pottedBalls: readonly StrilaBall[]): number {
   return pottedBalls.reduce<number>((sum, ball) => sum + (ball === StrilaMeta.cueBall ? 1 : 2), 0)

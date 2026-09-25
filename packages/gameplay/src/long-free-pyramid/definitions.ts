@@ -63,7 +63,7 @@ export const LongFreePyramidPhase = v.picklist([
 
 export type LongFreePyramidPhase = v.InferOutput<typeof LongFreePyramidPhase>
 
-const LongFreePyramidContext = v.pipe(
+export const LongFreePyramidContext = v.pipe(
   v.object({
     racks: v.pipe(v.array(LongFreePyramidRack), v.minLength(1), v.readonly()),
     targetPoints: BySeatNumber,
