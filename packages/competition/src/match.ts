@@ -117,6 +117,8 @@ const CorrectionCommand = v.pipe(
   v.readonly(),
 )
 
+type CorrectionCommand = v.InferOutput<typeof CorrectionCommand>
+
 export function isCorrectableCommand(command: MatchCommand): boolean {
   return (
     command.source === 'game' &&
@@ -494,31 +496,7 @@ function createResidentMatch(config: MatchConfig): ResidentMatch {
  * @throws MatchHistoryError when accepted history is impossible or incompatible with current rules.
  */
 export function restoreMatch(config: MatchConfig, history: readonly AcceptedCommand[]): RestoredMatch {
-  let resident = createResidentMatch(config)
-
-  try {
-    const accepted = history.map((acceptedCommand, index) => {
-      if (isCorrectionCommand(acceptedCommand)) {
-        // A Correction is an Accepted Command, not a gameplay event. Replay only earlier Commands
-        // to derive the compensated state and its linked entries, then continue the history.
-        const correction = correctMatch(config, history.slice(0, index), acceptedCommand)
-
-        if (correction.result._tag !== 'accepted' || !correction.match)
-          throw new MatchHistoryError('Stored Correction is not executable')
-
-        resident = correction.match
-
-        return { acceptedCommand, protocolEntryContents: correction.result.protocolEntryContents }
-      }
-
-      return { acceptedCommand, protocolEntryContents: resident.restore(acceptedCommand) }
-    })
-
-    return { match: resident, accepted }
-  } catch (error) {
-    if (error instanceof MatchHistoryError) throw error
-    throw new MatchHistoryError(error instanceof Error ? error.message : 'History restoration failed')
-  }
+  return replayHistory(config, history)
 }
 
 /** Compensates only the latest eligible game command, restoring its entire prior semantic state. */
@@ -539,26 +517,78 @@ export function correctMatch(
 
   const target = latestUncorrectedCommand(history)
 
-  if (
-    !target ||
-    !isCorrectableCommand(target) ||
-    target.acceptedSeq !== parsed.output.targetSeq ||
-    target.commandId !== parsed.output.targetCommandId
-  )
+  if (!matchesCorrectionTarget(target, parsed.output))
     return { result: { _tag: 'rejected', reason: { code: 'correction-not-available' } } }
 
-  const prefix = history.filter((accepted) => accepted.acceptedSeq < target.acceptedSeq)
-  const replay = restoreMatch(config, prefix).match
-  const state = replay.project().state
+  return compensate(config, replayHistory(config, history), target, command)
+}
+
+function matchesCorrectionTarget(
+  target: AcceptedCommand | undefined,
+  parsed: CorrectionCommand,
+): target is AcceptedCommand {
+  return (
+    !!target &&
+    isCorrectableCommand(target) &&
+    target.acceptedSeq === parsed.targetSeq &&
+    target.commandId === parsed.targetCommandId
+  )
+}
+
+function replayHistory(config: MatchConfig, history: readonly AcceptedCommand[]): ReplayedHistory {
+  let resident = createResidentMatch(config)
+  const accepted: RestoredMatch['accepted'][number][] = []
+  // Protocol keeps every Command; only these uncorrected Commands contribute to resident state.
+  const effective: AcceptedCommand[] = []
+
+  try {
+    for (const acceptedCommand of history) {
+      if (isCorrectionCommand(acceptedCommand)) {
+        const parsed = v.safeParse(CorrectionCommand, acceptedCommand.command)
+        const target = effective.at(-1)
+
+        if (!parsed.success || !matchesCorrectionTarget(target, parsed.output))
+          throw new MatchHistoryError('Stored Correction is not executable')
+
+        const correction = compensate(config, { accepted, effective }, target, acceptedCommand)
+        resident = correction.match
+        effective.pop()
+        accepted.push({ acceptedCommand, protocolEntryContents: correction.result.protocolEntryContents })
+      } else {
+        accepted.push({ acceptedCommand, protocolEntryContents: resident.restore(acceptedCommand) })
+        effective.push(acceptedCommand)
+      }
+    }
+
+    return { match: resident, accepted, effective }
+  } catch (error) {
+    if (error instanceof MatchHistoryError) throw error
+    throw new MatchHistoryError(error instanceof Error ? error.message : 'History restoration failed')
+  }
+}
+
+function compensate(
+  config: MatchConfig,
+  replay: Pick<ReplayedHistory, 'accepted' | 'effective'>,
+  target: AcceptedCommand,
+  command: MatchCommand,
+): Extract<CorrectionResult, { match: ResidentMatch }> {
+  const before = createResidentMatch(config)
+
+  for (const accepted of replay.effective.slice(0, -1)) before.restore(accepted)
+
+  const state = before.project().state
   const frame = state.frames.at(-1)
   const gameCommand = parseGameCommand(gameKeyOf(config.gameKey), target.command)
 
   if (!frame || frame.winnerSeat || gameCommand._tag !== 'parsed')
     throw new MatchHistoryError('Correction target has no active game command')
 
-  // Replaying the target identifies every derived entry; the returned resident must exclude it.
-  const originalContents = replay.restore(target)
-  const before = restoreMatch(config, prefix).match
+  const originalContents = replay.accepted.find(
+    ({ acceptedCommand }) => acceptedCommand.acceptedSeq === target.acceptedSeq,
+  )?.protocolEntryContents
+
+  if (!originalContents) throw new MatchHistoryError('Correction target has no Protocol entries')
 
   return {
     match: before,
@@ -588,3 +618,5 @@ export type RestoredMatch = {
     readonly protocolEntryContents: readonly ProtocolEntryContent[]
   }[]
 }
+
+type ReplayedHistory = RestoredMatch & { readonly effective: readonly AcceptedCommand[] }

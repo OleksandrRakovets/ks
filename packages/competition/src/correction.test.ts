@@ -190,6 +190,53 @@ test('corrects three consecutive scores in reverse order across restoration', ()
   expect(correctMatch(setup, history, correction(pots[0]!)).result._tag).toBe('rejected')
 })
 
+test('restores alternating commands and corrections without expanding earlier corrections', () => {
+  const setup = config('free-pyramid')
+  const opened = open(setup)
+  const history = opened.history
+  let match = opened.match
+  const targets: AcceptedCommand[] = []
+
+  for (let index = 0; index < 12; index += 1) {
+    const target = record(match, history, 'game', {
+      type: 'pot.record',
+      seat: 'A',
+      pottedBallCount: 1,
+    })
+
+    targets.push(target)
+    const submitted = correction(target)
+    const corrected = correctMatch(setup, history, submitted)
+
+    if (!corrected.match) throw new Error('Expected an accepted correction')
+    expect(corrected.match.project().game).toMatchObject({ score: { A: 0, B: 0 } })
+    history.push({ ...submitted, acceptedSeq: history.length + 1, acceptedAt })
+    match = corrected.match
+  }
+
+  const restored = restoreMatch(setup, history)
+  expect(restored.match.project()).toEqual(match.project())
+  expect(
+    restored.accepted.filter(({ acceptedCommand }) => acceptedCommand.command.type === 'command.correct'),
+  ).toMatchObject(
+    targets.map((target) => ({
+      protocolEntryContents: [
+        {
+          entryType: 'command-corrected',
+          body: { targetSeq: target.acceptedSeq, targetCommandId: target.commandId, targetEntryIndex: 0 },
+        },
+      ],
+    })),
+  )
+  expect(
+    restored.match.execute({
+      commandId: newCommandId(),
+      source: 'game',
+      command: { type: 'pot.record', seat: 'B', pottedBallCount: 1 },
+    }),
+  ).toMatchObject({ _tag: 'accepted', protocolEntryContents: [{ scoreAfter: { A: 0, B: 1 } }] })
+})
+
 test('rejects stale targets, a second correction, and non-game lifecycle actions', () => {
   const setup = config()
   const { match, history } = open(setup)

@@ -134,6 +134,50 @@ test('continues correcting earlier commands after eviction and keeps every corre
   })
 })
 
+test('restores alternating commands and corrections after eviction', async () => {
+  const { matchId, stub } = await initializedRoom()
+  await stub.submitCommand(prepareCommand())
+  await stub.submitCommand(commenceCommand())
+
+  for (let index = 0; index < 4; index += 1) {
+    const pot = {
+      commandId: newCommandId(),
+      source: 'game' as const,
+      command: { type: 'pot.record', seat: 'A', pottedBallCount: 1 },
+    }
+
+    const acceptedSeq = index * 2 + 3
+    expect(await stub.submitCommand(pot)).toMatchObject({ _tag: 'accepted', acceptedSeq })
+    expect(
+      await stub.submitCommand({
+        commandId: newCommandId(),
+        source: 'match',
+        command: { type: 'command.correct', targetSeq: acceptedSeq, targetCommandId: pot.commandId },
+      }),
+    ).toMatchObject({ _tag: 'accepted', acceptedSeq: acceptedSeq + 1 })
+  }
+
+  const controls = await stub.getControls()
+  const protocol = await stub.getProtocol()
+  expect(controls).toMatchObject({ latestSeq: 10, game: { score: { A: 0, B: 0 } } })
+  expect(protocol).toMatchObject({
+    latestSeq: 10,
+    protocolEntries: Array.from({ length: 10 }, (_, index) => ({ acceptedSeq: index + 1 })),
+  })
+  await evictDurableObject(stub)
+  const restored = env.MATCH_ROOM.getByName(matchId)
+  expect(await restored.getControls()).toEqual(controls)
+  expect(await restored.getProtocol()).toEqual(protocol)
+  expect(
+    await restored.submitCommand({
+      commandId: newCommandId(),
+      source: 'game',
+      command: { type: 'pot.record', seat: 'B', pottedBallCount: 1 },
+    }),
+  ).toMatchObject({ _tag: 'accepted', acceptedSeq: 11 })
+  expect(await restored.getControls()).toMatchObject({ game: { score: { A: 0, B: 1 } } })
+})
+
 test('persists the third cue-ball pot and system-foul corrections as one stack step', async () => {
   const matchId = newMatchId()
   const stub = env.MATCH_ROOM.getByName(matchId)
