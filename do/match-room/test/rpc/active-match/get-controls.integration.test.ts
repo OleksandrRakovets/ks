@@ -142,6 +142,106 @@ test('restores asymmetric game scoring and keeps last player confirmation across
   })
 })
 
+test('restores nested Strila foul state and archives a natural award after eviction', async () => {
+  const matchId = newMatchId()
+  const stub = env.MATCH_ROOM.getByName(matchId)
+  await stub.initialize({
+    ...initialization(matchId),
+    gameKey: 'strila-v2',
+    targets: { frameTargetPointsBySeat: { A: 2, B: 1 }, matchTargetFrames: 1 },
+  })
+  await stub.submitCommand(prepareCommand())
+  await stub.submitCommand({
+    commandId: newCommandId(),
+    source: 'match',
+    command: { type: 'frame.commence', seat: 'A' },
+  })
+  await stub.submitCommand({
+    commandId: newCommandId(),
+    source: 'game',
+    command: { type: 'foul.commit', seat: 'A' },
+  })
+  await evictDurableObject(stub)
+
+  const restored = env.MATCH_ROOM.getByName(matchId)
+  expect(
+    await restored.submitCommand({
+      commandId: newCommandId(),
+      source: 'game',
+      command: { type: 'penalty.select', seat: 'B', choice: 'pass-position' },
+    }),
+  ).toEqual({ _tag: 'accepted', acceptedSeq: 4, endsMatch: false })
+  const restoredProtocol = await restored.getProtocol()
+  expect(restoredProtocol).toMatchObject({
+    _tag: 'active',
+    latestSeq: 4,
+    state: { frames: [{ pointsBySeat: { A: 0, B: 1 } }] },
+  })
+  expect(
+    restoredProtocol.protocolEntries
+      .filter((entry) => entry.acceptedSeq === 4)
+      .map(({ source, entryType, seat, scoreAfter, body }) => ({ source, entryType, seat, scoreAfter, body })),
+  ).toEqual([
+    {
+      source: 'player',
+      entryType: 'player-command',
+      seat: 'B',
+      scoreAfter: { A: 0, B: 1 },
+      body: { commandType: 'penalty.select', choice: 'pass-position' },
+    },
+    {
+      source: 'system',
+      entryType: 'system-note',
+      seat: 'B',
+      scoreAfter: undefined,
+      body: { systemType: 'winner-determined', reason: 'target-reached' },
+    },
+  ])
+  await evictDurableObject(restored)
+
+  const winnerDetermined = env.MATCH_ROOM.getByName(matchId)
+  expect(
+    await winnerDetermined.submitCommand({
+      commandId: newCommandId(),
+      source: 'game',
+      command: { type: 'frame.award', seat: 'B' },
+    }),
+  ).toEqual({ _tag: 'accepted', acceptedSeq: 5, endsMatch: true })
+  await evictDurableObject(winnerDetermined)
+
+  const finalizing = env.MATCH_ROOM.getByName(matchId)
+  const transfer = await runInDurableObject(finalizing, (room) => room.prepareArchive())
+  expect(transfer).toMatchObject({
+    matchId,
+    gameKey: 'strila-v2',
+    sourceLatestSeq: 5,
+    finalState: {
+      status: 'finished',
+      framesWonBySeat: { A: 0, B: 1 },
+      frames: [{ winnerSeat: 'B', pointsBySeat: { A: 0, B: 1 } }],
+    },
+  })
+  expect(
+    transfer.protocolEntries
+      .filter((entry) => entry.acceptedSeq === 5)
+      .map(({ source, entryType, seat, body }) => ({ source, entryType, seat, body })),
+  ).toEqual([
+    {
+      source: 'player',
+      entryType: 'player-command',
+      seat: 'B',
+      body: { commandType: 'frame.award' },
+    },
+    {
+      source: 'system',
+      entryType: 'frame-awarded',
+      seat: 'B',
+      body: { winReason: 'game-rules' },
+    },
+    { source: 'system', entryType: 'match-ended', seat: 'B', body: {} },
+  ])
+})
+
 test('returns durable final state and score after a match-ending acceptance', async () => {
   const { stub } = await initializedRoom()
   await makeRoomFinalizing(stub)

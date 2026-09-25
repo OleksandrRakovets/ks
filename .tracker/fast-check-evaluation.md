@@ -21,12 +21,12 @@ Property-based testing complements rather than replaces the repository's determi
 At the Competition boundary, generate short command histories against small frame and match targets:
 
 1. Execute commands against a warm `SparringMatch`.
-2. Retain each Accepted Command with its emitted Protocol content.
-3. JSON-round-trip the retained history.
-4. Restore a new match from that history.
-5. Assert that restored and warm semantic projections are equal.
+2. Export and JSON-round-trip aggregate checkpoints at generated acceptance boundaries.
+3. Restore a new match from each checkpoint.
+4. Assert that restored and warm semantic projections are equal.
+5. Execute the next generated command against both and compare its outcome and resulting projection.
 
-This directly exercises the architectural invariant that resident state is disposable and reproducible from Accepted Commands while jointly covering command acceptance, Protocol generation, serialization, frame transitions, alternating breakers, terminal state, and restoration. It does not require a second implementation of gameplay rules.
+This directly exercises the architectural invariant that resident state is disposable and recoverable from the current aggregate checkpoint while jointly covering command acceptance, Protocol generation, serialization, hidden gameplay state, frame transitions, alternating breakers, terminal state, and restoration. It does not require a second implementation of gameplay rules.
 
 Use tiny targets and weighted commands so generated scenarios regularly complete frames and matches. Every generated command should have an informative printed form. When a minimized failure represents a meaningful regression, preserve it as a named deterministic example.
 
