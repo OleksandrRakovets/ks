@@ -37,21 +37,19 @@ test('returns Protocol at sequence zero and restores accepted entries after evic
   })
 })
 
-test('serves finalizing state without replay and derives Protocol for the archive transfer', async () => {
-  const { stub } = await initializedRoom()
+test('serves finalizing state and complete Protocol directly after eviction', async () => {
+  const { matchId, stub } = await initializedRoom()
   await makeRoomFinalizing(stub)
-  expect(await stub.getProtocol()).toMatchObject({
+  await evictDurableObject(stub)
+  const protocol = await runInDurableObject(env.MATCH_ROOM.getByName(matchId), (room) => room.getProtocol())
+
+  if (protocol._tag !== 'finalizing') throw new Error('Expected finalizing Protocol')
+  expect(
+    protocol.protocolEntries.some((entry) => entry.acceptedSeq === 3 && entry.entryType === 'match-ended'),
+  ).toBe(true)
+  expect(protocol).toMatchObject({
     _tag: 'finalizing',
     latestSeq: 3,
     state: { status: 'finished', framesWonBySeat: { A: 1, B: 0 } },
   })
-  expect(
-    await runInDurableObject(stub, async (room) => {
-      const transfer = await room.prepareArchive()
-
-      return transfer.protocolEntries.some(
-        (entry) => entry.acceptedSeq === 3 && entry.entryType === 'match-ended',
-      )
-    }),
-  ).toBe(true)
 })

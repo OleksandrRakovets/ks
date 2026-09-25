@@ -1,30 +1,22 @@
 import { isDeepStrictEqual } from 'node:util'
 
-import {
-  type Match,
-  type MatchRoomPresentation,
-  type MatchRoomProjection,
-  restoreMatchCheckpoint,
-} from '@ks/competition'
-import {
-  type MatchCommand,
-  type MatchScoreProjection,
-  type NonNegativeInteger,
-  type ProtocolEntry,
-} from '@ks/core'
+import { type Match, restoreMatchCheckpoint } from '@ks/competition'
+import { type MatchCommand } from '@ks/core'
 
+import type { GetControlsResult, GetProtocolResult, GetScoreResult, ProtocolReadEntry } from '../contracts'
 import { type LiveConnectionCursor, LiveConnectionHandler } from '../live/live-connection-handler'
-import { type CommandReceipt, MatchStorage, type StoredActiveMatch } from '../storage/match-storage'
+import type { CommandReceipt, StoredActiveMatch } from '../storage/definitions'
+import { MatchStorage } from '../storage/match-storage'
 
 export class ActiveMatchHandler {
   readonly #storage: MatchStorage
   readonly #liveConnections: LiveConnectionHandler
-  readonly #header: StoredActiveMatch
+  readonly #storedMatch: StoredActiveMatch
 
-  constructor(storage: MatchStorage, liveConnections: LiveConnectionHandler, header: StoredActiveMatch) {
+  constructor(storage: MatchStorage, liveConnections: LiveConnectionHandler, storedMatch: StoredActiveMatch) {
     this.#storage = storage
     this.#liveConnections = liveConnections
-    this.#header = header
+    this.#storedMatch = storedMatch
   }
 
   submitCommand(command: MatchCommand): ActiveCommandResult {
@@ -50,7 +42,7 @@ export class ActiveMatchHandler {
 
     if (result._tag === 'rejected')
       return this.#storage.commitRejectedCommand({
-        matchId: this.#header.matchId,
+        matchId: this.#storedMatch.matchId,
         command,
         reason: result.reason,
       })
@@ -58,7 +50,7 @@ export class ActiveMatchHandler {
     const projection = match.project()
 
     const committed = this.#storage.commitAcceptedCommand({
-      match: this.#header,
+      match: this.#storedMatch,
       command: result.command,
       checkpoint: match.exportCheckpoint(),
       presentation: projection,
@@ -77,40 +69,43 @@ export class ActiveMatchHandler {
     }
   }
 
-  getControls(): ActiveControlsResult {
+  getControls() {
     const projection = this.#restoreMatch().project()
 
     return {
       _tag: 'active',
-      latestSeq: this.#header.latestSeq,
+      latestSeq: this.#storedMatch.latestSeq,
       ...projection,
-      lastPlayerEntry: this.#storage.readLastPlayerEntry(this.#header),
-    }
+      lastPlayerEntry: this.#storage.readLastPlayerEntry(this.#storedMatch),
+    } satisfies Extract<GetControlsResult, { _tag: 'active' }>
   }
 
-  getProtocol(): ActiveProtocolResult {
+  getProtocol() {
+    // SAFETY: persisted entries were decoded from JSON, so their otherwise-unknown bodies are JSON-safe over RPC.
+    const protocolEntries = this.#storage.readProtocol(this.#storedMatch) as readonly ProtocolReadEntry[]
+
     return {
       _tag: 'active',
-      latestSeq: this.#header.latestSeq,
-      ...this.#storage.readCurrentPresentation(this.#header),
-      protocolEntries: this.#storage.readProtocol(this.#header),
-    }
+      latestSeq: this.#storedMatch.latestSeq,
+      ...this.#storage.readCurrentPresentation(this.#storedMatch),
+      protocolEntries,
+    } satisfies Extract<GetProtocolResult, { _tag: 'active' }>
   }
 
-  getScore(): ActiveScoreResult {
+  getScore() {
     return {
       _tag: 'active',
-      latestSeq: this.#header.latestSeq,
-      score: this.#header.score,
-    }
+      latestSeq: this.#storedMatch.latestSeq,
+      score: this.#storedMatch.score,
+    } satisfies Extract<GetScoreResult, { _tag: 'active' }>
   }
 
   liveConnectionCursor(): LiveConnectionCursor {
-    return { matchId: this.#header.matchId, latestSeq: this.#header.latestSeq }
+    return { matchId: this.#storedMatch.matchId, latestSeq: this.#storedMatch.latestSeq }
   }
 
   #restoreMatch(): Match {
-    const { checkpoint, state } = this.#storage.readCurrentCheckpoint(this.#header)
+    const { checkpoint, state } = this.#storage.readCurrentCheckpoint(this.#storedMatch)
 
     try {
       const match = restoreMatchCheckpoint(checkpoint)
@@ -118,28 +113,10 @@ export class ActiveMatchHandler {
       if (!isDeepStrictEqual(match.project().state, state)) throw new Error('projection mismatch')
 
       return match
-    } catch {
-      throw new Error('MatchRoom checkpoint storage corruption')
+    } catch (cause) {
+      throw new Error('MatchRoom checkpoint storage corruption', { cause })
     }
   }
-}
-
-export type ActiveControlsResult = {
-  readonly _tag: 'active'
-  readonly latestSeq: number
-  readonly lastPlayerEntry: ProtocolEntry | null
-} & MatchRoomProjection
-
-export type ActiveProtocolResult = {
-  readonly _tag: 'active'
-  readonly latestSeq: number
-  readonly protocolEntries: readonly ProtocolEntry[]
-} & MatchRoomPresentation
-
-export type ActiveScoreResult = {
-  readonly _tag: 'active'
-  readonly latestSeq: NonNegativeInteger
-  readonly score: MatchScoreProjection
 }
 
 type ActiveCommandResult =

@@ -79,12 +79,6 @@ export class MatchRoom extends DurableObject<Env> {
     return handler.prepareArchive()
   }
 
-  async finalize(): Promise<void> {
-    const handler = this.#requireHandler()
-
-    if (handler instanceof ActiveMatchHandler) throw new Error('Cannot finalize active Match')
-  }
-
   #requireHandler(): ActiveMatchHandler | FinalizingMatchHandler {
     const storedMatch = this.#storage.match()
 

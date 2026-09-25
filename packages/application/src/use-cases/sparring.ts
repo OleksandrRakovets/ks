@@ -351,44 +351,58 @@ export function createSparringApplicationWithDependencies(
     if (record.status !== 'active') return { ok: false, error: 'Unknown match', status: 404 }
 
     const roomClient = dependencies.matchRoomClient(matchId)
-    const roomResult = view === 'match' ? await roomClient.getControls() : await roomClient.getProtocol()
 
-    if (roomResult._tag === 'finalizing') {
-      return readFinalizingMatch(record, roomResult, roomClient, locale, expectedGameKey, view)
+    if (view === 'match') {
+      const room = await roomClient.getControls()
+
+      if (room._tag === 'finalizing') return readFinalizingMatch(record, room, [], locale, expectedGameKey)
+
+      if (room.state.matchId !== matchId || room.state.gameKey !== expectedGameKey)
+        throw new Error('MatchRoom active identity conflicts with D1')
+
+      const participants = await hydrateParticipants(record, locale)
+      const seatNames = { A: participants.A.displayName, B: participants.B.displayName }
+
+      const lastEntry = renderLastCorrectableProtocolRow(
+        room.lastPlayerEntry ? [room.lastPlayerEntry] : [],
+        seatNames,
+        room.latestSeq,
+      )
+
+      const result: ReadKeyedMatchSuccess<K> = {
+        ok: true,
+        state: { ...room.state, gameKey: expectedGameKey },
+        latestSeq: room.latestSeq,
+        participants,
+        controls: room.controls,
+        protocolEntries: [],
+      }
+
+      if (lastEntry) result.lastEntry = lastEntry
+
+      if (room.game !== undefined) result.game = room.game
+
+      return result
     }
 
-    if (roomResult.state.matchId !== matchId || roomResult.state.gameKey !== expectedGameKey)
+    const room = await roomClient.getProtocol()
+    const protocolEntries = canonicalProtocolEntries(room.protocolEntries)
+
+    if (room._tag === 'finalizing')
+      return readFinalizingMatch(record, room, protocolEntries, locale, expectedGameKey)
+
+    if (room.state.matchId !== matchId || room.state.gameKey !== expectedGameKey)
       throw new Error('MatchRoom active identity conflicts with D1')
-
-    const participants = await hydrateParticipants(record, locale)
-    const seatNames = { A: participants.A.displayName, B: participants.B.displayName }
-
-    const protocolEntries = 'protocolEntries' in roomResult ? roomResult.protocolEntries : []
-
-    const lastEntry =
-      'lastPlayerEntry' in roomResult
-        ? renderLastCorrectableProtocolRow(
-            roomResult.lastPlayerEntry ? [roomResult.lastPlayerEntry] : [],
-            seatNames,
-            roomResult.latestSeq,
-          )
-        : undefined
 
     const result: ReadKeyedMatchSuccess<K> = {
       ok: true,
-      state: { ...roomResult.state, gameKey: expectedGameKey },
-      latestSeq: roomResult.latestSeq,
-      participants,
+      state: { ...room.state, gameKey: expectedGameKey },
+      latestSeq: room.latestSeq,
+      participants: await hydrateParticipants(record, locale),
       protocolEntries,
     }
 
-    if ('controls' in roomResult) result.controls = roomResult.controls
-
-    if (lastEntry !== undefined) result.lastEntry = lastEntry
-
-    if (roomResult.game !== undefined) {
-      result.game = roomResult.game
-    }
+    if (room.game !== undefined) result.game = room.game
 
     return result
   }
@@ -484,8 +498,6 @@ export function createSparringApplicationWithDependencies(
       const transfer = await dependencies.matchRoomClient(matchId).prepareArchive()
       stage = 'archive-in-d1'
       await dependencies.archiveFinishedMatch(transfer)
-      stage = 'finalize-room'
-      await dependencies.matchRoomClient(matchId).finalize()
       stage = 'mark-d1-finished'
       await dependencies.markMatchFinished(transfer)
     } catch (error) {
@@ -539,30 +551,15 @@ export function createSparringApplicationWithDependencies(
 
   async function readFinalizingMatch<K extends RegisteredGameKey>(
     record: MatchRecord,
-    room: Extract<Awaited<ReturnType<MatchRoomClient['getControls']>>, { _tag: 'finalizing' }>,
-    roomClient: MatchRoomClient,
+    room:
+      | Extract<Awaited<ReturnType<MatchRoomClient['getControls']>>, { _tag: 'finalizing' }>
+      | Extract<Awaited<ReturnType<MatchRoomClient['getProtocol']>>, { _tag: 'finalizing' }>,
+    protocolEntries: ProtocolEntries,
     locale: SupportedLocale,
     expectedGameKey: K,
-    view: 'match' | 'protocol',
   ): Promise<ReadKeyedMatchResult<K>> {
     if (room.state.matchId !== record.matchId || room.state.gameKey !== expectedGameKey)
       throw new Error('MatchRoom finalizing identity conflicts with D1')
-
-    let protocolEntries: ProtocolEntries = []
-
-    if (view === 'protocol') {
-      const transfer = await roomClient.prepareArchive()
-
-      if (
-        transfer.matchId !== record.matchId ||
-        transfer.gameKey !== expectedGameKey ||
-        transfer.sourceLatestSeq !== room.latestSeq ||
-        transfer.endedAt !== room.endedAt
-      )
-        throw new Error('MatchRoom finalizing Protocol conflicts with its final state')
-
-      protocolEntries = transfer.protocolEntries
-    }
 
     const endedAtPresentation = dependencies.clock.instantPresentation(room.endedAt)
     const formattedNow = dependencies.clock.nowPresentation()
@@ -577,6 +574,13 @@ export function createSparringApplicationWithDependencies(
       participants: await hydrateParticipants(record, locale),
       protocolEntries,
     }
+  }
+
+  function canonicalProtocolEntries(
+    entries: Awaited<ReturnType<MatchRoomClient['getProtocol']>>['protocolEntries'],
+  ): ProtocolEntries {
+    // SAFETY: MatchRoom narrows only the JSON-decoded body for Cloudflare RPC serializability.
+    return entries as ProtocolEntries
   }
 
   async function readArchivedMatch<K extends RegisteredGameKey>(

@@ -18,10 +18,13 @@ test('throws before a match-ending acceptance', async () => {
   ).toContain('active Match')
 })
 
-test('derives the same archive transfer after eviction', async () => {
+test('derives the same archive transfer across retries and eviction without replay', async () => {
   const { matchId, stub } = await initializedRoom()
   const endingCommand = await makeRoomFinalizing(stub)
   const warm: FinishedMatchTransfer = await stub.prepareArchive()
+  await runInDurableObject(stub, (_room, state) => {
+    state.storage.sql.exec(`UPDATE commands SET request_json = '{}' WHERE accepted_seq = 1`)
+  })
   await evictDurableObject(stub)
   const restored: FinishedMatchTransfer = await env.MATCH_ROOM.getByName(matchId).prepareArchive()
   expect(restored.matchId).toBe(matchId)

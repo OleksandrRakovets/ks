@@ -1,16 +1,16 @@
 import { isDeepStrictEqual } from 'node:util'
 
-import type {
-  MatchCommand,
-  MatchId,
-  MatchState,
-  NonNegativeInteger,
-  ProtocolEntry,
-  UnixEpochMilliseconds,
-} from '@ks/core'
-import type { GameResult, RegisteredGameKey } from '@ks/gameplay/definitions'
+import type { MatchCommand } from '@ks/core'
 
-import { type CommandReceipt, MatchStorage, type StoredFinalizingMatch } from '../storage/match-storage'
+import type {
+  FinishedMatchTransfer,
+  GetControlsResult,
+  GetProtocolResult,
+  GetScoreResult,
+  ProtocolReadEntry,
+} from '../contracts'
+import type { CommandReceipt, StoredFinalizingMatch } from '../storage/definitions'
+import { MatchStorage } from '../storage/match-storage'
 
 export class FinalizingMatchHandler {
   readonly #storage: MatchStorage
@@ -46,11 +46,13 @@ export class FinalizingMatchHandler {
       gameResult: this.#storedMatch.gameResult,
       latestSeq: this.#storedMatch.latestSeq,
       endedAt: this.#storedMatch.endedAt,
-    }
+    } satisfies Extract<GetControlsResult, { _tag: 'finalizing' }>
   }
 
   getProtocol() {
     this.#warnRead('protocol')
+    // SAFETY: persisted entries were decoded from JSON, so their otherwise-unknown bodies are JSON-safe over RPC.
+    const protocolEntries = this.#storage.readProtocol(this.#storedMatch) as readonly ProtocolReadEntry[]
 
     return {
       _tag: 'finalizing' as const,
@@ -58,7 +60,8 @@ export class FinalizingMatchHandler {
       gameResult: this.#storedMatch.gameResult,
       latestSeq: this.#storedMatch.latestSeq,
       endedAt: this.#storedMatch.endedAt,
-    }
+      protocolEntries,
+    } satisfies Extract<GetProtocolResult, { _tag: 'finalizing' }>
   }
 
   getScore() {
@@ -69,7 +72,7 @@ export class FinalizingMatchHandler {
       latestSeq: this.#storedMatch.latestSeq,
       endedAt: this.#storedMatch.endedAt,
       score: this.#storedMatch.score,
-    }
+    } satisfies Extract<GetScoreResult, { _tag: 'finalizing' }>
   }
 
   prepareArchive(): FinishedMatchTransfer {
@@ -112,14 +115,3 @@ export type FinalizingCommandResult =
       readonly endsMatch: boolean
     }
   | Extract<CommandReceipt, { _tag: 'rejected' }>
-
-export type FinishedMatchTransfer = {
-  readonly matchId: MatchId
-  readonly gameKey: RegisteredGameKey
-  readonly createdAt: UnixEpochMilliseconds
-  readonly sourceLatestSeq: NonNegativeInteger
-  readonly endedAt: UnixEpochMilliseconds
-  readonly protocolEntries: readonly ProtocolEntry[]
-  readonly finalState: MatchState
-  readonly gameResult: GameResult | null
-}

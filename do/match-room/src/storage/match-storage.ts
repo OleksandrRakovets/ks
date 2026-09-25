@@ -1,34 +1,38 @@
 import { isDeepStrictEqual } from 'node:util'
 
-import { MatchCheckpoint, MatchRejection, type MatchRoomPresentation } from '@ks/competition'
+import type { MatchCheckpoint, MatchRejection, MatchRoomPresentation } from '@ks/competition'
 import {
   AcceptedCommand,
-  MatchCommand,
-  MatchConfig,
-  MatchId,
-  MatchScoreProjection,
-  MatchState,
+  type MatchCommand,
+  type MatchConfig,
+  type MatchId,
   type MatchStreamUpdate,
-  NonNegativeInteger,
-  PositiveInteger,
   projectMatchScore,
   ProtocolEntry,
   type ProtocolEntryContent,
   SystemClock,
-  UnixEpochMilliseconds,
+  type UnixEpochMilliseconds,
 } from '@ks/core'
-import {
-  GameResult,
-  type GameResult as GameResultValue,
-  RegisteredGameKey,
-  registry,
-} from '@ks/gameplay/definitions'
+import type { GameResult as GameResultValue } from '@ks/gameplay/definitions'
 import { and, asc, eq } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/durable-sqlite'
 import { migrate } from 'drizzle-orm/durable-sqlite/migrator'
 import * as v from 'valibot'
 
 import migrationsBundle from '../../drizzle/migrations.js'
+import {
+  type CommandReceipt,
+  type CommandReceiptLookup,
+  decodeCheckpoint,
+  decodeCommand,
+  decodeCommandReceipt,
+  decodePresentation,
+  decodeProtocolEntry,
+  decodeState,
+  decodeStoredMatch,
+  type StoredActiveMatch,
+  type StoredMatch,
+} from './definitions'
 import * as schema from './schema'
 
 export class MatchStorage {
@@ -84,11 +88,7 @@ export class MatchStorage {
 
     if (!rows[0]) return null
 
-    try {
-      return v.parse(StoredMatch, rows[0])
-    } catch {
-      throw new Error('MatchRoom active_matches storage corruption')
-    }
+    return decodeStoredMatch(rows[0])
   }
 
   findCommandReceipt(command: MatchCommand): CommandReceiptLookup | null {
@@ -234,47 +234,27 @@ export class MatchStorage {
   }
 
   /** Only executable reads decode the aggregate blob. The caller restores and checks its projection. */
-  readCurrentCheckpoint(header: StoredActiveMatch) {
-    try {
-      const row = this.#checkpointRow(header.currentCheckpointSeq)
-      const checkpoint = v.parse(v.pipe(v.string(), v.parseJson(), MatchCheckpoint), row.aggregateJson)
+  readCurrentCheckpoint(storedMatch: StoredActiveMatch) {
+    const row = this.#checkpointRow(storedMatch.currentCheckpointSeq)
 
-      if (!isDeepStrictEqual(checkpoint.lifecycle.context.config, header.config))
-        throw new Error('config mismatch')
-
-      return { checkpoint, state: this.#decodeState(row.stateJson, header) }
-    } catch {
-      throw new Error('MatchRoom checkpoint storage corruption')
+    return {
+      checkpoint: decodeCheckpoint(row.aggregateJson, storedMatch),
+      state: decodeState(row.stateJson, storedMatch),
     }
   }
 
-  readCurrentState(header: StoredMatch): MatchState {
-    return this.#decodeState(this.#checkpointRow(header.currentCheckpointSeq).stateJson, header)
+  readCurrentState(storedMatch: StoredMatch) {
+    return decodeState(this.#checkpointRow(storedMatch.currentCheckpointSeq).stateJson, storedMatch)
   }
 
-  readCurrentPresentation(header: StoredActiveMatch): MatchRoomPresentation {
-    const row = this.#checkpointRow(header.currentCheckpointSeq)
+  readCurrentPresentation(storedMatch: StoredActiveMatch): MatchRoomPresentation {
+    const row = this.#checkpointRow(storedMatch.currentCheckpointSeq)
 
-    try {
-      const state = this.#decodeState(row.stateJson, header)
-
-      const game =
-        row.gamePresentationJson === null
-          ? undefined
-          : v.parse(
-              v.pipe(v.string(), v.parseJson(), registry[header.config.gameKey].presentationSchema),
-              row.gamePresentationJson,
-            )
-
-      // SAFETY: state and game presentation are validated against the same registered game key.
-      return { state, game } as MatchRoomPresentation
-    } catch {
-      throw new Error('MatchRoom checkpoint presentation storage corruption')
-    }
+    return decodePresentation(row.stateJson, row.gamePresentationJson, storedMatch)
   }
 
-  readLastPlayerEntry(header: StoredActiveMatch): ProtocolEntry | null {
-    const row = this.#checkpointRow(header.currentCheckpointSeq)
+  readLastPlayerEntry(storedMatch: StoredActiveMatch): ProtocolEntry | null {
+    const row = this.#checkpointRow(storedMatch.currentCheckpointSeq)
 
     if (row.lastPlayerAcceptedSeq === null && row.lastPlayerEntryIndex === null) return null
 
@@ -293,26 +273,26 @@ export class MatchStorage {
       .get()
 
     if (!entry) throw new Error('MatchRoom checkpoint player reference corruption')
-    const parsed = this.#decodeEntry(entry)
+    const parsed = decodeProtocolEntry(entry)
 
     if (
       parsed.source !== 'player' ||
-      parsed.acceptedSeq > header.currentCheckpointSeq ||
-      parsed.gameKey !== header.config.gameKey
+      parsed.acceptedSeq > storedMatch.currentCheckpointSeq ||
+      parsed.gameKey !== storedMatch.config.gameKey
     )
       throw new Error('MatchRoom checkpoint player reference corruption')
 
     return parsed
   }
 
-  readProtocol(header: StoredMatch): ProtocolEntry[] {
+  readProtocol(storedMatch: StoredMatch): ProtocolEntry[] {
     const rows = this.#db
       .select()
       .from(schema.protocolEntries)
       .orderBy(asc(schema.protocolEntries.acceptedSeq), asc(schema.protocolEntries.entryIndex))
       .all()
 
-    const entries = rows.map((row) => this.#decodeEntry(row))
+    const entries = rows.map((row) => decodeProtocolEntry(row))
     let seq = 0
     let index = 0
 
@@ -322,11 +302,15 @@ export class MatchStorage {
         index = 0
       }
 
-      if (entry.acceptedSeq !== seq || entry.entryIndex !== index++ || entry.gameKey !== header.config.gameKey)
+      if (
+        entry.acceptedSeq !== seq ||
+        entry.entryIndex !== index++ ||
+        entry.gameKey !== storedMatch.config.gameKey
+      )
         throw new Error('MatchRoom Protocol storage corruption')
     }
 
-    if (seq !== header.latestSeq) throw new Error('MatchRoom Protocol cursor mismatch')
+    if (seq !== storedMatch.latestSeq) throw new Error('MatchRoom Protocol cursor mismatch')
 
     return entries
   }
@@ -347,123 +331,7 @@ export class MatchStorage {
 
     return row
   }
-
-  #decodeState(json: string, header: StoredMatch): MatchState {
-    try {
-      const state = v.parse(v.pipe(v.string(), v.parseJson(), MatchState), json)
-
-      if (
-        state.matchId !== header.matchId ||
-        state.gameKey !== header.config.gameKey ||
-        !isDeepStrictEqual(state.targets, header.config.targets) ||
-        state.status !== (header.status === 'active' ? 'active' : 'finished') ||
-        !isDeepStrictEqual(projectMatchScore(state), header.score)
-      )
-        throw new Error('state mismatch')
-
-      return state
-    } catch {
-      throw new Error('MatchRoom checkpoint state storage corruption')
-    }
-  }
-
-  #decodeEntry(row: typeof schema.protocolEntries.$inferSelect): ProtocolEntry {
-    try {
-      const entry = v.parse(v.pipe(v.string(), v.parseJson(), ProtocolEntry), row.entryJson)
-
-      if (entry.acceptedSeq !== row.acceptedSeq || entry.entryIndex !== row.entryIndex)
-        throw new Error('position mismatch')
-
-      return entry
-    } catch {
-      throw new Error('MatchRoom Protocol storage corruption')
-    }
-  }
 }
-
-const CommandReceipt = v.variant('_tag', [
-  v.pipe(v.object({ _tag: v.literal('accepted'), acceptedSeq: PositiveInteger }), v.readonly()),
-  v.pipe(v.object({ _tag: v.literal('rejected'), reason: MatchRejection }), v.readonly()),
-])
-
-export type CommandReceipt = v.InferOutput<typeof CommandReceipt>
-
-export type CommandReceiptLookup =
-  | { readonly _tag: 'retry'; readonly receipt: CommandReceipt }
-  | { readonly _tag: 'command-id-conflict' }
-
-const ActiveMatchConfig = v.pipe(
-  v.object({ ...MatchConfig.entries, gameKey: RegisteredGameKey }),
-  v.readonly(),
-)
-
-const StoredMatchFields = {
-  matchId: MatchId,
-  controlSecret: v.pipe(v.string(), v.minLength(16)),
-  configJson: v.pipe(v.string(), v.parseJson(), ActiveMatchConfig),
-  latestSeq: NonNegativeInteger,
-  currentCheckpointSeq: NonNegativeInteger,
-  scoreJson: v.pipe(v.string(), v.parseJson(), MatchScoreProjection),
-  createdAt: UnixEpochMilliseconds,
-  gameResultJson: v.nullable(v.pipe(v.string(), v.parseJson(), GameResult)),
-}
-
-const StoredActiveMatch = v.pipe(
-  v.object({
-    ...StoredMatchFields,
-    status: v.literal('active'),
-    finalStateJson: v.null(),
-    gameResultJson: v.null(),
-    endedAt: v.null(),
-  }),
-  v.transform(({ configJson, finalStateJson, gameResultJson, scoreJson, ...row }) => ({
-    ...row,
-    config: configJson,
-    finalState: finalStateJson,
-    gameResult: gameResultJson,
-    score: scoreJson,
-  })),
-  v.check((row) => row.matchId === row.config.matchId && row.currentCheckpointSeq <= row.latestSeq),
-  v.readonly(),
-)
-
-const StoredFinalizingMatch = v.pipe(
-  v.object({
-    ...StoredMatchFields,
-    status: v.literal('finalizing'),
-    finalStateJson: v.pipe(v.string(), v.parseJson(), MatchState),
-    endedAt: UnixEpochMilliseconds,
-  }),
-  v.transform(({ configJson, finalStateJson, gameResultJson, scoreJson, ...row }) => ({
-    ...row,
-    config: configJson,
-    finalState: finalStateJson,
-    gameResult: gameResultJson,
-    score: scoreJson,
-  })),
-  v.check(
-    (row) =>
-      row.matchId === row.config.matchId &&
-      row.currentCheckpointSeq <= row.latestSeq &&
-      row.finalState.status === 'finished' &&
-      row.finalState.matchId === row.matchId &&
-      row.finalState.gameKey === row.config.gameKey &&
-      isDeepStrictEqual(row.finalState.targets, row.config.targets) &&
-      isDeepStrictEqual(row.score, projectMatchScore(row.finalState)) &&
-      (row.config.gameKey === 'free-pyramid-long'
-        ? row.gameResult?.gameKey === row.config.gameKey
-        : row.gameResult === null),
-  ),
-  v.readonly(),
-)
-
-const StoredMatch = v.variant('status', [StoredActiveMatch, StoredFinalizingMatch])
-
-export type StoredActiveMatch = v.InferOutput<typeof StoredActiveMatch>
-
-export type StoredFinalizingMatch = v.InferOutput<typeof StoredFinalizingMatch>
-
-export type StoredMatch = v.InferOutput<typeof StoredMatch>
 
 export type MatchCreation = {
   readonly config: MatchConfig
@@ -471,24 +339,4 @@ export type MatchCreation = {
   readonly createdAt: UnixEpochMilliseconds
   readonly checkpoint: MatchCheckpoint
   readonly presentation: MatchRoomPresentation
-}
-
-function decodeCommand(row: typeof schema.commands.$inferSelect): MatchCommand {
-  try {
-    return v.parse(v.pipe(v.string(), v.parseJson(), MatchCommand), row.requestJson)
-  } catch {
-    throw new Error(`MatchRoom commands storage corruption for command ${row.commandId}`)
-  }
-}
-
-function decodeCommandReceipt(row: typeof schema.commands.$inferSelect): CommandReceipt {
-  try {
-    if (row.outcome === 'accepted')
-      return v.parse(CommandReceipt, { _tag: 'accepted', acceptedSeq: row.acceptedSeq })
-    const rejectionReason: unknown = JSON.parse(row.rejectionJson ?? '')
-
-    return v.parse(CommandReceipt, { _tag: 'rejected', reason: rejectionReason })
-  } catch {
-    throw new Error(`MatchRoom commands storage corruption for command ${row.commandId}`)
-  }
 }
