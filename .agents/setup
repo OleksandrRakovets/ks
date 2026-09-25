@@ -5,6 +5,8 @@ readonly ROBOTO_RELEASE_TAG="v3.016"
 readonly ROBOTO_ARCHIVE_SHA256="1653dbe12f248da8fb0b9920db7b9496cd677ed3981154f6f15285c8bd4e334f"
 readonly ROBOTO_FONT_SHA256="07f56c49cba5aa0c36f0c8295ffe2e39578e8459a743a7a619ad094b483ba857"
 readonly ROBOTO_ARCHIVE_URL="https://github.com/googlefonts/roboto-3-classic/releases/download/${ROBOTO_RELEASE_TAG}/Roboto_${ROBOTO_RELEASE_TAG}.zip"
+readonly OXLINT_SWAP_FILE="/swapfile.ks-oxlint"
+readonly OXLINT_SWAP_SIZE="8G"
 
 repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 local_bin="${HOME}/.local/bin"
@@ -20,6 +22,25 @@ if [[ "$(uname -m)" != "x86_64" ]]; then
 fi
 
 mkdir -p "$local_bin" "$local_share"
+
+enable_oxlint_swap() {
+  if awk -v path="$OXLINT_SWAP_FILE" '$1 == path { found = 1 } END { exit !found }' /proc/swaps; then
+    echo "Oxlint swap is already active."
+    return
+  fi
+
+  # Oxlint JS plugins reserve several GiB of virtual memory per allocator. Small
+  # orbs need swap-backed commit headroom, although linting does not use the swap.
+  echo "Creating ${OXLINT_SWAP_SIZE} of swap for Oxlint..."
+  sudo -n rm -f -- "$OXLINT_SWAP_FILE"
+  sudo -n fallocate -l "$OXLINT_SWAP_SIZE" "$OXLINT_SWAP_FILE"
+  sudo -n chmod 600 "$OXLINT_SWAP_FILE"
+  sudo -n /sbin/mkswap "$OXLINT_SWAP_FILE"
+  if ! sudo -n /sbin/swapon "$OXLINT_SWAP_FILE"; then
+    sudo -n rm -f -- "$OXLINT_SWAP_FILE"
+    return 1
+  fi
+}
 
 install_bun() {
   # Only the major.minor of packageManager is enforced; patch floats (rolling).
@@ -182,6 +203,7 @@ PY
 }
 
 cd "$repo_root"
+enable_oxlint_swap
 install_roboto
 install_bun
 export PATH="${local_bin}:${PATH}"
