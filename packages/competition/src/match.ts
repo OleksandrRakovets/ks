@@ -110,7 +110,8 @@ type MatchLifecycleCommand = v.InferOutput<typeof MatchLifecycleCommand>
 
 const CorrectionCommand = v.pipe(
   v.strictObject({
-    type: v.literal('action.correct'),
+    // Older Accepted Commands must remain replayable after the wire name changes.
+    type: v.picklist(['command.correct', 'action.correct']),
     targetSeq: PositiveInteger,
     targetCommandId: CommandId,
   }),
@@ -126,7 +127,10 @@ export function isCorrectableCommand(command: MatchCommand): boolean {
 }
 
 export function isCorrectionCommand(command: MatchCommand): boolean {
-  return command.source === 'match' && command.command.type === 'action.correct'
+  return (
+    command.source === 'match' &&
+    (command.command.type === 'command.correct' || command.command.type === 'action.correct')
+  )
 }
 
 function latestUncorrectedCommand(history: readonly AcceptedCommand[]): AcceptedCommand | undefined {
@@ -519,7 +523,7 @@ export function restoreMatch(config: MatchConfig, history: readonly AcceptedComm
   }
 }
 
-/** Compensates only the latest eligible game action, restoring its entire prior semantic state. */
+/** Compensates only the latest eligible game command, restoring its entire prior semantic state. */
 export function correctMatch(
   config: MatchConfig,
   history: readonly AcceptedCommand[],
@@ -531,7 +535,7 @@ export function correctMatch(
     return {
       result: {
         _tag: 'parse-failed',
-        reason: { code: 'unsupported-match-command', commandType: 'action.correct' },
+        reason: { code: 'unsupported-match-command', commandType: 'command.correct' },
       },
     }
 
@@ -552,7 +556,7 @@ export function correctMatch(
   const gameCommand = parseGameCommand(gameKeyOf(config.gameKey), target.command)
 
   if (!frame || frame.winnerSeat || gameCommand._tag !== 'parsed')
-    throw new MatchHistoryError('Correction target has no active game action')
+    throw new MatchHistoryError('Correction target has no active game command')
 
   // Replaying the target identifies every derived entry; the returned resident must exclude it.
   const originalContents = replay.restore(target)
@@ -567,7 +571,7 @@ export function correctMatch(
         gameKey: config.gameKey,
         frameIndex: frame.frameIndex,
         source: original.source,
-        entryType: 'action-corrected',
+        entryType: parsed.output.type === 'command.correct' ? 'command-corrected' : 'action-corrected',
         seat: original.seat,
         scoreAfter: frame.pointsBySeat,
         body: { targetSeq: target.acceptedSeq, targetCommandId: target.commandId, targetEntryIndex },

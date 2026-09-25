@@ -13,7 +13,7 @@ import type { GamePresentationFor, GameResult, RegisteredGameKey } from '@ks/gam
 import type { SupportedLocale } from '@ks/i18n'
 import * as v from 'valibot'
 
-import type { LastActionRow, ProtocolRow } from '../protocol'
+import type { LastCommandRow, ProtocolRow } from '../protocol'
 
 export type { HydratedMatchParticipant, HydratedMatchParticipants } from '@ks/core'
 
@@ -147,8 +147,8 @@ export type ReadMatchResult<K extends RegisteredGameKey> =
       readonly game: GamePresentationFor<K>
       readonly controls: readonly Control[]
       readonly participants: HydratedMatchParticipants
-      /** Most recent player-authored Protocol row suitable for the control surface's confirmation line. */
-      readonly lastEntry?: LastActionRow
+      /** Most recent uncorrected Accepted Command represented for the control surface. */
+      readonly lastCommand?: LastCommandRow
     }
   | {
       readonly ok: true
@@ -160,8 +160,8 @@ export type ReadMatchResult<K extends RegisteredGameKey> =
       readonly game?: never
       readonly controls: readonly Control[]
       readonly participants: HydratedMatchParticipants
-      /** Most recent player-authored Protocol row suitable for the control surface's confirmation line. */
-      readonly lastEntry?: LastActionRow
+      /** Most recent uncorrected Accepted Command represented for the control surface. */
+      readonly lastCommand?: LastCommandRow
     }
   | {
       readonly ok: true

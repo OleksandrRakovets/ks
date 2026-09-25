@@ -46,7 +46,7 @@ import {
   type FinishedMatchArchiveRecord,
   ProtocolArchiveCorruptionError,
   type ProtocolArchiveRecord,
-  renderLastActionRow,
+  renderLastCommandRow,
   renderProtocolRows,
   UnsupportedProtocolArchiveVersionError,
 } from '../protocol'
@@ -133,7 +133,7 @@ type ReadKeyedMatchSuccess<K extends RegisteredGameKey> = {
   gameResult?: GameResult | null
   controls: readonly Control[]
   protocolEntries: ProtocolEntries
-  lastEntry?: NonNullable<ReturnType<typeof renderLastActionRow>>
+  lastCommand?: NonNullable<ReturnType<typeof renderLastCommandRow>>
 }
 
 type ReadKeyedMatchResult<K extends RegisteredGameKey> = ReadKeyedMatchSuccess<K> | ReadMatchFailure
@@ -404,7 +404,7 @@ export function createSparringApplicationWithDependencies(
       (entry) => entry.acceptedSeq <= roomResult.latestSeq,
     )
 
-    const lastEntry = renderLastActionRow(protocolEntries, seatNames, roomResult.latestSeq)
+    const lastCommand = renderLastCommandRow(protocolEntries, seatNames, roomResult.latestSeq)
 
     const result: ReadKeyedMatchSuccess<K> = {
       ok: true,
@@ -415,7 +415,7 @@ export function createSparringApplicationWithDependencies(
       protocolEntries,
     }
 
-    if (lastEntry !== undefined) result.lastEntry = lastEntry
+    if (lastCommand !== undefined) result.lastCommand = lastCommand
 
     if (roomResult.game !== undefined) {
       result.game = roomResult.game
@@ -677,7 +677,7 @@ export function createSparringApplicationWithDependencies(
     }
 
     const active =
-      match.lastEntry === undefined
+      match.lastCommand === undefined
         ? {
             ok: true as const,
             lifecycle: 'active' as const,
@@ -693,7 +693,7 @@ export function createSparringApplicationWithDependencies(
             latestSeq: match.latestSeq,
             controls: match.controls,
             participants: match.participants,
-            lastEntry: match.lastEntry,
+            lastCommand: match.lastCommand,
           }
 
     if (match.game) return { ...active, controlPhase: 'frame-active', game: match.game }

@@ -192,7 +192,7 @@ export const resources = {
           finishedOnAt: 'Завершено {{date}} о {{time}}',
         },
         protocol: {
-          actionCorrected: 'Виправлено: {{action}}',
+          commandCorrected: 'Виправлено: {{entry}}',
           balls: {
             0: 'биток',
             1: 'червона',
@@ -496,7 +496,7 @@ export const resources = {
           finishedOnAt: 'Finished on {{date}} at {{time}}',
         },
         protocol: {
-          actionCorrected: 'Corrected: {{action}}',
+          commandCorrected: 'Corrected: {{entry}}',
           balls: {
             0: 'cue ball',
             1: 'red',

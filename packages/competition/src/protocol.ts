@@ -11,6 +11,15 @@ import { RegisteredGameKey } from '@ks/gameplay/definitions'
 import { parseGameProtocolEntry } from '@ks/gameplay/server'
 import * as v from 'valibot'
 
+const CorrectionBody = v.pipe(
+  v.strictObject({
+    targetSeq: PositiveInteger,
+    targetCommandId: CommandId,
+    targetEntryIndex: v.optional(NonNegativeInteger),
+  }),
+  v.readonly(),
+)
+
 export const MatchLifecycleProtocolEntry = v.variant('entryType', [
   v.pipe(
     v.object({
@@ -50,15 +59,16 @@ export const MatchLifecycleProtocolEntry = v.variant('entryType', [
   v.pipe(
     v.object({
       ...ProtocolEntryContent.entries,
+      entryType: v.literal('command-corrected'),
+      body: CorrectionBody,
+    }),
+    v.readonly(),
+  ),
+  v.pipe(
+    v.object({
+      ...ProtocolEntryContent.entries,
       entryType: v.literal('action-corrected'),
-      body: v.pipe(
-        v.strictObject({
-          targetSeq: PositiveInteger,
-          targetCommandId: CommandId,
-          targetEntryIndex: v.optional(NonNegativeInteger),
-        }),
-        v.readonly(),
-      ),
+      body: CorrectionBody,
     }),
     v.readonly(),
   ),

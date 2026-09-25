@@ -44,17 +44,17 @@ The app has two chrome types. Do not add a third.
 
 ## Last Command Bar and Correction
 
-- It shows the latest uncorrected player-authored action. System entries caused by that action do
-  not displace it. Commencement, award, and concession are not correction targets. Always name the
-  actor. The error it exists to catch is scoring against the wrong seat, and position is too weak
-  a signal for that.
+- It shows the latest uncorrected player-authored Accepted Command and its outcome. System entries
+  caused by that Command do not displace it. Commencement, award, and concession are not correction
+  targets. Always name the actor. The error it exists to catch is scoring against the wrong seat,
+  and position is too weak a signal for that.
 - Do not mirror the button by seat, and never move `Скасувати`. After a Correction, show the
-  preceding uncorrected action so consecutive mistakes can be undone one by one. Hide the button
+  preceding uncorrected Command so consecutive mistakes can be undone one by one. Hide the button
   when no correction is available; disable it only while submitting.
 - The button says Undo/Скасувати, but a Correction compensates for an earlier Accepted Command
-  without removing it. Protocol says Corrected/Виправлено and retains the original action and its
+  without removing it. Protocol says Corrected/Виправлено and retains the original Command and its
   system outcomes, with a linked correction entry for each. They are one atomic Undo step, not
-  separate targets in the action stack.
+  separate targets for correction.
 
 ## Setup
 

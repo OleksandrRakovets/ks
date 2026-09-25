@@ -1,4 +1,4 @@
-import type { LastActionRow } from '@ks/application'
+import type { LastCommandRow } from '@ks/application'
 import { type MatchCommand, newCommandId } from '@ks/core'
 import { keys } from '@ks/i18n'
 import { useTranslation } from 'react-i18next'
@@ -7,7 +7,7 @@ import { StrilaBall } from '@/components/strila-ball'
 import { protocolRowLabel } from '@/features/sparring/match/protocol/protocol-copy'
 
 export function LastCommandBar(props: {
-  entry: LastActionRow
+  entry: LastCommandRow
   submitting: boolean
   onSubmit: (command: MatchCommand) => void
 }) {
@@ -49,7 +49,7 @@ export function LastCommandBar(props: {
               commandId: newCommandId(),
               source: 'match',
               command: {
-                type: 'action.correct',
+                type: 'command.correct',
                 targetSeq: entry.target.acceptedSeq,
                 targetCommandId: entry.target.commandId,
               },

@@ -45,9 +45,9 @@ export function MatchControlShell<K extends RegisteredGameKey>(props: {
       board={<Board data={props.data} />}
       contentClassName="flex flex-col overflow-hidden"
       footer={
-        props.data.lastEntry ? (
+        props.data.lastCommand ? (
           <LastCommandBar
-            entry={props.data.lastEntry}
+            entry={props.data.lastCommand}
             submitting={props.submitting}
             onSubmit={props.onSubmit}
           />

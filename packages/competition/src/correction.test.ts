@@ -53,7 +53,7 @@ function correction(target: AcceptedCommand): MatchCommand {
   return {
     commandId: newCommandId(),
     source: 'match',
-    command: { type: 'action.correct', targetSeq: target.acceptedSeq, targetCommandId: target.commandId },
+    command: { type: 'command.correct', targetSeq: target.acceptedSeq, targetCommandId: target.commandId },
   }
 }
 
@@ -69,14 +69,14 @@ test('compensates the third cue-ball pot and its automatic foul while retaining 
     _tag: 'accepted',
     protocolEntryContents: [
       {
-        entryType: 'action-corrected',
+        entryType: 'command-corrected',
         source: 'player',
         seat: 'A',
         scoreAfter: { A: 2, B: 0 },
         body: { targetSeq: target.acceptedSeq, targetCommandId: target.commandId, targetEntryIndex: 0 },
       },
       {
-        entryType: 'action-corrected',
+        entryType: 'command-corrected',
         source: 'system',
         scoreAfter: { A: 2, B: 0 },
         body: { targetSeq: target.acceptedSeq, targetCommandId: target.commandId, targetEntryIndex: 1 },
@@ -188,6 +188,30 @@ test('corrects three consecutive scores in reverse order across restoration', ()
   }
 
   expect(correctMatch(setup, history, correction(pots[0]!)).result._tag).toBe('rejected')
+})
+
+test('replays a legacy correction without changing its historical Protocol entry', () => {
+  const setup = config('free-pyramid')
+  const { match, history } = open(setup)
+  const target = record(match, history, 'game', { type: 'pot.record', seat: 'A', pottedBallCount: 1 })
+
+  const legacy: MatchCommand = {
+    commandId: newCommandId(),
+    source: 'match',
+    command: { type: 'action.correct', targetSeq: target.acceptedSeq, targetCommandId: target.commandId },
+  }
+
+  history.push({ ...legacy, acceptedSeq: 4, acceptedAt })
+
+  const restored = restoreMatch(setup, history)
+  expect(restored.match.project().game).toMatchObject({ score: { A: 0, B: 0 } })
+  expect(restored.accepted[3]?.protocolEntryContents).toMatchObject([
+    { entryType: 'action-corrected', body: { targetSeq: 3, targetCommandId: target.commandId } },
+  ])
+  expect(correctMatch(setup, history, correction(target)).result).toMatchObject({
+    _tag: 'rejected',
+    reason: { code: 'correction-not-available' },
+  })
 })
 
 test('rejects stale targets, a second correction, and non-game lifecycle actions', () => {

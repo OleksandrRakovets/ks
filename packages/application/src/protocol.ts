@@ -55,10 +55,10 @@ type ProtocolMessage = Readonly<{
   actor?: string | undefined
   params?: Readonly<Record<string, string | number>>
   pottedBalls?: readonly ProtocolBall[]
-  correctedAction?: ProtocolMessage
+  correctedEntry?: ProtocolMessage
 }>
 
-export type LastActionRow = Pick<ProtocolRow, 'key' | 'message' | 'score'> &
+export type LastCommandRow = Pick<ProtocolRow, 'key' | 'message' | 'score'> &
   Readonly<{
     target?: { acceptedSeq: number; commandId: CommandId }
   }>
@@ -217,8 +217,7 @@ export function renderProtocolRows(
   return entries.map((entry) => {
     const { isoString: acceptedAtIso, time: acceptedAtLabel } = clock.instantPresentation(entry.acceptedAt)
 
-    const correction =
-      entry.entryType === 'action-corrected' ? v.safeParse(CorrectionTarget, entry.body) : null
+    const correction = isCorrectionEntry(entry) ? v.safeParse(CorrectionTarget, entry.body) : null
 
     const original =
       correction?.success === true
@@ -236,9 +235,9 @@ export function renderProtocolRows(
       key: `protocol-${entry.acceptedSeq}-${entry.entryIndex}`,
       message: original
         ? {
-            key: 'match.protocol.actionCorrected',
+            key: 'match.protocol.commandCorrected',
             actor: original.source === 'player' ? seatNames[original.seat] : undefined,
-            correctedAction: entryMessage(original, seatNames),
+            correctedEntry: entryMessage(original, seatNames),
           }
         : entryMessage(entry, seatNames),
       score: entry.scoreAfter,
@@ -249,17 +248,17 @@ export function renderProtocolRows(
 }
 
 /**
- * Selects the latest uncorrected player-authored action for the control surface's confirmation line.
+ * Selects the latest uncorrected player-authored Command for the control surface's confirmation line.
  *
  * One Accepted Command can append system entries after the player's entry (for example winner
- * determination and frame completion). Those and corrected actions remain in Protocol, but
- * neither displaces the earlier action that can still be compensated for.
+ * determination and frame completion). Those and corrected commands remain in Protocol, but
+ * neither displaces the earlier Command that can still be compensated for.
  */
-export function renderLastActionRow(
+export function renderLastCommandRow(
   entries: readonly ProtocolEntry[],
   seatNames: SeatNames,
   maxAcceptedSeq: number,
-): LastActionRow | undefined {
+): LastCommandRow | undefined {
   let entry: ProtocolEntry | undefined
   const corrected = new Set<string>()
 
@@ -268,7 +267,7 @@ export function renderLastActionRow(
 
     if (!candidate || candidate.acceptedSeq > maxAcceptedSeq) continue
 
-    if (candidate.entryType === 'action-corrected') {
+    if (isCorrectionEntry(candidate)) {
       const target = v.parse(CorrectionTarget, candidate.body)
       corrected.add(`${target.targetSeq}:${target.targetCommandId}`)
     } else if (
@@ -282,7 +281,7 @@ export function renderLastActionRow(
 
   if (!entry) return undefined
 
-  const row: LastActionRow = {
+  const row: LastCommandRow = {
     key: `protocol-${entry.acceptedSeq}-${entry.entryIndex}`,
     message: entryMessage(entry, seatNames),
     score: entry.scoreAfter,
@@ -298,4 +297,8 @@ export function renderLastActionRow(
     }
 
   return row
+}
+
+function isCorrectionEntry(entry: ProtocolEntry): boolean {
+  return entry.entryType === 'command-corrected' || entry.entryType === 'action-corrected'
 }

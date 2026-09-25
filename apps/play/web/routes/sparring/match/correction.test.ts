@@ -15,7 +15,7 @@ test('sends an identified correction through the existing action and names a sta
   const submitted = {
     commandId: newCommandId(),
     source: 'match' as const,
-    command: { type: 'action.correct', targetSeq: 5, targetCommandId: newCommandId() },
+    command: { type: 'command.correct', targetSeq: 5, targetCommandId: newCommandId() },
   }
 
   const context = new RouterContextProvider()

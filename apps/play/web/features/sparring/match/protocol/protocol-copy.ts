@@ -29,9 +29,9 @@ export function protocolRowLabel(t: TFunction, row: Pick<ProtocolRow, 'message'>
     ? row.message.pottedBalls.map((ball) => protocolBallLabel(t, ball)).join(', ')
     : t('match.protocol.balls.none')
 
-  const action = row.message.correctedAction
-    ? protocolRowLabel(t, { message: row.message.correctedAction })
+  const entry = row.message.correctedEntry
+    ? protocolRowLabel(t, { message: row.message.correctedEntry })
     : undefined
 
-  return t(row.message.key, { ...row.message.params, balls, action })
+  return t(row.message.key, { ...row.message.params, balls, entry })
 }

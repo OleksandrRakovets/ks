@@ -11,7 +11,7 @@ import {
   prepareCommand,
 } from '../fixtures'
 
-test('persists a compensation, preserves its original action, and restores the same projection after eviction', async () => {
+test('restores a legacy correction and its original command after eviction', async () => {
   const { matchId, stub } = await initializedRoom()
   await stub.submitCommand(prepareCommand())
   await stub.submitCommand(commenceCommand())
@@ -62,7 +62,7 @@ test('persists a compensation, preserves its original action, and restores the s
   const second = {
     commandId: newCommandId(),
     source: 'match' as const,
-    command: { type: 'action.correct', targetSeq: 4, targetCommandId: mistaken.commandId },
+    command: { type: 'command.correct', targetSeq: 4, targetCommandId: mistaken.commandId },
   }
 
   expect(await stub.submitCommand(second)).toEqual({
@@ -84,7 +84,7 @@ test('persists a compensation, preserves its original action, and restores the s
   })
 })
 
-test('continues correcting earlier actions after eviction and keeps every correction in Protocol', async () => {
+test('continues correcting earlier commands after eviction and keeps every correction in Protocol', async () => {
   const { matchId, stub } = await initializedRoom()
   await stub.submitCommand(prepareCommand())
   await stub.submitCommand(commenceCommand())
@@ -106,7 +106,7 @@ test('continues correcting earlier actions after eviction and keeps every correc
     await stub.submitCommand({
       commandId: newCommandId(),
       source: 'match',
-      command: { type: 'action.correct', targetSeq: 5, targetCommandId: pots[2]!.commandId },
+      command: { type: 'command.correct', targetSeq: 5, targetCommandId: pots[2]!.commandId },
     }),
   ).toMatchObject({ _tag: 'accepted', acceptedSeq: 6 })
   await evictDurableObject(stub)
@@ -117,7 +117,7 @@ test('continues correcting earlier actions after eviction and keeps every correc
       await restored.submitCommand({
         commandId: newCommandId(),
         source: 'match',
-        command: { type: 'action.correct', targetSeq: 4 - index, targetCommandId: target.commandId },
+        command: { type: 'command.correct', targetSeq: 4 - index, targetCommandId: target.commandId },
       }),
     ).toMatchObject({ _tag: 'accepted', acceptedSeq: 7 + index })
     expect(await restored.getControls()).toMatchObject({ game: { score: { A: 1 - index, B: 0 } } })
@@ -127,9 +127,9 @@ test('continues correcting earlier actions after eviction and keeps every correc
   expect(protocol).toMatchObject({
     latestSeq: 8,
     protocolEntries: expect.arrayContaining([
-      expect.objectContaining({ acceptedSeq: 6, entryType: 'action-corrected' }),
-      expect.objectContaining({ acceptedSeq: 7, entryType: 'action-corrected' }),
-      expect.objectContaining({ acceptedSeq: 8, entryType: 'action-corrected' }),
+      expect.objectContaining({ acceptedSeq: 6, entryType: 'command-corrected' }),
+      expect.objectContaining({ acceptedSeq: 7, entryType: 'command-corrected' }),
+      expect.objectContaining({ acceptedSeq: 8, entryType: 'command-corrected' }),
     ]),
   })
 })
@@ -162,7 +162,7 @@ test('persists the third cue-ball pot and system-foul corrections as one stack s
     await stub.submitCommand({
       commandId: newCommandId(),
       source: 'match',
-      command: { type: 'action.correct', targetSeq: 5, targetCommandId: pots[2]!.commandId },
+      command: { type: 'command.correct', targetSeq: 5, targetCommandId: pots[2]!.commandId },
     }),
   ).toMatchObject({ _tag: 'accepted', acceptedSeq: 6 })
   const protocol = await stub.getProtocol()
@@ -175,12 +175,14 @@ test('persists the third cue-ball pot and system-foul corrections as one stack s
         acceptedSeq: 6,
         entryIndex: 0,
         source: 'player',
+        entryType: 'command-corrected',
         body: { targetSeq: 5, targetCommandId: pots[2]!.commandId, targetEntryIndex: 0 },
       }),
       expect.objectContaining({
         acceptedSeq: 6,
         entryIndex: 1,
         source: 'system',
+        entryType: 'command-corrected',
         body: { targetSeq: 5, targetCommandId: pots[2]!.commandId, targetEntryIndex: 1 },
       }),
     ]),
@@ -192,13 +194,13 @@ test('persists the third cue-ball pot and system-foul corrections as one stack s
     await restored.submitCommand({
       commandId: newCommandId(),
       source: 'match',
-      command: { type: 'action.correct', targetSeq: 4, targetCommandId: pots[1]!.commandId },
+      command: { type: 'command.correct', targetSeq: 4, targetCommandId: pots[1]!.commandId },
     }),
   ).toMatchObject({ _tag: 'accepted', acceptedSeq: 7 })
   expect(await restored.getControls()).toMatchObject({ latestSeq: 7, game: { score: { A: 1, B: 0 } } })
 })
 
-test('rejects correction of commencement and a stale action without changing the sequence', async () => {
+test('rejects correction of commencement and a stale command without changing the sequence', async () => {
   const { stub } = await initializedRoom()
   await stub.submitCommand(prepareCommand())
   const commence = commenceCommand()
@@ -207,7 +209,7 @@ test('rejects correction of commencement and a stale action without changing the
   const excluded = {
     commandId: newCommandId(),
     source: 'match' as const,
-    command: { type: 'action.correct', targetSeq: 2, targetCommandId: commence.commandId },
+    command: { type: 'command.correct', targetSeq: 2, targetCommandId: commence.commandId },
   }
 
   expect(await stub.submitCommand(excluded)).toEqual({
@@ -231,13 +233,13 @@ test('rejects correction of commencement and a stale action without changing the
     await stub.submitCommand({
       commandId: newCommandId(),
       source: 'match',
-      command: { type: 'action.correct', targetSeq: 3, targetCommandId: earlier.commandId },
+      command: { type: 'command.correct', targetSeq: 3, targetCommandId: earlier.commandId },
     }),
   ).toEqual({ _tag: 'rejected', reason: { code: 'correction-not-available' } })
   expect(await stub.getControls()).toMatchObject({ latestSeq: 4, game: { score: { A: 1, B: 1 } } })
 })
 
-test('archives the original action and correction after the match later ends', async () => {
+test('archives the original command and correction after the match later ends', async () => {
   const { stub } = await initializedRoom()
   await stub.submitCommand(prepareCommand())
   await stub.submitCommand(commenceCommand())
@@ -252,7 +254,7 @@ test('archives the original action and correction after the match later ends', a
   await stub.submitCommand({
     commandId: newCommandId(),
     source: 'match',
-    command: { type: 'action.correct', targetSeq: 3, targetCommandId: pot.commandId },
+    command: { type: 'command.correct', targetSeq: 3, targetCommandId: pot.commandId },
   })
   expect(await stub.submitCommand(matchEndingCommand())).toMatchObject({ _tag: 'accepted', endsMatch: true })
   await runInDurableObject(stub, async (room) => {
@@ -270,7 +272,7 @@ test('archives the original action and correction after the match later ends', a
         }),
         expect.objectContaining({
           acceptedSeq: 4,
-          entryType: 'action-corrected',
+          entryType: 'command-corrected',
           body: { targetSeq: 3, targetCommandId: pot.commandId, targetEntryIndex: 0 },
         }),
       ]),
