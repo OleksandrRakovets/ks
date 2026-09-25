@@ -9,7 +9,7 @@ import {
   type GameplaySessionCreateArgsFor,
 } from '../gameplay-session'
 import { totalScore } from './calculations'
-import { type LongFreePyramidCommand, LongFreePyramidContext, LongFreePyramidPhase } from './definitions'
+import { LongFreePyramidCheckpoint, type LongFreePyramidCommand } from './definitions'
 import {
   createInitialSnapshot,
   getPhase,
@@ -18,13 +18,6 @@ import {
 } from './machine'
 import { deriveLongFreePyramidControlProjection } from './projections/control'
 import { createLongFreePyramidProtocolEntries } from './protocol'
-
-export const LongFreePyramidCheckpoint = v.object({
-  value: LongFreePyramidPhase,
-  context: LongFreePyramidContext,
-})
-
-export type LongFreePyramidCheckpoint = v.InferOutput<typeof LongFreePyramidCheckpoint>
 
 class LongFreePyramidGameplaySession implements GameplaySession<'free-pyramid-long'> {
   readonly gameKey = 'free-pyramid-long' as const

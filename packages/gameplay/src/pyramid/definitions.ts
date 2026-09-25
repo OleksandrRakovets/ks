@@ -33,6 +33,10 @@ export const PyramidContext = v.pipe(
 
 export type PyramidContext = v.InferOutput<typeof PyramidContext>
 
+export const PyramidCheckpoint = v.object({ value: PyramidPhase, context: PyramidContext })
+
+export type PyramidCheckpoint = v.InferOutput<typeof PyramidCheckpoint>
+
 const PyramidGamePresentationState = v.pipe(
   v.object({
     phase: PyramidPhase,

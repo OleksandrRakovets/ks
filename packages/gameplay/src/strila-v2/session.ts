@@ -8,20 +8,15 @@ import {
   type GameplaySession,
   type GameplaySessionCreateArgsFor,
 } from '../gameplay-session'
-import { type StrilaCommand, StrilaContext } from './definitions'
+import { StrilaCheckpoint, type StrilaCommand, StrilaSnapshotValue } from './definitions'
 import {
   createInitialSnapshot,
   getStrilaFramePhase,
   StrilaFrameMachine,
   type StrilaFrameSnapshot,
-  StrilaSnapshotValue,
 } from './machine'
 import { deriveStrilaControlProjection } from './projections/control'
 import { createStrilaProtocolEntries } from './protocol'
-
-export const StrilaCheckpoint = v.object({ value: StrilaSnapshotValue, context: StrilaContext })
-
-export type StrilaCheckpoint = v.InferOutput<typeof StrilaCheckpoint>
 
 class StrilaGameplaySession implements GameplaySession<'strila-v2'> {
   readonly gameKey = 'strila-v2' as const

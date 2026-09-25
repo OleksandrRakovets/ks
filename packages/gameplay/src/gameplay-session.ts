@@ -2,9 +2,9 @@ import type { BySeatNumber, FrameOutcome, GameProtocolEntry, Seat } from '@ks/co
 import * as v from 'valibot'
 
 import type { GameControl } from './constants'
+import type { GameplayCheckpoint } from './contracts'
 import type { GameResult } from './game-result'
 import type { GameCommandFor, GamePresentationFor, RegisteredGameKey } from './registry'
-import type { GameplayCheckpoint } from './session-factory'
 
 export const GameCommandRejection = v.pipe(
   v.object({ code: v.literal('command-not-available') }),

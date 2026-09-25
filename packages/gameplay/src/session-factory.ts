@@ -1,33 +1,14 @@
 import * as v from 'valibot'
 
+import { GameplayCheckpoint } from './contracts'
 import type { GameplaySession, GameplaySessionCreateArgsFor } from './gameplay-session'
 import {
   createLongFreePyramidGameplaySession,
-  LongFreePyramidCheckpoint,
   restoreLongFreePyramidGameplaySession,
 } from './long-free-pyramid/session'
-import {
-  createPyramidGameplaySession,
-  PyramidCheckpoint,
-  restorePyramidGameplaySession,
-} from './pyramid/session'
+import { createPyramidGameplaySession, restorePyramidGameplaySession } from './pyramid/session'
 import type { RegisteredGameKey } from './registry'
-import {
-  createStrilaGameplaySession,
-  restoreStrilaGameplaySession,
-  StrilaCheckpoint,
-} from './strila-v2/session'
-
-/** Correlates the game key with its complete executable frame state. */
-export const GameplayCheckpoint = v.variant('gameKey', [
-  v.object({ gameKey: v.literal('strila-v2'), state: StrilaCheckpoint }),
-  v.object({ gameKey: v.literal('free-pyramid-long'), state: LongFreePyramidCheckpoint }),
-  v.object({ gameKey: v.literal('free-pyramid'), state: PyramidCheckpoint }),
-  v.object({ gameKey: v.literal('combined-pyramid'), state: PyramidCheckpoint }),
-  v.object({ gameKey: v.literal('combined-pyramid-old'), state: PyramidCheckpoint }),
-])
-
-export type GameplayCheckpoint = v.InferOutput<typeof GameplayCheckpoint>
+import { createStrilaGameplaySession, restoreStrilaGameplaySession } from './strila-v2/session'
 
 export function restoreGameplaySession(checkpoint: GameplayCheckpoint): AnyGameplaySession {
   const parsed = v.parse(GameplayCheckpoint, checkpoint)

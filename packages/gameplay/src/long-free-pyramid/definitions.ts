@@ -76,6 +76,13 @@ export const LongFreePyramidContext = v.pipe(
 
 export type LongFreePyramidContext = v.InferOutput<typeof LongFreePyramidContext>
 
+export const LongFreePyramidCheckpoint = v.object({
+  value: LongFreePyramidPhase,
+  context: LongFreePyramidContext,
+})
+
+export type LongFreePyramidCheckpoint = v.InferOutput<typeof LongFreePyramidCheckpoint>
+
 const LongFreePyramidGamePresentationState = v.pipe(
   v.object({
     phase: LongFreePyramidPhase,

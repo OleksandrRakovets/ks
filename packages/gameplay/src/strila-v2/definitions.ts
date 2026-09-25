@@ -115,6 +115,24 @@ export const StrilaContext = v.pipe(
 
 export type StrilaContext = v.InferOutput<typeof StrilaContext>
 
+export const FoulSnapshotValue = v.strictObject({
+  'foul-committed': v.picklist(['penalty-selection', 'ball-in-hand']),
+})
+
+export const RespottedBlackSnapshotValue = v.strictObject({
+  'respotted-black': v.picklist(['opening-selection', 'opening', 'play']),
+})
+
+export const StrilaSnapshotValue = v.union([
+  v.picklist(['not-started', 'open-play', 'winner-determined', 'frame-over']),
+  FoulSnapshotValue,
+  RespottedBlackSnapshotValue,
+])
+
+export const StrilaCheckpoint = v.object({ value: StrilaSnapshotValue, context: StrilaContext })
+
+export type StrilaCheckpoint = v.InferOutput<typeof StrilaCheckpoint>
+
 const BallStatus = v.picklist(['object', 'on-table', 'potted'])
 
 export const StrilaBallStatuses = v.pipe(

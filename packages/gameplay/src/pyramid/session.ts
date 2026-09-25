@@ -10,15 +10,11 @@ import {
   type GameplaySessionCreateArgsFor,
 } from '../gameplay-session'
 import type { GamePresentationFor } from '../registry'
-import { type PyramidCommand, PyramidContext, PyramidPhase } from './definitions'
+import { PyramidCheckpoint, type PyramidCommand } from './definitions'
 import { createInitialSnapshot, getPhase, PyramidFrameMachine, type PyramidFrameSnapshot } from './machine'
 import { derivePyramidControlProjection } from './projections/control'
 import { createPyramidProtocolEntries } from './protocol'
 import { type PyramidGameKey, type PyramidRulesFor, PyramidRuleSpecificsByGameKey } from './rules'
-
-export const PyramidCheckpoint = v.object({ value: PyramidPhase, context: PyramidContext })
-
-export type PyramidCheckpoint = v.InferOutput<typeof PyramidCheckpoint>
 
 class PyramidGameplaySession<K extends PyramidGameKey> implements GameplaySession<K> {
   readonly gameKey: K

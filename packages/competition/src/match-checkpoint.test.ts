@@ -3,7 +3,8 @@ import { expect, test } from 'bun:test'
 import { type MatchCommand, type MatchConfig, newCommandId, newMatchId } from '@ks/core'
 import * as v from 'valibot'
 
-import { createMatch, type Match, MatchCheckpoint, restoreMatchCheckpoint } from './match'
+import { MatchCheckpoint } from './contracts'
+import { createMatch, type Match, restoreMatchCheckpoint } from './match'
 
 function config(gameKey: MatchConfig['gameKey'], matchTargetFrames = 2): MatchConfig {
   const base: MatchConfig = {

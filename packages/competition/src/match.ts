@@ -10,7 +10,7 @@ import {
   type ProtocolEntryContent,
   Seat,
 } from '@ks/core'
-import { type GamePresentationFor, GameResult, RegisteredGameKey } from '@ks/gameplay/definitions'
+import { type GamePresentationFor, type GameResult, RegisteredGameKey } from '@ks/gameplay/definitions'
 import type { GameCommandFor } from '@ks/gameplay/definitions'
 import {
   GameCommandRejection,
@@ -22,10 +22,10 @@ import {
 import { createGameplaySession } from '@ks/gameplay/server'
 import * as v from 'valibot'
 
+import { MatchCheckpoint } from './contracts'
 import {
   createInitialSnapshot,
   deriveLifecycleState,
-  MatchMachineCheckpoint,
   type MatchSnapshot,
   restoreLifecycleSnapshot,
   sendLifecycleEvent,
@@ -71,15 +71,6 @@ type MatchRoomProjectionFor<K extends RegisteredGameKey> =
 export type MatchRoomProjection = {
   [K in RegisteredGameKey]: MatchRoomProjectionFor<K>
 }[RegisteredGameKey]
-
-/** Complete executable aggregate state; storage cursor and Protocol are deliberately separate. */
-export const MatchCheckpoint = v.object({
-  lifecycle: MatchMachineCheckpoint,
-  gameplay: v.nullable(GameplayCheckpoint),
-  completedGameResult: v.nullable(GameResult),
-})
-
-export type MatchCheckpoint = v.InferOutput<typeof MatchCheckpoint>
 
 export interface Match {
   exportCheckpoint(): MatchCheckpoint
