@@ -148,13 +148,8 @@
       }
     },
     {
-      // Durable Object RPC is asynchronous at runtime, but Rpc.Result can reduce persisted value contracts to never.
-      "files": [
-        "do/match-room/test/rpc/initialization.integration.test.ts",
-        "do/match-room/test/rpc/active-match/get-controls.integration.test.ts",
-        "do/match-room/test/rpc/active-match/get-protocol.integration.test.ts",
-        "do/match-room/test/rpc/finalizing-match/*.integration.test.ts"
-      ],
+      // Generated Cloudflare RPC types can reduce valid asynchronous calls to never.
+      "files": ["**/*.integration.test.ts"],
       "rules": {
         "typescript/await-thenable": "off"
       }
