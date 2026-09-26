@@ -189,7 +189,27 @@ export type SparringMatchLiveAdmission =
   | { readonly _tag: 'finished' }
 
 export type ReadMatchProtocolResult<K extends RegisteredGameKey> =
-  | (Extract<ReadMatchResult<K>, { readonly ok: true }> & {
+  | {
+      readonly ok: true
+      readonly lifecycle: 'active'
+      readonly controlPhase: 'frame-active'
+      readonly state: MatchStateForLifecycle<K, 'active'>
+      readonly latestSeq: number
+      readonly game: GamePresentationFor<K>
+      readonly participants: HydratedMatchParticipants
+      readonly protocolRows: readonly ProtocolRow[]
+    }
+  | {
+      readonly ok: true
+      readonly lifecycle: 'active'
+      readonly controlPhase: 'between-frames'
+      readonly state: MatchStateForLifecycle<K, 'active'>
+      readonly latestSeq: number
+      readonly game?: never
+      readonly participants: HydratedMatchParticipants
+      readonly protocolRows: readonly ProtocolRow[]
+    }
+  | (Extract<ReadMatchResult<K>, { readonly ok: true; readonly lifecycle: 'finished' }> & {
       readonly protocolRows: readonly ProtocolRow[]
     })
   | ReadMatchFailure

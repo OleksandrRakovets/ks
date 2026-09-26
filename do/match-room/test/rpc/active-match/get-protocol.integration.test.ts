@@ -6,12 +6,20 @@ import { initializedRoom, makeRoomFinalizing, prepareCommand } from '../fixtures
 
 test('returns Protocol at sequence zero and restores accepted entries after eviction', async () => {
   const { matchId, stub } = await initializedRoom()
-  expect(await stub.getProtocol()).toMatchObject({ _tag: 'active', latestSeq: 0, protocolEntries: [] })
+  expect(await stub.getProtocol()).toMatchObject({
+    _tag: 'active',
+    latestSeq: 0,
+    game: undefined,
+    protocolEntries: [],
+  })
   await stub.submitCommand(prepareCommand())
   const warm = await stub.getProtocol()
+  expect(warm).not.toHaveProperty('controls')
+  expect(warm).toMatchObject({ game: { gameKey: 'free-pyramid' } })
   await evictDurableObject(stub)
   const restored = await env.MATCH_ROOM.getByName(matchId).getProtocol()
   expect(restored).toEqual(warm)
+  expect(restored).not.toHaveProperty('controls')
   expect(restored).toMatchObject({
     _tag: 'active',
     latestSeq: 1,

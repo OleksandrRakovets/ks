@@ -5,9 +5,13 @@ import { useTranslation } from 'react-i18next'
 
 import { StrilaBall as StrilaBallVisual } from '@/components/strila-ball'
 import { cn } from '@/components/ui/utils'
-import type { ActiveMatchData } from '@/features/sparring/match/types'
+import type { ActiveMatchData, ActiveProtocolData } from '@/features/sparring/match/types'
 
-export function Board<K extends RegisteredGameKey>({ data }: { data: ActiveMatchData<K> }) {
+export function Board<K extends RegisteredGameKey>({
+  data,
+}: {
+  data: ActiveMatchData<K> | ActiveProtocolData<K>
+}) {
   const { t } = useTranslation()
 
   const frameScore =

@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 
 import { cn } from '@/components/ui/utils'
-import type { ActiveMatchData, FinishedMatchData } from '@/features/sparring/match/types'
+import type { ActiveMatchData, ActiveProtocolData, FinishedMatchData } from '@/features/sparring/match/types'
 import { matchProtocolUrl, matchUrl } from '@/features/sparring/urls'
 import { localizedPath } from '@/i18n'
 import { useRootLocale } from '@/root'
@@ -17,7 +17,6 @@ import { OverflowSheet } from './overflow-sheet'
 import { RematchAction } from './rematch-action'
 
 export function MatchControlShell<K extends RegisteredGameKey>(props: {
-  active: 'control' | 'protocol'
   data: ActiveMatchData<K>
   children: ReactNode
   submitting: boolean
@@ -28,7 +27,7 @@ export function MatchControlShell<K extends RegisteredGameKey>(props: {
 
   return (
     <MatchShell
-      active={props.active === 'control' ? 'primary' : 'protocol'}
+      active="primary"
       state={props.data.state}
       headerTitle={controlContextLabel(props.data, t)}
       headerRule={controlRuleLabel(props.data, t)}
@@ -44,14 +43,31 @@ export function MatchControlShell<K extends RegisteredGameKey>(props: {
         />
       }
       board={<Board data={props.data} />}
-      contentClassName={
-        props.active === 'control' ? 'flex flex-col overflow-hidden' : 'overflow-y-auto overscroll-contain'
-      }
-      footer={
-        props.active === 'control' && props.data.lastEntry ? (
-          <LastActionBar entry={props.data.lastEntry} />
-        ) : null
-      }
+      contentClassName="flex flex-col overflow-hidden"
+      footer={props.data.lastEntry ? <LastActionBar entry={props.data.lastEntry} /> : null}
+      primaryTabLabel={t(keys.match.sparring.tabControl)}
+    >
+      {props.children}
+    </MatchShell>
+  )
+}
+
+export function MatchProtocolShell<K extends RegisteredGameKey>(props: {
+  data: ActiveProtocolData<K>
+  children: ReactNode
+}) {
+  const { t } = useTranslation()
+
+  return (
+    <MatchShell
+      active="protocol"
+      state={props.data.state}
+      headerTitle={controlContextLabel(props.data, t)}
+      headerRule={controlRuleLabel(props.data, t)}
+      headerAction={null}
+      board={<Board data={props.data} />}
+      contentClassName="overflow-y-auto overscroll-contain"
+      footer={null}
       primaryTabLabel={t(keys.match.sparring.tabControl)}
     >
       {props.children}
@@ -100,12 +116,7 @@ function MatchShell(props: {
 
   return (
     <main className="mx-auto flex h-dvh w-full max-w-match flex-col overflow-hidden bg-background text-foreground">
-      <header
-        className={cn(
-          'flex h-[52px] shrink-0 items-center gap-3 pl-1.5',
-          props.headerAction === null ? 'pr-4' : 'pr-1.5',
-        )}
-      >
+      <header className="flex h-[52px] shrink-0 items-center gap-3 px-1.5">
         <Link
           to={localizedPath('/sparring/matches/', locale)}
           aria-label={t(keys.match.control.exit)}
@@ -117,7 +128,7 @@ function MatchShell(props: {
           <strong className="truncate text-[17px] leading-none font-semibold">{props.headerTitle}</strong>
           <span className="shrink-0 text-base leading-none">{props.headerRule}</span>
         </div>
-        {props.headerAction}
+        {props.headerAction ?? <span aria-hidden className="size-11 shrink-0" />}
       </header>
 
       {props.board}
@@ -169,7 +180,7 @@ function MatchTab(props: { active: boolean; to: string; children: ReactNode }) {
 }
 
 function controlContextLabel<K extends RegisteredGameKey>(
-  data: ActiveMatchData<K>,
+  data: ActiveMatchData<K> | ActiveProtocolData<K>,
   t: ReturnType<typeof useTranslation>['t'],
 ): string {
   if (data.controlPhase === 'frame-active' && data.game.gameKey === 'free-pyramid-long') {
@@ -184,7 +195,7 @@ function controlContextLabel<K extends RegisteredGameKey>(
 }
 
 function controlRuleLabel<K extends RegisteredGameKey>(
-  data: ActiveMatchData<K>,
+  data: ActiveMatchData<K> | ActiveProtocolData<K>,
   t: ReturnType<typeof useTranslation>['t'],
 ): string {
   if (data.controlPhase === 'frame-active' && data.game.gameKey === 'free-pyramid-long') {

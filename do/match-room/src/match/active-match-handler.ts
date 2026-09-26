@@ -112,10 +112,13 @@ export class ActiveMatchHandler {
   }
 
   getProtocol(): ActiveProtocolResult {
+    const { state, game } = this.#state.match.project()
+
     return {
       _tag: 'active',
       latestSeq: this.#state.latestSeq,
-      state: this.#state.match.project().state,
+      state,
+      game,
       protocolEntries: this.#state.protocolEntries,
     }
   }
@@ -149,9 +152,8 @@ export type ActiveControlsResult = {
 export type ActiveProtocolResult = {
   readonly _tag: 'active'
   readonly latestSeq: number
-  readonly state: MatchRoomProjection['state']
   readonly protocolEntries: readonly ProtocolEntry[]
-}
+} & Omit<MatchRoomProjection, 'controls'>
 
 export type ActiveScoreResult = {
   readonly _tag: 'active'

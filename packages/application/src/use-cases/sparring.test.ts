@@ -197,6 +197,7 @@ describe('trusted MatchRoom orchestration', () => {
         _tag: 'active',
         latestSeq: 0,
         state,
+        game: undefined,
         protocolEntries: [],
       }),
     })
@@ -508,21 +509,15 @@ describe('trusted MatchRoom orchestration', () => {
     expect(v.safeParse(MatchScorePollResponse, { matches: result.matches }).success).toBe(true)
   })
 
-  test('reads Protocol and Control projections at the Control cursor', async () => {
+  test('reads Protocol presentation without Controls-only payload or RPC calls', async () => {
     const commandId = newCommandId()
 
     const room = selectedClient({
-      getControls: async () => ({
-        _tag: 'active',
-        latestSeq: 1,
-        state,
-        game: undefined,
-        controls: [],
-      }),
       getProtocol: async () => ({
         _tag: 'active',
         latestSeq: 2,
         state: { ...state, currentFrameIndex: 1 },
+        game: undefined,
         protocolEntries: [
           {
             acceptedSeq: 1,
@@ -556,10 +551,12 @@ describe('trusted MatchRoom orchestration', () => {
 
     expect(result).toMatchObject({
       ok: true,
-      latestSeq: 1,
-      state,
-      protocolRows: [{ key: 'protocol-1-0' }],
+      latestSeq: 2,
+      state: { currentFrameIndex: 1 },
+      protocolRows: [{ key: 'protocol-2-0' }, { key: 'protocol-1-0' }],
     })
+    expect(result).not.toHaveProperty('controls')
+    expect(result).not.toHaveProperty('lastEntry')
   })
 
   test('archives, finalizes, and finishes after a match-ending Accepted Command', async () => {

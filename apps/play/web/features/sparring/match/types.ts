@@ -38,3 +38,8 @@ export type FinishedMatchData<K extends RegisteredGameKey = RegisteredGameKey> =
   MatchData<K>,
   { lifecycle: 'finished' }
 >
+
+export type ActiveProtocolData<K extends RegisteredGameKey = RegisteredGameKey> = Extract<
+  ProtocolData<K>,
+  { lifecycle: 'active' }
+>

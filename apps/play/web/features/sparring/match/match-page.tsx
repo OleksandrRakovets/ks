@@ -41,12 +41,7 @@ function MatchControlPage<K extends RegisteredGameKey>(props: {
   }
 
   return (
-    <MatchControlShell
-      active="control"
-      data={props.data}
-      submitting={fetcher.state !== 'idle'}
-      onSubmit={submitCommand}
-    >
+    <MatchControlShell data={props.data} submitting={fetcher.state !== 'idle'} onSubmit={submitCommand}>
       <div className="relative flex min-h-0 flex-1 flex-col justify-end">
         {fetcher.data?.ok === false ? (
           <p
