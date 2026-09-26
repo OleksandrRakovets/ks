@@ -556,7 +556,7 @@ describe('trusted MatchRoom orchestration', () => {
       protocolRows: [{ key: 'protocol-2-0' }, { key: 'protocol-1-0' }],
     })
     expect(result).not.toHaveProperty('controls')
-    expect(result).not.toHaveProperty('lastEntry')
+    expect(result).not.toHaveProperty('lastCommand')
   })
 
   test('archives, finalizes, and finishes after a match-ending Accepted Command', async () => {
