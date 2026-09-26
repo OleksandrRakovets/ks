@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 
 import { matchCommandFromControl } from '@/features/sparring/match/renderers/types'
 
-import type { ControlPresentation } from './action-stack'
+import type { ControlPresentation } from './control-stack'
 
 export function Takeover(props: {
   title?: ReactNode

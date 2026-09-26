@@ -8,7 +8,7 @@ import { keys } from '@ks/i18n'
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 
-import { ActionStack, type ControlPresentation } from '@/features/sparring/match/shell/action-stack'
+import { type ControlPresentation, ControlStack } from '@/features/sparring/match/shell/control-stack'
 
 import { controlLabel, potRecordPottedBallCount } from './control-copy'
 import type { MatchControlRendererProps } from './types'
@@ -38,7 +38,7 @@ function PyramidControlRenderer<
   const { t } = useTranslation()
 
   return (
-    <ActionStack
+    <ControlStack
       sections={groupControlsIntoSections(props.controls)}
       renderControl={(control) => pyramidControlPresentation(t, control, props.participants)}
       submitting={props.submitting}

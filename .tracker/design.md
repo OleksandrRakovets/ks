@@ -25,7 +25,7 @@ The app has two chrome types. Do not add a third.
 - It never scrolls or clips, from 375×667 through 430×932, in every phase. Game-supplied rule notes
   count toward that budget. If a phase does not fit, move rare Controls to the Overflow Sheet or
   shorten the note. Do not add a scrollbar or shrink text.
-- The Board is pinned to the top and the Action Stack to the bottom. Slack between them absorbs
+- The Board is pinned to the top and the Control Stack to the bottom. Slack between them absorbs
   height, so controls stay in the same thumb region on every phone and in every game.
 - Placement comes from Control `prominence`, not from game-specific UI: `primary` and `secondary`
   go to per-seat Zones, `tertiary` goes only to the Overflow Sheet, and seatless `neutral` Controls
@@ -39,10 +39,10 @@ The app has two chrome types. Do not add a third.
   Participant names always wrap and never truncate or collapse to initials. The only size change is
   the one numeral step-down for three-digit scores.
 - Surfaces carry structure; lines almost never do. The lane spine is the only rule on the screen.
-  Do not add dividers between the Board, Zones, Last Action Bar, or top bar. Keep the tonal steps
+  Do not add dividers between the Board, Zones, Last Command Bar, or top bar. Keep the tonal steps
   far enough apart to read on a dim phone at an angle, and check changes on a real phone.
 
-## Last Action Bar and Correction
+## Last Command Bar and Correction
 
 - It shows the latest player-authored Protocol entry that a Correction could compensate for.
   Always name the actor. The error it exists to catch is scoring against the wrong seat, and
@@ -88,6 +88,6 @@ Setup uses registry names. Adding a game means writing its card, not adding a da
 - A demoted control stays demoted: `Фол` is red text on a recessed surface, not an outlined button.
 - Dark is the reference theme. Light must stay legible but is not a separate visual design.
 - The minimum font size is 16px. 14px is allowed only for a numeral or unit beside larger text and
-  for the named control-screen annotations (spine label, selector hint, Takeover effect, Last Action
+  for the named control-screen annotations (spine label, selector hint, Takeover effect, Last Command
   score). Headings do not use small uppercase labels.
 - Use the system font stack. No webfont, for club connections.

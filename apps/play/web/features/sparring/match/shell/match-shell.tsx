@@ -12,9 +12,9 @@ import { localizedPath } from '@/i18n'
 import { useRootLocale } from '@/root'
 
 import { Board } from './board'
-import { LastActionBar } from './last-action-bar'
+import { LastCommandBar } from './last-command-bar'
 import { OverflowSheet } from './overflow-sheet'
-import { RematchAction } from './rematch-action'
+import { RematchLink } from './rematch-link'
 
 export function MatchControlShell<K extends RegisteredGameKey>(props: {
   data: ActiveMatchData<K>
@@ -31,7 +31,7 @@ export function MatchControlShell<K extends RegisteredGameKey>(props: {
       state={props.data.state}
       headerTitle={controlContextLabel(props.data, t)}
       headerRule={controlRuleLabel(props.data, t)}
-      headerAction={
+      headerControl={
         <OverflowSheet
           controls={controlSections.tertiary}
           names={{
@@ -44,7 +44,7 @@ export function MatchControlShell<K extends RegisteredGameKey>(props: {
       }
       board={<Board data={props.data} />}
       contentClassName="flex flex-col overflow-hidden"
-      footer={props.data.lastEntry ? <LastActionBar entry={props.data.lastEntry} /> : null}
+      footer={props.data.lastEntry ? <LastCommandBar entry={props.data.lastEntry} /> : null}
       primaryTabLabel={t(keys.match.sparring.tabControl)}
     >
       {props.children}
@@ -64,7 +64,7 @@ export function MatchProtocolShell<K extends RegisteredGameKey>(props: {
       state={props.data.state}
       headerTitle={controlContextLabel(props.data, t)}
       headerRule={controlRuleLabel(props.data, t)}
-      headerAction={null}
+      headerControl={null}
       board={<Board data={props.data} />}
       contentClassName="overflow-y-auto overscroll-contain"
       footer={null}
@@ -88,10 +88,10 @@ export function MatchResultShell<K extends RegisteredGameKey>(props: {
       state={props.data.state}
       headerTitle={props.data.shortGameTitle}
       headerRule={resultRuleLabel(props.data, t)}
-      headerAction={null}
+      headerControl={null}
       board={null}
       contentClassName="overflow-y-auto overscroll-contain"
-      footer={props.active === 'result' ? <RematchAction data={props.data} /> : null}
+      footer={props.active === 'result' ? <RematchLink data={props.data} /> : null}
       primaryTabLabel={t(keys.match.result.tabResult)}
     >
       {props.children}
@@ -104,7 +104,7 @@ function MatchShell(props: {
   state: { readonly gameKey: RegisteredGameKey; readonly matchId: MatchId }
   headerTitle: string
   headerRule: string
-  headerAction: ReactNode
+  headerControl: ReactNode
   board: ReactNode
   contentClassName: string
   footer: ReactNode
@@ -128,7 +128,7 @@ function MatchShell(props: {
           <strong className="truncate text-[17px] leading-none font-semibold">{props.headerTitle}</strong>
           <span className="shrink-0 text-base leading-none">{props.headerRule}</span>
         </div>
-        {props.headerAction ?? <span aria-hidden className="size-11 shrink-0" />}
+        {props.headerControl ?? <span aria-hidden className="size-11 shrink-0" />}
       </header>
 
       {props.board}

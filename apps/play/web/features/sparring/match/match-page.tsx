@@ -7,7 +7,7 @@ import { useFetcher } from 'react-router'
 import { matchCommandForm, useControlLiveRevalidation } from './live'
 import { controlEffect, controlLabel } from './renderers/control-copy'
 import type { MatchControlRendererProps } from './renderers/types'
-import { ActionStack, type ControlPresentation } from './shell/action-stack'
+import { type ControlPresentation, ControlStack } from './shell/control-stack'
 import { MatchResult } from './shell/match-result'
 import { MatchControlShell, MatchResultShell } from './shell/match-shell'
 import type { ActiveMatchData, ControlActionData, MatchPageData } from './types'
@@ -62,7 +62,7 @@ function MatchControlPage<K extends RegisteredGameKey>(props: {
             onSubmitCommand={submitCommand}
           />
         ) : (
-          <BetweenFramesActions
+          <BetweenFramesControls
             controls={props.data.controls}
             t={t}
             submitting={fetcher.state !== 'idle'}
@@ -78,14 +78,14 @@ function MatchControlPage<K extends RegisteredGameKey>(props: {
  * The complete match-level control phase after a frame ends. This is separate from tertiary
  * controls, which remain available in the shell's overflow menu during gameplay phases.
  */
-function BetweenFramesActions(props: {
+function BetweenFramesControls(props: {
   controls: readonly Control[]
   t: ReturnType<typeof useTranslation>['t']
   submitting: boolean
   onSubmit: (command: MatchCommand) => void
 }) {
   return (
-    <ActionStack
+    <ControlStack
       sections={groupControlsIntoSections(props.controls)}
       renderControl={(control) => betweenFramesControlPresentation(props.t, control)}
       submitting={props.submitting}

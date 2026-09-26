@@ -64,7 +64,7 @@ A command that changed the recorded match. Accepted commands are ordered and ret
 One game-specific item in the Protocol produced when a command is accepted. An accepted command produces one or more Protocol entries atomically.
 
 **Protocol**:
-The official chronological record of match play, including player actions, corrections, and noteworthy system-determined outcomes.
+The official chronological record of match play, including player-authored Commands, Corrections, and noteworthy system-determined outcomes.
 _Avoid_: Event log, audit log, wire protocol
 
 **Correction**:

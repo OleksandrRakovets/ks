@@ -16,7 +16,7 @@ export type ControlPresentation = {
   command?: MatchCommand
 }
 
-export function ActionStack(props: {
+export function ControlStack(props: {
   sections: ControlSections
   selector?: ReactNode
   takeover?: ReactNode
