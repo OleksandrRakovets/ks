@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { StrilaBall } from '@/components/strila-ball'
 import { protocolRowLabel } from '@/features/sparring/match/protocol/protocol-copy'
 
-export function LastActionBar({ entry }: { entry: Pick<ProtocolRow, 'key' | 'message' | 'score'> }) {
+export function LastCommandBar({ entry }: { entry: Pick<ProtocolRow, 'key' | 'message' | 'score'> }) {
   const { t } = useTranslation()
 
   return (

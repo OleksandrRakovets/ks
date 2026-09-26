@@ -12,7 +12,7 @@ import { useTranslation } from 'react-i18next'
 import { SeatChoiceToss } from '@/components/seat-choice-toss'
 import { StrilaBall } from '@/components/strila-ball'
 import { cn } from '@/components/ui/utils'
-import { ActionStack, type ControlPresentation } from '@/features/sparring/match/shell/action-stack'
+import { type ControlPresentation, ControlStack } from '@/features/sparring/match/shell/control-stack'
 import { Takeover } from '@/features/sparring/match/shell/takeover'
 
 import { controlEffect, controlLabel } from './control-copy'
@@ -55,7 +55,7 @@ export function StrilaControlRenderer(props: MatchControlRendererProps<StrilaGam
   }
 
   return (
-    <ActionStack
+    <ControlStack
       sections={sections}
       selector={
         details.isBallSetVisible ? (
