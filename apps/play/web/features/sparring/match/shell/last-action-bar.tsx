@@ -14,12 +14,12 @@ export function LastActionBar({ entry }: { entry: Pick<ProtocolRow, 'key' | 'mes
         {entry.message.actor !== undefined && entry.message.actor.length > 0 ? (
           <p className="font-semibold break-words">{entry.message.actor}</p>
         ) : null}
-        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 leading-none">
+        <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
           {entry.message.pottedBalls ? (
             <>
               <span className="sr-only">{protocolRowLabel(t, entry)}</span>
               <span aria-hidden>{t('match.protocol.commands.pot.record.default')}</span>
-              <span aria-hidden className="inline-flex items-center gap-1">
+              <span aria-hidden className="inline-flex gap-1 self-center">
                 {entry.message.pottedBalls.map((ball) => (
                   <StrilaBall key={ball} ball={ball} className="size-4" />
                 ))}
@@ -29,7 +29,7 @@ export function LastActionBar({ entry }: { entry: Pick<ProtocolRow, 'key' | 'mes
             <span>{protocolRowLabel(t, entry)}</span>
           )}
           {entry.score ? (
-            <span className="text-[14px] leading-none text-muted-foreground">{`${entry.score.A}:${entry.score.B}`}</span>
+            <span className="text-[14px] text-muted-foreground">{`${entry.score.A}:${entry.score.B}`}</span>
           ) : null}
         </p>
       </div>
