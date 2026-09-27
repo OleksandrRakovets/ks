@@ -1,9 +1,16 @@
-import { isDeepStrictEqual } from 'node:util'
+import { type Match, restoreMatchCheckpoint } from '@ks/competition'
+import type {
+  MatchCommand,
+  MatchId,
+  MatchScoreProjection,
+  MatchState,
+  NonNegativeInteger,
+  ProtocolEntry,
+  UnixEpochMilliseconds,
+} from '@ks/core'
+import type { GameResult, RegisteredGameKey } from '@ks/gameplay/definitions'
 
-import type { MatchCommand } from '@ks/core'
-
-import type { FinishedMatchTransfer, GetControlsResult, GetProtocolResult, GetScoreResult } from '../contracts'
-import type { CommandReceipt, StoredFinalizingMatch } from '../storage/definitions'
+import type { CommandReceipt, StoredFinalizingMatch } from '../storage/codecs'
 import { MatchStorage } from '../storage/match-storage'
 
 export class FinalizingMatchHandler {
@@ -31,32 +38,34 @@ export class FinalizingMatchHandler {
     }
   }
 
-  getControls() {
+  getControls(): FinalizingReadResult {
     this.#warnRead('controls')
+    const match = this.#restoreMatch()
 
     return {
       _tag: 'finalizing' as const,
-      state: this.#storedMatch.finalState,
-      gameResult: this.#storedMatch.gameResult,
+      state: match.project().state,
+      gameResult: match.gameResult(),
       latestSeq: this.#storedMatch.latestSeq,
       endedAt: this.#storedMatch.endedAt,
-    } satisfies Extract<GetControlsResult, { _tag: 'finalizing' }>
+    }
   }
 
-  getProtocol() {
+  getProtocol(): FinalizingProtocolResult {
     this.#warnRead('protocol')
+    const match = this.#restoreMatch()
 
     return {
       _tag: 'finalizing' as const,
-      state: this.#storedMatch.finalState,
-      gameResult: this.#storedMatch.gameResult,
+      state: match.project().state,
+      gameResult: match.gameResult(),
       latestSeq: this.#storedMatch.latestSeq,
       endedAt: this.#storedMatch.endedAt,
       protocolEntries: this.#storage.readProtocol(this.#storedMatch),
-    } satisfies Extract<GetProtocolResult, { _tag: 'finalizing' }>
+    }
   }
 
-  getScore() {
+  getScore(): FinalizingScoreResult {
     this.#warnRead('score')
 
     return {
@@ -64,14 +73,11 @@ export class FinalizingMatchHandler {
       latestSeq: this.#storedMatch.latestSeq,
       endedAt: this.#storedMatch.endedAt,
       score: this.#storedMatch.score,
-    } satisfies Extract<GetScoreResult, { _tag: 'finalizing' }>
+    }
   }
 
   prepareArchive(): FinishedMatchTransfer {
-    const state = this.#storage.readCurrentState(this.#storedMatch)
-
-    if (!isDeepStrictEqual(state, this.#storedMatch.finalState))
-      throw new Error('MatchRoom final state does not match checkpoint projection')
+    const match = this.#restoreMatch()
 
     return {
       matchId: this.#storedMatch.matchId,
@@ -80,8 +86,16 @@ export class FinalizingMatchHandler {
       sourceLatestSeq: this.#storedMatch.latestSeq,
       endedAt: this.#storedMatch.endedAt,
       protocolEntries: this.#storage.readProtocol(this.#storedMatch),
-      finalState: this.#storedMatch.finalState,
-      gameResult: this.#storedMatch.gameResult,
+      finalState: match.project().state,
+      gameResult: match.gameResult(),
+    }
+  }
+
+  #restoreMatch(): Match {
+    try {
+      return restoreMatchCheckpoint(this.#storage.readCurrentCheckpoint(this.#storedMatch))
+    } catch (cause) {
+      throw new Error('MatchRoom checkpoint storage corruption', { cause })
     }
   }
 
@@ -97,6 +111,36 @@ export class FinalizingMatchHandler {
 }
 
 type FinalizingResult = { readonly _tag: 'finalizing' }
+
+type FinalizingReadResult = {
+  readonly _tag: 'finalizing'
+  readonly state: MatchState
+  readonly gameResult: GameResult | null
+  readonly latestSeq: NonNegativeInteger
+  readonly endedAt: UnixEpochMilliseconds
+}
+
+type FinalizingProtocolResult = FinalizingReadResult & {
+  readonly protocolEntries: readonly ProtocolEntry[]
+}
+
+type FinalizingScoreResult = {
+  readonly _tag: 'finalizing'
+  readonly latestSeq: NonNegativeInteger
+  readonly endedAt: UnixEpochMilliseconds
+  readonly score: MatchScoreProjection
+}
+
+export type FinishedMatchTransfer = {
+  readonly matchId: MatchId
+  readonly gameKey: RegisteredGameKey
+  readonly createdAt: UnixEpochMilliseconds
+  readonly sourceLatestSeq: NonNegativeInteger
+  readonly endedAt: UnixEpochMilliseconds
+  readonly protocolEntries: readonly ProtocolEntry[]
+  readonly finalState: MatchState
+  readonly gameResult: GameResult | null
+}
 
 export type FinalizingCommandResult =
   | FinalizingResult

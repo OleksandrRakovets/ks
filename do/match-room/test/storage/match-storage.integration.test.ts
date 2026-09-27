@@ -1,5 +1,5 @@
-import { buildMatchConfig, createMatch, CreateMatchRequest } from '@ks/competition'
-import { newCommandId, newMatchId, PlayerRef, UnixEpochMilliseconds } from '@ks/core'
+import { buildMatchConfig, createMatch, CreateMatchRequest, restoreMatchCheckpoint } from '@ks/competition'
+import { newCommandId, newMatchId, PlayerRef, projectMatchScore, UnixEpochMilliseconds } from '@ks/core'
 import { runInDurableObject } from 'cloudflare:test'
 import { env } from 'cloudflare:workers'
 import * as v from 'valibot'
@@ -41,7 +41,7 @@ test('stores canonical values and compares durable Command retries semantically'
       controlSecret,
       createdAt,
       checkpoint: match.exportCheckpoint(),
-      presentation: match.project(),
+      score: projectMatchScore(match.project().state),
     })
     storage.commitRejectedCommand({ matchId, command, reason: { code: 'no-active-frame' } })
 
@@ -73,9 +73,8 @@ test('SQLite rejects incomplete checkpoint predecessors and paired player refere
     const insert = (seq: number, predecessor: number | null, playerSeq: number | null, index: number | null) =>
       state.storage.sql.exec(
         `INSERT INTO checkpoints
-          (seq, previous_checkpoint_seq, aggregate_json, state_json, game_presentation_json,
-           last_player_accepted_seq, last_player_entry_index)
-         VALUES (?, ?, '{}', '{}', NULL, ?, ?)`,
+          (seq, previous_checkpoint_seq, aggregate_json, last_player_accepted_seq, last_player_entry_index)
+         VALUES (?, ?, '{}', ?, ?)`,
         seq,
         predecessor,
         playerSeq,
@@ -121,7 +120,7 @@ test('reads complete durable Protocol independently of old command payloads', as
 
     if (!match) throw new Error('Expected Match')
 
-    expect(match).toMatchObject({ latestSeq: 3, currentCheckpointSeq: 3 })
+    expect(match).toMatchObject({ latestSeq: 3 })
     expect(
       state.storage.sql
         .exec<{
@@ -137,7 +136,7 @@ test('reads complete durable Protocol independently of old command payloads', as
     ])
 
     expect(storage.readProtocol(match).map((entry) => entry.acceptedSeq)).toEqual([1, 2, 3, 3, 3])
-    expect(storage.readCurrentState(match)).toMatchObject({
+    expect(restoreMatchCheckpoint(storage.readCurrentCheckpoint(match)).project().state).toMatchObject({
       status: 'finished',
       framesWonBySeat: { A: 1, B: 0 },
     })
@@ -161,8 +160,8 @@ test('rejects multiple Match rows as corrupt authority', async () => {
     const otherConfig = buildMatchConfig(otherMatchId, request)
     state.storage.sql.exec(
       `INSERT INTO active_matches
-        (match_id, control_secret, config_json, latest_seq, current_checkpoint_seq, score_json, status, created_at, final_state_json, ended_at)
-       VALUES (?, ?, ?, 0, 0, ?, 'active', ?, NULL, NULL)`,
+        (match_id, control_secret, config_json, latest_seq, score_json, status, created_at, ended_at)
+       VALUES (?, ?, ?, 0, ?, 'active', ?, NULL)`,
       otherMatchId,
       controlSecret,
       JSON.stringify(otherConfig),
@@ -170,40 +169,5 @@ test('rejects multiple Match rows as corrupt authority', async () => {
       createdAt,
     )
     expect(() => new MatchStorage(state.storage).match()).toThrow('multiple Match rows')
-  })
-})
-
-test('rejects lifecycle corruption', async () => {
-  const matchId = newMatchId()
-  const stub = env.MATCH_ROOM.getByName(matchId)
-  await stub.initialize({ ...request, matchId, controlSecret, createdAt })
-  await stub.submitCommand({
-    commandId: newCommandId(),
-    source: 'match',
-    command: { type: 'frame.prepare' },
-  })
-  await stub.submitCommand({
-    commandId: newCommandId(),
-    source: 'match',
-    command: { type: 'frame.commence', seat: 'A' },
-  })
-  await stub.submitCommand({
-    commandId: newCommandId(),
-    source: 'match',
-    command: { type: 'frame.concede', seat: 'B' },
-  })
-
-  await runInDurableObject(stub, (_room, state) => {
-    const storage = new MatchStorage(state.storage)
-
-    const finalState = state.storage.sql
-      .exec<{ final_state_json: string }>('SELECT final_state_json FROM active_matches')
-      .one().final_state_json
-
-    state.storage.sql.exec(
-      `UPDATE active_matches SET final_state_json = ?`,
-      JSON.stringify({ ...JSON.parse(finalState), status: 'active' }),
-    )
-    expect(() => storage.match()).toThrow('active_matches storage corruption')
   })
 })

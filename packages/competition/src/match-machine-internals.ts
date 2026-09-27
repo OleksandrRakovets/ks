@@ -2,18 +2,11 @@ import { type BySeatNumber, type FrameOutcome, type MatchConfig, opponentOf, typ
 import * as v from 'valibot'
 import { assign, initialTransition, setup, type SnapshotFrom, transition } from 'xstate'
 
-import { MatchMachineCheckpoint } from './contracts'
+import type { MatchMachineCheckpoint } from './contracts'
 
-type CompletedFrame = {
-  readonly frameIndex: number
-  readonly breakerSeat: Seat
-  readonly outcome: FrameOutcome
-}
+type CompletedFrame = MatchMachineContext['completedFrames'][number]
 
-type ActiveFrame = {
-  readonly frameIndex: number
-  readonly breakerSeat: Seat
-}
+type ActiveFrame = NonNullable<MatchMachineContext['activeFrame']>
 
 type MatchLifecycleStateBase = {
   readonly config: MatchConfig
@@ -36,17 +29,10 @@ export type MatchLifecycleState =
       readonly winnerSeat: Seat
     })
 
-export type MatchMachineContext = {
-  readonly config: MatchConfig
-  readonly completedFrames: readonly CompletedFrame[]
-  readonly framesWonBySeat: BySeatNumber
-  readonly nextFrameIndex: number
-  readonly activeFrame: ActiveFrame | null
-  readonly winnerSeat: Seat | null
-}
+export type MatchMachineContext = MatchMachineCheckpoint['context']
 
 export function restoreLifecycleSnapshot(checkpoint: MatchMachineCheckpoint): MatchSnapshot {
-  const { value, context } = v.parse(MatchMachineCheckpoint, checkpoint)
+  const { value, context } = checkpoint
   const wins = { A: 0, B: 0 }
 
   for (const [index, frame] of context.completedFrames.entries()) {

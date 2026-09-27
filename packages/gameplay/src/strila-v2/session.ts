@@ -22,10 +22,8 @@ class StrilaGameplaySession implements GameplaySession<'strila-v2'> {
   readonly gameKey = 'strila-v2' as const
   #snapshot: StrilaFrameSnapshot
 
-  constructor(args: GameplaySessionCreateArgsFor<'strila-v2'>, checkpoint?: StrilaCheckpoint) {
-    this.#snapshot = checkpoint
-      ? StrilaFrameMachine.resolveState(checkpoint)
-      : createInitialSnapshot({ ...args.targetPointsBySeat })
+  constructor(snapshot: StrilaFrameSnapshot) {
+    this.#snapshot = snapshot
   }
 
   exportCheckpoint(): StrilaCheckpoint {
@@ -71,21 +69,19 @@ class StrilaGameplaySession implements GameplaySession<'strila-v2'> {
 export function createStrilaGameplaySession(
   args: GameplaySessionCreateArgsFor<'strila-v2'>,
 ): GameplaySession<'strila-v2'> {
-  return new StrilaGameplaySession(args)
+  return new StrilaGameplaySession(createInitialSnapshot({ ...args.targetPointsBySeat }))
 }
 
 export function restoreStrilaGameplaySession(checkpoint: StrilaCheckpoint): GameplaySession<'strila-v2'> {
-  const state = v.parse(StrilaCheckpoint, checkpoint)
-
   if (
-    state.value === 'frame-over' ||
-    (state.value === 'winner-determined') !== (state.context.winner !== null) ||
-    (v.is(v.object({ 'foul-committed': v.literal('penalty-selection') }), state.value) &&
-      state.context.foulOffender === null) ||
-    (v.is(v.object({ 'respotted-black': v.string() }), state.value) &&
-      state.context.coloredBallsOnTable.join(',') !== '7')
+    checkpoint.value === 'frame-over' ||
+    (checkpoint.value === 'winner-determined') !== (checkpoint.context.winner !== null) ||
+    (v.is(v.object({ 'foul-committed': v.literal('penalty-selection') }), checkpoint.value) &&
+      checkpoint.context.foulOffender === null) ||
+    (v.is(v.object({ 'respotted-black': v.string() }), checkpoint.value) &&
+      checkpoint.context.coloredBallsOnTable.join(',') !== '7')
   )
     throw new Error('Inconsistent Strila checkpoint')
 
-  return new StrilaGameplaySession({ targetPointsBySeat: state.context.targetPoints }, state)
+  return new StrilaGameplaySession(StrilaFrameMachine.resolveState(checkpoint))
 }

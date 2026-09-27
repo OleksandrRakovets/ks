@@ -3,7 +3,7 @@ import { evictDurableObject } from 'cloudflare:test'
 import { env } from 'cloudflare:workers'
 import { expect, test } from 'vitest'
 
-import type { GetProtocolResult } from '../../../src/contracts'
+import type { MatchRoom } from '../../../src/MatchRoom'
 import {
   commenceCommand,
   initialization,
@@ -76,6 +76,8 @@ test('serves finalizing state and complete Protocol directly after eviction', as
 })
 
 /** Retains the public contract when Cloudflare's Rpc.Result reduces the canonical unknown body to never. */
-function rpcProtocolResult(result: GetProtocolResult): GetProtocolResult {
+function rpcProtocolResult(
+  result: Awaited<ReturnType<MatchRoom['getProtocol']>>,
+): Awaited<ReturnType<MatchRoom['getProtocol']>> {
   return result
 }

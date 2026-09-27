@@ -1,11 +1,13 @@
 import { isDeepStrictEqual } from 'node:util'
 
-import type { MatchCheckpoint, MatchRejection, MatchRoomPresentation } from '@ks/competition'
+import type { MatchCheckpoint, MatchRejection } from '@ks/competition'
 import {
   AcceptedCommand,
   type MatchCommand,
   type MatchConfig,
   type MatchId,
+  type MatchScoreProjection,
+  type MatchState,
   type MatchStreamUpdate,
   projectMatchScore,
   ProtocolEntry,
@@ -13,7 +15,6 @@ import {
   SystemClock,
   type UnixEpochMilliseconds,
 } from '@ks/core'
-import type { GameResult as GameResultValue } from '@ks/gameplay/definitions'
 import { and, asc, eq } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/durable-sqlite'
 import { migrate } from 'drizzle-orm/durable-sqlite/migrator'
@@ -26,13 +27,11 @@ import {
   decodeCheckpoint,
   decodeCommand,
   decodeCommandReceipt,
-  decodePresentation,
   decodeProtocolEntry,
-  decodeState,
   decodeStoredMatch,
   type StoredActiveMatch,
   type StoredMatch,
-} from './definitions'
+} from './codecs'
 import * as schema from './schema'
 
 export class MatchStorage {
@@ -56,11 +55,8 @@ export class MatchStorage {
           matchId: initialization.config.matchId,
           configJson: JSON.stringify(initialization.config),
           latestSeq: 0,
-          currentCheckpointSeq: 0,
-          scoreJson: JSON.stringify(projectMatchScore(initialization.presentation.state)),
+          scoreJson: JSON.stringify(initialization.score),
           status: 'active',
-          finalStateJson: null,
-          gameResultJson: null,
           endedAt: null,
         })
         .run()
@@ -69,11 +65,6 @@ export class MatchStorage {
           seq: 0,
           previousCheckpointSeq: null,
           aggregateJson: JSON.stringify(initialization.checkpoint),
-          stateJson: JSON.stringify(initialization.presentation.state),
-          gamePresentationJson:
-            initialization.presentation.game === undefined
-              ? null
-              : JSON.stringify(initialization.presentation.game),
           lastPlayerAcceptedSeq: null,
           lastPlayerEntryIndex: null,
         })
@@ -129,9 +120,8 @@ export class MatchStorage {
     match: StoredActiveMatch
     command: MatchCommand
     checkpoint: MatchCheckpoint
-    presentation: MatchRoomPresentation
+    state: MatchState
     protocolEntryContents: readonly ProtocolEntryContent[]
-    gameResult: GameResultValue | null
   }): {
     receipt: Extract<CommandReceipt, { _tag: 'accepted' }>
     streamUpdate: MatchStreamUpdate
@@ -142,7 +132,7 @@ export class MatchStorage {
       acceptedAt: this.#clock.nowMs(),
     })
 
-    const endsMatch = args.presentation.state.status === 'finished'
+    const endsMatch = args.state.status === 'finished'
 
     const entries = args.protocolEntryContents.map((content, entryIndex) =>
       v.parse(ProtocolEntry, {
@@ -161,8 +151,8 @@ export class MatchStorage {
       .reverse()
       .find((entry) => entry.source === 'player')
 
-    const prior = this.#checkpointRow(args.match.currentCheckpointSeq)
-    const score = projectMatchScore(args.presentation.state)
+    const prior = this.#checkpointRow(args.match.latestSeq)
+    const score = projectMatchScore(args.state)
 
     return this.#db.transaction((tx) => {
       tx.insert(schema.commands)
@@ -180,11 +170,8 @@ export class MatchStorage {
       tx.insert(schema.checkpoints)
         .values({
           seq: acceptedCommand.acceptedSeq,
-          previousCheckpointSeq: args.match.currentCheckpointSeq,
+          previousCheckpointSeq: args.match.latestSeq,
           aggregateJson: JSON.stringify(args.checkpoint),
-          stateJson: JSON.stringify(args.presentation.state),
-          gamePresentationJson:
-            args.presentation.game === undefined ? null : JSON.stringify(args.presentation.game),
           lastPlayerAcceptedSeq: lastPlayer?.acceptedSeq ?? prior.lastPlayerAcceptedSeq,
           lastPlayerEntryIndex: lastPlayer?.entryIndex ?? prior.lastPlayerEntryIndex,
         })
@@ -203,18 +190,14 @@ export class MatchStorage {
         .update(schema.activeMatches)
         .set({
           latestSeq: acceptedCommand.acceptedSeq,
-          currentCheckpointSeq: acceptedCommand.acceptedSeq,
           scoreJson: JSON.stringify(score),
           status: endsMatch ? 'finalizing' : 'active',
-          finalStateJson: endsMatch ? JSON.stringify(args.presentation.state) : null,
-          gameResultJson: endsMatch && args.gameResult ? JSON.stringify(args.gameResult) : null,
           endedAt: endsMatch ? acceptedCommand.acceptedAt : null,
         })
         .where(
           and(
             eq(schema.activeMatches.matchId, args.match.matchId),
             eq(schema.activeMatches.latestSeq, args.match.latestSeq),
-            eq(schema.activeMatches.currentCheckpointSeq, args.match.currentCheckpointSeq),
             eq(schema.activeMatches.status, 'active'),
           ),
         )
@@ -233,33 +216,14 @@ export class MatchStorage {
     })
   }
 
-  /** Only executable reads decode the aggregate blob. The caller restores and checks its projection. */
-  readCurrentCheckpoint(storedMatch: StoredActiveMatch) {
-    const row = this.#checkpointRow(storedMatch.currentCheckpointSeq)
-
-    return {
-      checkpoint: decodeCheckpoint(row.aggregateJson, storedMatch),
-      state: decodeState(row.stateJson, storedMatch),
-    }
-  }
-
-  readCurrentState(storedMatch: StoredMatch) {
-    return decodeState(this.#checkpointRow(storedMatch.currentCheckpointSeq).stateJson, storedMatch)
-  }
-
-  readCurrentPresentation(storedMatch: StoredActiveMatch): MatchRoomPresentation {
-    const row = this.#checkpointRow(storedMatch.currentCheckpointSeq)
-
-    return decodePresentation(row.stateJson, row.gamePresentationJson, storedMatch)
+  readCurrentCheckpoint(storedMatch: StoredMatch): MatchCheckpoint {
+    return decodeCheckpoint(this.#checkpointRow(storedMatch.latestSeq).aggregateJson, storedMatch)
   }
 
   readLastPlayerEntry(storedMatch: StoredActiveMatch): ProtocolEntry | null {
-    const row = this.#checkpointRow(storedMatch.currentCheckpointSeq)
+    const row = this.#checkpointRow(storedMatch.latestSeq)
 
-    if (row.lastPlayerAcceptedSeq === null && row.lastPlayerEntryIndex === null) return null
-
-    if (row.lastPlayerAcceptedSeq === null || row.lastPlayerEntryIndex === null)
-      throw new Error('MatchRoom checkpoint player reference corruption')
+    if (row.lastPlayerAcceptedSeq === null || row.lastPlayerEntryIndex === null) return null
 
     const entry = this.#db
       .select()
@@ -273,16 +237,8 @@ export class MatchStorage {
       .get()
 
     if (!entry) throw new Error('MatchRoom checkpoint player reference corruption')
-    const parsed = decodeProtocolEntry(entry)
 
-    if (
-      parsed.source !== 'player' ||
-      parsed.acceptedSeq > storedMatch.currentCheckpointSeq ||
-      parsed.gameKey !== storedMatch.config.gameKey
-    )
-      throw new Error('MatchRoom checkpoint player reference corruption')
-
-    return parsed
+    return decodeProtocolEntry(entry)
   }
 
   readProtocol(storedMatch: StoredMatch): ProtocolEntry[] {
@@ -318,16 +274,7 @@ export class MatchStorage {
   #checkpointRow(seq: number): typeof schema.checkpoints.$inferSelect {
     const row = this.#db.select().from(schema.checkpoints).where(eq(schema.checkpoints.seq, seq)).get()
 
-    if (
-      !row ||
-      (seq === 0
-        ? row.previousCheckpointSeq !== null
-        : row.previousCheckpointSeq === null ||
-          row.previousCheckpointSeq < 0 ||
-          row.previousCheckpointSeq >= seq) ||
-      (row.lastPlayerAcceptedSeq === null) !== (row.lastPlayerEntryIndex === null)
-    )
-      throw new Error('MatchRoom checkpoint storage corruption')
+    if (!row) throw new Error('MatchRoom checkpoint storage corruption')
 
     return row
   }
@@ -338,5 +285,5 @@ export type MatchCreation = {
   readonly controlSecret: string
   readonly createdAt: UnixEpochMilliseconds
   readonly checkpoint: MatchCheckpoint
-  readonly presentation: MatchRoomPresentation
+  readonly score: MatchScoreProjection
 }

@@ -1,19 +1,25 @@
 import * as v from 'valibot'
 
 import type { GameMeta } from './constants'
-import { LongFreePyramidCommand, LongFreePyramidGamePresentation } from './long-free-pyramid/definitions'
+import {
+  LongFreePyramidCheckpoint,
+  LongFreePyramidCommand,
+  LongFreePyramidGamePresentation,
+} from './long-free-pyramid/definitions'
 import {
   CombinedPyramidGamePresentation,
   CombinedPyramidOldGamePresentation,
   FreePyramidGamePresentation,
+  PyramidCheckpoint,
   PyramidCommand,
 } from './pyramid/definitions'
-import { StrilaCommand, StrilaGamePresentation } from './strila-v2/definitions'
+import { StrilaCheckpoint, StrilaCommand, StrilaGamePresentation } from './strila-v2/definitions'
 
 type RegistryEntry = {
   readonly meta: GameMeta
   readonly commandSchema: v.GenericSchema
   readonly presentationSchema: v.GenericSchema
+  readonly checkpointSchema: v.GenericSchema
 }
 
 export const registry = {
@@ -31,6 +37,7 @@ export const registry = {
     },
     commandSchema: StrilaCommand,
     presentationSchema: StrilaGamePresentation,
+    checkpointSchema: StrilaCheckpoint,
   },
   'free-pyramid': {
     meta: {
@@ -46,6 +53,7 @@ export const registry = {
     },
     commandSchema: PyramidCommand,
     presentationSchema: FreePyramidGamePresentation,
+    checkpointSchema: PyramidCheckpoint,
   },
   'free-pyramid-long': {
     meta: {
@@ -61,6 +69,7 @@ export const registry = {
     },
     commandSchema: LongFreePyramidCommand,
     presentationSchema: LongFreePyramidGamePresentation,
+    checkpointSchema: LongFreePyramidCheckpoint,
   },
   'combined-pyramid': {
     meta: {
@@ -76,6 +85,7 @@ export const registry = {
     },
     commandSchema: PyramidCommand,
     presentationSchema: CombinedPyramidGamePresentation,
+    checkpointSchema: PyramidCheckpoint,
   },
   'combined-pyramid-old': {
     meta: {
@@ -91,6 +101,7 @@ export const registry = {
     },
     commandSchema: PyramidCommand,
     presentationSchema: CombinedPyramidOldGamePresentation,
+    checkpointSchema: PyramidCheckpoint,
   },
 } as const satisfies Record<string, RegistryEntry>
 
@@ -100,6 +111,24 @@ const registeredGameKeys = Object.keys(registry) as [keyof typeof registry, ...(
 export const RegisteredGameKey = v.picklist(registeredGameKeys)
 
 export type RegisteredGameKey = v.InferOutput<typeof RegisteredGameKey>
+
+/** Correlates the registered game key with its complete executable frame state. */
+export const GameplayCheckpoint = v.variant('gameKey', [
+  v.object({ gameKey: v.literal('strila-v2'), state: registry['strila-v2'].checkpointSchema }),
+  v.object({ gameKey: v.literal('free-pyramid-long'), state: registry['free-pyramid-long'].checkpointSchema }),
+  v.object({ gameKey: v.literal('free-pyramid'), state: registry['free-pyramid'].checkpointSchema }),
+  v.object({ gameKey: v.literal('combined-pyramid'), state: registry['combined-pyramid'].checkpointSchema }),
+  v.object({
+    gameKey: v.literal('combined-pyramid-old'),
+    state: registry['combined-pyramid-old'].checkpointSchema,
+  }),
+])
+
+export type GameplayCheckpoint = v.InferOutput<typeof GameplayCheckpoint>
+
+export type GameplayCheckpointStateFor<K extends RegisteredGameKey> = v.InferOutput<
+  (typeof registry)[K]['checkpointSchema']
+>
 
 export type GamePresentationFor<K extends RegisteredGameKey> = v.InferOutput<
   (typeof registry)[K]['presentationSchema']

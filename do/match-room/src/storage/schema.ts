@@ -9,31 +9,26 @@ export const activeMatches = sqliteTable(
     controlSecret: text('control_secret').notNull(),
     configJson: text('config_json').notNull(),
     latestSeq: integer('latest_seq').notNull(),
-    currentCheckpointSeq: integer('current_checkpoint_seq').notNull(),
     scoreJson: text('score_json').notNull(),
     status: text('status').$type<'active' | 'finalizing'>().notNull(),
     createdAt: integer('created_at').$type<UnixEpochMilliseconds>().notNull(),
-    finalStateJson: text('final_state_json'),
-    gameResultJson: text('game_result_json'),
     endedAt: integer('ended_at').$type<UnixEpochMilliseconds>(),
   },
   (table) => [
     check(
       'active_matches_finalizing_fields',
-      sql`(${table.status} = 'active' AND ${table.finalStateJson} IS NULL AND ${table.endedAt} IS NULL) OR (${table.status} = 'finalizing' AND ${table.finalStateJson} IS NOT NULL AND ${table.endedAt} IS NOT NULL)`,
+      sql`(${table.status} = 'active' AND ${table.endedAt} IS NULL) OR (${table.status} = 'finalizing' AND ${table.endedAt} IS NOT NULL)`,
     ),
   ],
 )
 
-/** Immutable executable state and read presentation at each ordinary acceptance (including creation at 0). */
+/** Immutable executable aggregate at each acceptance, including creation at sequence zero. */
 export const checkpoints = sqliteTable(
   'checkpoints',
   {
     seq: integer('seq').primaryKey(),
     previousCheckpointSeq: integer('previous_checkpoint_seq'),
     aggregateJson: text('aggregate_json').notNull(),
-    stateJson: text('state_json').notNull(),
-    gamePresentationJson: text('game_presentation_json'),
     lastPlayerAcceptedSeq: integer('last_player_accepted_seq'),
     lastPlayerEntryIndex: integer('last_player_entry_index'),
   },

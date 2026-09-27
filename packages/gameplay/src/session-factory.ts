@@ -1,29 +1,24 @@
-import * as v from 'valibot'
-
-import { GameplayCheckpoint } from './contracts'
 import type { GameplaySession, GameplaySessionCreateArgsFor } from './gameplay-session'
 import {
   createLongFreePyramidGameplaySession,
   restoreLongFreePyramidGameplaySession,
 } from './long-free-pyramid/session'
 import { createPyramidGameplaySession, restorePyramidGameplaySession } from './pyramid/session'
-import type { RegisteredGameKey } from './registry'
+import type { GameplayCheckpoint, RegisteredGameKey } from './registry'
 import { createStrilaGameplaySession, restoreStrilaGameplaySession } from './strila-v2/session'
 
 export function restoreGameplaySession(checkpoint: GameplayCheckpoint): AnyGameplaySession {
-  const parsed = v.parse(GameplayCheckpoint, checkpoint)
-
-  switch (parsed.gameKey) {
+  switch (checkpoint.gameKey) {
     case 'strila-v2':
-      return restoreStrilaGameplaySession(parsed.state)
+      return restoreStrilaGameplaySession(checkpoint.state)
     case 'free-pyramid-long':
-      return restoreLongFreePyramidGameplaySession(parsed.state)
+      return restoreLongFreePyramidGameplaySession(checkpoint.state)
     case 'free-pyramid':
-      return restorePyramidGameplaySession(parsed.gameKey, parsed.state)
+      return restorePyramidGameplaySession(checkpoint.gameKey, checkpoint.state)
     case 'combined-pyramid':
-      return restorePyramidGameplaySession(parsed.gameKey, parsed.state)
+      return restorePyramidGameplaySession(checkpoint.gameKey, checkpoint.state)
     case 'combined-pyramid-old':
-      return restorePyramidGameplaySession(parsed.gameKey, parsed.state)
+      return restorePyramidGameplaySession(checkpoint.gameKey, checkpoint.state)
   }
 
   throw new Error('Unsupported registered game')

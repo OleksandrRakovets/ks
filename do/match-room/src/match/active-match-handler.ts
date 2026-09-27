@@ -1,11 +1,13 @@
-import { isDeepStrictEqual } from 'node:util'
+import {
+  type Match,
+  type MatchRoomPresentation,
+  type MatchRoomProjection,
+  restoreMatchCheckpoint,
+} from '@ks/competition'
+import type { MatchCommand, MatchScoreProjection, NonNegativeInteger, ProtocolEntry } from '@ks/core'
 
-import { type Match, restoreMatchCheckpoint } from '@ks/competition'
-import { type MatchCommand } from '@ks/core'
-
-import type { GetControlsResult, GetProtocolResult, GetScoreResult } from '../contracts'
 import { type LiveConnectionCursor, LiveConnectionHandler } from '../live/live-connection-handler'
-import type { CommandReceipt, StoredActiveMatch } from '../storage/definitions'
+import type { CommandReceipt, StoredActiveMatch } from '../storage/codecs'
 import { MatchStorage } from '../storage/match-storage'
 
 export class ActiveMatchHandler {
@@ -53,9 +55,8 @@ export class ActiveMatchHandler {
       match: this.#storedMatch,
       command: result.command,
       checkpoint: match.exportCheckpoint(),
-      presentation: projection,
+      state: projection.state,
       protocolEntryContents: result.protocolEntryContents,
-      gameResult: match.gameResult(),
     })
 
     this.#liveConnections.broadcast(committed.streamUpdate)
@@ -69,7 +70,7 @@ export class ActiveMatchHandler {
     }
   }
 
-  getControls() {
+  getControls(): ActiveControlsResult {
     const projection = this.#restoreMatch().project()
 
     return {
@@ -77,24 +78,24 @@ export class ActiveMatchHandler {
       latestSeq: this.#storedMatch.latestSeq,
       ...projection,
       lastPlayerEntry: this.#storage.readLastPlayerEntry(this.#storedMatch),
-    } satisfies Extract<GetControlsResult, { _tag: 'active' }>
+    }
   }
 
-  getProtocol() {
+  getProtocol(): ActiveProtocolResult {
     return {
       _tag: 'active',
       latestSeq: this.#storedMatch.latestSeq,
-      ...this.#storage.readCurrentPresentation(this.#storedMatch),
+      ...this.#restoreMatch().projectPresentation(),
       protocolEntries: this.#storage.readProtocol(this.#storedMatch),
-    } satisfies Extract<GetProtocolResult, { _tag: 'active' }>
+    }
   }
 
-  getScore() {
+  getScore(): ActiveScoreResult {
     return {
       _tag: 'active',
       latestSeq: this.#storedMatch.latestSeq,
       score: this.#storedMatch.score,
-    } satisfies Extract<GetScoreResult, { _tag: 'active' }>
+    }
   }
 
   liveConnectionCursor(): LiveConnectionCursor {
@@ -102,14 +103,8 @@ export class ActiveMatchHandler {
   }
 
   #restoreMatch(): Match {
-    const { checkpoint, state } = this.#storage.readCurrentCheckpoint(this.#storedMatch)
-
     try {
-      const match = restoreMatchCheckpoint(checkpoint)
-
-      if (!isDeepStrictEqual(match.project().state, state)) throw new Error('projection mismatch')
-
-      return match
+      return restoreMatchCheckpoint(this.#storage.readCurrentCheckpoint(this.#storedMatch))
     } catch (cause) {
       throw new Error('MatchRoom checkpoint storage corruption', { cause })
     }
@@ -125,3 +120,21 @@ type ActiveCommandResult =
       readonly endsMatch: boolean
     }
   | Extract<CommandReceipt, { _tag: 'rejected' }>
+
+type ActiveControlsResult = {
+  readonly _tag: 'active'
+  readonly latestSeq: NonNegativeInteger
+  readonly lastPlayerEntry: ProtocolEntry | null
+} & MatchRoomProjection
+
+type ActiveProtocolResult = {
+  readonly _tag: 'active'
+  readonly latestSeq: NonNegativeInteger
+  readonly protocolEntries: readonly ProtocolEntry[]
+} & MatchRoomPresentation
+
+type ActiveScoreResult = {
+  readonly _tag: 'active'
+  readonly latestSeq: NonNegativeInteger
+  readonly score: MatchScoreProjection
+}

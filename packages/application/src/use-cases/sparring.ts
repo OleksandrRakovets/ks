@@ -122,21 +122,44 @@ type SparringApplicationDependencies = {
   matchRoomClient(matchId: MatchId): MatchRoomClient
 }
 
-type ReadKeyedMatchSuccess<K extends RegisteredGameKey> = {
+type ReadKeyedMatchBase<K extends RegisteredGameKey> = {
   ok: true
   state: MatchStateFor<K>
   latestSeq: number
-  endedAtPresentation?: InstantPresentation
-  endedAtIsToday?: boolean
   participants: HydratedMatchParticipants
+}
+
+type ReadKeyedActiveBase<K extends RegisteredGameKey> = ReadKeyedMatchBase<K> & {
+  readKind: 'active'
   game?: GamePresentationFor<K>
-  gameResult?: GameResult | null
-  controls?: readonly Control[]
-  protocolEntries: ProtocolEntries
+}
+
+type ReadKeyedControlSuccess<K extends RegisteredGameKey> = ReadKeyedActiveBase<K> & {
+  controls: readonly Control[]
   lastEntry?: NonNullable<ReturnType<typeof renderLastCorrectableProtocolRow>>
 }
 
-type ReadKeyedMatchResult<K extends RegisteredGameKey> = ReadKeyedMatchSuccess<K> | ReadMatchFailure
+type ReadKeyedProtocolSuccess<K extends RegisteredGameKey> = ReadKeyedActiveBase<K> & {
+  protocolEntries: ProtocolEntries
+}
+
+type ReadKeyedFinishedSuccess<K extends RegisteredGameKey> = ReadKeyedMatchBase<K> & {
+  readKind: 'finished'
+  endedAtPresentation: InstantPresentation
+  endedAtIsToday: boolean
+  gameResult: GameResult | null
+  protocolEntries: ProtocolEntries
+}
+
+type ReadKeyedControlResult<K extends RegisteredGameKey> =
+  | ReadKeyedControlSuccess<K>
+  | ReadKeyedFinishedSuccess<K>
+  | ReadMatchFailure
+
+type ReadKeyedProtocolResult<K extends RegisteredGameKey> =
+  | ReadKeyedProtocolSuccess<K>
+  | ReadKeyedFinishedSuccess<K>
+  | ReadMatchFailure
 
 function archiveReadFailure(error: Error): ReadMatchFailure | null {
   if (error instanceof UnsupportedProtocolArchiveVersionError) {
@@ -333,12 +356,24 @@ export function createSparringApplicationWithDependencies(
     return { ok: true, matches }
   }
 
+  function readKeyedMatch<K extends RegisteredGameKey>(
+    matchId: MatchId,
+    locale: SupportedLocale,
+    expectedGameKey: K,
+    view: 'match',
+  ): Promise<ReadKeyedControlResult<K>>
+  function readKeyedMatch<K extends RegisteredGameKey>(
+    matchId: MatchId,
+    locale: SupportedLocale,
+    expectedGameKey: K,
+    view: 'protocol',
+  ): Promise<ReadKeyedProtocolResult<K>>
   async function readKeyedMatch<K extends RegisteredGameKey>(
     matchId: MatchId,
     locale: SupportedLocale,
     expectedGameKey: K,
     view: 'match' | 'protocol',
-  ): Promise<ReadKeyedMatchResult<K>> {
+  ): Promise<ReadKeyedControlResult<K> | ReadKeyedProtocolResult<K>> {
     const record = await dependencies.getMatchRecord(matchId)
 
     if (!record || record.gameKey !== expectedGameKey)
@@ -369,13 +404,13 @@ export function createSparringApplicationWithDependencies(
         room.latestSeq,
       )
 
-      const result: ReadKeyedMatchSuccess<K> = {
+      const result: ReadKeyedControlSuccess<K> = {
         ok: true,
+        readKind: 'active',
         state: { ...room.state, gameKey: expectedGameKey },
         latestSeq: room.latestSeq,
         participants,
         controls: room.controls,
-        protocolEntries: [],
       }
 
       if (lastEntry) result.lastEntry = lastEntry
@@ -394,8 +429,9 @@ export function createSparringApplicationWithDependencies(
     if (room.state.matchId !== matchId || room.state.gameKey !== expectedGameKey)
       throw new Error('MatchRoom active identity conflicts with D1')
 
-    const result: ReadKeyedMatchSuccess<K> = {
+    const result: ReadKeyedProtocolSuccess<K> = {
       ok: true,
+      readKind: 'active',
       state: { ...room.state, gameKey: expectedGameKey },
       latestSeq: room.latestSeq,
       participants: await hydrateParticipants(record, locale),
@@ -473,7 +509,7 @@ export function createSparringApplicationWithDependencies(
 
     const protocolRows = renderProtocolRows(match.protocolEntries, seatNames, dependencies.clock)
 
-    if (match.state.status === 'finished') {
+    if (match.readKind === 'finished') {
       return { ...toFinishedMatchResult(match), protocolRows }
     }
 
@@ -557,7 +593,7 @@ export function createSparringApplicationWithDependencies(
     protocolEntries: ProtocolEntries,
     locale: SupportedLocale,
     expectedGameKey: K,
-  ): Promise<ReadKeyedMatchResult<K>> {
+  ): Promise<ReadKeyedFinishedSuccess<K> | ReadMatchFailure> {
     if (room.state.matchId !== record.matchId || room.state.gameKey !== expectedGameKey)
       throw new Error('MatchRoom finalizing identity conflicts with D1')
 
@@ -566,6 +602,7 @@ export function createSparringApplicationWithDependencies(
 
     return {
       ok: true,
+      readKind: 'finished',
       state: { ...room.state, gameKey: expectedGameKey },
       gameResult: room.gameResult,
       latestSeq: room.latestSeq,
@@ -581,7 +618,7 @@ export function createSparringApplicationWithDependencies(
     locale: SupportedLocale,
     expectedGameKey: K,
     view: 'match' | 'protocol',
-  ): Promise<ReadKeyedMatchResult<K>> {
+  ): Promise<ReadKeyedFinishedSuccess<K> | ReadMatchFailure> {
     let archive: FinishedMatchArchiveRecord | ProtocolArchiveRecord | null
 
     try {
@@ -605,6 +642,7 @@ export function createSparringApplicationWithDependencies(
 
     return {
       ok: true,
+      readKind: 'finished',
       state: { ...state, gameKey: expectedGameKey },
       gameResult: archive.gameResult,
       latestSeq: archive.sourceLatestSeq,
@@ -616,13 +654,9 @@ export function createSparringApplicationWithDependencies(
   }
 
   function toMatchResult<K extends RegisteredGameKey>(
-    match: ReadKeyedMatchSuccess<K>,
+    match: ReadKeyedControlSuccess<K> | ReadKeyedFinishedSuccess<K>,
   ): Extract<ReadMatchResult<K>, { ok: true }> {
-    if (match.state.status === 'finished') {
-      return toFinishedMatchResult(match)
-    }
-
-    if (match.controls === undefined) throw new Error('Active Match controls read is missing controls')
+    if (match.readKind === 'finished') return toFinishedMatchResult(match)
 
     const active =
       match.lastEntry === undefined
@@ -650,13 +684,8 @@ export function createSparringApplicationWithDependencies(
   }
 
   function toFinishedMatchResult<K extends RegisteredGameKey>(
-    match: ReadKeyedMatchSuccess<K>,
+    match: ReadKeyedFinishedSuccess<K>,
   ): Extract<ReadMatchResult<K>, { ok: true; lifecycle: 'finished' }> {
-    if (match.state.status !== 'finished') throw new Error('Active Match cannot be shown as finished')
-
-    if (match.endedAtPresentation === undefined || match.endedAtIsToday === undefined)
-      throw new Error('Finished Match read is missing its end time')
-
     return {
       ok: true,
       lifecycle: 'finished',

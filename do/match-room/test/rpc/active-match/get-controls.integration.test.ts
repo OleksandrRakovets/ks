@@ -3,7 +3,7 @@ import { evictDurableObject, runInDurableObject } from 'cloudflare:test'
 import { env } from 'cloudflare:workers'
 import { expect, test } from 'vitest'
 
-import type { GetProtocolResult } from '../../../src/contracts'
+import type { MatchRoom } from '../../../src/MatchRoom'
 import {
   captureRpcError,
   initialization,
@@ -43,7 +43,7 @@ test('returns the compact score at the authoritative sequence', async () => {
   })
 })
 
-test('reads score and Protocol without hydrating a damaged executable checkpoint, but validates controls', async () => {
+test('reads score and command receipts without restoring a damaged checkpoint, but rejects rich reads', async () => {
   const { matchId, stub } = await initializedRoom()
   const accepted = prepareCommand()
   await stub.submitCommand(accepted)
@@ -53,12 +53,14 @@ test('reads score and Protocol without hydrating a damaged executable checkpoint
   await evictDurableObject(stub)
   const restored = env.MATCH_ROOM.getByName(matchId)
   expect(await restored.getScore()).toMatchObject({ _tag: 'active', latestSeq: 1 })
-  expect(await restored.getProtocol()).toMatchObject({
-    _tag: 'active',
-    latestSeq: 1,
-    protocolEntries: [{ acceptedSeq: 1 }],
-  })
   expect(await restored.submitCommand(accepted)).toMatchObject({ _tag: 'accepted', acceptedSeq: 1 })
+  expect(
+    (
+      await captureRpcError(async () => {
+        await restored.getProtocol()
+      })
+    ).message,
+  ).toContain('checkpoint storage corruption')
   expect(
     (
       await captureRpcError(async () => {
@@ -268,6 +270,8 @@ test('returns durable final state and score after a match-ending acceptance', as
 })
 
 /** Retains the public contract when Cloudflare's Rpc.Result reduces the canonical unknown body to never. */
-function rpcProtocolResult(result: GetProtocolResult): GetProtocolResult {
+function rpcProtocolResult(
+  result: Awaited<ReturnType<MatchRoom['getProtocol']>>,
+): Awaited<ReturnType<MatchRoom['getProtocol']>> {
   return result
 }

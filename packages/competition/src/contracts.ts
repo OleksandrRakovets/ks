@@ -1,6 +1,6 @@
 import { BySeatNumber, FrameOutcome, MatchConfig, Seat } from '@ks/core'
-import { GameplayCheckpoint } from '@ks/gameplay/contracts'
 import { GameResult } from '@ks/gameplay/definitions'
+import { GameplayCheckpoint } from '@ks/gameplay/server'
 import * as v from 'valibot'
 
 export const MatchMachineCheckpoint = v.object({

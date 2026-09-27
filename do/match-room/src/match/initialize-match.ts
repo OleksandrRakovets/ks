@@ -1,7 +1,7 @@
 import { isDeepStrictEqual } from 'node:util'
 
 import { buildMatchConfig, createMatch, type CreateMatchRequest } from '@ks/competition'
-import { type MatchId, type UnixEpochMilliseconds } from '@ks/core'
+import { type MatchId, projectMatchScore, type UnixEpochMilliseconds } from '@ks/core'
 
 import { MatchStorage } from '../storage/match-storage'
 
@@ -19,12 +19,13 @@ export function initializeMatch(storage: MatchStorage, input: InitializeMatchInp
   }
 
   const match = createMatch(config)
+  const state = match.project().state
   storage.commitCreation({
     config,
     controlSecret: input.controlSecret,
     createdAt: input.createdAt,
     checkpoint: match.exportCheckpoint(),
-    presentation: match.project(),
+    score: projectMatchScore(state),
   })
 
   return { _tag: 'initialized', matchId: config.matchId }

@@ -1,5 +1,5 @@
 import { newCommandId, newMatchId } from '@ks/core'
-import { evictDurableObject, runInDurableObject } from 'cloudflare:test'
+import { evictDurableObject } from 'cloudflare:test'
 import { env } from 'cloudflare:workers'
 import { expect, test } from 'vitest'
 
@@ -35,13 +35,6 @@ test.each([14, 15] as const)(
       await submit('game', { type: 'pot.record', seat: 'A', pottedBallCount: count })
     await submit('game', { type: 'pot.record', seat: 'B', pottedBallCount: rollover - 12 })
 
-    await runInDurableObject(stub, (_room, state) => {
-      expect(
-        state.storage.sql
-          .exec<{ game_result_json: string | null }>('SELECT game_result_json FROM active_matches')
-          .one().game_result_json,
-      ).toBeNull()
-    })
     expect(await stub.getScore()).toMatchObject({ _tag: 'active', latestSeq: 6 })
 
     const racks = [
@@ -61,21 +54,6 @@ test.each([14, 15] as const)(
       game: { details: { rackHistory: racks } },
     })
     expect(protocol).not.toHaveProperty('controls')
-    await runInDurableObject(restored, (_room, state) => {
-      const stored = state.storage.sql
-        .exec<{ game_presentation_json: string }>(
-          `SELECT game_presentation_json
-           FROM checkpoints
-           WHERE seq = (SELECT current_checkpoint_seq FROM active_matches)`,
-        )
-        .one()
-
-      expect(JSON.parse(stored.game_presentation_json)).toMatchObject({
-        details: { rackHistory: racks },
-      })
-      expect(stored.game_presentation_json).not.toContain('controls')
-      expect(stored.game_presentation_json).not.toContain('state')
-    })
 
     await restored.submitCommand({
       commandId: newCommandId(),
@@ -87,13 +65,6 @@ test.each([14, 15] as const)(
     expect(await finalizing.getControls()).toMatchObject({
       _tag: 'finalizing',
       gameResult: { gameKey: 'free-pyramid-long', racks },
-    })
-    await runInDurableObject(finalizing, (_room, state) => {
-      expect(
-        state.storage.sql
-          .exec<{ game_result_json: string | null }>('SELECT game_result_json FROM active_matches')
-          .one().game_result_json,
-      ).not.toBeNull()
     })
     const transfer: FinishedMatchTransfer = await finalizing.prepareArchive()
     expect(transfer.gameResult).toEqual({ gameKey: 'free-pyramid-long', racks })

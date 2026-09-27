@@ -4,7 +4,6 @@
   "type": "module",
   "exports": {
     "./definitions": "./contract/definitions.ts",
-    "./contracts": "./src/contracts.ts",
     "./server": "./contract/server.ts",
     "./strila-machine": "./contract/strila-machine.ts",
     "./pyramid-machine": "./contract/pyramid-machine.ts",
