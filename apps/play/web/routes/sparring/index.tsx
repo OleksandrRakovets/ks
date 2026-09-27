@@ -147,6 +147,7 @@ function GameCard({
       {playable ? (
         <Link
           to={matchSetupUrl(gameKey, locale)}
+          prefetch="viewport"
           aria-label={playLabel}
           className="absolute inset-0 z-10 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset"
         />
