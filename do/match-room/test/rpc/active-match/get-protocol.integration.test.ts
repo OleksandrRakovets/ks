@@ -75,7 +75,7 @@ test('serves finalizing state and complete Protocol directly after eviction', as
   })
 })
 
-/** Retains the public contract when Cloudflare's Rpc.Result reduces the canonical unknown body to never. */
+/** Retains the public contract when Cloudflare's Rpc.Result reduces the unknown Protocol body to never. */
 function rpcProtocolResult(
   result: Awaited<ReturnType<MatchRoom['getProtocol']>>,
 ): Awaited<ReturnType<MatchRoom['getProtocol']>> {

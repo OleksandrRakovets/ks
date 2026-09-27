@@ -34,7 +34,7 @@ describe('Match', () => {
     })
   })
 
-  test('accepts a below-target Strila outcome and emits canonical Protocol through award', () => {
+  test('accepts a below-target Strila outcome and emits complete Protocol through award', () => {
     const matchConfig: MatchConfig = {
       ...config(1),
       gameKey: 'strila-v2',

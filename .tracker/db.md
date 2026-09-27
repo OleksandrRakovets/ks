@@ -9,7 +9,7 @@ Run commands from the repository root.
 | D1 `ks`                     | `packages/application/src/d1/schema.ts` | `d1/migrations/`         | Wrangler                 |
 | MatchRoom per-object SQLite | `do/match-room/src/storage/schema.ts`   | `do/match-room/drizzle/` | Runtime Drizzle migrator |
 
-These stores have independent lifecycles. MatchRoom SQLite contains Accepted Commands and outcomes, one immutable aggregate checkpoint per acceptance sequence, complete canonical Protocol entries, the acceptance cursor, compact score projection, and lifecycle. Rich reads restore and project the checkpoint at the acceptance cursor; controls are request-local and are not persisted. D1 contains players and match rows and receives the unchanged final Protocol archive and projected Final Match State. Existing rooms without checkpoints require an explicit migration decision; do not reset or silently replay them.
+These stores have independent lifecycles. MatchRoom SQLite contains Accepted Commands and outcomes, one immutable aggregate checkpoint per acceptance sequence, complete Protocol entries, the acceptance cursor, compact score projection, and lifecycle. Rich reads restore and project the checkpoint at the acceptance cursor; controls are request-local and are not persisted. D1 contains players and match rows and receives the unchanged final Protocol archive and projected Final Match State. Existing rooms without checkpoints require an explicit migration decision; do not reset or silently replay them.
 
 Drizzle ORM and Kit are pinned to `1.0.0-rc.4`. The project has not been deployed. Do not rewrite migration history after deployment.
 

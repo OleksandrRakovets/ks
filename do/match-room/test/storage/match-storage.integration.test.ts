@@ -21,7 +21,7 @@ const createdAt = v.parse(UnixEpochMilliseconds, 1_700_000_000_000)
 
 const controlSecret = 'control-secret-1234567890'
 
-test('stores canonical values and compares durable Command retries semantically', async () => {
+test('stores validated values and compares durable Command retries semantically', async () => {
   const matchId = newMatchId()
   const config = buildMatchConfig(matchId, request)
   const commandId = newCommandId()
