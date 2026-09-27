@@ -44,7 +44,7 @@ export class FinalizingMatchHandler {
 
     return {
       _tag: 'finalizing' as const,
-      state: match.project().state,
+      state: match.state(),
       gameResult: match.gameResult(),
       latestSeq: this.#storedMatch.latestSeq,
       endedAt: this.#storedMatch.endedAt,
@@ -57,7 +57,7 @@ export class FinalizingMatchHandler {
 
     return {
       _tag: 'finalizing' as const,
-      state: match.project().state,
+      state: match.state(),
       gameResult: match.gameResult(),
       latestSeq: this.#storedMatch.latestSeq,
       endedAt: this.#storedMatch.endedAt,
@@ -86,7 +86,7 @@ export class FinalizingMatchHandler {
       sourceLatestSeq: this.#storedMatch.latestSeq,
       endedAt: this.#storedMatch.endedAt,
       protocolEntries: this.#storage.readProtocol(this.#storedMatch),
-      finalState: match.project().state,
+      finalState: match.state(),
       gameResult: match.gameResult(),
     }
   }

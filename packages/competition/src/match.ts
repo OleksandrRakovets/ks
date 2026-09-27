@@ -24,11 +24,13 @@ import { MatchCheckpoint } from './contracts'
 import {
   createInitialSnapshot,
   deriveLifecycleState,
+  type MatchPhase,
   type MatchSnapshot,
   restoreLifecycleSnapshot,
   sendLifecycleEvent,
 } from './match-machine-internals'
-import type { MatchStateFor } from './matches'
+
+export type { MatchPhase } from './match-machine-internals'
 
 type MatchCommandParseFailure = {
   readonly code: 'unsupported-match-command'
@@ -54,26 +56,7 @@ type MatchCommandResult =
       readonly protocolEntryContents: readonly ProtocolEntryContent[]
     }
 
-type MatchRoomPresentationFor<K extends RegisteredGameKey> =
-  | {
-      readonly state: MatchStateFor<K>
-      readonly game: GamePresentationFor<K>
-    }
-  | {
-      readonly state: MatchStateFor<K>
-      readonly game: undefined
-    }
-
-export type MatchRoomPresentation = {
-  [K in RegisteredGameKey]: MatchRoomPresentationFor<K>
-}[RegisteredGameKey]
-
-export type MatchRoomProjection = MatchRoomPresentation & {
-  readonly controls: readonly Control[]
-}
-
 export interface Match {
-  exportCheckpoint(): MatchCheckpoint
   /**
    * Executes one untrusted control command and speculatively advances resident state on acceptance.
    * The caller must discard this resident if accepted content cannot subsequently be persisted.
@@ -81,14 +64,22 @@ export interface Match {
    */
   execute(command: MatchCommand): MatchCommandResult
 
-  /** Returns current semantic state and controls without storage cursor metadata. */
-  project(): MatchRoomProjection
+  /** Returns the current competition lifecycle phase. */
+  phase(): MatchPhase
 
-  /** Returns current semantic state and game presentation without controls. */
-  projectPresentation(): MatchRoomPresentation
+  /** Returns current semantic Match state, including active gameplay score. */
+  state(): MatchState
+
+  /** Returns game-specific presentation while a frame is active. */
+  gamePresentation(): GamePresentationFor<RegisteredGameKey> | undefined
+
+  /** Returns currently available match and gameplay controls in stable source order. */
+  controls(): readonly Control[]
 
   /** Game-owned result, retained when gameplay is discarded after the frame ends. */
   gameResult(): GameResult | null
+
+  exportCheckpoint(): MatchCheckpoint
 }
 
 type CorrelatedGameplay<K extends RegisteredGameKey> = {
@@ -169,23 +160,6 @@ class ResidentMatch implements Match {
     this.#completedGameResult = completedGameResult
   }
 
-  exportCheckpoint(): MatchCheckpoint {
-    const gameplay = this.gameplay
-
-    return {
-      lifecycle: {
-        value: this.snapshot.value,
-        context: this.snapshot.context,
-      },
-      gameplay: gameplay ? exportGameplayCheckpoint(gameplay) : null,
-      completedGameResult: this.#completedGameResult,
-    }
-  }
-
-  gameResult(): GameResult | null {
-    return this.gameplay?.session.deriveResult?.() ?? this.#completedGameResult
-  }
-
   execute(command: MatchCommand): MatchCommandResult {
     const lifecycle = deriveLifecycleState(this.snapshot)
     const discriminator = v.safeParse(v.object({ type: v.string() }), command.command)
@@ -208,7 +182,11 @@ class ResidentMatch implements Match {
     return this.applyGameCommand(gameKey, command.command, command, commandType)
   }
 
-  project(): MatchRoomProjection {
+  phase(): MatchPhase {
+    return deriveLifecycleState(this.snapshot).phase
+  }
+
+  state(): MatchState {
     const lifecycle = deriveLifecycleState(this.snapshot)
 
     const frames: FrameState[] = lifecycle.completedFrames.map((frame) => ({
@@ -247,6 +225,21 @@ class ResidentMatch implements Match {
         ? stateWithoutConfiguration
         : { ...stateWithoutConfiguration, gameConfiguration: lifecycle.config.gameConfiguration }
 
+    return state
+  }
+
+  gamePresentation(): GamePresentationFor<RegisteredGameKey> | undefined {
+    const lifecycle = deriveLifecycleState(this.snapshot)
+
+    if (lifecycle.phase !== 'frame-in-progress') return undefined
+    const gameplay = requireGameplay(gameKeyOf(lifecycle.config.gameKey), this.gameplay)
+
+    return gameplay.session.deriveControls().game
+  }
+
+  controls(): readonly Control[] {
+    const lifecycle = deriveLifecycleState(this.snapshot)
+
     const matchControls: Control[] = []
 
     if (lifecycle.phase === 'between-frames')
@@ -258,8 +251,7 @@ class ResidentMatch implements Match {
       })
 
     if (lifecycle.phase !== 'frame-in-progress') {
-      // SAFETY: state retains the registered game key parsed from this lifecycle; no gameplay exists in this phase.
-      return { state, game: undefined, controls: matchControls } as MatchRoomProjection
+      return matchControls
     }
 
     const gameplay = requireGameplay(gameKeyOf(lifecycle.config.gameKey), this.gameplay)
@@ -278,21 +270,26 @@ class ResidentMatch implements Match {
     }
 
     const gameControlProjection = gameplay.session.deriveControls()
-    // Raw order is match-first, not global display order. Stable grouping preserves match-before-game per bucket.
-    const controls = [...matchControls, ...gameControlProjection.controls]
 
-    // SAFETY: requireGameplay's runtime key check correlates game with the state's registered game key.
-    return {
-      state,
-      game: gameControlProjection.game,
-      controls,
-    } as MatchRoomProjection
+    // Raw order is match-first, not global display order. Stable grouping preserves match-before-game per bucket.
+    return [...matchControls, ...gameControlProjection.controls]
   }
 
-  projectPresentation(): MatchRoomPresentation {
-    const { controls: _controls, ...presentation } = this.project()
+  gameResult(): GameResult | null {
+    return this.gameplay?.session.deriveResult?.() ?? this.#completedGameResult
+  }
 
-    return presentation
+  exportCheckpoint(): MatchCheckpoint {
+    const gameplay = this.gameplay
+
+    return {
+      lifecycle: {
+        value: this.snapshot.value,
+        context: this.snapshot.context,
+      },
+      gameplay: gameplay ? exportGameplayCheckpoint(gameplay) : null,
+      completedGameResult: this.#completedGameResult,
+    }
   }
 
   private applyMatchCommand(

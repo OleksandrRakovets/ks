@@ -96,7 +96,7 @@ function finishedMatchTransfer(id = matchId, timestamp = createdAt): MatchRoomAr
     })
   }
 
-  const finalState = session.project().state
+  const finalState = session.state()
 
   if (finalState.status !== 'finished') throw new Error('Fixture did not finish')
 

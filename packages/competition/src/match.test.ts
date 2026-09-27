@@ -22,10 +22,20 @@ function accept(match: ReturnType<typeof createMatch>, command: Parameters<typeo
   return result
 }
 
+function observables(match: ReturnType<typeof createMatch>) {
+  return {
+    phase: match.phase(),
+    state: match.state(),
+    game: match.gamePresentation(),
+    controls: match.controls(),
+    gameResult: match.gameResult(),
+  }
+}
+
 describe('Match', () => {
   test('creation precedes command execution and prepare emits a focal-seat lifecycle entry', () => {
     const match = createMatch(config())
-    expect(match.project().state.currentFrameIndex).toBe(0)
+    expect(match.state().currentFrameIndex).toBe(0)
     expect(
       accept(match, { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } }),
     ).toMatchObject({
@@ -63,7 +73,7 @@ describe('Match', () => {
         expect(parseProtocolEntryContent(entry)).toEqual(entry)
     }
 
-    expect(match.project().state.framesWonBySeat).toEqual({ A: 0, B: 0 })
+    expect(match.state().framesWonBySeat).toEqual({ A: 0, B: 0 })
 
     const awarded = accept(match, {
       commandId: newCommandId(),
@@ -81,7 +91,7 @@ describe('Match', () => {
       scoreAfter: { A: 8, B: 6 },
       body: { winReason: 'game-rules' },
     })
-    expect(match.project().state).toMatchObject({
+    expect(match.state()).toMatchObject({
       status: 'finished',
       framesWonBySeat: { A: 1, B: 0 },
       frames: [{ winnerSeat: 'A', pointsBySeat: { A: 8, B: 6 } }],
@@ -121,7 +131,7 @@ describe('Match', () => {
       })
     }
 
-    expect(match.project().state).toMatchObject({
+    expect(match.state()).toMatchObject({
       status: 'finished',
       currentFrameIndex: 3,
       framesWonBySeat: { A: 2, B: 1 },
@@ -148,7 +158,7 @@ describe('Match', () => {
       ['frame-awarded', 'B'],
       ['match-ended', 'B'],
     ])
-    expect(match.project().state.status).toBe('finished')
+    expect(match.state().status).toBe('finished')
   })
 
   test('gameplay-determined winner removes concession controls and rejects either concession', () => {
@@ -164,14 +174,14 @@ describe('Match', () => {
       source: 'match',
       command: { type: 'frame.commence', seat: 'A' },
     })
-    expect(match.project().controls.filter(({ type }) => type === 'frame.concede')).toHaveLength(2)
+    expect(match.controls().filter(({ type }) => type === 'frame.concede')).toHaveLength(2)
     accept(match, {
       commandId: newCommandId(),
       source: 'game',
       command: { type: 'pot.record', seat: 'A', pottedBalls: [1] },
     })
 
-    const determined = match.project()
+    const determined = observables(match)
     expect(determined.controls.filter(({ type }) => type === 'frame.concede')).toEqual([])
 
     for (const seat of ['A', 'B'] as const) {
@@ -185,13 +195,13 @@ describe('Match', () => {
         _tag: 'rejected',
         reason: { code: 'game-command-rejected', reason: { code: 'command-not-available' } },
       })
-      expect(match.project()).toEqual(determined)
+      expect(observables(match)).toEqual(determined)
     }
   })
 
-  test('domain rejection does not mutate projection', () => {
+  test('domain rejection does not mutate observable state', () => {
     const match = createMatch(config())
-    const before = match.project()
+    const before = observables(match)
     expect(
       match.execute({
         commandId: newCommandId(),
@@ -201,6 +211,6 @@ describe('Match', () => {
     ).toMatchObject({
       _tag: 'rejected',
     })
-    expect(match.project()).toEqual(before)
+    expect(observables(match)).toEqual(before)
   })
 })

@@ -41,7 +41,7 @@ test('stores validated values and compares durable Command retries semantically'
       controlSecret,
       createdAt,
       checkpoint: match.exportCheckpoint(),
-      score: projectMatchScore(match.project().state),
+      score: projectMatchScore(match.state()),
     })
     storage.commitRejectedCommand({ matchId, command, reason: { code: 'no-active-frame' } })
 
@@ -136,7 +136,7 @@ test('reads complete durable Protocol independently of old command payloads', as
     ])
 
     expect(storage.readProtocol(match).map((entry) => entry.acceptedSeq)).toEqual([1, 2, 3, 3, 3])
-    expect(restoreMatchCheckpoint(storage.readCurrentCheckpoint(match)).project().state).toMatchObject({
+    expect(restoreMatchCheckpoint(storage.readCurrentCheckpoint(match)).state()).toMatchObject({
       status: 'finished',
       framesWonBySeat: { A: 1, B: 0 },
     })

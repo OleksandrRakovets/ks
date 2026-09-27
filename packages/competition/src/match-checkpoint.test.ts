@@ -28,7 +28,10 @@ function roundTrip(match: Match): Match {
   // SAFETY: JSON parsing yields an untrusted value that the checkpoint schema validates.
   const checkpoint = v.parse(MatchCheckpoint, JSON.parse(JSON.stringify(match.exportCheckpoint())) as unknown)
   const restored = restoreMatchCheckpoint(checkpoint)
-  expect(restored.project()).toEqual(match.project())
+  expect(restored.phase()).toBe(match.phase())
+  expect(restored.state()).toEqual(match.state())
+  expect(restored.gamePresentation()).toEqual(match.gamePresentation())
+  expect(restored.controls()).toEqual(match.controls())
   expect(restored.gameResult()).toEqual(match.gameResult())
   expect(restored.exportCheckpoint()).toEqual(checkpoint)
 
@@ -54,7 +57,7 @@ test('initial, prepared, between-frames and finished states retain execution and
   const next = roundTrip(match)
   expect(next.execute(concede)).toEqual(match.execute(concede))
   const finished = roundTrip(match)
-  expect(finished.project().state.framesWonBySeat).toEqual({ A: 0, B: 2 })
+  expect(finished.state().framesWonBySeat).toEqual({ A: 0, B: 2 })
   expect(finished.execute(prepare)).toEqual(match.execute(prepare))
 })
 
@@ -74,7 +77,9 @@ test('Strila nested foul phase preserves offender and subsequent Protocol', () =
   } as const
 
   expect(restored.execute(command)).toEqual(match.execute(command))
-  expect(restored.project()).toEqual(match.project())
+  expect(restored.state()).toEqual(match.state())
+  expect(restored.gamePresentation()).toEqual(match.gamePresentation())
+  expect(restored.controls()).toEqual(match.controls())
 })
 
 test('pyramid rule-specific negative score survives restore for old combined rules', () => {
@@ -83,7 +88,7 @@ test('pyramid rule-specific negative score survives restore for old combined rul
   send(match, 'match', { type: 'frame.commence', seat: 'B' })
   send(match, 'game', { type: 'foul.commit', seat: 'B' })
   const restored = roundTrip(match)
-  expect(restored.project().state.frames[0]?.pointsBySeat).toEqual({ A: 0, B: -1 })
+  expect(restored.state().frames[0]?.pointsBySeat).toEqual({ A: 0, B: -1 })
 
   const command = {
     commandId: newCommandId(),
@@ -149,14 +154,16 @@ test('restored winner-determined gameplay produces the final outcome and complet
 
   expect(restored.execute(command)).toEqual(expected)
   expect(match.execute(command)).toEqual(expected)
-  expect(restored.project()).toEqual(match.project())
-  expect(restored.project().state).toMatchObject({
+  expect(restored.state()).toEqual(match.state())
+  expect(restored.gamePresentation()).toEqual(match.gamePresentation())
+  expect(restored.controls()).toEqual(match.controls())
+  expect(restored.state()).toMatchObject({
     status: 'finished',
     currentFrameIndex: 1,
     framesWonBySeat: { A: 1, B: 0 },
     frames: [{ frameIndex: 1, breakerSeat: 'B', winnerSeat: 'A', pointsBySeat: { A: 3, B: 1 } }],
   })
-  expect(roundTrip(restored).project()).toEqual(restored.project())
+  expect(roundTrip(restored).state()).toEqual(restored.state())
 })
 
 test('long pyramid awaiting-award restores a foul-determined winner and retained rack result', () => {
@@ -190,7 +197,7 @@ test('long pyramid awaiting-award restores a foul-determined winner and retained
       { entryType: 'match-ended', seat: 'B' },
     ],
   })
-  expect(restored.project().state).toMatchObject({ status: 'finished', framesWonBySeat: { A: 0, B: 1 } })
+  expect(restored.state()).toMatchObject({ status: 'finished', framesWonBySeat: { A: 0, B: 1 } })
   expect(roundTrip(restored).gameResult()).toEqual({
     gameKey: 'free-pyramid-long',
     racks: [{ rackNumber: 1, scoreBySeat: { A: 0, B: 2 } }],

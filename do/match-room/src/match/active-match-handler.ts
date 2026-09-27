@@ -1,10 +1,6 @@
-import {
-  type Match,
-  type MatchRoomPresentation,
-  type MatchRoomProjection,
-  restoreMatchCheckpoint,
-} from '@ks/competition'
-import type { MatchCommand, MatchScoreProjection, NonNegativeInteger, ProtocolEntry } from '@ks/core'
+import { type Match, type MatchStateFor, restoreMatchCheckpoint } from '@ks/competition'
+import type { Control, MatchCommand, MatchScoreProjection, NonNegativeInteger, ProtocolEntry } from '@ks/core'
+import type { GamePresentationFor, RegisteredGameKey } from '@ks/gameplay/definitions'
 
 import { type LiveConnectionCursor, LiveConnectionHandler } from '../live/live-connection-handler'
 import type { CommandReceipt, StoredActiveMatch } from '../storage/codecs'
@@ -49,13 +45,11 @@ export class ActiveMatchHandler {
         reason: result.reason,
       })
 
-    const projection = match.project()
-
     const committed = this.#storage.commitAcceptedCommand({
       match: this.#storedMatch,
       command: result.command,
       checkpoint: match.exportCheckpoint(),
-      state: projection.state,
+      state: match.state(),
       protocolEntryContents: result.protocolEntryContents,
     })
 
@@ -71,21 +65,24 @@ export class ActiveMatchHandler {
   }
 
   getControls(): ActiveControlsResult {
-    const projection = this.#restoreMatch().project()
+    const match = this.#restoreMatch()
 
     return {
       _tag: 'active',
       latestSeq: this.#storedMatch.latestSeq,
-      ...projection,
+      ...presentationOf(match),
+      controls: match.controls(),
       lastPlayerEntry: this.#storage.readLastPlayerEntry(this.#storedMatch),
     }
   }
 
   getProtocol(): ActiveProtocolResult {
+    const match = this.#restoreMatch()
+
     return {
       _tag: 'active',
       latestSeq: this.#storedMatch.latestSeq,
-      ...this.#restoreMatch().projectPresentation(),
+      ...presentationOf(match),
       protocolEntries: this.#storage.readProtocol(this.#storedMatch),
     }
   }
@@ -111,6 +108,21 @@ export class ActiveMatchHandler {
   }
 }
 
+type ActivePresentationFor<K extends RegisteredGameKey> = {
+  readonly state: MatchStateFor<K>
+  readonly game: GamePresentationFor<K> | undefined
+}
+
+type ActivePresentation = {
+  [K in RegisteredGameKey]: ActivePresentationFor<K>
+}[RegisteredGameKey]
+
+function presentationOf(match: Match): ActivePresentation {
+  // SAFETY: Match construction and restoration correlate lifecycle config with gameplay; both values come from that
+  // same resident without intervening mutation.
+  return { state: match.state(), game: match.gamePresentation() } as ActivePresentation
+}
+
 type ActiveCommandResult =
   | { readonly _tag: 'invalid-command' }
   | { readonly _tag: 'command-id-conflict' }
@@ -124,14 +136,15 @@ type ActiveCommandResult =
 type ActiveControlsResult = {
   readonly _tag: 'active'
   readonly latestSeq: NonNegativeInteger
+  readonly controls: readonly Control[]
   readonly lastPlayerEntry: ProtocolEntry | null
-} & MatchRoomProjection
+} & ActivePresentation
 
 type ActiveProtocolResult = {
   readonly _tag: 'active'
   readonly latestSeq: NonNegativeInteger
   readonly protocolEntries: readonly ProtocolEntry[]
-} & MatchRoomPresentation
+} & ActivePresentation
 
 type ActiveScoreResult = {
   readonly _tag: 'active'
