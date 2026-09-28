@@ -150,7 +150,7 @@ export class MatchStorage {
       .reverse()
       .find((entry) => entry.source === 'player')
 
-    const prior = this.#checkpointRow(args.matchRecord.latestSeq)
+    const prior = this.#selectCheckpointRow(args.matchRecord.latestSeq)
     const score = projectMatchScore(args.state)
 
     return this.#db.transaction((tx) => {
@@ -216,11 +216,11 @@ export class MatchStorage {
   }
 
   readCurrentCheckpoint(matchRecord: MatchRecord): MatchCheckpoint {
-    return checkpointFromRow(this.#checkpointRow(matchRecord.latestSeq), matchRecord)
+    return checkpointFromRow(this.#selectCheckpointRow(matchRecord.latestSeq), matchRecord)
   }
 
   readLastPlayerEntry(matchRecord: ActiveMatchRecord): ProtocolEntry | null {
-    const row = this.#checkpointRow(matchRecord.latestSeq)
+    const row = this.#selectCheckpointRow(matchRecord.latestSeq)
 
     if (row.lastPlayerAcceptedSeq === null || row.lastPlayerEntryIndex === null) return null
 
@@ -270,7 +270,7 @@ export class MatchStorage {
     return entries
   }
 
-  #checkpointRow(seq: number): typeof schema.checkpoints.$inferSelect {
+  #selectCheckpointRow(seq: number): typeof schema.checkpoints.$inferSelect {
     const row = this.#db.select().from(schema.checkpoints).where(eq(schema.checkpoints.seq, seq)).get()
 
     if (!row) throw new Error('MatchRoom checkpoint storage corruption')

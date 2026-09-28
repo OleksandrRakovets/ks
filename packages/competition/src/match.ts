@@ -9,10 +9,10 @@ import {
   type ProtocolEntryContent,
   Seat,
 } from '@ks/core'
-import { type GamePresentationFor, type GameResult, RegisteredGameKey } from '@ks/gameplay/definitions'
+import { type GamePresentationFor, GameResult, RegisteredGameKey } from '@ks/gameplay/definitions'
 import {
   GameCommandRejection,
-  type GameplayCheckpoint,
+  GameplayCheckpoint,
   type GameplaySession,
   parseGameCommand,
   restoreGameplaySession,
@@ -20,10 +20,10 @@ import {
 import { createGameplaySession } from '@ks/gameplay/server'
 import * as v from 'valibot'
 
-import { MatchCheckpoint } from './contracts'
 import {
   createInitialSnapshot,
   deriveLifecycleState,
+  MatchMachineCheckpoint,
   type MatchPhase,
   type MatchSnapshot,
   restoreLifecycleSnapshot,
@@ -31,6 +31,15 @@ import {
 } from './match-machine-internals'
 
 export type { MatchPhase } from './match-machine-internals'
+
+/** Complete executable aggregate state; storage cursor and Protocol are deliberately separate. */
+export const MatchCheckpoint = v.object({
+  lifecycle: MatchMachineCheckpoint,
+  gameplay: v.nullable(GameplayCheckpoint),
+  completedGameResult: v.nullable(GameResult),
+})
+
+export type MatchCheckpoint = v.InferOutput<typeof MatchCheckpoint>
 
 type MatchCommandParseFailure = {
   readonly code: 'unsupported-match-command'

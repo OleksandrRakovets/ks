@@ -19,13 +19,12 @@ export function initializeMatch(storage: MatchStorage, input: InitializeMatchInp
   }
 
   const match = createMatch(config)
-  const state = match.state()
   storage.commitCreation({
     config,
     controlSecret: input.controlSecret,
     createdAt: input.createdAt,
     checkpoint: match.exportCheckpoint(),
-    score: projectMatchScore(state),
+    score: projectMatchScore(match.state()),
   })
 
   return { _tag: 'initialized', matchId: config.matchId }

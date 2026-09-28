@@ -1,8 +1,31 @@
-import { type BySeatNumber, type FrameOutcome, type MatchConfig, opponentOf, type Seat } from '@ks/core'
+import { BySeatNumber, FrameOutcome, MatchConfig, opponentOf, Seat } from '@ks/core'
 import * as v from 'valibot'
 import { assign, initialTransition, setup, type SnapshotFrom, transition } from 'xstate'
 
-import type { MatchMachineCheckpoint } from './contracts'
+export const MatchMachineCheckpoint = v.object({
+  value: v.picklist(['between-frames', 'frame-in-progress', 'finished']),
+  context: v.object({
+    config: MatchConfig,
+    completedFrames: v.pipe(
+      v.array(
+        v.object({
+          frameIndex: v.pipe(v.number(), v.integer(), v.minValue(1)),
+          breakerSeat: Seat,
+          outcome: FrameOutcome,
+        }),
+      ),
+      v.readonly(),
+    ),
+    framesWonBySeat: BySeatNumber,
+    nextFrameIndex: v.pipe(v.number(), v.integer(), v.minValue(1)),
+    activeFrame: v.nullable(
+      v.object({ frameIndex: v.pipe(v.number(), v.integer(), v.minValue(1)), breakerSeat: Seat }),
+    ),
+    winnerSeat: v.nullable(Seat),
+  }),
+})
+
+export type MatchMachineCheckpoint = v.InferOutput<typeof MatchMachineCheckpoint>
 
 type CompletedFrame = MatchMachineContext['completedFrames'][number]
 
