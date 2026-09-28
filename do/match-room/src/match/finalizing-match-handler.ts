@@ -10,16 +10,20 @@ import type {
 } from '@ks/core'
 import type { GameResult, RegisteredGameKey } from '@ks/gameplay/definitions'
 
-import type { CommandReceipt, StoredFinalizingMatch } from '../storage/codecs'
 import { MatchStorage } from '../storage/match-storage'
+import type { CommandReceipt, FinalizingMatchRecord } from '../storage/records'
 
 export class FinalizingMatchHandler {
   readonly #storage: MatchStorage
-  readonly #storedMatch: StoredFinalizingMatch
+  readonly #matchRecord: FinalizingMatchRecord
 
-  constructor(storage: MatchStorage, storedMatch: StoredFinalizingMatch) {
+  constructor(storage: MatchStorage) {
+    const matchRecord = storage.matchRecord()
+
+    if (matchRecord?.status !== 'finalizing') throw new Error('Finalizing Match record required')
+
     this.#storage = storage
-    this.#storedMatch = storedMatch
+    this.#matchRecord = matchRecord
   }
 
   submitCommand(command: MatchCommand): FinalizingCommandResult {
@@ -34,7 +38,7 @@ export class FinalizingMatchHandler {
     return {
       _tag: 'accepted',
       acceptedSeq: prior.receipt.acceptedSeq,
-      endsMatch: prior.receipt.acceptedSeq === this.#storedMatch.latestSeq,
+      endsMatch: prior.receipt.acceptedSeq === this.#matchRecord.latestSeq,
     }
   }
 
@@ -46,8 +50,8 @@ export class FinalizingMatchHandler {
       _tag: 'finalizing' as const,
       state: match.state(),
       gameResult: match.gameResult(),
-      latestSeq: this.#storedMatch.latestSeq,
-      endedAt: this.#storedMatch.endedAt,
+      latestSeq: this.#matchRecord.latestSeq,
+      endedAt: this.#matchRecord.endedAt,
     }
   }
 
@@ -59,9 +63,9 @@ export class FinalizingMatchHandler {
       _tag: 'finalizing' as const,
       state: match.state(),
       gameResult: match.gameResult(),
-      latestSeq: this.#storedMatch.latestSeq,
-      endedAt: this.#storedMatch.endedAt,
-      protocolEntries: this.#storage.readProtocol(this.#storedMatch),
+      latestSeq: this.#matchRecord.latestSeq,
+      endedAt: this.#matchRecord.endedAt,
+      protocolEntries: this.#storage.readProtocol(this.#matchRecord),
     }
   }
 
@@ -70,9 +74,9 @@ export class FinalizingMatchHandler {
 
     return {
       _tag: 'finalizing' as const,
-      latestSeq: this.#storedMatch.latestSeq,
-      endedAt: this.#storedMatch.endedAt,
-      score: this.#storedMatch.score,
+      latestSeq: this.#matchRecord.latestSeq,
+      endedAt: this.#matchRecord.endedAt,
+      score: this.#matchRecord.score,
     }
   }
 
@@ -80,12 +84,12 @@ export class FinalizingMatchHandler {
     const match = this.#restoreMatch()
 
     return {
-      matchId: this.#storedMatch.matchId,
-      gameKey: this.#storedMatch.config.gameKey,
-      createdAt: this.#storedMatch.createdAt,
-      sourceLatestSeq: this.#storedMatch.latestSeq,
-      endedAt: this.#storedMatch.endedAt,
-      protocolEntries: this.#storage.readProtocol(this.#storedMatch),
+      matchId: this.#matchRecord.matchId,
+      gameKey: this.#matchRecord.config.gameKey,
+      createdAt: this.#matchRecord.createdAt,
+      sourceLatestSeq: this.#matchRecord.latestSeq,
+      endedAt: this.#matchRecord.endedAt,
+      protocolEntries: this.#storage.readProtocol(this.#matchRecord),
       finalState: match.state(),
       gameResult: match.gameResult(),
     }
@@ -93,7 +97,7 @@ export class FinalizingMatchHandler {
 
   #restoreMatch(): Match {
     try {
-      return restoreMatchCheckpoint(this.#storage.readCurrentCheckpoint(this.#storedMatch))
+      return restoreMatchCheckpoint(this.#storage.readCurrentCheckpoint(this.#matchRecord))
     } catch (cause) {
       throw new Error('MatchRoom checkpoint storage corruption', { cause })
     }
@@ -102,10 +106,10 @@ export class FinalizingMatchHandler {
   #warnRead(kind: 'controls' | 'protocol' | 'score'): void {
     console.warn({
       event: 'match-room.finalizing-read',
-      matchId: this.#storedMatch.matchId,
+      matchId: this.#matchRecord.matchId,
       kind,
-      endedAt: this.#storedMatch.endedAt,
-      ageMs: Math.max(0, Date.now() - this.#storedMatch.endedAt),
+      endedAt: this.#matchRecord.endedAt,
+      ageMs: Math.max(0, Date.now() - this.#matchRecord.endedAt),
     })
   }
 }

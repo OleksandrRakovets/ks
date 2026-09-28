@@ -3,18 +3,22 @@ import type { Control, MatchCommand, MatchScoreProjection, NonNegativeInteger, P
 import type { GamePresentationFor, RegisteredGameKey } from '@ks/gameplay/definitions'
 
 import { type LiveConnectionCursor, LiveConnectionHandler } from '../live/live-connection-handler'
-import type { CommandReceipt, StoredActiveMatch } from '../storage/codecs'
 import { MatchStorage } from '../storage/match-storage'
+import type { ActiveMatchRecord, CommandReceipt } from '../storage/records'
 
 export class ActiveMatchHandler {
   readonly #storage: MatchStorage
   readonly #liveConnections: LiveConnectionHandler
-  readonly #storedMatch: StoredActiveMatch
+  readonly #matchRecord: ActiveMatchRecord
 
-  constructor(storage: MatchStorage, liveConnections: LiveConnectionHandler, storedMatch: StoredActiveMatch) {
+  constructor(storage: MatchStorage, liveConnections: LiveConnectionHandler) {
+    const matchRecord = storage.matchRecord()
+
+    if (matchRecord?.status !== 'active') throw new Error('Active Match record required')
+
     this.#storage = storage
     this.#liveConnections = liveConnections
-    this.#storedMatch = storedMatch
+    this.#matchRecord = matchRecord
   }
 
   submitCommand(command: MatchCommand): ActiveCommandResult {
@@ -40,13 +44,13 @@ export class ActiveMatchHandler {
 
     if (result._tag === 'rejected')
       return this.#storage.commitRejectedCommand({
-        matchId: this.#storedMatch.matchId,
+        matchId: this.#matchRecord.matchId,
         command,
         reason: result.reason,
       })
 
     const committed = this.#storage.commitAcceptedCommand({
-      match: this.#storedMatch,
+      matchRecord: this.#matchRecord,
       command: result.command,
       checkpoint: match.exportCheckpoint(),
       state: match.state(),
@@ -69,10 +73,10 @@ export class ActiveMatchHandler {
 
     return {
       _tag: 'active',
-      latestSeq: this.#storedMatch.latestSeq,
+      latestSeq: this.#matchRecord.latestSeq,
       ...presentationOf(match),
       controls: match.controls(),
-      lastPlayerEntry: this.#storage.readLastPlayerEntry(this.#storedMatch),
+      lastPlayerEntry: this.#storage.readLastPlayerEntry(this.#matchRecord),
     }
   }
 
@@ -81,27 +85,27 @@ export class ActiveMatchHandler {
 
     return {
       _tag: 'active',
-      latestSeq: this.#storedMatch.latestSeq,
+      latestSeq: this.#matchRecord.latestSeq,
       ...presentationOf(match),
-      protocolEntries: this.#storage.readProtocol(this.#storedMatch),
+      protocolEntries: this.#storage.readProtocol(this.#matchRecord),
     }
   }
 
   getScore(): ActiveScoreResult {
     return {
       _tag: 'active',
-      latestSeq: this.#storedMatch.latestSeq,
-      score: this.#storedMatch.score,
+      latestSeq: this.#matchRecord.latestSeq,
+      score: this.#matchRecord.score,
     }
   }
 
   liveConnectionCursor(): LiveConnectionCursor {
-    return { matchId: this.#storedMatch.matchId, latestSeq: this.#storedMatch.latestSeq }
+    return { matchId: this.#matchRecord.matchId, latestSeq: this.#matchRecord.latestSeq }
   }
 
   #restoreMatch(): Match {
     try {
-      return restoreMatchCheckpoint(this.#storage.readCurrentCheckpoint(this.#storedMatch))
+      return restoreMatchCheckpoint(this.#storage.readCurrentCheckpoint(this.#matchRecord))
     } catch (cause) {
       throw new Error('MatchRoom checkpoint storage corruption', { cause })
     }

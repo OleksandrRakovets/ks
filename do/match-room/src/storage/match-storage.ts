@@ -22,16 +22,16 @@ import * as v from 'valibot'
 
 import migrationsBundle from '../../drizzle/migrations.js'
 import {
+  type ActiveMatchRecord,
+  checkpointFromRow,
+  commandFromRow,
   type CommandReceipt,
+  commandReceiptFromRow,
   type CommandReceiptLookup,
-  decodeCheckpoint,
-  decodeCommand,
-  decodeCommandReceipt,
-  decodeProtocolEntry,
-  decodeStoredMatch,
-  type StoredActiveMatch,
-  type StoredMatch,
-} from './codecs'
+  type MatchRecord,
+  matchRecordFromRow,
+  protocolEntryFromRow,
+} from './records'
 import * as schema from './schema'
 
 export class MatchStorage {
@@ -72,14 +72,14 @@ export class MatchStorage {
     })
   }
 
-  match(): StoredMatch | null {
+  matchRecord(): MatchRecord | null {
     const rows = this.#db.select().from(schema.activeMatches).limit(2).all()
 
     if (rows.length > 1) throw new Error('MatchRoom contains multiple Match rows')
 
     if (!rows[0]) return null
 
-    return decodeStoredMatch(rows[0])
+    return matchRecordFromRow(rows[0])
   }
 
   findCommandReceipt(command: MatchCommand): CommandReceiptLookup | null {
@@ -87,13 +87,12 @@ export class MatchStorage {
       .select()
       .from(schema.commands)
       .where(eq(schema.commands.commandId, command.commandId))
-      .limit(1)
-      .all()[0]
+      .get()
 
     if (!row) return null
 
-    return isDeepStrictEqual(decodeCommand(row), command)
-      ? { _tag: 'retry', receipt: decodeCommandReceipt(row) }
+    return isDeepStrictEqual(commandFromRow(row), command)
+      ? { _tag: 'retry', receipt: commandReceiptFromRow(row) }
       : { _tag: 'command-id-conflict' }
   }
 
@@ -117,7 +116,7 @@ export class MatchStorage {
   }
 
   commitAcceptedCommand(args: {
-    match: StoredActiveMatch
+    matchRecord: ActiveMatchRecord
     command: MatchCommand
     checkpoint: MatchCheckpoint
     state: MatchState
@@ -128,7 +127,7 @@ export class MatchStorage {
   } {
     const acceptedCommand = v.parse(AcceptedCommand, {
       ...args.command,
-      acceptedSeq: args.match.latestSeq + 1,
+      acceptedSeq: args.matchRecord.latestSeq + 1,
       acceptedAt: this.#clock.nowMs(),
     })
 
@@ -151,14 +150,14 @@ export class MatchStorage {
       .reverse()
       .find((entry) => entry.source === 'player')
 
-    const prior = this.#checkpointRow(args.match.latestSeq)
+    const prior = this.#checkpointRow(args.matchRecord.latestSeq)
     const score = projectMatchScore(args.state)
 
     return this.#db.transaction((tx) => {
       tx.insert(schema.commands)
         .values({
           commandId: acceptedCommand.commandId,
-          matchId: args.match.matchId,
+          matchId: args.matchRecord.matchId,
           requestJson: JSON.stringify(args.command),
           outcome: 'accepted',
           acceptedSeq: acceptedCommand.acceptedSeq,
@@ -170,7 +169,7 @@ export class MatchStorage {
       tx.insert(schema.checkpoints)
         .values({
           seq: acceptedCommand.acceptedSeq,
-          previousCheckpointSeq: args.match.latestSeq,
+          previousCheckpointSeq: args.matchRecord.latestSeq,
           aggregateJson: JSON.stringify(args.checkpoint),
           lastPlayerAcceptedSeq: lastPlayer?.acceptedSeq ?? prior.lastPlayerAcceptedSeq,
           lastPlayerEntryIndex: lastPlayer?.entryIndex ?? prior.lastPlayerEntryIndex,
@@ -196,8 +195,8 @@ export class MatchStorage {
         })
         .where(
           and(
-            eq(schema.activeMatches.matchId, args.match.matchId),
-            eq(schema.activeMatches.latestSeq, args.match.latestSeq),
+            eq(schema.activeMatches.matchId, args.matchRecord.matchId),
+            eq(schema.activeMatches.latestSeq, args.matchRecord.latestSeq),
             eq(schema.activeMatches.status, 'active'),
           ),
         )
@@ -216,12 +215,12 @@ export class MatchStorage {
     })
   }
 
-  readCurrentCheckpoint(storedMatch: StoredMatch): MatchCheckpoint {
-    return decodeCheckpoint(this.#checkpointRow(storedMatch.latestSeq).aggregateJson, storedMatch)
+  readCurrentCheckpoint(matchRecord: MatchRecord): MatchCheckpoint {
+    return checkpointFromRow(this.#checkpointRow(matchRecord.latestSeq), matchRecord)
   }
 
-  readLastPlayerEntry(storedMatch: StoredActiveMatch): ProtocolEntry | null {
-    const row = this.#checkpointRow(storedMatch.latestSeq)
+  readLastPlayerEntry(matchRecord: ActiveMatchRecord): ProtocolEntry | null {
+    const row = this.#checkpointRow(matchRecord.latestSeq)
 
     if (row.lastPlayerAcceptedSeq === null || row.lastPlayerEntryIndex === null) return null
 
@@ -238,17 +237,17 @@ export class MatchStorage {
 
     if (!entry) throw new Error('MatchRoom checkpoint player reference corruption')
 
-    return decodeProtocolEntry(entry)
+    return protocolEntryFromRow(entry)
   }
 
-  readProtocol(storedMatch: StoredMatch): ProtocolEntry[] {
+  readProtocol(matchRecord: MatchRecord): ProtocolEntry[] {
     const rows = this.#db
       .select()
       .from(schema.protocolEntries)
       .orderBy(asc(schema.protocolEntries.acceptedSeq), asc(schema.protocolEntries.entryIndex))
       .all()
 
-    const entries = rows.map((row) => decodeProtocolEntry(row))
+    const entries = rows.map((row) => protocolEntryFromRow(row))
     let seq = 0
     let index = 0
 
@@ -261,12 +260,12 @@ export class MatchStorage {
       if (
         entry.acceptedSeq !== seq ||
         entry.entryIndex !== index++ ||
-        entry.gameKey !== storedMatch.config.gameKey
+        entry.gameKey !== matchRecord.config.gameKey
       )
         throw new Error('MatchRoom Protocol storage corruption')
     }
 
-    if (seq !== storedMatch.latestSeq) throw new Error('MatchRoom Protocol cursor mismatch')
+    if (seq !== matchRecord.latestSeq) throw new Error('MatchRoom Protocol cursor mismatch')
 
     return entries
   }

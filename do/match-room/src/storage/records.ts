@@ -32,7 +32,7 @@ const ActiveMatchConfig = v.pipe(
   v.readonly(),
 )
 
-const StoredMatchFields = {
+const MatchRecordFields = {
   matchId: MatchId,
   controlSecret: v.pipe(v.string(), v.minLength(16)),
   configJson: v.pipe(v.string(), v.parseJson(), ActiveMatchConfig),
@@ -41,10 +41,10 @@ const StoredMatchFields = {
   createdAt: UnixEpochMilliseconds,
 }
 
-const StoredMatch = v.pipe(
+const MatchRecord = v.pipe(
   v.variant('status', [
-    v.object({ ...StoredMatchFields, status: v.literal('active'), endedAt: v.null() }),
-    v.object({ ...StoredMatchFields, status: v.literal('finalizing'), endedAt: UnixEpochMilliseconds }),
+    v.object({ ...MatchRecordFields, status: v.literal('active'), endedAt: v.null() }),
+    v.object({ ...MatchRecordFields, status: v.literal('finalizing'), endedAt: UnixEpochMilliseconds }),
   ]),
   v.transform(({ configJson, scoreJson, ...row }) => ({
     ...row,
@@ -55,21 +55,21 @@ const StoredMatch = v.pipe(
   v.readonly(),
 )
 
-export type StoredMatch = v.InferOutput<typeof StoredMatch>
+export type MatchRecord = v.InferOutput<typeof MatchRecord>
 
-export type StoredActiveMatch = Extract<StoredMatch, { status: 'active' }>
+export type ActiveMatchRecord = Extract<MatchRecord, { status: 'active' }>
 
-export type StoredFinalizingMatch = Extract<StoredMatch, { status: 'finalizing' }>
+export type FinalizingMatchRecord = Extract<MatchRecord, { status: 'finalizing' }>
 
-export function decodeStoredMatch(row: typeof schema.activeMatches.$inferSelect): StoredMatch {
+export function matchRecordFromRow(row: typeof schema.activeMatches.$inferSelect): MatchRecord {
   try {
-    return v.parse(StoredMatch, row)
+    return v.parse(MatchRecord, row)
   } catch (cause) {
     throw new Error('MatchRoom active_matches storage corruption', { cause })
   }
 }
 
-export function decodeCommand(row: typeof schema.commands.$inferSelect): MatchCommand {
+export function commandFromRow(row: typeof schema.commands.$inferSelect): MatchCommand {
   try {
     return v.parse(v.pipe(v.string(), v.parseJson(), MatchCommand), row.requestJson)
   } catch (cause) {
@@ -77,7 +77,7 @@ export function decodeCommand(row: typeof schema.commands.$inferSelect): MatchCo
   }
 }
 
-export function decodeCommandReceipt(row: typeof schema.commands.$inferSelect): CommandReceipt {
+export function commandReceiptFromRow(row: typeof schema.commands.$inferSelect): CommandReceipt {
   try {
     if (row.outcome === 'accepted')
       return v.parse(CommandReceipt, { _tag: 'accepted', acceptedSeq: row.acceptedSeq })
@@ -89,13 +89,16 @@ export function decodeCommandReceipt(row: typeof schema.commands.$inferSelect): 
   }
 }
 
-export function decodeCheckpoint(json: string, storedMatch: StoredMatch): MatchCheckpoint {
+export function checkpointFromRow(
+  row: typeof schema.checkpoints.$inferSelect,
+  matchRecord: MatchRecord,
+): MatchCheckpoint {
   try {
-    const checkpoint = v.parse(v.pipe(v.string(), v.parseJson(), MatchCheckpoint), json)
+    const checkpoint = v.parse(v.pipe(v.string(), v.parseJson(), MatchCheckpoint), row.aggregateJson)
 
     if (
-      !isDeepStrictEqual(checkpoint.lifecycle.context.config, storedMatch.config) ||
-      (checkpoint.lifecycle.value === 'finished') !== (storedMatch.status === 'finalizing')
+      !isDeepStrictEqual(checkpoint.lifecycle.context.config, matchRecord.config) ||
+      (checkpoint.lifecycle.value === 'finished') !== (matchRecord.status === 'finalizing')
     )
       throw new Error('config mismatch')
 
@@ -105,7 +108,7 @@ export function decodeCheckpoint(json: string, storedMatch: StoredMatch): MatchC
   }
 }
 
-export function decodeProtocolEntry(row: typeof schema.protocolEntries.$inferSelect): ProtocolEntry {
+export function protocolEntryFromRow(row: typeof schema.protocolEntries.$inferSelect): ProtocolEntry {
   try {
     const entry = v.parse(v.pipe(v.string(), v.parseJson(), ProtocolEntry), row.entryJson)
 

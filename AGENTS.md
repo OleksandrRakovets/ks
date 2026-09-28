@@ -53,22 +53,22 @@ These commands overlap. Choose the appropriate gate; do not rerun its constituen
 - Keep one `game` path; gameplay runtimes own game-specific semantics.
 - Play's UI is app-local, not a workspace package. Generic primitives live in `apps/play/web/components/ui`; reusable product visuals or interactions with explicit props may live in `apps/play/web/components`. Keep feature-specific or one-off UI with its feature owner.
 
-## Authority And Lifecycle
+## Architecture Ownership
 
-- Accepted Commands, their sequence, and command outcomes are authoritative in each MatchRoom's SQLite database. MatchRoom persists complete Protocol entries at acceptance; do not mirror active command history into D1.
-- D1 owns players, the `sparring_matches` table, and completed protocol archives with final match state.
-- MatchRoom persists one complete aggregate checkpoint per Accepted Command sequence; command execution and rich reads restore a request-local aggregate from the latest checkpoint. Scores read the compact header projection, and no read replays Accepted Commands.
-- The match-completing Accepted Command atomically stores its terminal checkpoint and `endedAt`. Application checks D1 identity/lifecycle and archive idempotency, archives MatchRoom's transferred Protocol and checkpoint-derived Final Match State without gameplay replay, asks MatchRoom to broadcast/close streams, then marks the match row finished. Finalizing MatchRoom storage is retained.
+- Use `.tracker/decisions/current-architecture.md` to identify the component that owns a flow; use a component's local `AGENTS.md` to understand how that component is set up.
+- Read `do/match-room/AGENTS.md` before changing active or finalizing Match execution, command receipts, per-match SQLite, checkpoints, Protocol persistence, or match WebSocket fan-out.
+- MatchRoom owns serialized active/finalizing execution and its per-match authority. Do not mirror its active command history into D1.
+- D1 owns players, the `sparring_matches` lifecycle rows, and completed Protocol archives with final match state. Application owns orchestration between D1 and MatchRoom.
 - Finished reads use D1 and must not access the retained MatchRoom.
 
 ## Runtime Notes
 
 - Play and `ks-match-room` are independent Cloudflare Workers. Play reaches MatchRoom through an external Durable Object binding with `script_name`.
 - Play and application import `@ks/match-room` type-only. Application derives its private MatchRoom capability from the server class, while Play's generated binding verifies structural RPC compatibility without runtime response parsing.
-- Live updates use a versioned WebSocket contract through Play's Worker gateway and the Durable Object Hibernation API. React Router loaders remain authoritative; socket messages are invalidation notifications that request revalidation.
+- Live updates use a versioned WebSocket contract through Play's Worker gateway. React Router loaders remain authoritative; socket messages are invalidation notifications that request revalidation.
 - MatchRoom must be deployed before Play when its external binding changes. The project has not yet been deployed.
 - Local Worker variables belong in `apps/play/.dev.vars`; start from `.dev.vars.example`.
-- Generated `.react-router/`, `worker-configuration.d.ts`, and Drizzle migrations must not be hand-reformatted. MatchRoom's `drizzle/migrations.js` bundle is maintained manually when migrations are generated.
+- Generated `.react-router/` and `worker-configuration.d.ts` files must not be hand-reformatted.
 
 ## Documentation
 
