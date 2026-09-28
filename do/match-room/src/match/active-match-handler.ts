@@ -1,164 +1,127 @@
-import type { MatchRoomProjection } from '@ks/competition'
-import {
-  type MatchCommand,
-  type MatchScoreProjection,
-  type NonNegativeInteger,
-  projectMatchScore,
-  type ProtocolEntry,
-} from '@ks/core'
+import { type Match, type MatchStateFor, restoreMatchCheckpoint } from '@ks/competition'
+import type { Control, MatchCommand, MatchScoreProjection, NonNegativeInteger, ProtocolEntry } from '@ks/core'
+import type { GamePresentationFor, RegisteredGameKey } from '@ks/gameplay/definitions'
 
 import { type LiveConnectionCursor, LiveConnectionHandler } from '../live/live-connection-handler'
-import {
-  type CommandReceipt,
-  MatchStorage,
-  type StoredActiveMatch,
-  type StoredFinalizingMatch,
-} from '../storage/match-storage'
-import { ResidentMatch, type ResidentState } from './resident-match'
+import { MatchStorage } from '../storage/match-storage'
+import type { ActiveMatchRecord, CommandReceipt } from '../storage/records'
 
 export class ActiveMatchHandler {
   readonly #storage: MatchStorage
   readonly #liveConnections: LiveConnectionHandler
-  readonly #resident: ResidentMatch
-  #storedMatch: StoredActiveMatch
-  #state: ResidentState
+  readonly #matchRecord: ActiveMatchRecord
 
-  constructor(storage: MatchStorage, liveConnections: LiveConnectionHandler, storedMatch: StoredActiveMatch) {
+  constructor(storage: MatchStorage, liveConnections: LiveConnectionHandler) {
+    const matchRecord = storage.matchRecord()
+
+    if (matchRecord?.status !== 'active') throw new Error('Active Match record required')
+
     this.#storage = storage
     this.#liveConnections = liveConnections
-    this.#storedMatch = storedMatch
-    this.#resident = new ResidentMatch()
-    this.#state = this.#resident.restore(
-      storedMatch.config,
-      storedMatch.latestSeq,
-      storage.readAcceptedCommands(storedMatch),
-    )
+    this.#matchRecord = matchRecord
   }
 
-  submitCommand(command: MatchCommand): ActiveCommandOutcome {
+  submitCommand(command: MatchCommand): ActiveCommandResult {
     const priorReceipt = this.#storage.findCommandReceipt(command)
 
     if (priorReceipt) {
-      if (priorReceipt._tag === 'command-id-conflict') return { response: priorReceipt }
+      if (priorReceipt._tag === 'command-id-conflict') return priorReceipt
 
       if (priorReceipt.receipt._tag === 'accepted')
         return {
-          response: {
-            _tag: 'accepted',
-            acceptedSeq: priorReceipt.receipt.acceptedSeq,
-            endsMatch: false,
-          },
+          _tag: 'accepted',
+          acceptedSeq: priorReceipt.receipt.acceptedSeq,
+          endsMatch: false,
         }
 
-      return { response: priorReceipt.receipt }
+      return priorReceipt.receipt
     }
 
-    try {
-      const result = this.#state.match.execute(command)
+    const match = restoreMatchCheckpoint(this.#storage.readCurrentCheckpoint(this.#matchRecord))
+    const result = match.execute(command)
 
-      if (result._tag === 'parse-failed') return { response: { _tag: 'invalid-command' } }
+    // Nested command validation failed before execution, so allow a corrected request to reuse this command ID.
+    if (result._tag === 'parse-failed') return { _tag: 'invalid-command' }
 
-      if (result._tag === 'rejected')
-        return {
-          response: this.#storage.commitRejectedCommand({
-            matchId: this.#storedMatch.matchId,
-            command,
-            reason: result.reason,
-          }),
-        }
-
-      const state = this.#state.match.project().state
-
-      const committed = this.#storage.commitAcceptedCommand({
-        match: this.#storedMatch,
-        command: result.command,
-        finalState: state.status === 'finished' ? state : null,
-        gameResult: this.#state.match.gameResult(),
+    if (result._tag === 'rejected')
+      return this.#storage.commitRejectedCommand({
+        matchId: this.#matchRecord.matchId,
+        command,
+        reason: result.reason,
       })
 
-      this.#state = this.#resident.advance(
-        this.#state,
-        committed.acceptedCommand,
-        result.protocolEntryContents,
-      )
+    const committed = this.#storage.commitAcceptedCommand({
+      matchRecord: this.#matchRecord,
+      command: result.command,
+      checkpoint: match.exportCheckpoint(),
+      state: match.state(),
+      protocolEntryContents: result.protocolEntryContents,
+    })
 
-      this.#liveConnections.broadcast(committed.streamUpdate)
+    this.#liveConnections.broadcast(committed.streamUpdate)
 
-      if (committed.streamUpdate.endsMatch) this.#liveConnections.closeAll()
+    if (committed.streamUpdate.endsMatch) this.#liveConnections.closeAll()
 
-      const response: ActiveCommandResult = {
-        _tag: 'accepted',
-        acceptedSeq: committed.receipt.acceptedSeq,
-        endsMatch: committed.streamUpdate.endsMatch,
-      }
-
-      if (committed.storedMatch.status === 'finalizing')
-        return { response, next: { storedMatch: committed.storedMatch, resident: this.#resident } }
-      this.#storedMatch = committed.storedMatch
-
-      return { response }
-    } catch (error) {
-      this.#resident.clear()
-      throw error
+    return {
+      _tag: 'accepted',
+      acceptedSeq: committed.receipt.acceptedSeq,
+      endsMatch: committed.streamUpdate.endsMatch,
     }
   }
 
   getControls(): ActiveControlsResult {
+    const match = restoreMatchCheckpoint(this.#storage.readCurrentCheckpoint(this.#matchRecord))
+
     return {
       _tag: 'active',
-      latestSeq: this.#storedMatch.latestSeq,
-      ...this.#state.match.project(),
+      latestSeq: this.#matchRecord.latestSeq,
+      ...presentationOf(match),
+      controls: match.controls(),
+      lastPlayerEntry: this.#storage.readLastPlayerEntry(this.#matchRecord),
     }
   }
 
   getProtocol(): ActiveProtocolResult {
-    const { state, game } = this.#state.match.project()
+    const match = restoreMatchCheckpoint(this.#storage.readCurrentCheckpoint(this.#matchRecord))
 
     return {
       _tag: 'active',
-      latestSeq: this.#state.latestSeq,
-      state,
-      game,
-      protocolEntries: this.#state.protocolEntries,
+      latestSeq: this.#matchRecord.latestSeq,
+      ...presentationOf(match),
+      protocolEntries: this.#storage.readProtocol(this.#matchRecord),
     }
   }
 
   getScore(): ActiveScoreResult {
     return {
       _tag: 'active',
-      latestSeq: this.#state.latestSeq,
-      score: projectMatchScore(this.#state.match.project().state),
+      latestSeq: this.#matchRecord.latestSeq,
+      score: this.#matchRecord.score,
     }
   }
 
   liveConnectionCursor(): LiveConnectionCursor {
-    return { matchId: this.#storedMatch.matchId, latestSeq: this.#storedMatch.latestSeq }
+    return { matchId: this.#matchRecord.matchId, latestSeq: this.#matchRecord.latestSeq }
   }
 }
 
-type ActiveCommandOutcome = {
-  readonly response: ActiveCommandResult
-  readonly next?: {
-    readonly storedMatch: StoredFinalizingMatch
-    readonly resident: ResidentMatch
-  }
+type ActivePresentationFor<K extends RegisteredGameKey> = {
+  readonly state: MatchStateFor<K>
+  readonly game: GamePresentationFor<K> | undefined
 }
 
-export type ActiveControlsResult = {
-  readonly _tag: 'active'
-  readonly latestSeq: number
-} & MatchRoomProjection
+/**
+ * Mapping before indexing forms a union whose state and game share one game key. Match's independent query return
+ * types otherwise widen both values to every registered game and lose that correlation at this response boundary.
+ */
+type ActivePresentation = {
+  [K in RegisteredGameKey]: ActivePresentationFor<K>
+}[RegisteredGameKey]
 
-export type ActiveProtocolResult = {
-  readonly _tag: 'active'
-  readonly latestSeq: number
-  readonly protocolEntries: readonly ProtocolEntry[]
-} & Omit<MatchRoomProjection, 'controls'>
-
-export type ActiveScoreResult = {
-  readonly _tag: 'active'
-  readonly latestSeq: NonNegativeInteger
-  readonly score: MatchScoreProjection
+function presentationOf(match: Match): ActivePresentation {
+  // SAFETY: Match construction and restoration correlate lifecycle config with gameplay; both values come from that
+  // same resident without intervening mutation.
+  return { state: match.state(), game: match.gamePresentation() } as ActivePresentation
 }
 
 type ActiveCommandResult =
@@ -170,3 +133,22 @@ type ActiveCommandResult =
       readonly endsMatch: boolean
     }
   | Extract<CommandReceipt, { _tag: 'rejected' }>
+
+type ActiveControlsResult = {
+  readonly _tag: 'active'
+  readonly latestSeq: NonNegativeInteger
+  readonly controls: readonly Control[]
+  readonly lastPlayerEntry: ProtocolEntry | null
+} & ActivePresentation
+
+type ActiveProtocolResult = {
+  readonly _tag: 'active'
+  readonly latestSeq: NonNegativeInteger
+  readonly protocolEntries: readonly ProtocolEntry[]
+} & ActivePresentation
+
+type ActiveScoreResult = {
+  readonly _tag: 'active'
+  readonly latestSeq: NonNegativeInteger
+  readonly score: MatchScoreProjection
+}

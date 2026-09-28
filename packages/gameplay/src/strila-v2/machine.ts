@@ -4,12 +4,15 @@ import * as v from 'valibot'
 import { assign, initialTransition, setup, type SnapshotFrom, transition } from 'xstate'
 
 import {
+  FoulSnapshotValue,
+  RespottedBlackSnapshotValue,
   type StrilaBall,
   type StrilaColoredBall,
   type StrilaCommand,
   type StrilaContext,
   StrilaMeta,
   StrilaPhase,
+  StrilaSnapshotValue,
 } from './definitions'
 
 const RESPOTTED_BLACK: readonly StrilaColoredBall[] = [7]
@@ -17,16 +20,6 @@ const RESPOTTED_BLACK: readonly StrilaColoredBall[] = [7]
 type StrilaFrameMachineInput = {
   targetPointsBySeat: BySeatNumber | undefined
 }
-
-const FoulSnapshotValue = v.strictObject({
-  'foul-committed': v.picklist(['penalty-selection', 'ball-in-hand']),
-})
-
-const RespottedBlackSnapshotValue = v.strictObject({
-  'respotted-black': v.picklist(['opening-selection', 'opening', 'play']),
-})
-
-const StrilaSnapshotValue = v.union([StrilaPhase, FoulSnapshotValue, RespottedBlackSnapshotValue])
 
 function pointsForPottedBalls(pottedBalls: readonly StrilaBall[]): number {
   return pottedBalls.reduce<number>((sum, ball) => sum + (ball === StrilaMeta.cueBall ? 1 : 2), 0)

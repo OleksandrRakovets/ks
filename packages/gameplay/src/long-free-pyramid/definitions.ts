@@ -63,7 +63,7 @@ export const LongFreePyramidPhase = v.picklist([
 
 export type LongFreePyramidPhase = v.InferOutput<typeof LongFreePyramidPhase>
 
-const LongFreePyramidContext = v.pipe(
+export const LongFreePyramidContext = v.pipe(
   v.object({
     racks: v.pipe(v.array(LongFreePyramidRack), v.minLength(1), v.readonly()),
     targetPoints: BySeatNumber,
@@ -75,6 +75,13 @@ const LongFreePyramidContext = v.pipe(
 )
 
 export type LongFreePyramidContext = v.InferOutput<typeof LongFreePyramidContext>
+
+export const LongFreePyramidCheckpoint = v.object({
+  value: LongFreePyramidPhase,
+  context: LongFreePyramidContext,
+})
+
+export type LongFreePyramidCheckpoint = v.InferOutput<typeof LongFreePyramidCheckpoint>
 
 const LongFreePyramidGamePresentationState = v.pipe(
   v.object({

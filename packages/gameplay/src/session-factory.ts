@@ -1,8 +1,28 @@
 import type { GameplaySession, GameplaySessionCreateArgsFor } from './gameplay-session'
-import { createLongFreePyramidGameplaySession } from './long-free-pyramid/session'
-import { createPyramidGameplaySession } from './pyramid/session'
-import type { RegisteredGameKey } from './registry'
-import { createStrilaGameplaySession } from './strila-v2/session'
+import {
+  createLongFreePyramidGameplaySession,
+  restoreLongFreePyramidGameplaySession,
+} from './long-free-pyramid/session'
+import { createPyramidGameplaySession, restorePyramidGameplaySession } from './pyramid/session'
+import type { GameplayCheckpoint, RegisteredGameKey } from './registry'
+import { createStrilaGameplaySession, restoreStrilaGameplaySession } from './strila-v2/session'
+
+export function restoreGameplaySession(checkpoint: GameplayCheckpoint): AnyGameplaySession {
+  switch (checkpoint.gameKey) {
+    case 'strila-v2':
+      return restoreStrilaGameplaySession(checkpoint.state)
+    case 'free-pyramid-long':
+      return restoreLongFreePyramidGameplaySession(checkpoint.state)
+    case 'free-pyramid':
+      return restorePyramidGameplaySession(checkpoint.gameKey, checkpoint.state)
+    case 'combined-pyramid':
+      return restorePyramidGameplaySession(checkpoint.gameKey, checkpoint.state)
+    case 'combined-pyramid-old':
+      return restorePyramidGameplaySession(checkpoint.gameKey, checkpoint.state)
+  }
+
+  throw new Error('Unsupported registered game')
+}
 
 type GameplaySessionCreation = {
   [K in RegisteredGameKey]: readonly [gameKey: K, args: GameplaySessionCreateArgsFor<K>]

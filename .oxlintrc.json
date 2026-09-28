@@ -148,8 +148,8 @@
       }
     },
     {
-      // Durable Object RPC is asynchronous at runtime although these test stubs retain synchronous class signatures.
-      "files": ["do/match-room/test/rpc/finalizing-match/*.integration.test.ts"],
+      // Generated Cloudflare RPC types can reduce valid asynchronous calls to never.
+      "files": ["**/*.integration.test.ts"],
       "rules": {
         "typescript/await-thenable": "off"
       }

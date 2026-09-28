@@ -8,7 +8,7 @@ import {
   type GameplaySession,
   type GameplaySessionCreateArgsFor,
 } from '../gameplay-session'
-import type { StrilaCommand } from './definitions'
+import { StrilaCheckpoint, type StrilaCommand, StrilaSnapshotValue } from './definitions'
 import {
   createInitialSnapshot,
   getStrilaFramePhase,
@@ -22,8 +22,12 @@ class StrilaGameplaySession implements GameplaySession<'strila-v2'> {
   readonly gameKey = 'strila-v2' as const
   #snapshot: StrilaFrameSnapshot
 
-  constructor(args: GameplaySessionCreateArgsFor<'strila-v2'>) {
-    this.#snapshot = createInitialSnapshot({ ...args.targetPointsBySeat })
+  constructor(snapshot: StrilaFrameSnapshot) {
+    this.#snapshot = snapshot
+  }
+
+  exportCheckpoint(): StrilaCheckpoint {
+    return { value: v.parse(StrilaSnapshotValue, this.#snapshot.value), context: this.#snapshot.context }
   }
 
   execute(command: StrilaCommand): GameCommandExecution {
@@ -65,5 +69,19 @@ class StrilaGameplaySession implements GameplaySession<'strila-v2'> {
 export function createStrilaGameplaySession(
   args: GameplaySessionCreateArgsFor<'strila-v2'>,
 ): GameplaySession<'strila-v2'> {
-  return new StrilaGameplaySession(args)
+  return new StrilaGameplaySession(createInitialSnapshot({ ...args.targetPointsBySeat }))
+}
+
+export function restoreStrilaGameplaySession(checkpoint: StrilaCheckpoint): GameplaySession<'strila-v2'> {
+  if (
+    checkpoint.value === 'frame-over' ||
+    (checkpoint.value === 'winner-determined') !== (checkpoint.context.winner !== null) ||
+    (v.is(v.object({ 'foul-committed': v.literal('penalty-selection') }), checkpoint.value) &&
+      checkpoint.context.foulOffender === null) ||
+    (v.is(v.object({ 'respotted-black': v.string() }), checkpoint.value) &&
+      checkpoint.context.coloredBallsOnTable.join(',') !== '7')
+  )
+    throw new Error('Inconsistent Strila checkpoint')
+
+  return new StrilaGameplaySession(StrilaFrameMachine.resolveState(checkpoint))
 }

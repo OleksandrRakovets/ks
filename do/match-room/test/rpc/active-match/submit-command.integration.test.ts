@@ -50,20 +50,23 @@ test('detects Command ID conflicts', async () => {
   })
 })
 
-test('returns malformed nested Commands as data without poisoning the stub', async () => {
+test('returns malformed nested Commands as data and allows a corrected request to reuse the ID', async () => {
   const { stub } = await initializedRoom()
+  const commandId = newCommandId()
   expect(
     await stub.submitCommand({
-      commandId: newCommandId(),
+      commandId,
       source: 'match',
       command: { type: 'unsupported' },
     }),
   ).toEqual({ _tag: 'invalid-command' })
-  expect(await stub.submitCommand(prepareCommand())).toEqual({
-    _tag: 'accepted',
-    acceptedSeq: 1,
-    endsMatch: false,
-  })
+  expect(await stub.submitCommand({ commandId, source: 'match', command: { type: 'frame.prepare' } })).toEqual(
+    {
+      _tag: 'accepted',
+      acceptedSeq: 1,
+      endsMatch: false,
+    },
+  )
 })
 
 test('serializes concurrent Commands into one authoritative accepted order', async () => {
@@ -92,6 +95,15 @@ test('discards speculative resident state and rolls back both writes after persi
     expect(
       state.storage.sql.exec<{ count: number }>('SELECT count(*) AS count FROM commands').one().count,
     ).toBe(0)
+    expect(
+      state.storage.sql.exec<{ count: number }>('SELECT count(*) AS count FROM checkpoints').one().count,
+    ).toBe(1)
+    expect(
+      state.storage.sql.exec<{ count: number }>('SELECT count(*) AS count FROM protocol_entries').one().count,
+    ).toBe(0)
+    expect(
+      state.storage.sql.exec<{ latest_seq: number }>('SELECT latest_seq FROM active_matches').one(),
+    ).toEqual({ latest_seq: 0 })
     state.storage.sql.exec('DROP TRIGGER fail_cursor')
   })
   expect(await stub.submitCommand(prepareCommand())).toEqual({

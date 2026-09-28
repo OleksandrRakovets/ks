@@ -122,21 +122,44 @@ type SparringApplicationDependencies = {
   matchRoomClient(matchId: MatchId): MatchRoomClient
 }
 
-type ReadKeyedMatchSuccess<K extends RegisteredGameKey> = {
+type ReadKeyedMatchBase<K extends RegisteredGameKey> = {
   ok: true
   state: MatchStateFor<K>
   latestSeq: number
-  endedAtPresentation?: InstantPresentation
-  endedAtIsToday?: boolean
   participants: HydratedMatchParticipants
+}
+
+type ReadKeyedActiveBase<K extends RegisteredGameKey> = ReadKeyedMatchBase<K> & {
+  readKind: 'active'
   game?: GamePresentationFor<K>
-  gameResult?: GameResult | null
+}
+
+type ReadKeyedControlSuccess<K extends RegisteredGameKey> = ReadKeyedActiveBase<K> & {
   controls: readonly Control[]
-  protocolEntries: ProtocolEntries
   lastEntry?: NonNullable<ReturnType<typeof renderLastCorrectableProtocolRow>>
 }
 
-type ReadKeyedMatchResult<K extends RegisteredGameKey> = ReadKeyedMatchSuccess<K> | ReadMatchFailure
+type ReadKeyedProtocolSuccess<K extends RegisteredGameKey> = ReadKeyedActiveBase<K> & {
+  protocolEntries: ProtocolEntries
+}
+
+type ReadKeyedFinishedSuccess<K extends RegisteredGameKey> = ReadKeyedMatchBase<K> & {
+  readKind: 'finished'
+  endedAtPresentation: InstantPresentation
+  endedAtIsToday: boolean
+  gameResult: GameResult | null
+  protocolEntries: ProtocolEntries
+}
+
+type ReadKeyedControlResult<K extends RegisteredGameKey> =
+  | ReadKeyedControlSuccess<K>
+  | ReadKeyedFinishedSuccess<K>
+  | ReadMatchFailure
+
+type ReadKeyedProtocolResult<K extends RegisteredGameKey> =
+  | ReadKeyedProtocolSuccess<K>
+  | ReadKeyedFinishedSuccess<K>
+  | ReadMatchFailure
 
 function archiveReadFailure(error: Error): ReadMatchFailure | null {
   if (error instanceof UnsupportedProtocolArchiveVersionError) {
@@ -333,12 +356,24 @@ export function createSparringApplicationWithDependencies(
     return { ok: true, matches }
   }
 
+  function readKeyedMatch<K extends RegisteredGameKey>(
+    matchId: MatchId,
+    locale: SupportedLocale,
+    expectedGameKey: K,
+    view: 'match',
+  ): Promise<ReadKeyedControlResult<K>>
+  function readKeyedMatch<K extends RegisteredGameKey>(
+    matchId: MatchId,
+    locale: SupportedLocale,
+    expectedGameKey: K,
+    view: 'protocol',
+  ): Promise<ReadKeyedProtocolResult<K>>
   async function readKeyedMatch<K extends RegisteredGameKey>(
     matchId: MatchId,
     locale: SupportedLocale,
     expectedGameKey: K,
     view: 'match' | 'protocol',
-  ): Promise<ReadKeyedMatchResult<K>> {
+  ): Promise<ReadKeyedControlResult<K> | ReadKeyedProtocolResult<K>> {
     const record = await dependencies.getMatchRecord(matchId)
 
     if (!record || record.gameKey !== expectedGameKey)
@@ -352,74 +387,58 @@ export function createSparringApplicationWithDependencies(
 
     const roomClient = dependencies.matchRoomClient(matchId)
 
-    if (view === 'protocol') {
-      const roomResult = await roomClient.getProtocol()
+    if (view === 'match') {
+      const room = await roomClient.getControls()
 
-      if (roomResult._tag === 'finalizing') {
-        return readFinalizingMatch(record, roomResult, roomClient, locale, expectedGameKey, view)
-      }
+      if (room._tag === 'finalizing') return readFinalizingMatch(record, room, [], locale, expectedGameKey)
 
-      if (roomResult.state.matchId !== matchId || roomResult.state.gameKey !== expectedGameKey)
+      if (room.state.matchId !== matchId || room.state.gameKey !== expectedGameKey)
         throw new Error('MatchRoom active identity conflicts with D1')
 
-      const result: ReadKeyedMatchSuccess<K> = {
+      const participants = await hydrateParticipants(record, locale)
+      const seatNames = { A: participants.A.displayName, B: participants.B.displayName }
+
+      const lastEntry = renderLastCorrectableProtocolRow(
+        room.lastPlayerEntry ? [room.lastPlayerEntry] : [],
+        seatNames,
+        room.latestSeq,
+      )
+
+      const result: ReadKeyedControlSuccess<K> = {
         ok: true,
-        state: { ...roomResult.state, gameKey: expectedGameKey },
-        latestSeq: roomResult.latestSeq,
-        participants: await hydrateParticipants(record, locale),
-        controls: [],
-        protocolEntries: roomResult.protocolEntries,
+        readKind: 'active',
+        state: { ...room.state, gameKey: expectedGameKey },
+        latestSeq: room.latestSeq,
+        participants,
+        controls: room.controls,
       }
 
-      if (roomResult.game !== undefined) result.game = roomResult.game
+      if (lastEntry) result.lastEntry = lastEntry
+
+      if (room.game !== undefined) result.game = room.game
 
       return result
     }
 
-    const roomResult = await roomClient.getControls()
+    const room = await roomClient.getProtocol()
+    const protocolEntries = room.protocolEntries
 
-    if (roomResult._tag === 'finalizing') {
-      return readFinalizingMatch(record, roomResult, roomClient, locale, expectedGameKey, view)
-    }
+    if (room._tag === 'finalizing')
+      return readFinalizingMatch(record, room, protocolEntries, locale, expectedGameKey)
 
-    if (roomResult.state.matchId !== matchId || roomResult.state.gameKey !== expectedGameKey)
+    if (room.state.matchId !== matchId || room.state.gameKey !== expectedGameKey)
       throw new Error('MatchRoom active identity conflicts with D1')
 
-    const protocolResult = await roomClient.getProtocol()
-
-    if (protocolResult._tag === 'finalizing') {
-      return readFinalizingMatch(record, protocolResult, roomClient, locale, expectedGameKey, view)
-    }
-
-    if (protocolResult.state.matchId !== matchId || protocolResult.state.gameKey !== expectedGameKey)
-      throw new Error('MatchRoom active identity conflicts with D1')
-
-    if (protocolResult.latestSeq < roomResult.latestSeq)
-      throw new Error('MatchRoom Protocol cursor trails its Control projection')
-
-    const participants = await hydrateParticipants(record, locale)
-    const seatNames = { A: participants.A.displayName, B: participants.B.displayName }
-
-    const protocolEntries = protocolResult.protocolEntries.filter(
-      (entry) => entry.acceptedSeq <= roomResult.latestSeq,
-    )
-
-    const lastEntry = renderLastCorrectableProtocolRow(protocolEntries, seatNames, roomResult.latestSeq)
-
-    const result: ReadKeyedMatchSuccess<K> = {
+    const result: ReadKeyedProtocolSuccess<K> = {
       ok: true,
-      state: { ...roomResult.state, gameKey: expectedGameKey },
-      latestSeq: roomResult.latestSeq,
-      participants,
-      controls: roomResult.controls,
+      readKind: 'active',
+      state: { ...room.state, gameKey: expectedGameKey },
+      latestSeq: room.latestSeq,
+      participants: await hydrateParticipants(record, locale),
       protocolEntries,
     }
 
-    if (lastEntry !== undefined) result.lastEntry = lastEntry
-
-    if (roomResult.game !== undefined) {
-      result.game = roomResult.game
-    }
+    if (room.game !== undefined) result.game = room.game
 
     return result
   }
@@ -490,8 +509,8 @@ export function createSparringApplicationWithDependencies(
 
     const protocolRows = renderProtocolRows(match.protocolEntries, seatNames, dependencies.clock)
 
-    if (match.state.status === 'finished') {
-      return { ...toMatchResult(match), protocolRows }
+    if (match.readKind === 'finished') {
+      return { ...toFinishedMatchResult(match), protocolRows }
     }
 
     const active = {
@@ -515,8 +534,6 @@ export function createSparringApplicationWithDependencies(
       const transfer = await dependencies.matchRoomClient(matchId).prepareArchive()
       stage = 'archive-in-d1'
       await dependencies.archiveFinishedMatch(transfer)
-      stage = 'finalize-room'
-      await dependencies.matchRoomClient(matchId).finalize()
       stage = 'mark-d1-finished'
       await dependencies.markMatchFinished(transfer)
     } catch (error) {
@@ -570,43 +587,28 @@ export function createSparringApplicationWithDependencies(
 
   async function readFinalizingMatch<K extends RegisteredGameKey>(
     record: MatchRecord,
-    room: Extract<Awaited<ReturnType<MatchRoomClient['getControls']>>, { _tag: 'finalizing' }>,
-    roomClient: MatchRoomClient,
+    room:
+      | Extract<Awaited<ReturnType<MatchRoomClient['getControls']>>, { _tag: 'finalizing' }>
+      | Extract<Awaited<ReturnType<MatchRoomClient['getProtocol']>>, { _tag: 'finalizing' }>,
+    protocolEntries: ProtocolEntries,
     locale: SupportedLocale,
     expectedGameKey: K,
-    view: 'match' | 'protocol',
-  ): Promise<ReadKeyedMatchResult<K>> {
+  ): Promise<ReadKeyedFinishedSuccess<K> | ReadMatchFailure> {
     if (room.state.matchId !== record.matchId || room.state.gameKey !== expectedGameKey)
       throw new Error('MatchRoom finalizing identity conflicts with D1')
-
-    let protocolEntries: ProtocolEntries = []
-
-    if (view === 'protocol') {
-      const transfer = await roomClient.prepareArchive()
-
-      if (
-        transfer.matchId !== record.matchId ||
-        transfer.gameKey !== expectedGameKey ||
-        transfer.sourceLatestSeq !== room.latestSeq ||
-        transfer.endedAt !== room.endedAt
-      )
-        throw new Error('MatchRoom finalizing Protocol conflicts with its final state')
-
-      protocolEntries = transfer.protocolEntries
-    }
 
     const endedAtPresentation = dependencies.clock.instantPresentation(room.endedAt)
     const formattedNow = dependencies.clock.nowPresentation()
 
     return {
       ok: true,
+      readKind: 'finished',
       state: { ...room.state, gameKey: expectedGameKey },
       gameResult: room.gameResult,
       latestSeq: room.latestSeq,
       endedAtPresentation,
       endedAtIsToday: isSameLocalDate(endedAtPresentation, formattedNow),
       participants: await hydrateParticipants(record, locale),
-      controls: [],
       protocolEntries,
     }
   }
@@ -616,7 +618,7 @@ export function createSparringApplicationWithDependencies(
     locale: SupportedLocale,
     expectedGameKey: K,
     view: 'match' | 'protocol',
-  ): Promise<ReadKeyedMatchResult<K>> {
+  ): Promise<ReadKeyedFinishedSuccess<K> | ReadMatchFailure> {
     let archive: FinishedMatchArchiveRecord | ProtocolArchiveRecord | null
 
     try {
@@ -640,41 +642,21 @@ export function createSparringApplicationWithDependencies(
 
     return {
       ok: true,
+      readKind: 'finished',
       state: { ...state, gameKey: expectedGameKey },
       gameResult: archive.gameResult,
       latestSeq: archive.sourceLatestSeq,
       endedAtPresentation,
       endedAtIsToday: isSameLocalDate(endedAtPresentation, formattedNow),
       participants: await hydrateParticipants(record, locale),
-      controls: [],
       protocolEntries: archive.entries ?? [],
     }
   }
 
   function toMatchResult<K extends RegisteredGameKey>(
-    match: ReadKeyedMatchSuccess<K>,
+    match: ReadKeyedControlSuccess<K> | ReadKeyedFinishedSuccess<K>,
   ): Extract<ReadMatchResult<K>, { ok: true }> {
-    if (match.state.status === 'finished') {
-      if (match.endedAtPresentation === undefined || match.endedAtIsToday === undefined)
-        throw new Error('Finished Match read is missing its end time')
-
-      return {
-        ok: true,
-        lifecycle: 'finished',
-        state: { ...match.state, status: 'finished' },
-        gameResult: match.gameResult ?? null,
-        latestSeq: match.latestSeq,
-        endedAtIso: match.endedAtPresentation.isoString,
-        endedAtTime: match.endedAtPresentation.time,
-        endedAtDate: match.endedAtPresentation.date,
-        endedAtIsToday: match.endedAtIsToday,
-        participants: match.participants,
-        hasCustomFrameTarget: hasCustomFrameTarget(
-          match.state.gameKey,
-          match.state.targets.frameTargetPointsBySeat,
-        ),
-      }
-    }
+    if (match.readKind === 'finished') return toFinishedMatchResult(match)
 
     const active =
       match.lastEntry === undefined
@@ -699,6 +681,27 @@ export function createSparringApplicationWithDependencies(
     if (match.game) return { ...active, controlPhase: 'frame-active', game: match.game }
 
     return { ...active, controlPhase: 'between-frames' }
+  }
+
+  function toFinishedMatchResult<K extends RegisteredGameKey>(
+    match: ReadKeyedFinishedSuccess<K>,
+  ): Extract<ReadMatchResult<K>, { ok: true; lifecycle: 'finished' }> {
+    return {
+      ok: true,
+      lifecycle: 'finished',
+      state: { ...match.state, status: 'finished' },
+      gameResult: match.gameResult ?? null,
+      latestSeq: match.latestSeq,
+      endedAtIso: match.endedAtPresentation.isoString,
+      endedAtTime: match.endedAtPresentation.time,
+      endedAtDate: match.endedAtPresentation.date,
+      endedAtIsToday: match.endedAtIsToday,
+      participants: match.participants,
+      hasCustomFrameTarget: hasCustomFrameTarget(
+        match.state.gameKey,
+        match.state.targets.frameTargetPointsBySeat,
+      ),
+    }
   }
 
   function isSameLocalDate(left: InstantPresentation, right: InstantPresentation): boolean {
