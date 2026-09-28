@@ -8,7 +8,7 @@ import { PositiveInteger, UnknownObject } from './valicombos'
  * Complete identified intent submitted for match evaluation.
  *
  * The nested command retains the exact shape owned by competition or the selected gameplay runtime. The ID is created
- * with that command in the browser and remains part of the value through HTTP, RPC, persistence, and active replay.
+ * with that command in the browser and remains part of the value through HTTP, RPC, persistence, and receipt lookup.
  */
 export const MatchCommand = v.pipe(
   v.object({

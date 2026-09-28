@@ -1,6 +1,6 @@
 import type { CommandId, MatchId, UnixEpochMilliseconds } from '@ks/core'
 import { sql } from 'drizzle-orm'
-import { check, integer, sqliteTable, text, unique } from 'drizzle-orm/sqlite-core'
+import { check, integer, primaryKey, sqliteTable, text, unique } from 'drizzle-orm/sqlite-core'
 
 export const activeMatches = sqliteTable(
   'active_matches',
@@ -9,17 +9,51 @@ export const activeMatches = sqliteTable(
     controlSecret: text('control_secret').notNull(),
     configJson: text('config_json').notNull(),
     latestSeq: integer('latest_seq').notNull(),
+    scoreJson: text('score_json').notNull(),
     status: text('status').$type<'active' | 'finalizing'>().notNull(),
     createdAt: integer('created_at').$type<UnixEpochMilliseconds>().notNull(),
-    finalStateJson: text('final_state_json'),
-    gameResultJson: text('game_result_json'),
     endedAt: integer('ended_at').$type<UnixEpochMilliseconds>(),
   },
   (table) => [
     check(
       'active_matches_finalizing_fields',
-      sql`(${table.status} = 'active' AND ${table.finalStateJson} IS NULL AND ${table.endedAt} IS NULL) OR (${table.status} = 'finalizing' AND ${table.finalStateJson} IS NOT NULL AND ${table.endedAt} IS NOT NULL)`,
+      sql`(${table.status} = 'active' AND ${table.endedAt} IS NULL) OR (${table.status} = 'finalizing' AND ${table.endedAt} IS NOT NULL)`,
     ),
+  ],
+)
+
+/** Immutable executable aggregate at each acceptance, including creation at sequence zero. */
+export const checkpoints = sqliteTable(
+  'checkpoints',
+  {
+    seq: integer('seq').primaryKey(),
+    previousCheckpointSeq: integer('previous_checkpoint_seq'),
+    aggregateJson: text('aggregate_json').notNull(),
+    lastPlayerAcceptedSeq: integer('last_player_accepted_seq'),
+    lastPlayerEntryIndex: integer('last_player_entry_index'),
+  },
+  (table) => [
+    check(
+      'checkpoints_reference_fields',
+      sql`(${table.lastPlayerAcceptedSeq} IS NULL AND ${table.lastPlayerEntryIndex} IS NULL) OR (${table.lastPlayerAcceptedSeq} IS NOT NULL AND ${table.lastPlayerAcceptedSeq} > 0 AND ${table.lastPlayerEntryIndex} IS NOT NULL AND ${table.lastPlayerEntryIndex} >= 0)`,
+    ),
+    check(
+      'checkpoints_predecessor',
+      sql`(${table.seq} = 0 AND ${table.previousCheckpointSeq} IS NULL) OR (${table.seq} > 0 AND ${table.previousCheckpointSeq} IS NOT NULL AND ${table.previousCheckpointSeq} >= 0 AND ${table.previousCheckpointSeq} < ${table.seq})`,
+    ),
+  ],
+)
+
+export const protocolEntries = sqliteTable(
+  'protocol_entries',
+  {
+    acceptedSeq: integer('accepted_seq').notNull(),
+    entryIndex: integer('entry_index').notNull(),
+    entryJson: text('entry_json').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.acceptedSeq, table.entryIndex] }),
+    check('protocol_entries_position', sql`${table.acceptedSeq} > 0 AND ${table.entryIndex} >= 0`),
   ],
 )
 

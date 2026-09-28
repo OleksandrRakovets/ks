@@ -1,13 +1,13 @@
 import { isDeepStrictEqual } from 'node:util'
 
-import { buildMatchConfig, type CreateMatchRequest } from '@ks/competition'
-import { type MatchId, type UnixEpochMilliseconds } from '@ks/core'
+import { buildMatchConfig, createMatch, type CreateMatchRequest } from '@ks/competition'
+import { type MatchId, projectMatchScore, type UnixEpochMilliseconds } from '@ks/core'
 
 import { MatchStorage } from '../storage/match-storage'
 
 export function initializeMatch(storage: MatchStorage, input: InitializeMatchInput): InitializeMatchResult {
   const config = buildMatchConfig(input.matchId, input)
-  const existing = storage.match()
+  const existing = storage.matchRecord()
 
   if (existing) {
     return existing.matchId === config.matchId &&
@@ -18,7 +18,14 @@ export function initializeMatch(storage: MatchStorage, input: InitializeMatchInp
       : { _tag: 'initialization-conflict' }
   }
 
-  storage.commitCreation({ config, controlSecret: input.controlSecret, createdAt: input.createdAt })
+  const match = createMatch(config)
+  storage.commitCreation({
+    config,
+    controlSecret: input.controlSecret,
+    createdAt: input.createdAt,
+    checkpoint: match.exportCheckpoint(),
+    score: projectMatchScore(match.state()),
+  })
 
   return { _tag: 'initialized', matchId: config.matchId }
 }

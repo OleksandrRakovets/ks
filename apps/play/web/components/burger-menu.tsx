@@ -68,6 +68,7 @@ export function BurgerMenu({ placement }: { placement?: 'header' | 'navigation' 
             <h2 className="px-3 py-1 text-base font-semibold">{t(keys.nav.sparring)}</h2>
             <Link
               to={sparringPath}
+              prefetch="render"
               onClick={close}
               aria-current={isNewMatchRoute ? 'page' : undefined}
               className="flex min-h-12 items-center rounded-md px-3 text-muted-foreground outline-none hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring/40 aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-foreground"
@@ -76,6 +77,7 @@ export function BurgerMenu({ placement }: { placement?: 'header' | 'navigation' 
             </Link>
             <Link
               to={matchesPath}
+              prefetch="render"
               onClick={close}
               aria-current={isMatchesRoute ? 'page' : undefined}
               className="flex min-h-12 items-center rounded-md px-3 text-muted-foreground outline-none hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring/40 aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-foreground"

@@ -9,7 +9,7 @@ import {
   type GameplaySessionCreateArgsFor,
 } from '../gameplay-session'
 import { totalScore } from './calculations'
-import type { LongFreePyramidCommand } from './definitions'
+import { LongFreePyramidCheckpoint, type LongFreePyramidCommand } from './definitions'
 import {
   createInitialSnapshot,
   getPhase,
@@ -23,11 +23,15 @@ class LongFreePyramidGameplaySession implements GameplaySession<'free-pyramid-lo
   readonly gameKey = 'free-pyramid-long' as const
   #snapshot: LongFreePyramidFrameSnapshot
 
-  constructor(args: GameplaySessionCreateArgsFor<'free-pyramid-long'>) {
-    this.#snapshot = createInitialSnapshot({
-      targetPointsBySeat: { ...args.targetPointsBySeat },
-      rackRollover: args.rackRollover,
-    })
+  constructor(snapshot: LongFreePyramidFrameSnapshot) {
+    this.#snapshot = snapshot
+  }
+
+  exportCheckpoint(): LongFreePyramidCheckpoint {
+    return {
+      value: this.#snapshot.value,
+      context: this.#snapshot.context,
+    }
   }
 
   execute(command: LongFreePyramidCommand): GameCommandExecution {
@@ -78,5 +82,30 @@ class LongFreePyramidGameplaySession implements GameplaySession<'free-pyramid-lo
 export function createLongFreePyramidGameplaySession(
   args: GameplaySessionCreateArgsFor<'free-pyramid-long'>,
 ): GameplaySession<'free-pyramid-long'> {
-  return new LongFreePyramidGameplaySession(args)
+  return new LongFreePyramidGameplaySession(
+    createInitialSnapshot({
+      targetPointsBySeat: { ...args.targetPointsBySeat },
+      rackRollover: args.rackRollover,
+    }),
+  )
+}
+
+export function restoreLongFreePyramidGameplaySession(
+  checkpoint: LongFreePyramidCheckpoint,
+): GameplaySession<'free-pyramid-long'> {
+  if (
+    checkpoint.value === 'frame-over' ||
+    (checkpoint.value === 'winner-determined' || checkpoint.value === 'awaiting-award') !==
+      (checkpoint.context.winner !== null) ||
+    checkpoint.context.racks.some(
+      (rack, index) =>
+        rack.rackNumber !== index + 1 ||
+        rack.scoreBySeat.A < 0 ||
+        rack.scoreBySeat.B < 0 ||
+        rack.scoreBySeat.A + rack.scoreBySeat.B > 16,
+    )
+  )
+    throw new Error('Inconsistent long pyramid checkpoint')
+
+  return new LongFreePyramidGameplaySession(LongFreePyramidFrameMachine.resolveState(checkpoint))
 }

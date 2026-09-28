@@ -1,32 +1,29 @@
-import { isDeepStrictEqual } from 'node:util'
-
+import { restoreMatchCheckpoint } from '@ks/competition'
 import type {
   MatchCommand,
   MatchId,
+  MatchScoreProjection,
   MatchState,
   NonNegativeInteger,
   ProtocolEntry,
   UnixEpochMilliseconds,
 } from '@ks/core'
-import { projectMatchScore } from '@ks/core'
 import type { GameResult, RegisteredGameKey } from '@ks/gameplay/definitions'
 
-import { type CommandReceipt, MatchStorage, type StoredFinalizingMatch } from '../storage/match-storage'
-import { ResidentMatch, type ResidentState } from './resident-match'
+import { MatchStorage } from '../storage/match-storage'
+import type { CommandReceipt, FinalizingMatchRecord } from '../storage/records'
 
 export class FinalizingMatchHandler {
   readonly #storage: MatchStorage
-  readonly #storedMatch: StoredFinalizingMatch
-  #resident: ResidentMatch | null
+  readonly #matchRecord: FinalizingMatchRecord
 
-  constructor(
-    storage: MatchStorage,
-    storedMatch: StoredFinalizingMatch,
-    resident: ResidentMatch | null = null,
-  ) {
+  constructor(storage: MatchStorage) {
+    const matchRecord = storage.matchRecord()
+
+    if (matchRecord?.status !== 'finalizing') throw new Error('Finalizing Match record required')
+
     this.#storage = storage
-    this.#storedMatch = storedMatch
-    this.#resident = resident
+    this.#matchRecord = matchRecord
   }
 
   submitCommand(command: MatchCommand): FinalizingCommandResult {
@@ -41,108 +38,94 @@ export class FinalizingMatchHandler {
     return {
       _tag: 'accepted',
       acceptedSeq: prior.receipt.acceptedSeq,
-      endsMatch: prior.receipt.acceptedSeq === this.#storedMatch.latestSeq,
+      endsMatch: prior.receipt.acceptedSeq === this.#matchRecord.latestSeq,
     }
   }
 
-  getControls() {
+  getControls(): FinalizingReadResult {
     this.#warnRead('controls')
+    const match = restoreMatchCheckpoint(this.#storage.readCurrentCheckpoint(this.#matchRecord))
 
     return {
       _tag: 'finalizing' as const,
-      state: this.#storedMatch.finalState,
-      gameResult: this.#storedMatch.gameResult,
-      latestSeq: this.#storedMatch.latestSeq,
-      endedAt: this.#storedMatch.endedAt,
+      state: match.state(),
+      gameResult: match.gameResult(),
+      latestSeq: this.#matchRecord.latestSeq,
+      endedAt: this.#matchRecord.endedAt,
     }
   }
 
-  getProtocol() {
+  getProtocol(): FinalizingProtocolResult {
     this.#warnRead('protocol')
+    const match = restoreMatchCheckpoint(this.#storage.readCurrentCheckpoint(this.#matchRecord))
 
     return {
       _tag: 'finalizing' as const,
-      state: this.#storedMatch.finalState,
-      gameResult: this.#storedMatch.gameResult,
-      latestSeq: this.#storedMatch.latestSeq,
-      endedAt: this.#storedMatch.endedAt,
+      state: match.state(),
+      gameResult: match.gameResult(),
+      latestSeq: this.#matchRecord.latestSeq,
+      endedAt: this.#matchRecord.endedAt,
+      protocolEntries: this.#storage.readProtocol(this.#matchRecord),
     }
   }
 
-  getScore() {
+  getScore(): FinalizingScoreResult {
     this.#warnRead('score')
 
     return {
       _tag: 'finalizing' as const,
-      latestSeq: this.#storedMatch.latestSeq,
-      endedAt: this.#storedMatch.endedAt,
-      score: projectMatchScore(this.#storedMatch.finalState),
+      latestSeq: this.#matchRecord.latestSeq,
+      endedAt: this.#matchRecord.endedAt,
+      score: this.#matchRecord.score,
     }
   }
 
   prepareArchive(): FinishedMatchTransfer {
-    const resident = this.#load()
-    const projected = resident.match.project().state
-
-    if (!isDeepStrictEqual(projected, this.#storedMatch.finalState))
-      throw new Error('MatchRoom final state does not match accepted history')
-
-    if (!isDeepStrictEqual(resident.match.gameResult(), this.#storedMatch.gameResult))
-      throw new Error('MatchRoom game result does not match accepted history')
+    const match = restoreMatchCheckpoint(this.#storage.readCurrentCheckpoint(this.#matchRecord))
 
     return {
-      matchId: this.#storedMatch.matchId,
-      gameKey: this.#storedMatch.config.gameKey,
-      createdAt: this.#storedMatch.createdAt,
-      sourceLatestSeq: this.#storedMatch.latestSeq,
-      endedAt: this.#storedMatch.endedAt,
-      protocolEntries: resident.protocolEntries,
-      finalState: this.#storedMatch.finalState,
-      gameResult: this.#storedMatch.gameResult,
+      matchId: this.#matchRecord.matchId,
+      gameKey: this.#matchRecord.config.gameKey,
+      createdAt: this.#matchRecord.createdAt,
+      sourceLatestSeq: this.#matchRecord.latestSeq,
+      endedAt: this.#matchRecord.endedAt,
+      protocolEntries: this.#storage.readProtocol(this.#matchRecord),
+      finalState: match.state(),
+      gameResult: match.gameResult(),
     }
-  }
-
-  finalize(): void {
-    this.#resident?.clear()
-    this.#resident = null
   }
 
   #warnRead(kind: 'controls' | 'protocol' | 'score'): void {
     console.warn({
       event: 'match-room.finalizing-read',
-      matchId: this.#storedMatch.matchId,
+      matchId: this.#matchRecord.matchId,
       kind,
-      endedAt: this.#storedMatch.endedAt,
-      ageMs: Math.max(0, Date.now() - this.#storedMatch.endedAt),
+      endedAt: this.#matchRecord.endedAt,
+      ageMs: Math.max(0, Date.now() - this.#matchRecord.endedAt),
     })
-  }
-
-  #load(): ResidentState {
-    const resident = this.#resident ?? new ResidentMatch()
-    this.#resident = resident
-
-    return (
-      resident.lookup(this.#storedMatch.latestSeq) ??
-      resident.restore(
-        this.#storedMatch.config,
-        this.#storedMatch.latestSeq,
-        this.#storage.readAcceptedCommands(this.#storedMatch),
-      )
-    )
   }
 }
 
 type FinalizingResult = { readonly _tag: 'finalizing' }
 
-export type FinalizingCommandResult =
-  | FinalizingResult
-  | { readonly _tag: 'command-id-conflict' }
-  | {
-      readonly _tag: 'accepted'
-      readonly acceptedSeq: number
-      readonly endsMatch: boolean
-    }
-  | Extract<CommandReceipt, { _tag: 'rejected' }>
+type FinalizingReadResult = {
+  readonly _tag: 'finalizing'
+  readonly state: MatchState
+  readonly gameResult: GameResult | null
+  readonly latestSeq: NonNegativeInteger
+  readonly endedAt: UnixEpochMilliseconds
+}
+
+type FinalizingProtocolResult = FinalizingReadResult & {
+  readonly protocolEntries: readonly ProtocolEntry[]
+}
+
+type FinalizingScoreResult = {
+  readonly _tag: 'finalizing'
+  readonly latestSeq: NonNegativeInteger
+  readonly endedAt: UnixEpochMilliseconds
+  readonly score: MatchScoreProjection
+}
 
 export type FinishedMatchTransfer = {
   readonly matchId: MatchId
@@ -154,3 +137,13 @@ export type FinishedMatchTransfer = {
   readonly finalState: MatchState
   readonly gameResult: GameResult | null
 }
+
+export type FinalizingCommandResult =
+  | FinalizingResult
+  | { readonly _tag: 'command-id-conflict' }
+  | {
+      readonly _tag: 'accepted'
+      readonly acceptedSeq: number
+      readonly endsMatch: boolean
+    }
+  | Extract<CommandReceipt, { _tag: 'rejected' }>

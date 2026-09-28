@@ -1,5 +1,4 @@
 import {
-  type AcceptedCommand,
   CommandId,
   type Control,
   type FrameOutcome,
@@ -9,22 +8,41 @@ import {
   type MatchState,
   opponentOf,
   PositiveInteger,
+  type ProtocolEntry,
   type ProtocolEntryContent,
   Seat,
 } from '@ks/core'
-import { type GamePresentationFor, type GameResult, RegisteredGameKey } from '@ks/gameplay/definitions'
-import type { GameCommandFor } from '@ks/gameplay/definitions'
-import { GameCommandRejection, type GameplaySession, parseGameCommand } from '@ks/gameplay/server'
+import { type GamePresentationFor, GameResult, RegisteredGameKey } from '@ks/gameplay/definitions'
+import {
+  GameCommandRejection,
+  GameplayCheckpoint,
+  type GameplaySession,
+  parseGameCommand,
+  restoreGameplaySession,
+} from '@ks/gameplay/server'
 import { createGameplaySession } from '@ks/gameplay/server'
 import * as v from 'valibot'
 
 import {
   createInitialSnapshot,
   deriveLifecycleState,
+  MatchMachineCheckpoint,
+  type MatchPhase,
   type MatchSnapshot,
+  restoreLifecycleSnapshot,
   sendLifecycleEvent,
 } from './match-machine-internals'
-import type { MatchStateFor } from './matches'
+
+export type { MatchPhase } from './match-machine-internals'
+
+/** Complete executable aggregate state; storage cursor and Protocol are deliberately separate. */
+export const MatchCheckpoint = v.object({
+  lifecycle: MatchMachineCheckpoint,
+  gameplay: v.nullable(GameplayCheckpoint),
+  completedGameResult: v.nullable(GameResult),
+})
+
+export type MatchCheckpoint = v.InferOutput<typeof MatchCheckpoint>
 
 type MatchCommandParseFailure = {
   readonly code: 'unsupported-match-command'
@@ -51,25 +69,22 @@ type MatchCommandResult =
       readonly protocolEntryContents: readonly ProtocolEntryContent[]
     }
 
-type CorrectionResult =
-  | { readonly result: Extract<MatchCommandResult, { _tag: 'accepted' }>; readonly match: ResidentMatch }
-  | { readonly result: Exclude<MatchCommandResult, { _tag: 'accepted' }>; readonly match?: never }
+export const CorrectionCommand = v.pipe(
+  v.strictObject({
+    type: v.literal('command.correct'),
+    targetSeq: PositiveInteger,
+    targetCommandId: CommandId,
+  }),
+  v.readonly(),
+)
 
-type MatchRoomProjectionFor<K extends RegisteredGameKey> =
-  | {
-      readonly state: MatchStateFor<K>
-      readonly game: GamePresentationFor<K>
-      readonly controls: readonly Control[]
-    }
-  | {
-      readonly state: MatchStateFor<K>
-      readonly game: undefined
-      readonly controls: readonly Control[]
-    }
+export type CorrectionCommand = v.InferOutput<typeof CorrectionCommand>
 
-export type MatchRoomProjection = {
-  [K in RegisteredGameKey]: MatchRoomProjectionFor<K>
-}[RegisteredGameKey]
+export type MatchCorrectionTarget = {
+  readonly acceptedSeq: PositiveInteger
+  readonly command: MatchCommand
+  readonly protocolEntries: readonly ProtocolEntry[]
+}
 
 export interface Match {
   /**
@@ -79,18 +94,22 @@ export interface Match {
    */
   execute(command: MatchCommand): MatchCommandResult
 
-  /** Returns current semantic state and controls without storage cursor metadata. */
-  project(): MatchRoomProjection
+  /** Returns the current competition lifecycle phase. */
+  phase(): MatchPhase
+
+  /** Returns current semantic Match state, including active gameplay score. */
+  state(): MatchState
+
+  /** Returns game-specific presentation while a frame is active. */
+  gamePresentation(): GamePresentationFor<RegisteredGameKey> | undefined
+
+  /** Returns currently available match and gameplay controls in stable source order. */
+  controls(): readonly Control[]
 
   /** Game-owned result, retained when gameplay is discarded after the frame ends. */
   gameResult(): GameResult | null
-}
 
-export class MatchHistoryError extends Error {
-  constructor(message: string) {
-    super(message)
-    this.name = 'MatchHistoryError'
-  }
+  exportCheckpoint(): MatchCheckpoint
 }
 
 type CorrelatedGameplay<K extends RegisteredGameKey> = {
@@ -108,16 +127,9 @@ const MatchLifecycleCommand = v.variant('type', [
 
 type MatchLifecycleCommand = v.InferOutput<typeof MatchLifecycleCommand>
 
-const CorrectionCommand = v.pipe(
-  v.strictObject({
-    type: v.literal('command.correct'),
-    targetSeq: PositiveInteger,
-    targetCommandId: CommandId,
-  }),
-  v.readonly(),
-)
-
-type CorrectionCommand = v.InferOutput<typeof CorrectionCommand>
+export function isCorrectionCommand(command: MatchCommand): boolean {
+  return command.source === 'match' && command.command.type === 'command.correct'
+}
 
 export function isCorrectableCommand(command: MatchCommand): boolean {
   return (
@@ -125,29 +137,6 @@ export function isCorrectableCommand(command: MatchCommand): boolean {
     command.command.type !== 'frame.commence' &&
     command.command.type !== 'frame.award'
   )
-}
-
-export function isCorrectionCommand(command: MatchCommand): boolean {
-  return command.source === 'match' && command.command.type === 'command.correct'
-}
-
-function latestUncorrectedCommand(history: readonly AcceptedCommand[]): AcceptedCommand | undefined {
-  const corrected = new Set<number>()
-
-  for (let index = history.length - 1; index >= 0; index -= 1) {
-    const accepted = history[index]
-
-    if (!accepted) continue
-
-    if (isCorrectionCommand(accepted)) {
-      const parsed = v.parse(CorrectionCommand, accepted.command)
-      corrected.add(parsed.targetSeq)
-    } else if (!corrected.has(accepted.acceptedSeq)) {
-      return accepted
-    }
-  }
-
-  return undefined
 }
 
 function gameKeyOf(value: string): RegisteredGameKey {
@@ -185,14 +174,13 @@ function createGameplay(key: RegisteredGameKey, config: MatchConfig): AnyCorrela
   throw new Error('Unsupported registered game')
 }
 
-function requireGameplay<K extends RegisteredGameKey>(
-  key: K,
+function requireGameplay(
+  key: RegisteredGameKey,
   gameplay: AnyCorrelatedGameplay | null,
-): CorrelatedGameplay<K> {
+): AnyCorrelatedGameplay {
   if (!gameplay || gameplay.key !== key) throw new Error(`Missing gameplay session for ${key}`)
 
-  // SAFETY: the runtime key check correlates the discriminated gameplay session with K.
-  return gameplay as CorrelatedGameplay<K>
+  return gameplay
 }
 
 function concedeControl(seat: Seat): Control {
@@ -204,13 +192,14 @@ class ResidentMatch implements Match {
   private gameplay: AnyCorrelatedGameplay | null
   #completedGameResult: GameResult | null = null
 
-  constructor(snapshot: MatchSnapshot, gameplay: AnyCorrelatedGameplay | null) {
+  constructor(
+    snapshot: MatchSnapshot,
+    gameplay: AnyCorrelatedGameplay | null,
+    completedGameResult: GameResult | null = null,
+  ) {
     this.snapshot = snapshot
     this.gameplay = gameplay
-  }
-
-  gameResult(): GameResult | null {
-    return this.gameplay?.session.deriveResult?.() ?? this.#completedGameResult
+    this.#completedGameResult = completedGameResult
   }
 
   execute(command: MatchCommand): MatchCommandResult {
@@ -231,14 +220,15 @@ class ResidentMatch implements Match {
 
     if (['frame.prepare', 'frame.commence', 'frame.concede'].includes(commandType)) return parseFailed()
     const gameKey = gameKeyOf(lifecycle.config.gameKey)
-    const parsed = parseGameCommand(gameKey, command.command)
 
-    if (parsed._tag === 'game-command-parse-failure') return parseFailed()
-
-    return this.applyGameCommand(gameKey, parsed.command, command)
+    return this.applyGameCommand(gameKey, command.command, command, commandType)
   }
 
-  project(): MatchRoomProjection {
+  phase(): MatchPhase {
+    return deriveLifecycleState(this.snapshot).phase
+  }
+
+  state(): MatchState {
     const lifecycle = deriveLifecycleState(this.snapshot)
 
     const frames: FrameState[] = lifecycle.completedFrames.map((frame) => ({
@@ -277,6 +267,21 @@ class ResidentMatch implements Match {
         ? stateWithoutConfiguration
         : { ...stateWithoutConfiguration, gameConfiguration: lifecycle.config.gameConfiguration }
 
+    return state
+  }
+
+  gamePresentation(): GamePresentationFor<RegisteredGameKey> | undefined {
+    const lifecycle = deriveLifecycleState(this.snapshot)
+
+    if (lifecycle.phase !== 'frame-in-progress') return undefined
+    const gameplay = requireGameplay(gameKeyOf(lifecycle.config.gameKey), this.gameplay)
+
+    return gameplay.session.deriveControls().game
+  }
+
+  controls(): readonly Control[] {
+    const lifecycle = deriveLifecycleState(this.snapshot)
+
     const matchControls: Control[] = []
 
     if (lifecycle.phase === 'between-frames')
@@ -288,8 +293,7 @@ class ResidentMatch implements Match {
       })
 
     if (lifecycle.phase !== 'frame-in-progress') {
-      // SAFETY: state retains the registered game key parsed from this lifecycle; no gameplay exists in this phase.
-      return { state, game: undefined, controls: matchControls } as MatchRoomProjection
+      return matchControls
     }
 
     const gameplay = requireGameplay(gameKeyOf(lifecycle.config.gameKey), this.gameplay)
@@ -308,15 +312,26 @@ class ResidentMatch implements Match {
     }
 
     const gameControlProjection = gameplay.session.deriveControls()
-    // Raw order is match-first, not global display order. Stable grouping preserves match-before-game per bucket.
-    const controls = [...matchControls, ...gameControlProjection.controls]
 
-    // SAFETY: requireGameplay's runtime key check correlates game with the state's registered game key.
+    // Raw order is match-first, not global display order. Stable grouping preserves match-before-game per bucket.
+    return [...matchControls, ...gameControlProjection.controls]
+  }
+
+  gameResult(): GameResult | null {
+    return this.gameplay?.session.deriveResult?.() ?? this.#completedGameResult
+  }
+
+  exportCheckpoint(): MatchCheckpoint {
+    const gameplay = this.gameplay
+
     return {
-      state,
-      game: gameControlProjection.game,
-      controls,
-    } as MatchRoomProjection
+      lifecycle: {
+        value: this.snapshot.value,
+        context: this.snapshot.context,
+      },
+      gameplay: gameplay ? exportGameplayCheckpoint(gameplay) : null,
+      completedGameResult: this.#completedGameResult,
+    }
   }
 
   private applyMatchCommand(
@@ -397,13 +412,14 @@ class ResidentMatch implements Match {
 
     const gameKey = gameKeyOf(lifecycle.config.gameKey)
 
-    return this.applyGameCommand(gameKey, command, acceptedCommand)
+    return this.applyGameCommand(gameKey, command, acceptedCommand, command.type)
   }
 
-  private applyGameCommand<K extends RegisteredGameKey>(
-    gameKey: K,
-    gameCommand: GameCommandFor<K>,
+  private applyGameCommand(
+    gameKey: RegisteredGameKey,
+    gameCommand: MatchCommand['command'],
     acceptedCommand: MatchCommand,
+    commandType: string,
   ): MatchCommandResult {
     const lifecycle = deriveLifecycleState(this.snapshot)
 
@@ -411,8 +427,13 @@ class ResidentMatch implements Match {
 
     if (lifecycle.phase !== 'frame-in-progress' || !this.gameplay)
       return { _tag: 'rejected', reason: { code: 'no-active-frame' } }
-    const gameplay = requireGameplay(gameKey, this.gameplay)
-    const execution = gameplay.session.execute(gameCommand)
+    const execution = this.#executeGameCommand(gameKey, gameCommand)
+
+    if (execution === null)
+      return {
+        _tag: 'parse-failed',
+        reason: { code: 'unsupported-match-command', commandType },
+      }
 
     if (execution._tag === 'rejected')
       return { _tag: 'rejected', reason: { code: 'game-command-rejected', reason: execution.reason } }
@@ -425,6 +446,46 @@ class ResidentMatch implements Match {
     return execution.outcome
       ? this.completeFrame(execution.outcome, acceptedCommand, protocolEntryContents)
       : { _tag: 'accepted', command: acceptedCommand, protocolEntryContents }
+  }
+
+  #executeGameCommand(gameKey: RegisteredGameKey, command: MatchCommand['command']) {
+    const gameplay = this.gameplay
+
+    if (!gameplay || gameplay.key !== gameKey) throw new Error(`Missing gameplay session for ${gameKey}`)
+
+    switch (gameplay.key) {
+      case 'strila-v2': {
+        const parsed = parseGameCommand(gameplay.key, command)
+
+        return parsed._tag === 'parsed' ? gameplay.session.execute(parsed.command) : null
+      }
+
+      case 'free-pyramid-long': {
+        const parsed = parseGameCommand(gameplay.key, command)
+
+        return parsed._tag === 'parsed' ? gameplay.session.execute(parsed.command) : null
+      }
+
+      case 'free-pyramid': {
+        const parsed = parseGameCommand(gameplay.key, command)
+
+        return parsed._tag === 'parsed' ? gameplay.session.execute(parsed.command) : null
+      }
+
+      case 'combined-pyramid': {
+        const parsed = parseGameCommand(gameplay.key, command)
+
+        return parsed._tag === 'parsed' ? gameplay.session.execute(parsed.command) : null
+      }
+
+      case 'combined-pyramid-old': {
+        const parsed = parseGameCommand(gameplay.key, command)
+
+        return parsed._tag === 'parsed' ? gameplay.session.execute(parsed.command) : null
+      }
+    }
+
+    throw new Error('Unsupported registered game')
   }
 
   private completeFrame(
@@ -465,16 +526,6 @@ class ResidentMatch implements Match {
 
     return { _tag: 'accepted', command: acceptedCommand, protocolEntryContents }
   }
-
-  restore(command: AcceptedCommand): readonly ProtocolEntryContent[] {
-    const result = this.execute(command)
-
-    if (result._tag === 'parse-failed') throw new MatchHistoryError('Malformed stored Match Command')
-
-    if (result._tag !== 'accepted') throw new MatchHistoryError('Stored accepted Command is not executable')
-
-    return result.protocolEntryContents
-  }
 }
 
 /**
@@ -485,138 +536,100 @@ export function createMatch(config: MatchConfig): Match {
   return createResidentMatch(config)
 }
 
+/** Validates persisted state and restores one local executable aggregate without replay. */
+export function restoreMatchCheckpoint(input: MatchCheckpoint): Match {
+  const lifecycle = restoreLifecycleSnapshot(input.lifecycle)
+  const config = input.lifecycle.context.config
+  gameKeyOf(config.gameKey)
+  const phase = input.lifecycle.value
+  const gameplay = input.gameplay
+
+  if (
+    (phase === 'frame-in-progress') !== (gameplay !== null) ||
+    (gameplay !== null && gameplay.gameKey !== config.gameKey)
+  )
+    throw new Error('Inconsistent match checkpoint')
+
+  // SAFETY: restoration dispatches by the validated key, preserving session/key correlation.
+  const correlated =
+    gameplay && ({ key: gameplay.gameKey, session: restoreGameplaySession(gameplay) } as AnyCorrelatedGameplay)
+
+  return new ResidentMatch(lifecycle, correlated, input.completedGameResult)
+}
+
+/** Compensates the current effective game command against its persisted pre-command checkpoint. */
+export function correctMatch(
+  matchBeforeTarget: Match,
+  target: MatchCorrectionTarget | null,
+  command: MatchCommand,
+): MatchCommandResult {
+  const parsed = v.safeParse(CorrectionCommand, command.command)
+
+  if (command.source !== 'match' || !parsed.success)
+    return {
+      _tag: 'parse-failed',
+      reason: { code: 'unsupported-match-command', commandType: 'command.correct' },
+    }
+
+  if (
+    !target ||
+    !isCorrectableCommand(target.command) ||
+    target.acceptedSeq !== parsed.output.targetSeq ||
+    target.command.commandId !== parsed.output.targetCommandId
+  )
+    return { _tag: 'rejected', reason: { code: 'correction-not-available' } }
+
+  const state = matchBeforeTarget.state()
+  const frame = state.frames.at(-1)
+  const targetCommand = parseGameCommand(gameKeyOf(state.gameKey), target.command.command)
+
+  if (matchBeforeTarget.phase() !== 'frame-in-progress' || !frame || targetCommand._tag !== 'parsed')
+    throw new Error('Persisted correction target is incompatible with its predecessor checkpoint')
+
+  if (target.protocolEntries.length === 0)
+    throw new Error('Persisted correction target has no Protocol entries')
+
+  return {
+    _tag: 'accepted',
+    command,
+    // A single Command may produce derived outcomes; compensate them latest-first while linking original positions.
+    protocolEntryContents: target.protocolEntries
+      .map((original) => ({
+        gameKey: state.gameKey,
+        frameIndex: frame.frameIndex,
+        source: original.source,
+        entryType: 'command-corrected',
+        seat: original.seat,
+        scoreAfter: frame.pointsBySeat,
+        body: {
+          targetSeq: target.acceptedSeq,
+          targetCommandId: target.command.commandId,
+          targetEntryIndex: original.entryIndex,
+        },
+      }))
+      .reverse(),
+  }
+}
+
 function createResidentMatch(config: MatchConfig): ResidentMatch {
   gameKeyOf(config.gameKey)
 
   return new ResidentMatch(createInitialSnapshot(config), null)
 }
 
-/**
- * Restores disposable resident state from envelope-validated semantic command batches.
- * @throws MatchHistoryError when accepted history is impossible or incompatible with current rules.
- */
-export function restoreMatch(config: MatchConfig, history: readonly AcceptedCommand[]): RestoredMatch {
-  return replayHistory(config, history)
-}
-
-/** Compensates only the latest eligible game command, restoring its entire prior semantic state. */
-export function correctMatch(
-  config: MatchConfig,
-  history: readonly AcceptedCommand[],
-  command: MatchCommand,
-): CorrectionResult {
-  const parsed = v.safeParse(CorrectionCommand, command.command)
-
-  if (command.source !== 'match' || !parsed.success)
-    return {
-      result: {
-        _tag: 'parse-failed',
-        reason: { code: 'unsupported-match-command', commandType: 'command.correct' },
-      },
-    }
-
-  const target = latestUncorrectedCommand(history)
-
-  if (!matchesCorrectionTarget(target, parsed.output))
-    return { result: { _tag: 'rejected', reason: { code: 'correction-not-available' } } }
-
-  return compensate(config, replayHistory(config, history), target, command)
-}
-
-function matchesCorrectionTarget(
-  target: AcceptedCommand | undefined,
-  parsed: CorrectionCommand,
-): target is AcceptedCommand {
-  return (
-    !!target &&
-    isCorrectableCommand(target) &&
-    target.acceptedSeq === parsed.targetSeq &&
-    target.commandId === parsed.targetCommandId
-  )
-}
-
-function replayHistory(config: MatchConfig, history: readonly AcceptedCommand[]): ReplayedHistory {
-  let resident = createResidentMatch(config)
-  const accepted: RestoredMatch['accepted'][number][] = []
-  // Protocol keeps every Command; only these uncorrected Commands contribute to resident state.
-  const effective: AcceptedCommand[] = []
-
-  try {
-    for (const acceptedCommand of history) {
-      if (isCorrectionCommand(acceptedCommand)) {
-        const parsed = v.safeParse(CorrectionCommand, acceptedCommand.command)
-        const target = effective.at(-1)
-
-        if (!parsed.success || !matchesCorrectionTarget(target, parsed.output))
-          throw new MatchHistoryError('Stored Correction is not executable')
-
-        const correction = compensate(config, { accepted, effective }, target, acceptedCommand)
-        resident = correction.match
-        effective.pop()
-        accepted.push({ acceptedCommand, protocolEntryContents: correction.result.protocolEntryContents })
-      } else {
-        accepted.push({ acceptedCommand, protocolEntryContents: resident.restore(acceptedCommand) })
-        effective.push(acceptedCommand)
-      }
-    }
-
-    return { match: resident, accepted, effective }
-  } catch (error) {
-    if (error instanceof MatchHistoryError) throw error
-    throw new MatchHistoryError(error instanceof Error ? error.message : 'History restoration failed')
+function exportGameplayCheckpoint(gameplay: AnyCorrelatedGameplay): GameplayCheckpoint {
+  switch (gameplay.key) {
+    case 'strila-v2':
+      return { gameKey: gameplay.key, state: gameplay.session.exportCheckpoint() }
+    case 'free-pyramid-long':
+      return { gameKey: gameplay.key, state: gameplay.session.exportCheckpoint() }
+    case 'free-pyramid':
+      return { gameKey: gameplay.key, state: gameplay.session.exportCheckpoint() }
+    case 'combined-pyramid':
+      return { gameKey: gameplay.key, state: gameplay.session.exportCheckpoint() }
+    case 'combined-pyramid-old':
+      return { gameKey: gameplay.key, state: gameplay.session.exportCheckpoint() }
   }
+
+  throw new Error('Unsupported registered game')
 }
-
-function compensate(
-  config: MatchConfig,
-  replay: Pick<ReplayedHistory, 'accepted' | 'effective'>,
-  target: AcceptedCommand,
-  command: MatchCommand,
-): Extract<CorrectionResult, { match: ResidentMatch }> {
-  const before = createResidentMatch(config)
-
-  for (const accepted of replay.effective.slice(0, -1)) before.restore(accepted)
-
-  const state = before.project().state
-  const frame = state.frames.at(-1)
-  const gameCommand = parseGameCommand(gameKeyOf(config.gameKey), target.command)
-
-  if (!frame || frame.winnerSeat || gameCommand._tag !== 'parsed')
-    throw new MatchHistoryError('Correction target has no active game command')
-
-  const originalContents = replay.accepted.find(
-    ({ acceptedCommand }) => acceptedCommand.acceptedSeq === target.acceptedSeq,
-  )?.protocolEntryContents
-
-  if (!originalContents) throw new MatchHistoryError('Correction target has no Protocol entries')
-
-  return {
-    match: before,
-    result: {
-      _tag: 'accepted',
-      command,
-      // Compensate derived outcomes latest-first, but retain each original entry's index as the link.
-      protocolEntryContents: originalContents
-        .map((original, targetEntryIndex) => ({
-          gameKey: config.gameKey,
-          frameIndex: frame.frameIndex,
-          source: original.source,
-          entryType: 'command-corrected',
-          seat: original.seat,
-          scoreAfter: frame.pointsBySeat,
-          body: { targetSeq: target.acceptedSeq, targetCommandId: target.commandId, targetEntryIndex },
-        }))
-        .reverse(),
-    },
-  }
-}
-
-export type RestoredMatch = {
-  readonly match: ResidentMatch
-  readonly accepted: readonly {
-    readonly acceptedCommand: AcceptedCommand
-    readonly protocolEntryContents: readonly ProtocolEntryContent[]
-  }[]
-}
-
-type ReplayedHistory = RestoredMatch & { readonly effective: readonly AcceptedCommand[] }

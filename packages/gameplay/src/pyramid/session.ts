@@ -10,7 +10,7 @@ import {
   type GameplaySessionCreateArgsFor,
 } from '../gameplay-session'
 import type { GamePresentationFor } from '../registry'
-import type { PyramidCommand } from './definitions'
+import { PyramidCheckpoint, type PyramidCommand } from './definitions'
 import { createInitialSnapshot, getPhase, PyramidFrameMachine, type PyramidFrameSnapshot } from './machine'
 import { derivePyramidControlProjection } from './projections/control'
 import { createPyramidProtocolEntries } from './protocol'
@@ -21,10 +21,14 @@ class PyramidGameplaySession<K extends PyramidGameKey> implements GameplaySessio
   #snapshot: PyramidFrameSnapshot
   readonly #rules: PyramidRulesFor<K>
 
-  constructor(gameKey: K, args: GameplaySessionCreateArgsFor<K>, rules: PyramidRulesFor<K>) {
+  constructor(gameKey: K, rules: PyramidRulesFor<K>, snapshot: PyramidFrameSnapshot) {
     this.gameKey = gameKey
     this.#rules = rules
-    this.#snapshot = createInitialSnapshot(this.#rules, { ...args.targetPointsBySeat })
+    this.#snapshot = snapshot
+  }
+
+  exportCheckpoint(): PyramidCheckpoint {
+    return { value: this.#snapshot.value, context: this.#snapshot.context }
   }
 
   execute(command: PyramidCommand): GameCommandExecution {
@@ -91,22 +95,55 @@ export function createPyramidGameplaySession(
     case 'free-pyramid':
       return new PyramidGameplaySession(
         creation[0],
-        creation[1],
         PyramidRuleSpecificsByGameKey['free-pyramid'],
+        createInitialSnapshot(PyramidRuleSpecificsByGameKey['free-pyramid'], {
+          ...creation[1].targetPointsBySeat,
+        }),
       )
     case 'combined-pyramid':
       return new PyramidGameplaySession(
         creation[0],
-        creation[1],
         PyramidRuleSpecificsByGameKey['combined-pyramid'],
+        createInitialSnapshot(PyramidRuleSpecificsByGameKey['combined-pyramid'], {
+          ...creation[1].targetPointsBySeat,
+        }),
       )
     case 'combined-pyramid-old':
       return new PyramidGameplaySession(
         creation[0],
-        creation[1],
         PyramidRuleSpecificsByGameKey['combined-pyramid-old'],
+        createInitialSnapshot(PyramidRuleSpecificsByGameKey['combined-pyramid-old'], {
+          ...creation[1].targetPointsBySeat,
+        }),
       )
   }
 
   throw new Error('Unsupported pyramid game')
+}
+
+export function restorePyramidGameplaySession<K extends PyramidGameKey>(
+  gameKey: K,
+  checkpoint: PyramidCheckpoint,
+): GameplaySession<K> {
+  const rules = PyramidRuleSpecificsByGameKey[gameKey]
+
+  if (
+    checkpoint.value === 'frame-over' ||
+    checkpoint.context.rules.gameKey !== gameKey ||
+    checkpoint.context.rules.allowNegative !== rules.allowNegative ||
+    checkpoint.context.rules.foulPenalty !== rules.foulPenalty ||
+    checkpoint.context.rules.shotPointOptions.length !== rules.shotPointOptions.length ||
+    checkpoint.context.rules.shotPointOptions.some(
+      (option, index) => option !== rules.shotPointOptions[index],
+    ) ||
+    (checkpoint.value === 'winner-determined') !== (checkpoint.context.winner !== null)
+  )
+    throw new Error('Pyramid checkpoint rules or phase do not match the game')
+
+  // SAFETY: indexed rules correspond to the selected key.
+  return new PyramidGameplaySession(
+    gameKey,
+    checkpoint.context.rules as PyramidRulesFor<K>,
+    PyramidFrameMachine.resolveState(checkpoint),
+  )
 }

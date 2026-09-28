@@ -120,7 +120,11 @@ test('continues correcting earlier commands after eviction and keeps every corre
         command: { type: 'command.correct', targetSeq: 4 - index, targetCommandId: target.commandId },
       }),
     ).toMatchObject({ _tag: 'accepted', acceptedSeq: 7 + index })
-    expect(await restored.getControls()).toMatchObject({ game: { score: { A: 1 - index, B: 0 } } })
+    expect(await restored.getControls()).toMatchObject({
+      latestSeq: 7 + index,
+      game: { score: { A: 1 - index, B: 0 } },
+      lastPlayerEntry: { acceptedSeq: 3 - index },
+    })
   }
 
   const protocol = await restored.getProtocol()
@@ -164,6 +168,20 @@ test('restores alternating commands and corrections after eviction', async () =>
     latestSeq: 10,
     protocolEntries: Array.from({ length: 10 }, (_, index) => ({ acceptedSeq: index + 1 })),
   })
+  await runInDurableObject(stub, (_room, state) => {
+    expect(
+      state.storage.sql
+        .exec<{ seq: number; previous_checkpoint_seq: number }>(
+          'SELECT seq, previous_checkpoint_seq FROM checkpoints WHERE seq IN (4, 6, 8, 10) ORDER BY seq',
+        )
+        .toArray(),
+    ).toEqual([
+      { seq: 4, previous_checkpoint_seq: 2 },
+      { seq: 6, previous_checkpoint_seq: 2 },
+      { seq: 8, previous_checkpoint_seq: 2 },
+      { seq: 10, previous_checkpoint_seq: 2 },
+    ])
+  })
   await evictDurableObject(stub)
   const restored = env.MATCH_ROOM.getByName(matchId)
   expect(await restored.getControls()).toEqual(controls)
@@ -176,6 +194,70 @@ test('restores alternating commands and corrections after eviction', async () =>
     }),
   ).toMatchObject({ _tag: 'accepted', acceptedSeq: 11 })
   expect(await restored.getControls()).toMatchObject({ game: { score: { A: 0, B: 1 } } })
+})
+
+test('corrects across intervening correction checkpoints without replaying them', async () => {
+  const { stub } = await initializedRoom()
+  await stub.submitCommand(prepareCommand())
+  await stub.submitCommand(commenceCommand())
+
+  const earlier = {
+    commandId: newCommandId(),
+    source: 'game' as const,
+    command: { type: 'pot.record', seat: 'A', pottedBallCount: 1 },
+  }
+
+  const mistaken = {
+    commandId: newCommandId(),
+    source: 'game' as const,
+    command: { type: 'pot.record', seat: 'B', pottedBallCount: 1 },
+  }
+
+  await stub.submitCommand(earlier)
+  await stub.submitCommand(mistaken)
+  await stub.submitCommand({
+    commandId: newCommandId(),
+    source: 'match',
+    command: { type: 'command.correct', targetSeq: 4, targetCommandId: mistaken.commandId },
+  })
+
+  const replacement = {
+    commandId: newCommandId(),
+    source: 'game' as const,
+    command: { type: 'pot.record', seat: 'B', pottedBallCount: 1 },
+  }
+
+  await stub.submitCommand(replacement)
+  await stub.submitCommand({
+    commandId: newCommandId(),
+    source: 'match',
+    command: { type: 'command.correct', targetSeq: 6, targetCommandId: replacement.commandId },
+  })
+  expect(
+    await stub.submitCommand({
+      commandId: newCommandId(),
+      source: 'match',
+      command: { type: 'command.correct', targetSeq: 3, targetCommandId: earlier.commandId },
+    }),
+  ).toMatchObject({ _tag: 'accepted', acceptedSeq: 8 })
+  expect(await stub.getControls()).toMatchObject({
+    latestSeq: 8,
+    game: { score: { A: 0, B: 0 } },
+    lastPlayerEntry: { acceptedSeq: 2 },
+  })
+  await runInDurableObject(stub, (_room, state) => {
+    expect(
+      state.storage.sql
+        .exec<{ seq: number; previous_checkpoint_seq: number }>(
+          'SELECT seq, previous_checkpoint_seq FROM checkpoints WHERE seq IN (5, 7, 8) ORDER BY seq',
+        )
+        .toArray(),
+    ).toEqual([
+      { seq: 5, previous_checkpoint_seq: 3 },
+      { seq: 7, previous_checkpoint_seq: 3 },
+      { seq: 8, previous_checkpoint_seq: 2 },
+    ])
+  })
 })
 
 test('persists the third cue-ball pot and system-foul corrections as one stack step', async () => {

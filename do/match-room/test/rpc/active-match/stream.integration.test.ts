@@ -85,14 +85,13 @@ test('broadcasts and closes on the durable match-ending command before archive p
   })
   expect((await closed).code).toBe(4000)
   expect((await stub.fetch(liveRequest(matchId))).status).toBe(410)
-  await stub.finalize()
 })
 
-test('client closure is harmless before match end and finalization', async () => {
+test('client closure is harmless before match end', async () => {
   const { matchId, stub } = await initializedRoom()
   const socket = await connect(stub, matchId)
   await nextMessage(socket)
   socket.close()
   await makeRoomFinalizing(stub)
-  await expect(stub.finalize()).resolves.toBeUndefined()
+  expect((await stub.fetch(liveRequest(matchId))).status).toBe(410)
 })

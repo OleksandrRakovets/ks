@@ -1,25 +1,43 @@
 import { isDeepStrictEqual } from 'node:util'
 
-import { MatchRejection } from '@ks/competition'
+import {
+  isCorrectionCommand,
+  type MatchCheckpoint,
+  type MatchCorrectionTarget,
+  type MatchRejection,
+} from '@ks/competition'
 import {
   AcceptedCommand,
-  MatchCommand,
-  MatchConfig,
-  MatchId,
-  MatchState,
+  type MatchCommand,
+  type MatchConfig,
+  type MatchId,
+  type MatchScoreProjection,
+  type MatchState,
   type MatchStreamUpdate,
-  NonNegativeInteger,
   PositiveInteger,
+  projectMatchScore,
+  ProtocolEntry,
+  type ProtocolEntryContent,
   SystemClock,
-  UnixEpochMilliseconds,
+  type UnixEpochMilliseconds,
 } from '@ks/core'
-import { GameResult, type GameResult as GameResultValue, RegisteredGameKey } from '@ks/gameplay/definitions'
-import { and, asc, eq, isNotNull } from 'drizzle-orm'
+import { and, asc, eq } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/durable-sqlite'
 import { migrate } from 'drizzle-orm/durable-sqlite/migrator'
 import * as v from 'valibot'
 
 import migrationsBundle from '../../drizzle/migrations.js'
+import {
+  type ActiveMatchRecord,
+  checkpointFromRow,
+  commandFromRow,
+  type CommandReceipt,
+  commandReceiptFromRow,
+  type CommandReceiptLookup,
+  type MatchRecord,
+  matchRecordFromRow,
+  protocolEntryFromRow,
+} from './records'
 import * as schema from './schema'
 
 export class MatchStorage {
@@ -35,34 +53,39 @@ export class MatchStorage {
   }
 
   commitCreation(initialization: MatchCreation): void {
-    const { config, ...values } = initialization
-    this.#db
-      .insert(schema.activeMatches)
-      .values({
-        ...values,
-        matchId: config.matchId,
-        configJson: JSON.stringify(config),
-        latestSeq: 0,
-        status: 'active',
-        finalStateJson: null,
-        gameResultJson: null,
-        endedAt: null,
-      })
-      .run()
+    this.#db.transaction((tx) => {
+      tx.insert(schema.activeMatches)
+        .values({
+          controlSecret: initialization.controlSecret,
+          createdAt: initialization.createdAt,
+          matchId: initialization.config.matchId,
+          configJson: JSON.stringify(initialization.config),
+          latestSeq: 0,
+          scoreJson: JSON.stringify(initialization.score),
+          status: 'active',
+          endedAt: null,
+        })
+        .run()
+      tx.insert(schema.checkpoints)
+        .values({
+          seq: 0,
+          previousCheckpointSeq: null,
+          aggregateJson: JSON.stringify(initialization.checkpoint),
+          lastPlayerAcceptedSeq: null,
+          lastPlayerEntryIndex: null,
+        })
+        .run()
+    })
   }
 
-  match(): StoredMatch | null {
+  matchRecord(): MatchRecord | null {
     const rows = this.#db.select().from(schema.activeMatches).limit(2).all()
 
     if (rows.length > 1) throw new Error('MatchRoom contains multiple Match rows')
 
     if (!rows[0]) return null
 
-    try {
-      return v.parse(StoredMatch, rows[0])
-    } catch {
-      throw new Error('MatchRoom active_matches storage corruption')
-    }
+    return matchRecordFromRow(rows[0])
   }
 
   findCommandReceipt(command: MatchCommand): CommandReceiptLookup | null {
@@ -70,13 +93,12 @@ export class MatchStorage {
       .select()
       .from(schema.commands)
       .where(eq(schema.commands.commandId, command.commandId))
-      .limit(1)
-      .all()[0]
+      .get()
 
     if (!row) return null
 
-    return isDeepStrictEqual(decodeCommand(row), command)
-      ? { _tag: 'retry', receipt: decodeCommandReceipt(row) }
+    return isDeepStrictEqual(commandFromRow(row), command)
+      ? { _tag: 'retry', receipt: commandReceiptFromRow(row) }
       : { _tag: 'command-id-conflict' }
   }
 
@@ -100,29 +122,104 @@ export class MatchStorage {
   }
 
   commitAcceptedCommand(args: {
-    match: StoredActiveMatch
+    matchRecord: ActiveMatchRecord
     command: MatchCommand
-    finalState: MatchState | null
-    gameResult: GameResultValue | null
+    checkpoint: MatchCheckpoint
+    state: MatchState
+    protocolEntryContents: readonly ProtocolEntryContent[]
   }): {
-    acceptedCommand: AcceptedCommand
     receipt: Extract<CommandReceipt, { _tag: 'accepted' }>
     streamUpdate: MatchStreamUpdate
-    storedMatch: StoredMatch
+  } {
+    return this.#commitAcceptedCommand(args, this.#selectCheckpointRow(args.matchRecord.latestSeq), false)
+  }
+
+  commitCorrection(args: {
+    matchRecord: ActiveMatchRecord
+    command: MatchCommand
+    checkpoint: MatchCheckpoint
+    state: MatchState
+    protocolEntryContents: readonly ProtocolEntryContent[]
+    target: StoredCorrectionTarget
+  }): {
+    receipt: Extract<CommandReceipt, { _tag: 'accepted' }>
+    streamUpdate: MatchStreamUpdate
+  } {
+    return this.#commitAcceptedCommand(
+      args,
+      this.#selectCheckpointRow(args.target.previousCheckpointSeq),
+      true,
+    )
+  }
+
+  readCorrectionTarget(matchRecord: ActiveMatchRecord): StoredCorrectionTarget | null {
+    let targetRow = this.#selectCheckpointRow(matchRecord.latestSeq)
+
+    if (targetRow.seq === 0) return null
+    let targetCommand = commandFromRow(this.#selectAcceptedCommandRow(targetRow.seq))
+
+    if (isCorrectionCommand(targetCommand)) {
+      if (targetRow.previousCheckpointSeq === null)
+        throw new Error('MatchRoom checkpoint predecessor corruption')
+      targetRow = this.#selectEffectiveCheckpointRow(targetRow.previousCheckpointSeq)
+
+      if (targetRow.seq === 0) return null
+      targetCommand = commandFromRow(this.#selectAcceptedCommandRow(targetRow.seq))
+    }
+
+    if (targetRow.previousCheckpointSeq === null)
+      throw new Error('MatchRoom checkpoint predecessor corruption')
+    const previous = this.#selectEffectiveCheckpointRow(targetRow.previousCheckpointSeq)
+
+    return {
+      acceptedSeq: v.parse(PositiveInteger, targetRow.seq),
+      command: targetCommand,
+      protocolEntries: this.#readProtocolEntriesAt(targetRow.seq),
+      previousCheckpointSeq: previous.seq,
+      previousCheckpoint: checkpointFromRow(previous, matchRecord),
+    }
+  }
+
+  #commitAcceptedCommand(
+    args: AcceptedCommandCommit,
+    previousCheckpoint: typeof schema.checkpoints.$inferSelect,
+    inheritLastPlayer: boolean,
+  ): {
+    receipt: Extract<CommandReceipt, { _tag: 'accepted' }>
+    streamUpdate: MatchStreamUpdate
   } {
     const acceptedCommand = v.parse(AcceptedCommand, {
       ...args.command,
-      acceptedSeq: args.match.latestSeq + 1,
+      acceptedSeq: args.matchRecord.latestSeq + 1,
       acceptedAt: this.#clock.nowMs(),
     })
 
-    const endsMatch = args.finalState !== null
+    const endsMatch = args.state.status === 'finished'
+
+    const entries = args.protocolEntryContents.map((content, entryIndex) =>
+      v.parse(ProtocolEntry, {
+        ...content,
+        acceptedSeq: acceptedCommand.acceptedSeq,
+        acceptedAt: acceptedCommand.acceptedAt,
+        causedByCommandId: acceptedCommand.commandId,
+        entryIndex,
+      }),
+    )
+
+    if (entries.length === 0) throw new Error('Accepted Command must produce Protocol')
+
+    const lastPlayer = entries
+      .slice()
+      .reverse()
+      .find((entry) => entry.source === 'player')
+
+    const score = projectMatchScore(args.state)
 
     return this.#db.transaction((tx) => {
       tx.insert(schema.commands)
         .values({
           commandId: acceptedCommand.commandId,
-          matchId: args.match.matchId,
+          matchId: args.matchRecord.matchId,
           requestJson: JSON.stringify(args.command),
           outcome: 'accepted',
           acceptedSeq: acceptedCommand.acceptedSeq,
@@ -131,19 +228,42 @@ export class MatchStorage {
         })
         .run()
 
+      tx.insert(schema.checkpoints)
+        .values({
+          seq: acceptedCommand.acceptedSeq,
+          previousCheckpointSeq: previousCheckpoint.seq,
+          aggregateJson: JSON.stringify(args.checkpoint),
+          lastPlayerAcceptedSeq: inheritLastPlayer
+            ? previousCheckpoint.lastPlayerAcceptedSeq
+            : (lastPlayer?.acceptedSeq ?? previousCheckpoint.lastPlayerAcceptedSeq),
+          lastPlayerEntryIndex: inheritLastPlayer
+            ? previousCheckpoint.lastPlayerEntryIndex
+            : (lastPlayer?.entryIndex ?? previousCheckpoint.lastPlayerEntryIndex),
+        })
+        .run()
+
+      for (const entry of entries)
+        tx.insert(schema.protocolEntries)
+          .values({
+            acceptedSeq: entry.acceptedSeq,
+            entryIndex: entry.entryIndex,
+            entryJson: JSON.stringify(entry),
+          })
+          .run()
+
       const result = tx
         .update(schema.activeMatches)
         .set({
           latestSeq: acceptedCommand.acceptedSeq,
+          scoreJson: JSON.stringify(score),
           status: endsMatch ? 'finalizing' : 'active',
-          finalStateJson: args.finalState ? JSON.stringify(args.finalState) : null,
-          gameResultJson: args.gameResult ? JSON.stringify(args.gameResult) : null,
           endedAt: endsMatch ? acceptedCommand.acceptedAt : null,
         })
         .where(
           and(
-            eq(schema.activeMatches.matchId, args.match.matchId),
-            eq(schema.activeMatches.latestSeq, args.match.latestSeq),
+            eq(schema.activeMatches.matchId, args.matchRecord.matchId),
+            eq(schema.activeMatches.latestSeq, args.matchRecord.latestSeq),
+            eq(schema.activeMatches.status, 'active'),
           ),
         )
         .run()
@@ -151,168 +271,130 @@ export class MatchStorage {
       if (result.rowsWritten !== 1) throw new Error('Active match cursor mismatch')
 
       return {
-        acceptedCommand,
         receipt: { _tag: 'accepted', acceptedSeq: acceptedCommand.acceptedSeq },
         streamUpdate: {
           type: 'command-accepted',
           acceptedSeq: acceptedCommand.acceptedSeq,
           endsMatch,
         },
-        storedMatch:
-          args.finalState === null
-            ? { ...args.match, latestSeq: acceptedCommand.acceptedSeq, gameResult: args.gameResult }
-            : {
-                ...args.match,
-                latestSeq: acceptedCommand.acceptedSeq,
-                status: 'finalizing',
-                finalState: args.finalState,
-                gameResult: args.gameResult,
-                endedAt: acceptedCommand.acceptedAt,
-              },
       }
     })
   }
 
-  readAcceptedCommands(match: StoredMatch): AcceptedCommand[] {
-    try {
-      const rows = this.#db
-        .select()
-        .from(schema.commands)
-        .where(isNotNull(schema.commands.acceptedSeq))
-        .orderBy(asc(schema.commands.acceptedSeq))
-        .all()
+  readCurrentCheckpoint(matchRecord: MatchRecord): MatchCheckpoint {
+    return checkpointFromRow(this.#selectCheckpointRow(matchRecord.latestSeq), matchRecord)
+  }
 
-      const commands = rows.map((row, index) => {
-        if (
-          row.matchId !== match.matchId ||
-          row.outcome !== 'accepted' ||
-          row.rejectionJson !== null ||
-          row.acceptedSeq !== index + 1 ||
-          row.acceptedAt === null
-        )
-          throw new Error('invalid accepted row')
-        const command = decodeCommand(row)
+  readLastPlayerEntry(matchRecord: ActiveMatchRecord): ProtocolEntry | null {
+    const row = this.#selectCheckpointRow(matchRecord.latestSeq)
 
-        if (command.commandId !== row.commandId) throw new Error('command ID mismatch')
+    if (row.lastPlayerAcceptedSeq === null || row.lastPlayerEntryIndex === null) return null
 
-        return v.parse(AcceptedCommand, {
-          ...command,
-          acceptedSeq: row.acceptedSeq,
-          acceptedAt: row.acceptedAt,
-        })
-      })
+    const entry = this.#db
+      .select()
+      .from(schema.protocolEntries)
+      .where(
+        and(
+          eq(schema.protocolEntries.acceptedSeq, row.lastPlayerAcceptedSeq),
+          eq(schema.protocolEntries.entryIndex, row.lastPlayerEntryIndex),
+        ),
+      )
+      .get()
 
-      if (commands.length !== match.latestSeq) throw new Error('tail mismatch')
+    if (!entry) throw new Error('MatchRoom checkpoint player reference corruption')
 
-      return commands
-    } catch {
-      throw new Error('MatchRoom commands storage corruption')
+    return protocolEntryFromRow(entry)
+  }
+
+  readProtocol(matchRecord: MatchRecord): ProtocolEntry[] {
+    const rows = this.#db
+      .select()
+      .from(schema.protocolEntries)
+      .orderBy(asc(schema.protocolEntries.acceptedSeq), asc(schema.protocolEntries.entryIndex))
+      .all()
+
+    const entries = rows.map((row) => protocolEntryFromRow(row))
+    let seq = 0
+    let index = 0
+
+    for (const entry of entries) {
+      if (entry.acceptedSeq === seq + 1) {
+        seq++
+        index = 0
+      }
+
+      if (
+        entry.acceptedSeq !== seq ||
+        entry.entryIndex !== index++ ||
+        entry.gameKey !== matchRecord.config.gameKey
+      )
+        throw new Error('MatchRoom Protocol storage corruption')
     }
+
+    if (seq !== matchRecord.latestSeq) throw new Error('MatchRoom Protocol cursor mismatch')
+
+    return entries
+  }
+
+  #readProtocolEntriesAt(seq: number): ProtocolEntry[] {
+    return this.#db
+      .select()
+      .from(schema.protocolEntries)
+      .where(eq(schema.protocolEntries.acceptedSeq, seq))
+      .orderBy(asc(schema.protocolEntries.entryIndex))
+      .all()
+      .map((row) => protocolEntryFromRow(row))
+  }
+
+  #selectEffectiveCheckpointRow(seq: number): typeof schema.checkpoints.$inferSelect {
+    let row = this.#selectCheckpointRow(seq)
+
+    while (row.seq > 0) {
+      const command = commandFromRow(this.#selectAcceptedCommandRow(row.seq))
+
+      if (!isCorrectionCommand(command)) return row
+
+      if (row.previousCheckpointSeq === null) throw new Error('MatchRoom checkpoint predecessor corruption')
+      row = this.#selectCheckpointRow(row.previousCheckpointSeq)
+    }
+
+    return row
+  }
+
+  #selectAcceptedCommandRow(seq: number): typeof schema.commands.$inferSelect {
+    const row = this.#db.select().from(schema.commands).where(eq(schema.commands.acceptedSeq, seq)).get()
+
+    if (row?.outcome !== 'accepted') throw new Error('MatchRoom accepted Command storage corruption')
+
+    return row
+  }
+
+  #selectCheckpointRow(seq: number): typeof schema.checkpoints.$inferSelect {
+    const row = this.#db.select().from(schema.checkpoints).where(eq(schema.checkpoints.seq, seq)).get()
+
+    if (!row) throw new Error('MatchRoom checkpoint storage corruption')
+
+    return row
   }
 }
-
-const CommandReceipt = v.variant('_tag', [
-  v.pipe(v.object({ _tag: v.literal('accepted'), acceptedSeq: PositiveInteger }), v.readonly()),
-  v.pipe(v.object({ _tag: v.literal('rejected'), reason: MatchRejection }), v.readonly()),
-])
-
-export type CommandReceipt = v.InferOutput<typeof CommandReceipt>
-
-export type CommandReceiptLookup =
-  | { readonly _tag: 'retry'; readonly receipt: CommandReceipt }
-  | { readonly _tag: 'command-id-conflict' }
-
-const ActiveMatchConfig = v.pipe(
-  v.object({ ...MatchConfig.entries, gameKey: RegisteredGameKey }),
-  v.readonly(),
-)
-
-const StoredMatchFields = {
-  matchId: MatchId,
-  controlSecret: v.pipe(v.string(), v.minLength(16)),
-  configJson: v.pipe(v.string(), v.parseJson(), ActiveMatchConfig),
-  latestSeq: NonNegativeInteger,
-  createdAt: UnixEpochMilliseconds,
-  gameResultJson: v.nullable(v.pipe(v.string(), v.parseJson(), GameResult)),
-}
-
-const StoredActiveMatch = v.pipe(
-  v.object({
-    ...StoredMatchFields,
-    status: v.literal('active'),
-    finalStateJson: v.null(),
-    endedAt: v.null(),
-  }),
-  v.transform(({ configJson, finalStateJson, gameResultJson, ...row }) => ({
-    ...row,
-    config: configJson,
-    finalState: finalStateJson,
-    gameResult: gameResultJson,
-  })),
-  v.check(
-    (row) =>
-      row.matchId === row.config.matchId && (!row.gameResult || row.gameResult.gameKey === row.config.gameKey),
-  ),
-  v.readonly(),
-)
-
-const StoredFinalizingMatch = v.pipe(
-  v.object({
-    ...StoredMatchFields,
-    status: v.literal('finalizing'),
-    finalStateJson: v.pipe(v.string(), v.parseJson(), MatchState),
-    endedAt: UnixEpochMilliseconds,
-  }),
-  v.transform(({ configJson, finalStateJson, gameResultJson, ...row }) => ({
-    ...row,
-    config: configJson,
-    finalState: finalStateJson,
-    gameResult: gameResultJson,
-  })),
-  v.check(
-    (row) =>
-      row.matchId === row.config.matchId &&
-      row.finalState.status === 'finished' &&
-      row.finalState.matchId === row.matchId &&
-      row.finalState.gameKey === row.config.gameKey &&
-      isDeepStrictEqual(row.finalState.targets, row.config.targets) &&
-      (row.config.gameKey === 'free-pyramid-long'
-        ? row.gameResult?.gameKey === row.config.gameKey
-        : row.gameResult === null),
-  ),
-  v.readonly(),
-)
-
-const StoredMatch = v.variant('status', [StoredActiveMatch, StoredFinalizingMatch])
-
-export type StoredActiveMatch = v.InferOutput<typeof StoredActiveMatch>
-
-export type StoredFinalizingMatch = v.InferOutput<typeof StoredFinalizingMatch>
-
-export type StoredMatch = v.InferOutput<typeof StoredMatch>
 
 export type MatchCreation = {
   readonly config: MatchConfig
   readonly controlSecret: string
   readonly createdAt: UnixEpochMilliseconds
+  readonly checkpoint: MatchCheckpoint
+  readonly score: MatchScoreProjection
 }
 
-function decodeCommand(row: typeof schema.commands.$inferSelect): MatchCommand {
-  try {
-    return v.parse(v.pipe(v.string(), v.parseJson(), MatchCommand), row.requestJson)
-  } catch {
-    throw new Error(`MatchRoom commands storage corruption for command ${row.commandId}`)
-  }
+type AcceptedCommandCommit = {
+  readonly matchRecord: ActiveMatchRecord
+  readonly command: MatchCommand
+  readonly checkpoint: MatchCheckpoint
+  readonly state: MatchState
+  readonly protocolEntryContents: readonly ProtocolEntryContent[]
 }
 
-function decodeCommandReceipt(row: typeof schema.commands.$inferSelect): CommandReceipt {
-  try {
-    if (row.outcome === 'accepted')
-      return v.parse(CommandReceipt, { _tag: 'accepted', acceptedSeq: row.acceptedSeq })
-    const rejectionReason: unknown = JSON.parse(row.rejectionJson ?? '')
-
-    return v.parse(CommandReceipt, { _tag: 'rejected', reason: rejectionReason })
-  } catch {
-    throw new Error(`MatchRoom commands storage corruption for command ${row.commandId}`)
-  }
+export type StoredCorrectionTarget = MatchCorrectionTarget & {
+  readonly previousCheckpointSeq: number
+  readonly previousCheckpoint: MatchCheckpoint
 }

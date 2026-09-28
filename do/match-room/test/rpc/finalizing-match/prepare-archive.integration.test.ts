@@ -18,10 +18,13 @@ test('throws before a match-ending acceptance', async () => {
   ).toContain('active Match')
 })
 
-test('derives the same archive transfer after eviction', async () => {
+test('derives the same archive transfer across retries and eviction without replay', async () => {
   const { matchId, stub } = await initializedRoom()
   const endingCommand = await makeRoomFinalizing(stub)
   const warm: FinishedMatchTransfer = await stub.prepareArchive()
+  await runInDurableObject(stub, (_room, state) => {
+    state.storage.sql.exec(`UPDATE commands SET request_json = '{}' WHERE accepted_seq = 1`)
+  })
   await evictDurableObject(stub)
   const restored: FinishedMatchTransfer = await env.MATCH_ROOM.getByName(matchId).prepareArchive()
   expect(restored.matchId).toBe(matchId)
@@ -36,29 +39,4 @@ test('derives the same archive transfer after eviction', async () => {
   ).toBe(true)
   expect(endingEntries.map((entry) => entry.entryIndex)).toEqual([0, 1, 2])
   expect(restored).toEqual(warm)
-})
-
-test('rejects a schema-valid persisted final state that disagrees with replay', async () => {
-  const { matchId, stub } = await initializedRoom()
-  await makeRoomFinalizing(stub)
-  await runInDurableObject(stub, (_room, state) => {
-    const stored = state.storage.sql
-      .exec<{ final_state_json: string }>('SELECT final_state_json FROM active_matches')
-      .one().final_state_json
-
-    const finalState = JSON.parse(stored)
-    state.storage.sql.exec(
-      'UPDATE active_matches SET final_state_json = ?',
-      JSON.stringify({ ...finalState, framesWonBySeat: { A: 0, B: 1 } }),
-    )
-  })
-  await evictDurableObject(stub)
-
-  expect(
-    (
-      await captureRpcError(async () => {
-        await env.MATCH_ROOM.getByName(matchId).prepareArchive()
-      })
-    ).message,
-  ).toContain('final state does not match accepted history')
 })

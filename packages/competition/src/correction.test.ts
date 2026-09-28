@@ -1,261 +1,141 @@
 import { expect, test } from 'bun:test'
 
 import {
-  type AcceptedCommand,
   type MatchCommand,
   type MatchConfig,
   newCommandId,
   newMatchId,
+  type ProtocolEntry,
   UnixEpochMilliseconds,
 } from '@ks/core'
 import * as v from 'valibot'
 
-import { correctMatch, createMatch, isCorrectableCommand, restoreMatch } from './match'
+import { correctMatch, createMatch, isCorrectableCommand, restoreMatchCheckpoint } from './match'
 
 const acceptedAt = v.parse(UnixEpochMilliseconds, 1_700_000_000_000)
 
-function config(gameKey: MatchConfig['gameKey'] = 'strila-v2'): MatchConfig {
-  const base: MatchConfig = {
-    matchId: newMatchId(),
-    gameKey,
-    targets: { frameTargetPointsBySeat: { A: 9, B: 9 }, matchTargetFrames: 2 },
-    firstBreakerSeat: 'A',
-  }
-
-  return gameKey === 'free-pyramid-long' ? { ...base, gameConfiguration: { rackRollover: 14 } } : base
+const config: MatchConfig = {
+  matchId: newMatchId(),
+  gameKey: 'strila-v2',
+  targets: { frameTargetPointsBySeat: { A: 9, B: 9 }, matchTargetFrames: 2 },
+  firstBreakerSeat: 'A',
 }
 
-function record(
-  match: ReturnType<typeof createMatch>,
-  history: AcceptedCommand[],
-  source: MatchCommand['source'],
-  command: MatchCommand['command'],
-) {
-  const submitted = { commandId: newCommandId(), source, command }
-  const result = match.execute(submitted)
-  expect(result._tag).toBe('accepted')
-  const accepted = { ...submitted, acceptedSeq: history.length + 1, acceptedAt }
-  history.push(accepted)
+function execute(match: ReturnType<typeof createMatch>, command: MatchCommand) {
+  const result = match.execute(command)
 
-  return accepted
+  if (result._tag !== 'accepted') throw new Error('Expected accepted command')
+
+  return result
 }
 
-function open(config: MatchConfig) {
-  const match = createMatch(config)
-  const history: AcceptedCommand[] = []
-  record(match, history, 'match', { type: 'frame.prepare' })
-  record(match, history, 'match', { type: 'frame.commence', seat: 'A' })
-
-  return { match, history }
-}
-
-function correction(target: AcceptedCommand): MatchCommand {
+function correction(targetSeq: number, targetCommandId: ReturnType<typeof newCommandId>): MatchCommand {
   return {
     commandId: newCommandId(),
     source: 'match',
-    command: { type: 'command.correct', targetSeq: target.acceptedSeq, targetCommandId: target.commandId },
+    command: { type: 'command.correct', targetSeq, targetCommandId },
   }
 }
 
-test('compensates the third cue-ball pot and its automatic foul while retaining both original entries', () => {
-  const setup = config()
-  const { match, history } = open(setup)
-  record(match, history, 'game', { type: 'pot.record', seat: 'A', pottedBalls: [0] })
-  record(match, history, 'game', { type: 'pot.record', seat: 'A', pottedBalls: [0] })
-  const target = record(match, history, 'game', { type: 'pot.record', seat: 'A', pottedBalls: [0] })
-  const submitted = correction(target)
-  const corrected = correctMatch(setup, history, submitted)
-  expect(corrected.result).toMatchObject({
+test('compensates every outcome of one game command in reverse order', () => {
+  const match = createMatch(config)
+  execute(match, {
+    commandId: newCommandId(),
+    source: 'match',
+    command: { type: 'frame.prepare' },
+  })
+  execute(match, {
+    commandId: newCommandId(),
+    source: 'match',
+    command: { type: 'frame.commence', seat: 'A' },
+  })
+
+  for (let count = 0; count < 2; count += 1)
+    execute(match, {
+      commandId: newCommandId(),
+      source: 'game',
+      command: { type: 'pot.record', seat: 'A', pottedBalls: [0] },
+    })
+
+  const matchBeforeTarget = restoreMatchCheckpoint(match.exportCheckpoint())
+
+  const targetCommand = {
+    commandId: newCommandId(),
+    source: 'game' as const,
+    command: { type: 'pot.record', seat: 'A', pottedBalls: [0] },
+  }
+
+  const targetResult = execute(match, targetCommand)
+  const targetSeq = 5
+
+  const protocolEntries: ProtocolEntry[] = targetResult.protocolEntryContents.map((entry, entryIndex) => ({
+    ...entry,
+    acceptedSeq: targetSeq,
+    entryIndex,
+    causedByCommandId: targetCommand.commandId,
+    acceptedAt,
+  }))
+
+  const command = correction(targetSeq, targetCommand.commandId)
+
+  expect(
+    correctMatch(
+      matchBeforeTarget,
+      { acceptedSeq: targetSeq, command: targetCommand, protocolEntries },
+      command,
+    ),
+  ).toMatchObject({
     _tag: 'accepted',
+    command,
     protocolEntryContents: [
       {
         entryType: 'command-corrected',
         source: 'system',
         scoreAfter: { A: 2, B: 0 },
-        body: { targetSeq: target.acceptedSeq, targetCommandId: target.commandId, targetEntryIndex: 1 },
+        body: { targetSeq, targetCommandId: targetCommand.commandId, targetEntryIndex: 1 },
       },
       {
         entryType: 'command-corrected',
         source: 'player',
         seat: 'A',
         scoreAfter: { A: 2, B: 0 },
-        body: { targetSeq: target.acceptedSeq, targetCommandId: target.commandId, targetEntryIndex: 0 },
+        body: { targetSeq, targetCommandId: targetCommand.commandId, targetEntryIndex: 0 },
       },
     ],
   })
-  expect(corrected.match?.project().game).toMatchObject({
+  expect(matchBeforeTarget.gamePresentation()).toMatchObject({
     score: { A: 2, B: 0 },
     details: { phase: 'open-play' },
   })
-  history.push({ ...submitted, acceptedSeq: 6, acceptedAt })
-  const restored = restoreMatch(setup, history)
-  expect(corrected.match).toBeDefined()
-  expect(restored.match.project()).toEqual(corrected.match!.project())
-  expect(restored.accepted[4]?.protocolEntryContents.map((entry) => entry.body)).toEqual([
-    { commandType: 'pot.record', pottedBalls: [0] },
-    { systemType: 'automatic-foul', reason: 'third-consecutive-cue-ball-pot' },
-  ])
-  expect(restored.accepted[5]?.protocolEntryContents).toMatchObject([
-    { source: 'system', body: { targetSeq: 5, targetEntryIndex: 1 } },
-    { source: 'player', body: { targetSeq: 5, targetEntryIndex: 0 } },
-  ])
+})
 
-  const next = {
+test('rejects a stale target and lifecycle commands, and reports malformed correction input', () => {
+  const match = createMatch(config)
+
+  const targetCommand = {
     commandId: newCommandId(),
     source: 'game' as const,
     command: { type: 'pot.record', seat: 'A', pottedBalls: [0] },
   }
 
-  expect(restored.match.execute(next)).toMatchObject({
-    _tag: 'accepted',
-    protocolEntryContents: [
-      { body: { commandType: 'pot.record' } },
-      { body: { systemType: 'automatic-foul' } },
-    ],
-  })
-})
+  const target = { acceptedSeq: 3, command: targetCommand, protocolEntries: [] }
 
-test('correcting a target-reaching shot restores scoring and the available controls', () => {
-  const setup = {
-    ...config('free-pyramid'),
-    targets: { frameTargetPointsBySeat: { A: 2, B: 5 }, matchTargetFrames: 2 },
-  }
-
-  const { match, history } = open(setup)
-  record(match, history, 'game', { type: 'pot.record', seat: 'B', pottedBallCount: 1 })
-  const target = record(match, history, 'game', { type: 'pot.record', seat: 'A', pottedBallCount: 2 })
-  expect(match.project().game?.details.phase).toBe('winner-determined')
-  const corrected = correctMatch(setup, history, correction(target))
-  expect(corrected.match?.project().game).toMatchObject({
-    score: { A: 0, B: 1 },
-    details: { phase: 'open-play' },
-  })
-  expect(corrected.result).toMatchObject({
-    _tag: 'accepted',
-    protocolEntryContents: [{ source: 'player', body: { targetEntryIndex: 0 } }],
+  expect(correctMatch(match, target, correction(4, targetCommand.commandId))).toEqual({
+    _tag: 'rejected',
+    reason: { code: 'correction-not-available' },
   })
   expect(
-    corrected.match
-      ?.project()
-      .controls.some((control) => control.type === 'pot.record' && control.seat === 'B'),
-  ).toBe(true)
-})
-
-test('correcting long-pyramid rack rollover restores the prior rack and total', () => {
-  const setup = {
-    ...config('free-pyramid-long'),
-    targets: { frameTargetPointsBySeat: { A: 30, B: 30 }, matchTargetFrames: 1 },
-  }
-
-  const { match, history } = open(setup)
-
-  for (let count = 0; count < 13; count += 1)
-    record(match, history, 'game', { type: 'pot.record', seat: 'A', pottedBallCount: 1 })
-  const target = record(match, history, 'game', { type: 'pot.record', seat: 'B', pottedBallCount: 1 })
-  const game = match.project().game
-  expect(game?.gameKey).toBe('free-pyramid-long')
-
-  if (game?.gameKey !== 'free-pyramid-long') throw new Error('Expected long pyramid')
-  expect(game.details.currentRack.rackNumber).toBe(2)
-  const corrected = correctMatch(setup, history, correction(target))
-  expect(corrected.match?.project().game).toMatchObject({
-    score: { A: 13, B: 0 },
-    details: { currentRack: { rackNumber: 1, scoreBySeat: { A: 13, B: 0 } } },
-  })
-})
-
-test('corrects three consecutive scores in reverse order across restoration', () => {
-  const setup = config('free-pyramid')
-  const { match, history } = open(setup)
-
-  const pots = Array.from({ length: 3 }, () =>
-    record(match, history, 'game', { type: 'pot.record', seat: 'A', pottedBallCount: 1 }),
-  )
-
-  for (const [index, target] of [...pots].reverse().entries()) {
-    const submitted = correction(target)
-    const corrected = correctMatch(setup, history, submitted)
-    expect(corrected.result._tag).toBe('accepted')
-    expect(corrected.match?.project().game).toMatchObject({ score: { A: 2 - index, B: 0 } })
-    history.push({ ...submitted, acceptedSeq: history.length + 1, acceptedAt })
-
-    if (!corrected.match) throw new Error('Expected correction to restore a match')
-    expect(restoreMatch(setup, history).match.project()).toEqual(corrected.match.project())
-    expect(correctMatch(setup, history, correction(target)).result).toMatchObject({
-      _tag: 'rejected',
-      reason: { code: 'correction-not-available' },
-    })
-  }
-
-  expect(correctMatch(setup, history, correction(pots[0]!)).result._tag).toBe('rejected')
-})
-
-test('restores alternating commands and corrections without expanding earlier corrections', () => {
-  const setup = config('free-pyramid')
-  const opened = open(setup)
-  const history = opened.history
-  let match = opened.match
-  const targets: AcceptedCommand[] = []
-
-  for (let index = 0; index < 12; index += 1) {
-    const target = record(match, history, 'game', {
-      type: 'pot.record',
-      seat: 'A',
-      pottedBallCount: 1,
-    })
-
-    targets.push(target)
-    const submitted = correction(target)
-    const corrected = correctMatch(setup, history, submitted)
-
-    if (!corrected.match) throw new Error('Expected an accepted correction')
-    expect(corrected.match.project().game).toMatchObject({ score: { A: 0, B: 0 } })
-    history.push({ ...submitted, acceptedSeq: history.length + 1, acceptedAt })
-    match = corrected.match
-  }
-
-  const restored = restoreMatch(setup, history)
-  expect(restored.match.project()).toEqual(match.project())
-  expect(
-    restored.accepted.filter(({ acceptedCommand }) => acceptedCommand.command.type === 'command.correct'),
-  ).toMatchObject(
-    targets.map((target) => ({
-      protocolEntryContents: [
-        {
-          entryType: 'command-corrected',
-          body: { targetSeq: target.acceptedSeq, targetCommandId: target.commandId, targetEntryIndex: 0 },
-        },
-      ],
-    })),
-  )
-  expect(
-    restored.match.execute({
+    isCorrectableCommand({
       commandId: newCommandId(),
       source: 'game',
-      command: { type: 'pot.record', seat: 'B', pottedBallCount: 1 },
+      command: { type: 'frame.award', seat: 'A' },
     }),
-  ).toMatchObject({ _tag: 'accepted', protocolEntryContents: [{ scoreAfter: { A: 0, B: 1 } }] })
-})
-
-test('rejects stale targets, a second correction, and non-game lifecycle actions', () => {
-  const setup = config()
-  const { match, history } = open(setup)
-  expect(isCorrectableCommand(history[1]!)).toBe(false)
-  const first = record(match, history, 'game', { type: 'miss.record', seat: 'A' })
-  const second = record(match, history, 'game', { type: 'foul.commit', seat: 'B' })
-  expect(correctMatch(setup, history, correction(first)).result).toMatchObject({
-    _tag: 'rejected',
-    reason: { code: 'correction-not-available' },
-  })
-  const submitted = correction(second)
-  expect(correctMatch(setup, history, submitted).result._tag).toBe('accepted')
-  history.push({ ...submitted, acceptedSeq: 5, acceptedAt })
-  expect(correctMatch(setup, history, correction(second)).result).toMatchObject({
-    _tag: 'rejected',
-    reason: { code: 'correction-not-available' },
-  })
-  expect(correctMatch(setup, history, correction(first)).result._tag).toBe('accepted')
-  expect(() =>
-    restoreMatch(setup, [...history, { ...correction(second), acceptedSeq: 6, acceptedAt }]),
-  ).toThrow()
+  ).toBe(false)
+  expect(
+    correctMatch(match, target, {
+      commandId: newCommandId(),
+      source: 'match',
+      command: { type: 'command.correct', targetCommandId: targetCommand.commandId },
+    }),
+  ).toMatchObject({ _tag: 'parse-failed' })
 })

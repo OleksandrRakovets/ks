@@ -35,6 +35,8 @@ test.each([14, 15] as const)(
       await submit('game', { type: 'pot.record', seat: 'A', pottedBallCount: count })
     await submit('game', { type: 'pot.record', seat: 'B', pottedBallCount: rollover - 12 })
 
+    expect(await stub.getScore()).toMatchObject({ _tag: 'active', latestSeq: 6 })
+
     const racks = [
       { rackNumber: 1, scoreBySeat: { A: 12, B: rollover - 12 } },
       { rackNumber: 2, scoreBySeat: { A: 0, B: 0 } },
@@ -46,6 +48,12 @@ test.each([14, 15] as const)(
       _tag: 'active',
       game: { details: { rackHistory: racks } },
     })
+    const protocol = await restored.getProtocol()
+    expect(protocol).toMatchObject({
+      _tag: 'active',
+      game: { details: { rackHistory: racks } },
+    })
+    expect(protocol).not.toHaveProperty('controls')
 
     await restored.submitCommand({
       commandId: newCommandId(),

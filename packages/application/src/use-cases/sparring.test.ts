@@ -62,7 +62,6 @@ function selectedClient(overrides: Partial<MatchRoomClient> = {}): MatchRoomClie
     getScore: unexpected,
     submitCommand: unexpected,
     prepareArchive: unexpected,
-    finalize: unexpected,
     ...overrides,
   }
 }
@@ -192,13 +191,7 @@ describe('trusted MatchRoom orchestration', () => {
         state,
         game: undefined,
         controls: [],
-      }),
-      getProtocol: async () => ({
-        _tag: 'active',
-        latestSeq: 0,
-        state,
-        game: undefined,
-        protocolEntries: [],
+        lastPlayerEntry: null,
       }),
     })
 
@@ -509,7 +502,7 @@ describe('trusted MatchRoom orchestration', () => {
     expect(v.safeParse(MatchScorePollResponse, { matches: result.matches }).success).toBe(true)
   })
 
-  test('reads Protocol presentation without Controls-only payload or RPC calls', async () => {
+  test('reads Protocol with its own durable presentation without a Controls call', async () => {
     const commandId = newCommandId()
 
     const room = selectedClient({
@@ -559,7 +552,7 @@ describe('trusted MatchRoom orchestration', () => {
     expect(result).not.toHaveProperty('lastCommand')
   })
 
-  test('archives, finalizes, and finishes after a match-ending Accepted Command', async () => {
+  test('archives and finishes after a match-ending Accepted Command', async () => {
     const events: string[] = []
 
     const room = selectedClient({
@@ -568,9 +561,6 @@ describe('trusted MatchRoom orchestration', () => {
         events.push('prepare')
 
         return transfer
-      },
-      finalize: async () => {
-        events.push('finalize')
       },
     })
 
@@ -581,7 +571,7 @@ describe('trusted MatchRoom orchestration', () => {
     )
 
     expect(result).toEqual({ ok: true, outcome: { _tag: 'accepted', acceptedSeq: 1 } })
-    expect(events).toEqual(['prepare', 'archive', 'finalize', 'finish'])
+    expect(events).toEqual(['prepare', 'archive', 'finish'])
   })
 
   test('admits only active Matches to their live transport', async () => {
@@ -627,7 +617,7 @@ describe('trusted MatchRoom orchestration', () => {
     expect(events).toEqual([])
   })
 
-  test('reads the final result without Protocol replay when the Match ends between room calls', async () => {
+  test('reads active controls without a second Protocol call', async () => {
     const room = selectedClient({
       getControls: async () => ({
         _tag: 'active',
@@ -635,21 +625,15 @@ describe('trusted MatchRoom orchestration', () => {
         state,
         game: undefined,
         controls: [],
-      }),
-      getProtocol: async () => ({
-        _tag: 'finalizing',
-        state: transfer.finalState,
-        gameResult: null,
-        latestSeq: 2,
-        endedAt: transfer.endedAt,
+        lastPlayerEntry: null,
       }),
     })
 
     expect(await sparring(room).readMatch(matchId, 'en', 'free-pyramid')).toMatchObject({
       ok: true,
-      lifecycle: 'finished',
-      latestSeq: 2,
-      state: { status: 'finished' },
+      lifecycle: 'active',
+      latestSeq: 0,
+      state: { status: 'active' },
     })
   })
 
@@ -657,23 +641,12 @@ describe('trusted MatchRoom orchestration', () => {
     const events: string[] = []
 
     const room = selectedClient({
-      getControls: async () => ({
-        _tag: 'active',
-        latestSeq: 0,
-        state,
-        game: undefined,
-        controls: [],
-      }),
       getProtocol: async () => ({
         _tag: 'finalizing',
         state: transfer.finalState,
         gameResult: null,
         latestSeq: 2,
         endedAt: transfer.endedAt,
-      }),
-      prepareArchive: async () => ({
-        ...transfer,
-        sourceLatestSeq: 2,
         protocolEntries: [
           {
             acceptedSeq: 2,
@@ -706,9 +679,6 @@ describe('trusted MatchRoom orchestration', () => {
     const room = selectedClient({
       submitCommand: async () => ({ _tag: 'finalizing' }),
       prepareArchive: async () => transfer,
-      finalize: async () => {
-        events.push('finalize')
-      },
     })
 
     expect(
@@ -718,7 +688,7 @@ describe('trusted MatchRoom orchestration', () => {
         'free-pyramid',
       ),
     ).toEqual({ ok: false, error: 'match-locked', status: 409 })
-    expect(events).toEqual(['archive', 'finalize', 'finish'])
+    expect(events).toEqual(['archive', 'finish'])
   })
 
   test('returns malformed nested Commands as invalid request data', async () => {
@@ -751,16 +721,47 @@ describe('trusted MatchRoom orchestration', () => {
     expect(error).toBe(defect)
   })
 
-  test('does not finalize when archival fails before or after persistence and converges on retry', async () => {
+  test('does not finish when archival fails before persistence', async () => {
+    const events: string[] = []
+
+    const room = selectedClient({
+      submitCommand: async () => ({ _tag: 'accepted', acceptedSeq: 1, endsMatch: true }),
+      prepareArchive: async () => transfer,
+    })
+
+    const app = sparring(room, events, {
+      overrides: {
+        archiveFinishedMatch: async () => {
+          events.push('archive-failed')
+          throw new Error('archive failed')
+        },
+      },
+    })
+
+    let archiveError: Error | undefined
+
+    try {
+      await app.submitMatchCommand(
+        matchId,
+        { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } },
+        'free-pyramid',
+      )
+    } catch (reason) {
+      if (!(reason instanceof Error)) throw reason
+      archiveError = reason
+    }
+
+    expect(archiveError?.message).toBe('archive failed')
+    expect(events).toEqual(['archive-failed'])
+  })
+
+  test('retries idempotent archival after a persisted response is lost', async () => {
     const events: string[] = []
     let archiveAttempts = 0
 
     const room = selectedClient({
       submitCommand: async () => ({ _tag: 'accepted', acceptedSeq: 1, endsMatch: true }),
       prepareArchive: async () => transfer,
-      finalize: async () => {
-        events.push('finalize')
-      },
     })
 
     const app = sparring(room, events, {
@@ -787,6 +788,47 @@ describe('trusted MatchRoom orchestration', () => {
     expect(archiveError?.message).toBe('lost archive response')
     expect(events).toEqual(['archive-persisted-response-lost'])
     expect(await app.submitMatchCommand(matchId, command, 'free-pyramid')).toMatchObject({ ok: true })
-    expect(events).toEqual(['archive-persisted-response-lost', 'archive-retry', 'finalize', 'finish'])
+    expect(events).toEqual(['archive-persisted-response-lost', 'archive-retry', 'finish'])
+  })
+
+  test('retries archive and D1 finish after the first finish attempt fails', async () => {
+    const events: string[] = []
+    let finishAttempts = 0
+
+    const room = selectedClient({
+      submitCommand: async () => ({ _tag: 'accepted', acceptedSeq: 1, endsMatch: true }),
+      prepareArchive: async () => transfer,
+    })
+
+    const app = sparring(room, events, {
+      overrides: {
+        markMatchFinished: async () => {
+          finishAttempts += 1
+          events.push(finishAttempts === 1 ? 'finish-failed' : 'finish-retry')
+
+          if (finishAttempts === 1) throw new Error('finish failed')
+        },
+      },
+    })
+
+    const command = {
+      commandId: newCommandId(),
+      source: 'match' as const,
+      command: { type: 'frame.prepare' },
+    }
+
+    let finishError: Error | undefined
+
+    try {
+      await app.submitMatchCommand(matchId, command, 'free-pyramid')
+    } catch (reason) {
+      if (!(reason instanceof Error)) throw reason
+      finishError = reason
+    }
+
+    expect(finishError?.message).toBe('finish failed')
+    expect(events).toEqual(['archive', 'finish-failed'])
+    expect(await app.submitMatchCommand(matchId, command, 'free-pyramid')).toMatchObject({ ok: true })
+    expect(events).toEqual(['archive', 'finish-failed', 'archive', 'finish-retry'])
   })
 })

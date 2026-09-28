@@ -1,7 +1,7 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "6f46603d-605c-42e5-b2f6-94881582172a",
+  "id": "1a302592-1680-48d7-8095-a27efb804e6a",
   "prevIds": ["00000000-0000-0000-0000-000000000000"],
   "ddl": [
     {
@@ -9,7 +9,15 @@
       "entityType": "tables"
     },
     {
+      "name": "checkpoints",
+      "entityType": "tables"
+    },
+    {
       "name": "commands",
+      "entityType": "tables"
+    },
+    {
+      "name": "protocol_entries",
       "entityType": "tables"
     },
     {
@@ -58,6 +66,16 @@
       "autoincrement": false,
       "default": null,
       "generated": null,
+      "name": "score_json",
+      "entityType": "columns",
+      "table": "active_matches"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
       "name": "status",
       "entityType": "columns",
       "table": "active_matches"
@@ -73,22 +91,12 @@
       "table": "active_matches"
     },
     {
-      "type": "text",
+      "type": "integer",
       "notNull": false,
       "autoincrement": false,
       "default": null,
       "generated": null,
-      "name": "final_state_json",
-      "entityType": "columns",
-      "table": "active_matches"
-    },
-    {
-      "type": "text",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "game_result_json",
+      "name": "ended_at",
       "entityType": "columns",
       "table": "active_matches"
     },
@@ -98,9 +106,49 @@
       "autoincrement": false,
       "default": null,
       "generated": null,
-      "name": "ended_at",
+      "name": "seq",
       "entityType": "columns",
-      "table": "active_matches"
+      "table": "checkpoints"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "previous_checkpoint_seq",
+      "entityType": "columns",
+      "table": "checkpoints"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "aggregate_json",
+      "entityType": "columns",
+      "table": "checkpoints"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "last_player_accepted_seq",
+      "entityType": "columns",
+      "table": "checkpoints"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "last_player_entry_index",
+      "entityType": "columns",
+      "table": "checkpoints"
     },
     {
       "type": "text",
@@ -173,6 +221,36 @@
       "table": "commands"
     },
     {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "accepted_seq",
+      "entityType": "columns",
+      "table": "protocol_entries"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "entry_index",
+      "entityType": "columns",
+      "table": "protocol_entries"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "entry_json",
+      "entityType": "columns",
+      "table": "protocol_entries"
+    },
+    {
       "columns": ["match_id"],
       "tableTo": "active_matches",
       "columnsTo": ["match_id"],
@@ -184,10 +262,24 @@
       "table": "commands"
     },
     {
+      "columns": ["accepted_seq", "entry_index"],
+      "nameExplicit": false,
+      "name": "protocol_entries_pk",
+      "entityType": "pks",
+      "table": "protocol_entries"
+    },
+    {
       "columns": ["match_id"],
       "nameExplicit": false,
       "name": "active_matches_pk",
       "table": "active_matches",
+      "entityType": "pks"
+    },
+    {
+      "columns": ["seq"],
+      "nameExplicit": false,
+      "name": "checkpoints_pk",
+      "table": "checkpoints",
       "entityType": "pks"
     },
     {
@@ -205,16 +297,34 @@
       "table": "commands"
     },
     {
-      "value": "(\"status\" = 'active' AND \"final_state_json\" IS NULL AND \"ended_at\" IS NULL) OR (\"status\" = 'finalizing' AND \"final_state_json\" IS NOT NULL AND \"ended_at\" IS NOT NULL)",
+      "value": "(\"status\" = 'active' AND \"ended_at\" IS NULL) OR (\"status\" = 'finalizing' AND \"ended_at\" IS NOT NULL)",
       "name": "active_matches_finalizing_fields",
       "entityType": "checks",
       "table": "active_matches"
+    },
+    {
+      "value": "(\"last_player_accepted_seq\" IS NULL AND \"last_player_entry_index\" IS NULL) OR (\"last_player_accepted_seq\" IS NOT NULL AND \"last_player_accepted_seq\" > 0 AND \"last_player_entry_index\" IS NOT NULL AND \"last_player_entry_index\" >= 0)",
+      "name": "checkpoints_reference_fields",
+      "entityType": "checks",
+      "table": "checkpoints"
+    },
+    {
+      "value": "(\"seq\" = 0 AND \"previous_checkpoint_seq\" IS NULL) OR (\"seq\" > 0 AND \"previous_checkpoint_seq\" IS NOT NULL AND \"previous_checkpoint_seq\" >= 0 AND \"previous_checkpoint_seq\" < \"seq\")",
+      "name": "checkpoints_predecessor",
+      "entityType": "checks",
+      "table": "checkpoints"
     },
     {
       "value": "(\"outcome\" = 'accepted' AND \"accepted_seq\" > 0 AND \"accepted_at\" IS NOT NULL AND \"rejection_json\" IS NULL) OR (\"outcome\" = 'rejected' AND \"accepted_seq\" IS NULL AND \"accepted_at\" IS NULL AND \"rejection_json\" IS NOT NULL)",
       "name": "commands_outcome_fields",
       "entityType": "checks",
       "table": "commands"
+    },
+    {
+      "value": "\"accepted_seq\" > 0 AND \"entry_index\" >= 0",
+      "name": "protocol_entries_position",
+      "entityType": "checks",
+      "table": "protocol_entries"
     }
   ],
   "renames": []
