@@ -1,11 +1,10 @@
-import type { Match, MatchStateFor } from '@ks/competition'
+import { type Match, type MatchStateFor, restoreMatchCheckpoint } from '@ks/competition'
 import type { Control, MatchCommand, MatchScoreProjection, NonNegativeInteger, ProtocolEntry } from '@ks/core'
 import type { GamePresentationFor, RegisteredGameKey } from '@ks/gameplay/definitions'
 
 import { type LiveConnectionCursor, LiveConnectionHandler } from '../live/live-connection-handler'
 import { MatchStorage } from '../storage/match-storage'
 import type { ActiveMatchRecord, CommandReceipt } from '../storage/records'
-import { restoreMatch } from './restore-match'
 
 export class ActiveMatchHandler {
   readonly #storage: MatchStorage
@@ -38,7 +37,7 @@ export class ActiveMatchHandler {
       return priorReceipt.receipt
     }
 
-    const match = restoreMatch(this.#storage, this.#matchRecord)
+    const match = restoreMatchCheckpoint(this.#storage.readCurrentCheckpoint(this.#matchRecord))
     const result = match.execute(command)
 
     // Nested command validation failed before execution, so allow a corrected request to reuse this command ID.
@@ -71,7 +70,7 @@ export class ActiveMatchHandler {
   }
 
   getControls(): ActiveControlsResult {
-    const match = restoreMatch(this.#storage, this.#matchRecord)
+    const match = restoreMatchCheckpoint(this.#storage.readCurrentCheckpoint(this.#matchRecord))
 
     return {
       _tag: 'active',
@@ -83,7 +82,7 @@ export class ActiveMatchHandler {
   }
 
   getProtocol(): ActiveProtocolResult {
-    const match = restoreMatch(this.#storage, this.#matchRecord)
+    const match = restoreMatchCheckpoint(this.#storage.readCurrentCheckpoint(this.#matchRecord))
 
     return {
       _tag: 'active',

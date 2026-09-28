@@ -1,3 +1,4 @@
+import { restoreMatchCheckpoint } from '@ks/competition'
 import type {
   MatchCommand,
   MatchId,
@@ -11,7 +12,6 @@ import type { GameResult, RegisteredGameKey } from '@ks/gameplay/definitions'
 
 import { MatchStorage } from '../storage/match-storage'
 import type { CommandReceipt, FinalizingMatchRecord } from '../storage/records'
-import { restoreMatch } from './restore-match'
 
 export class FinalizingMatchHandler {
   readonly #storage: MatchStorage
@@ -44,7 +44,7 @@ export class FinalizingMatchHandler {
 
   getControls(): FinalizingReadResult {
     this.#warnRead('controls')
-    const match = restoreMatch(this.#storage, this.#matchRecord)
+    const match = restoreMatchCheckpoint(this.#storage.readCurrentCheckpoint(this.#matchRecord))
 
     return {
       _tag: 'finalizing' as const,
@@ -57,7 +57,7 @@ export class FinalizingMatchHandler {
 
   getProtocol(): FinalizingProtocolResult {
     this.#warnRead('protocol')
-    const match = restoreMatch(this.#storage, this.#matchRecord)
+    const match = restoreMatchCheckpoint(this.#storage.readCurrentCheckpoint(this.#matchRecord))
 
     return {
       _tag: 'finalizing' as const,
@@ -81,7 +81,7 @@ export class FinalizingMatchHandler {
   }
 
   prepareArchive(): FinishedMatchTransfer {
-    const match = restoreMatch(this.#storage, this.#matchRecord)
+    const match = restoreMatchCheckpoint(this.#storage.readCurrentCheckpoint(this.#matchRecord))
 
     return {
       matchId: this.#matchRecord.matchId,
