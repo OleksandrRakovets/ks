@@ -4,3 +4,5 @@ export * from './definitions'
 export * from './protocol'
 
 export * from './match'
+
+export * from './correction'

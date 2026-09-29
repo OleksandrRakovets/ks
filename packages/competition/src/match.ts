@@ -1,12 +1,4 @@
-import {
-  CommandId,
-  type Control,
-  type FrameOutcome,
-  type MatchCommand,
-  opponentOf,
-  PositiveInteger,
-  Seat,
-} from '@ks/core'
+import { type Control, type FrameOutcome, type MatchCommand, opponentOf, Seat } from '@ks/core'
 import { GameKey, type GamePresentationFor, GameResult } from '@ks/gameplay/definitions'
 import {
   GameCommandRejection,
@@ -28,7 +20,7 @@ import {
   restoreLifecycleSnapshot,
   sendLifecycleEvent,
 } from './match-machine-internals'
-import type { ProtocolEntry, ProtocolEntryContent } from './protocol'
+import type { ProtocolEntryContent } from './protocol'
 
 export type { MatchPhase } from './match-machine-internals'
 
@@ -66,23 +58,6 @@ type MatchCommandResult =
       readonly protocolEntryContents: readonly ProtocolEntryContent[]
     }
 
-export const CorrectionCommand = v.pipe(
-  v.strictObject({
-    type: v.literal('command.correct'),
-    targetSeq: PositiveInteger,
-    targetCommandId: CommandId,
-  }),
-  v.readonly(),
-)
-
-export type CorrectionCommand = v.InferOutput<typeof CorrectionCommand>
-
-export type MatchCorrectionTarget = {
-  readonly acceptedSeq: PositiveInteger
-  readonly command: MatchCommand
-  readonly protocolEntries: readonly ProtocolEntry[]
-}
-
 export type { Match }
 
 type CorrelatedGameplay<K extends GameKey> = {
@@ -99,18 +74,6 @@ const MatchLifecycleCommand = v.variant('type', [
 ])
 
 type MatchLifecycleCommand = v.InferOutput<typeof MatchLifecycleCommand>
-
-export function isCorrectionCommand(command: MatchCommand): boolean {
-  return command.source === 'match' && command.command.type === 'command.correct'
-}
-
-export function isCorrectableCommand(command: MatchCommand): boolean {
-  return (
-    command.source === 'game' &&
-    command.command.type !== 'frame.commence' &&
-    command.command.type !== 'frame.award'
-  )
-}
 
 /** Executable Match aggregate; construct through createMatch or restoreMatchCheckpoint. */
 class Match {
@@ -490,59 +453,6 @@ export function restoreMatchCheckpoint(input: MatchCheckpoint): Match {
     gameplay && ({ key: gameplay.gameKey, session: restoreGameplaySession(gameplay) } as AnyCorrelatedGameplay)
 
   return new Match(lifecycle, correlated, input.completedGameResult)
-}
-
-/** Compensates the current effective game command against its persisted pre-command checkpoint. */
-export function correctMatch(
-  matchBeforeTarget: Match,
-  target: MatchCorrectionTarget,
-  command: MatchCommand,
-): MatchCommandResult {
-  const parsed = v.safeParse(CorrectionCommand, command.command)
-
-  if (command.source !== 'match' || !parsed.success)
-    return {
-      _tag: 'parse-failed',
-      reason: { code: 'unsupported-match-command', commandType: 'command.correct' },
-    }
-
-  if (
-    !isCorrectableCommand(target.command) ||
-    target.acceptedSeq !== parsed.output.targetSeq ||
-    target.command.commandId !== parsed.output.targetCommandId
-  )
-    return { _tag: 'rejected', reason: { code: 'correction-not-available' } }
-
-  const state = matchBeforeTarget.state()
-  const frame = state.frames.at(-1)
-  const gameKey = gameKeyOf(state.gameKey)
-
-  if (matchBeforeTarget.phase() !== 'frame-in-progress' || !frame)
-    throw new Error('Persisted correction target is incompatible with its predecessor checkpoint')
-
-  if (target.protocolEntries.length === 0)
-    throw new Error('Persisted correction target has no Protocol entries')
-
-  return {
-    _tag: 'accepted',
-    command,
-    // A single Command may produce derived outcomes; compensate them latest-first while linking original positions.
-    protocolEntryContents: target.protocolEntries
-      .map((original): ProtocolEntryContent => ({
-        gameKey,
-        frameIndex: frame.frameIndex,
-        source: original.source,
-        entryType: 'command-corrected',
-        seat: original.seat,
-        scoreAfter: frame.pointsBySeat,
-        body: {
-          targetSeq: target.acceptedSeq,
-          targetCommandId: target.command.commandId,
-          targetEntryIndex: original.entryIndex,
-        },
-      }))
-      .reverse(),
-  }
 }
 
 function gameKeyOf(value: string): GameKey {

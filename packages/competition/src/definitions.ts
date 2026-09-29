@@ -12,6 +12,45 @@ import {
 import { GameKey } from '@ks/gameplay/definitions'
 import * as v from 'valibot'
 
+export const MatchCreationDefinition = v.pipe(
+  v.object({
+    gameKey: GameKey,
+    targets: MatchTargets,
+    firstBreakerSeat: Seat,
+    gameConfiguration: v.optional(GameConfiguration),
+  }),
+  v.check(
+    (value) =>
+      value.gameKey !== 'free-pyramid-long' ||
+      value.gameConfiguration?.rackRollover === 14 ||
+      value.gameConfiguration?.rackRollover === 15,
+    'Long free pyramid requires rack rollover configuration',
+  ),
+  v.check(
+    (value) => value.gameKey !== 'free-pyramid-long' || value.targets.matchTargetFrames === 1,
+    'Long free pyramid requires a single frame',
+  ),
+  v.readonly(),
+)
+
+export type MatchCreationDefinition = v.InferOutput<typeof MatchCreationDefinition>
+
+export const CreateMatchRequest = v.pipe(
+  v.intersect([
+    MatchCreationDefinition,
+    v.object({
+      participants: v.pipe(v.tuple([MatchSeatAssignment, MatchSeatAssignment]), v.readonly()),
+    }),
+  ]),
+  v.check(
+    (value) => new Set(value.participants.map((participant) => participant.seat)).size === 2,
+    'Participants must include one A and one B seat',
+  ),
+  v.readonly(),
+)
+
+export type CreateMatchRequest = v.InferOutput<typeof CreateMatchRequest>
+
 export const MatchConfig = v.pipe(
   v.object({
     matchId: MatchId,
@@ -24,6 +63,20 @@ export const MatchConfig = v.pipe(
 )
 
 export type MatchConfig = v.InferOutput<typeof MatchConfig>
+
+export function buildMatchConfig(matchId: MatchId, input: CreateMatchRequest): MatchConfig {
+  const config = {
+    matchId,
+    gameKey: input.gameKey,
+    targets: input.targets,
+    firstBreakerSeat: input.firstBreakerSeat,
+  }
+
+  // Omit absent optional values so MatchConfig remains structurally equal after JSON persistence round-trips.
+  return input.gameConfiguration === undefined
+    ? config
+    : { ...config, gameConfiguration: input.gameConfiguration }
+}
 
 export const FrameState = v.pipe(
   v.object({
@@ -52,6 +105,8 @@ export const MatchState = v.pipe(
 )
 
 export type MatchState = v.InferOutput<typeof MatchState>
+
+export type MatchStateFor<K extends GameKey> = Omit<MatchState, 'gameKey'> & { readonly gameKey: K }
 
 export const ActiveFrameScoreProjection = v.pipe(
   v.object({
@@ -97,59 +152,4 @@ export function projectMatchScore(state: MatchState): MatchScoreProjection {
       ? { frameIndex: currentFrame.frameIndex, pointsBySeat: currentFrame.pointsBySeat }
       : null,
   }
-}
-
-export const MatchCreationDefinition = v.pipe(
-  v.object({
-    gameKey: GameKey,
-    targets: MatchTargets,
-    firstBreakerSeat: Seat,
-    gameConfiguration: v.optional(GameConfiguration),
-  }),
-  v.check(
-    (value) =>
-      value.gameKey !== 'free-pyramid-long' ||
-      value.gameConfiguration?.rackRollover === 14 ||
-      value.gameConfiguration?.rackRollover === 15,
-    'Long free pyramid requires rack rollover configuration',
-  ),
-  v.check(
-    (value) => value.gameKey !== 'free-pyramid-long' || value.targets.matchTargetFrames === 1,
-    'Long free pyramid requires a single frame',
-  ),
-  v.readonly(),
-)
-
-export type MatchCreationDefinition = v.InferOutput<typeof MatchCreationDefinition>
-
-export const CreateMatchRequest = v.pipe(
-  v.intersect([
-    MatchCreationDefinition,
-    v.object({
-      participants: v.pipe(v.tuple([MatchSeatAssignment, MatchSeatAssignment]), v.readonly()),
-    }),
-  ]),
-  v.check(
-    (value) => new Set(value.participants.map((participant) => participant.seat)).size === 2,
-    'Participants must include one A and one B seat',
-  ),
-  v.readonly(),
-)
-
-export type CreateMatchRequest = v.InferOutput<typeof CreateMatchRequest>
-
-export type MatchStateFor<K extends GameKey> = Omit<MatchState, 'gameKey'> & { readonly gameKey: K }
-
-export function buildMatchConfig(matchId: MatchId, input: CreateMatchRequest): MatchConfig {
-  const config = {
-    matchId,
-    gameKey: input.gameKey,
-    targets: input.targets,
-    firstBreakerSeat: input.firstBreakerSeat,
-  }
-
-  // Omit absent optional values so MatchConfig remains structurally equal after JSON persistence round-trips.
-  return input.gameConfiguration === undefined
-    ? config
-    : { ...config, gameConfiguration: input.gameConfiguration }
 }
