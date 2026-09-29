@@ -5,7 +5,7 @@ import { newCommandId, newMatchId } from '@ks/core'
 import { keys } from '@ks/i18n'
 import { RouterContextProvider } from 'react-router'
 
-import { cloudflareContext } from '@/server/context'
+import { cloudflareContext } from '@/.server/context'
 
 import { commandMatchAction } from './handlers'
 

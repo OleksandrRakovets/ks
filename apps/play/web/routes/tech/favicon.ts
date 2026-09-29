@@ -1,4 +1,5 @@
-import { iconBasePath, iconVariantFromContext } from '@/server/icon-assets'
+import { iconVariantFromContext } from '@/.server/icon-assets'
+import { iconBasePath } from '@/icon-assets'
 
 import type { Route } from './+types/favicon'
 

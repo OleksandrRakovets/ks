@@ -1,4 +1,5 @@
-import { iconManifest, iconVariantFromContext } from '@/server/icon-assets'
+import { iconVariantFromContext } from '@/.server/icon-assets'
+import { iconManifest } from '@/icon-assets'
 
 import type { Route } from './+types/site-webmanifest'
 

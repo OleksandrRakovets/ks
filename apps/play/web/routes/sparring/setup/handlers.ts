@@ -4,6 +4,8 @@ import { isGameKey, registry } from '@ks/gameplay/definitions'
 import { redirect } from 'react-router'
 import * as v from 'valibot'
 
+import type { AppLoadContext } from '@/.server/context'
+import { requireApplication } from '@/.server/context'
 import {
   createProfileForGame,
   type MatchCreateProfile,
@@ -11,8 +13,6 @@ import {
 } from '@/features/sparring/setup/profile'
 import { matchUrl } from '@/features/sparring/urls'
 import { localeFromContext } from '@/i18n'
-import type { AppLoadContext } from '@/server/context'
-import { requireApplication } from '@/server/context'
 
 type LoaderData = {
   title: string
