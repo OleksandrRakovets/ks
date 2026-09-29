@@ -1,3 +1,4 @@
+/** Browser/server shared domain primitives and schemas. */
 export type * from './brand'
 
 export * from './command'

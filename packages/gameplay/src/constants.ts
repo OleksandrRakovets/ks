@@ -1,4 +1,4 @@
-import { BySeatNumber, Control, NonEmptyString, Seat, SizedString } from '@ks/core'
+import { BySeatNumber, Control, Integer, NonEmptyString, Seat, SizedString } from '@ks/core'
 import * as v from 'valibot'
 
 export const FrameCommenceCommand = v.pipe(
@@ -62,3 +62,29 @@ export const GamePresentation = v.pipe(
 )
 
 export type GamePresentation = v.InferOutput<typeof GamePresentation>
+
+export const LongFreePyramidRack = v.pipe(
+  v.object({
+    rackNumber: v.pipe(Integer, v.minValue(1)),
+    scoreBySeat: BySeatNumber,
+  }),
+  v.readonly(),
+)
+
+export type LongFreePyramidRack = v.InferOutput<typeof LongFreePyramidRack>
+
+/** Game-owned result retained after its single frame ends, including a rollover's empty final rack. */
+export const LongFreePyramidResult = v.pipe(
+  v.object({
+    gameKey: v.literal('free-pyramid-long'),
+    racks: v.pipe(v.array(LongFreePyramidRack), v.minLength(1), v.readonly()),
+  }),
+  v.readonly(),
+)
+
+export type LongFreePyramidResult = v.InferOutput<typeof LongFreePyramidResult>
+
+/** Replace this alias with a discriminated union when another registered game adds a bespoke result. */
+export const GameResult = LongFreePyramidResult
+
+export type GameResult = v.InferOutput<typeof GameResult>

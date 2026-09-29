@@ -1,3 +1,4 @@
+/** Server-only application composition over D1 and the MatchRoom binding. */
 import type { D1Database } from '@cloudflare/workers-types'
 import { type Clock, newMatchId } from '@ks/core'
 

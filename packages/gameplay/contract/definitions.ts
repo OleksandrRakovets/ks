@@ -1,3 +1,4 @@
+/** Browser/server shared game contracts; this entrypoint excludes executable XState machines. */
 export {
   GameKey,
   isGameKey,
@@ -12,8 +13,7 @@ export {
   LongFreePyramidResult,
 } from '../src/long-free-pyramid/definitions'
 
-/** Optional game-owned result accompanying a finished Match; other games currently have none. */
-export { LongFreePyramidResult as GameResult } from '../src/long-free-pyramid/definitions'
+export { GameResult } from '../src/constants'
 
 export {
   type CombinedPyramidGamePresentation,

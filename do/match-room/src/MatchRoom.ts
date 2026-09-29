@@ -1,3 +1,4 @@
+/** Worker-only Durable Object implementation exported through Play's generated binding. */
 import { type MatchCommand } from '@ks/core'
 import { DurableObject } from 'cloudflare:workers'
 

@@ -1,3 +1,4 @@
+/** Browser/server shared Match definitions and projections; this entrypoint excludes executable machines. */
 import {
   BySeatNumber,
   GameConfiguration,

@@ -1,7 +1,15 @@
 import { BySeatNumber, Integer, Seat } from '@ks/core'
 import * as v from 'valibot'
 
-import { FoulCommitCommand, FrameAwardCommand, FrameCommenceCommand, GamePresentation } from '../constants'
+import {
+  FoulCommitCommand,
+  FrameAwardCommand,
+  FrameCommenceCommand,
+  GamePresentation,
+  LongFreePyramidRack,
+} from '../constants'
+
+export { LongFreePyramidResult, type LongFreePyramidRack } from '../constants'
 
 const LongFreePyramidPottedBallCount = v.picklist([1, 2, 3, 4])
 
@@ -20,27 +28,6 @@ export const LongFreePyramidCommand = v.variant('type', [
 ])
 
 export type LongFreePyramidCommand = v.InferOutput<typeof LongFreePyramidCommand>
-
-const LongFreePyramidRack = v.pipe(
-  v.object({
-    rackNumber: v.pipe(Integer, v.minValue(1)),
-    scoreBySeat: BySeatNumber,
-  }),
-  v.readonly(),
-)
-
-export type LongFreePyramidRack = v.InferOutput<typeof LongFreePyramidRack>
-
-/** Game-owned result retained after its single frame ends, including a rollover's empty final rack. */
-export const LongFreePyramidResult = v.pipe(
-  v.object({
-    gameKey: v.literal('free-pyramid-long'),
-    racks: v.pipe(v.array(LongFreePyramidRack), v.minLength(1), v.readonly()),
-  }),
-  v.readonly(),
-)
-
-export type LongFreePyramidResult = v.InferOutput<typeof LongFreePyramidResult>
 
 const LongFreePyramidMessage = v.pipe(
   v.object({

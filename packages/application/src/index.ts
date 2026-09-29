@@ -1,3 +1,4 @@
+/** Browser/server shared application contracts; server adapters are exported from @ks/application/server. */
 export type { Application } from './contracts'
 
 export type {

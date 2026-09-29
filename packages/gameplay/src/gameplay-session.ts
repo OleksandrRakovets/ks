@@ -1,8 +1,7 @@
 import type { BySeatNumber, FrameOutcome, Seat } from '@ks/core'
 import * as v from 'valibot'
 
-import type { GameControl } from './constants'
-import type { LongFreePyramidResult } from './long-free-pyramid/definitions'
+import type { GameControl, GameResult } from './constants'
 import { LongFreePyramidProtocolEntry } from './long-free-pyramid/protocol'
 import { PyramidProtocolEntry } from './pyramid/protocol'
 import type { GameCommandFor, GameKey, GameplayCheckpointStateFor, GamePresentationFor } from './registry'
@@ -15,8 +14,6 @@ export const GameProtocolEntry = v.union([
 ])
 
 export type GameProtocolEntry = v.InferOutput<typeof GameProtocolEntry>
-
-type GameResult = LongFreePyramidResult
 
 export const GameCommandRejection = v.pipe(
   v.object({ code: v.literal('command-not-available') }),
