@@ -1,6 +1,11 @@
 import { isDeepStrictEqual } from 'node:util'
 
-import type { MatchCheckpoint, MatchRejection } from '@ks/competition'
+import {
+  isCorrectionCommand,
+  type MatchCheckpoint,
+  type MatchCorrectionTarget,
+  type MatchRejection,
+} from '@ks/competition'
 import {
   AcceptedCommand,
   type MatchCommand,
@@ -9,6 +14,7 @@ import {
   type MatchScoreProjection,
   type MatchState,
   type MatchStreamUpdate,
+  PositiveInteger,
   projectMatchScore,
   ProtocolEntry,
   type ProtocolEntryContent,
@@ -125,6 +131,63 @@ export class MatchStorage {
     receipt: Extract<CommandReceipt, { _tag: 'accepted' }>
     streamUpdate: MatchStreamUpdate
   } {
+    return this.#commitAcceptedCommand(args, this.#selectCheckpointRow(args.matchRecord.latestSeq), false)
+  }
+
+  commitCorrection(args: {
+    matchRecord: ActiveMatchRecord
+    command: MatchCommand
+    checkpoint: MatchCheckpoint
+    state: MatchState
+    protocolEntryContents: readonly ProtocolEntryContent[]
+    target: StoredCorrectionTarget
+  }): {
+    receipt: Extract<CommandReceipt, { _tag: 'accepted' }>
+    streamUpdate: MatchStreamUpdate
+  } {
+    return this.#commitAcceptedCommand(
+      args,
+      this.#selectCheckpointRow(args.target.previousCheckpointSeq),
+      true,
+    )
+  }
+
+  readCorrectionTarget(matchRecord: ActiveMatchRecord): StoredCorrectionTarget | null {
+    let targetRow = this.#selectCheckpointRow(matchRecord.latestSeq)
+
+    if (targetRow.seq === 0) return null
+    let targetCommand = commandFromRow(this.#selectAcceptedCommandRow(targetRow.seq))
+
+    if (isCorrectionCommand(targetCommand)) {
+      if (targetRow.previousCheckpointSeq === null)
+        throw new Error('MatchRoom checkpoint predecessor corruption')
+      targetRow = this.#selectEffectiveCheckpointRow(targetRow.previousCheckpointSeq)
+
+      if (targetRow.seq === 0) return null
+      targetCommand = commandFromRow(this.#selectAcceptedCommandRow(targetRow.seq))
+    }
+
+    if (targetRow.previousCheckpointSeq === null)
+      throw new Error('MatchRoom checkpoint predecessor corruption')
+    const previous = this.#selectEffectiveCheckpointRow(targetRow.previousCheckpointSeq)
+
+    return {
+      acceptedSeq: v.parse(PositiveInteger, targetRow.seq),
+      command: targetCommand,
+      protocolEntries: this.#readProtocolEntriesAt(targetRow.seq),
+      previousCheckpointSeq: previous.seq,
+      previousCheckpoint: checkpointFromRow(previous, matchRecord),
+    }
+  }
+
+  #commitAcceptedCommand(
+    args: AcceptedCommandCommit,
+    previousCheckpoint: typeof schema.checkpoints.$inferSelect,
+    inheritLastPlayer: boolean,
+  ): {
+    receipt: Extract<CommandReceipt, { _tag: 'accepted' }>
+    streamUpdate: MatchStreamUpdate
+  } {
     const acceptedCommand = v.parse(AcceptedCommand, {
       ...args.command,
       acceptedSeq: args.matchRecord.latestSeq + 1,
@@ -150,7 +213,6 @@ export class MatchStorage {
       .reverse()
       .find((entry) => entry.source === 'player')
 
-    const prior = this.#selectCheckpointRow(args.matchRecord.latestSeq)
     const score = projectMatchScore(args.state)
 
     return this.#db.transaction((tx) => {
@@ -169,10 +231,14 @@ export class MatchStorage {
       tx.insert(schema.checkpoints)
         .values({
           seq: acceptedCommand.acceptedSeq,
-          previousCheckpointSeq: args.matchRecord.latestSeq,
+          previousCheckpointSeq: previousCheckpoint.seq,
           aggregateJson: JSON.stringify(args.checkpoint),
-          lastPlayerAcceptedSeq: lastPlayer?.acceptedSeq ?? prior.lastPlayerAcceptedSeq,
-          lastPlayerEntryIndex: lastPlayer?.entryIndex ?? prior.lastPlayerEntryIndex,
+          lastPlayerAcceptedSeq: inheritLastPlayer
+            ? previousCheckpoint.lastPlayerAcceptedSeq
+            : (lastPlayer?.acceptedSeq ?? previousCheckpoint.lastPlayerAcceptedSeq),
+          lastPlayerEntryIndex: inheritLastPlayer
+            ? previousCheckpoint.lastPlayerEntryIndex
+            : (lastPlayer?.entryIndex ?? previousCheckpoint.lastPlayerEntryIndex),
         })
         .run()
 
@@ -219,7 +285,9 @@ export class MatchStorage {
     return checkpointFromRow(this.#selectCheckpointRow(matchRecord.latestSeq), matchRecord)
   }
 
-  readLastPlayerEntry(matchRecord: ActiveMatchRecord): ProtocolEntry | null {
+  readLastCommand(
+    matchRecord: ActiveMatchRecord,
+  ): { readonly command: MatchCommand; readonly entry: ProtocolEntry } | null {
     const row = this.#selectCheckpointRow(matchRecord.latestSeq)
 
     if (row.lastPlayerAcceptedSeq === null || row.lastPlayerEntryIndex === null) return null
@@ -237,7 +305,10 @@ export class MatchStorage {
 
     if (!entry) throw new Error('MatchRoom checkpoint player reference corruption')
 
-    return protocolEntryFromRow(entry)
+    return {
+      command: commandFromRow(this.#selectAcceptedCommandRow(row.lastPlayerAcceptedSeq)),
+      entry: protocolEntryFromRow(entry),
+    }
   }
 
   readProtocol(matchRecord: MatchRecord): ProtocolEntry[] {
@@ -270,6 +341,39 @@ export class MatchStorage {
     return entries
   }
 
+  #readProtocolEntriesAt(seq: number): ProtocolEntry[] {
+    return this.#db
+      .select()
+      .from(schema.protocolEntries)
+      .where(eq(schema.protocolEntries.acceptedSeq, seq))
+      .orderBy(asc(schema.protocolEntries.entryIndex))
+      .all()
+      .map((row) => protocolEntryFromRow(row))
+  }
+
+  #selectEffectiveCheckpointRow(seq: number): typeof schema.checkpoints.$inferSelect {
+    let row = this.#selectCheckpointRow(seq)
+
+    while (row.seq > 0) {
+      const command = commandFromRow(this.#selectAcceptedCommandRow(row.seq))
+
+      if (!isCorrectionCommand(command)) return row
+
+      if (row.previousCheckpointSeq === null) throw new Error('MatchRoom checkpoint predecessor corruption')
+      row = this.#selectCheckpointRow(row.previousCheckpointSeq)
+    }
+
+    return row
+  }
+
+  #selectAcceptedCommandRow(seq: number): typeof schema.commands.$inferSelect {
+    const row = this.#db.select().from(schema.commands).where(eq(schema.commands.acceptedSeq, seq)).get()
+
+    if (row?.outcome !== 'accepted') throw new Error('MatchRoom accepted Command storage corruption')
+
+    return row
+  }
+
   #selectCheckpointRow(seq: number): typeof schema.checkpoints.$inferSelect {
     const row = this.#db.select().from(schema.checkpoints).where(eq(schema.checkpoints.seq, seq)).get()
 
@@ -285,4 +389,17 @@ export type MatchCreation = {
   readonly createdAt: UnixEpochMilliseconds
   readonly checkpoint: MatchCheckpoint
   readonly score: MatchScoreProjection
+}
+
+type AcceptedCommandCommit = {
+  readonly matchRecord: ActiveMatchRecord
+  readonly command: MatchCommand
+  readonly checkpoint: MatchCheckpoint
+  readonly state: MatchState
+  readonly protocolEntryContents: readonly ProtocolEntryContent[]
+}
+
+export type StoredCorrectionTarget = MatchCorrectionTarget & {
+  readonly previousCheckpointSeq: number
+  readonly previousCheckpoint: MatchCheckpoint
 }

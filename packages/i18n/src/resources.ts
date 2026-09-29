@@ -167,7 +167,8 @@ export const resources = {
           pottedBallCountLabel: 'Записати {{count}} забитих куль для {{player}}',
           exit: 'Вийти з матчу',
           otherActions: 'Інші дії',
-          correction: 'Виправити',
+          correction: 'Скасувати',
+          correctionUnavailable: 'Цю дію вже не можна скасувати. Онови матч.',
           frames: 'партії',
           takeover: {
             foulActor: '{{player}} порушив правила.',
@@ -191,6 +192,7 @@ export const resources = {
           finishedOnAt: 'Завершено {{date}} о {{time}}',
         },
         protocol: {
+          commandCorrected: 'Виправлено: {{entry}}',
           balls: {
             0: 'биток',
             1: 'червона',
@@ -469,7 +471,8 @@ export const resources = {
           pottedBallCountLabel: 'Record {{count}} potted balls for {{player}}',
           exit: 'Exit match',
           otherActions: 'Other actions',
-          correction: 'Correct',
+          correction: 'Undo',
+          correctionUnavailable: 'This action can no longer be undone. Refresh the match.',
           frames: 'frames',
           takeover: {
             foulActor: '{{player}} committed a foul.',
@@ -493,6 +496,7 @@ export const resources = {
           finishedOnAt: 'Finished on {{date}} at {{time}}',
         },
         protocol: {
+          commandCorrected: 'Corrected: {{entry}}',
           balls: {
             0: 'cue ball',
             1: 'red',

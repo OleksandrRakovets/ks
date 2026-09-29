@@ -1,3 +1,4 @@
+import { correctionReferenceOf } from '@ks/competition'
 import {
   type BySeatNumber,
   type Clock,
@@ -41,18 +42,19 @@ type SeatNames = Readonly<{ A: string; B: string }>
 
 export type ProtocolRow = Readonly<{
   key: string
-  message: Readonly<{
-    key: string
-    actor?: string | undefined
-    params?: Readonly<Record<string, string | number>>
-    pottedBalls?: readonly ProtocolBall[]
-  }>
+  message: ProtocolMessage
   score?: BySeatNumber | undefined
   acceptedAtIso: string
   acceptedAtLabel: string
 }>
 
-type ProtocolConfirmationRow = Pick<ProtocolRow, 'key' | 'message' | 'score'>
+export type ProtocolMessage = Readonly<{
+  key: string
+  actor?: string | undefined
+  params?: Readonly<Record<string, string | number>>
+  pottedBalls?: readonly ProtocolBall[]
+  correctedEntry?: ProtocolMessage
+}>
 
 const ProtocolBall = v.picklist([0, 1, 2, 3, 4, 5, 6, 7])
 
@@ -71,7 +73,7 @@ const ProtocolMessageBody = v.object({
   reason: v.optional(v.string()),
 })
 
-function entryMessage(
+export function protocolEntryMessage(
   entry: Pick<ProtocolEntry, 'body' | 'entryType' | 'seat' | 'frameIndex'>,
   seatNames: SeatNames,
 ): ProtocolRow['message'] {
@@ -204,7 +206,7 @@ export function renderProtocolRows(
 
     return {
       key: `protocol-${entry.acceptedSeq}-${entry.entryIndex}`,
-      message: entryMessage(entry, seatNames),
+      message: correctionMessage(entry, entries, seatNames) ?? protocolEntryMessage(entry, seatNames),
       score: entry.scoreAfter,
       acceptedAtIso,
       acceptedAtLabel,
@@ -212,34 +214,36 @@ export function renderProtocolRows(
   })
 }
 
-/**
- * Selects the latest player-authored entry for the control surface's confirmation line.
- *
- * One Accepted Command can append system entries after the player's entry (for example winner
- * determination and frame completion). Those entries remain in Protocol, but showing one here
- * would hide the participant and table-side action that a future Correction could compensate for.
- */
-export function renderLastCorrectableProtocolRow(
+function correctionMessage(
+  entry: ProtocolEntry,
   entries: readonly ProtocolEntry[],
   seatNames: SeatNames,
-  maxAcceptedSeq: number,
-): ProtocolConfirmationRow | undefined {
-  let entry: ProtocolEntry | undefined
+): ProtocolMessage | undefined {
+  const reference = correctionReferenceOf(entry)
+
+  if (!reference) return undefined
+
+  let original: ProtocolEntry | undefined
 
   for (let index = entries.length - 1; index >= 0; index -= 1) {
     const candidate = entries[index]
 
-    if (candidate && candidate.acceptedSeq <= maxAcceptedSeq && candidate.source === 'player') {
-      entry = candidate
+    if (
+      candidate &&
+      candidate.acceptedSeq === reference.targetSeq &&
+      candidate.causedByCommandId === reference.targetCommandId &&
+      candidate.entryIndex === reference.targetEntryIndex
+    ) {
+      original = candidate
       break
     }
   }
 
-  if (!entry) return undefined
+  if (!original) return undefined
 
   return {
-    key: `protocol-${entry.acceptedSeq}-${entry.entryIndex}`,
-    message: entryMessage(entry, seatNames),
-    score: entry.scoreAfter,
+    key: 'match.protocol.commandCorrected',
+    actor: original.source === 'player' ? seatNames[original.seat] : undefined,
+    correctedEntry: protocolEntryMessage(original, seatNames),
   }
 }

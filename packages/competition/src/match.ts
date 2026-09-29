@@ -1,4 +1,5 @@
 import {
+  CommandId,
   type Control,
   type FrameOutcome,
   type FrameState,
@@ -6,6 +7,8 @@ import {
   type MatchConfig,
   type MatchState,
   opponentOf,
+  PositiveInteger,
+  type ProtocolEntry,
   type ProtocolEntryContent,
   Seat,
 } from '@ks/core'
@@ -52,6 +55,7 @@ export const MatchRejection = v.variant('code', [
   v.pipe(v.object({ code: v.literal('wrong-breaker'), expectedSeat: Seat }), v.readonly()),
   v.pipe(v.object({ code: v.literal('match-already-over') }), v.readonly()),
   v.pipe(v.object({ code: v.literal('game-command-rejected'), reason: GameCommandRejection }), v.readonly()),
+  v.pipe(v.object({ code: v.literal('correction-not-available') }), v.readonly()),
 ])
 
 export type MatchRejection = v.InferOutput<typeof MatchRejection>
@@ -64,6 +68,23 @@ type MatchCommandResult =
       readonly command: MatchCommand
       readonly protocolEntryContents: readonly ProtocolEntryContent[]
     }
+
+export const CorrectionCommand = v.pipe(
+  v.strictObject({
+    type: v.literal('command.correct'),
+    targetSeq: PositiveInteger,
+    targetCommandId: CommandId,
+  }),
+  v.readonly(),
+)
+
+export type CorrectionCommand = v.InferOutput<typeof CorrectionCommand>
+
+export type MatchCorrectionTarget = {
+  readonly acceptedSeq: PositiveInteger
+  readonly command: MatchCommand
+  readonly protocolEntries: readonly ProtocolEntry[]
+}
 
 export interface Match {
   /**
@@ -105,6 +126,18 @@ const MatchLifecycleCommand = v.variant('type', [
 ])
 
 type MatchLifecycleCommand = v.InferOutput<typeof MatchLifecycleCommand>
+
+export function isCorrectionCommand(command: MatchCommand): boolean {
+  return command.source === 'match' && command.command.type === 'command.correct'
+}
+
+export function isCorrectableCommand(command: MatchCommand): boolean {
+  return (
+    command.source === 'game' &&
+    command.command.type !== 'frame.commence' &&
+    command.command.type !== 'frame.award'
+  )
+}
 
 function gameKeyOf(value: string): RegisteredGameKey {
   return v.parse(RegisteredGameKey, value)
@@ -522,6 +555,58 @@ export function restoreMatchCheckpoint(input: MatchCheckpoint): Match {
     gameplay && ({ key: gameplay.gameKey, session: restoreGameplaySession(gameplay) } as AnyCorrelatedGameplay)
 
   return new ResidentMatch(lifecycle, correlated, input.completedGameResult)
+}
+
+/** Compensates the current effective game command against its persisted pre-command checkpoint. */
+export function correctMatch(
+  matchBeforeTarget: Match,
+  target: MatchCorrectionTarget,
+  command: MatchCommand,
+): MatchCommandResult {
+  const parsed = v.safeParse(CorrectionCommand, command.command)
+
+  if (command.source !== 'match' || !parsed.success)
+    return {
+      _tag: 'parse-failed',
+      reason: { code: 'unsupported-match-command', commandType: 'command.correct' },
+    }
+
+  if (
+    !isCorrectableCommand(target.command) ||
+    target.acceptedSeq !== parsed.output.targetSeq ||
+    target.command.commandId !== parsed.output.targetCommandId
+  )
+    return { _tag: 'rejected', reason: { code: 'correction-not-available' } }
+
+  const state = matchBeforeTarget.state()
+  const frame = state.frames.at(-1)
+
+  if (matchBeforeTarget.phase() !== 'frame-in-progress' || !frame)
+    throw new Error('Persisted correction target is incompatible with its predecessor checkpoint')
+
+  if (target.protocolEntries.length === 0)
+    throw new Error('Persisted correction target has no Protocol entries')
+
+  return {
+    _tag: 'accepted',
+    command,
+    // A single Command may produce derived outcomes; compensate them latest-first while linking original positions.
+    protocolEntryContents: target.protocolEntries
+      .map((original) => ({
+        gameKey: state.gameKey,
+        frameIndex: frame.frameIndex,
+        source: original.source,
+        entryType: 'command-corrected',
+        seat: original.seat,
+        scoreAfter: frame.pointsBySeat,
+        body: {
+          targetSeq: target.acceptedSeq,
+          targetCommandId: target.command.commandId,
+          targetEntryIndex: original.entryIndex,
+        },
+      }))
+      .reverse(),
+  }
 }
 
 function createResidentMatch(config: MatchConfig): ResidentMatch {

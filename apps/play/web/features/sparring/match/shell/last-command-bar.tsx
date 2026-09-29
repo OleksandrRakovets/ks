@@ -1,12 +1,20 @@
-import type { ProtocolRow } from '@ks/application'
+import type { LastCommandPresentation } from '@ks/application'
+import type { MatchCommand } from '@ks/core'
 import { keys } from '@ks/i18n'
 import { useTranslation } from 'react-i18next'
 
 import { StrilaBall } from '@/components/strila-ball'
 import { protocolRowLabel } from '@/features/sparring/match/protocol/protocol-copy'
+import { matchCommandFromControl } from '@/features/sparring/match/renderers/types'
 
-export function LastCommandBar({ entry }: { entry: Pick<ProtocolRow, 'key' | 'message' | 'score'> }) {
+export function LastCommandBar(props: {
+  entry: LastCommandPresentation
+  submitting: boolean
+  onSubmit: (command: MatchCommand) => void
+}) {
   const { t } = useTranslation()
+  const { entry } = props
+  const correction = entry.correction
 
   return (
     <section className="flex min-h-[68px] shrink-0 items-center gap-3 bg-background px-4 py-2">
@@ -33,14 +41,17 @@ export function LastCommandBar({ entry }: { entry: Pick<ProtocolRow, 'key' | 'me
           ) : null}
         </p>
       </div>
-      <button
-        type="button"
-        disabled
-        className="flex min-h-11 shrink-0 items-center gap-2 rounded-lg bg-overlay px-4 text-base font-medium disabled:opacity-45"
-      >
-        <CorrectionIcon />
-        {t(keys.match.control.correction)}
-      </button>
+      {correction ? (
+        <button
+          type="button"
+          disabled={props.submitting}
+          onClick={() => props.onSubmit(matchCommandFromControl(correction))}
+          className="flex min-h-11 shrink-0 items-center gap-2 rounded-lg bg-overlay px-4 text-base font-medium disabled:opacity-45"
+        >
+          <CorrectionIcon />
+          {t(keys.match.control.correction)}
+        </button>
+      ) : null}
     </section>
   )
 }

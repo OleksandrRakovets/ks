@@ -67,6 +67,7 @@ export const keys = {
       exit: 'match.control.exit',
       otherActions: 'match.control.otherActions',
       correction: 'match.control.correction',
+      correctionUnavailable: 'match.control.correctionUnavailable',
       frames: 'match.control.frames',
       takeover: {
         foulActor: 'match.control.takeover.foulActor',

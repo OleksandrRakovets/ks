@@ -28,4 +28,6 @@ export {
 
 export { createApplication, type ApplicationBindings } from './factory'
 
+export type { LastCommandPresentation } from './control'
+
 export type { ProtocolRow } from './protocol'

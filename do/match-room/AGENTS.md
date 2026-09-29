@@ -33,7 +33,8 @@ This file describes how MatchRoom is implemented. Use the repository architectur
 
 - MatchRoom SQLite owns Accepted Commands and outcomes, their monotonic sequence, complete Protocol entries, executable aggregate checkpoints, the compact score projection, and active/finalizing status.
 - Creation stores checkpoint `0`. Every Accepted Command atomically stores its receipt, checkpoint, complete Protocol entries, and updated Match header at the next positive sequence. A rejected command stores only its receipt.
-- `previousCheckpointSeq` identifies the aggregate predecessor. It may skip an earlier checkpoint when a future append-only correction stores a rewound aggregate at a new acceptance sequence.
+- `previousCheckpointSeq` identifies the prior aggregate checkpoint. A Correction follows any Correction-only links behind its target, restores the effective predecessor, and stores that predecessor on its new checkpoint.
+- Correction lookup follows checkpoint links and reads only the target Command and its Protocol batch. Do not recover Correction state by replaying Accepted Commands.
 - Compare command retries as decoded values rather than serialized JSON. Reusing a command ID with different content is a conflict.
 - Identical accepted and rejected retries return their stored outcomes. After finalization, only retrying the match-ending acceptance reports `endsMatch: true`.
 - Score and socket-cursor reads use the compact Match record. Rich reads restore the latest checkpoint. Protocol reads use the stored entries.

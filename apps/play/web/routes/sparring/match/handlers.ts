@@ -120,7 +120,13 @@ export async function commandMatchAction(
   }
 
   if (result.outcome._tag === 'rejected')
-    return { ok: false, errorKey: keys.match.control.commandRejectedByRules }
+    return {
+      ok: false,
+      errorKey:
+        result.outcome.reason.code === 'correction-not-available'
+          ? keys.match.control.correctionUnavailable
+          : keys.match.control.commandRejectedByRules,
+    }
 
   return {
     ok: true,

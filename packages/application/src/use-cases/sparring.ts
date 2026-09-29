@@ -37,6 +37,7 @@ import type {
   SubmitMatchCommandResult,
 } from '../contracts/sparring'
 import { CreateSparringMatchInput, RECENT_FINISHED_MATCH_WINDOW_MS } from '../contracts/sparring'
+import { presentLastCommand } from '../control'
 import type {
   MatchRoomArchiveTransfer,
   MatchRoomClient,
@@ -46,7 +47,6 @@ import {
   type FinishedMatchArchiveRecord,
   ProtocolArchiveCorruptionError,
   type ProtocolArchiveRecord,
-  renderLastCorrectableProtocolRow,
   renderProtocolRows,
   UnsupportedProtocolArchiveVersionError,
 } from '../protocol'
@@ -136,7 +136,7 @@ type ReadKeyedActiveBase<K extends RegisteredGameKey> = ReadKeyedMatchBase<K> & 
 
 type ReadKeyedControlSuccess<K extends RegisteredGameKey> = ReadKeyedActiveBase<K> & {
   controls: readonly Control[]
-  lastEntry?: NonNullable<ReturnType<typeof renderLastCorrectableProtocolRow>>
+  lastCommand?: ReturnType<typeof presentLastCommand>
 }
 
 type ReadKeyedProtocolSuccess<K extends RegisteredGameKey> = ReadKeyedActiveBase<K> & {
@@ -398,11 +398,7 @@ export function createSparringApplicationWithDependencies(
       const participants = await hydrateParticipants(record, locale)
       const seatNames = { A: participants.A.displayName, B: participants.B.displayName }
 
-      const lastEntry = renderLastCorrectableProtocolRow(
-        room.lastPlayerEntry ? [room.lastPlayerEntry] : [],
-        seatNames,
-        room.latestSeq,
-      )
+      const lastCommand = room.lastCommand ? presentLastCommand(room.lastCommand, seatNames) : undefined
 
       const result: ReadKeyedControlSuccess<K> = {
         ok: true,
@@ -413,7 +409,7 @@ export function createSparringApplicationWithDependencies(
         controls: room.controls,
       }
 
-      if (lastEntry) result.lastEntry = lastEntry
+      if (lastCommand) result.lastCommand = lastCommand
 
       if (room.game !== undefined) result.game = room.game
 
@@ -659,7 +655,7 @@ export function createSparringApplicationWithDependencies(
     if (match.readKind === 'finished') return toFinishedMatchResult(match)
 
     const active =
-      match.lastEntry === undefined
+      match.lastCommand === undefined
         ? {
             ok: true as const,
             lifecycle: 'active' as const,
@@ -675,7 +671,7 @@ export function createSparringApplicationWithDependencies(
             latestSeq: match.latestSeq,
             controls: match.controls,
             participants: match.participants,
-            lastEntry: match.lastEntry,
+            lastCommand: match.lastCommand,
           }
 
     if (match.game) return { ...active, controlPhase: 'frame-active', game: match.game }
