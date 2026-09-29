@@ -18,6 +18,7 @@ build/
 .turbo/
 .opencode/
 .amp/*
+!.amp/services.yaml
 
 # Logs
 logs/

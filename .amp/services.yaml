@@ -1,0 +1,15 @@
+services:
+  play-dev:
+    command: bun run dev -- --port "$PORT"
+    cwd: apps/play
+    health: /
+    portal:
+      title: KS dev
+      description: Development server with the colocated MatchRoom Durable Object.
+  play-preview:
+    command: bun run preview -- --port "$PORT"
+    cwd: apps/play
+    health: /
+    portal:
+      title: KS preview
+      description: Production build preview with the colocated MatchRoom Durable Object.

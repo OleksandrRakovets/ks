@@ -86,7 +86,6 @@
         "drizzle-kit": "catalog:",
         "typescript": "catalog:",
         "vitest": "catalog:",
-        "wrangler": "catalog:",
       },
     },
     "packages/application": {

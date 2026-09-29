@@ -12,7 +12,7 @@ import { commandMatchAction } from './handlers'
 function makeContext(sparring: Partial<Application['sparring']>): AppLoadContext {
   const provider = new RouterContextProvider()
   // SAFETY: each test supplies the Application operation used by the route under test.
-  provider.set(cloudflareContext, { application: { sparring } as Application })
+  provider.set(cloudflareContext, { application: { sparring } as Application, isProduction: false })
 
   return provider
 }

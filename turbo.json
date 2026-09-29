@@ -17,9 +17,6 @@
     "@ks/play#build": {
       "outputs": ["build/**"]
     },
-    "@ks/match-room#build": {
-      "outputs": ["dist/**"]
-    },
     "@ks/play#dev": {
       "cache": false,
       "persistent": true

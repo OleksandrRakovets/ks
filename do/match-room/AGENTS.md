@@ -4,7 +4,7 @@ This file describes how MatchRoom is implemented. Use the repository architectur
 
 ## Runtime Shape
 
-- `ks-match-room` is an independent Cloudflare Worker with one named `MatchRoom` Durable Object per Match and one SQLite database per object.
+- `@ks/match-room` owns the `MatchRoom` Durable Object implementation. Play exports the class from its Worker entrypoint, with one named object per Match and one SQLite database per object.
 - `src/MatchRoom.ts` is the RPC and WebSocket adapter. Keep use-case behavior in the lifecycle handlers, persistence in `MatchStorage`, and socket mechanics in `LiveConnectionHandler`.
 - MatchRoom may consume `core`, `gameplay`, and `competition`. It must not import Play, application, or D1 code.
 - `fetch` serves only the WebSocket handshake forwarded by Play; MatchRoom has no general HTTP API.
@@ -56,4 +56,4 @@ This file describes how MatchRoom is implemented. Use the repository architectur
 
 - MatchRoom SQLite has a migration history independent from D1. Follow `.tracker/db.md` for schema changes.
 - Drizzle generates migration SQL and snapshots. Maintain `drizzle/migrations.js` manually when generating a migration, and do not hand-format generated files.
-- Use `bun run --filter '@ks/match-room' test:integration` for storage, lifecycle, RPC, or disposal behavior and `bun run --filter '@ks/match-room' build` for the deployable boundary. Use the root gates according to the root `AGENTS.md`; do not rerun overlapping checks on unchanged code.
+- Use `bun run --filter '@ks/match-room' test:integration` for storage, lifecycle, RPC, or disposal behavior. Play's build owns the deployable boundary. Use the root gates according to the root `AGENTS.md`; do not rerun overlapping checks on unchanged code.

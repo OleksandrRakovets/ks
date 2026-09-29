@@ -3,7 +3,7 @@
   "compilerOptions": {
     "composite": true,
     "noEmit": true,
-    "types": ["bun-types", "node"]
+    "types": ["bun-types", "node", "@cloudflare/workers-types"]
   },
-  "include": ["src/**/*", "drizzle/**/*.ts", "worker-configuration.d.ts"]
+  "include": ["src/**/*", "drizzle/**/*.ts"]
 }
