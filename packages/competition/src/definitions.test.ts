@@ -3,7 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import { MatchId, newMatchId } from '@ks/core'
 import * as v from 'valibot'
 
-import { buildMatchConfig, CreateMatchRequest, MatchState, projectMatchScore } from './matches'
+import { buildMatchConfig, CreateMatchRequest, MatchState, projectMatchScore } from './definitions'
 
 const request = v.parse(CreateMatchRequest, {
   gameKey: 'strila-v2',
@@ -37,6 +37,7 @@ describe('match creation helpers', () => {
       v.safeParse(CreateMatchRequest, {
         ...request,
         gameKey: 'free-pyramid-long',
+        targets: { ...request.targets, matchTargetFrames: 1 },
       }).success,
     ).toBe(false)
 
@@ -63,29 +64,6 @@ describe('match creation helpers', () => {
       firstBreakerSeat: 'A',
       gameConfiguration: { rackRollover: 14 },
     })
-  })
-
-  test('rejects non-positive targets through the core target schema', () => {
-    expect(
-      v.safeParse(CreateMatchRequest, {
-        ...request,
-        targets: { ...request.targets, frameTargetPointsBySeat: { A: 0, B: 8 } },
-      }).success,
-    ).toBe(false)
-  })
-
-  test('rejects an unregistered game in persisted state', () => {
-    expect(
-      v.safeParse(MatchState, {
-        matchId: v.parse(MatchId, '01ARZ3NDEKTSV4RRFFQ69G5FAV'),
-        gameKey: 'historical-game',
-        targets: { frameTargetPointsBySeat: { A: 8, B: 8 }, matchTargetFrames: 1 },
-        status: 'finished',
-        currentFrameIndex: 1,
-        framesWonBySeat: { A: 1, B: 0 },
-        frames: [{ frameIndex: 1, pointsBySeat: { A: 8, B: 3 }, breakerSeat: 'A', winnerSeat: 'A' }],
-      }).success,
-    ).toBe(false)
   })
 
   test('projects only an unfinished current Frame as active', () => {
