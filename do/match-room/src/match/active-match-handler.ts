@@ -49,12 +49,15 @@ export class ActiveMatchHandler {
 
     if (result._tag !== 'accepted') return this.#handleFailedCommand(command, result)
 
-    const committed = this.#storage.commitAcceptedCommand({
-      command: result.command,
-      checkpoint: match.exportCheckpoint(),
-      state: match.state(),
-      protocolEntryContents: result.protocolEntryContents,
-    })
+    const committed = this.#storage.commitAcceptedCommand(
+      {
+        command: result.command,
+        checkpoint: match.exportCheckpoint(),
+        state: match.state(),
+        protocolEntryContents: result.protocolEntryContents,
+      },
+      this.#matchRecord.latestSeq,
+    )
 
     this.#liveConnections.broadcast(committed.streamUpdate)
 
@@ -68,7 +71,7 @@ export class ActiveMatchHandler {
   }
 
   #handleCorrectionCommand(command: MatchCommand): ActiveCommandResult {
-    const target = this.#storage.readCorrectionTarget()
+    const target = this.#storage.findCorrectionTarget()
 
     if (!target)
       return this.#handleFailedCommand(command, {
@@ -81,13 +84,15 @@ export class ActiveMatchHandler {
 
     if (result._tag !== 'accepted') return this.#handleFailedCommand(command, result)
 
-    const committed = this.#storage.commitCorrection({
-      command: result.command,
-      checkpoint: match.exportCheckpoint(),
-      state: match.state(),
-      protocolEntryContents: result.protocolEntryContents,
-      target,
-    })
+    const committed = this.#storage.commitAcceptedCommand(
+      {
+        command: result.command,
+        checkpoint: match.exportCheckpoint(),
+        state: match.state(),
+        protocolEntryContents: result.protocolEntryContents,
+      },
+      target.previousCheckpointSeq,
+    )
 
     this.#liveConnections.broadcast(committed.streamUpdate)
 
@@ -115,7 +120,7 @@ export class ActiveMatchHandler {
 
   getControls(): ActiveControlsResult {
     const match = restoreMatchCheckpoint(this.#storage.readCurrentCheckpoint())
-    const lastCommand = this.#storage.readLastCommand()
+    const lastCommand = this.#storage.findLastAdvancingPlayerCommand()
 
     const presentedLastCommand =
       lastCommand && isCorrectableCommand(lastCommand.command)

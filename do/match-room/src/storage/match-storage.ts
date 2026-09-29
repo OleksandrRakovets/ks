@@ -151,77 +151,15 @@ export class MatchStorage {
     return { _tag: 'rejected', reason: args.reason }
   }
 
-  commitAcceptedCommand(args: {
-    command: MatchCommand
-    checkpoint: MatchCheckpoint
-    state: MatchState
-    protocolEntryContents: readonly ProtocolEntryContent[]
-  }): {
-    receipt: Extract<CommandReceipt, { _tag: 'accepted' }>
-    streamUpdate: MatchStreamUpdate
-  } {
-    return this.#commitAcceptedCommand(
-      args,
-      this.#selectCheckpointRow(this.activeMatchRecord.latestSeq),
-      false,
-    )
-  }
-
-  commitCorrection(args: {
-    command: MatchCommand
-    checkpoint: MatchCheckpoint
-    state: MatchState
-    protocolEntryContents: readonly ProtocolEntryContent[]
-    target: StoredCorrectionTarget
-  }): {
-    receipt: Extract<CommandReceipt, { _tag: 'accepted' }>
-    streamUpdate: MatchStreamUpdate
-  } {
-    return this.#commitAcceptedCommand(
-      args,
-      this.#selectCheckpointRow(args.target.previousCheckpointSeq),
-      true,
-    )
-  }
-
-  readCorrectionTarget(): StoredCorrectionTarget | null {
-    const matchRecord = this.activeMatchRecord
-    let targetRow = this.#selectCheckpointRow(matchRecord.latestSeq)
-
-    if (targetRow.seq === 0) return null
-    let targetCommand = commandFromRow(this.#selectAcceptedCommandRow(targetRow.seq))
-
-    if (isCorrectionCommand(targetCommand)) {
-      if (targetRow.previousCheckpointSeq === null)
-        throw new Error('MatchRoom checkpoint predecessor corruption')
-      targetRow = this.#selectEffectiveCheckpointRow(targetRow.previousCheckpointSeq)
-
-      if (targetRow.seq === 0) return null
-      targetCommand = commandFromRow(this.#selectAcceptedCommandRow(targetRow.seq))
-    }
-
-    if (targetRow.previousCheckpointSeq === null)
-      throw new Error('MatchRoom checkpoint predecessor corruption')
-    const previous = this.#selectEffectiveCheckpointRow(targetRow.previousCheckpointSeq)
-
-    return {
-      acceptedSeq: v.parse(PositiveInteger, targetRow.seq),
-      command: targetCommand,
-      protocolEntries: this.#readProtocolEntriesAt(targetRow.seq),
-      previousCheckpointSeq: previous.seq,
-      previousCheckpoint: checkpointFromRow(previous, matchRecord),
-    }
-  }
-
-  #commitAcceptedCommand(
+  commitAcceptedCommand(
     args: AcceptedCommandCommit,
-    previousCheckpoint: typeof schema.checkpoints.$inferSelect,
-    inheritLastPlayer: boolean,
+    previousCheckpointSeq: number,
   ): {
     receipt: Extract<CommandReceipt, { _tag: 'accepted' }>
     streamUpdate: MatchStreamUpdate
   } {
     const matchRecord = this.activeMatchRecord
+    const previousCheckpoint = this.#selectCheckpointRow(previousCheckpointSeq)
 
     const acceptedCommand = v.parse(AcceptedCommand, {
       ...args.command,
@@ -243,10 +181,12 @@ export class MatchStorage {
 
     if (entries.length === 0) throw new Error('Accepted Command must produce Protocol')
 
-    const lastPlayer = entries
-      .slice()
-      .reverse()
-      .find((entry) => entry.source === 'player')
+    const lastAdvancingPlayerEntry = isCorrectionCommand(args.command)
+      ? undefined
+      : entries
+          .slice()
+          .reverse()
+          .find((entry) => entry.source === 'player')
 
     const score = projectMatchScore(args.state)
 
@@ -268,12 +208,10 @@ export class MatchStorage {
           seq: acceptedCommand.acceptedSeq,
           previousCheckpointSeq: previousCheckpoint.seq,
           aggregateJson: JSON.stringify(args.checkpoint),
-          lastPlayerAcceptedSeq: inheritLastPlayer
-            ? previousCheckpoint.lastPlayerAcceptedSeq
-            : (lastPlayer?.acceptedSeq ?? previousCheckpoint.lastPlayerAcceptedSeq),
-          lastPlayerEntryIndex: inheritLastPlayer
-            ? previousCheckpoint.lastPlayerEntryIndex
-            : (lastPlayer?.entryIndex ?? previousCheckpoint.lastPlayerEntryIndex),
+          lastPlayerAcceptedSeq:
+            lastAdvancingPlayerEntry?.acceptedSeq ?? previousCheckpoint.lastPlayerAcceptedSeq,
+          lastPlayerEntryIndex:
+            lastAdvancingPlayerEntry?.entryIndex ?? previousCheckpoint.lastPlayerEntryIndex,
         })
         .run()
 
@@ -333,13 +271,45 @@ export class MatchStorage {
     return committed
   }
 
+  findCorrectionTarget(): StoredCorrectionTarget | null {
+    const matchRecord = this.activeMatchRecord
+    let targetRow = this.#selectCheckpointRow(matchRecord.latestSeq)
+
+    if (targetRow.seq === 0) return null
+    let targetCommand = commandFromRow(this.#selectAcceptedCommandRow(targetRow.seq))
+
+    if (isCorrectionCommand(targetCommand)) {
+      if (targetRow.previousCheckpointSeq === null)
+        throw new Error('MatchRoom checkpoint predecessor corruption')
+      targetRow = this.#selectEffectiveCheckpointRow(targetRow.previousCheckpointSeq)
+
+      if (targetRow.seq === 0) return null
+      targetCommand = commandFromRow(this.#selectAcceptedCommandRow(targetRow.seq))
+    }
+
+    if (targetRow.previousCheckpointSeq === null)
+      throw new Error('MatchRoom checkpoint predecessor corruption')
+    const previous = this.#selectEffectiveCheckpointRow(targetRow.previousCheckpointSeq)
+
+    return {
+      acceptedSeq: v.parse(PositiveInteger, targetRow.seq),
+      command: targetCommand,
+      protocolEntries: this.#readProtocolEntriesAt(targetRow.seq),
+      previousCheckpointSeq: previous.seq,
+      previousCheckpoint: checkpointFromRow(previous, matchRecord),
+    }
+  }
+
   readCurrentCheckpoint(): MatchCheckpoint {
     const matchRecord = this.anyMatchRecord
 
     return checkpointFromRow(this.#selectCheckpointRow(matchRecord.latestSeq), matchRecord)
   }
 
-  readLastCommand(): { readonly command: MatchCommand; readonly entry: ProtocolEntry } | null {
+  findLastAdvancingPlayerCommand(): {
+    readonly command: MatchCommand
+    readonly entry: ProtocolEntry
+  } | null {
     const row = this.#selectCheckpointRow(this.activeMatchRecord.latestSeq)
 
     if (row.lastPlayerAcceptedSeq === null || row.lastPlayerEntryIndex === null) return null
