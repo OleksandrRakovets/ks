@@ -15,8 +15,10 @@ import * as v from 'valibot'
 
 export const CommandCorrectionReference = v.pipe(
   v.strictObject({
+    /** 1-based sequence of the Accepted Command being corrected. */
     targetSeq: PositiveInteger,
     targetCommandId: CommandId,
+    /** Original entry's 0-based position within the target command, unchanged by latest-first compensation. */
     targetEntryIndex: NonNegativeInteger,
   }),
   v.readonly(),
@@ -99,7 +101,12 @@ export const ProtocolEntryContent = v.union([MatchLifecycleProtocolEntry, GamePr
 export type ProtocolEntryContent = v.InferOutput<typeof ProtocolEntryContent>
 
 const ProtocolEntryMetadata = v.object({
+  /** 1-based Accepted Command sequence within the Match; zero is reserved for the initial checkpoint/cursor. */
   acceptedSeq: PositiveInteger,
+  /**
+   * 0-based position within this Accepted Command's Protocol entries, not the whole Protocol.
+   * Resets for each command; together with acceptedSeq, uniquely identifies and orders an entry within the Match.
+   */
   entryIndex: NonNegativeInteger,
   causedByCommandId: CommandId,
   acceptedAt: UnixEpochMilliseconds,
