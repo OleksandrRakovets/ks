@@ -4,7 +4,7 @@ import invariant from 'tiny-invariant'
 
 export type CloudflareLoadContext = {
   application: Application
-  deployEnvironment?: string
+  isProduction: boolean
 }
 
 export type AppLoadContext = Pick<RouterContextProvider, 'get'>

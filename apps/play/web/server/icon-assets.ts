@@ -4,16 +4,8 @@ import { cloudflareContext } from './context'
 
 export type IconVariant = 'green' | 'amber'
 
-type IconEnv = {
-  KS_DEPLOY_ENV?: string
-}
-
-function iconVariantFromEnv(env: IconEnv | undefined): IconVariant {
-  return env?.KS_DEPLOY_ENV === 'production' ? 'green' : 'amber'
-}
-
 export function iconVariantFromContext(context: Pick<RouterContextProvider, 'get'>): IconVariant {
-  return iconVariantFromEnv({ KS_DEPLOY_ENV: context.get(cloudflareContext)?.deployEnvironment })
+  return context.get(cloudflareContext)?.isProduction === true ? 'green' : 'amber'
 }
 
 export function iconBasePath(variant: IconVariant): string {

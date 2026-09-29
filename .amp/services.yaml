@@ -2,7 +2,6 @@ services:
   play-dev:
     command: bun run dev -- --port "$PORT"
     cwd: apps/play
-    port: 7529
     health: /
     portal:
       title: KS dev
@@ -10,7 +9,6 @@ services:
   play-preview:
     command: bun run preview -- --port "$PORT"
     cwd: apps/play
-    port: 7531
     health: /
     portal:
       title: KS preview

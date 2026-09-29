@@ -10,7 +10,10 @@ import { loader } from './finished'
 function context(listFinishedMatches: Application['sparring']['listFinishedMatches']): RouterContextProvider {
   const provider = new RouterContextProvider()
   // SAFETY: the route under test uses only listFinishedMatches.
-  provider.set(cloudflareContext, { application: { sparring: { listFinishedMatches } } as Application })
+  provider.set(cloudflareContext, {
+    application: { sparring: { listFinishedMatches } } as Application,
+    isProduction: false,
+  })
 
   return provider
 }

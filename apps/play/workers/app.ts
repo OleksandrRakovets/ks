@@ -28,9 +28,12 @@ export default {
 
     // All remaining requests are handed to React Router.
     const context = new RouterContextProvider()
-    const loadContext: CloudflareLoadContext = { application }
 
-    if (env.KS_DEPLOY_ENV !== undefined) loadContext.deployEnvironment = env.KS_DEPLOY_ENV
+    const loadContext: CloudflareLoadContext = {
+      application,
+      isProduction: new URL(request.url).hostname === 'play.ks.ua',
+    }
+
     context.set(cloudflareContext, loadContext)
 
     return requestHandler(request, context)

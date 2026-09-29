@@ -30,6 +30,7 @@ test('sends an identified correction through the existing action and names a sta
         },
       },
     } as Application,
+    isProduction: false,
   })
   const form = new FormData()
   form.set('command', JSON.stringify(submitted))

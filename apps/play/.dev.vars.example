@@ -1,8 +1,5 @@
 # Local development variables for `wrangler dev`.
-# Copy to `clients/rr7/.dev.vars` (ignored by git).
+# Copy to `apps/play/.dev.vars` (ignored by git).
 
 ADMIN_USER=admin
 ADMIN_PASS=admin
-
-# Favicons default to amber unless production is explicit.
-KS_DEPLOY_ENV=development
