@@ -285,7 +285,9 @@ export class MatchStorage {
     return checkpointFromRow(this.#selectCheckpointRow(matchRecord.latestSeq), matchRecord)
   }
 
-  readLastPlayerEntry(matchRecord: ActiveMatchRecord): ProtocolEntry | null {
+  readLastCommand(
+    matchRecord: ActiveMatchRecord,
+  ): { readonly command: MatchCommand; readonly entry: ProtocolEntry } | null {
     const row = this.#selectCheckpointRow(matchRecord.latestSeq)
 
     if (row.lastPlayerAcceptedSeq === null || row.lastPlayerEntryIndex === null) return null
@@ -303,7 +305,10 @@ export class MatchStorage {
 
     if (!entry) throw new Error('MatchRoom checkpoint player reference corruption')
 
-    return protocolEntryFromRow(entry)
+    return {
+      command: commandFromRow(this.#selectAcceptedCommandRow(row.lastPlayerAcceptedSeq)),
+      entry: protocolEntryFromRow(entry),
+    }
   }
 
   readProtocol(matchRecord: MatchRecord): ProtocolEntry[] {

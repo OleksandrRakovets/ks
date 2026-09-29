@@ -11,7 +11,7 @@ import {
 import * as v from 'valibot'
 
 import { correctMatch, createMatch, isCorrectableCommand, restoreMatchCheckpoint } from './match'
-import { correctionReferenceOf, isCorrectableProtocolEntry } from './protocol'
+import { correctionReferenceOf } from './protocol'
 
 const acceptedAt = v.parse(UnixEpochMilliseconds, 1_700_000_000_000)
 
@@ -141,7 +141,7 @@ test('rejects a stale target and lifecycle commands, and reports malformed corre
   ).toMatchObject({ _tag: 'parse-failed' })
 })
 
-test('classifies correctable Protocol entries and reads their zero-based correction references', () => {
+test('reads zero-based correction references', () => {
   const commandId = newCommandId()
 
   const entry: ProtocolEntry = {
@@ -157,7 +157,6 @@ test('classifies correctable Protocol entries and reads their zero-based correct
     body: { commandType: 'pot.record', pottedBalls: [1] },
   }
 
-  expect(isCorrectableProtocolEntry(entry)).toBe(true)
   expect(
     correctionReferenceOf({
       ...entry,

@@ -1,9 +1,10 @@
 import { expect, test } from 'bun:test'
 
-import { FixedClock, newCommandId, type ProtocolEntry, UnixEpochMilliseconds } from '@ks/core'
+import { type Control, FixedClock, newCommandId, type ProtocolEntry, UnixEpochMilliseconds } from '@ks/core'
 import * as v from 'valibot'
 
-import { renderLastCommandRow, renderProtocolRows } from './protocol'
+import { presentLastCommand } from './control'
+import { renderProtocolRows } from './protocol'
 
 const clock = new FixedClock(new Date('2026-09-24T10:00:00Z'), 'Europe/Kyiv')
 
@@ -52,10 +53,17 @@ const foulCorrection: ProtocolEntry = {
   body: { targetSeq: 3, targetCommandId: originalId, targetEntryIndex: 1 },
 }
 
+const correctionControl: Control = {
+  source: 'match',
+  type: 'command.correct',
+  fixedInput: { targetSeq: 3, targetCommandId: originalId },
+  prominence: 'secondary',
+}
+
 test('targets the player command, not its later system entry', () => {
-  expect(renderLastCommandRow(pot, names)).toMatchObject({
+  expect(presentLastCommand({ entry: pot, correction: correctionControl }, names)).toMatchObject({
     message: { actor: 'Богдан', key: 'match.protocol.commands.pot.record.balls' },
-    target: { acceptedSeq: 3, commandId: originalId },
+    correction: correctionControl,
   })
 })
 
@@ -68,10 +76,9 @@ test('renders the effective predecessor supplied by MatchRoom after compensation
     scoreAfter: { A: 1, B: 0 },
   }
 
-  expect(renderLastCommandRow(earlier, names)).toMatchObject({
+  expect(presentLastCommand({ entry: earlier }, names)).toMatchObject({
     message: { actor: 'Аня', key: 'match.protocol.commands.pot.record.balls' },
     score: { A: 1, B: 0 },
-    target: { acceptedSeq: 2, commandId: earlier.causedByCommandId },
   })
 
   const rows = renderProtocolRows([pot, foul, correction], names, clock)
@@ -105,24 +112,4 @@ test('links both correction entries to their own original without adding a stack
     actor: 'Богдан',
     correctedEntry: { key: 'match.protocol.commands.pot.record.balls' },
   })
-})
-
-test('does not offer correction for frame lifecycle entries', () => {
-  const award: ProtocolEntry = {
-    ...pot,
-    acceptedSeq: 4,
-    causedByCommandId: newCommandId(),
-    body: { commandType: 'frame.award' },
-  }
-
-  expect(renderLastCommandRow(award, names).target).toBeUndefined()
-
-  const commence: ProtocolEntry = {
-    ...pot,
-    acceptedSeq: 2,
-    causedByCommandId: newCommandId(),
-    body: { commandType: 'frame.commence' },
-  }
-
-  expect(renderLastCommandRow(commence, names).target).toBeUndefined()
 })

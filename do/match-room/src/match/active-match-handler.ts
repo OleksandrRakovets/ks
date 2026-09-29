@@ -1,5 +1,6 @@
 import {
   correctMatch,
+  isCorrectableCommand,
   isCorrectionCommand,
   type Match,
   type MatchStateFor,
@@ -123,13 +124,30 @@ export class ActiveMatchHandler {
 
   getControls(): ActiveControlsResult {
     const match = restoreMatchCheckpoint(this.#storage.readCurrentCheckpoint(this.#matchRecord))
+    const lastCommand = this.#storage.readLastCommand(this.#matchRecord)
+
+    const presentedLastCommand =
+      lastCommand && isCorrectableCommand(lastCommand.command)
+        ? {
+            entry: lastCommand.entry,
+            correction: {
+              source: 'match',
+              type: 'command.correct',
+              fixedInput: {
+                targetSeq: lastCommand.entry.acceptedSeq,
+                targetCommandId: lastCommand.command.commandId,
+              },
+              prominence: 'secondary',
+            } satisfies Control,
+          }
+        : lastCommand && { entry: lastCommand.entry }
 
     return {
       _tag: 'active',
       latestSeq: this.#matchRecord.latestSeq,
       ...presentationOf(match),
       controls: match.controls(),
-      lastPlayerEntry: this.#storage.readLastPlayerEntry(this.#matchRecord),
+      lastCommand: presentedLastCommand,
     }
   }
 
@@ -190,7 +208,10 @@ type ActiveControlsResult = {
   readonly _tag: 'active'
   readonly latestSeq: NonNegativeInteger
   readonly controls: readonly Control[]
-  readonly lastPlayerEntry: ProtocolEntry | null
+  readonly lastCommand: {
+    readonly entry: ProtocolEntry
+    readonly correction?: Control
+  } | null
 } & ActivePresentation
 
 type ActiveProtocolResult = {

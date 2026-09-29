@@ -77,15 +77,6 @@ export function correctionReferenceOf(entry: ProtocolEntry): CommandCorrectionRe
   return v.parse(CommandCorrectionReference, entry.body)
 }
 
-export function isCorrectableProtocolEntry(entry: ProtocolEntry): boolean {
-  return (
-    entry.source === 'player' &&
-    entry.entryType === 'player-command' &&
-    entry.body.commandType !== 'frame.commence' &&
-    entry.body.commandType !== 'frame.award'
-  )
-}
-
 /** Validates Protocol meaning against the selected game or competition lifecycle schema. */
 export function parseProtocolEntryContent(input: ProtocolEntryContent): ProtocolEntryContent {
   const gameKey = v.parse(RegisteredGameKey, input.gameKey)

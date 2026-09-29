@@ -123,7 +123,7 @@ test('continues correcting earlier commands after eviction and keeps every corre
     expect(await restored.getControls()).toMatchObject({
       latestSeq: 7 + index,
       game: { score: { A: 1 - index, B: 0 } },
-      lastPlayerEntry: { acceptedSeq: 3 - index },
+      lastCommand: { entry: { acceptedSeq: 3 - index } },
     })
   }
 
@@ -243,7 +243,7 @@ test('corrects across intervening correction checkpoints without replaying them'
   expect(await stub.getControls()).toMatchObject({
     latestSeq: 8,
     game: { score: { A: 0, B: 0 } },
-    lastPlayerEntry: { acceptedSeq: 2 },
+    lastCommand: { entry: { acceptedSeq: 2 } },
   })
   await runInDurableObject(stub, (_room, state) => {
     expect(

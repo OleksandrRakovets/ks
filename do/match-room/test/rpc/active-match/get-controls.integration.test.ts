@@ -77,7 +77,7 @@ test('reads score and command receipts without restoring a damaged checkpoint, b
   ).toContain('checkpoint storage corruption')
 })
 
-test('restores asymmetric game scoring and keeps last player confirmation across system-only preparation', async () => {
+test('restores asymmetric game scoring and keeps the effective last command across system-only preparation', async () => {
   const matchId = newMatchId()
   const stub = env.MATCH_ROOM.getByName(matchId)
   await stub.initialize({
@@ -109,7 +109,13 @@ test('restores asymmetric game scoring and keeps last player confirmation across
     _tag: 'active',
     latestSeq: 4,
     state: { framesWonBySeat: { A: 0, B: 0 } },
-    lastPlayerEntry: { acceptedSeq: 4, scoreAfter: { A: 2, B: 0 } },
+    lastCommand: {
+      entry: { acceptedSeq: 4, scoreAfter: { A: 2, B: 0 } },
+      correction: {
+        type: 'command.correct',
+        fixedInput: { targetSeq: 4 },
+      },
+    },
   })
   expect(
     await restored.submitCommand({
@@ -131,17 +137,19 @@ test('restores asymmetric game scoring and keeps last player confirmation across
   })
   const controls = await restored.getControls()
 
-  if (!('lastPlayerEntry' in controls)) throw new Error('Expected active controls')
-  expect(controls.lastPlayerEntry).toMatchObject({
-    acceptedSeq: 5,
-    source: 'player',
-    entryType: 'player-command',
+  if (!('lastCommand' in controls)) throw new Error('Expected active controls')
+  expect(controls.lastCommand).toEqual({
+    entry: expect.objectContaining({
+      acceptedSeq: 5,
+      source: 'player',
+      entryType: 'player-command',
+    }),
   })
   await restored.submitCommand(prepareCommand())
   await evictDurableObject(restored)
   expect(await env.MATCH_ROOM.getByName(matchId).getControls()).toMatchObject({
     latestSeq: 6,
-    lastPlayerEntry: controls.lastPlayerEntry,
+    lastCommand: controls.lastCommand,
   })
 })
 

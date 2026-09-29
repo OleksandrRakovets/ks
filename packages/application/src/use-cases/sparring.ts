@@ -37,6 +37,7 @@ import type {
   SubmitMatchCommandResult,
 } from '../contracts/sparring'
 import { CreateSparringMatchInput, RECENT_FINISHED_MATCH_WINDOW_MS } from '../contracts/sparring'
+import { presentLastCommand } from '../control'
 import type {
   MatchRoomArchiveTransfer,
   MatchRoomClient,
@@ -46,7 +47,6 @@ import {
   type FinishedMatchArchiveRecord,
   ProtocolArchiveCorruptionError,
   type ProtocolArchiveRecord,
-  renderLastCommandRow,
   renderProtocolRows,
   UnsupportedProtocolArchiveVersionError,
 } from '../protocol'
@@ -136,7 +136,7 @@ type ReadKeyedActiveBase<K extends RegisteredGameKey> = ReadKeyedMatchBase<K> & 
 
 type ReadKeyedControlSuccess<K extends RegisteredGameKey> = ReadKeyedActiveBase<K> & {
   controls: readonly Control[]
-  lastCommand?: NonNullable<ReturnType<typeof renderLastCommandRow>>
+  lastCommand?: ReturnType<typeof presentLastCommand>
 }
 
 type ReadKeyedProtocolSuccess<K extends RegisteredGameKey> = ReadKeyedActiveBase<K> & {
@@ -398,9 +398,7 @@ export function createSparringApplicationWithDependencies(
       const participants = await hydrateParticipants(record, locale)
       const seatNames = { A: participants.A.displayName, B: participants.B.displayName }
 
-      const lastCommand = room.lastPlayerEntry
-        ? renderLastCommandRow(room.lastPlayerEntry, seatNames)
-        : undefined
+      const lastCommand = room.lastCommand ? presentLastCommand(room.lastCommand, seatNames) : undefined
 
       const result: ReadKeyedControlSuccess<K> = {
         ok: true,

@@ -191,7 +191,7 @@ describe('trusted MatchRoom orchestration', () => {
         state,
         game: undefined,
         controls: [],
-        lastPlayerEntry: null,
+        lastCommand: null,
       }),
     })
 
@@ -625,7 +625,7 @@ describe('trusted MatchRoom orchestration', () => {
         state,
         game: undefined,
         controls: [],
-        lastPlayerEntry: null,
+        lastCommand: null,
       }),
     })
 

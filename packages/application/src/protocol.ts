@@ -1,8 +1,7 @@
-import { correctionReferenceOf, isCorrectableProtocolEntry } from '@ks/competition'
+import { correctionReferenceOf } from '@ks/competition'
 import {
   type BySeatNumber,
   type Clock,
-  CommandId,
   type MatchId,
   type MatchState,
   type ProtocolEntries,
@@ -49,18 +48,13 @@ export type ProtocolRow = Readonly<{
   acceptedAtLabel: string
 }>
 
-type ProtocolMessage = Readonly<{
+export type ProtocolMessage = Readonly<{
   key: string
   actor?: string | undefined
   params?: Readonly<Record<string, string | number>>
   pottedBalls?: readonly ProtocolBall[]
   correctedEntry?: ProtocolMessage
 }>
-
-export type LastCommandRow = Pick<ProtocolRow, 'key' | 'message' | 'score'> &
-  Readonly<{
-    target?: { acceptedSeq: number; commandId: CommandId }
-  }>
 
 const ProtocolBall = v.picklist([0, 1, 2, 3, 4, 5, 6, 7])
 
@@ -79,7 +73,7 @@ const ProtocolMessageBody = v.object({
   reason: v.optional(v.string()),
 })
 
-function entryMessage(
+export function protocolEntryMessage(
   entry: Pick<ProtocolEntry, 'body' | 'entryType' | 'seat' | 'frameIndex'>,
   seatNames: SeatNames,
 ): ProtocolRow['message'] {
@@ -212,28 +206,12 @@ export function renderProtocolRows(
 
     return {
       key: `protocol-${entry.acceptedSeq}-${entry.entryIndex}`,
-      message: correctionMessage(entry, entries, seatNames) ?? entryMessage(entry, seatNames),
+      message: correctionMessage(entry, entries, seatNames) ?? protocolEntryMessage(entry, seatNames),
       score: entry.scoreAfter,
       acceptedAtIso,
       acceptedAtLabel,
     }
   })
-}
-
-export function renderLastCommandRow(entry: ProtocolEntry, seatNames: SeatNames): LastCommandRow {
-  const row: LastCommandRow = {
-    key: `protocol-${entry.acceptedSeq}-${entry.entryIndex}`,
-    message: entryMessage(entry, seatNames),
-    score: entry.scoreAfter,
-  }
-
-  if (isCorrectableProtocolEntry(entry))
-    return {
-      ...row,
-      target: { acceptedSeq: entry.acceptedSeq, commandId: entry.causedByCommandId },
-    }
-
-  return row
 }
 
 function correctionMessage(
@@ -266,6 +244,6 @@ function correctionMessage(
   return {
     key: 'match.protocol.commandCorrected',
     actor: original.source === 'player' ? seatNames[original.seat] : undefined,
-    correctedEntry: entryMessage(original, seatNames),
+    correctedEntry: protocolEntryMessage(original, seatNames),
   }
 }
