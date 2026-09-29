@@ -398,11 +398,9 @@ export function createSparringApplicationWithDependencies(
       const participants = await hydrateParticipants(record, locale)
       const seatNames = { A: participants.A.displayName, B: participants.B.displayName }
 
-      const lastCommand = renderLastCommandRow(
-        room.lastPlayerEntry ? [room.lastPlayerEntry] : [],
-        seatNames,
-        room.latestSeq,
-      )
+      const lastCommand = room.lastPlayerEntry
+        ? renderLastCommandRow(room.lastPlayerEntry, seatNames)
+        : undefined
 
       const result: ReadKeyedControlSuccess<K> = {
         ok: true,

@@ -4,6 +4,7 @@ import {
   FrameWinReason,
   NonNegativeInteger,
   PositiveInteger,
+  type ProtocolEntry,
   ProtocolEntryContent,
   UnknownObject,
 } from '@ks/core'
@@ -11,7 +12,7 @@ import { RegisteredGameKey } from '@ks/gameplay/definitions'
 import { parseGameProtocolEntry } from '@ks/gameplay/server'
 import * as v from 'valibot'
 
-const CorrectionBody = v.pipe(
+export const CommandCorrectionReference = v.pipe(
   v.strictObject({
     targetSeq: PositiveInteger,
     targetCommandId: CommandId,
@@ -19,6 +20,8 @@ const CorrectionBody = v.pipe(
   }),
   v.readonly(),
 )
+
+export type CommandCorrectionReference = v.InferOutput<typeof CommandCorrectionReference>
 
 export const MatchLifecycleProtocolEntry = v.variant('entryType', [
   v.pipe(
@@ -60,13 +63,28 @@ export const MatchLifecycleProtocolEntry = v.variant('entryType', [
     v.object({
       ...ProtocolEntryContent.entries,
       entryType: v.literal('command-corrected'),
-      body: CorrectionBody,
+      body: CommandCorrectionReference,
     }),
     v.readonly(),
   ),
 ])
 
 export type MatchLifecycleProtocolEntry = v.InferOutput<typeof MatchLifecycleProtocolEntry>
+
+export function correctionReferenceOf(entry: ProtocolEntry): CommandCorrectionReference | undefined {
+  if (entry.entryType !== 'command-corrected') return undefined
+
+  return v.parse(CommandCorrectionReference, entry.body)
+}
+
+export function isCorrectableProtocolEntry(entry: ProtocolEntry): boolean {
+  return (
+    entry.source === 'player' &&
+    entry.entryType === 'player-command' &&
+    entry.body.commandType !== 'frame.commence' &&
+    entry.body.commandType !== 'frame.award'
+  )
+}
 
 /** Validates Protocol meaning against the selected game or competition lifecycle schema. */
 export function parseProtocolEntryContent(input: ProtocolEntryContent): ProtocolEntryContent {

@@ -560,7 +560,7 @@ export function restoreMatchCheckpoint(input: MatchCheckpoint): Match {
 /** Compensates the current effective game command against its persisted pre-command checkpoint. */
 export function correctMatch(
   matchBeforeTarget: Match,
-  target: MatchCorrectionTarget | null,
+  target: MatchCorrectionTarget,
   command: MatchCommand,
 ): MatchCommandResult {
   const parsed = v.safeParse(CorrectionCommand, command.command)
@@ -572,7 +572,6 @@ export function correctMatch(
     }
 
   if (
-    !target ||
     !isCorrectableCommand(target.command) ||
     target.acceptedSeq !== parsed.output.targetSeq ||
     target.command.commandId !== parsed.output.targetCommandId
@@ -581,9 +580,8 @@ export function correctMatch(
 
   const state = matchBeforeTarget.state()
   const frame = state.frames.at(-1)
-  const targetCommand = parseGameCommand(gameKeyOf(state.gameKey), target.command.command)
 
-  if (matchBeforeTarget.phase() !== 'frame-in-progress' || !frame || targetCommand._tag !== 'parsed')
+  if (matchBeforeTarget.phase() !== 'frame-in-progress' || !frame)
     throw new Error('Persisted correction target is incompatible with its predecessor checkpoint')
 
   if (target.protocolEntries.length === 0)

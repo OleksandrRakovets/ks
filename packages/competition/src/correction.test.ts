@@ -11,6 +11,7 @@ import {
 import * as v from 'valibot'
 
 import { correctMatch, createMatch, isCorrectableCommand, restoreMatchCheckpoint } from './match'
+import { correctionReferenceOf, isCorrectableProtocolEntry } from './protocol'
 
 const acceptedAt = v.parse(UnixEpochMilliseconds, 1_700_000_000_000)
 
@@ -138,4 +139,32 @@ test('rejects a stale target and lifecycle commands, and reports malformed corre
       command: { type: 'command.correct', targetCommandId: targetCommand.commandId },
     }),
   ).toMatchObject({ _tag: 'parse-failed' })
+})
+
+test('classifies correctable Protocol entries and reads their zero-based correction references', () => {
+  const commandId = newCommandId()
+
+  const entry: ProtocolEntry = {
+    acceptedSeq: 3,
+    entryIndex: 0,
+    causedByCommandId: commandId,
+    acceptedAt,
+    frameIndex: 1,
+    gameKey: 'strila-v2',
+    source: 'player',
+    entryType: 'player-command',
+    seat: 'A',
+    body: { commandType: 'pot.record', pottedBalls: [1] },
+  }
+
+  expect(isCorrectableProtocolEntry(entry)).toBe(true)
+  expect(
+    correctionReferenceOf({
+      ...entry,
+      acceptedSeq: 4,
+      causedByCommandId: newCommandId(),
+      entryType: 'command-corrected',
+      body: { targetSeq: 3, targetCommandId: commandId, targetEntryIndex: 0 },
+    }),
+  ).toEqual({ targetSeq: 3, targetCommandId: commandId, targetEntryIndex: 0 })
 })

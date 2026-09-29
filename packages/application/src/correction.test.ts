@@ -53,13 +53,13 @@ const foulCorrection: ProtocolEntry = {
 }
 
 test('targets the player command, not its later system entry', () => {
-  expect(renderLastCommandRow([pot, foul], names, 3)).toMatchObject({
+  expect(renderLastCommandRow(pot, names)).toMatchObject({
     message: { actor: 'Богдан', key: 'match.protocol.commands.pot.record.balls' },
     target: { acceptedSeq: 3, commandId: originalId },
   })
 })
 
-test('shows the preceding uncorrected command after compensation', () => {
+test('renders the effective predecessor supplied by MatchRoom after compensation', () => {
   const earlier: ProtocolEntry = {
     ...pot,
     acceptedSeq: 2,
@@ -68,20 +68,11 @@ test('shows the preceding uncorrected command after compensation', () => {
     scoreAfter: { A: 1, B: 0 },
   }
 
-  expect(renderLastCommandRow([earlier, pot, foul, correction], names, 4)).toMatchObject({
+  expect(renderLastCommandRow(earlier, names)).toMatchObject({
     message: { actor: 'Аня', key: 'match.protocol.commands.pot.record.balls' },
     score: { A: 1, B: 0 },
     target: { acceptedSeq: 2, commandId: earlier.causedByCommandId },
   })
-  expect(renderLastCommandRow([pot, foul, correction], names, 4)?.target).toBeUndefined()
-
-  const earlierCorrection: ProtocolEntry = {
-    ...correction,
-    acceptedSeq: 5,
-    body: { targetSeq: 2, targetCommandId: earlier.causedByCommandId, targetEntryIndex: 0 },
-  }
-
-  expect(renderLastCommandRow([earlier, pot, foul, correction, earlierCorrection], names, 5)).toBeUndefined()
 
   const rows = renderProtocolRows([pot, foul, correction], names, clock)
   expect(rows).toHaveLength(3)
@@ -104,10 +95,6 @@ test('links both correction entries to their own original without adding a stack
 
   const entries = [earlier, pot, foul, foulCorrection, correction]
 
-  expect(renderLastCommandRow(entries, names, 4)?.target).toEqual({
-    acceptedSeq: 2,
-    commandId: earlier.causedByCommandId,
-  })
   const rows = renderProtocolRows(entries, names, clock)
   expect(rows[3]?.message).toMatchObject({
     key: 'match.protocol.commandCorrected',
@@ -120,9 +107,7 @@ test('links both correction entries to their own original without adding a stack
   })
 })
 
-test('does not target a stale command or frame lifecycle entry', () => {
-  expect(renderLastCommandRow([pot, foul], names, 2)).toBeUndefined()
-
+test('does not offer correction for frame lifecycle entries', () => {
   const award: ProtocolEntry = {
     ...pot,
     acceptedSeq: 4,
@@ -130,7 +115,7 @@ test('does not target a stale command or frame lifecycle entry', () => {
     body: { commandType: 'frame.award' },
   }
 
-  expect(renderLastCommandRow([pot, foul, award], names, 4)?.target).toBeUndefined()
+  expect(renderLastCommandRow(award, names).target).toBeUndefined()
 
   const commence: ProtocolEntry = {
     ...pot,
@@ -139,5 +124,5 @@ test('does not target a stale command or frame lifecycle entry', () => {
     body: { commandType: 'frame.commence' },
   }
 
-  expect(renderLastCommandRow([commence], names, 2)?.target).toBeUndefined()
+  expect(renderLastCommandRow(commence, names).target).toBeUndefined()
 })

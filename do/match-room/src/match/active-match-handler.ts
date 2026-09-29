@@ -43,39 +43,24 @@ export class ActiveMatchHandler {
       return priorReceipt.receipt
     }
 
-    const correction = isCorrectionCommand(command)
-    const correctionTarget = correction ? this.#storage.readCorrectionTarget(this.#matchRecord) : null
+    return isCorrectionCommand(command)
+      ? this.#handleCorrectionCommand(command)
+      : this.#handleAdvancingCommand(command)
+  }
 
-    const match = restoreMatchCheckpoint(
-      correctionTarget?.previousCheckpoint ?? this.#storage.readCurrentCheckpoint(this.#matchRecord),
-    )
+  #handleAdvancingCommand(command: MatchCommand): ActiveCommandResult {
+    const match = restoreMatchCheckpoint(this.#storage.readCurrentCheckpoint(this.#matchRecord))
+    const result = match.execute(command)
 
-    const result = correction ? correctMatch(match, correctionTarget, command) : match.execute(command)
+    if (result._tag !== 'accepted') return this.#handleFailedCommand(command, result)
 
-    // Nested command validation failed before execution, so allow a corrected request to reuse this command ID.
-    if (result._tag === 'parse-failed') return { _tag: 'invalid-command' }
-
-    if (result._tag === 'rejected')
-      return this.#storage.commitRejectedCommand({
-        matchId: this.#matchRecord.matchId,
-        command,
-        reason: result.reason,
-      })
-
-    const commit = {
+    const committed = this.#storage.commitAcceptedCommand({
       matchRecord: this.#matchRecord,
       command: result.command,
       checkpoint: match.exportCheckpoint(),
       state: match.state(),
       protocolEntryContents: result.protocolEntryContents,
-    }
-
-    let committed: ReturnType<MatchStorage['commitAcceptedCommand']>
-
-    if (correction) {
-      if (!correctionTarget) throw new Error('Accepted correction is missing its target')
-      committed = this.#storage.commitCorrection({ ...commit, target: correctionTarget })
-    } else committed = this.#storage.commitAcceptedCommand(commit)
+    })
 
     this.#liveConnections.broadcast(committed.streamUpdate)
 
@@ -86,6 +71,54 @@ export class ActiveMatchHandler {
       acceptedSeq: committed.receipt.acceptedSeq,
       endsMatch: committed.streamUpdate.endsMatch,
     }
+  }
+
+  #handleCorrectionCommand(command: MatchCommand): ActiveCommandResult {
+    const target = this.#storage.readCorrectionTarget(this.#matchRecord)
+
+    if (!target)
+      return this.#handleFailedCommand(command, {
+        _tag: 'rejected',
+        reason: { code: 'correction-not-available' },
+      })
+
+    const match = restoreMatchCheckpoint(target.previousCheckpoint)
+    const result = correctMatch(match, target, command)
+
+    if (result._tag !== 'accepted') return this.#handleFailedCommand(command, result)
+
+    const committed = this.#storage.commitCorrection({
+      matchRecord: this.#matchRecord,
+      command: result.command,
+      checkpoint: match.exportCheckpoint(),
+      state: match.state(),
+      protocolEntryContents: result.protocolEntryContents,
+      target,
+    })
+
+    this.#liveConnections.broadcast(committed.streamUpdate)
+
+    if (committed.streamUpdate.endsMatch) this.#liveConnections.closeAll()
+
+    return {
+      _tag: 'accepted',
+      acceptedSeq: committed.receipt.acceptedSeq,
+      endsMatch: committed.streamUpdate.endsMatch,
+    }
+  }
+
+  #handleFailedCommand(
+    command: MatchCommand,
+    result: Exclude<ReturnType<Match['execute']>, { _tag: 'accepted' }>,
+  ): ActiveCommandResult {
+    // Nested command validation failed before execution, so allow a corrected request to reuse this command ID.
+    if (result._tag === 'parse-failed') return { _tag: 'invalid-command' }
+
+    return this.#storage.commitRejectedCommand({
+      matchId: this.#matchRecord.matchId,
+      command,
+      reason: result.reason,
+    })
   }
 
   getControls(): ActiveControlsResult {
