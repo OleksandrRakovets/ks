@@ -10,7 +10,6 @@ import {
   AcceptedCommand,
   type MatchCommand,
   type MatchConfig,
-  type MatchId,
   type MatchScoreProjection,
   type MatchState,
   type MatchStreamUpdate,
@@ -34,6 +33,7 @@ import {
   type CommandReceipt,
   commandReceiptFromRow,
   type CommandReceiptLookup,
+  type FinalizingMatchRecord,
   type MatchRecord,
   matchRecordFromRow,
   protocolEntryFromRow,
@@ -43,6 +43,9 @@ import * as schema from './schema'
 export class MatchStorage {
   readonly #db
   readonly #clock = new SystemClock()
+  #matchRecordLoaded = false
+  #activeMatchRecord: ActiveMatchRecord | null = null
+  #finalizingMatchRecord: FinalizingMatchRecord | null = null
 
   constructor(storage: DurableObjectStorage) {
     this.#db = drizzle(storage)
@@ -76,16 +79,44 @@ export class MatchStorage {
         })
         .run()
     })
+
+    const matchRecord = this.#readMatchRecord()
+
+    if (!matchRecord) throw new Error('MatchRoom storage missing after creation')
+
+    this.#cacheMatchRecord(matchRecord)
   }
 
-  matchRecord(): MatchRecord | null {
-    const rows = this.#db.select().from(schema.activeMatches).limit(2).all()
+  get optionalMatchRecord(): MatchRecord | null {
+    this.#loadMatchRecord()
 
-    if (rows.length > 1) throw new Error('MatchRoom contains multiple Match rows')
+    return this.#activeMatchRecord ?? this.#finalizingMatchRecord
+  }
 
-    if (!rows[0]) return null
+  get anyMatchRecord(): MatchRecord {
+    this.#loadMatchRecord()
 
-    return matchRecordFromRow(rows[0])
+    if (this.#activeMatchRecord) return this.#activeMatchRecord
+
+    if (this.#finalizingMatchRecord) return this.#finalizingMatchRecord
+
+    throw new Error('MatchRoom storage missing')
+  }
+
+  get activeMatchRecord(): ActiveMatchRecord {
+    this.#loadMatchRecord()
+
+    if (!this.#activeMatchRecord) throw new Error('Active Match record required')
+
+    return this.#activeMatchRecord
+  }
+
+  get finalizingMatchRecord(): FinalizingMatchRecord {
+    this.#loadMatchRecord()
+
+    if (!this.#finalizingMatchRecord) throw new Error('Finalizing Match record required')
+
+    return this.#finalizingMatchRecord
   }
 
   findCommandReceipt(command: MatchCommand): CommandReceiptLookup | null {
@@ -103,7 +134,6 @@ export class MatchStorage {
   }
 
   commitRejectedCommand(args: {
-    matchId: MatchId
     command: MatchCommand
     reason: MatchRejection
   }): Extract<CommandReceipt, { _tag: 'rejected' }> {
@@ -111,7 +141,7 @@ export class MatchStorage {
       .insert(schema.commands)
       .values({
         commandId: args.command.commandId,
-        matchId: args.matchId,
+        matchId: this.activeMatchRecord.matchId,
         requestJson: JSON.stringify(args.command),
         outcome: 'rejected',
         rejectionJson: JSON.stringify(args.reason),
@@ -122,7 +152,6 @@ export class MatchStorage {
   }
 
   commitAcceptedCommand(args: {
-    matchRecord: ActiveMatchRecord
     command: MatchCommand
     checkpoint: MatchCheckpoint
     state: MatchState
@@ -131,11 +160,14 @@ export class MatchStorage {
     receipt: Extract<CommandReceipt, { _tag: 'accepted' }>
     streamUpdate: MatchStreamUpdate
   } {
-    return this.#commitAcceptedCommand(args, this.#selectCheckpointRow(args.matchRecord.latestSeq), false)
+    return this.#commitAcceptedCommand(
+      args,
+      this.#selectCheckpointRow(this.activeMatchRecord.latestSeq),
+      false,
+    )
   }
 
   commitCorrection(args: {
-    matchRecord: ActiveMatchRecord
     command: MatchCommand
     checkpoint: MatchCheckpoint
     state: MatchState
@@ -152,7 +184,8 @@ export class MatchStorage {
     )
   }
 
-  readCorrectionTarget(matchRecord: ActiveMatchRecord): StoredCorrectionTarget | null {
+  readCorrectionTarget(): StoredCorrectionTarget | null {
+    const matchRecord = this.activeMatchRecord
     let targetRow = this.#selectCheckpointRow(matchRecord.latestSeq)
 
     if (targetRow.seq === 0) return null
@@ -188,9 +221,11 @@ export class MatchStorage {
     receipt: Extract<CommandReceipt, { _tag: 'accepted' }>
     streamUpdate: MatchStreamUpdate
   } {
+    const matchRecord = this.activeMatchRecord
+
     const acceptedCommand = v.parse(AcceptedCommand, {
       ...args.command,
-      acceptedSeq: args.matchRecord.latestSeq + 1,
+      acceptedSeq: matchRecord.latestSeq + 1,
       acceptedAt: this.#clock.nowMs(),
     })
 
@@ -215,11 +250,11 @@ export class MatchStorage {
 
     const score = projectMatchScore(args.state)
 
-    return this.#db.transaction((tx) => {
+    const committed = this.#db.transaction((tx) => {
       tx.insert(schema.commands)
         .values({
           commandId: acceptedCommand.commandId,
-          matchId: args.matchRecord.matchId,
+          matchId: matchRecord.matchId,
           requestJson: JSON.stringify(args.command),
           outcome: 'accepted',
           acceptedSeq: acceptedCommand.acceptedSeq,
@@ -261,8 +296,8 @@ export class MatchStorage {
         })
         .where(
           and(
-            eq(schema.activeMatches.matchId, args.matchRecord.matchId),
-            eq(schema.activeMatches.latestSeq, args.matchRecord.latestSeq),
+            eq(schema.activeMatches.matchId, matchRecord.matchId),
+            eq(schema.activeMatches.latestSeq, matchRecord.latestSeq),
             eq(schema.activeMatches.status, 'active'),
           ),
         )
@@ -277,18 +312,35 @@ export class MatchStorage {
           acceptedSeq: acceptedCommand.acceptedSeq,
           endsMatch,
         },
+      } satisfies {
+        receipt: Extract<CommandReceipt, { _tag: 'accepted' }>
+        streamUpdate: MatchStreamUpdate
       }
     })
+
+    this.#cacheMatchRecord(
+      endsMatch
+        ? {
+            ...matchRecord,
+            latestSeq: acceptedCommand.acceptedSeq,
+            score,
+            status: 'finalizing',
+            endedAt: acceptedCommand.acceptedAt,
+          }
+        : { ...matchRecord, latestSeq: acceptedCommand.acceptedSeq, score },
+    )
+
+    return committed
   }
 
-  readCurrentCheckpoint(matchRecord: MatchRecord): MatchCheckpoint {
+  readCurrentCheckpoint(): MatchCheckpoint {
+    const matchRecord = this.anyMatchRecord
+
     return checkpointFromRow(this.#selectCheckpointRow(matchRecord.latestSeq), matchRecord)
   }
 
-  readLastCommand(
-    matchRecord: ActiveMatchRecord,
-  ): { readonly command: MatchCommand; readonly entry: ProtocolEntry } | null {
-    const row = this.#selectCheckpointRow(matchRecord.latestSeq)
+  readLastCommand(): { readonly command: MatchCommand; readonly entry: ProtocolEntry } | null {
+    const row = this.#selectCheckpointRow(this.activeMatchRecord.latestSeq)
 
     if (row.lastPlayerAcceptedSeq === null || row.lastPlayerEntryIndex === null) return null
 
@@ -311,7 +363,9 @@ export class MatchStorage {
     }
   }
 
-  readProtocol(matchRecord: MatchRecord): ProtocolEntry[] {
+  readProtocol(): ProtocolEntry[] {
+    const matchRecord = this.anyMatchRecord
+
     const rows = this.#db
       .select()
       .from(schema.protocolEntries)
@@ -374,6 +428,28 @@ export class MatchStorage {
     return row
   }
 
+  #readMatchRecord(): MatchRecord | null {
+    const rows = this.#db.select().from(schema.activeMatches).limit(2).all()
+
+    if (rows.length > 1) throw new Error('MatchRoom contains multiple Match rows')
+
+    if (!rows[0]) return null
+
+    return matchRecordFromRow(rows[0])
+  }
+
+  #loadMatchRecord(): void {
+    if (this.#matchRecordLoaded) return
+
+    this.#cacheMatchRecord(this.#readMatchRecord())
+  }
+
+  #cacheMatchRecord(matchRecord: MatchRecord | null): void {
+    this.#activeMatchRecord = matchRecord?.status === 'active' ? matchRecord : null
+    this.#finalizingMatchRecord = matchRecord?.status === 'finalizing' ? matchRecord : null
+    this.#matchRecordLoaded = true
+  }
+
   #selectCheckpointRow(seq: number): typeof schema.checkpoints.$inferSelect {
     const row = this.#db.select().from(schema.checkpoints).where(eq(schema.checkpoints.seq, seq)).get()
 
@@ -392,7 +468,6 @@ export type MatchCreation = {
 }
 
 type AcceptedCommandCommit = {
-  readonly matchRecord: ActiveMatchRecord
   readonly command: MatchCommand
   readonly checkpoint: MatchCheckpoint
   readonly state: MatchState

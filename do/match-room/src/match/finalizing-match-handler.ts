@@ -15,15 +15,9 @@ import type { CommandReceipt, FinalizingMatchRecord } from '../storage/records'
 
 export class FinalizingMatchHandler {
   readonly #storage: MatchStorage
-  readonly #matchRecord: FinalizingMatchRecord
 
   constructor(storage: MatchStorage) {
-    const matchRecord = storage.matchRecord()
-
-    if (matchRecord?.status !== 'finalizing') throw new Error('Finalizing Match record required')
-
     this.#storage = storage
-    this.#matchRecord = matchRecord
   }
 
   submitCommand(command: MatchCommand): FinalizingCommandResult {
@@ -44,7 +38,7 @@ export class FinalizingMatchHandler {
 
   getControls(): FinalizingReadResult {
     this.#warnRead('controls')
-    const match = restoreMatchCheckpoint(this.#storage.readCurrentCheckpoint(this.#matchRecord))
+    const match = restoreMatchCheckpoint(this.#storage.readCurrentCheckpoint())
 
     return {
       _tag: 'finalizing' as const,
@@ -57,7 +51,7 @@ export class FinalizingMatchHandler {
 
   getProtocol(): FinalizingProtocolResult {
     this.#warnRead('protocol')
-    const match = restoreMatchCheckpoint(this.#storage.readCurrentCheckpoint(this.#matchRecord))
+    const match = restoreMatchCheckpoint(this.#storage.readCurrentCheckpoint())
 
     return {
       _tag: 'finalizing' as const,
@@ -65,7 +59,7 @@ export class FinalizingMatchHandler {
       gameResult: match.gameResult(),
       latestSeq: this.#matchRecord.latestSeq,
       endedAt: this.#matchRecord.endedAt,
-      protocolEntries: this.#storage.readProtocol(this.#matchRecord),
+      protocolEntries: this.#storage.readProtocol(),
     }
   }
 
@@ -81,7 +75,7 @@ export class FinalizingMatchHandler {
   }
 
   prepareArchive(): FinishedMatchTransfer {
-    const match = restoreMatchCheckpoint(this.#storage.readCurrentCheckpoint(this.#matchRecord))
+    const match = restoreMatchCheckpoint(this.#storage.readCurrentCheckpoint())
 
     return {
       matchId: this.#matchRecord.matchId,
@@ -89,7 +83,7 @@ export class FinalizingMatchHandler {
       createdAt: this.#matchRecord.createdAt,
       sourceLatestSeq: this.#matchRecord.latestSeq,
       endedAt: this.#matchRecord.endedAt,
-      protocolEntries: this.#storage.readProtocol(this.#matchRecord),
+      protocolEntries: this.#storage.readProtocol(),
       finalState: match.state(),
       gameResult: match.gameResult(),
     }
@@ -103,6 +97,10 @@ export class FinalizingMatchHandler {
       endedAt: this.#matchRecord.endedAt,
       ageMs: Math.max(0, Date.now() - this.#matchRecord.endedAt),
     })
+  }
+
+  get #matchRecord(): FinalizingMatchRecord {
+    return this.#storage.finalizingMatchRecord
   }
 }
 

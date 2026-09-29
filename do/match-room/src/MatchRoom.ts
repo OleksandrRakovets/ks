@@ -80,11 +80,7 @@ export class MatchRoom extends DurableObject<Env> {
   }
 
   #requireHandler(): ActiveMatchHandler | FinalizingMatchHandler {
-    const matchRecord = this.#storage.matchRecord()
-
-    if (!matchRecord) throw new Error('MatchRoom storage missing')
-
-    return matchRecord.status === 'active'
+    return this.#storage.anyMatchRecord.status === 'active'
       ? new ActiveMatchHandler(this.#storage, this.#liveConnections)
       : new FinalizingMatchHandler(this.#storage)
   }

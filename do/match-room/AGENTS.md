@@ -13,9 +13,11 @@ This file describes how MatchRoom is implemented. Use the repository architectur
 ## Lifecycle Handlers
 
 - Initialization verifies that the Durable Object name matches the input Match ID, persists the same configuration idempotently, and reports different initialization as `initialization-conflict`. Later RPC methods derive identity from the selected object.
-- `MatchRoom.#requireHandler` reads the current `MatchRecord` only to select the active or finalizing handler.
-- Handler constructors receive service dependencies, not a record snapshot. Each handler reads and narrows its own `MatchRecord` from `MatchStorage`; the second synchronous local SQLite read is intentional.
-- A handler owns its record snapshot for one request. Do not retain a running Match or gameplay actor across requests.
+- `MatchStorage` lazily reads the single current `MatchRecord` into mutually exclusive active or finalizing pointers. `optionalMatchRecord` is nullable only for initialization; later code uses the required union or lifecycle-specific getters.
+- `MatchRoom.#requireHandler` selects the lifecycle handler from `anyMatchRecord`. Active and finalizing handlers proxy their already-narrowed storage record without repeating status checks.
+- Handler constructors receive service dependencies, not a record snapshot. Do not pass the record back into storage operations; the repository is already scoped to this Durable Object's Match.
+- Creation and Accepted Command transactions update the cached record only after SQLite commits successfully. Keep every future `active_matches` mutation and its cache update in the same storage operation.
+- Do not retain a running Match or gameplay actor across requests.
 - Active operations restore the request-local aggregate from the checkpoint at the record cursor. Finalizing operations restore the terminal checkpoint. No read replays Accepted Commands.
 - Missing storage, a lifecycle mismatch, and corrupt persisted authority are defects that throw. Expected command outcomes remain typed result variants.
 

@@ -35,6 +35,7 @@ test('stores validated values and compares durable Command retries semantically'
   await runInDurableObject(env.MATCH_ROOM.getByName(matchId), (_room, state) => {
     const storage = new MatchStorage(state.storage)
     storage.migrate()
+    expect(storage.optionalMatchRecord).toBeNull()
     const match = createMatch(config)
     storage.commitCreation({
       config,
@@ -43,9 +44,9 @@ test('stores validated values and compares durable Command retries semantically'
       checkpoint: match.exportCheckpoint(),
       score: projectMatchScore(match.state()),
     })
-    storage.commitRejectedCommand({ matchId, command, reason: { code: 'no-active-frame' } })
+    storage.commitRejectedCommand({ command, reason: { code: 'no-active-frame' } })
 
-    expect(storage.matchRecord()?.config).toEqual(config)
+    expect(storage.activeMatchRecord.config).toEqual(config)
     expect(
       storage.findCommandReceipt({
         source: 'game',
@@ -116,9 +117,7 @@ test('reads complete durable Protocol independently of old command payloads', as
 
   await runInDurableObject(stub, (_room, state) => {
     const storage = new MatchStorage(state.storage)
-    const matchRecord = storage.matchRecord()
-
-    if (!matchRecord) throw new Error('Expected Match record')
+    const matchRecord = storage.anyMatchRecord
 
     expect(matchRecord).toMatchObject({ latestSeq: 3 })
     expect(
@@ -135,8 +134,8 @@ test('reads complete durable Protocol independently of old command payloads', as
       { seq: 3, previous_checkpoint_seq: 2 },
     ])
 
-    expect(storage.readProtocol(matchRecord).map((entry) => entry.acceptedSeq)).toEqual([1, 2, 3, 3, 3])
-    expect(restoreMatchCheckpoint(storage.readCurrentCheckpoint(matchRecord)).state()).toMatchObject({
+    expect(storage.readProtocol().map((entry) => entry.acceptedSeq)).toEqual([1, 2, 3, 3, 3])
+    expect(restoreMatchCheckpoint(storage.readCurrentCheckpoint()).state()).toMatchObject({
       status: 'finished',
       framesWonBySeat: { A: 1, B: 0 },
     })
@@ -144,7 +143,7 @@ test('reads complete durable Protocol independently of old command payloads', as
       `UPDATE commands SET request_json = ? WHERE accepted_seq = 1`,
       JSON.stringify({ ...commands[0], commandId: newCommandId() }),
     )
-    expect(storage.readProtocol(matchRecord)[0]).toMatchObject({
+    expect(storage.readProtocol()[0]).toMatchObject({
       acceptedSeq: 1,
       causedByCommandId: commands[0]?.commandId,
     })
@@ -168,6 +167,6 @@ test('rejects multiple Match rows as corrupt authority', async () => {
       state.storage.sql.exec<{ score_json: string }>('SELECT score_json FROM active_matches').one().score_json,
       createdAt,
     )
-    expect(() => new MatchStorage(state.storage).matchRecord()).toThrow('multiple Match rows')
+    expect(() => new MatchStorage(state.storage).anyMatchRecord).toThrow('multiple Match rows')
   })
 })

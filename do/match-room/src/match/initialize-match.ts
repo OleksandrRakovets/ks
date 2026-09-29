@@ -7,7 +7,7 @@ import { MatchStorage } from '../storage/match-storage'
 
 export function initializeMatch(storage: MatchStorage, input: InitializeMatchInput): InitializeMatchResult {
   const config = buildMatchConfig(input.matchId, input)
-  const existing = storage.matchRecord()
+  const existing = storage.optionalMatchRecord
 
   if (existing) {
     return existing.matchId === config.matchId &&

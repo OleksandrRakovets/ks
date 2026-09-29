@@ -16,16 +16,10 @@ import type { ActiveMatchRecord, CommandReceipt } from '../storage/records'
 export class ActiveMatchHandler {
   readonly #storage: MatchStorage
   readonly #liveConnections: LiveConnectionHandler
-  readonly #matchRecord: ActiveMatchRecord
 
   constructor(storage: MatchStorage, liveConnections: LiveConnectionHandler) {
-    const matchRecord = storage.matchRecord()
-
-    if (matchRecord?.status !== 'active') throw new Error('Active Match record required')
-
     this.#storage = storage
     this.#liveConnections = liveConnections
-    this.#matchRecord = matchRecord
   }
 
   submitCommand(command: MatchCommand): ActiveCommandResult {
@@ -50,13 +44,12 @@ export class ActiveMatchHandler {
   }
 
   #handleAdvancingCommand(command: MatchCommand): ActiveCommandResult {
-    const match = restoreMatchCheckpoint(this.#storage.readCurrentCheckpoint(this.#matchRecord))
+    const match = restoreMatchCheckpoint(this.#storage.readCurrentCheckpoint())
     const result = match.execute(command)
 
     if (result._tag !== 'accepted') return this.#handleFailedCommand(command, result)
 
     const committed = this.#storage.commitAcceptedCommand({
-      matchRecord: this.#matchRecord,
       command: result.command,
       checkpoint: match.exportCheckpoint(),
       state: match.state(),
@@ -75,7 +68,7 @@ export class ActiveMatchHandler {
   }
 
   #handleCorrectionCommand(command: MatchCommand): ActiveCommandResult {
-    const target = this.#storage.readCorrectionTarget(this.#matchRecord)
+    const target = this.#storage.readCorrectionTarget()
 
     if (!target)
       return this.#handleFailedCommand(command, {
@@ -89,7 +82,6 @@ export class ActiveMatchHandler {
     if (result._tag !== 'accepted') return this.#handleFailedCommand(command, result)
 
     const committed = this.#storage.commitCorrection({
-      matchRecord: this.#matchRecord,
       command: result.command,
       checkpoint: match.exportCheckpoint(),
       state: match.state(),
@@ -116,15 +108,14 @@ export class ActiveMatchHandler {
     if (result._tag === 'parse-failed') return { _tag: 'invalid-command' }
 
     return this.#storage.commitRejectedCommand({
-      matchId: this.#matchRecord.matchId,
       command,
       reason: result.reason,
     })
   }
 
   getControls(): ActiveControlsResult {
-    const match = restoreMatchCheckpoint(this.#storage.readCurrentCheckpoint(this.#matchRecord))
-    const lastCommand = this.#storage.readLastCommand(this.#matchRecord)
+    const match = restoreMatchCheckpoint(this.#storage.readCurrentCheckpoint())
+    const lastCommand = this.#storage.readLastCommand()
 
     const presentedLastCommand =
       lastCommand && isCorrectableCommand(lastCommand.command)
@@ -152,13 +143,13 @@ export class ActiveMatchHandler {
   }
 
   getProtocol(): ActiveProtocolResult {
-    const match = restoreMatchCheckpoint(this.#storage.readCurrentCheckpoint(this.#matchRecord))
+    const match = restoreMatchCheckpoint(this.#storage.readCurrentCheckpoint())
 
     return {
       _tag: 'active',
       latestSeq: this.#matchRecord.latestSeq,
       ...presentationOf(match),
-      protocolEntries: this.#storage.readProtocol(this.#matchRecord),
+      protocolEntries: this.#storage.readProtocol(),
     }
   }
 
@@ -172,6 +163,10 @@ export class ActiveMatchHandler {
 
   liveConnectionCursor(): LiveConnectionCursor {
     return { matchId: this.#matchRecord.matchId, latestSeq: this.#matchRecord.latestSeq }
+  }
+
+  get #matchRecord(): ActiveMatchRecord {
+    return this.#storage.activeMatchRecord
   }
 }
 
