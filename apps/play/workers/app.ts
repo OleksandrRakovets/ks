@@ -4,7 +4,6 @@ import { createRequestHandler, RouterContextProvider } from 'react-router'
 import * as v from 'valibot'
 
 import { cloudflareContext, type CloudflareLoadContext } from '../web/server/context'
-import type { Env } from './env'
 import { handleSparringMatchLiveRequest } from './sparring-match-live'
 
 export { MatchRoom } from '@ks/match-room'
@@ -18,7 +17,7 @@ const requestHandler = createRequestHandler(
 const RequestTimeZone = v.optional(v.string())
 
 export default {
-  async fetch(request: Request, env: Env) {
+  async fetch(request: Request, env: Cloudflare.Env) {
     const requestTimeZone = v.parse(RequestTimeZone, request.cf?.timezone)
     const application = createApplication(env, new SystemClock(requestTimeZone))
     // Sparring Match WebSocket URLs are forwarded directly to the owning MatchRoom Durable Object.

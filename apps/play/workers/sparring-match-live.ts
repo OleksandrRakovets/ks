@@ -2,13 +2,11 @@ import type { Application } from '@ks/application'
 import { MatchId, SparringMatchLiveQuery } from '@ks/core'
 import * as v from 'valibot'
 
-import type { Env } from './env'
-
 const path = /^\/api\/sparring-match\/([^/]+)\/live\/$/
 
 export async function handleSparringMatchLiveRequest(
   request: Request,
-  env: Env,
+  env: Cloudflare.Env,
   application: Application,
 ): Promise<Response | null> {
   const url = new URL(request.url)
