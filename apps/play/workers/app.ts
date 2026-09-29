@@ -1,4 +1,4 @@
-import { createApplication } from '@ks/application'
+import { createApplication } from '@ks/application/server'
 import { SystemClock } from '@ks/core'
 import { createRequestHandler, RouterContextProvider } from 'react-router'
 import * as v from 'valibot'

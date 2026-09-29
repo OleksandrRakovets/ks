@@ -4,7 +4,7 @@ import {
   type MatchScorePollEntry,
   MatchScorePollResponse,
 } from '@ks/application'
-import type { MatchScoreProjection } from '@ks/competition'
+import type { MatchScoreProjection } from '@ks/competition/definitions'
 import type { BySeatNumber, MatchId, Seat } from '@ks/core'
 import { keys } from '@ks/i18n'
 import { useCallback, useEffect, useMemo, useReducer } from 'react'

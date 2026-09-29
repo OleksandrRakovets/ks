@@ -1,9 +1,5 @@
-import {
-  MatchCreationDefinition,
-  type MatchRejection,
-  MatchScoreProjection,
-  type MatchStateFor,
-} from '@ks/competition'
+import type { MatchRejection } from '@ks/competition'
+import { MatchCreationDefinition, MatchScoreProjection, type MatchStateFor } from '@ks/competition/definitions'
 import {
   type Control,
   type HydratedMatchParticipants,

@@ -1,4 +1,4 @@
-import type { MatchState } from '@ks/competition'
+import type { MatchState } from '@ks/competition/definitions'
 import type { MatchCommand } from '@ks/core'
 import { keys } from '@ks/i18n'
 import { useEffect, useRef } from 'react'

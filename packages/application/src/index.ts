@@ -26,8 +26,6 @@ export {
   RECENT_FINISHED_MATCH_WINDOW_MS,
 } from './contracts/sparring'
 
-export { createApplication, type ApplicationBindings } from './factory'
-
 export type { LastCommandPresentation } from './control'
 
 export type { ProtocolRow } from './protocol'
