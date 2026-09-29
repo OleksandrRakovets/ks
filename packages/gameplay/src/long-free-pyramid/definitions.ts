@@ -1,8 +1,7 @@
 import { BySeatNumber, Integer, Seat } from '@ks/core'
 import * as v from 'valibot'
 
-import { FoulCommitCommand, FrameAwardCommand, FrameCommenceCommand } from '../command-schemas'
-import { GamePresentation } from '../constants'
+import { FoulCommitCommand, FrameAwardCommand, FrameCommenceCommand, GamePresentation } from '../constants'
 
 const LongFreePyramidPottedBallCount = v.picklist([1, 2, 3, 4])
 

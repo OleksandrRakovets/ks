@@ -2,15 +2,12 @@ import {
   CommandId,
   type Control,
   type FrameOutcome,
-  type FrameState,
   type MatchCommand,
-  type MatchConfig,
-  type MatchState,
   opponentOf,
   PositiveInteger,
   Seat,
 } from '@ks/core'
-import { type GamePresentationFor, GameResult, RegisteredGameKey } from '@ks/gameplay/definitions'
+import { GameKey, type GamePresentationFor, GameResult } from '@ks/gameplay/definitions'
 import {
   GameCommandRejection,
   GameplayCheckpoint,
@@ -30,6 +27,7 @@ import {
   restoreLifecycleSnapshot,
   sendLifecycleEvent,
 } from './match-machine-internals'
+import type { FrameState, MatchConfig, MatchState } from './matches'
 import type { ProtocolEntry, ProtocolEntryContent } from './protocol'
 
 export type { MatchPhase } from './match-machine-internals'
@@ -100,7 +98,7 @@ export interface Match {
   state(): MatchState
 
   /** Returns game-specific presentation while a frame is active. */
-  gamePresentation(): GamePresentationFor<RegisteredGameKey> | undefined
+  gamePresentation(): GamePresentationFor<GameKey> | undefined
 
   /** Returns currently available match and gameplay controls in stable source order. */
   controls(): readonly Control[]
@@ -111,12 +109,12 @@ export interface Match {
   exportCheckpoint(): MatchCheckpoint
 }
 
-type CorrelatedGameplay<K extends RegisteredGameKey> = {
+type CorrelatedGameplay<K extends GameKey> = {
   readonly key: K
   readonly session: GameplaySession<K>
 }
 
-type AnyCorrelatedGameplay = { [K in RegisteredGameKey]: CorrelatedGameplay<K> }[RegisteredGameKey]
+type AnyCorrelatedGameplay = { [K in GameKey]: CorrelatedGameplay<K> }[GameKey]
 
 const MatchLifecycleCommand = v.variant('type', [
   v.pipe(v.strictObject({ type: v.literal('frame.prepare') }), v.readonly()),
@@ -138,18 +136,15 @@ export function isCorrectableCommand(command: MatchCommand): boolean {
   )
 }
 
-function gameKeyOf(value: string): RegisteredGameKey {
-  return v.parse(RegisteredGameKey, value)
+function gameKeyOf(value: string): GameKey {
+  return v.parse(GameKey, value)
 }
 
-function wrapGameplay<K extends RegisteredGameKey>(
-  key: K,
-  session: GameplaySession<K>,
-): CorrelatedGameplay<K> {
+function wrapGameplay<K extends GameKey>(key: K, session: GameplaySession<K>): CorrelatedGameplay<K> {
   return { key, session }
 }
 
-function createGameplay(key: RegisteredGameKey, config: MatchConfig): AnyCorrelatedGameplay {
+function createGameplay(key: GameKey, config: MatchConfig): AnyCorrelatedGameplay {
   const targetPointsBySeat = config.targets.frameTargetPointsBySeat
 
   switch (key) {
@@ -173,10 +168,7 @@ function createGameplay(key: RegisteredGameKey, config: MatchConfig): AnyCorrela
   throw new Error('Unsupported registered game')
 }
 
-function requireGameplay(
-  key: RegisteredGameKey,
-  gameplay: AnyCorrelatedGameplay | null,
-): AnyCorrelatedGameplay {
+function requireGameplay(key: GameKey, gameplay: AnyCorrelatedGameplay | null): AnyCorrelatedGameplay {
   if (!gameplay || gameplay.key !== key) throw new Error(`Missing gameplay session for ${key}`)
 
   return gameplay
@@ -269,7 +261,7 @@ class ResidentMatch implements Match {
     return state
   }
 
-  gamePresentation(): GamePresentationFor<RegisteredGameKey> | undefined {
+  gamePresentation(): GamePresentationFor<GameKey> | undefined {
     const lifecycle = deriveLifecycleState(this.snapshot)
 
     if (lifecycle.phase !== 'frame-in-progress') return undefined
@@ -414,7 +406,7 @@ class ResidentMatch implements Match {
   }
 
   private applyGameCommand(
-    gameKey: RegisteredGameKey,
+    gameKey: GameKey,
     gameCommand: MatchCommand['command'],
     acceptedCommand: MatchCommand,
     commandType: string,
@@ -446,7 +438,7 @@ class ResidentMatch implements Match {
       : { _tag: 'accepted', command: acceptedCommand, protocolEntryContents }
   }
 
-  #executeGameCommand(gameKey: RegisteredGameKey, command: MatchCommand['command']) {
+  #executeGameCommand(gameKey: GameKey, command: MatchCommand['command']) {
     const gameplay = this.gameplay
 
     if (!gameplay || gameplay.key !== gameKey) throw new Error(`Missing gameplay session for ${gameKey}`)

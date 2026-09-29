@@ -1,4 +1,9 @@
-import { type CreateMatchRequest, type MatchStateFor, type ProtocolEntries } from '@ks/competition'
+import {
+  type CreateMatchRequest,
+  type MatchScoreProjection,
+  type MatchStateFor,
+  type ProtocolEntries,
+} from '@ks/competition'
 import {
   type Clock,
   type Control,
@@ -6,17 +11,11 @@ import {
   type InstantPresentation,
   type MatchCommand,
   type MatchId,
-  type MatchScoreProjection,
   type NonNegativeInteger,
   type PlayerRef,
   UnixEpochMilliseconds,
 } from '@ks/core'
-import {
-  type GamePresentationFor,
-  type GameResult,
-  type RegisteredGameKey,
-  registry,
-} from '@ks/gameplay/definitions'
+import { type GameKey, type GamePresentationFor, type GameResult, registry } from '@ks/gameplay/definitions'
 import type { SupportedLocale } from '@ks/i18n'
 import * as v from 'valibot'
 
@@ -54,7 +53,7 @@ type CatalogMatchStatus = 'creating' | 'active' | 'finished'
 
 type MatchRecordIdentity = {
   matchId: MatchId
-  gameKey: RegisteredGameKey
+  gameKey: GameKey
   createdAt: UnixEpochMilliseconds
   participantRefs: { A: PlayerRef; B: PlayerRef }
 }
@@ -110,7 +109,7 @@ type SparringApplicationDependencies = {
   getProtocolArchive(matchId: MatchId): Promise<ProtocolArchiveRecord | null>
   beginMatchCreation(input: {
     matchId: MatchId
-    gameKey: RegisteredGameKey
+    gameKey: GameKey
     seatAPlayerRef: PlayerRef
     seatBPlayerRef: PlayerRef
     createdAt: UnixEpochMilliseconds
@@ -121,28 +120,28 @@ type SparringApplicationDependencies = {
   matchRoomClient(matchId: MatchId): MatchRoomClient
 }
 
-type ReadKeyedMatchBase<K extends RegisteredGameKey> = {
+type ReadKeyedMatchBase<K extends GameKey> = {
   ok: true
   state: MatchStateFor<K>
   latestSeq: number
   participants: HydratedMatchParticipants
 }
 
-type ReadKeyedActiveBase<K extends RegisteredGameKey> = ReadKeyedMatchBase<K> & {
+type ReadKeyedActiveBase<K extends GameKey> = ReadKeyedMatchBase<K> & {
   readKind: 'active'
   game?: GamePresentationFor<K>
 }
 
-type ReadKeyedControlSuccess<K extends RegisteredGameKey> = ReadKeyedActiveBase<K> & {
+type ReadKeyedControlSuccess<K extends GameKey> = ReadKeyedActiveBase<K> & {
   controls: readonly Control[]
   lastCommand?: ReturnType<typeof presentLastCommand>
 }
 
-type ReadKeyedProtocolSuccess<K extends RegisteredGameKey> = ReadKeyedActiveBase<K> & {
+type ReadKeyedProtocolSuccess<K extends GameKey> = ReadKeyedActiveBase<K> & {
   protocolEntries: ProtocolEntries
 }
 
-type ReadKeyedFinishedSuccess<K extends RegisteredGameKey> = ReadKeyedMatchBase<K> & {
+type ReadKeyedFinishedSuccess<K extends GameKey> = ReadKeyedMatchBase<K> & {
   readKind: 'finished'
   endedAtPresentation: InstantPresentation
   endedAtIsToday: boolean
@@ -150,12 +149,12 @@ type ReadKeyedFinishedSuccess<K extends RegisteredGameKey> = ReadKeyedMatchBase<
   protocolEntries: ProtocolEntries
 }
 
-type ReadKeyedControlResult<K extends RegisteredGameKey> =
+type ReadKeyedControlResult<K extends GameKey> =
   | ReadKeyedControlSuccess<K>
   | ReadKeyedFinishedSuccess<K>
   | ReadMatchFailure
 
-type ReadKeyedProtocolResult<K extends RegisteredGameKey> =
+type ReadKeyedProtocolResult<K extends GameKey> =
   | ReadKeyedProtocolSuccess<K>
   | ReadKeyedFinishedSuccess<K>
   | ReadMatchFailure
@@ -355,19 +354,19 @@ export function createSparringApplicationWithDependencies(
     return { ok: true, matches }
   }
 
-  function readKeyedMatch<K extends RegisteredGameKey>(
+  function readKeyedMatch<K extends GameKey>(
     matchId: MatchId,
     locale: SupportedLocale,
     expectedGameKey: K,
     view: 'match',
   ): Promise<ReadKeyedControlResult<K>>
-  function readKeyedMatch<K extends RegisteredGameKey>(
+  function readKeyedMatch<K extends GameKey>(
     matchId: MatchId,
     locale: SupportedLocale,
     expectedGameKey: K,
     view: 'protocol',
   ): Promise<ReadKeyedProtocolResult<K>>
-  async function readKeyedMatch<K extends RegisteredGameKey>(
+  async function readKeyedMatch<K extends GameKey>(
     matchId: MatchId,
     locale: SupportedLocale,
     expectedGameKey: K,
@@ -438,7 +437,7 @@ export function createSparringApplicationWithDependencies(
     return result
   }
 
-  async function readMatch<K extends RegisteredGameKey>(
+  async function readMatch<K extends GameKey>(
     matchId: MatchId,
     locale: SupportedLocale,
     expectedGameKey: K,
@@ -453,7 +452,7 @@ export function createSparringApplicationWithDependencies(
   async function submitMatchCommand(
     matchId: MatchId,
     command: MatchCommand,
-    expectedGameKey: RegisteredGameKey,
+    expectedGameKey: GameKey,
   ): Promise<SubmitMatchCommandResult> {
     const record = await dependencies.getMatchRecord(matchId)
 
@@ -488,7 +487,7 @@ export function createSparringApplicationWithDependencies(
       : { ok: true, outcome: result }
   }
 
-  async function readMatchProtocol<K extends RegisteredGameKey>(
+  async function readMatchProtocol<K extends GameKey>(
     matchId: MatchId,
     locale: SupportedLocale,
     expectedGameKey: K,
@@ -580,7 +579,7 @@ export function createSparringApplicationWithDependencies(
     }
   }
 
-  async function readFinalizingMatch<K extends RegisteredGameKey>(
+  async function readFinalizingMatch<K extends GameKey>(
     record: MatchRecord,
     room:
       | Extract<Awaited<ReturnType<MatchRoomClient['getControls']>>, { _tag: 'finalizing' }>
@@ -608,7 +607,7 @@ export function createSparringApplicationWithDependencies(
     }
   }
 
-  async function readArchivedMatch<K extends RegisteredGameKey>(
+  async function readArchivedMatch<K extends GameKey>(
     record: Extract<MatchRecord, { status: 'finished' }>,
     locale: SupportedLocale,
     expectedGameKey: K,
@@ -648,7 +647,7 @@ export function createSparringApplicationWithDependencies(
     }
   }
 
-  function toMatchResult<K extends RegisteredGameKey>(
+  function toMatchResult<K extends GameKey>(
     match: ReadKeyedControlSuccess<K> | ReadKeyedFinishedSuccess<K>,
   ): Extract<ReadMatchResult<K>, { ok: true }> {
     if (match.readKind === 'finished') return toFinishedMatchResult(match)
@@ -678,7 +677,7 @@ export function createSparringApplicationWithDependencies(
     return { ...active, controlPhase: 'between-frames' }
   }
 
-  function toFinishedMatchResult<K extends RegisteredGameKey>(
+  function toFinishedMatchResult<K extends GameKey>(
     match: ReadKeyedFinishedSuccess<K>,
   ): Extract<ReadMatchResult<K>, { ok: true; lifecycle: 'finished' }> {
     return {
@@ -731,7 +730,7 @@ export function createSparringApplicationWithDependencies(
 }
 
 function hasCustomFrameTarget(
-  gameKey: RegisteredGameKey,
+  gameKey: GameKey,
   target: MatchScoreProjection['frameTargetPointsBySeat'],
 ): boolean {
   const defaults = registry[gameKey].meta.defaultFrameTargetPointsBySeat

@@ -1,12 +1,12 @@
 import type { CreateSparringMatchInput } from '@ks/application'
 import type { MatchId } from '@ks/core'
-import type { RegisteredGameKey } from '@ks/gameplay/definitions'
+import type { GameKey } from '@ks/gameplay/definitions'
 import type { SupportedLocale } from '@ks/i18n'
 
 import { localizedPath } from '@/i18n'
 
 export function matchSetupUrl(
-  gameKey: RegisteredGameKey,
+  gameKey: GameKey,
   locale: SupportedLocale,
   rematch?: Pick<CreateSparringMatchInput, 'playerNames' | 'targets' | 'gameConfiguration'>,
 ): string {
@@ -30,14 +30,10 @@ export function matchSetupUrl(
   return `${path}?${search.toString()}`
 }
 
-export function matchUrl(gameKey: RegisteredGameKey, matchId: MatchId, locale: SupportedLocale): string {
+export function matchUrl(gameKey: GameKey, matchId: MatchId, locale: SupportedLocale): string {
   return localizedPath(`/sparring/match/${gameKey}/${matchId}/`, locale)
 }
 
-export function matchProtocolUrl(
-  gameKey: RegisteredGameKey,
-  matchId: MatchId,
-  locale: SupportedLocale,
-): string {
+export function matchProtocolUrl(gameKey: GameKey, matchId: MatchId, locale: SupportedLocale): string {
   return localizedPath(`/sparring/match/${gameKey}/${matchId}/protocol/`, locale)
 }

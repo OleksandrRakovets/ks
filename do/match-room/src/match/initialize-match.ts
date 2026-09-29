@@ -1,7 +1,7 @@
 import { isDeepStrictEqual } from 'node:util'
 
-import { buildMatchConfig, createMatch, type CreateMatchRequest } from '@ks/competition'
-import { type MatchId, projectMatchScore, type UnixEpochMilliseconds } from '@ks/core'
+import { buildMatchConfig, createMatch, type CreateMatchRequest, projectMatchScore } from '@ks/competition'
+import { type MatchId, type UnixEpochMilliseconds } from '@ks/core'
 
 import { MatchStorage } from '../storage/match-storage'
 

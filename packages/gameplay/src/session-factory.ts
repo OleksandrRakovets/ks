@@ -4,7 +4,7 @@ import {
   restoreLongFreePyramidGameplaySession,
 } from './long-free-pyramid/session'
 import { createPyramidGameplaySession, restorePyramidGameplaySession } from './pyramid/session'
-import type { GameplayCheckpoint, RegisteredGameKey } from './registry'
+import type { GameKey, GameplayCheckpoint } from './registry'
 import { createStrilaGameplaySession, restoreStrilaGameplaySession } from './strila-v2/session'
 
 export function restoreGameplaySession(checkpoint: GameplayCheckpoint): AnyGameplaySession {
@@ -25,10 +25,10 @@ export function restoreGameplaySession(checkpoint: GameplayCheckpoint): AnyGamep
 }
 
 type GameplaySessionCreation = {
-  [K in RegisteredGameKey]: readonly [gameKey: K, args: GameplaySessionCreateArgsFor<K>]
-}[RegisteredGameKey]
+  [K in GameKey]: readonly [gameKey: K, args: GameplaySessionCreateArgsFor<K>]
+}[GameKey]
 
-type AnyGameplaySession = { [K in RegisteredGameKey]: GameplaySession<K> }[RegisteredGameKey]
+type AnyGameplaySession = { [K in GameKey]: GameplaySession<K> }[GameKey]
 
 /**
  * Creates fresh gameplay at the initial machine snapshot.
@@ -38,7 +38,7 @@ type AnyGameplaySession = { [K in RegisteredGameKey]: GameplaySession<K> }[Regis
  * @returns Fresh gameplay waiting for frame commencement.
  * @throws An unrecoverable defect when machine input is invalid.
  */
-export function createGameplaySession<K extends RegisteredGameKey>(
+export function createGameplaySession<K extends GameKey>(
   gameKey: K,
   args: GameplaySessionCreateArgsFor<K>,
 ): GameplaySession<K>

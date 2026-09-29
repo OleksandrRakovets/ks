@@ -1,4 +1,4 @@
-import type { RegisteredGameKey } from '@ks/gameplay/definitions'
+import type { GameKey } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
 import { useTranslation } from 'react-i18next'
 
@@ -8,7 +8,7 @@ import type { ProtocolPageData } from '@/features/sparring/match/types'
 
 import { ProtocolPanel } from './protocol-panel'
 
-export function MatchProtocolPage<K extends RegisteredGameKey>(props: { data: ProtocolPageData<K> }) {
+export function MatchProtocolPage<K extends GameKey>(props: { data: ProtocolPageData<K> }) {
   const { t } = useTranslation()
   useProtocolLiveRevalidation(props.data.match.state, props.data.match.latestSeq)
 

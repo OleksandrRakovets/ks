@@ -1,5 +1,11 @@
-import { buildMatchConfig, createMatch, CreateMatchRequest, restoreMatchCheckpoint } from '@ks/competition'
-import { newCommandId, newMatchId, PlayerRef, projectMatchScore, UnixEpochMilliseconds } from '@ks/core'
+import {
+  buildMatchConfig,
+  createMatch,
+  CreateMatchRequest,
+  projectMatchScore,
+  restoreMatchCheckpoint,
+} from '@ks/competition'
+import { newCommandId, newMatchId, PlayerRef, UnixEpochMilliseconds } from '@ks/core'
 import { runInDurableObject } from 'cloudflare:test'
 import { env } from 'cloudflare:workers'
 import * as v from 'valibot'

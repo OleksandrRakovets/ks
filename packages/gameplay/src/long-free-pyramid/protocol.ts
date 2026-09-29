@@ -1,7 +1,7 @@
 import { PositiveInteger } from '@ks/core'
 import * as v from 'valibot'
 
-import { GameProtocolEntryFields } from '../game-protocol-entry-fields'
+import { GameProtocolEntryFields } from '../constants'
 import { totalScore } from './calculations'
 import type { LongFreePyramidCommand } from './definitions'
 import type { LongFreePyramidFrameSnapshot } from './machine'

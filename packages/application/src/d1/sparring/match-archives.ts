@@ -1,5 +1,5 @@
-import { ProtocolEntries } from '@ks/competition'
-import { MatchId, MatchState, PositiveInteger } from '@ks/core'
+import { MatchState, ProtocolEntries } from '@ks/competition'
+import { MatchId, PositiveInteger } from '@ks/core'
 import { GameResult } from '@ks/gameplay/definitions'
 import { eq } from 'drizzle-orm'
 import * as v from 'valibot'

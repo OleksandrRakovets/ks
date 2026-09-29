@@ -1,8 +1,6 @@
-export { GameCommandRejection, type GameplaySession } from '../src/gameplay-session'
+export { GameCommandRejection, GameProtocolEntry, type GameplaySession } from '../src/gameplay-session'
 
 export { parseGameCommand } from '../src/parse-game-command'
-
-export { GameProtocolEntry } from '../src/game-protocol-entry'
 
 export { createGameplaySession, restoreGameplaySession } from '../src/session-factory'
 

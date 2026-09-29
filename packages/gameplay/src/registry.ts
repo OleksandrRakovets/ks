@@ -108,9 +108,9 @@ export const registry = {
 // SAFETY: registry is a non-empty object, and Object.keys returns exactly its runtime string keys.
 const registeredGameKeys = Object.keys(registry) as [keyof typeof registry, ...(keyof typeof registry)[]]
 
-export const RegisteredGameKey = v.picklist(registeredGameKeys)
+export const GameKey = v.picklist(registeredGameKeys)
 
-export type RegisteredGameKey = v.InferOutput<typeof RegisteredGameKey>
+export type GameKey = v.InferOutput<typeof GameKey>
 
 /** Correlates the registered game key with its complete executable frame state. */
 export const GameplayCheckpoint = v.variant('gameKey', [
@@ -126,25 +126,23 @@ export const GameplayCheckpoint = v.variant('gameKey', [
 
 export type GameplayCheckpoint = v.InferOutput<typeof GameplayCheckpoint>
 
-export type GameplayCheckpointStateFor<K extends RegisteredGameKey> = v.InferOutput<
+export type GameplayCheckpointStateFor<K extends GameKey> = v.InferOutput<
   (typeof registry)[K]['checkpointSchema']
 >
 
-export type GamePresentationFor<K extends RegisteredGameKey> = v.InferOutput<
-  (typeof registry)[K]['presentationSchema']
->
+export type GamePresentationFor<K extends GameKey> = v.InferOutput<(typeof registry)[K]['presentationSchema']>
 
-export type GameCommandFor<K extends RegisteredGameKey> = v.InferOutput<(typeof registry)[K]['commandSchema']>
+export type GameCommandFor<K extends GameKey> = v.InferOutput<(typeof registry)[K]['commandSchema']>
 
-export function isRegisteredGameKey(value: string): value is RegisteredGameKey {
-  return v.is(RegisteredGameKey, value)
+export function isGameKey(value: string): value is GameKey {
+  return v.is(GameKey, value)
 }
 
-export function listGameKeys(): RegisteredGameKey[] {
-  const keys: RegisteredGameKey[] = []
+export function listGameKeys(): GameKey[] {
+  const keys: GameKey[] = []
 
   for (const key of Object.keys(registry)) {
-    if (isRegisteredGameKey(key)) keys.push(key)
+    if (isGameKey(key)) keys.push(key)
   }
 
   return keys

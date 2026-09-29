@@ -1,13 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
-import {
-  FixedClock,
-  MatchId,
-  newCommandId,
-  PlayerRef,
-  projectMatchScore,
-  UnixEpochMilliseconds,
-} from '@ks/core'
+import { projectMatchScore } from '@ks/competition'
+import { FixedClock, MatchId, newCommandId, PlayerRef, UnixEpochMilliseconds } from '@ks/core'
 import * as v from 'valibot'
 
 import { MatchScorePollResponse, RECENT_FINISHED_MATCH_WINDOW_MS } from '../contracts/sparring'

@@ -1,13 +1,11 @@
-import { type ProtocolEntry, restoreMatchCheckpoint } from '@ks/competition'
-import type {
-  MatchCommand,
-  MatchId,
-  MatchScoreProjection,
-  MatchState,
-  NonNegativeInteger,
-  UnixEpochMilliseconds,
-} from '@ks/core'
-import type { GameResult, RegisteredGameKey } from '@ks/gameplay/definitions'
+import {
+  type MatchScoreProjection,
+  type MatchState,
+  type ProtocolEntry,
+  restoreMatchCheckpoint,
+} from '@ks/competition'
+import type { MatchCommand, MatchId, NonNegativeInteger, UnixEpochMilliseconds } from '@ks/core'
+import type { GameKey, GameResult } from '@ks/gameplay/definitions'
 
 import { MatchStorage } from '../storage/match-storage'
 import type { CommandReceipt, FinalizingMatchRecord } from '../storage/records'
@@ -126,7 +124,7 @@ type FinalizingScoreResult = {
 
 export type FinishedMatchTransfer = {
   readonly matchId: MatchId
-  readonly gameKey: RegisteredGameKey
+  readonly gameKey: GameKey
   readonly createdAt: UnixEpochMilliseconds
   readonly sourceLatestSeq: NonNegativeInteger
   readonly endedAt: UnixEpochMilliseconds

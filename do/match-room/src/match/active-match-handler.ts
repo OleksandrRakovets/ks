@@ -3,12 +3,13 @@ import {
   isCorrectableCommand,
   isCorrectionCommand,
   type Match,
+  type MatchScoreProjection,
   type MatchStateFor,
   type ProtocolEntry,
   restoreMatchCheckpoint,
 } from '@ks/competition'
-import type { Control, MatchCommand, MatchScoreProjection, NonNegativeInteger } from '@ks/core'
-import type { GamePresentationFor, RegisteredGameKey } from '@ks/gameplay/definitions'
+import type { Control, MatchCommand, NonNegativeInteger } from '@ks/core'
+import type { GameKey, GamePresentationFor } from '@ks/gameplay/definitions'
 
 import { type LiveConnectionCursor, LiveConnectionHandler } from '../live/live-connection-handler'
 import { MatchStorage } from '../storage/match-storage'
@@ -176,7 +177,7 @@ export class ActiveMatchHandler {
   }
 }
 
-type ActivePresentationFor<K extends RegisteredGameKey> = {
+type ActivePresentationFor<K extends GameKey> = {
   readonly state: MatchStateFor<K>
   readonly game: GamePresentationFor<K> | undefined
 }
@@ -186,8 +187,8 @@ type ActivePresentationFor<K extends RegisteredGameKey> = {
  * types otherwise widen both values to every registered game and lose that correlation at this response boundary.
  */
 type ActivePresentation = {
-  [K in RegisteredGameKey]: ActivePresentationFor<K>
-}[RegisteredGameKey]
+  [K in GameKey]: ActivePresentationFor<K>
+}[GameKey]
 
 function presentationOf(match: Match): ActivePresentation {
   // SAFETY: Match construction and restoration correlate lifecycle config with gameplay; both values come from that

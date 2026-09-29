@@ -1,5 +1,6 @@
-import { MatchId, MatchScoreProjection, NonNegativeInteger, PlayerRef, UnixEpochMilliseconds } from '@ks/core'
-import { RegisteredGameKey } from '@ks/gameplay/definitions'
+import { MatchScoreProjection } from '@ks/competition'
+import { MatchId, NonNegativeInteger, PlayerRef, UnixEpochMilliseconds } from '@ks/core'
+import { GameKey } from '@ks/gameplay/definitions'
 import type { SupportedLocale } from '@ks/i18n'
 import { and, asc, desc, eq, gte, inArray, lt, or, sql } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/sqlite-core'
@@ -11,7 +12,7 @@ import type { ApplicationDatabase } from '../types'
 
 const MatchRowIdentity = {
   matchId: MatchId,
-  gameKey: RegisteredGameKey,
+  gameKey: GameKey,
   createdAt: UnixEpochMilliseconds,
   seatAPlayerRef: PlayerRef,
   seatBPlayerRef: PlayerRef,

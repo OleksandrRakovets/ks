@@ -4,7 +4,7 @@ import { Seat } from '@ks/core'
 import * as v from 'valibot'
 
 import { parseGameCommand } from './parse-game-command'
-import { listGameKeys, type RegisteredGameKey } from './registry'
+import { type GameKey, listGameKeys } from './registry'
 
 const strilaValidCommands = [
   { type: 'frame.commence', seat: 'A' },
@@ -36,9 +36,9 @@ const validCommandsByKey = {
   'combined-pyramid': pyramidValidCommands,
   'combined-pyramid-old': pyramidValidCommands,
   'free-pyramid-long': longValidCommands,
-} as const satisfies Record<RegisteredGameKey, readonly { type: string }[]>
+} as const satisfies Record<GameKey, readonly { type: string }[]>
 
-function representativePotCommand(gameKey: RegisteredGameKey) {
+function representativePotCommand(gameKey: GameKey) {
   if (gameKey === 'strila-v2') return { type: 'pot.record', seat: 'A', pottedBalls: [1] }
 
   if (gameKey === 'free-pyramid-long') return { type: 'pot.record', seat: 'A', pottedBallCount: 2 }
@@ -47,8 +47,8 @@ function representativePotCommand(gameKey: RegisteredGameKey) {
 }
 
 describe('parseGameCommand', () => {
-  // SAFETY: validCommandsByKey is exhaustively keyed by RegisteredGameKey above.
-  const gameKeys = Object.keys(validCommandsByKey) as RegisteredGameKey[]
+  // SAFETY: validCommandsByKey is exhaustively keyed by GameKey above.
+  const gameKeys = Object.keys(validCommandsByKey) as GameKey[]
   test.each(gameKeys)('%s parses every valid command without changing its shape', (gameKey) => {
     for (const input of validCommandsByKey[gameKey]) {
       const parsed = parseGameCommand(gameKey, input)

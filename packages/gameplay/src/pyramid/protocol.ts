@@ -1,7 +1,7 @@
 import { PositiveInteger } from '@ks/core'
 import * as v from 'valibot'
 
-import { GameProtocolEntryFields } from '../game-protocol-entry-fields'
+import { GameProtocolEntryFields } from '../constants'
 import type { PyramidCommand } from './definitions'
 import type { PyramidFrameSnapshot } from './machine'
 import type { PyramidRules } from './rules'

@@ -1,9 +1,10 @@
 import { describe, expect, test } from 'bun:test'
 
-import { type MatchCommand, type MatchConfig, newCommandId, newMatchId } from '@ks/core'
+import { type MatchCommand, newCommandId, newMatchId } from '@ks/core'
 import * as v from 'valibot'
 
 import { createMatch } from './match'
+import type { MatchConfig } from './matches'
 import { ProtocolEntryContent } from './protocol'
 
 function config(target = 2): MatchConfig {

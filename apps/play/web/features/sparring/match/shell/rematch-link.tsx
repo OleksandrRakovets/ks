@@ -1,4 +1,4 @@
-import type { RegisteredGameKey } from '@ks/gameplay/definitions'
+import type { GameKey } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
@@ -8,7 +8,7 @@ import type { FinishedMatchData } from '@/features/sparring/match/types'
 import { matchSetupUrl } from '@/features/sparring/urls'
 import { useRootLocale } from '@/root'
 
-export function RematchLink<K extends RegisteredGameKey>(props: { data: FinishedMatchData<K> }) {
+export function RematchLink<K extends GameKey>(props: { data: FinishedMatchData<K> }) {
   const { t } = useTranslation()
   const locale = useRootLocale()
   const { state } = props.data

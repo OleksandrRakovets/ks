@@ -1,10 +1,10 @@
 import type { BySeatNumber } from '@ks/core'
-import { type RegisteredGameKey, registry } from '@ks/gameplay/definitions'
+import { type GameKey, registry } from '@ks/gameplay/definitions'
 
 export type RackRolloverOption = 14 | 15
 
 export type MatchCreateProfile = {
-  gameKey: RegisteredGameKey
+  gameKey: GameKey
   defaultFrameTargetPointsBySeat: BySeatNumber
   matchTargetFrames: { mode: 'editable'; defaultValue: number } | { mode: 'fixed'; fixedValue: number }
   rackRollover?: {
@@ -13,7 +13,7 @@ export type MatchCreateProfile = {
   }
 }
 
-export function createProfileForGame(gameKey: RegisteredGameKey): MatchCreateProfile {
+export function createProfileForGame(gameKey: GameKey): MatchCreateProfile {
   const defaultFrameTargetPointsBySeat = registry[gameKey].meta.defaultFrameTargetPointsBySeat
 
   if (gameKey === 'free-pyramid-long') {

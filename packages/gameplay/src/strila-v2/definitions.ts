@@ -1,9 +1,13 @@
 import { BySeatNumber, NonEmptyString, Seat } from '@ks/core'
 import * as v from 'valibot'
 
-import { FoulCommitCommand, FrameAwardCommand, FrameCommenceCommand } from '../command-schemas'
-import { GamePresentation } from '../constants'
-import { GameProtocolEntryFields } from '../game-protocol-entry-fields'
+import {
+  FoulCommitCommand,
+  FrameAwardCommand,
+  FrameCommenceCommand,
+  GamePresentation,
+  GameProtocolEntryFields,
+} from '../constants'
 
 const CueBall = v.literal(0)
 

@@ -1,5 +1,36 @@
-import { BySeatNumber, Control, NonEmptyString } from '@ks/core'
+import { BySeatNumber, Control, NonEmptyString, Seat, SizedString } from '@ks/core'
 import * as v from 'valibot'
+
+export const FrameCommenceCommand = v.pipe(
+  v.strictObject({
+    type: v.literal('frame.commence'),
+    seat: Seat,
+  }),
+  v.readonly(),
+)
+
+export const FoulCommitCommand = v.pipe(
+  v.strictObject({
+    type: v.literal('foul.commit'),
+    seat: Seat,
+  }),
+  v.readonly(),
+)
+
+export const FrameAwardCommand = v.pipe(
+  v.strictObject({
+    type: v.literal('frame.award'),
+    seat: Seat,
+  }),
+  v.readonly(),
+)
+
+export const GameProtocolEntryFields = {
+  source: v.picklist(['player', 'system']),
+  entryType: SizedString(1, 64),
+  seat: Seat,
+  scoreAfter: v.optional(BySeatNumber),
+} as const
 
 type LocalizedGameTitle = {
   readonly uk: string

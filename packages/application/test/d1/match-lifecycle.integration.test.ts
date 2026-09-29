@@ -1,11 +1,16 @@
-import { buildMatchConfig, createMatch, CreateMatchRequest, ProtocolEntry } from '@ks/competition'
+import {
+  buildMatchConfig,
+  createMatch,
+  CreateMatchRequest,
+  projectMatchScore,
+  ProtocolEntry,
+} from '@ks/competition'
 import {
   GuestPlayerId,
   type MatchCommand,
   MatchId,
   newCommandId,
   PlayerRef,
-  projectMatchScore,
   UnixEpochMilliseconds,
   VerifiedPlayerId,
 } from '@ks/core'
@@ -351,7 +356,7 @@ describe('real D1 match lifecycle', () => {
     const archive = {
       ...base,
       gameKey: 'free-pyramid-long' as const,
-      finalState: { ...base.finalState, gameKey: 'free-pyramid-long' },
+      finalState: { ...base.finalState, gameKey: 'free-pyramid-long' as const },
       gameResult: {
         gameKey: 'free-pyramid-long' as const,
         racks: [{ rackNumber: 1, scoreBySeat: { A: 2, B: 0 } }],

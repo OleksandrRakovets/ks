@@ -1,7 +1,7 @@
 export {
-  isRegisteredGameKey,
+  GameKey,
+  isGameKey,
   listGameKeys,
-  RegisteredGameKey,
   registry,
   type GamePresentationFor,
   type GameCommandFor,
@@ -12,7 +12,8 @@ export {
   LongFreePyramidResult,
 } from '../src/long-free-pyramid/definitions'
 
-export { GameResult } from '../src/game-result'
+/** Optional game-owned result accompanying a finished Match; other games currently have none. */
+export { LongFreePyramidResult as GameResult } from '../src/long-free-pyramid/definitions'
 
 export {
   type CombinedPyramidGamePresentation,

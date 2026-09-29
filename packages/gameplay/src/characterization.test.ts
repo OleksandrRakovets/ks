@@ -2,8 +2,7 @@ import { describe, expect, test } from 'bun:test'
 
 import * as v from 'valibot'
 
-import { GameProtocolEntry } from './game-protocol-entry'
-import type { GameCommandExecution } from './gameplay-session'
+import { type GameCommandExecution, GameProtocolEntry } from './gameplay-session'
 import { listGameKeys } from './registry'
 import { createGameplaySession } from './session-factory'
 

@@ -1,5 +1,5 @@
 import { groupControlsIntoSections, type MatchCommand, type MatchId } from '@ks/core'
-import type { RegisteredGameKey } from '@ks/gameplay/definitions'
+import type { GameKey } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -16,7 +16,7 @@ import { LastCommandBar } from './last-command-bar'
 import { OverflowSheet } from './overflow-sheet'
 import { RematchLink } from './rematch-link'
 
-export function MatchControlShell<K extends RegisteredGameKey>(props: {
+export function MatchControlShell<K extends GameKey>(props: {
   data: ActiveMatchData<K>
   children: ReactNode
   submitting: boolean
@@ -60,7 +60,7 @@ export function MatchControlShell<K extends RegisteredGameKey>(props: {
   )
 }
 
-export function MatchProtocolShell<K extends RegisteredGameKey>(props: {
+export function MatchProtocolShell<K extends GameKey>(props: {
   data: ActiveProtocolData<K>
   children: ReactNode
 }) {
@@ -83,7 +83,7 @@ export function MatchProtocolShell<K extends RegisteredGameKey>(props: {
   )
 }
 
-export function MatchResultShell<K extends RegisteredGameKey>(props: {
+export function MatchResultShell<K extends GameKey>(props: {
   active: 'result' | 'protocol'
   data: FinishedMatchData<K>
   children: ReactNode
@@ -109,7 +109,7 @@ export function MatchResultShell<K extends RegisteredGameKey>(props: {
 
 function MatchShell(props: {
   active: 'primary' | 'protocol'
-  state: { readonly gameKey: RegisteredGameKey; readonly matchId: MatchId }
+  state: { readonly gameKey: GameKey; readonly matchId: MatchId }
   headerTitle: string
   headerRule: string
   headerControl: ReactNode
@@ -187,7 +187,7 @@ function MatchTab(props: { active: boolean; to: string; children: ReactNode }) {
   )
 }
 
-function controlContextLabel<K extends RegisteredGameKey>(
+function controlContextLabel<K extends GameKey>(
   data: ActiveMatchData<K> | ActiveProtocolData<K>,
   t: ReturnType<typeof useTranslation>['t'],
 ): string {
@@ -202,7 +202,7 @@ function controlContextLabel<K extends RegisteredGameKey>(
   })
 }
 
-function controlRuleLabel<K extends RegisteredGameKey>(
+function controlRuleLabel<K extends GameKey>(
   data: ActiveMatchData<K> | ActiveProtocolData<K>,
   t: ReturnType<typeof useTranslation>['t'],
 ): string {
@@ -217,7 +217,7 @@ function controlRuleLabel<K extends RegisteredGameKey>(
   })
 }
 
-function resultRuleLabel<K extends RegisteredGameKey>(
+function resultRuleLabel<K extends GameKey>(
   data: FinishedMatchData<K>,
   t: ReturnType<typeof useTranslation>['t'],
 ): string {

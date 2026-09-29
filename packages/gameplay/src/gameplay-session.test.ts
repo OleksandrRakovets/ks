@@ -3,7 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import { FrameOutcome } from '@ks/core'
 import * as v from 'valibot'
 
-import { GameProtocolEntry } from './game-protocol-entry'
+import { GameProtocolEntry } from './gameplay-session'
 import { LongFreePyramidGamePresentation } from './long-free-pyramid/definitions'
 import {
   CombinedPyramidGamePresentation,

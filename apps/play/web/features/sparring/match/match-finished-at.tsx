@@ -1,10 +1,10 @@
 import type { ReadMatchResult } from '@ks/application'
-import type { RegisteredGameKey } from '@ks/gameplay/definitions'
+import type { GameKey } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
 import { useTranslation } from 'react-i18next'
 
 type FinishedMatchData = Extract<
-  ReadMatchResult<RegisteredGameKey>,
+  ReadMatchResult<GameKey>,
   { readonly ok: true; readonly lifecycle: 'finished' }
 >
 

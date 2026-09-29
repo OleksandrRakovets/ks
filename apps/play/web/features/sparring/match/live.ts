@@ -1,4 +1,5 @@
-import type { MatchCommand, MatchState } from '@ks/core'
+import type { MatchState } from '@ks/competition'
+import type { MatchCommand } from '@ks/core'
 import { keys } from '@ks/i18n'
 import { useEffect, useRef } from 'react'
 import { useRevalidator } from 'react-router'

@@ -1,9 +1,10 @@
 import { expect, test } from 'bun:test'
 
-import { type MatchCommand, type MatchConfig, newCommandId, newMatchId, UnixEpochMilliseconds } from '@ks/core'
+import { type MatchCommand, newCommandId, newMatchId, UnixEpochMilliseconds } from '@ks/core'
 import * as v from 'valibot'
 
 import { correctMatch, createMatch, isCorrectableCommand, restoreMatchCheckpoint } from './match'
+import type { MatchConfig } from './matches'
 import { correctionReferenceOf, type ProtocolEntry } from './protocol'
 
 const acceptedAt = v.parse(UnixEpochMilliseconds, 1_700_000_000_000)

@@ -9,7 +9,7 @@ import {
   SizedString,
   UnixEpochMilliseconds,
 } from '@ks/core'
-import { RegisteredGameKey } from '@ks/gameplay/definitions'
+import { GameKey } from '@ks/gameplay/definitions'
 import { GameProtocolEntry } from '@ks/gameplay/server'
 import * as v from 'valibot'
 
@@ -25,7 +25,7 @@ export const CommandCorrectionReference = v.pipe(
 export type CommandCorrectionReference = v.InferOutput<typeof CommandCorrectionReference>
 
 const ProtocolEntryContentFields = {
-  gameKey: RegisteredGameKey,
+  gameKey: GameKey,
   frameIndex: PositiveInteger,
   source: v.picklist(['player', 'system']),
   entryType: SizedString(1, 64),
