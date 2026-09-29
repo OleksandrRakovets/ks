@@ -67,7 +67,7 @@ Use Drizzle Kit to generate and Wrangler to apply. Do not use `drizzle-kit push`
 4. Add the SQL import and migration key to `do/match-room/drizzle/migrations.js`.
 5. Run `bunx drizzle-kit check --config do/match-room/drizzle.config.ts` and `bun run check:full`.
 
-The `migrations` entry in `do/match-room/wrangler.jsonc` manages Durable Object classes, not each object's SQLite schema.
+The `migrations` entry in `apps/play/wrangler.jsonc` manages Durable Object classes, not each object's SQLite schema. `do/match-room/wrangler.test.jsonc` mirrors that class setup only for Workerd integration tests.
 
 ## Reset Local D1
 

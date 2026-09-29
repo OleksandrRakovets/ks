@@ -47,7 +47,7 @@ These commands overlap. Choose the appropriate gate; do not rerun its constituen
 - Routes own HTTP parsing, cookies, redirects, and presentation adaptation. They receive `Application`; SQL, Durable Object calls, and use-case orchestration stay out of routes.
 - `@ks/application` owns private D1 adapters and its private typed MatchRoom capability. It must not expose generic repositories.
 - MatchRoom must not import Play, application, or D1 code.
-- Validate at external trust and representation boundaries: HTTP, persisted rows/JSON, browser storage, and restored machine state. Internal MatchRoom RPC between the owned Play and MatchRoom deployables is a trusted typed capability; do not add runtime schemas or reparse canonical values solely because a call crosses Cloudflare RPC.
+- Validate at external trust and representation boundaries: HTTP, persisted rows/JSON, browser storage, and restored machine state. Internal MatchRoom RPC within the Play Worker is a trusted typed capability; do not add runtime schemas or reparse canonical values solely because a call crosses Cloudflare RPC.
 - Schemas use Valibot. Prefer built-in actions such as `v.trim()` and `v.parseJson()`. Give the inferred type the exact name as the schema (the core package already does this).
 - Use core seat contracts (`Seat`, `BySeatNumber`, `opponentOf`) rather than local equivalents.
 - Keep one `game` path; gameplay runtimes own game-specific semantics.
@@ -63,10 +63,10 @@ These commands overlap. Choose the appropriate gate; do not rerun its constituen
 
 ## Runtime Notes
 
-- Play and `ks-match-room` are independent Cloudflare Workers. Play reaches MatchRoom through an external Durable Object binding with `script_name`.
-- Play and application import `@ks/match-room` type-only. Application derives its private MatchRoom capability from the server class, while Play's generated binding verifies structural RPC compatibility without runtime response parsing.
+- Play is the single Cloudflare Worker deployable. It exports the `MatchRoom` Durable Object class from the separate `@ks/match-room` workspace and reaches rooms through an internal binding.
+- Application imports `@ks/match-room` type-only to derive its private MatchRoom capability. Play imports the class at runtime only to export it from the Worker entrypoint; generated bindings verify structural RPC compatibility without runtime response parsing.
 - Live updates use a versioned WebSocket contract through Play's Worker gateway. React Router loaders remain authoritative; socket messages are invalidation notifications that request revalidation.
-- MatchRoom must be deployed before Play when its external binding changes. The project has not yet been deployed.
+- Play's Wrangler configuration owns the MatchRoom class migration. The project has not yet been deployed.
 - Local Worker variables belong in `apps/play/.dev.vars`; start from `.dev.vars.example`.
 - Generated `.react-router/` and `worker-configuration.d.ts` files must not be hand-reformatted.
 

@@ -7,15 +7,16 @@ Browser
   -> Play Worker (React Router and React)
        -> @ks/application
             -> D1
-            -> external MATCH_ROOM binding
-                 -> ks-match-room Worker
-                      -> named MatchRoom Durable Object
-                           -> per-match SQLite
+            -> internal MATCH_ROOM binding
+                 -> named MatchRoom Durable Object
+                      -> per-match SQLite
 ```
 
 Play owns HTTP and presentation adaptation. `@ks/application` exposes the current player-operated workflows through `application.sparring` and owns their use-case orchestration, private D1 access, active-versus-finished read routing, and cross-store finalization. MatchRoom owns serialized active-match execution, SQLite checkpoints and Protocol, and hibernatable WebSocket fan-out.
 
-Play and MatchRoom are independently built Cloudflare Workers. MatchRoom has no public route or D1 binding; its `fetch` method serves only WebSocket handshakes forwarded to a selected object by Play. Play reaches it through an external Durable Object binding. Play and application import `@ks/match-room` type-only: application derives its private capability from the server class, and Play's generated binding verifies that the selected RPC stub is structurally compatible.
+Play is the single Cloudflare Worker deployable and exports the MatchRoom class from the separate `@ks/match-room` workspace. MatchRoom has no public route or D1 dependency; its `fetch` method serves only WebSocket handshakes forwarded to a selected object by Play. Application imports `@ks/match-room` type-only to derive its private capability, while Play imports the class at runtime only from its Worker entrypoint. The generated internal binding verifies that the selected RPC stub is structurally compatible.
+
+Colocation accepts one larger bundle and a shared deployment lifecycle. Local startup profiling did not establish a MatchRoom cold-start benefit from a separate Worker, while one Worker removes cross-deployment compatibility, local registry orchestration, and branch-preview namespace coupling. A Play deployment can therefore restart active MatchRooms and close their sockets; clients reconnect, and gameplay or checkpoint changes must not deploy while Matches are active.
 
 ## Domain Boundaries
 
@@ -120,4 +121,4 @@ The match-ending update is broadcast and sockets are closed when its command is 
 
 ## Deployment
 
-Both Workers use compatibility date `2026-08-11`. Deploy MatchRoom before Play because Play binds its namespace through `script_name: "ks-match-room"`. The project has not yet been deployed.
+Play's Wrangler configuration owns both the Worker deployment and the MatchRoom Durable Object class migration. The project has not yet been deployed.

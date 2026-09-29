@@ -7,6 +7,8 @@ import { cloudflareContext, type CloudflareLoadContext } from '../web/server/con
 import type { Env } from './env'
 import { handleSparringMatchLiveRequest } from './sparring-match-live'
 
+export { MatchRoom } from '@ks/match-room'
+
 const requestHandler = createRequestHandler(
   () => import('virtual:react-router/server-build'),
   import.meta.env.MODE,
