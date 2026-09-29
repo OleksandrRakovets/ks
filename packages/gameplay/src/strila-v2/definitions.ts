@@ -1,8 +1,9 @@
-import { BySeatNumber, GameProtocolEntry, NonEmptyString, Seat } from '@ks/core'
+import { BySeatNumber, NonEmptyString, Seat } from '@ks/core'
 import * as v from 'valibot'
 
 import { FoulCommitCommand, FrameAwardCommand, FrameCommenceCommand } from '../command-schemas'
 import { GamePresentation } from '../constants'
+import { GameProtocolEntryFields } from '../game-protocol-entry-fields'
 
 const CueBall = v.literal(0)
 
@@ -260,7 +261,8 @@ const StrilaSystemProtocolEntryBody = v.variant('systemType', [
 /** Combines the common game Protocol envelope with Strila's typed player/system body variants. */
 export const StrilaProtocolEntry = v.pipe(
   v.object({
-    ...GameProtocolEntry.entries,
+    ...GameProtocolEntryFields,
+    gameKey: v.literal('strila-v2'),
     body: v.union([StrilaPlayerProtocolEntryBody, StrilaSystemProtocolEntryBody]),
   }),
   v.readonly(),

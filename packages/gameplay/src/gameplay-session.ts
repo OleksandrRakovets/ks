@@ -1,7 +1,8 @@
-import type { BySeatNumber, FrameOutcome, GameProtocolEntry, Seat } from '@ks/core'
+import type { BySeatNumber, FrameOutcome, Seat } from '@ks/core'
 import * as v from 'valibot'
 
 import type { GameControl } from './constants'
+import type { GameProtocolEntry } from './game-protocol-entry'
 import type { GameResult } from './game-result'
 import type {
   GameCommandFor,

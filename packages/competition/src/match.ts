@@ -8,8 +8,6 @@ import {
   type MatchState,
   opponentOf,
   PositiveInteger,
-  type ProtocolEntry,
-  type ProtocolEntryContent,
   Seat,
 } from '@ks/core'
 import { type GamePresentationFor, GameResult, RegisteredGameKey } from '@ks/gameplay/definitions'
@@ -32,6 +30,7 @@ import {
   restoreLifecycleSnapshot,
   sendLifecycleEvent,
 } from './match-machine-internals'
+import type { ProtocolEntry, ProtocolEntryContent } from './protocol'
 
 export type { MatchPhase } from './match-machine-internals'
 
@@ -339,6 +338,7 @@ class ResidentMatch implements Match {
     acceptedCommand: MatchCommand,
   ): MatchCommandResult {
     const lifecycle = deriveLifecycleState(this.snapshot)
+    const gameKey = gameKeyOf(lifecycle.config.gameKey)
 
     if (lifecycle.phase === 'finished') return { _tag: 'rejected', reason: { code: 'match-already-over' } }
 
@@ -353,14 +353,14 @@ class ResidentMatch implements Match {
           : opponentOf(lifecycle.config.firstBreakerSeat)
 
       this.snapshot = sendLifecycleEvent(this.snapshot, { type: 'frame.prepared', frameIndex, breakerSeat })
-      this.gameplay = createGameplay(gameKeyOf(lifecycle.config.gameKey), lifecycle.config)
+      this.gameplay = createGameplay(gameKey, lifecycle.config)
 
       return {
         _tag: 'accepted',
         command: acceptedCommand,
         protocolEntryContents: [
           {
-            gameKey: lifecycle.config.gameKey,
+            gameKey,
             frameIndex,
             source: 'system',
             entryType: 'frame-prepared',
@@ -392,7 +392,7 @@ class ResidentMatch implements Match {
 
       return this.completeFrame(outcome, acceptedCommand, [
         {
-          gameKey: lifecycle.config.gameKey,
+          gameKey,
           frameIndex: lifecycle.activeFrame.frameIndex,
           source: 'player',
           entryType: 'frame-conceded',
@@ -409,8 +409,6 @@ class ResidentMatch implements Match {
         reason: { code: 'wrong-breaker', expectedSeat: lifecycle.activeFrame.breakerSeat },
       }
     }
-
-    const gameKey = gameKeyOf(lifecycle.config.gameKey)
 
     return this.applyGameCommand(gameKey, command, acceptedCommand, command.type)
   }
@@ -496,8 +494,9 @@ class ResidentMatch implements Match {
     const lifecycle = deriveLifecycleState(this.snapshot)
 
     if (lifecycle.phase !== 'frame-in-progress') throw new Error('Cannot complete inactive frame')
+    const gameKey = gameKeyOf(lifecycle.config.gameKey)
     protocolEntryContents.push({
-      gameKey: lifecycle.config.gameKey,
+      gameKey,
       frameIndex: lifecycle.activeFrame.frameIndex,
       source: 'system',
       entryType: 'frame-awarded',
@@ -514,7 +513,7 @@ class ResidentMatch implements Match {
 
     if (resulting.phase === 'finished')
       protocolEntryContents.push({
-        gameKey: lifecycle.config.gameKey,
+        gameKey,
         frameIndex: lifecycle.activeFrame.frameIndex,
         source: 'system',
         entryType: 'match-ended',
@@ -580,6 +579,7 @@ export function correctMatch(
 
   const state = matchBeforeTarget.state()
   const frame = state.frames.at(-1)
+  const gameKey = gameKeyOf(state.gameKey)
 
   if (matchBeforeTarget.phase() !== 'frame-in-progress' || !frame)
     throw new Error('Persisted correction target is incompatible with its predecessor checkpoint')
@@ -592,8 +592,8 @@ export function correctMatch(
     command,
     // A single Command may produce derived outcomes; compensate them latest-first while linking original positions.
     protocolEntryContents: target.protocolEntries
-      .map((original) => ({
-        gameKey: state.gameKey,
+      .map((original): ProtocolEntryContent => ({
+        gameKey,
         frameIndex: frame.frameIndex,
         source: original.source,
         entryType: 'command-corrected',

@@ -1,6 +1,7 @@
-import { GameProtocolEntry, PositiveInteger } from '@ks/core'
+import { PositiveInteger } from '@ks/core'
 import * as v from 'valibot'
 
+import { GameProtocolEntryFields } from '../game-protocol-entry-fields'
 import type { PyramidCommand } from './definitions'
 import type { PyramidFrameSnapshot } from './machine'
 import type { PyramidRules } from './rules'
@@ -25,7 +26,8 @@ type PyramidProtocolEntryBody = v.InferOutput<typeof PyramidProtocolEntryBody>
 
 export const PyramidProtocolEntry = v.pipe(
   v.object({
-    ...GameProtocolEntry.entries,
+    ...GameProtocolEntryFields,
+    gameKey: v.picklist(['free-pyramid', 'combined-pyramid', 'combined-pyramid-old']),
     body: PyramidProtocolEntryBody,
   }),
   v.readonly(),

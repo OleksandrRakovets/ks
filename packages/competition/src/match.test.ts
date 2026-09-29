@@ -1,9 +1,10 @@
 import { describe, expect, test } from 'bun:test'
 
 import { type MatchCommand, type MatchConfig, newCommandId, newMatchId } from '@ks/core'
+import * as v from 'valibot'
 
 import { createMatch } from './match'
-import { parseProtocolEntryContent } from './protocol'
+import { ProtocolEntryContent } from './protocol'
 
 function config(target = 2): MatchConfig {
   return {
@@ -70,7 +71,7 @@ describe('Match', () => {
       const accepted = accept(match, submitted)
 
       for (const entry of accepted.protocolEntryContents)
-        expect(parseProtocolEntryContent(entry)).toEqual(entry)
+        expect(v.parse(ProtocolEntryContent, entry)).toEqual(entry)
     }
 
     expect(match.state().framesWonBySeat).toEqual({ A: 0, B: 0 })
@@ -81,7 +82,8 @@ describe('Match', () => {
       command: { type: 'frame.award', seat: 'A' },
     })
 
-    for (const entry of awarded.protocolEntryContents) expect(parseProtocolEntryContent(entry)).toEqual(entry)
+    for (const entry of awarded.protocolEntryContents)
+      expect(v.parse(ProtocolEntryContent, entry)).toEqual(entry)
     expect(awarded.protocolEntryContents).toContainEqual({
       gameKey: 'strila-v2',
       frameIndex: 1,

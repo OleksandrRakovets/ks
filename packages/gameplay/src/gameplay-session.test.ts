@@ -1,8 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 
-import { FrameOutcome, GameProtocolEntry } from '@ks/core'
+import { FrameOutcome } from '@ks/core'
 import * as v from 'valibot'
 
+import { GameProtocolEntry } from './game-protocol-entry'
 import { LongFreePyramidGamePresentation } from './long-free-pyramid/definitions'
 import {
   CombinedPyramidGamePresentation,

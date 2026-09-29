@@ -1,6 +1,6 @@
-import { parseProtocolEntryContent } from '@ks/competition'
-import { MatchId, MatchState, PositiveInteger, ProtocolEntries, type ProtocolEntry } from '@ks/core'
-import { GameResult, isRegisteredGameKey } from '@ks/gameplay/definitions'
+import { ProtocolEntries } from '@ks/competition'
+import { MatchId, MatchState, PositiveInteger } from '@ks/core'
+import { GameResult } from '@ks/gameplay/definitions'
 import { eq } from 'drizzle-orm'
 import * as v from 'valibot'
 
@@ -87,26 +87,13 @@ export async function getProtocolArchive(
     const entries = v.parse(v.pipe(v.string(), v.parseJson(), ProtocolEntries), row.rowsJson)
     const gameKey = archive.state.gameKey
 
-    const normalizeEntry = (entry: ProtocolEntry): ProtocolEntry => {
-      const { acceptedSeq, entryIndex, causedByCommandId, acceptedAt, ...content } = entry
-
-      if (content.gameKey !== gameKey) throw new Error('Protocol archive game key mismatch')
-
-      return {
-        acceptedSeq,
-        entryIndex,
-        causedByCommandId,
-        acceptedAt,
-        ...parseProtocolEntryContent(content),
-      }
-    }
-
-    const normalizedEntries = isRegisteredGameKey(gameKey) ? entries.map(normalizeEntry) : entries
+    if (entries.some((entry) => entry.gameKey !== gameKey))
+      throw new Error('Protocol archive game key mismatch')
 
     return {
       ...archive,
       protocolVersion,
-      entries: normalizedEntries,
+      entries,
     }
   } catch {
     if (!isSupportedProtocolArchiveVersion(row.protocolVersion)) {

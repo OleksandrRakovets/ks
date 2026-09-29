@@ -4,8 +4,6 @@ export * from './command'
 
 export * from './control'
 
-export * from './protocol'
-
 export * from './ids'
 
 export * from './match'

@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test'
 
+import type { ProtocolEntry } from '@ks/competition'
 import { FixedClock, newCommandId, UnixEpochMilliseconds } from '@ks/core'
 import * as v from 'valibot'
 
@@ -17,8 +18,8 @@ const entry = {
   source: 'system' as const,
   entryType: 'frame-prepared',
   seat: 'A' as const,
-  body: {},
-}
+  body: { targetPointsBySeat: { A: 9, B: 9 } },
+} satisfies ProtocolEntry
 
 test('adapts normalized Protocol entries directly', () => {
   const row = renderProtocolRows([entry], { A: 'Alice', B: 'Bob' }, clock)[0]

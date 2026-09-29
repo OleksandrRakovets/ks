@@ -1,6 +1,7 @@
-import { GameProtocolEntry, PositiveInteger } from '@ks/core'
+import { PositiveInteger } from '@ks/core'
 import * as v from 'valibot'
 
+import { GameProtocolEntryFields } from '../game-protocol-entry-fields'
 import { totalScore } from './calculations'
 import type { LongFreePyramidCommand } from './definitions'
 import type { LongFreePyramidFrameSnapshot } from './machine'
@@ -22,7 +23,8 @@ type LongFreePyramidProtocolEntryBody = v.InferOutput<typeof LongFreePyramidProt
 
 export const LongFreePyramidProtocolEntry = v.pipe(
   v.object({
-    ...GameProtocolEntry.entries,
+    ...GameProtocolEntryFields,
+    gameKey: v.literal('free-pyramid-long'),
     body: LongFreePyramidProtocolEntryBody,
   }),
   v.readonly(),

@@ -4,7 +4,7 @@ import {
   isCorrectionCommand,
   type Match,
   type MatchStateFor,
-  type RegisteredProtocolEntry,
+  type ProtocolEntry,
   restoreMatchCheckpoint,
 } from '@ks/competition'
 import type { Control, MatchCommand, MatchScoreProjection, NonNegativeInteger } from '@ks/core'
@@ -210,7 +210,7 @@ type ActiveControlsResult = {
   readonly latestSeq: NonNegativeInteger
   readonly controls: readonly Control[]
   readonly lastCommand: {
-    readonly entry: RegisteredProtocolEntry
+    readonly entry: ProtocolEntry
     readonly correction?: Control
   } | null
 } & ActivePresentation
@@ -218,7 +218,7 @@ type ActiveControlsResult = {
 type ActiveProtocolResult = {
   readonly _tag: 'active'
   readonly latestSeq: NonNegativeInteger
-  readonly protocolEntries: readonly RegisteredProtocolEntry[]
+  readonly protocolEntries: readonly ProtocolEntry[]
 } & ActivePresentation
 
 type ActiveScoreResult = {

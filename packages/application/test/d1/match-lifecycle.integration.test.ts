@@ -1,10 +1,4 @@
-import {
-  buildMatchConfig,
-  createMatch,
-  CreateMatchRequest,
-  parseProtocolEntry,
-  type RegisteredProtocolEntry,
-} from '@ks/competition'
+import { buildMatchConfig, createMatch, CreateMatchRequest, ProtocolEntry } from '@ks/competition'
 import {
   GuestPlayerId,
   type MatchCommand,
@@ -73,7 +67,7 @@ function finishedMatchTransfer(id = matchId, timestamp = createdAt): MatchRoomAr
   const config = buildMatchConfig(id, createRequest)
   const session = createMatch(config)
   const acceptedAt = v.parse(UnixEpochMilliseconds, timestamp + 1_000)
-  const protocolEntries: RegisteredProtocolEntry[] = []
+  const protocolEntries: ProtocolEntry[] = []
   let acceptedSeq = 0
 
   for (const command of [
@@ -92,7 +86,7 @@ function finishedMatchTransfer(id = matchId, timestamp = createdAt): MatchRoomAr
     acceptedSeq += 1
     decision.protocolEntryContents.forEach((entry, entryIndex) => {
       protocolEntries.push(
-        parseProtocolEntry({
+        v.parse(ProtocolEntry, {
           ...entry,
           acceptedSeq,
           entryIndex,
@@ -382,38 +376,6 @@ describe('real D1 match lifecycle', () => {
       gameResult: archive.gameResult,
     })
     await expect(getProtocolArchive(db, matchId)).rejects.toThrow('Protocol archive storage corruption')
-  })
-
-  test('reads a locally seeded historical game key archive', async () => {
-    const db = createApplicationDatabaseClient(env.DB)
-
-    const state = {
-      matchId,
-      gameKey: 'historical-game',
-      targets: { frameTargetPointsBySeat: { A: 8, B: 8 }, matchTargetFrames: 1 },
-      status: 'finished',
-      currentFrameIndex: 1,
-      framesWonBySeat: { A: 1, B: 0 },
-      frames: [{ frameIndex: 1, pointsBySeat: { A: 8, B: 2 }, breakerSeat: 'A', winnerSeat: 'A' }],
-    }
-
-    const entries = [
-      {
-        acceptedSeq: 1,
-        entryIndex: 0,
-        causedByCommandId: newCommandId(),
-        acceptedAt: 2_000,
-        gameKey: 'historical-game',
-        frameIndex: 1,
-        source: 'system',
-        entryType: 'match-ended',
-        seat: 'A',
-        body: {},
-      },
-    ]
-
-    await seedArchive(JSON.stringify(entries), JSON.stringify(state), 1)
-    expect(await getProtocolArchive(db, matchId)).toMatchObject({ protocolVersion: 1, entries, state })
   })
 
   test.each([

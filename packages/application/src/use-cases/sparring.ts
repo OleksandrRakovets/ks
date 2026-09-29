@@ -1,4 +1,4 @@
-import { type CreateMatchRequest, type MatchStateFor } from '@ks/competition'
+import { type CreateMatchRequest, type MatchStateFor, type ProtocolEntries } from '@ks/competition'
 import {
   type Clock,
   type Control,
@@ -9,7 +9,6 @@ import {
   type MatchScoreProjection,
   type NonNegativeInteger,
   type PlayerRef,
-  type ProtocolEntries,
   UnixEpochMilliseconds,
 } from '@ks/core'
 import {

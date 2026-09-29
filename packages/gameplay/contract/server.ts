@@ -2,7 +2,7 @@ export { GameCommandRejection, type GameplaySession } from '../src/gameplay-sess
 
 export { parseGameCommand } from '../src/parse-game-command'
 
-export { parseGameProtocolEntry, type RegisteredGameProtocolEntry } from '../src/parse-game-protocol-entry'
+export { GameProtocolEntry } from '../src/game-protocol-entry'
 
 export { createGameplaySession, restoreGameplaySession } from '../src/session-factory'
 

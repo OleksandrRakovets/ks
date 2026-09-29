@@ -1,4 +1,5 @@
-import type { BySeatNumber, Control, ProtocolEntry } from '@ks/core'
+import type { ProtocolEntry } from '@ks/competition'
+import type { BySeatNumber, Control } from '@ks/core'
 
 import { protocolEntryMessage, type ProtocolMessage } from './protocol'
 

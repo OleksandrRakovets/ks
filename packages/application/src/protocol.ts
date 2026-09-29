@@ -1,13 +1,5 @@
-import { correctionReferenceOf } from '@ks/competition'
-import {
-  type BySeatNumber,
-  type Clock,
-  type MatchId,
-  type MatchState,
-  type ProtocolEntries,
-  ProtocolEntry,
-  type Seat,
-} from '@ks/core'
+import { correctionReferenceOf, type ProtocolEntries, type ProtocolEntry } from '@ks/competition'
+import { type BySeatNumber, type Clock, type MatchId, type MatchState, type Seat } from '@ks/core'
 import type { GameResult } from '@ks/gameplay/definitions'
 import * as v from 'valibot'
 

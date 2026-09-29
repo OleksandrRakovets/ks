@@ -1,11 +1,6 @@
 import { isDeepStrictEqual } from 'node:util'
 
-import {
-  MatchCheckpoint,
-  MatchRejection,
-  parseProtocolEntry,
-  type RegisteredProtocolEntry,
-} from '@ks/competition'
+import { MatchCheckpoint, MatchRejection, ProtocolEntry } from '@ks/competition'
 import {
   MatchCommand,
   MatchConfig,
@@ -13,7 +8,6 @@ import {
   MatchScoreProjection,
   NonNegativeInteger,
   PositiveInteger,
-  ProtocolEntry,
   UnixEpochMilliseconds,
 } from '@ks/core'
 import { RegisteredGameKey } from '@ks/gameplay/definitions'
@@ -113,11 +107,9 @@ export function checkpointFromRow(
   }
 }
 
-export function protocolEntryFromRow(
-  row: typeof schema.protocolEntries.$inferSelect,
-): RegisteredProtocolEntry {
+export function protocolEntryFromRow(row: typeof schema.protocolEntries.$inferSelect): ProtocolEntry {
   try {
-    const entry = parseProtocolEntry(v.parse(v.pipe(v.string(), v.parseJson(), ProtocolEntry), row.entryJson))
+    const entry = v.parse(v.pipe(v.string(), v.parseJson(), ProtocolEntry), row.entryJson)
 
     if (entry.acceptedSeq !== row.acceptedSeq || entry.entryIndex !== row.entryIndex)
       throw new Error('position mismatch')
