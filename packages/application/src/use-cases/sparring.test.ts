@@ -1,13 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
-import {
-  FixedClock,
-  MatchId,
-  newCommandId,
-  PlayerRef,
-  projectMatchScore,
-  UnixEpochMilliseconds,
-} from '@ks/core'
+import { projectMatchScore } from '@ks/competition'
+import { FixedClock, MatchId, newCommandId, PlayerRef, UnixEpochMilliseconds } from '@ks/core'
 import * as v from 'valibot'
 
 import { MatchScorePollResponse, RECENT_FINISHED_MATCH_WINDOW_MS } from '../contracts/sparring'
@@ -131,7 +125,7 @@ function sparring(
           source: 'system',
           entryType: 'frame-prepared',
           seat: 'A',
-          body: {},
+          body: { targetPointsBySeat: { A: 8, B: 8 } },
         },
       ],
       state: transfer.finalState,
@@ -520,9 +514,9 @@ describe('trusted MatchRoom orchestration', () => {
             frameIndex: 1,
             gameKey: 'free-pyramid',
             source: 'player',
-            entryType: 'command',
+            entryType: 'player-command',
             seat: 'A',
-            body: { commandType: 'miss.record' },
+            body: { commandType: 'pot.record', pottedBallCount: 1 },
           },
           {
             acceptedSeq: 2,
@@ -532,9 +526,9 @@ describe('trusted MatchRoom orchestration', () => {
             frameIndex: 1,
             gameKey: 'free-pyramid',
             source: 'player',
-            entryType: 'command',
+            entryType: 'player-command',
             seat: 'B',
-            body: { commandType: 'miss.record' },
+            body: { commandType: 'pot.record', pottedBallCount: 1 },
           },
         ],
       }),

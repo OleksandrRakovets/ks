@@ -1,4 +1,4 @@
-export type AppTheme = 'club-dark' | 'club-light' | 'auto'
+import type { AppTheme } from '../theme'
 
 export function themeFromCookie(cookieHeader: string | null): AppTheme {
   if (cookieHeader === null || cookieHeader.length === 0) return 'club-dark'

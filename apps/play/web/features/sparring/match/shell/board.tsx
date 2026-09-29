@@ -1,5 +1,5 @@
 import type { BySeatNumber } from '@ks/core'
-import type { RegisteredGameKey, StrilaBall } from '@ks/gameplay/definitions'
+import type { GameKey, StrilaBall } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
 import { useTranslation } from 'react-i18next'
 
@@ -7,11 +7,7 @@ import { StrilaBall as StrilaBallVisual } from '@/components/strila-ball'
 import { cn } from '@/components/ui/utils'
 import type { ActiveMatchData, ActiveProtocolData } from '@/features/sparring/match/types'
 
-export function Board<K extends RegisteredGameKey>({
-  data,
-}: {
-  data: ActiveMatchData<K> | ActiveProtocolData<K>
-}) {
+export function Board<K extends GameKey>({ data }: { data: ActiveMatchData<K> | ActiveProtocolData<K> }) {
   const { t } = useTranslation()
 
   const frameScore =

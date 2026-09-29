@@ -1,6 +1,8 @@
-import { BySeatNumber, FrameOutcome, MatchConfig, opponentOf, Seat } from '@ks/core'
+import { BySeatNumber, FrameOutcome, opponentOf, Seat } from '@ks/core'
 import * as v from 'valibot'
 import { assign, initialTransition, setup, type SnapshotFrom, transition } from 'xstate'
+
+import { MatchConfig } from './matches'
 
 export const MatchMachineCheckpoint = v.object({
   value: v.picklist(['between-frames', 'frame-in-progress', 'finished']),

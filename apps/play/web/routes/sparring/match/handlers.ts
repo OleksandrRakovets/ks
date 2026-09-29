@@ -1,8 +1,10 @@
 import { MatchCommand, MatchId } from '@ks/core'
-import { type RegisteredGameKey, registry } from '@ks/gameplay/definitions'
+import { type GameKey, registry } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
 import * as v from 'valibot'
 
+import type { AppLoadContext } from '@/.server/context'
+import { requireApplication } from '@/.server/context'
 import type {
   ControlActionData,
   MatchPageData,
@@ -10,8 +12,6 @@ import type {
   ProtocolPageData,
 } from '@/features/sparring/match/types'
 import { localeFromContext } from '@/i18n'
-import type { AppLoadContext } from '@/server/context'
-import { requireApplication } from '@/server/context'
 
 type RouteArgs = {
   params: { matchId?: string }
@@ -31,7 +31,7 @@ function matchIdFromParams(params: RouteArgs['params']): MatchId {
   return matchId.output
 }
 
-export async function loadMatchPage<K extends RegisteredGameKey>(
+export async function loadMatchPage<K extends GameKey>(
   args: RouteArgs,
   expectedGameKey: K,
 ): Promise<MatchPageData<K>> {
@@ -47,7 +47,7 @@ export async function loadMatchPage<K extends RegisteredGameKey>(
   })
 }
 
-async function loadMatchProtocol<K extends RegisteredGameKey>(args: RouteArgs, expectedGameKey: K) {
+async function loadMatchProtocol<K extends GameKey>(args: RouteArgs, expectedGameKey: K) {
   const matchId = matchIdFromParams(args.params)
   const locale = localeFromContext(args.context)
 
@@ -62,7 +62,7 @@ async function loadMatchProtocol<K extends RegisteredGameKey>(args: RouteArgs, e
   return { ...result, shortGameTitle: registry[expectedGameKey].meta.shortGameTitle[locale] }
 }
 
-export async function loadMatchProtocolPage<K extends RegisteredGameKey>(
+export async function loadMatchProtocolPage<K extends GameKey>(
   args: RouteArgs,
   expectedGameKey: K,
 ): Promise<ProtocolPageData<K>> {
@@ -93,7 +93,7 @@ function commandErrorKey(error: string): ControlActionErrorKey {
 
 export async function commandMatchAction(
   args: RouteArgs,
-  expectedGameKey: RegisteredGameKey,
+  expectedGameKey: GameKey,
 ): Promise<ControlActionData> {
   const matchId = matchIdFromParams(args.params)
   const form = await args.request.formData()

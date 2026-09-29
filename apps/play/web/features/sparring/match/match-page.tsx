@@ -1,5 +1,5 @@
 import { type Control, groupControlsIntoSections, type MatchCommand } from '@ks/core'
-import type { GamePresentationFor, RegisteredGameKey } from '@ks/gameplay/definitions'
+import type { GameKey, GamePresentationFor } from '@ks/gameplay/definitions'
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useFetcher } from 'react-router'
@@ -12,7 +12,7 @@ import { MatchResult } from './shell/match-result'
 import { MatchControlShell, MatchResultShell } from './shell/match-shell'
 import type { ActiveMatchData, ControlActionData, MatchPageData } from './types'
 
-export function MatchPage<K extends RegisteredGameKey>(props: {
+export function MatchPage<K extends GameKey>(props: {
   data: MatchPageData<K>
   renderer: (props: MatchControlRendererProps<GamePresentationFor<K>>) => ReactNode
 }) {
@@ -27,7 +27,7 @@ export function MatchPage<K extends RegisteredGameKey>(props: {
   return <MatchControlPage data={props.data.match} renderer={props.renderer} />
 }
 
-function MatchControlPage<K extends RegisteredGameKey>(props: {
+function MatchControlPage<K extends GameKey>(props: {
   data: ActiveMatchData<K>
   renderer: (props: MatchControlRendererProps<GamePresentationFor<K>>) => ReactNode
 }) {

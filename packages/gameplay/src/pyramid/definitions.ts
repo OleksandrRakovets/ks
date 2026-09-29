@@ -1,8 +1,7 @@
 import { BySeatNumber, NonEmptyString, PositiveInteger, Seat } from '@ks/core'
 import * as v from 'valibot'
 
-import { FoulCommitCommand, FrameAwardCommand, FrameCommenceCommand } from '../command-schemas'
-import { GamePresentation } from '../constants'
+import { FoulCommitCommand, FrameAwardCommand, FrameCommenceCommand, GamePresentation } from '../constants'
 import { type PyramidGameKey, PyramidRules } from './rules'
 
 export const PyramidCommand = v.variant('type', [

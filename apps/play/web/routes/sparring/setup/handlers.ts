@@ -1,9 +1,11 @@
 import { type CreateSparringMatchInput, DisplayName } from '@ks/application'
 import { PositiveInteger, Seat } from '@ks/core'
-import { isRegisteredGameKey, registry } from '@ks/gameplay/definitions'
+import { isGameKey, registry } from '@ks/gameplay/definitions'
 import { redirect } from 'react-router'
 import * as v from 'valibot'
 
+import type { AppLoadContext } from '@/.server/context'
+import { requireApplication } from '@/.server/context'
 import {
   createProfileForGame,
   type MatchCreateProfile,
@@ -11,8 +13,6 @@ import {
 } from '@/features/sparring/setup/profile'
 import { matchUrl } from '@/features/sparring/urls'
 import { localeFromContext } from '@/i18n'
-import type { AppLoadContext } from '@/server/context'
-import { requireApplication } from '@/server/context'
 
 type LoaderData = {
   title: string
@@ -44,7 +44,7 @@ export async function loadSetupPage({
 }): Promise<LoaderData> {
   const gameKey = params.gameKey
 
-  if (gameKey === undefined || !isRegisteredGameKey(gameKey)) {
+  if (gameKey === undefined || !isGameKey(gameKey)) {
     throw new Response('Unknown gameKey', { status: 404 })
   }
 
@@ -130,7 +130,7 @@ export async function createSetupMatch({
 }): Promise<Response> {
   const gameKey = params.gameKey
 
-  if (gameKey === undefined || !isRegisteredGameKey(gameKey)) {
+  if (gameKey === undefined || !isGameKey(gameKey)) {
     throw new Response('Unknown gameKey', { status: 404 })
   }
 

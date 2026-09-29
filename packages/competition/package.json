@@ -4,6 +4,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./definitions": "./src/matches.ts",
     "./match-machine": "./src/match-machine.ts"
   },
   "dependencies": {

@@ -1,3 +1,4 @@
+/** Executable XState machine entrypoint for developer tooling; not an application contract. */
 export {
   getLongFreePyramidFramePhase,
   LongFreePyramidFrameMachine,

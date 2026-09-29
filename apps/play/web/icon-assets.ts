@@ -1,12 +1,4 @@
-import type { RouterContextProvider } from 'react-router'
-
-import { cloudflareContext } from './context'
-
 export type IconVariant = 'green' | 'amber'
-
-export function iconVariantFromContext(context: Pick<RouterContextProvider, 'get'>): IconVariant {
-  return context.get(cloudflareContext)?.isProduction === true ? 'green' : 'amber'
-}
 
 export function iconBasePath(variant: IconVariant): string {
   return `/icons/${variant}`

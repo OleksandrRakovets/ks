@@ -6,7 +6,7 @@ import type {
   UnixEpochMilliseconds,
   VerifiedPlayerId,
 } from '@ks/core'
-import type { RegisteredGameKey } from '@ks/gameplay/definitions'
+import type { GameKey } from '@ks/gameplay/definitions'
 import { sql } from 'drizzle-orm'
 import { check, index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
@@ -22,7 +22,7 @@ export const sparringMatches = sqliteTable(
   'sparring_matches',
   {
     matchId: text('match_id').$type<MatchId>().primaryKey(),
-    gameKey: text('game_key').$type<RegisteredGameKey>().notNull(),
+    gameKey: text('game_key').$type<GameKey>().notNull(),
     seatAPlayerRef: text('seat_a_player_ref').$type<PlayerRef>().notNull(),
     seatBPlayerRef: text('seat_b_player_ref').$type<PlayerRef>().notNull(),
     status: text('status').$type<StoredMatchStatus>().notNull(),

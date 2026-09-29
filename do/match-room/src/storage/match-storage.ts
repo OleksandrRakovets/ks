@@ -3,20 +3,20 @@ import { isDeepStrictEqual } from 'node:util'
 import {
   isCorrectionCommand,
   type MatchCheckpoint,
+  type MatchConfig,
   type MatchCorrectionTarget,
   type MatchRejection,
+  type MatchScoreProjection,
+  type MatchState,
+  projectMatchScore,
+  ProtocolEntry,
+  type ProtocolEntryContent,
 } from '@ks/competition'
 import {
   AcceptedCommand,
   type MatchCommand,
-  type MatchConfig,
-  type MatchScoreProjection,
-  type MatchState,
   type MatchStreamUpdate,
   PositiveInteger,
-  projectMatchScore,
-  ProtocolEntry,
-  type ProtocolEntryContent,
   SystemClock,
   type UnixEpochMilliseconds,
 } from '@ks/core'

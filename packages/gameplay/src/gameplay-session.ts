@@ -1,14 +1,19 @@
-import type { BySeatNumber, FrameOutcome, GameProtocolEntry, Seat } from '@ks/core'
+import type { BySeatNumber, FrameOutcome, Seat } from '@ks/core'
 import * as v from 'valibot'
 
-import type { GameControl } from './constants'
-import type { GameResult } from './game-result'
-import type {
-  GameCommandFor,
-  GameplayCheckpointStateFor,
-  GamePresentationFor,
-  RegisteredGameKey,
-} from './registry'
+import type { GameControl, GameResult } from './constants'
+import { LongFreePyramidProtocolEntry } from './long-free-pyramid/protocol'
+import { PyramidProtocolEntry } from './pyramid/protocol'
+import type { GameCommandFor, GameKey, GameplayCheckpointStateFor, GamePresentationFor } from './registry'
+import { StrilaProtocolEntry } from './strila-v2/definitions'
+
+export const GameProtocolEntry = v.union([
+  StrilaProtocolEntry,
+  LongFreePyramidProtocolEntry,
+  PyramidProtocolEntry,
+])
+
+export type GameProtocolEntry = v.InferOutput<typeof GameProtocolEntry>
 
 export const GameCommandRejection = v.pipe(
   v.object({ code: v.literal('command-not-available') }),
@@ -33,10 +38,10 @@ type GameplaySessionCreateArgsByKey = {
   readonly 'combined-pyramid-old': { readonly targetPointsBySeat: BySeatNumber }
 }
 
-export type GameplaySessionCreateArgsFor<K extends RegisteredGameKey> = GameplaySessionCreateArgsByKey[K]
+export type GameplaySessionCreateArgsFor<K extends GameKey> = GameplaySessionCreateArgsByKey[K]
 
 /** Resident gameplay for one active frame of a registered game. */
-export interface GameplaySession<K extends RegisteredGameKey> {
+export interface GameplaySession<K extends GameKey> {
   readonly gameKey: K
 
   /** Plain machine state, including hidden rule context; no runtime snapshot methods. */

@@ -1,9 +1,10 @@
 import { expect, test } from 'bun:test'
 
-import { type MatchCommand, type MatchConfig, newCommandId, newMatchId } from '@ks/core'
+import { type MatchCommand, newCommandId, newMatchId } from '@ks/core'
 import * as v from 'valibot'
 
 import { createMatch, type Match, MatchCheckpoint, restoreMatchCheckpoint } from './match'
+import type { MatchConfig } from './matches'
 
 function config(gameKey: MatchConfig['gameKey'], matchTargetFrames = 2): MatchConfig {
   const base: MatchConfig = {
@@ -301,7 +302,7 @@ test('rejects inconsistent persisted aggregates and corrupted hidden rule contex
 test('rejects an unsupported game key even without active gameplay', () => {
   const checkpoint = createMatch(config('free-pyramid')).exportCheckpoint()
   expect(() =>
-    restoreMatchCheckpoint({
+    v.parse(MatchCheckpoint, {
       ...checkpoint,
       lifecycle: {
         ...checkpoint.lifecycle,

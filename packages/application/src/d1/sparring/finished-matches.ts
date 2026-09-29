@@ -4,7 +4,7 @@ import {
   projectMatchScore,
   ProtocolEntries,
   type ProtocolEntries as ProtocolEntriesValue,
-} from '@ks/core'
+} from '@ks/competition'
 import { GameResult, type GameResult as GameResultValue } from '@ks/gameplay/definitions'
 import { and, eq, isNull, or } from 'drizzle-orm'
 import * as v from 'valibot'

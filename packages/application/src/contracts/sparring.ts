@@ -1,15 +1,15 @@
-import { MatchCreationDefinition, type MatchRejection, type MatchStateFor } from '@ks/competition'
+import type { MatchRejection } from '@ks/competition'
+import { MatchCreationDefinition, MatchScoreProjection, type MatchStateFor } from '@ks/competition/definitions'
 import {
   type Control,
   type HydratedMatchParticipants,
   type InstantPresentation,
   type MatchCommand,
   MatchId,
-  MatchScoreProjection,
   NonNegativeInteger,
   UnixEpochMilliseconds,
 } from '@ks/core'
-import type { GamePresentationFor, GameResult, RegisteredGameKey } from '@ks/gameplay/definitions'
+import type { GameKey, GamePresentationFor, GameResult } from '@ks/gameplay/definitions'
 import type { SupportedLocale } from '@ks/i18n'
 import * as v from 'valibot'
 
@@ -52,7 +52,7 @@ export type CreateSparringMatchResult =
 
 type MatchListEntryIdentity = {
   matchId: MatchId
-  gameKey: RegisteredGameKey
+  gameKey: GameKey
   shortGameTitle: string
   createdAtIso: string
   createdAtLabel: string
@@ -132,12 +132,11 @@ export type ReadMatchScoresResult =
   | { readonly ok: true; readonly matches: readonly MatchScorePollEntry[] }
   | ReadMatchFailure
 
-type MatchStateForLifecycle<
-  K extends RegisteredGameKey,
-  Lifecycle extends 'active' | 'finished',
-> = MatchStateFor<K> & { readonly status: Lifecycle }
+type MatchStateForLifecycle<K extends GameKey, Lifecycle extends 'active' | 'finished'> = MatchStateFor<K> & {
+  readonly status: Lifecycle
+}
 
-export type ReadMatchResult<K extends RegisteredGameKey> =
+export type ReadMatchResult<K extends GameKey> =
   /** A prepared gameplay frame is frame-active even before it has commenced. */
   | {
       readonly ok: true
@@ -189,7 +188,7 @@ export type SparringMatchLiveAdmission =
   | { readonly _tag: 'unknown' }
   | { readonly _tag: 'finished' }
 
-export type ReadMatchProtocolResult<K extends RegisteredGameKey> =
+export type ReadMatchProtocolResult<K extends GameKey> =
   | {
       readonly ok: true
       readonly lifecycle: 'active'
@@ -220,7 +219,7 @@ export type SparringApplication = {
   listLiveMatches(locale: SupportedLocale): Promise<LiveMatchListPage>
   listFinishedMatches(locale: SupportedLocale, day?: MatchListDay): Promise<FinishedMatchListPage>
   readMatchScores(matchIds: readonly MatchId[]): Promise<ReadMatchScoresResult>
-  readMatch<K extends RegisteredGameKey>(
+  readMatch<K extends GameKey>(
     matchId: MatchId,
     locale: SupportedLocale,
     expectedGameKey: K,
@@ -228,9 +227,9 @@ export type SparringApplication = {
   submitMatchCommand(
     matchId: MatchId,
     command: MatchCommand,
-    expectedGameKey: RegisteredGameKey,
+    expectedGameKey: GameKey,
   ): Promise<SubmitMatchCommandResult>
-  readMatchProtocol<K extends RegisteredGameKey>(
+  readMatchProtocol<K extends GameKey>(
     matchId: MatchId,
     locale: SupportedLocale,
     expectedGameKey: K,

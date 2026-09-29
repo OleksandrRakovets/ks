@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
 
-import { type Control, FixedClock, newCommandId, type ProtocolEntry, UnixEpochMilliseconds } from '@ks/core'
+import type { ProtocolEntry } from '@ks/competition'
+import { type Control, FixedClock, newCommandId, UnixEpochMilliseconds } from '@ks/core'
 import * as v from 'valibot'
 
 import { presentLastCommand } from './control'

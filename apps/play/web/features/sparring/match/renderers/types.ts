@@ -1,5 +1,6 @@
 import type { HydratedMatchParticipants } from '@ks/application'
-import { type Control, type MatchCommand, type MatchState, newCommandId } from '@ks/core'
+import type { MatchState } from '@ks/competition/definitions'
+import { type Control, type MatchCommand, newCommandId } from '@ks/core'
 
 export type MatchControlRendererProps<Presentation> = {
   readonly game: Presentation

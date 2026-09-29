@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./server": "./src/factory.ts"
   },
   "scripts": {
     "test:integration": "vitest run --config vitest.config.ts"

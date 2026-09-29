@@ -1,9 +1,9 @@
-import { createApplication } from '@ks/application'
+import { createApplication } from '@ks/application/server'
 import { SystemClock } from '@ks/core'
 import { createRequestHandler, RouterContextProvider } from 'react-router'
 import * as v from 'valibot'
 
-import { cloudflareContext, type CloudflareLoadContext } from '../web/server/context'
+import { cloudflareContext, type CloudflareLoadContext } from '../web/.server/context'
 import { handleSparringMatchLiveRequest } from './sparring-match-live'
 
 export { MatchRoom } from '@ks/match-room'

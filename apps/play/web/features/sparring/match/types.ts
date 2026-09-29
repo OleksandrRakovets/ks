@@ -1,12 +1,12 @@
 import type { ReadMatchProtocolResult, ReadMatchResult } from '@ks/application'
-import type { RegisteredGameKey } from '@ks/gameplay/definitions'
+import type { GameKey } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
 
-type MatchData<K extends RegisteredGameKey = RegisteredGameKey> = Extract<ReadMatchResult<K>, { ok: true }> & {
+type MatchData<K extends GameKey = GameKey> = Extract<ReadMatchResult<K>, { ok: true }> & {
   readonly shortGameTitle: string
 }
 
-type ProtocolData<K extends RegisteredGameKey> = Extract<ReadMatchProtocolResult<K>, { ok: true }> & {
+type ProtocolData<K extends GameKey> = Extract<ReadMatchProtocolResult<K>, { ok: true }> & {
   readonly shortGameTitle: string
 }
 
@@ -14,9 +14,9 @@ export type MatchPageDecision<Data extends { lifecycle: 'active' | 'finished' }>
   | { readonly page: 'control'; readonly match: Extract<Data, { lifecycle: 'active' }> }
   | { readonly page: 'result'; readonly match: Extract<Data, { lifecycle: 'finished' }> }
 
-export type MatchPageData<K extends RegisteredGameKey> = MatchPageDecision<MatchData<K>>
+export type MatchPageData<K extends GameKey> = MatchPageDecision<MatchData<K>>
 
-export type ProtocolPageData<K extends RegisteredGameKey> = MatchPageDecision<ProtocolData<K>>
+export type ProtocolPageData<K extends GameKey> = MatchPageDecision<ProtocolData<K>>
 
 export type ControlActionData =
   | { ok: true; acceptedSeqMax: number | null }
@@ -30,17 +30,8 @@ export type ControlActionData =
         | typeof keys.match.control.correctionUnavailable
     }
 
-export type ActiveMatchData<K extends RegisteredGameKey = RegisteredGameKey> = Extract<
-  MatchData<K>,
-  { lifecycle: 'active' }
->
+export type ActiveMatchData<K extends GameKey = GameKey> = Extract<MatchData<K>, { lifecycle: 'active' }>
 
-export type FinishedMatchData<K extends RegisteredGameKey = RegisteredGameKey> = Extract<
-  MatchData<K>,
-  { lifecycle: 'finished' }
->
+export type FinishedMatchData<K extends GameKey = GameKey> = Extract<MatchData<K>, { lifecycle: 'finished' }>
 
-export type ActiveProtocolData<K extends RegisteredGameKey = RegisteredGameKey> = Extract<
-  ProtocolData<K>,
-  { lifecycle: 'active' }
->
+export type ActiveProtocolData<K extends GameKey = GameKey> = Extract<ProtocolData<K>, { lifecycle: 'active' }>

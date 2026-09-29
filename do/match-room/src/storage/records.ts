@@ -1,17 +1,14 @@
 import { isDeepStrictEqual } from 'node:util'
 
-import { MatchCheckpoint, MatchRejection } from '@ks/competition'
 import {
-  MatchCommand,
+  MatchCheckpoint,
   MatchConfig,
-  MatchId,
+  MatchRejection,
   MatchScoreProjection,
-  NonNegativeInteger,
-  PositiveInteger,
   ProtocolEntry,
-  UnixEpochMilliseconds,
-} from '@ks/core'
-import { RegisteredGameKey } from '@ks/gameplay/definitions'
+} from '@ks/competition'
+import { MatchCommand, MatchId, NonNegativeInteger, PositiveInteger, UnixEpochMilliseconds } from '@ks/core'
+import { GameKey } from '@ks/gameplay/definitions'
 import * as v from 'valibot'
 
 import * as schema from './schema'
@@ -27,10 +24,7 @@ export type CommandReceiptLookup =
   | { readonly _tag: 'retry'; readonly receipt: CommandReceipt }
   | { readonly _tag: 'command-id-conflict' }
 
-const ActiveMatchConfig = v.pipe(
-  v.object({ ...MatchConfig.entries, gameKey: RegisteredGameKey }),
-  v.readonly(),
-)
+const ActiveMatchConfig = v.pipe(v.object({ ...MatchConfig.entries, gameKey: GameKey }), v.readonly())
 
 const MatchRecordFields = {
   matchId: MatchId,

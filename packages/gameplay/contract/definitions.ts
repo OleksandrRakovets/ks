@@ -1,7 +1,8 @@
+/** Browser/server shared game contracts; this entrypoint excludes executable XState machines. */
 export {
-  isRegisteredGameKey,
+  GameKey,
+  isGameKey,
   listGameKeys,
-  RegisteredGameKey,
   registry,
   type GamePresentationFor,
   type GameCommandFor,
@@ -12,7 +13,7 @@ export {
   LongFreePyramidResult,
 } from '../src/long-free-pyramid/definitions'
 
-export { GameResult } from '../src/game-result'
+export { GameResult } from '../src/constants'
 
 export {
   type CombinedPyramidGamePresentation,

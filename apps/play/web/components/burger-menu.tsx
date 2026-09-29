@@ -5,7 +5,7 @@ import { Link, useFetcher, useLocation } from 'react-router'
 
 import { localizedPath, pathForLocale } from '@/i18n'
 import { useRootLocale, useRootTheme } from '@/root'
-import type { AppTheme } from '@/server/theme'
+import type { AppTheme } from '@/theme'
 
 import { Button, ResponsiveMenu, Separator, ToggleGroup, ToggleGroupItem } from './ui'
 

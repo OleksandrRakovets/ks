@@ -1,19 +1,107 @@
+/** Browser/server shared Match definitions and projections; this entrypoint excludes executable machines. */
 import {
+  BySeatNumber,
   GameConfiguration,
-  type GameKey,
-  type MatchConfig,
-  type MatchId,
+  MatchId,
   MatchSeatAssignment,
   MatchTargets,
+  NonNegativeInteger,
+  PositiveInteger,
   Seat,
 } from '@ks/core'
-import type { MatchState } from '@ks/core'
-import { RegisteredGameKey } from '@ks/gameplay/definitions'
+import { GameKey } from '@ks/gameplay/definitions'
 import * as v from 'valibot'
+
+export const MatchConfig = v.pipe(
+  v.object({
+    matchId: MatchId,
+    gameKey: GameKey,
+    targets: MatchTargets,
+    firstBreakerSeat: Seat,
+    gameConfiguration: v.optional(GameConfiguration),
+  }),
+  v.readonly(),
+)
+
+export type MatchConfig = v.InferOutput<typeof MatchConfig>
+
+export const FrameState = v.pipe(
+  v.object({
+    frameIndex: PositiveInteger,
+    pointsBySeat: BySeatNumber,
+    breakerSeat: Seat,
+    winnerSeat: v.optional(Seat),
+  }),
+  v.readonly(),
+)
+
+export type FrameState = v.InferOutput<typeof FrameState>
+
+export const MatchState = v.pipe(
+  v.object({
+    matchId: MatchId,
+    gameKey: GameKey,
+    targets: MatchTargets,
+    gameConfiguration: v.optional(GameConfiguration),
+    status: v.picklist(['active', 'finished']),
+    currentFrameIndex: NonNegativeInteger,
+    framesWonBySeat: BySeatNumber,
+    frames: v.pipe(v.array(FrameState), v.readonly()),
+  }),
+  v.readonly(),
+)
+
+export type MatchState = v.InferOutput<typeof MatchState>
+
+export const ActiveFrameScoreProjection = v.pipe(
+  v.object({
+    frameIndex: PositiveInteger,
+    pointsBySeat: BySeatNumber,
+  }),
+  v.readonly(),
+)
+
+export type ActiveFrameScoreProjection = v.InferOutput<typeof ActiveFrameScoreProjection>
+
+export const MatchScoreProjection = v.pipe(
+  v.object({
+    matchTargetFrames: PositiveInteger,
+    frameTargetPointsBySeat: v.pipe(v.object({ A: PositiveInteger, B: PositiveInteger }), v.readonly()),
+    framesWonBySeat: BySeatNumber,
+    singleFramePointsBySeat: v.nullable(BySeatNumber),
+    activeFrame: v.nullable(ActiveFrameScoreProjection),
+  }),
+  v.readonly(),
+)
+
+export type MatchScoreProjection = v.InferOutput<typeof MatchScoreProjection>
+
+/** Derives the compact list score without treating the last completed Frame as active. */
+export function projectMatchScore(state: MatchState): MatchScoreProjection {
+  const representedFrame = state.frames.find((frame) => frame.frameIndex === state.currentFrameIndex)
+
+  const currentFrame =
+    state.status === 'active'
+      ? representedFrame?.winnerSeat === undefined
+        ? representedFrame
+        : undefined
+      : undefined
+
+  return {
+    matchTargetFrames: state.targets.matchTargetFrames,
+    frameTargetPointsBySeat: state.targets.frameTargetPointsBySeat,
+    framesWonBySeat: state.framesWonBySeat,
+    singleFramePointsBySeat:
+      state.targets.matchTargetFrames === 1 ? (representedFrame?.pointsBySeat ?? null) : null,
+    activeFrame: currentFrame
+      ? { frameIndex: currentFrame.frameIndex, pointsBySeat: currentFrame.pointsBySeat }
+      : null,
+  }
+}
 
 export const MatchCreationDefinition = v.pipe(
   v.object({
-    gameKey: RegisteredGameKey,
+    gameKey: GameKey,
     targets: MatchTargets,
     firstBreakerSeat: Seat,
     gameConfiguration: v.optional(GameConfiguration),

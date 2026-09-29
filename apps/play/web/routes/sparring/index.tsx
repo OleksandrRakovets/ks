@@ -1,4 +1,4 @@
-import type { RegisteredGameKey } from '@ks/gameplay/definitions'
+import type { GameKey } from '@ks/gameplay/definitions'
 import { Link } from 'react-router'
 
 import { Page } from '@/components/page'
@@ -126,7 +126,7 @@ function GameCard({
 }: {
   title: React.ReactNode
   description: React.ReactNode
-  gameKey?: RegisteredGameKey
+  gameKey?: GameKey
   playLabel?: string
   badgeSrc?: string
   rulesHref?: string

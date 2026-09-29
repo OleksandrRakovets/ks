@@ -1,12 +1,16 @@
-import { buildMatchConfig, createMatch, CreateMatchRequest } from '@ks/competition'
+import {
+  buildMatchConfig,
+  createMatch,
+  CreateMatchRequest,
+  projectMatchScore,
+  ProtocolEntry,
+} from '@ks/competition'
 import {
   GuestPlayerId,
   type MatchCommand,
   MatchId,
   newCommandId,
   PlayerRef,
-  projectMatchScore,
-  type ProtocolEntry,
   UnixEpochMilliseconds,
   VerifiedPlayerId,
 } from '@ks/core'
@@ -86,13 +90,15 @@ function finishedMatchTransfer(id = matchId, timestamp = createdAt): MatchRoomAr
     if (decision._tag !== 'accepted') throw new Error(`Fixture command rejected: ${command.command.type}`)
     acceptedSeq += 1
     decision.protocolEntryContents.forEach((entry, entryIndex) => {
-      protocolEntries.push({
-        ...entry,
-        acceptedSeq,
-        entryIndex,
-        causedByCommandId: command.commandId,
-        acceptedAt,
-      })
+      protocolEntries.push(
+        v.parse(ProtocolEntry, {
+          ...entry,
+          acceptedSeq,
+          entryIndex,
+          causedByCommandId: command.commandId,
+          acceptedAt,
+        }),
+      )
     })
   }
 
@@ -350,7 +356,7 @@ describe('real D1 match lifecycle', () => {
     const archive = {
       ...base,
       gameKey: 'free-pyramid-long' as const,
-      finalState: { ...base.finalState, gameKey: 'free-pyramid-long' },
+      finalState: { ...base.finalState, gameKey: 'free-pyramid-long' as const },
       gameResult: {
         gameKey: 'free-pyramid-long' as const,
         racks: [{ rackNumber: 1, scoreBySeat: { A: 2, B: 0 } }],
@@ -375,38 +381,6 @@ describe('real D1 match lifecycle', () => {
       gameResult: archive.gameResult,
     })
     await expect(getProtocolArchive(db, matchId)).rejects.toThrow('Protocol archive storage corruption')
-  })
-
-  test('reads a locally seeded historical game key archive', async () => {
-    const db = createApplicationDatabaseClient(env.DB)
-
-    const state = {
-      matchId,
-      gameKey: 'historical-game',
-      targets: { frameTargetPointsBySeat: { A: 8, B: 8 }, matchTargetFrames: 1 },
-      status: 'finished',
-      currentFrameIndex: 1,
-      framesWonBySeat: { A: 1, B: 0 },
-      frames: [{ frameIndex: 1, pointsBySeat: { A: 8, B: 2 }, breakerSeat: 'A', winnerSeat: 'A' }],
-    }
-
-    const entries = [
-      {
-        acceptedSeq: 1,
-        entryIndex: 0,
-        causedByCommandId: newCommandId(),
-        acceptedAt: 2_000,
-        gameKey: 'historical-game',
-        frameIndex: 1,
-        source: 'system',
-        entryType: 'match-ended',
-        seat: 'A',
-        body: {},
-      },
-    ]
-
-    await seedArchive(JSON.stringify(entries), JSON.stringify(state), 1)
-    expect(await getProtocolArchive(db, matchId)).toMatchObject({ protocolVersion: 1, entries, state })
   })
 
   test.each([

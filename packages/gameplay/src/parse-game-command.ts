@@ -1,28 +1,28 @@
 import type { MatchCommand } from '@ks/core'
 import * as v from 'valibot'
 
-import { type GameCommandFor, type RegisteredGameKey, registry } from './registry'
+import { type GameCommandFor, type GameKey, registry } from './registry'
 
 type GameCommandParseFailure = {
   readonly _tag: 'game-command-parse-failure'
-  readonly gameKey: RegisteredGameKey
+  readonly gameKey: GameKey
   readonly commandType: string
   readonly issues: readonly v.BaseIssue<unknown>[]
 }
 
-export type ParseGameCommandResult<K extends RegisteredGameKey> =
+export type ParseGameCommandResult<K extends GameKey> =
   | { readonly _tag: 'parsed'; readonly command: GameCommandFor<K> }
   | GameCommandParseFailure
 
 function parseFailure(
-  gameKey: RegisteredGameKey,
+  gameKey: GameKey,
   commandType: string,
   issues: readonly v.BaseIssue<unknown>[],
 ): GameCommandParseFailure {
   return { _tag: 'game-command-parse-failure', gameKey, commandType, issues }
 }
 
-export function parseGameCommand<K extends RegisteredGameKey>(
+export function parseGameCommand<K extends GameKey>(
   gameKey: K,
   input: MatchCommand['command'],
 ): ParseGameCommandResult<K> {

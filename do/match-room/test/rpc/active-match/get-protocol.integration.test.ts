@@ -3,7 +3,6 @@ import { evictDurableObject } from 'cloudflare:test'
 import { env } from 'cloudflare:workers'
 import { expect, test } from 'vitest'
 
-import type { MatchRoom } from '../../../src/MatchRoom'
 import {
   commenceCommand,
   initialization,
@@ -29,11 +28,11 @@ test('returns Protocol at sequence zero and restores accepted entries after evic
     source: 'game',
     command: { type: 'pot.record', seat: 'A', pottedBalls: [0] },
   })
-  const warm = rpcProtocolResult(await stub.getProtocol())
+  const warm = await stub.getProtocol()
   expect(warm).not.toHaveProperty('controls')
   expect(warm).toMatchObject({ game: { gameKey: 'strila-v2' } })
   await evictDurableObject(stub)
-  const restored = rpcProtocolResult(await env.MATCH_ROOM.getByName(matchId).getProtocol())
+  const restored = await env.MATCH_ROOM.getByName(matchId).getProtocol()
   expect(restored).toEqual(warm)
   expect(restored).not.toHaveProperty('controls')
   expect(restored).toMatchObject({
@@ -62,7 +61,7 @@ test('serves finalizing state and complete Protocol directly after eviction', as
   const { matchId, stub } = await initializedRoom()
   await makeRoomFinalizing(stub)
   await evictDurableObject(stub)
-  const protocol = rpcProtocolResult(await env.MATCH_ROOM.getByName(matchId).getProtocol())
+  const protocol = await env.MATCH_ROOM.getByName(matchId).getProtocol()
 
   if (protocol._tag !== 'finalizing') throw new Error('Expected finalizing Protocol')
   expect(
@@ -74,10 +73,3 @@ test('serves finalizing state and complete Protocol directly after eviction', as
     state: { status: 'finished', framesWonBySeat: { A: 1, B: 0 } },
   })
 })
-
-/** Retains the public contract when Cloudflare's Rpc.Result reduces the unknown Protocol body to never. */
-function rpcProtocolResult(
-  result: Awaited<ReturnType<MatchRoom['getProtocol']>>,
-): Awaited<ReturnType<MatchRoom['getProtocol']>> {
-  return result
-}
