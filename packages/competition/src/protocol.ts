@@ -2,14 +2,14 @@ import {
   BySeatNumber,
   CommandId,
   FrameWinReason,
+  GameConfiguration,
   NonNegativeInteger,
   PositiveInteger,
   type ProtocolEntry,
   ProtocolEntryContent,
-  UnknownObject,
 } from '@ks/core'
 import { RegisteredGameKey } from '@ks/gameplay/definitions'
-import { parseGameProtocolEntry } from '@ks/gameplay/server'
+import { parseGameProtocolEntry, type RegisteredGameProtocolEntry } from '@ks/gameplay/server'
 import * as v from 'valibot'
 
 export const CommandCorrectionReference = v.pipe(
@@ -31,7 +31,7 @@ export const MatchLifecycleProtocolEntry = v.variant('entryType', [
       body: v.pipe(
         v.object({
           targetPointsBySeat: BySeatNumber,
-          gameConfiguration: v.optional(UnknownObject),
+          gameConfiguration: v.optional(GameConfiguration),
         }),
         v.readonly(),
       ),
@@ -71,6 +71,13 @@ export const MatchLifecycleProtocolEntry = v.variant('entryType', [
 
 export type MatchLifecycleProtocolEntry = v.InferOutput<typeof MatchLifecycleProtocolEntry>
 
+export type RegisteredProtocolEntryContent =
+  | MatchLifecycleProtocolEntry
+  | (ProtocolEntryContent & RegisteredGameProtocolEntry)
+
+export type RegisteredProtocolEntry = Omit<ProtocolEntry, keyof ProtocolEntryContent> &
+  RegisteredProtocolEntryContent
+
 export function correctionReferenceOf(entry: ProtocolEntry): CommandCorrectionReference | undefined {
   if (entry.entryType !== 'command-corrected') return undefined
 
@@ -79,11 +86,19 @@ export function correctionReferenceOf(entry: ProtocolEntry): CommandCorrectionRe
 
 /** Validates Protocol meaning against the selected game or competition lifecycle schema. */
 export function parseProtocolEntryContent(input: ProtocolEntryContent): ProtocolEntryContent {
+  return registeredProtocolEntryContent(input)
+}
+
+export function parseProtocolEntry(input: ProtocolEntry): RegisteredProtocolEntry {
+  return { ...input, ...registeredProtocolEntryContent(input) }
+}
+
+function registeredProtocolEntryContent(input: ProtocolEntryContent): RegisteredProtocolEntryContent {
   const gameKey = v.parse(RegisteredGameKey, input.gameKey)
   const lifecycle = v.safeParse(MatchLifecycleProtocolEntry, input)
 
   if (lifecycle.success) return lifecycle.output
-  parseGameProtocolEntry(gameKey, input)
+  const game = parseGameProtocolEntry(gameKey, input)
 
-  return input
+  return { ...input, ...game }
 }

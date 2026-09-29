@@ -5,6 +5,8 @@ import {
   type MatchCheckpoint,
   type MatchCorrectionTarget,
   type MatchRejection,
+  parseProtocolEntry,
+  type RegisteredProtocolEntry,
 } from '@ks/competition'
 import {
   AcceptedCommand,
@@ -170,13 +172,15 @@ export class MatchStorage {
     const endsMatch = args.state.status === 'finished'
 
     const entries = args.protocolEntryContents.map((content, entryIndex) =>
-      v.parse(ProtocolEntry, {
-        ...content,
-        acceptedSeq: acceptedCommand.acceptedSeq,
-        acceptedAt: acceptedCommand.acceptedAt,
-        causedByCommandId: acceptedCommand.commandId,
-        entryIndex,
-      }),
+      parseProtocolEntry(
+        v.parse(ProtocolEntry, {
+          ...content,
+          acceptedSeq: acceptedCommand.acceptedSeq,
+          acceptedAt: acceptedCommand.acceptedAt,
+          causedByCommandId: acceptedCommand.commandId,
+          entryIndex,
+        }),
+      ),
     )
 
     if (entries.length === 0) throw new Error('Accepted Command must produce Protocol')
@@ -308,7 +312,7 @@ export class MatchStorage {
 
   findLastAdvancingPlayerCommand(): {
     readonly command: MatchCommand
-    readonly entry: ProtocolEntry
+    readonly entry: RegisteredProtocolEntry
   } | null {
     const row = this.#selectCheckpointRow(this.activeMatchRecord.latestSeq)
 
@@ -333,7 +337,7 @@ export class MatchStorage {
     }
   }
 
-  readProtocol(): ProtocolEntry[] {
+  readProtocol(): RegisteredProtocolEntry[] {
     const matchRecord = this.anyMatchRecord
 
     const rows = this.#db
@@ -365,7 +369,7 @@ export class MatchStorage {
     return entries
   }
 
-  #readProtocolEntriesAt(seq: number): ProtocolEntry[] {
+  #readProtocolEntriesAt(seq: number): RegisteredProtocolEntry[] {
     return this.#db
       .select()
       .from(schema.protocolEntries)

@@ -1,11 +1,10 @@
-import { restoreMatchCheckpoint } from '@ks/competition'
+import { type RegisteredProtocolEntry, restoreMatchCheckpoint } from '@ks/competition'
 import type {
   MatchCommand,
   MatchId,
   MatchScoreProjection,
   MatchState,
   NonNegativeInteger,
-  ProtocolEntry,
   UnixEpochMilliseconds,
 } from '@ks/core'
 import type { GameResult, RegisteredGameKey } from '@ks/gameplay/definitions'
@@ -115,7 +114,7 @@ type FinalizingReadResult = {
 }
 
 type FinalizingProtocolResult = FinalizingReadResult & {
-  readonly protocolEntries: readonly ProtocolEntry[]
+  readonly protocolEntries: readonly RegisteredProtocolEntry[]
 }
 
 type FinalizingScoreResult = {
@@ -131,7 +130,7 @@ export type FinishedMatchTransfer = {
   readonly createdAt: UnixEpochMilliseconds
   readonly sourceLatestSeq: NonNegativeInteger
   readonly endedAt: UnixEpochMilliseconds
-  readonly protocolEntries: readonly ProtocolEntry[]
+  readonly protocolEntries: readonly RegisteredProtocolEntry[]
   readonly finalState: MatchState
   readonly gameResult: GameResult | null
 }

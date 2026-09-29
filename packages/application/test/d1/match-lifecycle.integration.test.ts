@@ -1,4 +1,10 @@
-import { buildMatchConfig, createMatch, CreateMatchRequest } from '@ks/competition'
+import {
+  buildMatchConfig,
+  createMatch,
+  CreateMatchRequest,
+  parseProtocolEntry,
+  type RegisteredProtocolEntry,
+} from '@ks/competition'
 import {
   GuestPlayerId,
   type MatchCommand,
@@ -6,7 +12,6 @@ import {
   newCommandId,
   PlayerRef,
   projectMatchScore,
-  type ProtocolEntry,
   UnixEpochMilliseconds,
   VerifiedPlayerId,
 } from '@ks/core'
@@ -68,7 +73,7 @@ function finishedMatchTransfer(id = matchId, timestamp = createdAt): MatchRoomAr
   const config = buildMatchConfig(id, createRequest)
   const session = createMatch(config)
   const acceptedAt = v.parse(UnixEpochMilliseconds, timestamp + 1_000)
-  const protocolEntries: ProtocolEntry[] = []
+  const protocolEntries: RegisteredProtocolEntry[] = []
   let acceptedSeq = 0
 
   for (const command of [
@@ -86,13 +91,15 @@ function finishedMatchTransfer(id = matchId, timestamp = createdAt): MatchRoomAr
     if (decision._tag !== 'accepted') throw new Error(`Fixture command rejected: ${command.command.type}`)
     acceptedSeq += 1
     decision.protocolEntryContents.forEach((entry, entryIndex) => {
-      protocolEntries.push({
-        ...entry,
-        acceptedSeq,
-        entryIndex,
-        causedByCommandId: command.commandId,
-        acceptedAt,
-      })
+      protocolEntries.push(
+        parseProtocolEntry({
+          ...entry,
+          acceptedSeq,
+          entryIndex,
+          causedByCommandId: command.commandId,
+          acceptedAt,
+        }),
+      )
     })
   }
 

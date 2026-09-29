@@ -4,9 +4,10 @@ import {
   isCorrectionCommand,
   type Match,
   type MatchStateFor,
+  type RegisteredProtocolEntry,
   restoreMatchCheckpoint,
 } from '@ks/competition'
-import type { Control, MatchCommand, MatchScoreProjection, NonNegativeInteger, ProtocolEntry } from '@ks/core'
+import type { Control, MatchCommand, MatchScoreProjection, NonNegativeInteger } from '@ks/core'
 import type { GamePresentationFor, RegisteredGameKey } from '@ks/gameplay/definitions'
 
 import { type LiveConnectionCursor, LiveConnectionHandler } from '../live/live-connection-handler'
@@ -209,7 +210,7 @@ type ActiveControlsResult = {
   readonly latestSeq: NonNegativeInteger
   readonly controls: readonly Control[]
   readonly lastCommand: {
-    readonly entry: ProtocolEntry
+    readonly entry: RegisteredProtocolEntry
     readonly correction?: Control
   } | null
 } & ActivePresentation
@@ -217,7 +218,7 @@ type ActiveControlsResult = {
 type ActiveProtocolResult = {
   readonly _tag: 'active'
   readonly latestSeq: NonNegativeInteger
-  readonly protocolEntries: readonly ProtocolEntry[]
+  readonly protocolEntries: readonly RegisteredProtocolEntry[]
 } & ActivePresentation
 
 type ActiveScoreResult = {

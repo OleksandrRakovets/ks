@@ -1,12 +1,27 @@
 import type { MatchId } from '@ks/core'
 import type { MatchRoom } from '@ks/match-room'
 
-// Derive the private capability from MatchRoom's server methods so RPC types have one source of truth.
-// Play's generated binding verifies transport compatibility; the type-only import adds no runtime dependency.
-export type MatchRoomClient = Pick<
-  MatchRoom,
-  'initialize' | 'submitCommand' | 'getControls' | 'getProtocol' | 'getScore' | 'prepareArchive'
->
+type MatchRoomRpcMethod =
+  | 'initialize'
+  | 'submitCommand'
+  | 'getControls'
+  | 'getProtocol'
+  | 'getScore'
+  | 'prepareArchive'
+
+type MatchRoomStub = DurableObjectStub<MatchRoom>
+
+type SerializableRpcMethod<Method extends MatchRoomRpcMethod> = [ReturnType<MatchRoomStub[Method]>] extends [
+  never,
+]
+  ? never
+  : MatchRoom[Method]
+
+// Keep Cloudflare's custom thenables and disposal metadata out of Application while rejecting server methods that
+// the generated client stub cannot serialize.
+export type MatchRoomClient = {
+  [Method in MatchRoomRpcMethod]: SerializableRpcMethod<Method>
+}
 
 export type MatchRoomInitializationInput = Parameters<MatchRoomClient['initialize']>[0]
 

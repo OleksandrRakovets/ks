@@ -148,13 +148,6 @@
       }
     },
     {
-      // Generated Cloudflare RPC types can reduce valid asynchronous calls to never.
-      "files": ["**/*.integration.test.ts"],
-      "rules": {
-        "typescript/await-thenable": "off"
-      }
-    },
-    {
       "files": ["packages/gameplay/src/**/*.{ts,tsx}"],
       "rules": {
         "no-restricted-imports": [

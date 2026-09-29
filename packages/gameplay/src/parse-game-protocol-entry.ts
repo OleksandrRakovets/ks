@@ -1,15 +1,29 @@
 import type { GameProtocolEntry } from '@ks/core'
 import * as v from 'valibot'
 
-import { LongFreePyramidProtocolEntry } from './long-free-pyramid/protocol'
-import { PyramidProtocolEntry } from './pyramid/protocol'
+import {
+  LongFreePyramidProtocolEntry,
+  type LongFreePyramidProtocolEntry as LongFreePyramidProtocolEntryValue,
+} from './long-free-pyramid/protocol'
+import {
+  PyramidProtocolEntry,
+  type PyramidProtocolEntry as PyramidProtocolEntryValue,
+} from './pyramid/protocol'
 import type { RegisteredGameKey } from './registry'
-import { StrilaProtocolEntry } from './strila-v2/definitions'
+import {
+  StrilaProtocolEntry,
+  type StrilaProtocolEntry as StrilaProtocolEntryValue,
+} from './strila-v2/definitions'
+
+export type RegisteredGameProtocolEntry =
+  | StrilaProtocolEntryValue
+  | LongFreePyramidProtocolEntryValue
+  | PyramidProtocolEntryValue
 
 export function parseGameProtocolEntry(
   gameKey: RegisteredGameKey,
   input: GameProtocolEntry,
-): GameProtocolEntry {
+): RegisteredGameProtocolEntry {
   switch (gameKey) {
     case 'strila-v2':
       return v.parse(StrilaProtocolEntry, input)

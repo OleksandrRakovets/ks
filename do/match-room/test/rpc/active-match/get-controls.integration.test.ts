@@ -3,7 +3,6 @@ import { evictDurableObject, runInDurableObject } from 'cloudflare:test'
 import { env } from 'cloudflare:workers'
 import { expect, test } from 'vitest'
 
-import type { MatchRoom } from '../../../src/MatchRoom'
 import {
   captureRpcError,
   initialization,
@@ -182,7 +181,7 @@ test('restores nested Strila foul state and archives a natural award after evict
       command: { type: 'penalty.select', seat: 'B', choice: 'pass-position' },
     }),
   ).toEqual({ _tag: 'accepted', acceptedSeq: 4, endsMatch: false })
-  const restoredProtocol = rpcProtocolResult(await restored.getProtocol())
+  const restoredProtocol = await restored.getProtocol()
   expect(restoredProtocol).toMatchObject({
     _tag: 'active',
     latestSeq: 4,
@@ -276,10 +275,3 @@ test('returns durable final state and score after a match-ending acceptance', as
     },
   })
 })
-
-/** Retains the public contract when Cloudflare's Rpc.Result reduces the unknown Protocol body to never. */
-function rpcProtocolResult(
-  result: Awaited<ReturnType<MatchRoom['getProtocol']>>,
-): Awaited<ReturnType<MatchRoom['getProtocol']>> {
-  return result
-}
