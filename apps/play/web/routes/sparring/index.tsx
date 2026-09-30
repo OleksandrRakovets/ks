@@ -21,7 +21,7 @@ function UkrainianSparringIndex() {
         <GameCard
           gameKey="strila-v2"
           title="Стріла"
-          description="Українська гра зі спеціально розробленими кольоровими кулями на звичних столах."
+          description="Українська гра спеціальними кольоровими кулями на звичних столах."
           playLabel="Грати в Стрілу"
           badgeSrc="/games/strila.webp"
           rulesHref="https://strila.pro/pravyla/"
@@ -35,7 +35,7 @@ function UkrainianSparringIndex() {
         />
         <GameCard
           title="Барабан"
-          description="Варіація для двох комплектів куль Стріли. Перемагає той, хто першим забиває свої кулі."
+          description="Варіація для двох комплектів куль Стріли. Мета — першим забити свої кулі."
           badgeSrc="/games/baraban.webp"
           rulesHref="https://strila.pro/baraban-3/"
           rulesLabel="Правила на strila.pro"
@@ -71,7 +71,7 @@ function EnglishSparringIndex() {
         <GameCard
           gameKey="strila-v2"
           title="Strila"
-          description="A Ukrainian game with specially designed coloured balls, played on standard tables."
+          description="A Ukrainian game with special coloured balls, played on standard tables."
           playLabel="Play Strila"
           badgeSrc="/games/strila.webp"
           rulesHref="https://strila.pro/en/rules/"
