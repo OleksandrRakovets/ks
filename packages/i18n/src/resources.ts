@@ -3,7 +3,6 @@ export const resources = {
     translation: {
       app: {
         title: 'KS - Keep Score',
-        homeComingSoon: 'Скоро все буде!',
         notFound: {
           eyebrow: '404',
           title: 'Не знайдено',
@@ -311,7 +310,6 @@ export const resources = {
     translation: {
       app: {
         title: 'KS - Keep Score',
-        homeComingSoon: 'Coming soon!',
         notFound: {
           eyebrow: '404',
           title: 'Not found',

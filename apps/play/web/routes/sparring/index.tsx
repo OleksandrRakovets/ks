@@ -163,8 +163,8 @@ function GameCard({
           <CardTitle
             className={
               playable
-                ? 'text-[22px] leading-snug font-bold'
-                : 'text-[22px] leading-snug font-bold text-muted-foreground'
+                ? 'text-[22px] leading-snug font-bold text-balance'
+                : 'text-[22px] leading-snug font-bold text-balance text-muted-foreground'
             }
           >
             {title}

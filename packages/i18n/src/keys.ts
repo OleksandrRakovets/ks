@@ -1,7 +1,6 @@
 export const keys = {
   appTitle: 'app.title',
   app: {
-    homeComingSoon: 'app.homeComingSoon',
     notFound: {
       eyebrow: 'app.notFound.eyebrow',
       title: 'app.notFound.title',

@@ -25,7 +25,7 @@ export function Page({ title, backLink, headerAction, children, className }: Pag
           </Link>
         ) : null}
         <div className="flex items-center justify-between gap-3">
-          <h1 className="text-[32px] leading-tight font-bold tracking-[-0.025em]">{title}</h1>
+          <h1 className="text-[32px] leading-tight font-bold tracking-[-0.025em] text-balance">{title}</h1>
           {headerAction}
         </div>
       </header>
