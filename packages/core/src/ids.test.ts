@@ -10,7 +10,6 @@ import {
   newMatchId,
   newVerifiedPlayerId,
   PlayerRef,
-  stripOptionalPrefix,
   VerifiedPlayerId,
 } from './ids'
 
@@ -21,12 +20,9 @@ describe('ID generation', () => {
     expect(v.is(MatchId, newMatchId())).toBe(true)
   })
 
-  test('formats player refs and strips optional ULID prefixes', () => {
+  test('formats player refs', () => {
     const id = '01ARZ3NDEKTSV4RRFFQ69G5FAV'
 
     expect(formatPlayerRef('gp', id)).toBe(v.parse(PlayerRef, `gp_${id}`))
-    expect(stripOptionalPrefix(`m_${id}`)).toBe(id)
-    expect(stripOptionalPrefix(`unknown_${id}`)).toBe(id)
-    expect(stripOptionalPrefix('not_a_ulid')).toBe('not_a_ulid')
   })
 })

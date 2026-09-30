@@ -74,15 +74,13 @@ export const LongFreePyramidRack = v.pipe(
 export type LongFreePyramidRack = v.InferOutput<typeof LongFreePyramidRack>
 
 /** Game-owned result retained after its single frame ends, including a rollover's empty final rack. */
-export const LongFreePyramidResult = v.pipe(
+const LongFreePyramidResult = v.pipe(
   v.object({
     gameKey: v.literal('free-pyramid-long'),
     racks: v.pipe(v.array(LongFreePyramidRack), v.minLength(1), v.readonly()),
   }),
   v.readonly(),
 )
-
-export type LongFreePyramidResult = v.InferOutput<typeof LongFreePyramidResult>
 
 /** Replace this alias with a discriminated union when another registered game adds a bespoke result. */
 export const GameResult = LongFreePyramidResult

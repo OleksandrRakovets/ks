@@ -2,20 +2,11 @@
 export type { Application } from './contracts'
 
 export type {
-  SubmitMatchCommandResult,
-  CreateSparringMatchResult,
-  FinishedMatchListPage,
-  HydratedMatchParticipant,
   HydratedMatchParticipants,
-  LiveMatchListPage,
   MatchListEntry,
   MatchListPage,
-  ReadMatchFailure,
   ReadMatchResult,
   ReadMatchProtocolResult,
-  ReadMatchScoresResult,
-  SparringApplication,
-  SparringMatchLiveAdmission,
 } from './contracts/sparring'
 
 export {
@@ -24,7 +15,6 @@ export {
   MatchListDay,
   MatchScorePollEntry,
   MatchScorePollResponse,
-  RECENT_FINISHED_MATCH_WINDOW_MS,
 } from './contracts/sparring'
 
 export type { LastCommandPresentation } from './control'

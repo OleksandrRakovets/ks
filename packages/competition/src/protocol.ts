@@ -35,7 +35,7 @@ const ProtocolEntryContentFields = {
   scoreAfter: v.optional(BySeatNumber),
 } as const
 
-export const MatchLifecycleProtocolEntry = v.variant('entryType', [
+const MatchLifecycleProtocolEntry = v.variant('entryType', [
   v.pipe(
     v.object({
       ...ProtocolEntryContentFields,
@@ -88,8 +88,6 @@ export const MatchLifecycleProtocolEntry = v.variant('entryType', [
     v.readonly(),
   ),
 ])
-
-export type MatchLifecycleProtocolEntry = v.InferOutput<typeof MatchLifecycleProtocolEntry>
 
 const GameProtocolEntryContent = v.pipe(
   v.intersect([v.object({ frameIndex: PositiveInteger }), GameProtocolEntry]),

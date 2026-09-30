@@ -108,15 +108,13 @@ export type MatchState = v.InferOutput<typeof MatchState>
 
 export type MatchStateFor<K extends GameKey> = Omit<MatchState, 'gameKey'> & { readonly gameKey: K }
 
-export const ActiveFrameScoreProjection = v.pipe(
+const ActiveFrameScoreProjection = v.pipe(
   v.object({
     frameIndex: PositiveInteger,
     pointsBySeat: BySeatNumber,
   }),
   v.readonly(),
 )
-
-export type ActiveFrameScoreProjection = v.InferOutput<typeof ActiveFrameScoreProjection>
 
 export const MatchScoreProjection = v.pipe(
   v.object({

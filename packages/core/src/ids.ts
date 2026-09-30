@@ -61,12 +61,3 @@ export function newCommandId(): CommandId {
 export function formatPlayerRef(kind: 'gp' | 'vp', id: string): PlayerRef {
   return v.parse(PlayerRef, `${kind}_${id}`)
 }
-
-export function stripOptionalPrefix(value: string): string {
-  const idx = value.indexOf('_')
-
-  if (idx <= 0) return value
-  const maybeId = value.slice(idx + 1)
-
-  return ULID_RE.test(maybeId) ? maybeId : value
-}

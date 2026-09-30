@@ -22,8 +22,6 @@ import {
 } from './match-machine-internals'
 import type { ProtocolEntryContent } from './protocol'
 
-export type { MatchPhase } from './match-machine-internals'
-
 /** Complete executable aggregate state; storage cursor and Protocol are deliberately separate. */
 export const MatchCheckpoint = v.object({
   lifecycle: MatchMachineCheckpoint,

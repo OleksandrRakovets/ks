@@ -33,7 +33,7 @@ export const SparringMatchLiveQuery = v.strictObject({
 
 export type SparringMatchLiveQuery = v.InferOutput<typeof SparringMatchLiveQuery>
 
-export const SparringMatchLiveUpdateMessage = v.pipe(
+const SparringMatchLiveUpdateMessage = v.pipe(
   v.object({
     contractVersion: SparringMatchLiveContractVersion,
     type: v.literal('update'),
@@ -42,9 +42,7 @@ export const SparringMatchLiveUpdateMessage = v.pipe(
   v.readonly(),
 )
 
-export type SparringMatchLiveUpdateMessage = v.InferOutput<typeof SparringMatchLiveUpdateMessage>
-
-export const SparringMatchLiveCaughtUpMessage = v.pipe(
+const SparringMatchLiveCaughtUpMessage = v.pipe(
   v.object({
     contractVersion: SparringMatchLiveContractVersion,
     type: v.literal('caught-up'),
@@ -53,8 +51,6 @@ export const SparringMatchLiveCaughtUpMessage = v.pipe(
   }),
   v.readonly(),
 )
-
-export type SparringMatchLiveCaughtUpMessage = v.InferOutput<typeof SparringMatchLiveCaughtUpMessage>
 
 export const SparringMatchLiveServerMessage = v.variant('type', [
   SparringMatchLiveUpdateMessage,
