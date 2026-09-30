@@ -13,7 +13,16 @@ import {
 
 test('returns active Controls at the authoritative sequence and restores after eviction', async () => {
   const { matchId, stub } = await initializedRoom()
-  expect(await stub.getControls()).toMatchObject({ _tag: 'active', latestSeq: 0 })
+  const initial = await stub.getControls()
+  expect(initial).toMatchObject({
+    _tag: 'active',
+    latestSeq: 0,
+    state: { status: 'active', currentFrameIndex: 0 },
+    game: undefined,
+    controls: [{ source: 'match', type: 'frame.prepare' }],
+  })
+  expect(initial).not.toHaveProperty('controlPhase')
+  expect(initial).not.toHaveProperty('protocolEntries')
   await stub.submitCommand(prepareCommand())
   await evictDurableObject(stub)
   expect(await env.MATCH_ROOM.getByName(matchId).getControls()).toMatchObject({
@@ -23,6 +32,8 @@ test('returns active Controls at the authoritative sequence and restores after e
       currentFrameIndex: 1,
       frames: [{ frameIndex: 1, breakerSeat: 'A', pointsBySeat: { A: 0, B: 0 } }],
     },
+    game: { gameKey: 'free-pyramid', score: { A: 0, B: 0 }, details: { phase: 'not-started' } },
+    controls: [{ source: 'match', type: 'frame.commence', seat: 'A' }],
   })
 })
 
@@ -137,6 +148,11 @@ test('restores asymmetric game scoring and keeps the effective last command acro
   const controls = await restored.getControls()
 
   if (!('lastCommand' in controls)) throw new Error('Expected active controls')
+  expect(controls).toMatchObject({
+    state: { status: 'active', frames: [{ winnerSeat: 'A', pointsBySeat: { A: 2, B: 0 } }] },
+    game: undefined,
+    controls: [{ source: 'match', type: 'frame.prepare' }],
+  })
   expect(controls.lastCommand).toEqual({
     entry: expect.objectContaining({
       acceptedSeq: 5,

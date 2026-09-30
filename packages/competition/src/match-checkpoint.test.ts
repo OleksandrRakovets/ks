@@ -30,8 +30,7 @@ function roundTrip(match: Match): Match {
   const restored = restoreMatchCheckpoint(checkpoint)
   expect(restored.phase()).toBe(match.phase())
   expect(restored.state()).toEqual(match.state())
-  expect(restored.gamePresentation()).toEqual(match.gamePresentation())
-  expect(restored.controls()).toEqual(match.controls())
+  expect(restored.controlProjection()).toEqual(match.controlProjection())
   expect(restored.gameResult()).toEqual(match.gameResult())
   expect(restored.exportCheckpoint()).toEqual(checkpoint)
 
@@ -78,8 +77,7 @@ test('Strila nested foul phase preserves offender and subsequent Protocol', () =
 
   expect(restored.execute(command)).toEqual(match.execute(command))
   expect(restored.state()).toEqual(match.state())
-  expect(restored.gamePresentation()).toEqual(match.gamePresentation())
-  expect(restored.controls()).toEqual(match.controls())
+  expect(restored.controlProjection()).toEqual(match.controlProjection())
 })
 
 test('pyramid rule-specific negative score survives restore for old combined rules', () => {
@@ -155,8 +153,7 @@ test('restored winner-determined gameplay produces the final outcome and complet
   expect(restored.execute(command)).toEqual(expected)
   expect(match.execute(command)).toEqual(expected)
   expect(restored.state()).toEqual(match.state())
-  expect(restored.gamePresentation()).toEqual(match.gamePresentation())
-  expect(restored.controls()).toEqual(match.controls())
+  expect(restored.controlProjection()).toEqual(match.controlProjection())
   expect(restored.state()).toMatchObject({
     status: 'finished',
     currentFrameIndex: 1,

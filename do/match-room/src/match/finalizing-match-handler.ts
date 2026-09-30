@@ -35,12 +35,10 @@ export class FinalizingMatchHandler {
 
   getControls(): FinalizingReadResult {
     this.#warnRead('controls')
-    const match = restoreMatchCheckpoint(this.#storage.readCurrentCheckpoint())
 
     return {
       _tag: 'finalizing' as const,
-      state: match.state(),
-      gameResult: match.gameResult(),
+      ...this.#readFinishedMatch(),
       latestSeq: this.#matchRecord.latestSeq,
       endedAt: this.#matchRecord.endedAt,
     }
@@ -48,12 +46,10 @@ export class FinalizingMatchHandler {
 
   getProtocol(): FinalizingProtocolResult {
     this.#warnRead('protocol')
-    const match = restoreMatchCheckpoint(this.#storage.readCurrentCheckpoint())
 
     return {
       _tag: 'finalizing' as const,
-      state: match.state(),
-      gameResult: match.gameResult(),
+      ...this.#readFinishedMatch(),
       latestSeq: this.#matchRecord.latestSeq,
       endedAt: this.#matchRecord.endedAt,
       protocolEntries: this.#storage.readProtocol(),
@@ -72,7 +68,7 @@ export class FinalizingMatchHandler {
   }
 
   prepareArchive(): FinishedMatchTransfer {
-    const match = restoreMatchCheckpoint(this.#storage.readCurrentCheckpoint())
+    const { state, gameResult } = this.#readFinishedMatch()
 
     return {
       matchId: this.#matchRecord.matchId,
@@ -81,9 +77,18 @@ export class FinalizingMatchHandler {
       sourceLatestSeq: this.#matchRecord.latestSeq,
       endedAt: this.#matchRecord.endedAt,
       protocolEntries: this.#storage.readProtocol(),
-      finalState: match.state(),
-      gameResult: match.gameResult(),
+      finalState: state,
+      gameResult,
     }
+  }
+
+  #readFinishedMatch() {
+    const match = restoreMatchCheckpoint(this.#storage.readCurrentCheckpoint())
+    const state = match.state()
+
+    // SAFETY: checkpointFromRow verifies finished lifecycle against the finalizing storage record,
+    // and restoration validates its consistency. Preserve that proof across the aggregate query.
+    return { state: state as Extract<MatchState, { status: 'finished' }>, gameResult: match.gameResult() }
   }
 
   #warnRead(kind: 'controls' | 'protocol' | 'score'): void {
@@ -105,7 +110,7 @@ type FinalizingResult = { readonly _tag: 'finalizing' }
 
 type FinalizingReadResult = {
   readonly _tag: 'finalizing'
-  readonly state: MatchState
+  readonly state: Extract<MatchState, { status: 'finished' }>
   readonly gameResult: GameResult | null
   readonly latestSeq: NonNegativeInteger
   readonly endedAt: UnixEpochMilliseconds
@@ -129,7 +134,7 @@ export type FinishedMatchTransfer = {
   readonly sourceLatestSeq: NonNegativeInteger
   readonly endedAt: UnixEpochMilliseconds
   readonly protocolEntries: readonly ProtocolEntry[]
-  readonly finalState: MatchState
+  readonly finalState: Extract<MatchState, { status: 'finished' }>
   readonly gameResult: GameResult | null
 }
 

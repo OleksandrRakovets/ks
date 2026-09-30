@@ -25,7 +25,7 @@ export class ProtocolArchiveCorruptionError extends Error {
 
 type ArchiveStateRecord = Readonly<{
   sourceLatestSeq: number
-  state: MatchState
+  state: Extract<MatchState, { status: 'finished' }>
   gameResult: GameResult | null
 }>
 

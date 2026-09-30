@@ -90,23 +90,29 @@ export const FrameState = v.pipe(
 
 export type FrameState = v.InferOutput<typeof FrameState>
 
-export const MatchState = v.pipe(
-  v.object({
-    matchId: MatchId,
-    gameKey: GameKey,
-    targets: MatchTargets,
-    gameConfiguration: v.optional(GameConfiguration),
-    status: v.picklist(['active', 'finished']),
-    currentFrameIndex: NonNegativeInteger,
-    framesWonBySeat: BySeatNumber,
-    frames: v.pipe(v.array(FrameState), v.readonly()),
-  }),
+const MatchStateFields = {
+  matchId: MatchId,
+  gameKey: GameKey,
+  targets: MatchTargets,
+  gameConfiguration: v.optional(GameConfiguration),
+  currentFrameIndex: NonNegativeInteger,
+  framesWonBySeat: BySeatNumber,
+  frames: v.pipe(v.array(FrameState), v.readonly()),
+}
+
+export const FinishedMatchState = v.pipe(
+  v.object({ ...MatchStateFields, status: v.literal('finished') }),
   v.readonly(),
 )
 
+export const MatchState = v.variant('status', [
+  v.pipe(v.object({ ...MatchStateFields, status: v.literal('active') }), v.readonly()),
+  FinishedMatchState,
+])
+
 export type MatchState = v.InferOutput<typeof MatchState>
 
-export type MatchStateFor<K extends GameKey> = Omit<MatchState, 'gameKey'> & { readonly gameKey: K }
+export type MatchStateFor<K extends GameKey> = MatchState & { readonly gameKey: K }
 
 const ActiveFrameScoreProjection = v.pipe(
   v.object({

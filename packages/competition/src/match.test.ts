@@ -27,9 +27,7 @@ function accept(match: ReturnType<typeof createMatch>, command: Parameters<typeo
 function observables(match: ReturnType<typeof createMatch>) {
   return {
     phase: match.phase(),
-    state: match.state(),
-    game: match.gamePresentation(),
-    controls: match.controls(),
+    ...match.controlProjection(),
     gameResult: match.gameResult(),
   }
 }
@@ -121,6 +119,19 @@ describe('Match', () => {
         command: { type: 'frame.commence', seat: breakerSeat },
       })
 
+      const open = match.controlProjection()
+      expect(open).toMatchObject({
+        controlPhase: 'frame-active',
+        state: { status: 'active' },
+        game: { gameKey: 'free-pyramid', score: { A: 0, B: 0 }, details: { phase: 'open-play' } },
+      })
+      expect(open.controls.slice(0, 2).map(({ source, type, seat }) => ({ source, type, seat }))).toEqual([
+        { source: 'match', type: 'frame.concede', seat: 'A' },
+        { source: 'match', type: 'frame.concede', seat: 'B' },
+      ])
+      expect(open.controls.slice(2).every(({ source }) => source === 'game')).toBe(true)
+      expect(open.controls.length).toBeGreaterThan(2)
+
       for (let point = 0; point < 8; point += 1)
         accept(match, {
           commandId: newCommandId(),
@@ -143,6 +154,12 @@ describe('Match', () => {
         { frameIndex: 2, breakerSeat: 'B', winnerSeat: 'B' },
         { frameIndex: 3, breakerSeat: 'A', winnerSeat: 'A' },
       ],
+    })
+    expect(match.controlProjection()).toMatchObject({
+      controlPhase: 'finished',
+      state: { status: 'finished' },
+      game: undefined,
+      controls: [],
     })
   })
 
@@ -177,7 +194,7 @@ describe('Match', () => {
       source: 'match',
       command: { type: 'frame.commence', seat: 'A' },
     })
-    expect(match.controls().filter(({ type }) => type === 'frame.concede')).toHaveLength(2)
+    expect(match.controlProjection().controls.filter(({ type }) => type === 'frame.concede')).toHaveLength(2)
     accept(match, {
       commandId: newCommandId(),
       source: 'game',
