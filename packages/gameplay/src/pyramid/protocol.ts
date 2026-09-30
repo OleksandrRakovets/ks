@@ -28,6 +28,7 @@ export const PyramidProtocolEntry = v.pipe(
   v.object({
     ...GameProtocolEntryFields,
     gameKey: v.picklist(['free-pyramid', 'combined-pyramid', 'combined-pyramid-old']),
+    entryType: v.literal('player-command'),
     body: PyramidProtocolEntryBody,
   }),
   v.readonly(),
@@ -45,15 +46,15 @@ function protocolEntry(args: {
   readonly body: PyramidProtocolEntryBody
   readonly previous: PyramidFrameSnapshot
   readonly next: PyramidFrameSnapshot
-}) {
-  return v.parse(PyramidProtocolEntry, {
+}): PyramidProtocolEntry {
+  return {
     gameKey: args.gameKey,
     source: 'player',
     entryType: 'player-command',
     seat: args.seat,
     scoreAfter: scoreChanged(args.previous, args.next) ? { ...args.next.context.score } : undefined,
     body: args.body,
-  })
+  }
 }
 
 export function createPyramidProtocolEntries(args: {

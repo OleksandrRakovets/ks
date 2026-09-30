@@ -49,7 +49,8 @@ export interface GameplaySession<K extends GameKey> {
 
   /**
    * Executes one trusted typed game command.
-   * Rejection retains the current snapshot. Acceptance validates output before assigning the candidate snapshot.
+   * Rejection retains the current snapshot. Acceptance constructs typed Protocol entries and checks the outcome
+   * before assigning the candidate snapshot; persisted Protocol is validated at storage ingress.
    * @throws An unrecoverable defect when machine, protocol, or outcome invariants fail.
    */
   execute(command: GameCommandFor<K>): GameCommandExecution

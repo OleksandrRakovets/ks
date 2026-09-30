@@ -5,8 +5,7 @@ import {
   type ProtocolEntry,
 } from '@ks/competition'
 import { type BySeatNumber, type Clock, type MatchId, type Seat } from '@ks/core'
-import type { GameResult } from '@ks/gameplay/definitions'
-import * as v from 'valibot'
+import type { GameResult, StrilaBall } from '@ks/gameplay/definitions'
 
 export const PROTOCOL_ARCHIVE_VERSION = 1 as const
 
@@ -49,97 +48,60 @@ export type ProtocolMessage = Readonly<{
   key: string
   actor?: string | undefined
   params?: Readonly<Record<string, string | number>>
-  pottedBalls?: readonly ProtocolBall[]
+  pottedBalls?: readonly StrilaBall[]
   correctedEntry?: ProtocolMessage
 }>
 
-const ProtocolBall = v.picklist([0, 1, 2, 3, 4, 5, 6, 7])
-
-type ProtocolBall = v.InferOutput<typeof ProtocolBall>
-
-const PottedBalls = v.pipe(v.array(ProtocolBall), v.minLength(1))
-
-const ProtocolMessageBody = v.object({
-  commandType: v.optional(v.string()),
-  systemType: v.optional(v.string()),
-  pottedBalls: v.optional(v.unknown()),
-  pottedBallCount: v.optional(v.number()),
-  penalty: v.optional(v.string()),
-  choice: v.optional(v.string()),
-  frameIndex: v.optional(v.unknown()),
-  reason: v.optional(v.string()),
-})
-
-export function protocolEntryMessage(
-  entry: Pick<ProtocolEntry, 'body' | 'entryType' | 'seat' | 'frameIndex'>,
-  seatNames: SeatNames,
-): ProtocolRow['message'] {
+export function protocolEntryMessage(entry: ProtocolEntry, seatNames: SeatNames): ProtocolRow['message'] {
   const seatLabel = (seat: Seat) => seatNames[seat]
   const actor = seatLabel(entry.seat)
-  const parsedBody = v.safeParse(ProtocolMessageBody, entry.body)
-  const body = parsedBody.success ? parsedBody.output : {}
-  const commandType = body.commandType ?? null
 
-  switch (commandType) {
-    case null:
-      break
-    case 'frame.commence':
-      return { key: 'match.protocol.commands.frame.commence', actor }
-    case 'respotted-black.opening.select':
-      return { key: 'match.protocol.commands.respotted-black.opening.select', actor }
-    case 'pot.record': {
-      const pottedBalls = v.safeParse(PottedBalls, body.pottedBalls)
+  if (entry.entryType === 'player-command') {
+    const body = entry.body
 
-      if (pottedBalls.success) {
-        return { key: 'match.protocol.commands.pot.record.balls', actor, pottedBalls: pottedBalls.output }
-      }
+    switch (body.commandType) {
+      case 'frame.commence':
+        return { key: 'match.protocol.commands.frame.commence', actor }
+      case 'respotted-black.opening.select':
+        return { key: 'match.protocol.commands.respotted-black.opening.select', actor }
+      case 'pot.record':
+        if ('pottedBalls' in body) {
+          return { key: 'match.protocol.commands.pot.record.balls', actor, pottedBalls: body.pottedBalls }
+        }
 
-      const pottedBallCount = body.pottedBallCount
-
-      if (pottedBallCount !== undefined) {
         return {
           key: 'match.protocol.commands.pot.record.pottedBallCount',
           actor,
-          params: { pottedBallCount: `+${pottedBallCount}` },
+          params: { pottedBallCount: `+${body.pottedBallCount}` },
         }
-      }
-
-      return { key: 'match.protocol.commands.pot.record.default', actor }
+      case 'miss.record':
+        return { key: 'match.protocol.commands.miss.record', actor }
+      case 'foul.commit':
+        return {
+          key: `match.protocol.commands.foul.commit.${'penalty' in body ? body.penalty : 'default'}`,
+          actor,
+        }
+      case 'penalty.select':
+        return { key: `match.protocol.commands.penalty.select.${body.choice}`, actor }
+      case 'frame.award':
+        return { key: 'match.protocol.commands.frame.award', actor }
     }
-
-    case 'miss.record':
-      return { key: 'match.protocol.commands.miss.record', actor }
-    case 'foul.commit':
-      if (body.penalty === 'opponent-plus-one') {
-        return { key: 'match.protocol.commands.foul.commit.opponent-plus-one', actor }
-      }
-
-      if (body.penalty === 'offender-minus-one') {
-        return { key: 'match.protocol.commands.foul.commit.offender-minus-one', actor }
-      }
-
-      return { key: 'match.protocol.commands.foul.commit.default', actor }
-    case 'penalty.select':
-      switch (body.choice) {
-        case undefined:
-          return { key: 'match.protocol.commands.penalty.select.default', actor }
-        case 'play-from-position':
-          return { key: 'match.protocol.commands.penalty.select.play-from-position', actor }
-        case 'pass-position':
-          return { key: 'match.protocol.commands.penalty.select.pass-position', actor }
-        case 'ball-in-hand':
-          return { key: 'match.protocol.commands.penalty.select.ball-in-hand', actor }
-        default:
-          return { key: 'match.protocol.commands.penalty.select.default', actor }
-      }
-
-    case 'frame.award':
-      return { key: 'match.protocol.commands.frame.award', actor }
   }
 
-  const systemType = body.systemType ?? entry.entryType
+  if (entry.entryType === 'system-note') {
+    const body = entry.body
 
-  switch (systemType) {
+    switch (body.systemType) {
+      case 'automatic-foul':
+        return { key: `match.protocol.system.automatic-foul.${body.reason}` }
+      case 'winner-determined':
+        return { key: `match.protocol.system.winner-determined.${body.reason}` }
+      case 'respotted-black-declared':
+        return { key: 'match.protocol.system.respotted-black-declared' }
+    }
+  }
+
+  switch (entry.entryType) {
     case 'frame-prepared':
       return {
         key: 'match.protocol.system.frame-prepared.breaker',
@@ -152,45 +114,11 @@ export function protocolEntryMessage(
       return { key: 'match.protocol.system.frame-conceded', actor }
     case 'match-ended':
       return { key: 'match.protocol.system.match-ended', actor }
-    case 'automatic-foul':
-      switch (body.reason) {
-        case undefined:
-          return { key: 'match.protocol.system.automatic-foul.default' }
-        case 'third-consecutive-cue-ball-pot':
-          return { key: 'match.protocol.system.automatic-foul.third-consecutive-cue-ball-pot' }
-        case 'illegal-ball-in-hand-pot':
-          return { key: 'match.protocol.system.automatic-foul.illegal-ball-in-hand-pot' }
-        case 'respotted-black-opening-illegal-pot':
-          return { key: 'match.protocol.system.automatic-foul.respotted-black-opening-illegal-pot' }
-        default:
-          return { key: 'match.protocol.system.automatic-foul.default' }
-      }
-
-    case 'winner-determined':
-      switch (body.reason) {
-        case undefined:
-          return { key: 'match.protocol.system.winner-determined.default' }
-        case 'target-reached':
-          return { key: 'match.protocol.system.winner-determined.target-reached' }
-        case 'table-cleared':
-          return { key: 'match.protocol.system.winner-determined.table-cleared' }
-        case 'automatic-foul':
-          return { key: 'match.protocol.system.winner-determined.automatic-foul' }
-        case 'respotted-black-won':
-          return { key: 'match.protocol.system.winner-determined.respotted-black-won' }
-        case 'foul-forfeit':
-          return { key: 'match.protocol.system.winner-determined.foul-forfeit' }
-        case 'black-ball':
-          return { key: 'match.protocol.system.winner-determined.black-ball' }
-        default:
-          return { key: 'match.protocol.system.winner-determined.default' }
-      }
-
-    case 'respotted-black-declared':
-      return { key: 'match.protocol.system.respotted-black-declared' }
+    case 'command-corrected':
+      break
   }
 
-  return { key: 'match.protocol.unknown', params: { value: commandType ?? systemType } }
+  return { key: 'match.protocol.unknown', params: { value: entry.entryType } }
 }
 
 export function renderProtocolRows(

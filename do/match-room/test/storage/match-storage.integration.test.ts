@@ -153,6 +153,16 @@ test('reads complete durable Protocol independently of old command payloads', as
       acceptedSeq: 1,
       causedByCommandId: commands[0]?.commandId,
     })
+    const commenced = storage.readProtocol()[1]
+    state.storage.sql.exec(
+      `UPDATE protocol_entries SET entry_json = json_set(entry_json, '$.entryType', 'command-corrected')
+       WHERE accepted_seq = 2 AND entry_index = 0`,
+    )
+    expect(() => storage.readProtocol()).toThrow('MatchRoom Protocol storage corruption')
+    state.storage.sql.exec(
+      'UPDATE protocol_entries SET entry_json = ? WHERE accepted_seq = 2 AND entry_index = 0',
+      JSON.stringify(commenced),
+    )
     state.storage.sql.exec(
       `UPDATE protocol_entries
        SET entry_json = json_set(entry_json, '$.body', json('{}'))

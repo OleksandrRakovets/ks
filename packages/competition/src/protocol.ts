@@ -121,5 +121,5 @@ export type ProtocolEntries = v.InferOutput<typeof ProtocolEntries>
 export function correctionReferenceOf(entry: ProtocolEntry): CommandCorrectionReference | undefined {
   if (entry.entryType !== 'command-corrected') return undefined
 
-  return v.parse(CommandCorrectionReference, entry.body)
+  return entry.body
 }

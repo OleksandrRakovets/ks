@@ -1,6 +1,8 @@
 import { expect, test } from 'bun:test'
 
-import type { StrilaCommand } from './definitions'
+import * as v from 'valibot'
+
+import { type StrilaCommand, StrilaProtocolEntry } from './definitions'
 import { createInitialSnapshot, sendEvent } from './machine'
 import { createStrilaProtocolEntries } from './protocol'
 
@@ -52,6 +54,18 @@ test('orders player entry before winner system note and records exact scoreAfter
       body: { systemType: 'winner-determined', reason: 'target-reached' },
     },
   ])
+})
+
+test('rejects a Strila system body mislabeled as a player command at validation', () => {
+  expect(
+    v.is(StrilaProtocolEntry, {
+      gameKey: 'strila-v2',
+      source: 'system',
+      entryType: 'player-command',
+      seat: 'B',
+      body: { systemType: 'winner-determined', reason: 'target-reached' },
+    }),
+  ).toBe(false)
 })
 
 test('table-cleared Protocol attributes the pot to the shooter and the win to the leader', () => {

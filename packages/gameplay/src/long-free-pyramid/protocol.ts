@@ -25,6 +25,7 @@ export const LongFreePyramidProtocolEntry = v.pipe(
   v.object({
     ...GameProtocolEntryFields,
     gameKey: v.literal('free-pyramid-long'),
+    entryType: v.literal('player-command'),
     body: LongFreePyramidProtocolEntryBody,
   }),
   v.readonly(),
@@ -44,17 +45,17 @@ function protocolEntry(args: {
   readonly body: LongFreePyramidProtocolEntryBody
   readonly previous: LongFreePyramidFrameSnapshot
   readonly next: LongFreePyramidFrameSnapshot
-}) {
+}): LongFreePyramidProtocolEntry {
   const nextScore = totalScore(args.next.context.racks)
 
-  return v.parse(LongFreePyramidProtocolEntry, {
+  return {
     gameKey: 'free-pyramid-long',
     source: 'player',
     entryType: 'player-command',
     seat: args.seat,
     scoreAfter: scoreChanged(args.previous, args.next) ? nextScore : undefined,
     body: args.body,
-  })
+  }
 }
 
 export function createLongFreePyramidProtocolEntries(args: {
