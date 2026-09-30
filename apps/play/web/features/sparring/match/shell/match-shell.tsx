@@ -13,6 +13,7 @@ import { useRootLocale } from '@/root'
 
 import { Board } from './board'
 import { LastCommandBar } from './last-command-bar'
+import { MatchResultBoard } from './match-result'
 import { OverflowSheet } from './overflow-sheet'
 import { RematchLink } from './rematch-link'
 
@@ -97,7 +98,7 @@ export function MatchResultShell<K extends GameKey>(props: {
       headerTitle={props.data.shortGameTitle}
       headerRule={resultRuleLabel(props.data, t)}
       headerControl={null}
-      board={null}
+      board={<MatchResultBoard data={props.data} />}
       contentClassName="overflow-y-auto overscroll-contain"
       footer={props.active === 'result' ? <RematchLink data={props.data} /> : null}
       primaryTabLabel={t(keys.match.result.tabResult)}

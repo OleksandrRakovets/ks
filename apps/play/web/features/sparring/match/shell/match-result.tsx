@@ -1,4 +1,4 @@
-import { opponentOf, type Seat } from '@ks/core'
+import { type BySeatNumber, opponentOf, type Seat } from '@ks/core'
 import { keys } from '@ks/i18n'
 import { useTranslation } from 'react-i18next'
 
@@ -7,14 +7,14 @@ import { cn } from '@/components/ui/utils'
 import { MatchFinishedAt } from '@/features/sparring/match/match-finished-at'
 import type { FinishedMatchData } from '@/features/sparring/match/types'
 
-export function MatchResult({ data }: { data: FinishedMatchData }) {
+export function MatchResultBoard({ data }: { data: FinishedMatchData }) {
   const { t } = useTranslation()
   const winnerSeat: Seat = data.state.framesWonBySeat.A > data.state.framesWonBySeat.B ? 'A' : 'B'
   const loserSeat = opponentOf(winnerSeat)
   const isLongPyramid = data.state.gameKey === 'free-pyramid-long'
 
   return (
-    <section className="px-4 pt-7 pb-8">
+    <section className="shrink-0 px-4 pt-7 pb-3">
       <Badge variant="live" className="gap-1.5">
         <CheckIcon />
         {t(keys.match.result.winner, { name: data.participants[winnerSeat].displayName })}
@@ -38,51 +38,32 @@ export function MatchResult({ data }: { data: FinishedMatchData }) {
           </div>
         ))}
       </div>
+    </section>
+  )
+}
 
-      {!isLongPyramid ? (
-        <div className="mt-6 pt-5">
-          <h2 className="text-base font-semibold text-muted-foreground">{t(keys.match.result.frames)}</h2>
-          <ol className="mt-2">
-            {data.state.frames.map((frame) => (
-              <li
-                key={frame.frameIndex}
-                className="grid min-h-12 grid-cols-[1fr_auto_1fr] items-center border-b border-divider first:border-t"
-              >
-                <span className="text-muted-foreground tabular-nums">{frame.frameIndex}</span>
-                <span className="flex items-baseline gap-2 text-xl tabular-nums">
-                  <FramePoints value={frame.pointsBySeat.A} winner={frame.winnerSeat === 'A'} />
-                  <span className="text-muted-foreground">:</span>
-                  <FramePoints value={frame.pointsBySeat.B} winner={frame.winnerSeat === 'B'} />
-                </span>
-                <span />
-              </li>
-            ))}
-          </ol>
-        </div>
-      ) : null}
+export function MatchResult({ data }: { data: FinishedMatchData }) {
+  const { t } = useTranslation()
 
+  return (
+    <section className="px-4 pb-8">
       {data.gameResult?.gameKey === 'free-pyramid-long' ? (
-        <div className="mt-6 pt-5">
-          <h2 className="text-base font-semibold text-muted-foreground">{t(keys.match.result.racks)}</h2>
-          <ol className="mt-2">
-            {data.gameResult.racks.map((rack) => (
-              <li
-                key={rack.rackNumber}
-                className="grid min-h-12 grid-cols-[1fr_auto] items-center border-b border-divider first:border-t"
-              >
-                <span className="text-muted-foreground">
-                  {t(keys.match.control.longFreePyramid.rack, { rackNumber: rack.rackNumber })}
-                </span>
-                <span className="text-xl tabular-nums">
-                  {rack.scoreBySeat.A}
-                  <span className="px-2 text-muted-foreground">:</span>
-                  {rack.scoreBySeat.B}
-                </span>
-              </li>
-            ))}
-          </ol>
-        </div>
-      ) : null}
+        <ResultScoreList
+          title={t(keys.match.result.racks)}
+          rows={data.gameResult.racks.map((rack) => ({
+            index: rack.rackNumber,
+            score: rack.scoreBySeat,
+          }))}
+        />
+      ) : (
+        <ResultScoreList
+          title={t(keys.match.result.frames)}
+          rows={data.state.frames.map((frame) => ({
+            index: frame.frameIndex,
+            score: frame.pointsBySeat,
+          }))}
+        />
+      )}
 
       <MatchFinishedAt
         endedAtIso={data.endedAtIso}
@@ -94,8 +75,44 @@ export function MatchResult({ data }: { data: FinishedMatchData }) {
   )
 }
 
-function FramePoints({ value, winner }: { value: number; winner: boolean }) {
-  return <span className={cn(winner ? 'font-bold text-foreground' : 'text-muted-foreground')}>{value}</span>
+function ResultScoreList({
+  title,
+  rows,
+}: {
+  title: string
+  rows: readonly { index: number; score: BySeatNumber }[]
+}) {
+  return (
+    <div className="mt-3 pt-5">
+      <h2 className="text-base font-semibold text-muted-foreground">{title}</h2>
+      <ol className="mt-2 grid grid-cols-[1fr_auto_auto_auto_1fr] gap-x-2">
+        {rows.map(({ index, score }) => (
+          <li
+            key={index}
+            className="col-span-5 grid min-h-12 grid-cols-subgrid items-center border-b border-divider text-xl tabular-nums first:border-t"
+          >
+            <span className="text-base text-muted-foreground">{index}</span>
+            <span
+              className={cn(
+                'text-right',
+                score.A > score.B && 'font-bold',
+                score.A < score.B && 'text-muted-foreground',
+              )}
+            >
+              {score.A}
+            </span>
+            <span className="text-muted-foreground">:</span>
+            <span
+              className={cn(score.B > score.A && 'font-bold', score.B < score.A && 'text-muted-foreground')}
+            >
+              {score.B}
+            </span>
+            <span />
+          </li>
+        ))}
+      </ol>
+    </div>
+  )
 }
 
 function CheckIcon() {
