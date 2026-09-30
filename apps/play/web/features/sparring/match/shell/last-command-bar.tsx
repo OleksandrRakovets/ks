@@ -46,7 +46,7 @@ export function LastCommandBar(props: {
           type="button"
           disabled={props.submitting}
           onClick={() => props.onSubmit(matchCommandFromControl(correction))}
-          className="flex min-h-11 shrink-0 items-center gap-2 rounded-lg bg-overlay px-4 text-base font-medium disabled:opacity-45"
+          className="flex min-h-11 shrink-0 items-center gap-2 rounded-lg bg-overlay px-4 text-base font-medium disabled:opacity-100"
         >
           <CorrectionIcon />
           {t(keys.match.control.correction)}
