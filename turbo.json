@@ -14,12 +14,19 @@
       "cache": false,
       "persistent": true
     },
+    "@ks/play#preview": {
+      "dependsOn": ["build"],
+      "cache": false,
+      "persistent": true,
+      "passThroughEnv": ["BUN_OPTIONS"]
+    },
     "@ks/play#build": {
       "outputs": ["build/**"]
     },
     "@ks/play#dev": {
       "cache": false,
-      "persistent": true
+      "persistent": true,
+      "passThroughEnv": ["BUN_OPTIONS"]
     }
   }
 }

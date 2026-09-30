@@ -1,14 +1,14 @@
 services:
   play-dev:
-    command: bun run dev -- --port "$PORT"
-    cwd: apps/play
+    command: ./node_modules/.bin/turbo watch @ks/play#dev -- --port "$PORT"
+    cwd: .
     health: /
     portal:
       title: KS dev
       description: Development server with the colocated MatchRoom Durable Object.
   play-preview:
-    command: bun run preview -- --port "$PORT"
-    cwd: apps/play
+    command: ./node_modules/.bin/turbo run @ks/play#preview -- --port "$PORT"
+    cwd: .
     health: /
     portal:
       title: KS preview
