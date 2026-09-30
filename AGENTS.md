@@ -37,6 +37,8 @@ These commands overlap. Choose the appropriate gate; do not rerun its constituen
 - For dependency audits or upgrades, check all workspaces with `bun outdated --recursive`.
 - Shared versions belong in root `workspaces.catalog`; consumers use `"catalog:"`.
 - Change the owning manifest, then run `bun install` to regenerate `bun.lock`.
+- Package-manager and toolchain metadata has consumers outside dependency manifests. Before changing Bun's version, `devEngines.packageManager`, or its representation, inspect `.agents/setup`, `.agents/resume`, and any CI/tooling references; update affected consumers in the same change.
+- `.agents/setup` owns orb provisioning and reads the declared Bun version. For changes affecting provisioning, run setup twice to verify idempotence, then run `.agents/resume`. `check:full` does not exercise orb startup.
 - Do not bypass Bun's configured two-day package release cooldown.
 - Keep source-policy tools (`typescript`, `oxlint`, `@oxlint/plugins`, and `oxlint-tsgolint`) on exact versions so compiler or diagnostic changes happen only in explicit toolchain updates.
 - Match TypeScript to the TypeScript-Go release embedded by `oxlint-tsgolint`; for example, `oxlint-tsgolint@7.0.2001` embeds TypeScript 7.0.2 plus tsgolint revision 001. Upgrade TypeScript and tsgolint together, update Oxlint and its plugin API deliberately, run `bun install`, then run `bun run check:full`.
