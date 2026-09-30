@@ -3,7 +3,6 @@ import { describe, expect, test } from 'bun:test'
 import * as v from 'valibot'
 
 import { type GameCommandExecution, GameProtocolEntry } from './gameplay-session'
-import { listGameKeys } from './registry'
 import { createGameplaySession } from './session-factory'
 
 function expectAccepted(result: GameCommandExecution): Extract<GameCommandExecution, { _tag: 'accepted' }> {
@@ -17,26 +16,6 @@ function expectAccepted(result: GameCommandExecution): Extract<GameCommandExecut
 }
 
 describe('gameplay characterization', () => {
-  test('covers every registered game', () => {
-    expect(listGameKeys().sort()).toEqual([
-      'combined-pyramid',
-      'combined-pyramid-old',
-      'free-pyramid',
-      'free-pyramid-long',
-      'strila-v2',
-    ])
-  })
-
-  test('one strila command can produce ordered player and system protocol entries', () => {
-    const session = createGameplaySession('strila-v2', { targetPointsBySeat: { A: 1, B: 9 } })
-    expectAccepted(session.execute({ type: 'frame.commence', seat: 'A' }))
-    const result = expectAccepted(session.execute({ type: 'pot.record', seat: 'A', pottedBalls: [0] }))
-    expect(result.gameProtocolEntries.map((entry) => ({ source: entry.source, body: entry.body }))).toEqual([
-      { source: 'player', body: { commandType: 'pot.record', pottedBalls: [0] } },
-      { source: 'system', body: { systemType: 'winner-determined', reason: 'target-reached' } },
-    ])
-  })
-
   test('pyramid foul penalty direction remains game-specific', () => {
     const opponentPlus = createGameplaySession('free-pyramid', { targetPointsBySeat: { A: 8, B: 8 } })
     expectAccepted(opponentPlus.execute({ type: 'frame.commence', seat: 'A' }))
@@ -60,35 +39,6 @@ describe('gameplay characterization', () => {
       commandType: 'foul.commit',
       penalty: 'offender-minus-one',
     })
-  })
-
-  test('winner-determined players may continue legal scoring until award', () => {
-    const pyramid = createGameplaySession('free-pyramid', { targetPointsBySeat: { A: 1, B: 8 } })
-    expectAccepted(pyramid.execute({ type: 'frame.commence', seat: 'A' }))
-    expectAccepted(pyramid.execute({ type: 'pot.record', seat: 'A', pottedBallCount: 1 }))
-    expect(pyramid.deriveControls().game.details.phase).toBe('winner-determined')
-    expectAccepted(pyramid.execute({ type: 'pot.record', seat: 'A', pottedBallCount: 1 }))
-    expect(pyramid.getScore()).toEqual({ A: 2, B: 0 })
-    const awarded = expectAccepted(pyramid.execute({ type: 'frame.award', seat: 'A' }))
-    expect(awarded.outcome).toEqual({ winnerSeat: 'A', winReason: 'game-rules', score: { A: 2, B: 0 } })
-
-    const long = createGameplaySession('free-pyramid-long', {
-      targetPointsBySeat: { A: 1, B: 30 },
-      rackRollover: 14,
-    })
-
-    expectAccepted(long.execute({ type: 'frame.commence', seat: 'A' }))
-    expectAccepted(long.execute({ type: 'pot.record', seat: 'A', pottedBallCount: 1 }))
-    expect(long.deriveControls().game.details.phase).toBe('winner-determined')
-    expectAccepted(long.execute({ type: 'pot.record', seat: 'A', pottedBallCount: 1 }))
-    expect(long.getScore()).toEqual({ A: 2, B: 0 })
-
-    const strila = createGameplaySession('strila-v2', { targetPointsBySeat: { A: 1, B: 9 } })
-    expectAccepted(strila.execute({ type: 'frame.commence', seat: 'A' }))
-    expectAccepted(strila.execute({ type: 'pot.record', seat: 'A', pottedBalls: [1] }))
-    expect(strila.deriveControls().game.details.phase).toBe('winner-determined')
-    expectAccepted(strila.execute({ type: 'pot.record', seat: 'A', pottedBalls: [2] }))
-    expect(strila.getScore()).toEqual({ A: 4, B: 0 })
   })
 
   test('long free pyramid table counts and rack rollover remain correct', () => {

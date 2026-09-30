@@ -177,7 +177,7 @@ describe('trusted MatchRoom orchestration', () => {
     expect(events).toEqual(['begin', 'initialize', 'activate'])
   })
 
-  test('reads canonical active controls without RPC reparsing', async () => {
+  test('reads canonical active controls without RPC reparsing or a Protocol call', async () => {
     const room = selectedClient({
       getControls: async () => ({
         _tag: 'active',
@@ -609,26 +609,6 @@ describe('trusted MatchRoom orchestration', () => {
     })
     expect(result).not.toHaveProperty('endedAt')
     expect(events).toEqual([])
-  })
-
-  test('reads active controls without a second Protocol call', async () => {
-    const room = selectedClient({
-      getControls: async () => ({
-        _tag: 'active',
-        latestSeq: 0,
-        state,
-        game: undefined,
-        controls: [],
-        lastCommand: null,
-      }),
-    })
-
-    expect(await sparring(room).readMatch(matchId, 'en', 'free-pyramid')).toMatchObject({
-      ok: true,
-      lifecycle: 'active',
-      latestSeq: 0,
-      state: { status: 'active' },
-    })
   })
 
   test('reads finalizing Protocol when the Match ends between room calls without archiving', async () => {
