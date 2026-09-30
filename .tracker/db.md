@@ -69,14 +69,12 @@ Use Drizzle Kit to generate and Wrangler to apply. Do not use `drizzle-kit push`
 
 The `migrations` entry in `apps/play/wrangler.jsonc` manages Durable Object classes, not each object's SQLite schema. `do/match-room/wrangler.test.jsonc` mirrors that class setup only for Workerd integration tests.
 
-## Reset Local D1
+## Reset Local Data Storage
 
 Stop the dev server, then run:
 
 ```sh
-rm -rf apps/play/.wrangler/state/v3/d1
-bun run db:migrate:local
-bun run db:seed:local
+bun run db:reset:local
 ```
 
-This does not reset MatchRoom Durable Object SQLite state.
+This removes the Play and MatchRoom workspace `.wrangler` directories, including local D1 and MatchRoom Durable Object SQLite state, then reapplies D1 migrations and the local player seed. It does not affect remote data.

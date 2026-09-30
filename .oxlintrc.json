@@ -26,7 +26,8 @@
     ".windsurf/**",
     "tmp/**",
     // Keep the intentionally unmodified vendored rules aligned with upstream.
-    "tools/oxlint/anti-slop/**"
+    "tools/oxlint/anti-slop/**",
+    "tools/reset-local.mjs"
   ],
   "jsPlugins": [{ "name": "anti-slop", "specifier": "./tools/oxlint/anti-slop/index.ts" }],
   "rules": {
