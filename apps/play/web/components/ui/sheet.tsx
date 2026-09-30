@@ -17,9 +17,9 @@ function SheetClose(props: SheetPrimitive.Close.Props) {
 
 const sheetSideClasses = {
   right:
-    'inset-y-0 right-0 w-[min(22rem,calc(100%-2rem))] border-l data-ending-style:translate-x-8 data-starting-style:translate-x-8',
+    'inset-y-[8vh] right-[8vw] w-[min(22rem,calc(100vw-2rem))] border-l data-ending-style:translate-x-8 data-starting-style:translate-x-8',
   bottom:
-    'inset-x-0 bottom-0 max-h-[calc(100dvh-1rem)] w-full rounded-t-2xl border-t data-ending-style:translate-y-full data-starting-style:translate-y-8',
+    'inset-x-[8vw] bottom-[8vh] max-h-[calc(100dvh-1rem)] rounded-t-2xl border-t data-ending-style:translate-y-full data-starting-style:translate-y-8',
 }
 
 function SheetContent({
@@ -30,18 +30,25 @@ function SheetContent({
 }: SheetPrimitive.Popup.Props & { side?: keyof typeof sheetSideClasses }) {
   return (
     <SheetPrimitive.Portal>
-      <SheetPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/55 transition-opacity duration-200 data-ending-style:opacity-0 data-starting-style:opacity-0" />
-      <SheetPrimitive.Popup
-        data-slot="sheet-content"
-        className={cn(
-          'fixed z-50 flex flex-col border-border bg-card text-card-foreground shadow-2xl transition duration-200 ease-out outline-none data-ending-style:opacity-0 data-starting-style:opacity-0',
-          sheetSideClasses[side],
-          className,
-        )}
-        {...props}
-      >
-        {children}
-      </SheetPrimitive.Popup>
+      {/*
+        Safari samples viewport-edge fixed layers to tint its browser chrome. Keep both the
+        backdrop and panel inside transparent oversized fixed containers so neither becomes an
+        edge-color source; their visible surfaces retain the same viewport alignment.
+      */}
+      <SheetPrimitive.Backdrop className="fixed -inset-x-[8vw] -inset-y-[8vh] z-50 transition-opacity duration-200 before:absolute before:inset-0 before:bg-black/55 before:content-[''] data-ending-style:opacity-0 data-starting-style:opacity-0" />
+      <div className="pointer-events-none fixed -inset-x-[8vw] -inset-y-[8vh] z-50">
+        <SheetPrimitive.Popup
+          data-slot="sheet-content"
+          className={cn(
+            'pointer-events-auto absolute flex flex-col border-border bg-card text-card-foreground shadow-2xl transition duration-200 ease-out outline-none data-ending-style:opacity-0 data-starting-style:opacity-0',
+            sheetSideClasses[side],
+            className,
+          )}
+          {...props}
+        >
+          {children}
+        </SheetPrimitive.Popup>
+      </div>
     </SheetPrimitive.Portal>
   )
 }
