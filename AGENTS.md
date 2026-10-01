@@ -70,7 +70,6 @@ These commands overlap. Choose the appropriate gate; do not rerun its constituen
 - Application imports `@ks/match-room` type-only to derive its private MatchRoom capability. Play imports the class at runtime only to export it from the Worker entrypoint; generated bindings verify structural RPC compatibility without runtime response parsing.
 - Live updates use a versioned WebSocket contract through Play's Worker gateway. React Router loaders remain authoritative; socket messages are invalidation notifications that request revalidation.
 - Play's Wrangler configuration owns the MatchRoom class migration. The project has not yet been deployed.
-- Local Worker variables belong in `apps/play/.dev.vars`; start from `.dev.vars.example`.
 - Generated `.react-router/` and `worker-configuration.d.ts` files must not be hand-reformatted.
 
 ## Documentation
