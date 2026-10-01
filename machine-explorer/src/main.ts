@@ -23,6 +23,7 @@ import {
   StrilaFrameMachine,
   type StrilaFrameSnapshot,
 } from '../../packages/gameplay/src/strila-v2/machine'
+import { deriveStrilaControlProjection } from '../../packages/gameplay/src/strila-v2/projections/control'
 
 type FrameGameKey = 'strila-v2' | 'free-pyramid' | 'free-pyramid-long'
 
@@ -207,9 +208,10 @@ function renderFrame() {
 function renderStrilaFrame(snap: StrilaFrameSnapshot, actor: ActorRefFrom<typeof StrilaFrameMachine>) {
   const phase = getStrilaFramePhase(snap)
   const ctx = snap.context
+  const projection = deriveStrilaControlProjection(snap)
   status.innerHTML = `
     <div class="state-label">${phase}</div>
-    <div class="context-block">${JSON.stringify({ score: ctx.score, target: ctx.targetPoints, balls: ctx.coloredBallsOnTable, winner: ctx.winner }, null, 2)}</div>
+    <div class="context-block">${JSON.stringify({ ruleNotes: projection.game.details.ruleNotes, context: ctx, projection }, null, 2)}</div>
     <p style="margin-top:8px;color:#888">Topology inspection only - not MatchRoom integration.</p>
   `
   controls.innerHTML = ''
@@ -217,8 +219,6 @@ function renderStrilaFrame(snap: StrilaFrameSnapshot, actor: ActorRefFrom<typeof
     frameGameSelector(),
     frameTargetRow(() => rebuildCurrentActor()),
   )
-
-  if (phase === 'frame-over') return
 
   if (phase === 'not-started') {
     controls.append(
@@ -229,21 +229,73 @@ function renderStrilaFrame(snap: StrilaFrameSnapshot, actor: ActorRefFrom<typeof
     return
   }
 
-  if (phase === 'winner-determined') {
-    const winner = ctx.winner
+  for (const control of projection.controls) {
+    // SAFETY: Strila emits only seat-specific controls; the shared Control type permits seatless controls.
+    const seat = control.seat!
 
-    if (winner)
-      controls.append(
-        btn(`Award frame to ${winner}`, () => actor.send({ type: 'frame.award', seat: winner }), 'primary'),
-      )
+    switch (control.type) {
+      case 'pot.record':
+        for (const ball of [0, ctx.coloredBallsOnTable[0]] as const) {
+          if (ball === undefined || !snap.can({ type: 'pot.record', seat, pottedBalls: [ball] })) continue
+          controls.append(
+            btn(ball === 0 ? `Pot cue ball ${seat} (+1)` : `Pot ball ${ball} ${seat} (+2)`, () =>
+              actor.send({ type: 'pot.record', seat, pottedBalls: [ball] }),
+            ),
+          )
+        }
+
+        break
+      case 'miss.record':
+        controls.append(btn(`Miss ${seat}`, () => actor.send({ type: 'miss.record', seat })))
+
+        break
+      case 'foul.commit':
+        controls.append(btn(`Foul ${seat}`, () => actor.send({ type: 'foul.commit', seat })))
+
+        break
+      case 'penalty.select': {
+        const choice = control.fixedInput.choice
+
+        switch (choice) {
+          case 'play-from-position':
+          case 'pass-position':
+          case 'ball-in-hand': {
+            const titles = {
+              'play-from-position': 'Play from position',
+              'pass-position': 'Pass position',
+              'ball-in-hand': 'Ball in hand',
+            }
+
+            controls.append(
+              btn(`${titles[choice]} ${seat}`, () => actor.send({ type: 'penalty.select', seat, choice })),
+            )
+
+            break
+          }
+
+          default:
+            throw new Error('Unsupported Strila penalty choice')
+        }
+
+        break
+      }
+
+      case 'respotted-black.opening.select':
+        controls.append(
+          btn(`Choose opener ${seat}`, () => actor.send({ type: 'respotted-black.opening.select', seat })),
+        )
+
+        break
+      case 'frame.award':
+        controls.append(
+          btn(`Award frame to ${seat}`, () => actor.send({ type: 'frame.award', seat }), 'primary'),
+        )
+
+        break
+      default:
+        throw new Error(`Unsupported Strila control ${control.type}`)
+    }
   }
-
-  controls.append(
-    btn('Pot A (+2)', () => actor.send({ type: 'pot.record', seat: 'A', pottedBalls: [1] })),
-    btn('Pot B (+2)', () => actor.send({ type: 'pot.record', seat: 'B', pottedBalls: [1] })),
-    btn('Foul A', () => actor.send({ type: 'foul.commit', seat: 'A' })),
-    btn('Foul B', () => actor.send({ type: 'foul.commit', seat: 'B' })),
-  )
 }
 
 function renderPyramidFrame(snap: PyramidFrameSnapshot, actor: ActorRefFrom<typeof PyramidFrameMachine>) {
