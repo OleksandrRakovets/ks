@@ -6,10 +6,10 @@ Run commands from the repository root.
 
 | Store                       | Schema                                  | Migrations               | Applied by               |
 | --------------------------- | --------------------------------------- | ------------------------ | ------------------------ |
-| D1 `ks`                     | `packages/application/d1/schema.ts` | `packages/application/d1/migrations/` | Wrangler                 |
+| D1 `ks`                     | `packages/application/src/d1/schema.ts` | `packages/application/drizzle/` | Wrangler                 |
 | MatchRoom per-object SQLite | `do/match-room/src/storage/schema.ts`   | `do/match-room/drizzle/` | Runtime Drizzle migrator |
 
-Application is D1's sole runtime owner. Its client setup, schema, configuration, migrations, and local seed live in `packages/application/d1`; runtime queries live in `packages/application/src/repositories`. Play supplies the binding and applies migrations through its Wrangler deployment configuration.
+Application owns D1 runtime access and tooling. Shared client setup and tables live in `packages/application/src/d1`; each module owns its storage classes and value-only codecs. Drizzle configuration, migrations, and the local player seed live at the package root. See `packages/application/AGENTS.md` for the storage boundary. Play supplies the binding and Wrangler deployment configuration.
 
 These stores have independent lifecycles. MatchRoom SQLite contains Accepted Commands and outcomes, one immutable aggregate checkpoint per acceptance sequence, complete Protocol entries, the acceptance cursor, compact score projection, and lifecycle. Rich reads restore and project the checkpoint at the acceptance cursor; controls are request-local and are not persisted. D1 contains players and match rows and receives the unchanged final Protocol archive and projected Final Match State. Existing rooms without checkpoints require an explicit migration decision; do not reset or silently replay them.
 
@@ -18,17 +18,19 @@ Drizzle ORM and Kit are pinned to `1.0.0-rc.4`. Do not rewrite applied migration
 ## Local D1
 
 ```sh
-bun run db:migrate:local
-bun run db:seed:local
-bun run db:studio:local
+bun run --cwd packages/application db:migrate:local
+bun run --cwd packages/application db:seed:local
+bun run --cwd packages/application db:studio:local
 ```
+
+The application scripts use Play's Wrangler configuration and the same `apps/play/.wrangler/state` as its dev server.
 
 Studio connects to the real local Wrangler D1 and can mutate it. It does not browse Durable Object databases.
 
 For a remote development box, expose Studio only on its Tailscale interface:
 
 ```sh
-KS_DB_STUDIO_HOST=$(tailscale ip -4) bun run db:studio:local
+KS_DB_STUDIO_HOST=$(tailscale ip -4) bun run --cwd packages/application db:studio:local
 ```
 
 Open the URL Drizzle prints. The browser must be on the same tailnet and able to reach TCP port `4983`.
@@ -47,11 +49,11 @@ Replace `--local` with `--remote` only intentionally. `wrangler d1 execute` is n
 
 ## Change D1 Schema
 
-1. Edit `packages/application/d1/schema.ts`.
-2. Generate SQL: `bun run db:generate:d1 --name <short-name>`.
-3. Review the generated SQL and snapshot under `packages/application/d1/migrations/`.
-4. Validate with `bunx drizzle-kit check --config packages/application/d1/drizzle.config.ts`.
-5. Apply locally with `bun run db:migrate:local` and run `bun run check:full`.
+1. Edit `packages/application/src/d1/schema.ts`.
+2. Generate SQL: `bun run --cwd packages/application db:generate --name <short-name>`.
+3. Review the generated SQL and snapshot under `packages/application/drizzle/`.
+4. From `packages/application`, validate with `bunx drizzle-kit check --config drizzle.config.ts`.
+5. Apply locally with `bun run --cwd packages/application db:migrate:local` and run `bun run check:full`.
 6. Apply remotely only as an explicit deployment operation:
 
 ```sh
@@ -68,12 +70,12 @@ Generation commands minify Drizzle's `snapshot.json` metadata without changing i
 ## Change MatchRoom Schema
 
 1. Edit `do/match-room/src/storage/schema.ts`.
-2. Generate SQL: `bun run db:generate:match-room --name <short-name>`.
+2. Generate SQL: `bun run --cwd do/match-room db:generate --name <short-name>`.
 3. Review the generated SQL and snapshot under `do/match-room/drizzle/`.
 4. Add the SQL import and migration key to `do/match-room/drizzle/migrations.js`.
-5. Run `bunx drizzle-kit check --config do/match-room/drizzle.config.ts` and `bun run check:full`.
+5. From `do/match-room`, run `bunx drizzle-kit check --config drizzle.config.ts`, then run `bun run check:full` from the repository root.
 
-The `migrations` entry in `apps/play/wrangler.jsonc` manages Durable Object classes, not each object's SQLite schema. `do/match-room/wrangler.test.jsonc` mirrors that class setup only for Workerd integration tests.
+The `migrations` entry in `apps/play/wrangler.jsonc` manages Durable Object classes, not each object's SQLite schema. MatchRoom's Workerd integration configuration reads that class setup from Play's configuration.
 
 ## Reset Local Data Storage
 

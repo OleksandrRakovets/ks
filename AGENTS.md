@@ -22,7 +22,9 @@ Consult the relevant definitions in CONTEXT.md when introducing or changing doma
 - Tests: `bun test`; Workerd integration: `bun run test:integration`
 - Format/lint: `bun run format`, `bun run lint`, `bun run lint:fix`
 - Boundary check: `bun run check:boundaries`
-- Local D1: `bun run db:migrate:local`, `bun run db:seed:local`, `bun run db:studio:local`
+- Local D1: `bun run --cwd packages/application db:migrate:local`, `bun run --cwd packages/application db:seed:local`, `bun run --cwd packages/application db:studio:local`
+- Generate migrations: `bun run --cwd packages/application db:generate`, `bun run --cwd do/match-room db:generate`
+- Reset local data: `bun run db:reset:local`
 - Database migration workflows: `.tracker/db.md`
 - UI design rules: `.tracker/design.md`
 
