@@ -1,6 +1,5 @@
 import type { Application } from '@ks/application'
 import { createContext, type RouterContextProvider } from 'react-router'
-import invariant from 'tiny-invariant'
 
 export type CloudflareLoadContext = {
   application: Application
@@ -13,7 +12,8 @@ export const cloudflareContext = createContext<CloudflareLoadContext | undefined
 
 export function requireApplication(context: AppLoadContext): Application {
   const application = context.get(cloudflareContext)?.application
-  invariant(application, 'Missing application in route context')
+
+  if (!application) throw new Error('Missing application in route context')
 
   return application
 }

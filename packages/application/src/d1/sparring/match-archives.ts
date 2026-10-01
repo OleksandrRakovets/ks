@@ -1,4 +1,4 @@
-import { MatchState, ProtocolEntries } from '@ks/competition'
+import { FinishedMatchState, ProtocolEntries } from '@ks/competition'
 import { MatchId, PositiveInteger } from '@ks/core'
 import { GameResult } from '@ks/gameplay/definitions'
 import { eq } from 'drizzle-orm'
@@ -18,7 +18,7 @@ const ArchiveStateStorageRow = v.pipe(
   v.object({
     matchId: MatchId,
     sourceLatestSeq: PositiveInteger,
-    stateJson: v.pipe(v.string(), v.parseJson(), MatchState),
+    stateJson: v.pipe(v.string(), v.parseJson(), FinishedMatchState),
     gameResultJson: v.nullable(v.pipe(v.string(), v.parseJson(), GameResult)),
   }),
   v.transform(({ stateJson, gameResultJson, ...row }) => ({
@@ -26,7 +26,6 @@ const ArchiveStateStorageRow = v.pipe(
     state: stateJson,
     gameResult: gameResultJson,
   })),
-  v.check((value) => value.state.status === 'finished', 'Archive state is not finished'),
   v.check((value) => value.state.matchId === value.matchId, 'Archive match ID does not match state'),
   v.check(
     (value) =>

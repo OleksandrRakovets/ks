@@ -69,7 +69,7 @@ describe('PyramidFrameMachine: basic', () => {
     expect(getPhase(snap)).toBe('winner-determined')
   })
 
-  test('continued pots in winner-determined keep accumulating', () => {
+  test('continued pots in winner-determined accumulate into the awarded score', () => {
     let snap = start(FREE_RULES, { A: 2, B: 8 })
     snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
     snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBallCount: 2 })
@@ -77,6 +77,9 @@ describe('PyramidFrameMachine: basic', () => {
 
     expect(getPhase(snap)).toBe('winner-determined')
     expect(snap.context.score).toEqual({ A: 3, B: 0 })
+
+    snap = sendEvent(snap, { type: 'frame.award', seat: 'A' })
+    expect(snap.output).toEqual({ winnerSeat: 'A', winReason: 'game-rules', score: { A: 3, B: 0 } })
   })
 
   test('loser pots in winner-determined throw', () => {

@@ -10,7 +10,7 @@ import {
 import { createGameplaySession } from '@ks/gameplay/server'
 import * as v from 'valibot'
 
-import type { FrameState, MatchConfig, MatchState } from './definitions'
+import type { FrameState, MatchConfig, MatchState, MatchStateFor } from './definitions'
 import {
   createInitialSnapshot,
   deriveLifecycleState,
@@ -21,8 +21,6 @@ import {
   sendLifecycleEvent,
 } from './match-machine-internals'
 import type { ProtocolEntryContent } from './protocol'
-
-export type { MatchPhase } from './match-machine-internals'
 
 /** Complete executable aggregate state; storage cursor and Protocol are deliberately separate. */
 export const MatchCheckpoint = v.object({
@@ -66,6 +64,28 @@ type CorrelatedGameplay<K extends GameKey> = {
 }
 
 type AnyCorrelatedGameplay = { [K in GameKey]: CorrelatedGameplay<K> }[GameKey]
+
+type MatchControlProjection =
+  | {
+      readonly controlPhase: 'finished'
+      readonly state: Extract<MatchState, { status: 'finished' }>
+      readonly game: undefined
+      readonly controls: readonly Control[]
+    }
+  | {
+      readonly controlPhase: 'between-frames'
+      readonly state: Extract<MatchState, { status: 'active' }>
+      readonly game: undefined
+      readonly controls: readonly Control[]
+    }
+  | {
+      [K in GameKey]: {
+        readonly controlPhase: 'frame-active'
+        readonly state: MatchStateFor<K> & { readonly status: 'active' }
+        readonly game: GamePresentationFor<K>
+        readonly controls: readonly Control[]
+      }
+    }[GameKey]
 
 const MatchLifecycleCommand = v.variant('type', [
   v.pipe(v.strictObject({ type: v.literal('frame.prepare') }), v.readonly()),
@@ -148,37 +168,31 @@ class Match {
         ? lifecycle.activeFrame.frameIndex
         : (lifecycle.completedFrames.at(-1)?.frameIndex ?? 0)
 
-    const stateWithoutConfiguration: MatchState = {
+    const stateFields = {
       matchId: lifecycle.config.matchId,
       gameKey: lifecycle.config.gameKey,
       targets: lifecycle.config.targets,
-      status: lifecycle.phase === 'finished' ? 'finished' : 'active',
       currentFrameIndex,
       framesWonBySeat: lifecycle.framesWonBySeat,
       frames,
     }
 
-    const state: MatchState =
-      lifecycle.config.gameConfiguration === undefined
-        ? stateWithoutConfiguration
-        : { ...stateWithoutConfiguration, gameConfiguration: lifecycle.config.gameConfiguration }
+    const stateWithoutConfiguration: MatchState =
+      lifecycle.phase === 'finished'
+        ? { ...stateFields, status: 'finished' }
+        : { ...stateFields, status: 'active' }
 
-    return state
+    return lifecycle.config.gameConfiguration === undefined
+      ? stateWithoutConfiguration
+      : { ...stateWithoutConfiguration, gameConfiguration: lifecycle.config.gameConfiguration }
   }
 
-  /** Returns game-specific presentation while a frame is active. */
-  gamePresentation(): GamePresentationFor<GameKey> | undefined {
+  /** Derives one coherent state, game presentation and match-first control list from this resident. */
+  controlProjection(): MatchControlProjection {
     const lifecycle = deriveLifecycleState(this.#snapshot)
+    const state = this.state()
 
-    if (lifecycle.phase !== 'frame-in-progress') return undefined
-    const gameplay = requireGameplay(gameKeyOf(lifecycle.config.gameKey), this.#gameplay)
-
-    return gameplay.session.deriveControls().game
-  }
-
-  /** Returns currently available match and gameplay controls in stable source order. */
-  controls(): readonly Control[] {
-    const lifecycle = deriveLifecycleState(this.#snapshot)
+    if (state.status === 'finished') return { controlPhase: 'finished', state, game: undefined, controls: [] }
 
     const matchControls: Control[] = []
 
@@ -191,7 +205,7 @@ class Match {
       })
 
     if (lifecycle.phase !== 'frame-in-progress') {
-      return matchControls
+      return { controlPhase: 'between-frames', state, game: undefined, controls: matchControls }
     }
 
     const gameplay = requireGameplay(gameKeyOf(lifecycle.config.gameKey), this.#gameplay)
@@ -212,7 +226,14 @@ class Match {
     const gameControlProjection = gameplay.session.deriveControls()
 
     // Raw order is match-first, not global display order. Stable grouping preserves match-before-game per bucket.
-    return [...matchControls, ...gameControlProjection.controls]
+    // SAFETY: requireGameplay correlates this resident's config key with the session; state and game are read
+    // without intervening mutation. TypeScript cannot express that correlation between the two query results.
+    return {
+      controlPhase: 'frame-active',
+      state,
+      game: gameControlProjection.game,
+      controls: [...matchControls, ...gameControlProjection.controls],
+    } as Extract<MatchControlProjection, { controlPhase: 'frame-active' }>
   }
 
   /** Game-owned result, retained when gameplay is discarded after the frame ends. */

@@ -1,4 +1,5 @@
 import { type BySeatNumber, type Seat } from '@ks/core'
+import invariant from 'tiny-invariant'
 
 import type { LongFreePyramidContext, LongFreePyramidPhase, LongFreePyramidRack } from './definitions'
 
@@ -16,7 +17,7 @@ export function totalScore(racks: readonly LongFreePyramidRack[]): BySeatNumber 
 export function currentRack(racks: readonly LongFreePyramidRack[]): LongFreePyramidRack {
   const rack = racks.at(-1)
 
-  if (!rack) throw new Error('Long free pyramid state must contain at least one rack')
+  invariant(rack, 'Long free pyramid state must contain at least one rack')
 
   return rack
 }

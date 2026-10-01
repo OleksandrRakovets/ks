@@ -9,11 +9,11 @@ import {
   type MatchScoreProjection,
   type MatchState,
   projectMatchScore,
-  ProtocolEntry,
+  type ProtocolEntry,
   type ProtocolEntryContent,
 } from '@ks/competition'
 import {
-  AcceptedCommand,
+  type AcceptedCommand,
   type MatchCommand,
   type MatchStreamUpdate,
   PositiveInteger,
@@ -161,23 +161,21 @@ export class MatchStorage {
     const matchRecord = this.activeMatchRecord
     const previousCheckpoint = this.#selectCheckpointRow(previousCheckpointSeq)
 
-    const acceptedCommand = v.parse(AcceptedCommand, {
+    const acceptedCommand: AcceptedCommand = {
       ...args.command,
       acceptedSeq: matchRecord.latestSeq + 1,
       acceptedAt: this.#clock.nowMs(),
-    })
+    }
 
     const endsMatch = args.state.status === 'finished'
 
-    const entries = args.protocolEntryContents.map((content, entryIndex) =>
-      v.parse(ProtocolEntry, {
-        ...content,
-        acceptedSeq: acceptedCommand.acceptedSeq,
-        acceptedAt: acceptedCommand.acceptedAt,
-        causedByCommandId: acceptedCommand.commandId,
-        entryIndex,
-      }),
-    )
+    const entries = args.protocolEntryContents.map((content, entryIndex): ProtocolEntry => ({
+      ...content,
+      acceptedSeq: acceptedCommand.acceptedSeq,
+      acceptedAt: acceptedCommand.acceptedAt,
+      causedByCommandId: acceptedCommand.commandId,
+      entryIndex,
+    }))
 
     if (entries.length === 0) throw new Error('Accepted Command must produce Protocol')
 

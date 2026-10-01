@@ -157,7 +157,3 @@ export const keys = {
     },
   },
 } as const
-
-type LeafValues<T> = T extends string ? T : T extends object ? LeafValues<T[keyof T]> : never
-
-export type I18nKey = LeafValues<typeof keys> | (string & {})

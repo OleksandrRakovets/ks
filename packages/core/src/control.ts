@@ -61,7 +61,7 @@ type MutableControlSections = {
   tertiary: { A: Control[]; B: Control[] }
 }
 
-export function emptyControlSections(): MutableControlSections {
+function emptyControlSections(): MutableControlSections {
   return {
     neutral: [],
     primary: { A: [], B: [] },

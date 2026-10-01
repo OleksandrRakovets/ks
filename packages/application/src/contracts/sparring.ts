@@ -16,7 +16,7 @@ import * as v from 'valibot'
 import type { LastCommandPresentation } from '../control'
 import type { ProtocolRow } from '../protocol'
 
-export type { HydratedMatchParticipant, HydratedMatchParticipants } from '@ks/core'
+export type { HydratedMatchParticipants } from '@ks/core'
 
 type CommandReceiptOutcome =
   | { readonly _tag: 'accepted'; readonly acceptedSeq: number }
@@ -183,7 +183,7 @@ export type SubmitMatchCommandResult =
   | { readonly ok: true; readonly outcome: CommandReceiptOutcome }
   | { readonly ok: false; readonly error: string; readonly status: number }
 
-export type SparringMatchLiveAdmission =
+type SparringMatchLiveAdmission =
   | { readonly _tag: 'admitted' }
   | { readonly _tag: 'unknown' }
   | { readonly _tag: 'finished' }

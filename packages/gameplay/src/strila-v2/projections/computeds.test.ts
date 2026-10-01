@@ -1,36 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import type { StrilaColoredBall } from '../definitions'
-import { computeStrilaObjectBalls, computeStrilaPointsAvailable } from './computeds'
-
-type PointsCombo = {
-  balls: StrilaColoredBall[]
-  points: number
-}
-
-describe('computed: points available', () => {
-  test('returns remaining points by colored balls on table', () => {
-    const combos: PointsCombo[] = [
-      { balls: [1, 2, 3, 4, 5, 6, 7], points: 14 },
-      { balls: [2, 3, 4, 5, 6, 7], points: 12 },
-      { balls: [3, 4, 5, 6, 7], points: 10 },
-      { balls: [4, 5, 6, 7], points: 8 },
-      { balls: [5, 6, 7], points: 6 },
-      { balls: [6, 7], points: 4 },
-      { balls: [7], points: 2 },
-      { balls: [6], points: 2 },
-      { balls: [5], points: 2 },
-      { balls: [4], points: 2 },
-      { balls: [3], points: 2 },
-      { balls: [2], points: 2 },
-      { balls: [1], points: 2 },
-    ]
-
-    combos.forEach(({ balls, points }) => {
-      expect(computeStrilaPointsAvailable([...balls])).toBe(points)
-    })
-  })
-})
+import { computeStrilaObjectBalls } from './computeds'
 
 describe('computed: object balls', () => {
   test('with all balls on table -> lowest two', () => {

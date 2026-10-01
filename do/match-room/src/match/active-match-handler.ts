@@ -4,12 +4,10 @@ import {
   isCorrectionCommand,
   type Match,
   type MatchScoreProjection,
-  type MatchStateFor,
   type ProtocolEntry,
   restoreMatchCheckpoint,
 } from '@ks/competition'
 import type { Control, MatchCommand, NonNegativeInteger } from '@ks/core'
-import type { GameKey, GamePresentationFor } from '@ks/gameplay/definitions'
 
 import { type LiveConnectionCursor, LiveConnectionHandler } from '../live/live-connection-handler'
 import { MatchStorage } from '../storage/match-storage'
@@ -120,11 +118,11 @@ export class ActiveMatchHandler {
     })
   }
 
-  getControls(): ActiveControlsResult {
-    const match = restoreMatchCheckpoint(this.#storage.readCurrentCheckpoint())
+  getControls() {
+    const { controlPhase: _controlPhase, ...projection } = this.#readProjection()
     const lastCommand = this.#storage.findLastAdvancingPlayerCommand()
 
-    const presentedLastCommand =
+    const presentedLastCommand: { readonly entry: ProtocolEntry; readonly correction?: Control } | null =
       lastCommand && isCorrectableCommand(lastCommand.command)
         ? {
             entry: lastCommand.entry,
@@ -141,21 +139,20 @@ export class ActiveMatchHandler {
         : lastCommand && { entry: lastCommand.entry }
 
     return {
-      _tag: 'active',
+      _tag: 'active' as const,
       latestSeq: this.#matchRecord.latestSeq,
-      ...presentationOf(match),
-      controls: match.controls(),
+      ...projection,
       lastCommand: presentedLastCommand,
     }
   }
 
-  getProtocol(): ActiveProtocolResult {
-    const match = restoreMatchCheckpoint(this.#storage.readCurrentCheckpoint())
+  getProtocol() {
+    const { controlPhase: _controlPhase, controls: _controls, ...projection } = this.#readProjection()
 
     return {
-      _tag: 'active',
+      _tag: 'active' as const,
       latestSeq: this.#matchRecord.latestSeq,
-      ...presentationOf(match),
+      ...projection,
       protocolEntries: this.#storage.readProtocol(),
     }
   }
@@ -172,28 +169,18 @@ export class ActiveMatchHandler {
     return { matchId: this.#matchRecord.matchId, latestSeq: this.#matchRecord.latestSeq }
   }
 
+  #readProjection() {
+    const match = restoreMatchCheckpoint(this.#storage.readCurrentCheckpoint())
+    const projection = match.controlProjection()
+
+    if (projection.controlPhase === 'finished') throw new Error('Expected active Match')
+
+    return projection
+  }
+
   get #matchRecord(): ActiveMatchRecord {
     return this.#storage.activeMatchRecord
   }
-}
-
-type ActivePresentationFor<K extends GameKey> = {
-  readonly state: MatchStateFor<K>
-  readonly game: GamePresentationFor<K> | undefined
-}
-
-/**
- * Mapping before indexing forms a union whose state and game share one game key. Match's independent query return
- * types otherwise widen both values to every registered game and lose that correlation at this response boundary.
- */
-type ActivePresentation = {
-  [K in GameKey]: ActivePresentationFor<K>
-}[GameKey]
-
-function presentationOf(match: Match): ActivePresentation {
-  // SAFETY: Match construction and restoration correlate lifecycle config with gameplay; both values come from that
-  // same resident without intervening mutation.
-  return { state: match.state(), game: match.gamePresentation() } as ActivePresentation
 }
 
 type ActiveCommandResult =
@@ -205,22 +192,6 @@ type ActiveCommandResult =
       readonly endsMatch: boolean
     }
   | Extract<CommandReceipt, { _tag: 'rejected' }>
-
-type ActiveControlsResult = {
-  readonly _tag: 'active'
-  readonly latestSeq: NonNegativeInteger
-  readonly controls: readonly Control[]
-  readonly lastCommand: {
-    readonly entry: ProtocolEntry
-    readonly correction?: Control
-  } | null
-} & ActivePresentation
-
-type ActiveProtocolResult = {
-  readonly _tag: 'active'
-  readonly latestSeq: NonNegativeInteger
-  readonly protocolEntries: readonly ProtocolEntry[]
-} & ActivePresentation
 
 type ActiveScoreResult = {
   readonly _tag: 'active'

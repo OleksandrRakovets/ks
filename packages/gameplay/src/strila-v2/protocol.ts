@@ -1,7 +1,6 @@
 import invariant from 'tiny-invariant'
-import * as v from 'valibot'
 
-import { type StrilaCommand, StrilaProtocolEntry } from './definitions'
+import type { StrilaCommand, StrilaProtocolEntry } from './definitions'
 import { getPhase, type StrilaFrameSnapshot } from './machine'
 
 function isMixedBallInHandPot(previous: StrilaFrameSnapshot, command: StrilaCommand): boolean {
@@ -22,7 +21,7 @@ function playerEntry(
   command: StrilaCommand,
   next: StrilaFrameSnapshot,
 ): StrilaProtocolEntry {
-  const body = (() => {
+  const body = ((): Extract<StrilaProtocolEntry, { entryType: 'player-command' }>['body'] => {
     switch (command.type) {
       case 'frame.commence':
       case 'respotted-black.opening.select':
@@ -39,14 +38,14 @@ function playerEntry(
     throw new Error('Unsupported Strila command')
   })()
 
-  return v.parse(StrilaProtocolEntry, {
+  return {
     gameKey: 'strila-v2',
     source: 'player',
     entryType: 'player-command',
     seat: command.seat,
     scoreAfter: scoreChanged(previous, next) ? { ...next.context.score } : undefined,
     body,
-  })
+  }
 }
 
 function isThirdConsecutiveCueBallPot(previous: StrilaFrameSnapshot, command: StrilaCommand): boolean {
@@ -80,51 +79,43 @@ export function createStrilaProtocolEntries(args: {
     getPhase(previous) !== 'respotted-black.opening-selection' &&
     getPhase(next) === 'respotted-black.opening-selection'
   ) {
-    entries.push(
-      v.parse(StrilaProtocolEntry, {
-        gameKey: 'strila-v2',
-        source: 'system',
-        entryType: 'system-note',
-        seat: command.seat,
-        body: { systemType: 'respotted-black-declared' },
-      }),
-    )
+    entries.push({
+      gameKey: 'strila-v2',
+      source: 'system',
+      entryType: 'system-note',
+      seat: command.seat,
+      body: { systemType: 'respotted-black-declared' },
+    })
   }
 
   if (isThirdConsecutiveCueBallPot(previous, command)) {
-    entries.push(
-      v.parse(StrilaProtocolEntry, {
-        gameKey: 'strila-v2',
-        source: 'system',
-        entryType: 'system-note',
-        seat: command.seat,
-        body: { systemType: 'automatic-foul', reason: 'third-consecutive-cue-ball-pot' },
-      }),
-    )
+    entries.push({
+      gameKey: 'strila-v2',
+      source: 'system',
+      entryType: 'system-note',
+      seat: command.seat,
+      body: { systemType: 'automatic-foul', reason: 'third-consecutive-cue-ball-pot' },
+    })
   }
 
   if (isMixedBallInHandPot(previous, command)) {
-    entries.push(
-      v.parse(StrilaProtocolEntry, {
-        gameKey: 'strila-v2',
-        source: 'system',
-        entryType: 'system-note',
-        seat: command.seat,
-        body: { systemType: 'automatic-foul', reason: 'illegal-ball-in-hand-pot' },
-      }),
-    )
+    entries.push({
+      gameKey: 'strila-v2',
+      source: 'system',
+      entryType: 'system-note',
+      seat: command.seat,
+      body: { systemType: 'automatic-foul', reason: 'illegal-ball-in-hand-pot' },
+    })
   }
 
   if (isRespottedBlackOpeningIllegalPot(previous, command)) {
-    entries.push(
-      v.parse(StrilaProtocolEntry, {
-        gameKey: 'strila-v2',
-        source: 'system',
-        entryType: 'system-note',
-        seat: command.seat,
-        body: { systemType: 'automatic-foul', reason: 'respotted-black-opening-illegal-pot' },
-      }),
-    )
+    entries.push({
+      gameKey: 'strila-v2',
+      source: 'system',
+      entryType: 'system-note',
+      seat: command.seat,
+      body: { systemType: 'automatic-foul', reason: 'respotted-black-opening-illegal-pot' },
+    })
   }
 
   if (getPhase(previous) !== 'winner-determined' && getPhase(next) === 'winner-determined') {
@@ -133,15 +124,13 @@ export function createStrilaProtocolEntries(args: {
       next.context.winnerDeterminationReason !== null,
       'Winner determination reason is required when protocol records winner determination',
     )
-    entries.push(
-      v.parse(StrilaProtocolEntry, {
-        gameKey: 'strila-v2',
-        source: 'system',
-        entryType: 'system-note',
-        seat: next.context.winner,
-        body: { systemType: 'winner-determined', reason: next.context.winnerDeterminationReason },
-      }),
-    )
+    entries.push({
+      gameKey: 'strila-v2',
+      source: 'system',
+      entryType: 'system-note',
+      seat: next.context.winner,
+      body: { systemType: 'winner-determined', reason: next.context.winnerDeterminationReason },
+    })
   }
 
   return entries

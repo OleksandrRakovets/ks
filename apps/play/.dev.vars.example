@@ -1,5 +1,0 @@
-# Local development variables for `wrangler dev`.
-# Copy to `apps/play/.dev.vars` (ignored by git).
-
-ADMIN_USER=admin
-ADMIN_PASS=admin

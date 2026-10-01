@@ -9,7 +9,7 @@ import {
   LongFreePyramidRack,
 } from '../constants'
 
-export { LongFreePyramidResult, type LongFreePyramidRack } from '../constants'
+export { type LongFreePyramidRack } from '../constants'
 
 const LongFreePyramidPottedBallCount = v.picklist([1, 2, 3, 4])
 

@@ -99,7 +99,7 @@ test('compensates every outcome of one game command in reverse order', () => {
       },
     ],
   })
-  expect(matchBeforeTarget.gamePresentation()).toMatchObject({
+  expect(matchBeforeTarget.controlProjection().game).toMatchObject({
     score: { A: 2, B: 0 },
     details: { phase: 'open-play' },
   })

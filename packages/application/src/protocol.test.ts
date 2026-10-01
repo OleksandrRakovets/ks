@@ -4,7 +4,8 @@ import type { ProtocolEntry } from '@ks/competition'
 import { FixedClock, newCommandId, UnixEpochMilliseconds } from '@ks/core'
 import * as v from 'valibot'
 
-import { renderProtocolRows } from './protocol'
+import { presentLastCommand } from './control'
+import { type ProtocolMessage, renderProtocolRows } from './protocol'
 
 const clock = new FixedClock(new Date('2026-09-22T21:30:00Z'), 'Europe/Kyiv')
 
@@ -66,4 +67,106 @@ test('attributes the respotted-black opening selection to the chosen player', ()
     key: 'match.protocol.commands.respotted-black.opening.select',
     actor: 'Bob',
   })
+})
+
+test('distinguishes Strila ball selections from Pyramid counts in Protocol and last-command messages', () => {
+  const entries: ProtocolEntry[] = [
+    {
+      ...entry,
+      source: 'player',
+      entryType: 'player-command',
+      body: { commandType: 'pot.record', pottedBalls: [0, 3] },
+    },
+    {
+      ...entry,
+      gameKey: 'free-pyramid',
+      source: 'player',
+      entryType: 'player-command',
+      seat: 'B',
+      body: { commandType: 'pot.record', pottedBallCount: 2 },
+    },
+    {
+      ...entry,
+      gameKey: 'free-pyramid-long',
+      source: 'player',
+      entryType: 'player-command',
+      body: { commandType: 'pot.record', pottedBallCount: 4 },
+    },
+  ]
+
+  const expected: ProtocolMessage[] = [
+    { key: 'match.protocol.commands.pot.record.balls', actor: 'Alice', pottedBalls: [0, 3] },
+    {
+      key: 'match.protocol.commands.pot.record.pottedBallCount',
+      actor: 'Bob',
+      params: { pottedBallCount: '+2' },
+    },
+    {
+      key: 'match.protocol.commands.pot.record.pottedBallCount',
+      actor: 'Alice',
+      params: { pottedBallCount: '+4' },
+    },
+  ]
+
+  const names = { A: 'Alice', B: 'Bob' }
+
+  expect(renderProtocolRows(entries, names, clock).map((row) => row.message)).toEqual(expected)
+  expect(entries.map((entry) => presentLastCommand({ entry }, names).message)).toEqual(expected)
+})
+
+test('dispatches default, opponent and offender foul messages from their typed bodies', () => {
+  const entries: ProtocolEntry[] = [
+    { ...entry, source: 'player', entryType: 'player-command', body: { commandType: 'foul.commit' } },
+    {
+      ...entry,
+      gameKey: 'free-pyramid',
+      source: 'player',
+      entryType: 'player-command',
+      seat: 'B',
+      body: { commandType: 'foul.commit', penalty: 'opponent-plus-one' },
+    },
+    {
+      ...entry,
+      gameKey: 'combined-pyramid-old',
+      source: 'player',
+      entryType: 'player-command',
+      body: { commandType: 'foul.commit', penalty: 'offender-minus-one' },
+    },
+  ]
+
+  expect(renderProtocolRows(entries, { A: 'Alice', B: 'Bob' }, clock).map((row) => row.message)).toEqual([
+    { key: 'match.protocol.commands.foul.commit.default', actor: 'Alice' },
+    { key: 'match.protocol.commands.foul.commit.opponent-plus-one', actor: 'Bob' },
+    { key: 'match.protocol.commands.foul.commit.offender-minus-one', actor: 'Alice' },
+  ])
+})
+
+test('renders the selected Strila penalty without falling back to a default message', () => {
+  const entries: ProtocolEntry[] = [
+    {
+      ...entry,
+      source: 'player',
+      entryType: 'player-command',
+      body: { commandType: 'penalty.select', choice: 'play-from-position' },
+    },
+    {
+      ...entry,
+      source: 'player',
+      entryType: 'player-command',
+      seat: 'B',
+      body: { commandType: 'penalty.select', choice: 'pass-position' },
+    },
+    {
+      ...entry,
+      source: 'player',
+      entryType: 'player-command',
+      body: { commandType: 'penalty.select', choice: 'ball-in-hand' },
+    },
+  ]
+
+  expect(renderProtocolRows(entries, { A: 'Alice', B: 'Bob' }, clock).map((row) => row.message)).toEqual([
+    { key: 'match.protocol.commands.penalty.select.play-from-position', actor: 'Alice' },
+    { key: 'match.protocol.commands.penalty.select.pass-position', actor: 'Bob' },
+    { key: 'match.protocol.commands.penalty.select.ball-in-hand', actor: 'Alice' },
+  ])
 })

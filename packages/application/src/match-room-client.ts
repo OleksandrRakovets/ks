@@ -1,4 +1,3 @@
-import type { MatchId } from '@ks/core'
 import type { MatchRoom } from '@ks/match-room'
 
 /** Private application capability; Play's generated binding verifies the concrete RPC stub. */

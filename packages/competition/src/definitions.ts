@@ -90,33 +90,36 @@ export const FrameState = v.pipe(
 
 export type FrameState = v.InferOutput<typeof FrameState>
 
-export const MatchState = v.pipe(
-  v.object({
-    matchId: MatchId,
-    gameKey: GameKey,
-    targets: MatchTargets,
-    gameConfiguration: v.optional(GameConfiguration),
-    status: v.picklist(['active', 'finished']),
-    currentFrameIndex: NonNegativeInteger,
-    framesWonBySeat: BySeatNumber,
-    frames: v.pipe(v.array(FrameState), v.readonly()),
-  }),
+const MatchStateFields = {
+  matchId: MatchId,
+  gameKey: GameKey,
+  targets: MatchTargets,
+  gameConfiguration: v.optional(GameConfiguration),
+  currentFrameIndex: NonNegativeInteger,
+  framesWonBySeat: BySeatNumber,
+  frames: v.pipe(v.array(FrameState), v.readonly()),
+}
+
+const ActiveMatchState = v.pipe(v.object({ ...MatchStateFields, status: v.literal('active') }), v.readonly())
+
+export const FinishedMatchState = v.pipe(
+  v.object({ ...MatchStateFields, status: v.literal('finished') }),
   v.readonly(),
 )
 
+export const MatchState = v.variant('status', [ActiveMatchState, FinishedMatchState])
+
 export type MatchState = v.InferOutput<typeof MatchState>
 
-export type MatchStateFor<K extends GameKey> = Omit<MatchState, 'gameKey'> & { readonly gameKey: K }
+export type MatchStateFor<K extends GameKey> = MatchState & { readonly gameKey: K }
 
-export const ActiveFrameScoreProjection = v.pipe(
+const ActiveFrameScoreProjection = v.pipe(
   v.object({
     frameIndex: PositiveInteger,
     pointsBySeat: BySeatNumber,
   }),
   v.readonly(),
 )
-
-export type ActiveFrameScoreProjection = v.InferOutput<typeof ActiveFrameScoreProjection>
 
 export const MatchScoreProjection = v.pipe(
   v.object({

@@ -53,6 +53,7 @@ These commands overlap. Choose the appropriate gate; do not rerun its constituen
 - Schemas use Valibot. Prefer built-in actions such as `v.trim()` and `v.parseJson()`. Give the inferred type the exact name as the schema (the core package already does this).
 - Use core seat contracts (`Seat`, `BySeatNumber`, `opponentOf`) rather than local equivalents.
 - Keep one `game` path; gameplay runtimes own game-specific semantics.
+- Gameplay uses its directly declared `tiny-invariant` for predicate/invariant guards; their messages are stripped in production. Unconditional unsupported-case throws may remain explicit. Other packages use explicit/custom errors to retain production diagnostics. Invariant guards do not replace boundary validation or typed rejections.
 - Play's UI is app-local, not a workspace package. Generic primitives live in `apps/play/web/components/ui`; reusable product visuals or interactions with explicit props may live in `apps/play/web/components`. Keep feature-specific or one-off UI with its feature owner.
 
 ## Architecture Ownership
@@ -69,7 +70,6 @@ These commands overlap. Choose the appropriate gate; do not rerun its constituen
 - Application imports `@ks/match-room` type-only to derive its private MatchRoom capability. Play imports the class at runtime only to export it from the Worker entrypoint; generated bindings verify structural RPC compatibility without runtime response parsing.
 - Live updates use a versioned WebSocket contract through Play's Worker gateway. React Router loaders remain authoritative; socket messages are invalidation notifications that request revalidation.
 - Play's Wrangler configuration owns the MatchRoom class migration. The project has not yet been deployed.
-- Local Worker variables belong in `apps/play/.dev.vars`; start from `.dev.vars.example`.
 - Generated `.react-router/` and `worker-configuration.d.ts` files must not be hand-reformatted.
 
 ## Documentation

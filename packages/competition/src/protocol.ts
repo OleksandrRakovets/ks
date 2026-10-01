@@ -35,7 +35,7 @@ const ProtocolEntryContentFields = {
   scoreAfter: v.optional(BySeatNumber),
 } as const
 
-export const MatchLifecycleProtocolEntry = v.variant('entryType', [
+const MatchLifecycleProtocolEntry = v.variant('entryType', [
   v.pipe(
     v.object({
       ...ProtocolEntryContentFields,
@@ -89,8 +89,6 @@ export const MatchLifecycleProtocolEntry = v.variant('entryType', [
   ),
 ])
 
-export type MatchLifecycleProtocolEntry = v.InferOutput<typeof MatchLifecycleProtocolEntry>
-
 const GameProtocolEntryContent = v.pipe(
   v.intersect([v.object({ frameIndex: PositiveInteger }), GameProtocolEntry]),
   v.readonly(),
@@ -123,5 +121,5 @@ export type ProtocolEntries = v.InferOutput<typeof ProtocolEntries>
 export function correctionReferenceOf(entry: ProtocolEntry): CommandCorrectionReference | undefined {
   if (entry.entryType !== 'command-corrected') return undefined
 
-  return v.parse(CommandCorrectionReference, entry.body)
+  return entry.body
 }

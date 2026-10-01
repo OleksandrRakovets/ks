@@ -5,7 +5,7 @@ import * as v from 'valibot'
 import type { Match } from './match'
 import type { ProtocolEntry, ProtocolEntryContent } from './protocol'
 
-export const CorrectionCommand = v.pipe(
+const CorrectionCommand = v.pipe(
   v.strictObject({
     type: v.literal('command.correct'),
     targetSeq: PositiveInteger,
@@ -13,8 +13,6 @@ export const CorrectionCommand = v.pipe(
   }),
   v.readonly(),
 )
-
-export type CorrectionCommand = v.InferOutput<typeof CorrectionCommand>
 
 export type MatchCorrectionTarget = {
   readonly acceptedSeq: PositiveInteger

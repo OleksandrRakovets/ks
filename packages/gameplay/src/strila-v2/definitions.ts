@@ -264,11 +264,20 @@ const StrilaSystemProtocolEntryBody = v.variant('systemType', [
 
 /** Combines the common game Protocol envelope with Strila's typed player/system body variants. */
 export const StrilaProtocolEntry = v.pipe(
-  v.object({
-    ...GameProtocolEntryFields,
-    gameKey: v.literal('strila-v2'),
-    body: v.union([StrilaPlayerProtocolEntryBody, StrilaSystemProtocolEntryBody]),
-  }),
+  v.variant('entryType', [
+    v.object({
+      ...GameProtocolEntryFields,
+      gameKey: v.literal('strila-v2'),
+      entryType: v.literal('player-command'),
+      body: StrilaPlayerProtocolEntryBody,
+    }),
+    v.object({
+      ...GameProtocolEntryFields,
+      gameKey: v.literal('strila-v2'),
+      entryType: v.literal('system-note'),
+      body: StrilaSystemProtocolEntryBody,
+    }),
+  ]),
   v.readonly(),
 )
 
