@@ -4,8 +4,8 @@ import { GameResult } from '@ks/gameplay/definitions'
 import * as v from 'valibot'
 
 import type { sparringMatchArchives } from '../../d1/schema'
-import type { MatchRoomArchiveTransfer } from '../match-room-client'
-import type { FinishedMatchArchiveRecord, ProtocolArchiveRecord } from '../records'
+import type { MatchRoomArchiveTransfer } from '../../match/match-room'
+import type { FinishedMatchArchiveRecord, ProtocolArchiveRecord } from './records'
 
 export const PROTOCOL_ARCHIVE_VERSION = 1 as const
 
@@ -48,7 +48,7 @@ export function encodeProtocolArchive(input: MatchRoomArchiveTransfer): ArchiveI
   }
 }
 
-export function decodeFinishedArchive(row: ArchiveStateRow): FinishedMatchArchiveRecord {
+export function finishedMatchArchiveRecordFromRow(row: ArchiveStateRow): FinishedMatchArchiveRecord {
   try {
     const { matchId: _matchId, ...archive } = v.parse(ArchiveStateStorageRow, row)
 
@@ -58,7 +58,7 @@ export function decodeFinishedArchive(row: ArchiveStateRow): FinishedMatchArchiv
   }
 }
 
-export function decodeProtocolArchive(row: ArchiveRow): ProtocolArchiveRecord {
+export function protocolArchiveRecordFromRow(row: ArchiveRow): ProtocolArchiveRecord {
   try {
     const { matchId: _matchId, ...archive } = v.parse(ArchiveStateStorageRow, row)
     const protocolVersion = v.parse(v.literal(PROTOCOL_ARCHIVE_VERSION), row.protocolVersion)

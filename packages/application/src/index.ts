@@ -1,5 +1,5 @@
 /** Browser/server shared application contracts; server adapters are exported from @ks/application/server. */
-import type { SparringApplication } from './contracts/sparring'
+import type { SparringApplication } from './sparring/contract'
 
 export type Application = { sparring: SparringApplication }
 
@@ -9,16 +9,17 @@ export type {
   MatchListPage,
   ReadMatchResult,
   ReadMatchProtocolResult,
-} from './contracts/sparring'
+} from './sparring/contract'
+
+export { DisplayName } from './player/contract'
 
 export {
   CreateSparringMatchInput,
-  DisplayName,
   MatchListDay,
   MatchScorePollEntry,
   MatchScorePollResponse,
-} from './contracts/sparring'
+} from './sparring/contract'
 
-export type { LastCommandPresentation } from './control'
+export type { LastCommandPresentation } from './match/last-command-projection'
 
-export type { ProtocolRow } from './protocol'
+export type { ProtocolRow } from './match/protocol-projection'

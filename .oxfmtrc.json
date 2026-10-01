@@ -4,7 +4,7 @@
     "**/.agents/**",
     ".tracker/**",
     "tools/oxlint/anti-slop/**",
-    "packages/application/d1/migrations/**/snapshot.json",
+    "packages/application/drizzle/**/snapshot.json",
     "do/match-room/drizzle/**/snapshot.json"
   ],
   "semi": false,

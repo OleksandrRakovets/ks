@@ -2,7 +2,7 @@ import { HydratedMatchParticipant } from '@ks/core'
 import type { SupportedLocale } from '@ks/i18n'
 import * as v from 'valibot'
 
-import type { ParticipantRecord, PlayerName } from './records'
+import type { ParticipantRecord, PlayerName } from './storage/records'
 
 export function splitGuestDisplayName(displayName: string): PlayerName {
   const parts = displayName.split(' ')

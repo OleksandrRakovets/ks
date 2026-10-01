@@ -3,8 +3,8 @@ import { describe, expect, test } from 'bun:test'
 import { PlayerRef } from '@ks/core'
 import * as v from 'valibot'
 
-import { presentParticipant, splitGuestDisplayName } from './players'
-import type { ParticipantRecord } from './records'
+import { presentParticipant, splitGuestDisplayName } from './participant'
+import type { ParticipantRecord } from './storage/records'
 
 const playerRef = v.parse(PlayerRef, 'gp_01ARZ3NDEKTSV4RRFFQ69G5FAA')
 

@@ -1,11 +1,10 @@
-import { MatchScoreProjection, projectMatchScore } from '@ks/competition'
-import { MatchId, NonNegativeInteger, PlayerRef, UnixEpochMilliseconds } from '@ks/core'
-import { GameKey } from '@ks/gameplay/definitions'
+import { projectMatchScore } from '@ks/competition'
+import type { MatchId, UnixEpochMilliseconds } from '@ks/core'
 import { and, asc, desc, eq, gte, inArray, isNull, lt, or, sql } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/sqlite-core'
 import * as v from 'valibot'
 
-import type { ApplicationDatabase } from '../../d1/database'
+import type { ApplicationDatabase } from '../../d1/client'
 import {
   guestPlayers,
   sparringMatchArchives,
@@ -13,24 +12,26 @@ import {
   StoredMatchStatus,
   verifiedPlayers,
 } from '../../d1/schema'
-import type { MatchRoomArchiveTransfer } from '../match-room-client'
-import type {
-  FinishedMatchArchiveRecord,
-  MatchCreationRecord,
-  MatchListRecord,
-  MatchRecord,
-  ProtocolArchiveRecord,
-} from '../records'
-import { participantRecordFromRow } from './players'
+import type { MatchRoomArchiveTransfer } from '../../match/match-room'
 import {
-  decodeFinishedArchive,
-  decodeProtocolArchive,
   encodeProtocolArchive,
+  finishedMatchArchiveRecordFromRow,
   MatchFinalizationError,
+  protocolArchiveRecordFromRow,
   semanticArchiveEqual,
 } from './protocol-archive'
+import {
+  type FinishedMatchArchiveRecord,
+  type MatchCreationRecord,
+  type MatchListRecord,
+  matchListRecordFromRow,
+  type MatchRecord,
+  matchRecordFromRow,
+  MatchRow,
+  type ProtocolArchiveRecord,
+} from './records'
 
-export class SparringMatchRepository {
+export class SparringMatchStorage {
   readonly #db: ApplicationDatabase
 
   constructor(db: ApplicationDatabase) {
@@ -80,7 +81,7 @@ export class SparringMatchRepository {
       .where(eq(sparringMatches.matchId, matchId))
   }
 
-  async readMatch(matchId: MatchId): Promise<MatchRecord | null> {
+  async findMatch(matchId: MatchId): Promise<MatchRecord | null> {
     const row = await this.#db
       .select(matchRowSelection)
       .from(sparringMatches)
@@ -90,7 +91,7 @@ export class SparringMatchRepository {
     return row ? matchRecordFromRow(v.parse(MatchRow, row)) : null
   }
 
-  async readMatches(matchIds: readonly MatchId[]): Promise<MatchRecord[]> {
+  async listMatches(matchIds: readonly MatchId[]): Promise<MatchRecord[]> {
     if (matchIds.length === 0) return []
 
     const rows = await this.#db
@@ -102,7 +103,7 @@ export class SparringMatchRepository {
   }
 
   async listLive(finishedSince: UnixEpochMilliseconds): Promise<MatchListRecord[]> {
-    const rows = await this.#joinedMatchQuery()
+    const rows = await this.#selectJoinedMatchRows()
       .where(
         or(
           eq(sparringMatches.status, StoredMatchStatus.active),
@@ -118,14 +119,14 @@ export class SparringMatchRepository {
         sql`${sparringMatches.matchId} DESC`,
       )
 
-    return rows.map((row) => parseJoinedMatchRow(row))
+    return rows.map((row) => matchListRecordFromRow(row))
   }
 
   async listFinished(range: {
     readonly start: UnixEpochMilliseconds
     readonly end: UnixEpochMilliseconds
   }): Promise<MatchListRecord[]> {
-    const rows = await this.#joinedMatchQuery()
+    const rows = await this.#selectJoinedMatchRows()
       .where(
         and(
           eq(sparringMatches.status, StoredMatchStatus.finished),
@@ -135,7 +136,7 @@ export class SparringMatchRepository {
       )
       .orderBy(sql`${sparringMatches.createdAt} DESC`, sql`${sparringMatches.matchId} DESC`)
 
-    return rows.map((row) => parseJoinedMatchRow(row))
+    return rows.map((row) => matchListRecordFromRow(row))
   }
 
   /** Find one occupied finished-match day on either side of a UTC day boundary. */
@@ -160,7 +161,7 @@ export class SparringMatchRepository {
     return row?.createdAt ?? null
   }
 
-  async readFinishedArchive(matchId: MatchId): Promise<FinishedMatchArchiveRecord | null> {
+  async findFinishedArchive(matchId: MatchId): Promise<FinishedMatchArchiveRecord | null> {
     const row = await this.#db
       .select({
         matchId: sparringMatchArchives.matchId,
@@ -172,13 +173,13 @@ export class SparringMatchRepository {
       .where(eq(sparringMatchArchives.matchId, matchId))
       .get()
 
-    return row ? decodeFinishedArchive(row) : null
+    return row ? finishedMatchArchiveRecordFromRow(row) : null
   }
 
-  async readProtocolArchive(matchId: MatchId): Promise<ProtocolArchiveRecord | null> {
-    const row = await this.#selectArchive(matchId)
+  async findProtocolArchive(matchId: MatchId): Promise<ProtocolArchiveRecord | null> {
+    const row = await this.#selectArchiveRow(matchId)
 
-    return row ? decodeProtocolArchive(row) : null
+    return row ? protocolArchiveRecordFromRow(row) : null
   }
 
   async archiveFinished(input: MatchRoomArchiveTransfer): Promise<void> {
@@ -213,7 +214,7 @@ export class SparringMatchRepository {
       .onConflictDoNothing({ target: sparringMatchArchives.matchId })
       .returning()
 
-    const persistedArchive = inserted[0] ?? (await this.#selectArchive(input.matchId))
+    const persistedArchive = inserted[0] ?? (await this.#selectArchiveRow(input.matchId))
 
     if (!persistedArchive || !semanticArchiveEqual(persistedArchive, archive))
       throw new MatchFinalizationError('Finished match archive conflicts with existing data')
@@ -266,7 +267,7 @@ export class SparringMatchRepository {
       throw new MatchFinalizationError('Finished match is not ready to mark finished')
   }
 
-  #selectArchive(matchId: MatchId): Promise<typeof sparringMatchArchives.$inferSelect | undefined> {
+  #selectArchiveRow(matchId: MatchId): Promise<typeof sparringMatchArchives.$inferSelect | undefined> {
     return this.#db
       .select()
       .from(sparringMatchArchives)
@@ -275,7 +276,7 @@ export class SparringMatchRepository {
   }
 
   /** Match only the ref's player kind; strip its prefix on the match side so each player PK stays indexed. */
-  #joinedMatchQuery() {
+  #selectJoinedMatchRows() {
     return this.#db
       .select({ ...matchRowSelection, seatAGuest, seatAVerified, seatBGuest, seatBVerified })
       .from(sparringMatches)
@@ -310,45 +311,6 @@ export class SparringMatchRepository {
   }
 }
 
-const MatchRowIdentity = {
-  matchId: MatchId,
-  gameKey: GameKey,
-  createdAt: UnixEpochMilliseconds,
-  seatAPlayerRef: PlayerRef,
-  seatBPlayerRef: PlayerRef,
-}
-
-const MatchRow = v.pipe(
-  v.variant('status', [
-    v.object({
-      ...MatchRowIdentity,
-      status: v.literal(StoredMatchStatus.creating),
-      endedAt: v.nullable(UnixEpochMilliseconds),
-      finalSourceLatestSeq: v.null(),
-      finalScore: v.null(),
-    }),
-    v.object({
-      ...MatchRowIdentity,
-      status: v.literal(StoredMatchStatus.active),
-      endedAt: v.nullable(UnixEpochMilliseconds),
-      finalSourceLatestSeq: v.null(),
-      finalScore: v.null(),
-    }),
-    v.pipe(
-      v.object({
-        ...MatchRowIdentity,
-        status: v.literal(StoredMatchStatus.finished),
-        endedAt: UnixEpochMilliseconds,
-        finalSourceLatestSeq: NonNegativeInteger,
-        finalScore: v.pipe(v.string(), v.parseJson(), MatchScoreProjection),
-      }),
-      v.check((row) => row.finalScore.activeFrame === null, 'Finished Match row has an active Frame'),
-      v.check((row) => row.finalScore.winnerSeat !== null, 'Finished Match row has no winner'),
-    ),
-  ]),
-  v.readonly(),
-)
-
 const matchRowSelection = {
   matchId: sparringMatches.matchId,
   gameKey: sparringMatches.gameKey,
@@ -368,42 +330,3 @@ const seatAVerified = alias(verifiedPlayers, 'seat_a_verified')
 const seatBGuest = alias(guestPlayers, 'seat_b_guest')
 
 const seatBVerified = alias(verifiedPlayers, 'seat_b_verified')
-
-function parseJoinedMatchRow(
-  row: Omit<typeof sparringMatches.$inferSelect, 'finalScoreJson'> & {
-    finalScore: string | null
-    seatAGuest: typeof guestPlayers.$inferSelect | null
-    seatAVerified: typeof verifiedPlayers.$inferSelect | null
-    seatBGuest: typeof guestPlayers.$inferSelect | null
-    seatBVerified: typeof verifiedPlayers.$inferSelect | null
-  },
-): MatchListRecord {
-  const match = v.parse(MatchRow, row)
-
-  return {
-    ...matchRecordFromRow(match),
-    participants: {
-      A: participantRecordFromRow(match.seatAPlayerRef, row.seatAGuest ?? row.seatAVerified),
-      B: participantRecordFromRow(match.seatBPlayerRef, row.seatBGuest ?? row.seatBVerified),
-    },
-  }
-}
-
-function matchRecordFromRow(row: v.InferOutput<typeof MatchRow>): MatchRecord {
-  const identity = {
-    matchId: row.matchId,
-    gameKey: row.gameKey,
-    createdAt: row.createdAt,
-    participantRefs: { A: row.seatAPlayerRef, B: row.seatBPlayerRef },
-  }
-
-  return row.status === 'finished'
-    ? {
-        ...identity,
-        status: row.status,
-        endedAt: row.endedAt,
-        finalSourceLatestSeq: row.finalSourceLatestSeq,
-        finalScore: row.finalScore,
-      }
-    : { ...identity, status: row.status }
-}

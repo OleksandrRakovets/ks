@@ -1,13 +1,12 @@
 import { spawnSync } from 'node:child_process'
 import { globSync, readFileSync, writeFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 
 const [migrationsDirectory, ...args] = process.argv.slice(2)
 
 if (!migrationsDirectory)
   throw new Error('Expected a migration directory followed by Drizzle generate arguments')
 
-const result = spawnSync(resolve('node_modules/.bin/drizzle-kit'), ['generate', ...args], {
+const result = spawnSync('drizzle-kit', ['generate', ...args], {
   stdio: 'inherit',
 })
 

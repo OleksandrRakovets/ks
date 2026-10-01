@@ -13,25 +13,15 @@ import type { GameKey, GamePresentationFor, GameResult } from '@ks/gameplay/defi
 import type { SupportedLocale } from '@ks/i18n'
 import * as v from 'valibot'
 
-import type { LastCommandPresentation } from '../control'
-import type { ProtocolRow } from '../protocol'
+import type { LastCommandPresentation } from '../match/last-command-projection'
+import type { ProtocolRow } from '../match/protocol-projection'
+import { DisplayName } from '../player/contract'
 
 export type { HydratedMatchParticipants } from '@ks/core'
 
 type CommandReceiptOutcome =
   | { readonly _tag: 'accepted'; readonly acceptedSeq: number }
   | { readonly _tag: 'rejected'; readonly reason: MatchRejection }
-
-export const DisplayName = v.pipe(
-  v.string(),
-  v.trim(),
-  v.transform((value) => value.replace(/\s+/g, ' ')),
-  v.minLength(1),
-  // "I Lastname" becomes "I. Lastname" when hydrated, so creation reserves one character for the short form.
-  v.maxLength(127),
-)
-
-export type DisplayName = v.InferOutput<typeof DisplayName>
 
 export const CreateSparringMatchInput = v.pipe(
   v.intersect([

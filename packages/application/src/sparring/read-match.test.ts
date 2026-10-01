@@ -223,12 +223,12 @@ describe('sparring match and Protocol reads', () => {
         },
       },
       matches: {
-        readFinishedArchive: async () => {
+        findFinishedArchive: async () => {
           events.push('finished-read')
 
           return { sourceLatestSeq: 2, state: transfer.finalState, gameResult: null }
         },
-        readProtocolArchive: async () => {
+        findProtocolArchive: async () => {
           events.push('protocol-read')
 
           return {

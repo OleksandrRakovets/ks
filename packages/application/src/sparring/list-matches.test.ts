@@ -4,7 +4,7 @@ import { projectMatchScore } from '@ks/competition'
 import { FixedClock, MatchId, UnixEpochMilliseconds } from '@ks/core'
 import * as v from 'valibot'
 
-import { MatchScorePollResponse, RECENT_FINISHED_MATCH_WINDOW_MS } from '../contracts/sparring'
+import { MatchScorePollResponse, RECENT_FINISHED_MATCH_WINDOW_MS } from './contract'
 import {
   createdAt,
   matchId,
@@ -187,10 +187,10 @@ describe('sparring lists and score polling', () => {
     const app = sparring(selectedClient(), [], {
       initialStatus: 'finished',
       matches: {
-        readMatch: async () => record,
-        readMatches: async () => [record],
-        readFinishedArchive: async () => ({ sourceLatestSeq: 1, state: finalState, gameResult: null }),
-        readProtocolArchive: async () => ({
+        findMatch: async () => record,
+        listMatches: async () => [record],
+        findFinishedArchive: async () => ({ sourceLatestSeq: 1, state: finalState, gameResult: null }),
+        findProtocolArchive: async () => ({
           sourceLatestSeq: 1,
           state: finalState,
           gameResult: null,
@@ -347,7 +347,7 @@ describe('sparring lists and score polling', () => {
 
     const app = sparring(selectedClient(), [], {
       matches: {
-        readMatches: async (requested) =>
+        listMatches: async (requested) =>
           requested.map((id) => ({
             matchId: id,
             gameKey: 'free-pyramid',

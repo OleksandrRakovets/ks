@@ -2,12 +2,12 @@
 import type { D1Database } from '@cloudflare/workers-types'
 import { type Clock, newMatchId } from '@ks/core'
 
-import { createApplicationDatabaseClient } from '../d1/database'
+import { createApplicationDatabaseClient } from './d1/client'
 import type { Application } from './index'
-import type { MatchRoomNamespace } from './match-room-client'
-import { PlayerRepository } from './repositories/players'
-import { SparringMatchRepository } from './repositories/sparring-matches'
-import { createSparringApplicationWithDependencies } from './use-cases/sparring'
+import type { MatchRoomNamespace } from './match/match-room'
+import { PlayerStorage } from './player/storage/player-storage'
+import { createSparringApplication } from './sparring/sparring-application'
+import { SparringMatchStorage } from './sparring/storage/sparring-match-storage'
 
 export type ApplicationBindings = {
   DB: D1Database
@@ -17,12 +17,12 @@ export type ApplicationBindings = {
 export function createApplication(bindings: ApplicationBindings, clock: Clock): Application {
   const db = createApplicationDatabaseClient(bindings.DB)
 
-  const sparring = createSparringApplicationWithDependencies({
+  const sparring = createSparringApplication({
     clock,
     newMatchId,
     newControlSecret,
-    players: new PlayerRepository(db, clock),
-    matches: new SparringMatchRepository(db),
+    players: new PlayerStorage(db, clock),
+    matches: new SparringMatchStorage(db),
     matchRoomClient: (matchId) => bindings.MATCH_ROOM.getByName(matchId),
   })
 

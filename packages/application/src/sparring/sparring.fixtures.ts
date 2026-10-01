@@ -4,8 +4,8 @@ import { projectMatchScore } from '@ks/competition'
 import { FixedClock, MatchId, newCommandId, PlayerRef, UnixEpochMilliseconds } from '@ks/core'
 import * as v from 'valibot'
 
-import type { MatchRoomArchiveTransfer, MatchRoomClient } from '../match-room-client'
-import { createSparringApplicationWithDependencies } from './sparring'
+import type { MatchRoomArchiveTransfer, MatchRoomClient } from '../match/match-room'
+import { createSparringApplication, type SparringApplicationDependencies } from './sparring-application'
 
 export const matchId = v.parse(MatchId, '01ARZ3NDEKTSV4RRFFQ69G5FAV')
 
@@ -83,16 +83,14 @@ export function selectedClient(overrides: Partial<MatchRoomClient> = {}): MatchR
   }
 }
 
-type Dependencies = Parameters<typeof createSparringApplicationWithDependencies>[0]
-
 export function sparring(
   room: MatchRoomClient,
   events: string[] = [],
   options: {
     initialStatus?: 'active' | 'finished'
-    overrides?: Partial<Omit<Dependencies, 'players' | 'matches'>>
-    players?: Partial<Dependencies['players']>
-    matches?: Partial<Dependencies['matches']>
+    overrides?: Partial<Omit<SparringApplicationDependencies, 'players' | 'matches'>>
+    players?: Partial<SparringApplicationDependencies['players']>
+    matches?: Partial<SparringApplicationDependencies['matches']>
   } = {},
 ) {
   let status = options.initialStatus ?? ('active' as const)
@@ -116,7 +114,7 @@ export function sparring(
       : { ...identity, status }
   }
 
-  return createSparringApplicationWithDependencies({
+  return createSparringApplication({
     clock,
     newMatchId: () => matchId,
     newControlSecret: () => 'control-secret-1234567890',
@@ -132,14 +130,14 @@ export function sparring(
       listLive: async () => [],
       listFinished: async () => [],
       findFinishedTime: async () => null,
-      readMatch: async () => matchRecord(),
-      readMatches: async () => [matchRecord()],
-      readFinishedArchive: async () => ({
+      findMatch: async () => matchRecord(),
+      listMatches: async () => [matchRecord()],
+      findFinishedArchive: async () => ({
         sourceLatestSeq: 1,
         state: transfer.finalState,
         gameResult: null,
       }),
-      readProtocolArchive: async () => ({
+      findProtocolArchive: async () => ({
         sourceLatestSeq: 1,
         protocolVersion: 1,
         entries: [

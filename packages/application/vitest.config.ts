@@ -4,7 +4,7 @@ import { resolve } from 'node:path'
 import { cloudflareTest, readD1Migrations } from '@cloudflare/vitest-plugin'
 import { defineConfig } from 'vitest/config'
 
-const migrationsRoot = resolve(import.meta.dirname, 'd1/migrations')
+const migrationsRoot = resolve(import.meta.dirname, 'drizzle')
 
 const migrationDirectories = readdirSync(migrationsRoot, { withFileTypes: true })
   .filter((entry) => entry.isDirectory())

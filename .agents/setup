@@ -219,7 +219,7 @@ stale_d1="$(python3 - <<'PY'
 from pathlib import Path
 import sqlite3
 
-migrations = Path('packages/application/d1/migrations')
+migrations = Path('packages/application/drizzle')
 expected = {str(path.relative_to(migrations)) for path in migrations.glob('*/migration.sql')}
 databases = Path('apps/play/.wrangler/state/v3/d1/miniflare-D1DatabaseObject').glob('*.sqlite')
 for path in databases:
@@ -239,7 +239,7 @@ if [[ "$stale_d1" == yes ]]; then
 fi
 
 echo "Applying local D1 migrations..."
-CI=1 bun run db:migrate:local
+CI=1 bun run --cwd packages/application db:migrate:local
 
 setup_checksum="$(sha256sum "${repo_root}/.agents/setup")"
 printf '%s\n' "${setup_checksum%% *}" > "$setup_marker"

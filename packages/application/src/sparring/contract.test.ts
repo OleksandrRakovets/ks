@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 
 import * as v from 'valibot'
 
-import { CreateSparringMatchInput } from './sparring'
+import { CreateSparringMatchInput } from './contract'
 
 const baseInput = {
   gameKey: 'free-pyramid',

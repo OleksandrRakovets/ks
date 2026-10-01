@@ -9,11 +9,11 @@ import {
 import { and, eq } from 'drizzle-orm'
 import * as v from 'valibot'
 
-import type { ApplicationDatabase } from '../../d1/database'
+import type { ApplicationDatabase } from '../../d1/client'
 import { guestPlayers, verifiedPlayers } from '../../d1/schema'
-import type { ParticipantRecord, PlayerName } from '../records'
+import { type ParticipantRecord, participantRecordFromRow, type PlayerName } from './records'
 
-export class PlayerRepository {
+export class PlayerStorage {
   readonly #db: ApplicationDatabase
   readonly #clock: Clock
 
@@ -91,25 +91,5 @@ export class PlayerRepository {
     }
 
     return null
-  }
-}
-
-type LocalizedPlayerRow = Pick<
-  typeof guestPlayers.$inferSelect,
-  'firstNameUk' | 'lastNameUk' | 'firstNameEn' | 'lastNameEn'
->
-
-export function participantRecordFromRow(
-  playerRef: PlayerRef,
-  row: LocalizedPlayerRow | null,
-): ParticipantRecord {
-  return {
-    playerRef,
-    names: row
-      ? {
-          uk: { firstName: row.firstNameUk, lastName: row.lastNameUk },
-          en: { firstName: row.firstNameEn, lastName: row.lastNameEn },
-        }
-      : null,
   }
 }

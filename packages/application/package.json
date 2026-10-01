@@ -4,9 +4,13 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./server": "./src/factory.ts"
+    "./server": "./src/server.ts"
   },
   "scripts": {
+    "db:generate": "bun ../../tools/generate-migration.mjs ./drizzle --config drizzle.config.ts",
+    "db:migrate:local": "wrangler d1 migrations apply ks --local --config ../../apps/play/wrangler.jsonc",
+    "db:seed:local": "wrangler d1 execute ks --local --config ../../apps/play/wrangler.jsonc --file ./seeds/local-players.sql",
+    "db:studio:local": "KS_D1_LOCAL_URL=$(find ../../apps/play/.wrangler/state/v3/d1/miniflare-D1DatabaseObject -maxdepth 1 -type f -name '*.sqlite' ! -name 'metadata.sqlite' -print -quit) drizzle-kit studio --config drizzle.config.ts --host ${KS_DB_STUDIO_HOST:-127.0.0.1}",
     "test:integration": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
@@ -23,7 +27,9 @@
     "@cloudflare/workers-types": "catalog:",
     "@types/node": "catalog:",
     "bun-types": "catalog:",
+    "drizzle-kit": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "wrangler": "catalog:"
   }
 }
