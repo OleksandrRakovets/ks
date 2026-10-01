@@ -4,10 +4,7 @@
   "type": "module",
   "exports": {
     "./definitions": "./contract/definitions.ts",
-    "./server": "./contract/server.ts",
-    "./strila-machine": "./contract/strila-machine.ts",
-    "./pyramid-machine": "./contract/pyramid-machine.ts",
-    "./long-free-pyramid-machine": "./contract/long-free-pyramid-machine.ts"
+    "./server": "./contract/server.ts"
   },
   "dependencies": {
     "@ks/core": "workspace:*",
