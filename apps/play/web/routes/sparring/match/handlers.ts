@@ -19,8 +19,6 @@ type RouteArgs = {
   context: AppLoadContext
 }
 
-type ControlActionErrorKey = Extract<ControlActionData, { ok: false }>['errorKey']
-
 const SubmittedMatchCommand = v.pipe(v.string(), v.parseJson(), MatchCommand)
 
 function matchIdFromParams(params: RouteArgs['params']): MatchId {
@@ -39,7 +37,15 @@ export async function loadMatchPage<K extends GameKey>(
   const locale = localeFromContext(args.context)
   const result = await requireApplication(args.context).sparring.readMatch(matchId, locale, expectedGameKey)
 
-  if (!result.ok) throw new Response(result.error, { status: result.status })
+  if (!result.ok) {
+    switch (result.reason) {
+      // oxlint-disable-next-line typescript/no-unnecessary-condition -- Keep the single-reason contract exhaustive.
+      case 'unknown-match':
+        throw new Response('Unknown match', { status: 404 })
+      default:
+        throw new Error('Unhandled match read failure', { cause: result.reason satisfies never })
+    }
+  }
 
   return decideMatchPage({
     ...result,
@@ -57,7 +63,15 @@ async function loadMatchProtocol<K extends GameKey>(args: RouteArgs, expectedGam
     expectedGameKey,
   )
 
-  if (!result.ok) throw new Response(result.error, { status: result.status })
+  if (!result.ok) {
+    switch (result.reason) {
+      // oxlint-disable-next-line typescript/no-unnecessary-condition -- Keep the single-reason contract exhaustive.
+      case 'unknown-match':
+        throw new Response('Unknown match', { status: 404 })
+      default:
+        throw new Error('Unhandled Protocol read failure', { cause: result.reason satisfies never })
+    }
+  }
 
   return { ...result, shortGameTitle: registry[expectedGameKey].meta.shortGameTitle[locale] }
 }
@@ -80,17 +94,6 @@ function decideMatchPage<Data extends { lifecycle: 'active' | 'finished' }>(
     : { page: 'control', match: match as Extract<Data, { lifecycle: 'active' }> }
 }
 
-function commandErrorKey(error: string): ControlActionErrorKey {
-  if (error === 'unknown-match' || error === 'Unknown match') return keys.match.control.unknownMatch
-
-  if (error === 'match-locked') return keys.match.control.matchLocked
-
-  if (error === 'invalid-command-body' || error === 'command-id-conflict')
-    return keys.match.control.invalidCommandPayload
-
-  return keys.match.control.invalidCommandPayload
-}
-
 export async function commandMatchAction(
   args: RouteArgs,
   expectedGameKey: GameKey,
@@ -110,13 +113,18 @@ export async function commandMatchAction(
   )
 
   if (!result.ok) {
-    if (result.status === 404) throw new Response(result.error, { status: 404 })
-
-    if (result.status === 409) return { ok: false, errorKey: keys.match.control.matchLocked }
-
-    if (result.status >= 500) throw new Response(result.error, { status: result.status })
-
-    return { ok: false, errorKey: commandErrorKey(result.error) }
+    switch (result.reason) {
+      case 'unknown-match':
+        throw new Response('Unknown match', { status: 404 })
+      case 'match-finished':
+      case 'match-locked':
+        return { ok: false, errorKey: keys.match.control.matchLocked }
+      case 'invalid-command':
+      case 'command-id-conflict':
+        return { ok: false, errorKey: keys.match.control.invalidCommandPayload }
+      default:
+        throw new Error('Unhandled command failure', { cause: result.reason satisfies never })
+    }
   }
 
   if (result.outcome._tag === 'rejected')

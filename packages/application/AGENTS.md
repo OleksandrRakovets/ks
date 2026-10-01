@@ -14,6 +14,8 @@ This file describes how application is implemented. Use the repository architect
 - Module folder names are singular: `player`, `match`, and `sparring`. Only `index.ts` and `server.ts` live directly under `src`.
 - `contract.ts` defines a module's shared inputs, results, and boundary schemas.
 - Workflow code owns orchestration, lifecycle routing, and locale-aware presentation. `sparring/sparring-application.ts` declares its dependency types once and receives structural store capabilities, not concrete storage instances it constructs itself.
+- Sparring workflows live in `create-match.ts`, `read-match.ts`, `list-matches.ts`, `submit-command.ts`, and `admit-live.ts`. Each exported workflow takes `(deps: SparringDependencies, ...args)`. Keep single-file helpers unexported below the workflows; export only what another file imports. Pure Sparring projections live in `projections.ts`, and listing rules stay in `list-matches.ts`, not the contract.
+- `createSparringApplication` returns an object literal mapping contract methods to workflows, without a class, `this`, or binding. Only `server.ts` and test fixtures call it; workflow tests go through this composition in their existing per-workflow files.
 - Projections are pure functions derived from domain values or validated records. Player participant presentation belongs to `player`; Protocol and last-command projections belong to `match`, independently of Sparring Match workflows.
 - Each module's `storage/records.ts` defines records independently of Drizzle and maps rows to records. Storage classes with native `#` members own queries and writes; only their methods run D1 queries. Codecs accept values, never database clients.
 - `src/d1/schema.ts` owns all D1 tables shared by modules; `src/d1/client.ts` owns client construction and its private database type.
@@ -28,6 +30,7 @@ This file describes how application is implemented. Use the repository architect
 - Raw JSON columns and parsing never leave a module's `storage/`. Validate persisted rows and JSON on reads; do not reparse trusted typed internal MatchRoom RPC values.
 - Keep writes beside the insert or update that owns them. Archive versioning, semantic retry equality, and archive errors live together in `sparring/storage/protocol-archive.ts`.
 - Finished reads use D1 without selecting the retained MatchRoom. Missing or corrupt authority and invalid lifecycle calls throw; expected RPC outcomes remain semantic variants for Play to adapt to HTTP.
+- Application returns expected failures as `{ ok: false, reason }` domain outcomes, never HTTP statuses or error strings. Play maps reasons to HTTP or presentation in exhaustive switches with a `never` check. Missing finished archives, archive corruption, and unsupported archive versions are defects that throw, not domain failures.
 
 ## D1 Tooling And Checks
 

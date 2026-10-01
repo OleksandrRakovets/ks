@@ -4,7 +4,7 @@ import { projectMatchScore } from '@ks/competition'
 import { FixedClock, MatchId, UnixEpochMilliseconds } from '@ks/core'
 import * as v from 'valibot'
 
-import { MatchScorePollResponse, RECENT_FINISHED_MATCH_WINDOW_MS } from './contract'
+import { MatchScorePollResponse } from './contract'
 import {
   createdAt,
   matchId,
@@ -19,6 +19,15 @@ import {
 } from './sparring.fixtures'
 
 describe('sparring lists and score polling', () => {
+  test('returns unknown-match when any requested score is missing, before reading rooms', async () => {
+    const missingId = v.parse(MatchId, '01ARZ3NDEKTSV4RRFFQ69G5FAW')
+
+    expect(await sparring(selectedClient()).readMatchScores([matchId, missingId])).toEqual({
+      ok: false,
+      reason: 'unknown-match',
+    })
+  })
+
   test('reads compact active scores for list loading and polling', async () => {
     const score = {
       matchTargetFrames: 1,
@@ -34,7 +43,7 @@ describe('sparring lists and score polling', () => {
     const app = sparring(room, [], {
       matches: {
         listLive: async (since) => {
-          expect(since).toBe(v.parse(UnixEpochMilliseconds, createdAt - RECENT_FINISHED_MATCH_WINDOW_MS))
+          expect(since).toBe(v.parse(UnixEpochMilliseconds, createdAt - 15 * 60 * 1_000))
 
           return [
             {

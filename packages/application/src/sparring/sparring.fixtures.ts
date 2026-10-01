@@ -5,7 +5,7 @@ import { FixedClock, MatchId, newCommandId, PlayerRef, UnixEpochMilliseconds } f
 import * as v from 'valibot'
 
 import type { MatchRoomArchiveTransfer, MatchRoomClient } from '../match/match-room'
-import { createSparringApplication, type SparringApplicationDependencies } from './sparring-application'
+import { createSparringApplication, type SparringDependencies } from './sparring-application'
 
 export const matchId = v.parse(MatchId, '01ARZ3NDEKTSV4RRFFQ69G5FAV')
 
@@ -88,9 +88,9 @@ export function sparring(
   events: string[] = [],
   options: {
     initialStatus?: 'active' | 'finished'
-    overrides?: Partial<Omit<SparringApplicationDependencies, 'players' | 'matches'>>
-    players?: Partial<SparringApplicationDependencies['players']>
-    matches?: Partial<SparringApplicationDependencies['matches']>
+    overrides?: Partial<Omit<SparringDependencies, 'players' | 'matches'>>
+    players?: Partial<SparringDependencies['players']>
+    matches?: Partial<SparringDependencies['matches']>
   } = {},
 ) {
   let status = options.initialStatus ?? ('active' as const)

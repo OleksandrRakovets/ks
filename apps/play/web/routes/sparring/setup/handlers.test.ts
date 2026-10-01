@@ -1,10 +1,47 @@
 import { expect, test } from 'bun:test'
 
+import type { Application } from '@ks/application'
 import { RouterContextProvider } from 'react-router'
 
 import { matchSetupUrl } from '@/features/sparring/urls'
+import { cloudflareContext } from '@/server/context.server'
 
 import { createSetupMatch, loadSetupPage } from './handlers'
+
+test.each([
+  ['invalid-input', 400],
+  ['initialization-conflict', 409],
+] as const)('setup maps %s to HTTP %i', async (reason, status) => {
+  const context = new RouterContextProvider()
+  const sparring: Partial<Application['sparring']> = { createMatch: async () => ({ ok: false, reason }) }
+  // SAFETY: this handler uses only createMatch.
+  context.set(cloudflareContext, {
+    application: { sparring } as Application,
+    isProduction: false,
+  })
+  const form = new FormData()
+  form.set('seatAName', 'Alice')
+  form.set('seatBName', 'Bob')
+  form.set('matchTargetFrames', '3')
+  form.set('targetA', '8')
+  form.set('targetB', '6')
+  form.set('firstBreakerSeat', 'B')
+
+  try {
+    await createSetupMatch({
+      params: { gameKey: 'strila-v2' },
+      request: new Request('http://localhost', { method: 'POST', body: form }),
+      context,
+    })
+    throw new Error('Expected match creation failure')
+  } catch (error) {
+    expect(error).toBeInstanceOf(Response)
+
+    if (!(error instanceof Response)) throw error
+
+    expect(error.status).toBe(status)
+  }
+})
 
 test('rematch setup preserves seats and Long Pyramid handicap settings without a breaker', async () => {
   const url = matchSetupUrl('free-pyramid-long', 'uk', {
