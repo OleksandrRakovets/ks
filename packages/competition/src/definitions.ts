@@ -100,10 +100,13 @@ const MatchStateFields = {
   frames: v.pipe(v.array(FrameState), v.readonly()),
 }
 
-const ActiveMatchState = v.pipe(v.object({ ...MatchStateFields, status: v.literal('active') }), v.readonly())
+const ActiveMatchState = v.pipe(
+  v.object({ ...MatchStateFields, status: v.literal('active'), winnerSeat: v.null() }),
+  v.readonly(),
+)
 
 export const FinishedMatchState = v.pipe(
-  v.object({ ...MatchStateFields, status: v.literal('finished') }),
+  v.object({ ...MatchStateFields, status: v.literal('finished'), winnerSeat: Seat }),
   v.readonly(),
 )
 
@@ -126,6 +129,7 @@ export const MatchScoreProjection = v.pipe(
     matchTargetFrames: PositiveInteger,
     frameTargetPointsBySeat: v.pipe(v.object({ A: PositiveInteger, B: PositiveInteger }), v.readonly()),
     framesWonBySeat: BySeatNumber,
+    winnerSeat: v.nullable(Seat),
     singleFramePointsBySeat: v.nullable(BySeatNumber),
     activeFrame: v.nullable(ActiveFrameScoreProjection),
   }),
@@ -149,6 +153,7 @@ export function projectMatchScore(state: MatchState): MatchScoreProjection {
     matchTargetFrames: state.targets.matchTargetFrames,
     frameTargetPointsBySeat: state.targets.frameTargetPointsBySeat,
     framesWonBySeat: state.framesWonBySeat,
+    winnerSeat: state.winnerSeat,
     singleFramePointsBySeat:
       state.targets.matchTargetFrames === 1 ? (representedFrame?.pointsBySeat ?? null) : null,
     activeFrame: currentFrame

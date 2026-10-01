@@ -3,7 +3,13 @@ import { describe, expect, test } from 'bun:test'
 import { MatchId, newMatchId } from '@ks/core'
 import * as v from 'valibot'
 
-import { buildMatchConfig, CreateMatchRequest, MatchState, projectMatchScore } from './definitions'
+import {
+  buildMatchConfig,
+  CreateMatchRequest,
+  MatchScoreProjection,
+  MatchState,
+  projectMatchScore,
+} from './definitions'
 
 const request = v.parse(CreateMatchRequest, {
   gameKey: 'strila-v2',
@@ -72,6 +78,7 @@ describe('match creation helpers', () => {
       gameKey: 'free-pyramid',
       targets: { frameTargetPointsBySeat: { A: 8, B: 7 }, matchTargetFrames: 3 },
       status: 'active' as const,
+      winnerSeat: null,
       currentFrameIndex: 2,
       framesWonBySeat: { A: 1, B: 0 },
       frames: [
@@ -84,6 +91,7 @@ describe('match creation helpers', () => {
       matchTargetFrames: 3,
       frameTargetPointsBySeat: { A: 8, B: 7 },
       framesWonBySeat: { A: 1, B: 0 },
+      winnerSeat: null,
       singleFramePointsBySeat: null,
       activeFrame: { frameIndex: 2, pointsBySeat: { A: 2, B: 5 } },
     })
@@ -97,8 +105,14 @@ describe('match creation helpers', () => {
       ).activeFrame,
     ).toBeNull()
     expect(
-      projectMatchScore(v.parse(MatchState, { ...base, status: 'finished', framesWonBySeat: { A: 3, B: 0 } }))
-        .activeFrame,
+      projectMatchScore(
+        v.parse(MatchState, {
+          ...base,
+          status: 'finished',
+          winnerSeat: 'A',
+          framesWonBySeat: { A: 3, B: 0 },
+        }),
+      ).activeFrame,
     ).toBeNull()
 
     expect(
@@ -107,6 +121,7 @@ describe('match creation helpers', () => {
           ...base,
           targets: { ...base.targets, matchTargetFrames: 1 },
           status: 'finished',
+          winnerSeat: 'A',
           currentFrameIndex: 1,
           framesWonBySeat: { A: 1, B: 0 },
           frames: base.frames.slice(0, 1),
@@ -114,4 +129,29 @@ describe('match creation helpers', () => {
       ).singleFramePointsBySeat,
     ).toEqual({ A: 8, B: 3 })
   })
+
+  test.each(['A', 'B'] as const)(
+    'preserves authoritative winner %s rather than the frame-score leader',
+    (winnerSeat) => {
+      const state = v.parse(MatchState, {
+        matchId: newMatchId(),
+        gameKey: 'free-pyramid',
+        targets: request.targets,
+        status: 'finished',
+        winnerSeat,
+        currentFrameIndex: 1,
+        framesWonBySeat: winnerSeat === 'A' ? { A: 0, B: 2 } : { A: 2, B: 0 },
+        frames: [{ frameIndex: 1, pointsBySeat: { A: 8, B: 3 }, breakerSeat: 'A', winnerSeat: 'B' }],
+      })
+
+      const score = projectMatchScore(state)
+      expect(score.winnerSeat).toBe(winnerSeat)
+      expect(v.parse(MatchState, JSON.parse(JSON.stringify(state)))).toEqual(state)
+      expect(v.parse(MatchScoreProjection, JSON.parse(JSON.stringify(score)))).toEqual(score)
+      expect(v.safeParse(MatchState, { ...state, winnerSeat: null }).success).toBe(false)
+      expect(v.safeParse(MatchState, { ...state, status: 'active' }).success).toBe(false)
+      expect(v.safeParse(MatchState, { ...state, winnerSeat: undefined }).success).toBe(false)
+      expect(v.safeParse(MatchScoreProjection, { ...score, winnerSeat: undefined }).success).toBe(false)
+    },
+  )
 })

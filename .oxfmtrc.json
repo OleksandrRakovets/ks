@@ -1,6 +1,12 @@
 {
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
-  "ignorePatterns": ["**/.agents/**", ".tracker/**", "tools/oxlint/anti-slop/**"],
+  "ignorePatterns": [
+    "**/.agents/**",
+    ".tracker/**",
+    "tools/oxlint/anti-slop/**",
+    "d1/migrations/**/snapshot.json",
+    "do/match-room/drizzle/**/snapshot.json"
+  ],
   "semi": false,
   "singleQuote": true,
   "sortImports": {},

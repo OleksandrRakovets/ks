@@ -43,6 +43,7 @@ const MatchRow = v.pipe(
         finalScore: v.pipe(v.string(), v.parseJson(), MatchScoreProjection),
       }),
       v.check((row) => row.finalScore.activeFrame === null, 'Finished Match row has an active Frame'),
+      v.check((row) => row.finalScore.winnerSeat !== null, 'Finished Match row has no winner'),
     ),
   ]),
   v.readonly(),

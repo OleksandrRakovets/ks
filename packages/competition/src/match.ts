@@ -177,8 +177,8 @@ class Match {
 
     const stateWithoutConfiguration: MatchState =
       lifecycle.phase === 'finished'
-        ? { ...stateFields, status: 'finished' }
-        : { ...stateFields, status: 'active' }
+        ? { ...stateFields, status: 'finished', winnerSeat: lifecycle.winnerSeat }
+        : { ...stateFields, status: 'active', winnerSeat: null }
 
     return lifecycle.config.gameConfiguration === undefined
       ? stateWithoutConfiguration

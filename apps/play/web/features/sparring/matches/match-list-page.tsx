@@ -5,7 +5,7 @@ import {
   MatchScorePollResponse,
 } from '@ks/application'
 import type { MatchScoreProjection } from '@ks/competition/definitions'
-import type { BySeatNumber, MatchId, Seat } from '@ks/core'
+import type { BySeatNumber, MatchId } from '@ks/core'
 import { keys } from '@ks/i18n'
 import { useCallback, useEffect, useMemo, useReducer } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -215,7 +215,7 @@ function MatchGrid({ children }: { children: React.ReactNode }) {
 function MatchRow({ match, locale }: { match: MatchListEntry; locale: 'uk' | 'en' }) {
   const { t } = useTranslation()
   const score = displayedScore(match)
-  const winner = match.status === 'finished' ? leadingSeat(match.score.framesWonBySeat) : undefined
+  const winner = match.score.winnerSeat
   const showPlayerTargets = match.hasCustomFrameTarget
 
   const activeFrame = match.gameKey === 'free-pyramid-long' ? null : match.score.activeFrame
@@ -232,24 +232,24 @@ function MatchRow({ match, locale }: { match: MatchListEntry; locale: 'uk' | 'en
         <PlayerName
           name={match.participants.A.displayName}
           target={showPlayerTargets ? match.score.frameTargetPointsBySeat.A : undefined}
-          emphasized={winner === undefined || winner === 'A'}
+          emphasized={winner === null || winner === 'A'}
           strong={match.status === 'finished'}
         />
         <PlayerScore
           value={score.A}
           activeFrameValue={activeFrameScore?.A}
-          emphasized={winner === undefined || winner === 'A'}
+          emphasized={winner === null || winner === 'A'}
         />
         <PlayerName
           name={match.participants.B.displayName}
           target={showPlayerTargets ? match.score.frameTargetPointsBySeat.B : undefined}
-          emphasized={winner === undefined || winner === 'B'}
+          emphasized={winner === null || winner === 'B'}
           strong={match.status === 'finished'}
         />
         <PlayerScore
           value={score.B}
           activeFrameValue={activeFrameScore?.B}
-          emphasized={winner === undefined || winner === 'B'}
+          emphasized={winner === null || winner === 'B'}
         />
       </div>
 
@@ -527,14 +527,6 @@ function displayedTarget(score: MatchScoreProjection): number | string {
   const { A, B } = score.frameTargetPointsBySeat
 
   return A === B ? A : `${A}/${B}`
-}
-
-function leadingSeat(score: BySeatNumber): Seat | undefined {
-  if (score.A > score.B) return 'A'
-
-  if (score.B > score.A) return 'B'
-
-  return undefined
 }
 
 function matchListDayPath(locale: 'uk' | 'en', day: string): string {

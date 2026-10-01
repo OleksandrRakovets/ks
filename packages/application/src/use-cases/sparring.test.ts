@@ -28,6 +28,7 @@ const state = {
   gameKey: 'free-pyramid' as const,
   targets: { frameTargetPointsBySeat: { A: 8, B: 8 }, matchTargetFrames: 1 },
   status: 'active' as const,
+  winnerSeat: null,
   currentFrameIndex: 1,
   framesWonBySeat: { A: 0, B: 0 },
   frames: [{ frameIndex: 1, breakerSeat: 'A' as const, pointsBySeat: { A: 0, B: 0 } }],
@@ -43,6 +44,7 @@ const transfer: MatchRoomArchiveTransfer = {
   finalState: {
     ...state,
     status: 'finished',
+    winnerSeat: 'A',
     framesWonBySeat: { A: 1, B: 0 },
     frames: [{ ...state.frames[0]!, winnerSeat: 'A' }],
   },
@@ -309,6 +311,7 @@ describe('trusted MatchRoom orchestration', () => {
       matchTargetFrames: 1,
       frameTargetPointsBySeat: { A: 8, B: 8 },
       framesWonBySeat: { A: 0, B: 0 },
+      winnerSeat: null,
       singleFramePointsBySeat: null,
       activeFrame: null,
     }
@@ -371,7 +374,7 @@ describe('trusted MatchRoom orchestration', () => {
         getScore: async () => ({ _tag: 'active', latestSeq: 0, score }),
         getControls: async () => ({
           _tag: 'finalizing',
-          state: { ...customState, status: 'finished' },
+          state: { ...customState, status: 'finished', winnerSeat: 'B' },
           gameResult: null,
           latestSeq: 1,
           endedAt: transfer.endedAt,
@@ -409,6 +412,7 @@ describe('trusted MatchRoom orchestration', () => {
       matchTargetFrames: 1,
       frameTargetPointsBySeat: { A: 8, B: 8 },
       framesWonBySeat: { A: 1, B: 0 },
+      winnerSeat: 'B' as const,
       singleFramePointsBySeat: { A: 8, B: 3 },
       activeFrame: null,
     }
@@ -445,6 +449,56 @@ describe('trusted MatchRoom orchestration', () => {
       matches: [{ matchId, status: 'finished', endedAt: transfer.endedAt, latestSeq: 4, score }],
     })
     expect(events).toEqual([])
+  })
+
+  test('transports the stored winner to Result, Protocol, finished list, and polling without MatchRoom reads', async () => {
+    const finalState = {
+      ...transfer.finalState,
+      winnerSeat: 'B' as const,
+      framesWonBySeat: { A: 2, B: 0 },
+    }
+
+    const finalScore = projectMatchScore(finalState)
+
+    const record = {
+      matchId,
+      gameKey: 'free-pyramid' as const,
+      status: 'finished' as const,
+      createdAt,
+      endedAt: transfer.endedAt,
+      participantRefs: { A: playerRefA, B: playerRefB },
+      participants,
+      finalSourceLatestSeq: transfer.sourceLatestSeq,
+      finalScore,
+    }
+
+    const app = sparring(selectedClient(), [], {
+      initialStatus: 'finished',
+      overrides: {
+        getMatchRecord: async () => record,
+        getMatchRecords: async () => [record],
+        getFinishedMatchArchive: async () => ({ sourceLatestSeq: 1, state: finalState, gameResult: null }),
+        getProtocolArchive: async () => ({
+          sourceLatestSeq: 1,
+          state: finalState,
+          gameResult: null,
+          entries: [],
+          protocolVersion: 1,
+        }),
+        listFinishedMatchRecords: async () => [record],
+      },
+    })
+
+    expect(await app.readMatch(matchId, 'en', 'free-pyramid')).toMatchObject({ state: { winnerSeat: 'B' } })
+    expect(await app.readMatchProtocol(matchId, 'en', 'free-pyramid')).toMatchObject({
+      state: { winnerSeat: 'B' },
+    })
+    expect(await app.listFinishedMatches('en', '2023-11-15')).toMatchObject({
+      matches: [{ score: { winnerSeat: 'B' } }],
+    })
+    const poll = await app.readMatchScores([matchId])
+    expect(poll).toMatchObject({ matches: [{ score: { winnerSeat: 'B' } }] })
+    expect(v.safeParse(MatchScorePollResponse, poll).success).toBe(true)
   })
 
   test('reports when a recently finished match leaves the live list window', async () => {
@@ -706,7 +760,7 @@ describe('trusted MatchRoom orchestration', () => {
     expect(result).toMatchObject({
       ok: true,
       lifecycle: 'finished',
-      state: { status: 'finished' },
+      state: { status: 'finished', winnerSeat: 'A' },
       latestSeq: 2,
       endedAtIso: '2023-11-14T22:13:21.000Z',
       endedAtTime: '00:13',
@@ -819,7 +873,7 @@ describe('trusted MatchRoom orchestration', () => {
 
     expect(await sparring(room, events).readMatchProtocol(matchId, 'en', 'free-pyramid')).toMatchObject({
       ok: true,
-      state: { status: 'finished' },
+      state: { status: 'finished', winnerSeat: 'A' },
       latestSeq: 2,
       protocolRows: [{ key: 'protocol-2-0', message: { key: 'match.protocol.system.match-ended' } }],
     })

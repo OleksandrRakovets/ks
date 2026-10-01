@@ -1,4 +1,4 @@
-import { type BySeatNumber, opponentOf, type Seat } from '@ks/core'
+import { type BySeatNumber, opponentOf } from '@ks/core'
 import { keys } from '@ks/i18n'
 import { useTranslation } from 'react-i18next'
 
@@ -9,7 +9,7 @@ import type { FinishedMatchData } from '@/features/sparring/match/types'
 
 export function MatchResultBoard({ data }: { data: FinishedMatchData }) {
   const { t } = useTranslation()
-  const winnerSeat: Seat = data.state.framesWonBySeat.A > data.state.framesWonBySeat.B ? 'A' : 'B'
+  const winnerSeat = data.state.winnerSeat
   const loserSeat = opponentOf(winnerSeat)
   const isLongPyramid = data.state.gameKey === 'free-pyramid-long'
 

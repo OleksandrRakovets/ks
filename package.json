@@ -35,6 +35,8 @@
     "check:full": "bun run check:fast && bun run test:integration && bun run build",
     "check:boundaries": "node ./tools/check-boundaries.mjs",
     "build": "turbo run build --log-order=grouped",
+    "db:generate:d1": "bun ./tools/generate-migration.mjs d1/migrations --config d1/drizzle.config.ts",
+    "db:generate:match-room": "bun ./tools/generate-migration.mjs do/match-room/drizzle --config do/match-room/drizzle.config.ts",
     "db:migrate:local": "bun run --cwd apps/play db:migrate:local",
     "db:reset:local": "bun ./tools/reset-local.mjs",
     "db:seed:local": "bun run --cwd apps/play db:seed:local",

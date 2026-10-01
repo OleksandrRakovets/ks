@@ -41,6 +41,7 @@ describe('Match', () => {
     })
 
     expect(match.state()).toMatchObject({
+      winnerSeat: null,
       currentFrameIndex: 1,
       frames: [{ breakerSeat: 'B', pointsBySeat: { A: 0, B: 0 } }],
       targets: { frameTargetPointsBySeat: { A: 3, B: 5 } },
@@ -102,6 +103,7 @@ describe('Match', () => {
     })
     expect(match.state()).toMatchObject({
       status: 'finished',
+      winnerSeat: 'A',
       framesWonBySeat: { A: 1, B: 0 },
       frames: [{ winnerSeat: 'A', pointsBySeat: { A: 8, B: 6 } }],
     })
@@ -146,6 +148,7 @@ describe('Match', () => {
 
     expect(match.state()).toMatchObject({
       status: 'finished',
+      winnerSeat: 'A',
       currentFrameIndex: 3,
       framesWonBySeat: { A: 2, B: 1 },
       frames: [
@@ -182,6 +185,7 @@ describe('Match', () => {
       ['match-ended', 'B'],
     ])
     expect(match.state().status).toBe('finished')
+    expect(match.state().winnerSeat).toBe('B')
   })
 
   test('gameplay-determined winner removes concession controls and rejects either concession', () => {
