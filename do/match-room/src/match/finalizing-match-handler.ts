@@ -86,9 +86,9 @@ export class FinalizingMatchHandler {
     const match = restoreMatchCheckpoint(this.#storage.readCurrentCheckpoint())
     const state = match.state()
 
-    // SAFETY: checkpointFromRow verifies finished lifecycle against the finalizing storage record,
-    // and restoration validates its consistency. Preserve that proof across the aggregate query.
-    return { state: state as Extract<MatchState, { status: 'finished' }>, gameResult: match.gameResult() }
+    if (state.status !== 'finished') throw new Error('Expected finished Match')
+
+    return { state, gameResult: match.gameResult() }
   }
 
   #warnRead(kind: 'controls' | 'protocol' | 'score'): void {

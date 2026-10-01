@@ -173,9 +173,9 @@ export class ActiveMatchHandler {
     const match = restoreMatchCheckpoint(this.#storage.readCurrentCheckpoint())
     const projection = match.controlProjection()
 
-    // SAFETY: checkpointFromRow verifies the checkpoint lifecycle against the active storage record,
-    // and restoration validates its consistency. Preserve that proof across the aggregate query.
-    return projection as Exclude<ReturnType<Match['controlProjection']>, { controlPhase: 'finished' }>
+    if (projection.controlPhase === 'finished') throw new Error('Expected active Match')
+
+    return projection
   }
 
   get #matchRecord(): ActiveMatchRecord {

@@ -601,9 +601,7 @@ export function getPhase(snapshot: StrilaFrameSnapshot): StrilaPhase {
 }
 
 export function sendEvent(snapshot: StrilaFrameSnapshot, event: StrilaCommand): StrilaFrameSnapshot {
-  if (!snapshot.can(event)) {
-    throw new Error(`Invalid Strila event ${event.type} in phase ${getPhase(snapshot)}`)
-  }
+  invariant(snapshot.can(event), () => `Invalid Strila event ${event.type} in phase ${getPhase(snapshot)}`)
 
   const [nextSnapshot] = transition(StrilaFrameMachine, snapshot, event)
 

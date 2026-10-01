@@ -53,6 +53,7 @@ These commands overlap. Choose the appropriate gate; do not rerun its constituen
 - Schemas use Valibot. Prefer built-in actions such as `v.trim()` and `v.parseJson()`. Give the inferred type the exact name as the schema (the core package already does this).
 - Use core seat contracts (`Seat`, `BySeatNumber`, `opponentOf`) rather than local equivalents.
 - Keep one `game` path; gameplay runtimes own game-specific semantics.
+- Gameplay uses its directly declared `tiny-invariant` for predicate/invariant guards; their messages are stripped in production. Unconditional unsupported-case throws may remain explicit. Other packages use explicit/custom errors to retain production diagnostics. Invariant guards do not replace boundary validation or typed rejections.
 - Play's UI is app-local, not a workspace package. Generic primitives live in `apps/play/web/components/ui`; reusable product visuals or interactions with explicit props may live in `apps/play/web/components`. Keep feature-specific or one-off UI with its feature owner.
 
 ## Architecture Ownership

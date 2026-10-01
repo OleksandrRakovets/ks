@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
+import invariant from 'tiny-invariant'
 import * as v from 'valibot'
 
 import { type GameCommandExecution, GameProtocolEntry } from './gameplay-session'
@@ -8,7 +9,7 @@ import { createGameplaySession } from './session-factory'
 function expectAccepted(result: GameCommandExecution): Extract<GameCommandExecution, { _tag: 'accepted' }> {
   expect(result._tag).toBe('accepted')
 
-  if (result._tag !== 'accepted') throw new Error('Expected accepted gameplay command')
+  invariant(result._tag === 'accepted', 'Expected accepted gameplay command')
   expect(result.gameProtocolEntries.length).toBeGreaterThan(0)
   expect(result.gameProtocolEntries.every((entry) => v.is(GameProtocolEntry, entry))).toBe(true)
 

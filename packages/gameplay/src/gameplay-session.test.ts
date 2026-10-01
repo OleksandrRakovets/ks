@@ -11,7 +11,8 @@ import {
   FreePyramidGamePresentation,
 } from './pyramid/definitions'
 import { createGameplaySession } from './session-factory'
-import { StrilaGamePresentation } from './strila-v2/definitions'
+import { StrilaCheckpoint, type StrilaCommand, StrilaGamePresentation } from './strila-v2/definitions'
+import { restoreStrilaGameplaySession } from './strila-v2/session'
 
 const scenarios = [
   {
@@ -101,4 +102,91 @@ describe('GameplaySession', () => {
       expect(replay.deriveControls()).toEqual(session.deriveControls())
     })
   }
+
+  test('Strila restoration requires an offender only while selecting a foul penalty', () => {
+    const session = createGameplaySession('strila-v2', { targetPointsBySeat: { A: 9, B: 9 } })
+    expect(session.execute({ type: 'frame.commence', seat: 'A' })._tag).toBe('accepted')
+    expect(session.execute({ type: 'foul.commit', seat: 'B' })._tag).toBe('accepted')
+    const checkpoint = session.exportCheckpoint()
+
+    const missingOffender = v.parse(StrilaCheckpoint, {
+      ...checkpoint,
+      context: { ...checkpoint.context, foulOffender: null },
+    })
+
+    expect(checkpoint.value).toEqual({ 'foul-committed': 'penalty-selection' })
+    expect(() => restoreStrilaGameplaySession(missingOffender)).toThrow(
+      'Penalty selection requires foul offender',
+    )
+
+    const selecting = restoreStrilaGameplaySession(v.parse(StrilaCheckpoint, checkpoint))
+    expect(selecting.exportCheckpoint()).toEqual(checkpoint)
+    expect(selecting.execute({ type: 'penalty.select', seat: 'A', choice: 'ball-in-hand' })._tag).toBe(
+      'accepted',
+    )
+    const ballInHand = v.parse(StrilaCheckpoint, selecting.exportCheckpoint())
+    expect(ballInHand).toMatchObject({
+      value: { 'foul-committed': 'ball-in-hand' },
+      context: { foulOffender: null },
+    })
+
+    const restored = restoreStrilaGameplaySession(ballInHand)
+    expect(restored.exportCheckpoint()).toEqual(ballInHand)
+    expect(restored.execute({ type: 'pot.record', seat: 'A', pottedBalls: [1] })._tag).toBe('accepted')
+    expect(restored.exportCheckpoint()).toMatchObject({
+      value: 'open-play',
+      context: { score: { A: 2, B: 0 }, pottedBallsBySeat: { A: [1], B: [] }, foulOffender: null },
+    })
+  })
+
+  test('Strila restoration preserves every respotted-black phase and requires exactly ball 7', () => {
+    let session = createGameplaySession('strila-v2', { targetPointsBySeat: { A: 9, B: 9 } })
+
+    for (const command of [
+      { type: 'frame.commence', seat: 'A' },
+      { type: 'pot.record', seat: 'A', pottedBalls: [1, 2, 3] },
+      { type: 'pot.record', seat: 'B', pottedBalls: [0, 4, 5, 6] },
+      { type: 'pot.record', seat: 'B', pottedBalls: [0] },
+      { type: 'pot.record', seat: 'A', pottedBalls: [7] },
+    ] satisfies StrilaCommand[])
+      expect(session.execute(command)._tag).toBe('accepted')
+
+    expect(session.exportCheckpoint()).toMatchObject({
+      value: { 'respotted-black': 'opening-selection' },
+      context: { score: { A: 8, B: 8 }, coloredBallsOnTable: [7] },
+    })
+
+    for (const continuation of [
+      {
+        command: { type: 'respotted-black.opening.select', seat: 'B' },
+        value: { 'respotted-black': 'opening' },
+      },
+      { command: { type: 'miss.record', seat: 'B' }, value: { 'respotted-black': 'play' } },
+      { command: { type: 'foul.commit', seat: 'A' }, value: 'winner-determined' },
+    ] satisfies { command: StrilaCommand; value: StrilaCheckpoint['value'] }[]) {
+      const checkpoint = v.parse(StrilaCheckpoint, session.exportCheckpoint())
+
+      for (const coloredBallsOnTable of [[6], [7, 7]]) {
+        const wrongTable = v.parse(StrilaCheckpoint, {
+          ...checkpoint,
+          context: { ...checkpoint.context, coloredBallsOnTable },
+        })
+
+        expect(() => restoreStrilaGameplaySession(wrongTable)).toThrow(
+          'Respotted black requires only black ball',
+        )
+      }
+
+      const restored = restoreStrilaGameplaySession(checkpoint)
+      expect(restored.exportCheckpoint()).toEqual(checkpoint)
+      expect(restored.execute(continuation.command)._tag).toBe('accepted')
+      expect(restored.exportCheckpoint().value).toEqual(continuation.value)
+      session = restored
+    }
+
+    expect(session.exportCheckpoint()).toMatchObject({
+      value: 'winner-determined',
+      context: { score: { A: 8, B: 8 }, winner: 'B', winnerDeterminationReason: 'automatic-foul' },
+    })
+  })
 })

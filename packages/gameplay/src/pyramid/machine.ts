@@ -261,9 +261,7 @@ export function getPhase(snapshot: PyramidFrameSnapshot): PyramidPhase {
 }
 
 export function sendEvent(snapshot: PyramidFrameSnapshot, event: PyramidCommand): PyramidFrameSnapshot {
-  if (!snapshot.can(event)) {
-    throw new Error(`Invalid Pyramid event ${event.type} in phase ${getPhase(snapshot)}`)
-  }
+  invariant(snapshot.can(event), () => `Invalid Pyramid event ${event.type} in phase ${getPhase(snapshot)}`)
 
   const [nextSnapshot] = transition(PyramidFrameMachine, snapshot, event)
 

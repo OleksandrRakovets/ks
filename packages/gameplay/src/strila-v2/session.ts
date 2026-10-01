@@ -1,4 +1,5 @@
 import { FrameOutcome, type Seat } from '@ks/core'
+import invariant from 'tiny-invariant'
 import * as v from 'valibot'
 import { transition } from 'xstate'
 
@@ -38,8 +39,10 @@ class StrilaGameplaySession implements GameplaySession<'strila-v2'> {
     const gameProtocolEntries = createStrilaProtocolEntries({ previous, command, next: candidate })
     const outcome = candidate.status === 'done' ? candidate.output : undefined
 
-    if (outcome !== undefined && !v.is(FrameOutcome, outcome))
-      throw new Error('Strila machine produced an invalid outcome')
+    invariant(
+      outcome === undefined || v.is(FrameOutcome, outcome),
+      'Strila machine produced an invalid outcome',
+    )
 
     const result = outcome
       ? { _tag: 'accepted' as const, gameProtocolEntries, outcome }
@@ -73,15 +76,22 @@ export function createStrilaGameplaySession(
 }
 
 export function restoreStrilaGameplaySession(checkpoint: StrilaCheckpoint): GameplaySession<'strila-v2'> {
-  if (
-    checkpoint.value === 'frame-over' ||
-    (checkpoint.value === 'winner-determined') !== (checkpoint.context.winner !== null) ||
-    (v.is(v.object({ 'foul-committed': v.literal('penalty-selection') }), checkpoint.value) &&
-      checkpoint.context.foulOffender === null) ||
-    (v.is(v.object({ 'respotted-black': v.string() }), checkpoint.value) &&
-      checkpoint.context.coloredBallsOnTable.join(',') !== '7')
+  invariant(checkpoint.value !== 'frame-over', 'Cannot restore completed Strila frame')
+  invariant(
+    (checkpoint.value === 'winner-determined') === (checkpoint.context.winner !== null),
+    'Strila winner must match phase',
   )
-    throw new Error('Inconsistent Strila checkpoint')
 
-  return new StrilaGameplaySession(StrilaFrameMachine.resolveState(checkpoint))
+  const snapshot = StrilaFrameMachine.resolveState(checkpoint)
+
+  if (snapshot.matches({ 'foul-committed': 'penalty-selection' }))
+    invariant(snapshot.context.foulOffender !== null, 'Penalty selection requires foul offender')
+
+  if (snapshot.matches('respotted-black'))
+    invariant(
+      snapshot.context.coloredBallsOnTable.length === 1 && snapshot.context.coloredBallsOnTable[0] === 7,
+      'Respotted black requires only black ball',
+    )
+
+  return new StrilaGameplaySession(snapshot)
 }

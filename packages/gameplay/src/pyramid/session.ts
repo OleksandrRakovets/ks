@@ -1,4 +1,5 @@
 import { FrameOutcome, type Seat } from '@ks/core'
+import invariant from 'tiny-invariant'
 import * as v from 'valibot'
 import { transition } from 'xstate'
 
@@ -46,8 +47,10 @@ class PyramidGameplaySession<K extends PyramidGameKey> implements GameplaySessio
 
     const outcome = candidate.status === 'done' ? candidate.output : undefined
 
-    if (outcome !== undefined && !v.is(FrameOutcome, outcome))
-      throw new Error('Pyramid machine produced an invalid outcome')
+    invariant(
+      outcome === undefined || v.is(FrameOutcome, outcome),
+      'Pyramid machine produced an invalid outcome',
+    )
 
     const result = outcome
       ? { _tag: 'accepted' as const, gameProtocolEntries, outcome }
@@ -127,18 +130,20 @@ export function restorePyramidGameplaySession<K extends PyramidGameKey>(
 ): GameplaySession<K> {
   const rules = PyramidRuleSpecificsByGameKey[gameKey]
 
-  if (
-    checkpoint.value === 'frame-over' ||
-    checkpoint.context.rules.gameKey !== gameKey ||
-    checkpoint.context.rules.allowNegative !== rules.allowNegative ||
-    checkpoint.context.rules.foulPenalty !== rules.foulPenalty ||
-    checkpoint.context.rules.shotPointOptions.length !== rules.shotPointOptions.length ||
-    checkpoint.context.rules.shotPointOptions.some(
-      (option, index) => option !== rules.shotPointOptions[index],
-    ) ||
-    (checkpoint.value === 'winner-determined') !== (checkpoint.context.winner !== null)
+  invariant(
+    !(
+      checkpoint.value === 'frame-over' ||
+      checkpoint.context.rules.gameKey !== gameKey ||
+      checkpoint.context.rules.allowNegative !== rules.allowNegative ||
+      checkpoint.context.rules.foulPenalty !== rules.foulPenalty ||
+      checkpoint.context.rules.shotPointOptions.length !== rules.shotPointOptions.length ||
+      checkpoint.context.rules.shotPointOptions.some(
+        (option, index) => option !== rules.shotPointOptions[index],
+      ) ||
+      (checkpoint.value === 'winner-determined') !== (checkpoint.context.winner !== null)
+    ),
+    'Pyramid checkpoint rules or phase do not match the game',
   )
-    throw new Error('Pyramid checkpoint rules or phase do not match the game')
 
   // SAFETY: indexed rules correspond to the selected key.
   return new PyramidGameplaySession(

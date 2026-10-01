@@ -322,9 +322,10 @@ export function sendEvent(
   snapshot: LongFreePyramidFrameSnapshot,
   event: LongFreePyramidCommand,
 ): LongFreePyramidFrameSnapshot {
-  if (!snapshot.can(event)) {
-    throw new Error(`Invalid Long free pyramid event ${event.type} in phase ${getPhase(snapshot)}`)
-  }
+  invariant(
+    snapshot.can(event),
+    () => `Invalid Long free pyramid event ${event.type} in phase ${getPhase(snapshot)}`,
+  )
 
   const [nextSnapshot] = transition(LongFreePyramidFrameMachine, snapshot, event)
 

@@ -1,4 +1,5 @@
 import { FrameOutcome, type Seat } from '@ks/core'
+import invariant from 'tiny-invariant'
 import * as v from 'valibot'
 import { transition } from 'xstate'
 
@@ -42,8 +43,10 @@ class LongFreePyramidGameplaySession implements GameplaySession<'free-pyramid-lo
     const gameProtocolEntries = createLongFreePyramidProtocolEntries({ previous, command, next: candidate })
     const outcome = candidate.status === 'done' ? candidate.output : undefined
 
-    if (outcome !== undefined && !v.is(FrameOutcome, outcome))
-      throw new Error('Long free Pyramid machine produced an invalid outcome')
+    invariant(
+      outcome === undefined || v.is(FrameOutcome, outcome),
+      'Long free Pyramid machine produced an invalid outcome',
+    )
 
     const result = outcome
       ? { _tag: 'accepted' as const, gameProtocolEntries, outcome }
@@ -93,19 +96,21 @@ export function createLongFreePyramidGameplaySession(
 export function restoreLongFreePyramidGameplaySession(
   checkpoint: LongFreePyramidCheckpoint,
 ): GameplaySession<'free-pyramid-long'> {
-  if (
-    checkpoint.value === 'frame-over' ||
-    (checkpoint.value === 'winner-determined' || checkpoint.value === 'awaiting-award') !==
-      (checkpoint.context.winner !== null) ||
-    checkpoint.context.racks.some(
-      (rack, index) =>
-        rack.rackNumber !== index + 1 ||
-        rack.scoreBySeat.A < 0 ||
-        rack.scoreBySeat.B < 0 ||
-        rack.scoreBySeat.A + rack.scoreBySeat.B > 16,
-    )
+  invariant(
+    !(
+      checkpoint.value === 'frame-over' ||
+      (checkpoint.value === 'winner-determined' || checkpoint.value === 'awaiting-award') !==
+        (checkpoint.context.winner !== null) ||
+      checkpoint.context.racks.some(
+        (rack, index) =>
+          rack.rackNumber !== index + 1 ||
+          rack.scoreBySeat.A < 0 ||
+          rack.scoreBySeat.B < 0 ||
+          rack.scoreBySeat.A + rack.scoreBySeat.B > 16,
+      )
+    ),
+    'Inconsistent long pyramid checkpoint',
   )
-    throw new Error('Inconsistent long pyramid checkpoint')
 
   return new LongFreePyramidGameplaySession(LongFreePyramidFrameMachine.resolveState(checkpoint))
 }
