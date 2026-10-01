@@ -18,8 +18,6 @@ import {
   ToggleGroupItem,
 } from '@/components/ui'
 
-import { MatchNavigation } from './components/match-navigation'
-
 const buttonVariants = ['primary', 'secondary', 'outline', 'ghost', 'destructive'] as const
 
 function Specimen({ label, children }: { label: string; children: React.ReactNode }) {
@@ -34,7 +32,6 @@ function Specimen({ label, children }: { label: string; children: React.ReactNod
 export default function PreviewUiRoute() {
   return (
     <main className="min-h-dvh bg-background text-foreground">
-      <MatchNavigation />
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8">
         <header className="grid gap-6 border-b border-border pb-8 lg:grid-cols-[1fr_auto] lg:items-end">
           <div className="flex max-w-2xl flex-col gap-3">
