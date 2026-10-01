@@ -29,7 +29,8 @@ export async function readMatch<K extends GameKey>(
       return archive === null
         ? null
         : {
-            _tag: 'finalizing',
+            _tag: 'ended',
+            source: 'archive',
             state: archive.state,
             gameResult: archive.gameResult,
             latestSeq: archive.sourceLatestSeq,
@@ -42,7 +43,7 @@ export async function readMatch<K extends GameKey>(
   const { record, match } = result
   const participants = await hydrateParticipants(deps, record, locale)
 
-  if (match._tag === 'finalizing') {
+  if (match._tag === 'ended') {
     return presentFinishedMatch(
       match,
       participants,
@@ -89,7 +90,8 @@ export async function readMatchProtocol<K extends GameKey>(
       return archive === null
         ? null
         : {
-            _tag: 'finalizing',
+            _tag: 'ended',
+            source: 'archive',
             state: archive.state,
             gameResult: archive.gameResult,
             latestSeq: archive.sourceLatestSeq,
@@ -105,7 +107,7 @@ export async function readMatchProtocol<K extends GameKey>(
   const seatNames = { A: participants.A.displayName, B: participants.B.displayName }
   const protocolRows = renderProtocolRows(match.protocolEntries, seatNames, deps.clock)
 
-  if (match._tag === 'finalizing') {
+  if (match._tag === 'ended') {
     return {
       ...presentFinishedMatch(
         match,
@@ -133,20 +135,25 @@ export async function readMatchProtocol<K extends GameKey>(
 
 type RoomRead = Awaited<ReturnType<MatchRoomClient['getControls'] | MatchRoomClient['getProtocol']>>
 
+type EndedMatch<Room extends RoomRead> = Omit<Extract<Room, { _tag: 'finalizing' }>, '_tag'> & {
+  _tag: 'ended'
+  source: 'archive' | 'room'
+}
+
+type MatchRead<Room extends RoomRead> = Extract<Room, { _tag: 'active' }> | EndedMatch<Room>
+
 async function lookupMatch<K extends GameKey, Room extends RoomRead>(
   deps: SparringDependencies,
   matchId: MatchId,
   expectedGameKey: K,
   readRoom: (room: MatchRoomClient) => Promise<Room>,
-  readArchive: (
-    record: Extract<MatchRecord, { status: 'finished' }>,
-  ) => Promise<Extract<Room, { _tag: 'finalizing' }> | null>,
+  readArchive: (record: Extract<MatchRecord, { status: 'finished' }>) => Promise<EndedMatch<Room> | null>,
 ): Promise<
   | ReadMatchFailure
   | {
       ok: true
       record: MatchRecord
-      match: Room & { state: MatchStateFor<K>; game?: GamePresentationFor<K> }
+      match: MatchRead<Room> & { state: MatchStateFor<K>; game?: GamePresentationFor<K> | undefined }
     }
 > {
   const record = await deps.matches.findMatch(matchId)
@@ -154,7 +161,7 @@ async function lookupMatch<K extends GameKey, Room extends RoomRead>(
   if (!record || record.gameKey !== expectedGameKey) return { ok: false, reason: 'unknown-match' }
 
   if (record.status === 'creating') return { ok: false, reason: 'unknown-match' }
-  let match: Room
+  let match: MatchRead<RoomRead>
 
   if (record.status === 'finished') {
     const archived = await readArchive(record)
@@ -166,17 +173,19 @@ async function lookupMatch<K extends GameKey, Room extends RoomRead>(
 
     match = archived
   } else {
-    match = await readRoom(deps.matchRoomClient(matchId))
+    const room = await readRoom(deps.matchRoomClient(matchId))
 
-    if (match.state.matchId !== matchId || match.state.gameKey !== expectedGameKey)
-      throw new Error(`MatchRoom ${match._tag} identity conflicts with D1`)
+    if (room.state.matchId !== matchId || room.state.gameKey !== expectedGameKey)
+      throw new Error(`MatchRoom ${room._tag} identity conflicts with D1`)
+
+    match = room._tag === 'finalizing' ? { ...room, _tag: 'ended', source: 'room' } : room
   }
 
   // SAFETY: each source provides coherent state/game projections; the owning state's key is checked above.
   return {
     ok: true,
     record,
-    match: match as Room & { state: MatchStateFor<K>; game?: GamePresentationFor<K> },
+    match: match as MatchRead<Room> & { state: MatchStateFor<K>; game?: GamePresentationFor<K> | undefined },
   }
 }
 
