@@ -7,7 +7,7 @@ import type { sparringMatchArchives } from '../../d1/schema'
 import type { MatchRoomArchiveTransfer } from '../../match/match-room'
 import type { FinishedMatchArchiveRecord, ProtocolArchiveRecord } from './records'
 
-export const PROTOCOL_ARCHIVE_VERSION = 1 as const
+const PROTOCOL_ARCHIVE_VERSION = 1 as const
 
 export class UnsupportedProtocolArchiveVersionError extends Error {
   constructor(matchId: MatchId, version: number) {

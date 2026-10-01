@@ -57,9 +57,9 @@ type MatchListScore =
       readonly score: MatchScoreProjection
     }
 
-export type PlayerStore = Pick<PlayerStorage, keyof PlayerStorage>
+type PlayerStore = Pick<PlayerStorage, keyof PlayerStorage>
 
-export type SparringMatchStore = Pick<SparringMatchStorage, keyof SparringMatchStorage>
+type SparringMatchStore = Pick<SparringMatchStorage, keyof SparringMatchStorage>
 
 export type SparringApplicationDependencies = {
   clock: Clock

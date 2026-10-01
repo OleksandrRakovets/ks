@@ -65,7 +65,6 @@
   },
   "knip": {
     "ignore": [
-      "packages/application/drizzle.config.ts",
       "do/match-room/drizzle/migrations.d.ts",
       "tools/**"
     ],
