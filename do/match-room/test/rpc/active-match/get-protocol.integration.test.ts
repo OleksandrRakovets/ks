@@ -3,13 +3,7 @@ import { evictDurableObject } from 'cloudflare:test'
 import { env } from 'cloudflare:workers'
 import { expect, test } from 'vitest'
 
-import {
-  commenceCommand,
-  initialization,
-  initializedRoom,
-  makeRoomFinalizing,
-  prepareCommand,
-} from '../fixtures'
+import { commenceCommand, initialization, initializedRoom, makeRoomFinalizing } from '../fixtures'
 
 test('returns Protocol at sequence zero and restores accepted entries after eviction', async () => {
   const matchId = newMatchId()
@@ -18,10 +12,9 @@ test('returns Protocol at sequence zero and restores accepted entries after evic
   expect(await stub.getProtocol()).toMatchObject({
     _tag: 'active',
     latestSeq: 0,
-    game: undefined,
+    game: { gameKey: 'strila-v2' },
     protocolEntries: [],
   })
-  await stub.submitCommand(prepareCommand())
   await stub.submitCommand(commenceCommand())
   await stub.submitCommand({
     commandId: newCommandId(),
@@ -37,19 +30,19 @@ test('returns Protocol at sequence zero and restores accepted entries after evic
   expect(restored).not.toHaveProperty('controls')
   expect(restored).toMatchObject({
     _tag: 'active',
-    latestSeq: 3,
+    latestSeq: 2,
     protocolEntries: expect.arrayContaining([
       expect.objectContaining({
         acceptedSeq: 1,
         entryIndex: 0,
-        source: 'system',
-        entryType: 'frame-prepared',
+        source: 'player',
+        entryType: 'player-command',
         frameIndex: 1,
         seat: 'A',
-        body: { targetPointsBySeat: { A: 8, B: 8 } },
+        body: { commandType: 'frame.commence' },
       }),
       expect.objectContaining({
-        acceptedSeq: 3,
+        acceptedSeq: 2,
         source: 'player',
         body: { commandType: 'pot.record', pottedBalls: [0] },
       }),
@@ -65,11 +58,11 @@ test('serves finalizing state and complete Protocol directly after eviction', as
 
   if (protocol._tag !== 'finalizing') throw new Error('Expected finalizing Protocol')
   expect(
-    protocol.protocolEntries.some((entry) => entry.acceptedSeq === 3 && entry.entryType === 'match-ended'),
+    protocol.protocolEntries.some((entry) => entry.acceptedSeq === 2 && entry.entryType === 'match-ended'),
   ).toBe(true)
   expect(protocol).toMatchObject({
     _tag: 'finalizing',
-    latestSeq: 3,
+    latestSeq: 2,
     state: { status: 'finished', framesWonBySeat: { A: 1, B: 0 } },
   })
 })

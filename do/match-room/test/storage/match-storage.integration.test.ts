@@ -110,7 +110,6 @@ test('reads complete durable Protocol independently of old command payloads', as
   await stub.initialize({ ...request, matchId, controlSecret, createdAt })
 
   const commands = [
-    { commandId: newCommandId(), source: 'match' as const, command: { type: 'frame.prepare' } },
     {
       commandId: newCommandId(),
       source: 'match' as const,
@@ -125,7 +124,7 @@ test('reads complete durable Protocol independently of old command payloads', as
     const storage = new MatchStorage(state.storage)
     const matchRecord = storage.anyMatchRecord
 
-    expect(matchRecord).toMatchObject({ latestSeq: 3 })
+    expect(matchRecord).toMatchObject({ latestSeq: 2 })
     expect(
       state.storage.sql
         .exec<{
@@ -137,10 +136,9 @@ test('reads complete durable Protocol independently of old command payloads', as
       { seq: 0, previous_checkpoint_seq: null },
       { seq: 1, previous_checkpoint_seq: 0 },
       { seq: 2, previous_checkpoint_seq: 1 },
-      { seq: 3, previous_checkpoint_seq: 2 },
     ])
 
-    expect(storage.readProtocol().map((entry) => entry.acceptedSeq)).toEqual([1, 2, 3, 3, 3])
+    expect(storage.readProtocol().map((entry) => entry.acceptedSeq)).toEqual([1, 2, 2, 2])
     expect(restoreMatchCheckpoint(storage.readCurrentCheckpoint()).state()).toMatchObject({
       status: 'finished',
       framesWonBySeat: { A: 1, B: 0 },

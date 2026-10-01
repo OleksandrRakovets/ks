@@ -28,9 +28,9 @@ const state = {
   gameKey: 'free-pyramid' as const,
   targets: { frameTargetPointsBySeat: { A: 8, B: 8 }, matchTargetFrames: 1 },
   status: 'active' as const,
-  currentFrameIndex: 0,
+  currentFrameIndex: 1,
   framesWonBySeat: { A: 0, B: 0 },
-  frames: [],
+  frames: [{ frameIndex: 1, breakerSeat: 'A' as const, pointsBySeat: { A: 0, B: 0 } }],
 }
 
 const transfer: MatchRoomArchiveTransfer = {
@@ -40,7 +40,12 @@ const transfer: MatchRoomArchiveTransfer = {
   sourceLatestSeq: 1,
   endedAt: v.parse(UnixEpochMilliseconds, 1_700_000_001_000),
   protocolEntries: [],
-  finalState: { ...state, status: 'finished' },
+  finalState: {
+    ...state,
+    status: 'finished',
+    framesWonBySeat: { A: 1, B: 0 },
+    frames: [{ ...state.frames[0]!, winnerSeat: 'A' }],
+  },
   gameResult: null,
 }
 
@@ -122,10 +127,10 @@ function sparring(
           acceptedAt: createdAt,
           frameIndex: 1,
           gameKey: 'free-pyramid',
-          source: 'system',
-          entryType: 'frame-prepared',
+          source: 'player',
+          entryType: 'player-command',
           seat: 'A',
-          body: { targetPointsBySeat: { A: 8, B: 8 } },
+          body: { commandType: 'frame.commence' },
         },
       ],
       state: transfer.finalState,
@@ -178,13 +183,24 @@ describe('trusted MatchRoom orchestration', () => {
   })
 
   test('reads canonical active controls without RPC reparsing or a Protocol call', async () => {
+    const match = createMatch({
+      matchId,
+      gameKey: state.gameKey,
+      targets: state.targets,
+      firstBreakerSeat: 'A',
+    })
+
+    const { game, controls } = match.controlProjection()
+
+    if (game?.gameKey !== 'free-pyramid') throw new Error('Expected prepared pyramid gameplay')
+
     const room = selectedClient({
       getControls: async () => ({
         _tag: 'active',
         latestSeq: 0,
         state,
-        game: undefined,
-        controls: [],
+        game,
+        controls,
         lastCommand: null,
       }),
     })
@@ -192,7 +208,7 @@ describe('trusted MatchRoom orchestration', () => {
     expect(await sparring(room).readMatch(matchId, 'en', 'free-pyramid')).toMatchObject({
       ok: true,
       lifecycle: 'active',
-      controlPhase: 'between-frames',
+      controlPhase: 'frame-active',
       latestSeq: 0,
       state,
     })
@@ -206,9 +222,8 @@ describe('trusted MatchRoom orchestration', () => {
       firstBreakerSeat: 'A',
     })
 
-    match.execute({ commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } })
     const potCommandId = newCommandId()
-    let latestSeq = 1
+    let latestSeq = 0
 
     const room = selectedClient({
       getControls: async () => {
@@ -222,11 +237,11 @@ describe('trusted MatchRoom orchestration', () => {
           ...projection,
           latestSeq,
           lastCommand:
-            latestSeq === 1
+            latestSeq === 0
               ? null
               : {
                   entry: {
-                    acceptedSeq: 3,
+                    acceptedSeq: 2,
                     entryIndex: 0,
                     causedByCommandId: potCommandId,
                     acceptedAt: createdAt,
@@ -241,7 +256,7 @@ describe('trusted MatchRoom orchestration', () => {
                   correction: {
                     source: 'match',
                     type: 'command.correct',
-                    fixedInput: { targetSeq: 3, targetCommandId: potCommandId },
+                    fixedInput: { targetSeq: 2, targetCommandId: potCommandId },
                     prominence: 'secondary',
                   },
                 },
@@ -254,7 +269,7 @@ describe('trusted MatchRoom orchestration', () => {
       ok: true,
       lifecycle: 'active',
       controlPhase: 'frame-active',
-      latestSeq: 1,
+      latestSeq: 0,
       state: { status: 'active', frames: [{ pointsBySeat: { A: 0, B: 0 } }] },
       game: { gameKey: 'free-pyramid', details: { phase: 'not-started' } },
     })
@@ -268,13 +283,13 @@ describe('trusted MatchRoom orchestration', () => {
       source: 'game',
       command: { type: 'pot.record', seat: 'B', pottedBallCount: 2 },
     })
-    latestSeq = 3
+    latestSeq = 2
     const result = await app.readMatch(matchId, 'en', 'free-pyramid')
     expect(result).toMatchObject({
       ok: true,
       lifecycle: 'active',
       controlPhase: 'frame-active',
-      latestSeq: 3,
+      latestSeq: 2,
       state: { status: 'active', frames: [{ pointsBySeat: { A: 0, B: 2 } }] },
       game: { gameKey: 'free-pyramid', score: { A: 0, B: 2 }, details: { phase: 'open-play' } },
       lastCommand: {
@@ -283,7 +298,7 @@ describe('trusted MatchRoom orchestration', () => {
           actor: playerRefB,
           params: { pottedBallCount: '+2' },
         },
-        correction: { type: 'command.correct', fixedInput: { targetSeq: 3, targetCommandId: potCommandId } },
+        correction: { type: 'command.correct', fixedInput: { targetSeq: 2, targetCommandId: potCommandId } },
       },
     })
     expect(result).not.toHaveProperty('protocolRows')
@@ -651,7 +666,7 @@ describe('trusted MatchRoom orchestration', () => {
 
     const result = await sparring(room, events).submitMatchCommand(
       matchId,
-      { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } },
+      { commandId: newCommandId(), source: 'match', command: { type: 'frame.concede', seat: 'B' } },
       'free-pyramid',
     )
 
@@ -822,7 +837,7 @@ describe('trusted MatchRoom orchestration', () => {
     expect(
       await sparring(room, events).submitMatchCommand(
         matchId,
-        { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } },
+        { commandId: newCommandId(), source: 'match', command: { type: 'frame.concede', seat: 'B' } },
         'free-pyramid',
       ),
     ).toEqual({ ok: false, error: 'match-locked', status: 409 })
@@ -848,7 +863,7 @@ describe('trusted MatchRoom orchestration', () => {
     try {
       await sparring(room).submitMatchCommand(
         matchId,
-        { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } },
+        { commandId: newCommandId(), source: 'match', command: { type: 'frame.concede', seat: 'B' } },
         'free-pyramid',
       )
     } catch (reason) {
@@ -881,7 +896,7 @@ describe('trusted MatchRoom orchestration', () => {
     try {
       await app.submitMatchCommand(
         matchId,
-        { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } },
+        { commandId: newCommandId(), source: 'match', command: { type: 'frame.concede', seat: 'B' } },
         'free-pyramid',
       )
     } catch (reason) {
@@ -913,7 +928,12 @@ describe('trusted MatchRoom orchestration', () => {
       },
     })
 
-    const command = { commandId: newCommandId(), source: 'match' as const, command: { type: 'frame.prepare' } }
+    const command = {
+      commandId: newCommandId(),
+      source: 'match' as const,
+      command: { type: 'frame.concede', seat: 'B' },
+    }
+
     let archiveError: Error | undefined
 
     try {
@@ -952,7 +972,7 @@ describe('trusted MatchRoom orchestration', () => {
     const command = {
       commandId: newCommandId(),
       source: 'match' as const,
-      command: { type: 'frame.prepare' },
+      command: { type: 'frame.concede', seat: 'B' },
     }
 
     let finishError: Error | undefined

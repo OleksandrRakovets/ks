@@ -15,8 +15,6 @@ export function controlLabel(t: TFunction, control: Control): string {
     switch (control.type) {
       case 'frame.commence':
         return t('match.control.commands.match.frame.commence')
-      case 'frame.prepare':
-        return t('match.control.commands.match.frame.prepare')
       case 'frame.concede':
         return t('match.control.commands.match.frame.concede')
       case 'match.end':

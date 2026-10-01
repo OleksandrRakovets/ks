@@ -28,9 +28,9 @@ test('derives the same archive transfer across retries and eviction without repl
   await evictDurableObject(stub)
   const restored: FinishedMatchTransfer = await env.MATCH_ROOM.getByName(matchId).prepareArchive()
   expect(restored.matchId).toBe(matchId)
-  expect(restored.sourceLatestSeq).toBe(3)
+  expect(restored.sourceLatestSeq).toBe(2)
   expect(restored.finalState.status).toBe('finished')
-  const endingEntries = restored.protocolEntries.filter((entry) => entry.acceptedSeq === 3)
+  const endingEntries = restored.protocolEntries.filter((entry) => entry.acceptedSeq === 2)
   expect(endingEntries).toHaveLength(3)
   expect(
     endingEntries.every(

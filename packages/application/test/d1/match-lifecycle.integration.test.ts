@@ -76,7 +76,6 @@ function finishedMatchTransfer(id = matchId, timestamp = createdAt): MatchRoomAr
   let acceptedSeq = 0
 
   for (const command of [
-    { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } },
     { commandId: newCommandId(), source: 'match', command: { type: 'frame.commence', seat: 'A' } },
     {
       commandId: newCommandId(),

@@ -38,11 +38,6 @@ test('compensates every outcome of one game command in reverse order', () => {
   execute(match, {
     commandId: newCommandId(),
     source: 'match',
-    command: { type: 'frame.prepare' },
-  })
-  execute(match, {
-    commandId: newCommandId(),
-    source: 'match',
     command: { type: 'frame.commence', seat: 'A' },
   })
 
@@ -62,7 +57,7 @@ test('compensates every outcome of one game command in reverse order', () => {
   }
 
   const targetResult = execute(match, targetCommand)
-  const targetSeq = 5
+  const targetSeq = 4
 
   const protocolEntries: ProtocolEntry[] = targetResult.protocolEntryContents.map((entry, entryIndex) => ({
     ...entry,
