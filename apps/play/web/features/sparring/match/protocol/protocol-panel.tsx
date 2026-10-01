@@ -6,10 +6,11 @@ import { protocolRowLabel } from './protocol-copy'
 export function ProtocolPanel(props: { rows: readonly ProtocolRow[]; emptyLabel: string }) {
   const { t } = useTranslation()
 
-  if (props.rows.length === 0) return <p className="text-base text-muted-foreground">{props.emptyLabel}</p>
+  if (props.rows.length === 0)
+    return <p className="px-4 py-3 text-base text-muted-foreground">{props.emptyLabel}</p>
 
   return (
-    <div className="grid gap-2">
+    <div className="grid gap-2 px-4 py-3">
       {props.rows.map((row) => (
         <article
           key={row.key}

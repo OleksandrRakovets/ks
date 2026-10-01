@@ -1,11 +1,10 @@
 import type { HydratedMatchParticipants } from '@ks/application'
-import type { MatchState } from '@ks/competition/definitions'
-import { type Control, type MatchCommand, newCommandId } from '@ks/core'
+import { type Control, type ControlSections, type MatchCommand, newCommandId } from '@ks/core'
 
 export type MatchControlRendererProps<Presentation> = {
   readonly game: Presentation
   readonly controls: readonly Control[]
-  readonly state: MatchState
+  readonly sections: ControlSections
   readonly participants: HydratedMatchParticipants
   readonly onSubmitCommand: (command: MatchCommand) => void
   readonly submitting: boolean

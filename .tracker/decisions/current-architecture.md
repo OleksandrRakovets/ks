@@ -35,6 +35,10 @@ Game keys come from `packages/gameplay/src/registry.ts`. Each game has an explic
 
 Competition composes match controls before game controls into one flat list. MatchRoom exposes distinct scoring and Protocol read contracts; application preserves them, and Play alone groups scoring controls into stable presentation sections for layout. MatchRoom RPC is a trusted typed capability and does not reparse these values at that seam.
 
+Play's match pages share Active and Finished surface compositions with their corresponding Protocol pages.
+Feature-local presentation functions derive header copy, board data, and result rows; the Shell and Board
+render resolved props without interpreting match state. Page controllers own submission and live revalidation.
+
 ### Schema Conventions
 
 - A Valibot schema and its inferred output type share the same name; do not add a `Schema` suffix.

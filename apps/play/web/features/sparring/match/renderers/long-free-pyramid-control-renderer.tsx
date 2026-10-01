@@ -1,4 +1,4 @@
-import { type Control, groupControlsIntoSections } from '@ks/core'
+import type { Control } from '@ks/core'
 import type { LongFreePyramidGamePresentation } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
 import type { TFunction } from 'i18next'
@@ -20,7 +20,7 @@ export function LongFreePyramidControlRenderer(
 
   return (
     <ControlStack
-      sections={groupControlsIntoSections(props.controls)}
+      sections={props.sections}
       renderControl={(control) => longFreePyramidControlPresentation(t, control, props.participants)}
       submitting={props.submitting}
       onSubmit={props.onSubmitCommand}

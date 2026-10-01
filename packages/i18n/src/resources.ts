@@ -95,7 +95,7 @@ export const resources = {
             'cue-ball-and-colored-is-foul':
               'Забити битка разом із кольоровою кулею — фол. Очки за такий удар не нарахуються.',
             'manual-foul-cue-ball-response':
-              'Якщо під час фолу биток забито або він покинув межі столу, суперник має продовжити гру з руки в будь-якому місці столу. Бонусні очки не нараховуються.',
+              'Биток забито чи вибито: суперник грає з руки будь-де, без бонусних очок.',
             'third-consecutive-cue-ball-pot': 'Наступне забиття битка — фол.',
             'respotted-black-opening-toss':
               'Додаткова чорна куля. Переможець жеребу обирає, хто виконає перший удар.',
@@ -397,7 +397,7 @@ export const resources = {
             'cue-ball-and-colored-is-foul':
               'Potting the cue ball together with a colored ball is a foul. No points from that shot will count.',
             'manual-foul-cue-ball-response':
-              'If the cue ball was potted or left the table as a result of the foul stroke, the opponent must play from ball in hand. No foul bonus points may be awarded.',
+              'Cue ball potted or off-table: ball in hand anywhere, no bonus points.',
             'third-consecutive-cue-ball-pot': 'Another cue-ball pot is a foul.',
             'respotted-black-opening-toss':
               'When the score is tied, the black is respotted. The coin-toss winner chooses who takes the opening shot.',
@@ -471,7 +471,7 @@ export const resources = {
           frames: 'frames',
           takeover: {
             foulActor: '{{player}} committed a foul.',
-            foulChooser: '{{player}} chooses how play continues.',
+            foulChooser: '{{player}} chooses.',
           },
         },
         scoreboard: {

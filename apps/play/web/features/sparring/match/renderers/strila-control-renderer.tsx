@@ -1,37 +1,33 @@
-import { type Control, groupControlsIntoSections, opponentOf, type Seat } from '@ks/core'
-import {
-  type StrilaBall as StrilaBallValue,
-  type StrilaGamePresentation,
-  StrilaMeta,
-} from '@ks/gameplay/definitions'
+import { type Control, opponentOf, type Seat } from '@ks/core'
+import { type StrilaBall, type StrilaGamePresentation } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
-import type { TFunction } from 'i18next'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { SeatChoiceToss } from '@/components/seat-choice-toss'
-import { StrilaBall } from '@/components/strila-ball'
-import { cn } from '@/components/ui/utils'
 import { type ControlPresentation, ControlStack } from '@/features/sparring/match/shell/control-stack'
 import { Takeover } from '@/features/sparring/match/shell/takeover'
 
-import { controlEffect, controlLabel } from './control-copy'
+import { controlEffect } from './control-copy'
+import { presentControls } from './control-presentation'
+import { BallSet, OpeningToss, PenaltyTitle, PotLabel, RuleNotes } from './strila-controls'
+import { presentBallSet, presentRuleNotes, strilaControlLabel } from './strila-presentation'
 import { matchCommandFromControl, type MatchControlRendererProps } from './types'
-
-type StrilaRuleNote = StrilaGamePresentation['details']['ruleNotes'][number]
 
 export function StrilaControlRenderer(props: MatchControlRendererProps<StrilaGamePresentation>) {
   const { t } = useTranslation()
-  const [selectedBalls, setSelectedBalls] = useState<StrilaBallValue[]>([])
-  const sections = groupControlsIntoSections(props.controls)
+  const [selectedBalls, setSelectedBalls] = useState<StrilaBall[]>([])
+  const { sections } = props
   const details = props.game.details
+  const notes = presentRuleNotes(details.ruleNotes, props.participants, t)
 
   const penaltyControls =
     details.phase === 'foul-committed.penalty-selection'
       ? [...sections.primary.A, ...sections.primary.B, ...sections.secondary.A, ...sections.secondary.B]
       : []
 
-  const openingSelectionControls =
+  const chooser = penaltyControls[0]?.seat
+
+  const openingControls =
     details.phase === 'respotted-black.opening-selection'
       ? props.controls.filter(({ type }) => type === 'respotted-black.opening.select')
       : []
@@ -39,6 +35,21 @@ export function StrilaControlRenderer(props: MatchControlRendererProps<StrilaGam
   function submit(command: Parameters<typeof props.onSubmitCommand>[0]) {
     setSelectedBalls([])
     props.onSubmitCommand(command)
+  }
+
+  function toggleBall(ball: StrilaBall) {
+    setSelectedBalls(
+      selectedBalls.includes(ball)
+        ? selectedBalls.filter((candidate) => candidate !== ball)
+        : [...selectedBalls, ball],
+    )
+  }
+
+  function selectOpeningSeat(seat: Seat | null) {
+    if (seat === null) return
+    const control = openingControls.find((candidate) => candidate.seat === seat)
+
+    if (control) submit(matchCommandFromControl(control))
   }
 
   const renderControl = (control: Control): ControlPresentation => {
@@ -60,31 +71,34 @@ export function StrilaControlRenderer(props: MatchControlRendererProps<StrilaGam
       selector={
         details.isBallSetVisible ? (
           <BallSet
-            details={details}
-            participants={props.participants}
-            selectedBalls={selectedBalls}
-            selectable={details.isPotCommandAvailable}
-            onSelectionChange={setSelectedBalls}
+            presentation={presentBallSet(details, selectedBalls, t)}
+            notes={notes}
+            onToggle={toggleBall}
           />
         ) : undefined
       }
       takeover={
-        penaltyControls.length > 0 ? (
-          <PenaltyTakeover
-            controls={penaltyControls}
-            details={details}
-            participants={props.participants}
-            renderControl={renderControl}
-            submitting={props.submitting}
-            onSubmit={submit}
+        chooser ? (
+          <Takeover
+            title={
+              <PenaltyTitle
+                offenderLabel={t(keys.match.control.takeover.foulActor, {
+                  player: props.participants[opponentOf(chooser)].displayName,
+                })}
+                chooserLabel={t(keys.match.control.takeover.foulChooser, {
+                  player: props.participants[chooser].displayName,
+                })}
+              />
+            }
+            note={<RuleNotes notes={notes} />}
+            controls={presentControls(penaltyControls, renderControl, props.submitting, submit)}
           />
-        ) : openingSelectionControls.length > 0 ? (
-          <RespottedBlackOpeningToss
-            controls={openingSelectionControls}
-            notes={details.ruleNotes}
-            participants={props.participants}
+        ) : openingControls.length > 0 ? (
+          <OpeningToss
+            notes={notes}
+            playerNames={{ A: props.participants.A.displayName, B: props.participants.B.displayName }}
             submitting={props.submitting}
-            onSubmit={submit}
+            onSelectedSeatChange={selectOpeningSeat}
           />
         ) : undefined
       }
@@ -92,271 +106,5 @@ export function StrilaControlRenderer(props: MatchControlRendererProps<StrilaGam
       submitting={props.submitting}
       onSubmit={submit}
     />
-  )
-}
-
-function RespottedBlackOpeningToss(props: {
-  controls: readonly Control[]
-  notes: readonly StrilaRuleNote[]
-  participants: MatchControlRendererProps<StrilaGamePresentation>['participants']
-  submitting: boolean
-  onSubmit: MatchControlRendererProps<StrilaGamePresentation>['onSubmitCommand']
-}) {
-  const { t } = useTranslation()
-
-  function selectOpeningSeat(seat: Seat | null) {
-    if (seat === null) return
-    const control = props.controls.find((candidate) => candidate.seat === seat)
-
-    if (control) props.onSubmit(matchCommandFromControl(control))
-  }
-
-  return (
-    <section
-      className="grid gap-3 bg-raised px-3 py-3.5 [@media(min-height:740px)]:py-4 [@media(min-height:820px)]:py-5"
-      aria-labelledby="respotted-black-opening-toss-heading"
-    >
-      <RuleNotes notes={props.notes} participants={props.participants} />
-      <SeatChoiceToss
-        headingId="respotted-black-opening-toss-heading"
-        playerNames={{
-          A: props.participants.A.displayName,
-          B: props.participants.B.displayName,
-        }}
-        selectedSeat={null}
-        disabled={props.submitting}
-        title={t(keys.match.control.strila.openingToss.title)}
-        coinInAir={t(keys.match.control.strila.openingToss.coinInAir)}
-        chooseSeat={(winnerName) =>
-          t(keys.match.control.strila.openingToss.chooseOpener, { name: winnerName })
-        }
-        tossCoin={t(keys.match.control.strila.openingToss.tossCoin)}
-        seatChoiceLabel={(playerName) =>
-          t(keys.match.control.strila.openingToss.playerOpens, { name: playerName })
-        }
-        onSelectedSeatChange={selectOpeningSeat}
-      />
-    </section>
-  )
-}
-
-function PenaltyTakeover(props: {
-  controls: readonly Control[]
-  details: StrilaGamePresentation['details']
-  participants: MatchControlRendererProps<StrilaGamePresentation>['participants']
-  renderControl: (control: Control, index: number) => ControlPresentation
-  submitting: boolean
-  onSubmit: MatchControlRendererProps<StrilaGamePresentation>['onSubmitCommand']
-}) {
-  const { t } = useTranslation()
-  const chooser = props.controls[0]?.seat
-
-  if (!chooser) return null
-  const offender = opponentOf(chooser)
-
-  return (
-    <Takeover
-      title={
-        <>
-          <span>
-            {t(keys.match.control.takeover.foulActor, { player: props.participants[offender].displayName })}
-          </span>{' '}
-          <span className="font-normal text-muted-foreground">
-            {t(keys.match.control.takeover.foulChooser, { player: props.participants[chooser].displayName })}
-          </span>
-        </>
-      }
-      note={<RuleNotes notes={props.details.ruleNotes} participants={props.participants} />}
-      controls={props.controls}
-      renderControl={props.renderControl}
-      submitting={props.submitting}
-      onSubmit={props.onSubmit}
-    />
-  )
-}
-
-function BallSet(props: {
-  details: StrilaGamePresentation['details']
-  participants: MatchControlRendererProps<StrilaGamePresentation>['participants']
-  selectedBalls: StrilaBallValue[]
-  selectable: boolean
-  onSelectionChange: (balls: StrilaBallValue[]) => void
-}) {
-  const { t } = useTranslation()
-
-  return (
-    <div className="grid gap-1 px-3 pb-3.5 [@media(min-height:740px)]:pb-4 [@media(min-height:820px)]:pb-5">
-      <RuleNotes notes={props.details.ruleNotes} participants={props.participants} />
-      {props.selectable ? (
-        <p className="mb-1 px-1 text-[14px] leading-snug text-muted-foreground [@media(min-height:740px)]:mb-3 [@media(min-height:820px)]:mb-4">
-          {t(keys.match.control.choosePottedBall)}
-        </p>
-      ) : null}
-      <fieldset className="grid min-w-0 grid-cols-8 gap-1">
-        <legend className="sr-only">
-          {props.selectable ? t(keys.match.control.choosePottedBall) : props.details.situationTitle}
-        </legend>
-        {StrilaMeta.allBalls.map((ball) => {
-          const status = props.details.ballStatuses[ball]
-          const potted = status === 'potted'
-          const selected = props.selectedBalls.includes(ball) && !potted
-
-          const label = t(keys.match.control.strila.ballLabel, {
-            ball: t(`match.control.strila.balls.${ball}`),
-            status: t(`match.control.strila.ballStatus.${status}`),
-          })
-
-          return (
-            <button
-              key={ball}
-              type="button"
-              aria-label={label}
-              aria-pressed={props.selectable ? selected : undefined}
-              disabled={!props.selectable || potted}
-              className={cn(
-                'group grid h-12 min-w-0 place-items-center rounded-full outline-none',
-                potted && 'opacity-25',
-              )}
-              onClick={() =>
-                props.onSelectionChange(
-                  selected
-                    ? props.selectedBalls.filter((candidate) => candidate !== ball)
-                    : [...props.selectedBalls, ball],
-                )
-              }
-            >
-              <StrilaBall
-                ball={ball}
-                selected={selected}
-                className={cn(
-                  'aspect-square',
-                  status === 'object' ? 'w-full max-w-12' : 'w-4/5 max-w-[38px]',
-                  'group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-ring',
-                )}
-              />
-            </button>
-          )
-        })}
-      </fieldset>
-    </div>
-  )
-}
-
-function PotLabel({ label, selectedBalls }: { label: string; selectedBalls: readonly StrilaBallValue[] }) {
-  return (
-    <span className="inline-flex flex-wrap items-center justify-center gap-1.5">
-      <span>{label}</span>
-      {selectedBalls.map((ball) => (
-        <StrilaBall key={ball} ball={ball} className="size-3" />
-      ))}
-    </span>
-  )
-}
-
-function RuleNotes(props: {
-  notes: readonly StrilaRuleNote[]
-  participants: MatchControlRendererProps<StrilaGamePresentation>['participants']
-}) {
-  if (props.notes.length === 0) return null
-
-  return (
-    <div className="grid gap-2">
-      {props.notes.map((note, index) => (
-        <RuleNote
-          key={`${note.severity}-${note.code}-${index}`}
-          note={note}
-          participants={props.participants}
-        />
-      ))}
-    </div>
-  )
-}
-
-function RuleNote(props: {
-  note: StrilaRuleNote
-  participants: MatchControlRendererProps<StrilaGamePresentation>['participants']
-}) {
-  const { t } = useTranslation()
-
-  return (
-    <aside className="flex gap-2 rounded-lg bg-info-dim px-3 py-2 text-base leading-snug">
-      <OpenBookIcon />
-      <div>
-        {ruleMessageLines(t, props.note, props.participants).map((line, index) => (
-          <p key={index}>
-            {line.player !== undefined && line.player.length > 0 ? <strong>{line.player}: </strong> : null}
-            {line.text}
-          </p>
-        ))}
-      </div>
-    </aside>
-  )
-}
-
-function strilaControlLabel(t: TFunction, control: Control): string {
-  if (control.type !== 'penalty.select') return controlLabel(t, control)
-
-  const choice = control.fixedInput.choice
-
-  if (choice === 'play-from-position')
-    return t('match.control.commands.game.penalty.select.play-from-position')
-
-  if (choice === 'pass-position') return t('match.control.commands.game.penalty.select.pass-position')
-
-  if (choice === 'ball-in-hand') return t('match.control.commands.game.penalty.select.ball-in-hand')
-
-  return t('match.control.commands.game.penalty.select.default')
-}
-
-function ruleMessageLines(
-  t: TFunction,
-  note: StrilaRuleNote,
-  participants: MatchControlRendererProps<StrilaGamePresentation>['participants'],
-): { player?: string; text: string }[] {
-  switch (note.code) {
-    case 'cue-ball-and-colored-is-foul':
-    case 'manual-foul-cue-ball-response':
-    case 'respotted-black-opening-toss':
-    case 'respotted-black-opening':
-      return [{ text: t(`match.control.messages.${note.code}`) }]
-    case 'third-consecutive-cue-ball-pot':
-      return [
-        {
-          player: participants[note.seat].displayName,
-          text: t('match.control.messages.third-consecutive-cue-ball-pot'),
-        },
-      ]
-    case 'last-colored-ball-pot-outcomes':
-      return note.outcomes.map(({ seat, result }) => ({
-        player: participants[seat].displayName,
-        text:
-          result.type === 'winner-determined' && result.winnerSeat === seat
-            ? t('match.control.messages.last-colored-ball-frame-ball', {
-                ball: t(`match.control.strila.balls.${note.ball}`),
-              })
-            : result.type === 'respotted-black'
-              ? t('match.control.messages.last-colored-ball-pot-respots-black', {
-                  ball: t(`match.control.strila.outcomeBalls.nominative.${note.ball}`),
-                })
-              : t('match.control.messages.last-colored-ball-pot-winner', {
-                  ball: t(`match.control.strila.outcomeBalls.nominative.${note.ball}`),
-                }),
-      }))
-  }
-
-  return []
-}
-
-function OpenBookIcon() {
-  return (
-    <svg aria-hidden viewBox="0 0 24 24" fill="none" className="mt-0.5 size-5 shrink-0 text-info">
-      <path
-        d="M2.5 4.75h5.25A4.25 4.25 0 0 1 12 9v10.25A4.25 4.25 0 0 0 7.75 15H2.5zm19 0h-5.25A4.25 4.25 0 0 0 12 9v10.25A4.25 4.25 0 0 1 16.25 15h5.25z"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
   )
 }

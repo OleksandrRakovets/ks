@@ -3,7 +3,7 @@ import { keys } from '@ks/i18n'
 import { useTranslation } from 'react-i18next'
 
 import { useProtocolLiveRevalidation } from '@/features/sparring/match/live'
-import { MatchProtocolShell, MatchResultShell } from '@/features/sparring/match/shell/match-shell'
+import { ActiveSurface, FinishedSurface } from '@/features/sparring/match/shell/surfaces'
 import type { ProtocolPageData } from '@/features/sparring/match/types'
 
 import { ProtocolPanel } from './protocol-panel'
@@ -13,18 +13,20 @@ export function MatchProtocolPage<K extends GameKey>(props: { data: ProtocolPage
   useProtocolLiveRevalidation(props.data.match.state, props.data.match.latestSeq)
 
   const content = (
-    <div className="px-4 py-3">
-      <ProtocolPanel rows={props.data.match.protocolRows} emptyLabel={t(keys.match.sparring.protocolEmpty)} />
-    </div>
+    <ProtocolPanel rows={props.data.match.protocolRows} emptyLabel={t(keys.match.sparring.protocolEmpty)} />
   )
 
   if (props.data.page === 'result') {
     return (
-      <MatchResultShell active="protocol" data={props.data.match}>
+      <FinishedSurface active="protocol" data={props.data.match}>
         {content}
-      </MatchResultShell>
+      </FinishedSurface>
     )
   }
 
-  return <MatchProtocolShell data={props.data.match}>{content}</MatchProtocolShell>
+  return (
+    <ActiveSurface active="protocol" layout="reading" data={props.data.match}>
+      {content}
+    </ActiveSurface>
+  )
 }

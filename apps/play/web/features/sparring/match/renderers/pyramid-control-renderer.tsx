@@ -1,4 +1,4 @@
-import { type Control, groupControlsIntoSections, type HydratedMatchParticipants } from '@ks/core'
+import type { Control, HydratedMatchParticipants } from '@ks/core'
 import type {
   CombinedPyramidGamePresentation,
   CombinedPyramidOldGamePresentation,
@@ -39,7 +39,7 @@ function PyramidControlRenderer<
 
   return (
     <ControlStack
-      sections={groupControlsIntoSections(props.controls)}
+      sections={props.sections}
       renderControl={(control) => pyramidControlPresentation(t, control, props.participants)}
       submitting={props.submitting}
       onSubmit={props.onSubmitCommand}

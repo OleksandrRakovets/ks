@@ -1,4 +1,4 @@
-import { type Control, groupControlsIntoSections, type MatchCommand } from '@ks/core'
+import { type Control, type ControlSections, groupControlsIntoSections, type MatchCommand } from '@ks/core'
 import type { GameKey, GamePresentationFor } from '@ks/gameplay/definitions'
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -7,33 +7,36 @@ import { useFetcher } from 'react-router'
 import { matchCommandForm, useControlLiveRevalidation } from './live'
 import { controlEffect, controlLabel } from './renderers/control-copy'
 import type { MatchControlRendererProps } from './renderers/types'
+import { ResultPanel } from './result-panel'
+import { presentResult } from './result-presentation'
+import { ControlPanel } from './shell/control-panel'
 import { type ControlPresentation, ControlStack } from './shell/control-stack'
-import { MatchResult } from './shell/match-result'
-import { MatchControlShell, MatchResultShell } from './shell/match-shell'
-import type { ActiveMatchData, ControlActionData, MatchPageData } from './types'
+import { LastCommandBar } from './shell/last-command-bar'
+import { OverflowSheet } from './shell/overflow-sheet'
+import { RematchLink } from './shell/rematch-link'
+import { ActiveSurface, FinishedSurface } from './shell/surfaces'
+import type { ActiveMatchData, ControlActionData, FinishedMatchData, MatchPageData } from './types'
 
 export function MatchPage<K extends GameKey>(props: {
   data: MatchPageData<K>
   renderer: (props: MatchControlRendererProps<GamePresentationFor<K>>) => ReactNode
 }) {
   if (props.data.page === 'result') {
-    return (
-      <MatchResultShell active="result" data={props.data.match}>
-        <MatchResult data={props.data.match} />
-      </MatchResultShell>
-    )
+    return <ResultPage data={props.data.match} />
   }
 
-  return <MatchControlPage data={props.data.match} renderer={props.renderer} />
+  return <ControlPage data={props.data.match} renderer={props.renderer} />
 }
 
-function MatchControlPage<K extends GameKey>(props: {
+function ControlPage<K extends GameKey>(props: {
   data: ActiveMatchData<K>
   renderer: (props: MatchControlRendererProps<GamePresentationFor<K>>) => ReactNode
 }) {
   const { t } = useTranslation()
   const fetcher = useFetcher<ControlActionData>()
   const markLocalSubmit = useControlLiveRevalidation(props.data.state, props.data.latestSeq, fetcher)
+  const sections = groupControlsIntoSections(props.data.controls)
+  const submitting = fetcher.state !== 'idle'
 
   function submitCommand(command: MatchCommand) {
     markLocalSubmit()
@@ -41,36 +44,49 @@ function MatchControlPage<K extends GameKey>(props: {
   }
 
   return (
-    <MatchControlShell data={props.data} submitting={fetcher.state !== 'idle'} onSubmit={submitCommand}>
-      <div className="relative flex min-h-0 flex-1 flex-col justify-end">
-        {fetcher.data?.ok === false ? (
-          <p
-            role="alert"
-            className="mx-3 mb-2 rounded-lg bg-destructive-dim px-3 py-2 text-base text-destructive"
-          >
-            {t(fetcher.data.errorKey)}
-          </p>
-        ) : null}
-
+    <ActiveSurface
+      active="primary"
+      layout="fixed"
+      data={props.data}
+      headerControl={
+        <OverflowSheet
+          controls={sections.tertiary}
+          names={{ A: props.data.participants.A.displayName, B: props.data.participants.B.displayName }}
+          submitting={submitting}
+          onSubmit={submitCommand}
+        />
+      }
+      footer={
+        props.data.lastCommand ? (
+          <LastCommandBar entry={props.data.lastCommand} submitting={submitting} onSubmit={submitCommand} />
+        ) : null
+      }
+    >
+      <ControlPanel errorLabel={fetcher.data?.ok === false ? t(fetcher.data.errorKey) : undefined}>
         {props.data.controlPhase === 'frame-active' ? (
           <props.renderer
             game={props.data.game}
             controls={props.data.controls}
-            state={props.data.state}
+            sections={sections}
             participants={props.data.participants}
-            submitting={fetcher.state !== 'idle'}
+            submitting={submitting}
             onSubmitCommand={submitCommand}
           />
         ) : (
-          <BetweenFramesControls
-            controls={props.data.controls}
-            t={t}
-            submitting={fetcher.state !== 'idle'}
-            onSubmit={submitCommand}
-          />
+          <BetweenFramesControls sections={sections} t={t} submitting={submitting} onSubmit={submitCommand} />
         )}
-      </div>
-    </MatchControlShell>
+      </ControlPanel>
+    </ActiveSurface>
+  )
+}
+
+function ResultPage({ data }: { data: FinishedMatchData }) {
+  const { t } = useTranslation()
+
+  return (
+    <FinishedSurface active="primary" data={data} footer={<RematchLink data={data} />}>
+      <ResultPanel presentation={presentResult(data, t)} />
+    </FinishedSurface>
   )
 }
 
@@ -79,14 +95,14 @@ function MatchControlPage<K extends GameKey>(props: {
  * controls, which remain available in the shell's overflow menu during gameplay phases.
  */
 function BetweenFramesControls(props: {
-  controls: readonly Control[]
+  sections: ControlSections
   t: ReturnType<typeof useTranslation>['t']
   submitting: boolean
   onSubmit: (command: MatchCommand) => void
 }) {
   return (
     <ControlStack
-      sections={groupControlsIntoSections(props.controls)}
+      sections={props.sections}
       renderControl={(control) => betweenFramesControlPresentation(props.t, control)}
       submitting={props.submitting}
       onSubmit={props.onSubmit}
