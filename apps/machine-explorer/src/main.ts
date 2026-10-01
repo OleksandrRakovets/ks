@@ -34,6 +34,19 @@ const FREE_PYRAMID_RULES = {
   shotPointOptions: [1, 2, 4],
 }
 
+const MATCH_CREATE_REQUEST: CreateMatchRequest = {
+  gameKey: 'strila-v2',
+  targets: {
+    frameTargetPointsBySeat: { A: 9, B: 9 },
+    matchTargetFrames: 3,
+  },
+  firstBreakerSeat: 'A',
+  participants: [
+    { seat: 'A', playerRef: formatPlayerRef('gp', '01HX0000000000000000000000') },
+    { seat: 'B', playerRef: formatPlayerRef('gp', '01HX0000000000000000000001') },
+  ],
+}
+
 let inspectorInspect: ReturnType<typeof createBrowserInspector>['inspect'] | undefined
 
 let mode: Mode = 'frame'
@@ -124,19 +137,6 @@ function subscribeToFrameRuntime(runtime: FrameRuntime) {
     case 'free-pyramid-long':
       runtime.actor.subscribe(() => renderFrame())
   }
-}
-
-const MATCH_CREATE_REQUEST: CreateMatchRequest = {
-  gameKey: 'strila-v2',
-  targets: {
-    frameTargetPointsBySeat: { A: 9, B: 9 },
-    matchTargetFrames: 3,
-  },
-  firstBreakerSeat: 'A',
-  participants: [
-    { seat: 'A', playerRef: formatPlayerRef('gp', '01HX0000000000000000000000') },
-    { seat: 'B', playerRef: formatPlayerRef('gp', '01HX0000000000000000000001') },
-  ],
 }
 
 function buildExplorerMatchConfig() {
