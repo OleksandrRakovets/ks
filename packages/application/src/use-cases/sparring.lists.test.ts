@@ -8,6 +8,7 @@ import { MatchScorePollResponse, RECENT_FINISHED_MATCH_WINDOW_MS } from '../cont
 import {
   createdAt,
   matchId,
+  participantRecords,
   participants,
   playerRefA,
   playerRefB,
@@ -31,10 +32,9 @@ describe('sparring lists and score polling', () => {
     const room = selectedClient({ getScore: async () => ({ _tag: 'active', latestSeq: 3, score }) })
 
     const app = sparring(room, [], {
-      overrides: {
-        listLiveMatchRecords: async (since, locale) => {
+      matches: {
+        listLive: async (since) => {
           expect(since).toBe(v.parse(UnixEpochMilliseconds, createdAt - RECENT_FINISHED_MATCH_WINDOW_MS))
-          expect(locale).toBe('en')
 
           return [
             {
@@ -43,7 +43,7 @@ describe('sparring lists and score polling', () => {
               status: 'active',
               createdAt,
               participantRefs: { A: playerRefA, B: playerRefB },
-              participants,
+              participants: participantRecords,
             },
           ]
         },
@@ -94,15 +94,15 @@ describe('sparring lists and score polling', () => {
       })
 
       const app = sparring(room, [], {
-        overrides: {
-          listLiveMatchRecords: async () => [
+        matches: {
+          listLive: async () => [
             {
               matchId,
               gameKey: 'free-pyramid',
               status: 'active',
               createdAt,
               participantRefs: { A: playerRefA, B: playerRefB },
-              participants,
+              participants: participantRecords,
             },
           ],
         },
@@ -139,15 +139,15 @@ describe('sparring lists and score polling', () => {
     })
 
     const app = sparring(room, events, {
-      overrides: {
-        listLiveMatchRecords: async () => [
+      matches: {
+        listLive: async () => [
           {
             matchId,
             gameKey: 'free-pyramid',
             status: 'active',
             createdAt,
             participantRefs: { A: playerRefA, B: playerRefB },
-            participants,
+            participants: participantRecords,
           },
         ],
       },
@@ -179,25 +179,25 @@ describe('sparring lists and score polling', () => {
       createdAt,
       endedAt: transfer.endedAt,
       participantRefs: { A: playerRefA, B: playerRefB },
-      participants,
+      participants: participantRecords,
       finalSourceLatestSeq: transfer.sourceLatestSeq,
       finalScore,
     }
 
     const app = sparring(selectedClient(), [], {
       initialStatus: 'finished',
-      overrides: {
-        getMatchRecord: async () => record,
-        getMatchRecords: async () => [record],
-        getFinishedMatchArchive: async () => ({ sourceLatestSeq: 1, state: finalState, gameResult: null }),
-        getProtocolArchive: async () => ({
+      matches: {
+        readMatch: async () => record,
+        readMatches: async () => [record],
+        readFinishedArchive: async () => ({ sourceLatestSeq: 1, state: finalState, gameResult: null }),
+        readProtocolArchive: async () => ({
           sourceLatestSeq: 1,
           state: finalState,
           gameResult: null,
           entries: [],
           protocolVersion: 1,
         }),
-        listFinishedMatchRecords: async () => [record],
+        listFinished: async () => [record],
       },
     })
 
@@ -218,8 +218,8 @@ describe('sparring lists and score polling', () => {
     const endedAt = v.parse(UnixEpochMilliseconds, createdAt - 5 * 60 * 1_000)
 
     const app = sparring(selectedClient(), [], {
-      overrides: {
-        listLiveMatchRecords: async () => [
+      matches: {
+        listLive: async () => [
           {
             matchId,
             gameKey: 'free-pyramid',
@@ -227,7 +227,7 @@ describe('sparring lists and score polling', () => {
             createdAt,
             endedAt,
             participantRefs: { A: playerRefA, B: playerRefB },
-            participants,
+            participants: participantRecords,
             finalSourceLatestSeq: transfer.sourceLatestSeq,
             finalScore,
           },
@@ -246,22 +246,23 @@ describe('sparring lists and score polling', () => {
     const nextDayClock = new FixedClock(new Date('2023-11-15T22:30:00.000Z'), 'Europe/Kyiv')
 
     const app = sparring(selectedClient(), [], {
-      overrides: {
-        clock: nextDayClock,
-        hydrateParticipant: async () => {
+      overrides: { clock: nextDayClock },
+      players: {
+        readParticipant: async () => {
           throw new Error('List entries must use participants returned by the list read')
         },
-        findFinishedMatchTime: async (query) => {
+      },
+      matches: {
+        findFinishedTime: async (query) => {
           if ('before' in query && query.before === Number.MAX_SAFE_INTEGER) return createdAt
 
           return null
         },
-        listFinishedMatchRecords: async (range, locale) => {
+        listFinished: async (range) => {
           expect(range).toEqual({
             start: v.parse(UnixEpochMilliseconds, Date.parse('2023-11-14T22:00:00Z')),
             end: v.parse(UnixEpochMilliseconds, Date.parse('2023-11-15T22:00:00Z')),
           })
-          expect(locale).toBe('en')
 
           return [
             {
@@ -271,7 +272,7 @@ describe('sparring lists and score polling', () => {
               createdAt,
               endedAt: transfer.endedAt,
               participantRefs: { A: playerRefA, B: playerRefB },
-              participants,
+              participants: participantRecords,
               finalSourceLatestSeq: transfer.sourceLatestSeq,
               finalScore,
             },
@@ -312,13 +313,13 @@ describe('sparring lists and score polling', () => {
     const seeks: unknown[] = []
 
     const app = sparring(selectedClient(), [], {
-      overrides: {
-        listFinishedMatchRecords: async (range) => {
+      matches: {
+        listFinished: async (range) => {
           expect(range).toEqual({ start: before, end: from })
 
           return []
         },
-        findFinishedMatchTime: async (query) => {
+        findFinishedTime: async (query) => {
           seeks.push(query)
 
           return 'before' in query ? createdAt : newer
@@ -345,8 +346,8 @@ describe('sparring lists and score polling', () => {
     const finalScore = projectMatchScore(transfer.finalState)
 
     const app = sparring(selectedClient(), [], {
-      overrides: {
-        getMatchRecords: async (requested) =>
+      matches: {
+        readMatches: async (requested) =>
           requested.map((id) => ({
             matchId: id,
             gameKey: 'free-pyramid',

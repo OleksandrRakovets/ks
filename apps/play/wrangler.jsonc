@@ -13,8 +13,8 @@
       "binding": "DB",
       "database_name": "ks",
       "database_id": "00000000-0000-0000-0000-000000000000",
-      "migrations_dir": "../../d1/migrations",
-      "migrations_pattern": "../../d1/migrations/*/migration.sql",
+      "migrations_dir": "../../packages/application/d1/migrations",
+      "migrations_pattern": "../../packages/application/d1/migrations/*/migration.sql",
     },
   ],
 }

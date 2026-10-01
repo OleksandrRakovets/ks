@@ -1,38 +1,6 @@
-import {
-  correctionReferenceOf,
-  type MatchState,
-  type ProtocolEntries,
-  type ProtocolEntry,
-} from '@ks/competition'
-import { type BySeatNumber, type Clock, type MatchId, type Seat } from '@ks/core'
-import type { GameResult, StrilaBall } from '@ks/gameplay/definitions'
-
-export const PROTOCOL_ARCHIVE_VERSION = 1 as const
-
-export class UnsupportedProtocolArchiveVersionError extends Error {
-  constructor(matchId: MatchId, version: number) {
-    super(`Unsupported protocol archive version ${String(version)} for match ${matchId}`)
-    this.name = 'UnsupportedProtocolArchiveVersionError'
-  }
-}
-
-export class ProtocolArchiveCorruptionError extends Error {
-  constructor(matchId: MatchId) {
-    super(`Protocol archive storage corruption for match ${matchId}`)
-    this.name = 'ProtocolArchiveCorruptionError'
-  }
-}
-
-type ArchiveStateRecord = Readonly<{
-  sourceLatestSeq: number
-  state: Extract<MatchState, { status: 'finished' }>
-  gameResult: GameResult | null
-}>
-
-export type FinishedMatchArchiveRecord = ArchiveStateRecord & Readonly<{ entries?: never }>
-
-export type ProtocolArchiveRecord = ArchiveStateRecord &
-  Readonly<{ protocolVersion: typeof PROTOCOL_ARCHIVE_VERSION; entries: ProtocolEntries }>
+import { correctionReferenceOf, type ProtocolEntry } from '@ks/competition'
+import { type BySeatNumber, type Clock, type Seat } from '@ks/core'
+import type { StrilaBall } from '@ks/gameplay/definitions'
 
 type SeatNames = Readonly<{ A: string; B: string }>
 

@@ -5,5 +5,5 @@
     "noEmit": true,
     "types": ["bun-types", "@cloudflare/workers-types"]
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*", "d1/schema.ts", "d1/database.ts"]
 }

@@ -6,8 +6,10 @@ Run commands from the repository root.
 
 | Store                       | Schema                                  | Migrations               | Applied by               |
 | --------------------------- | --------------------------------------- | ------------------------ | ------------------------ |
-| D1 `ks`                     | `packages/application/src/d1/schema.ts` | `d1/migrations/`         | Wrangler                 |
+| D1 `ks`                     | `packages/application/d1/schema.ts` | `packages/application/d1/migrations/` | Wrangler                 |
 | MatchRoom per-object SQLite | `do/match-room/src/storage/schema.ts`   | `do/match-room/drizzle/` | Runtime Drizzle migrator |
+
+Application is D1's sole runtime owner. Its client setup, schema, configuration, migrations, and local seed live in `packages/application/d1`; runtime queries live in `packages/application/src/repositories`. Play supplies the binding and applies migrations through its Wrangler deployment configuration.
 
 These stores have independent lifecycles. MatchRoom SQLite contains Accepted Commands and outcomes, one immutable aggregate checkpoint per acceptance sequence, complete Protocol entries, the acceptance cursor, compact score projection, and lifecycle. Rich reads restore and project the checkpoint at the acceptance cursor; controls are request-local and are not persisted. D1 contains players and match rows and receives the unchanged final Protocol archive and projected Final Match State. Existing rooms without checkpoints require an explicit migration decision; do not reset or silently replay them.
 
@@ -45,10 +47,10 @@ Replace `--local` with `--remote` only intentionally. `wrangler d1 execute` is n
 
 ## Change D1 Schema
 
-1. Edit `packages/application/src/d1/schema.ts`.
+1. Edit `packages/application/d1/schema.ts`.
 2. Generate SQL: `bun run db:generate:d1 --name <short-name>`.
-3. Review the generated SQL and snapshot under `d1/migrations/`.
-4. Validate with `bunx drizzle-kit check --config d1/drizzle.config.ts`.
+3. Review the generated SQL and snapshot under `packages/application/d1/migrations/`.
+4. Validate with `bunx drizzle-kit check --config packages/application/d1/drizzle.config.ts`.
 5. Apply locally with `bun run db:migrate:local` and run `bun run check:full`.
 6. Apply remotely only as an explicit deployment operation:
 

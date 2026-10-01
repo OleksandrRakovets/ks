@@ -219,7 +219,8 @@ stale_d1="$(python3 - <<'PY'
 from pathlib import Path
 import sqlite3
 
-expected = {str(path.relative_to('d1/migrations')) for path in Path('d1/migrations').glob('*/migration.sql')}
+migrations = Path('packages/application/d1/migrations')
+expected = {str(path.relative_to(migrations)) for path in migrations.glob('*/migration.sql')}
 databases = Path('apps/play/.wrangler/state/v3/d1/miniflare-D1DatabaseObject').glob('*.sqlite')
 for path in databases:
     if path.name == 'metadata.sqlite':

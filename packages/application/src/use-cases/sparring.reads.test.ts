@@ -221,12 +221,14 @@ describe('sparring match and Protocol reads', () => {
         matchRoomClient: () => {
           throw new Error('Finished reads must not select MatchRoom')
         },
-        getFinishedMatchArchive: async () => {
+      },
+      matches: {
+        readFinishedArchive: async () => {
           events.push('finished-read')
 
           return { sourceLatestSeq: 2, state: transfer.finalState, gameResult: null }
         },
-        getProtocolArchive: async () => {
+        readProtocolArchive: async () => {
           events.push('protocol-read')
 
           return {

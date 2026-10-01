@@ -1,12 +1,10 @@
 import { type CreateMatchRequest, type MatchScoreProjection } from '@ks/competition'
 import {
   type Clock,
-  type HydratedMatchParticipant,
   type InstantPresentation,
   type MatchCommand,
   type MatchId,
   type NonNegativeInteger,
-  type PlayerRef,
   UnixEpochMilliseconds,
 } from '@ks/core'
 import { type GameKey, registry } from '@ks/gameplay/definitions'
@@ -16,7 +14,6 @@ import * as v from 'valibot'
 import type {
   CreateSparringMatchResult,
   FinishedMatchListPage,
-  HydratedMatchParticipants,
   LiveMatchListPage,
   MatchListDay,
   MatchListEntry,
@@ -30,38 +27,21 @@ import type {
 } from '../contracts/sparring'
 import { CreateSparringMatchInput, RECENT_FINISHED_MATCH_WINDOW_MS } from '../contracts/sparring'
 import { presentLastCommand } from '../control'
+import type { MatchRoomClient, MatchRoomInitializationInput } from '../match-room-client'
+import { presentParticipant, splitGuestDisplayName } from '../players'
+import { renderProtocolRows } from '../protocol'
 import type {
-  MatchRoomArchiveTransfer,
-  MatchRoomClient,
-  MatchRoomInitializationInput,
-} from '../match-room-client'
+  FinishedMatchArchiveRecord,
+  MatchListRecord,
+  MatchRecord,
+  ProtocolArchiveRecord,
+} from '../records'
+import type { PlayerRepository } from '../repositories/players'
 import {
-  type FinishedMatchArchiveRecord,
   ProtocolArchiveCorruptionError,
-  type ProtocolArchiveRecord,
-  renderProtocolRows,
   UnsupportedProtocolArchiveVersionError,
-} from '../protocol'
-
-type CatalogMatchStatus = 'creating' | 'active' | 'finished'
-
-type MatchRecordIdentity = {
-  matchId: MatchId
-  gameKey: GameKey
-  createdAt: UnixEpochMilliseconds
-  participantRefs: { A: PlayerRef; B: PlayerRef }
-}
-
-type MatchRecord =
-  | (MatchRecordIdentity & { status: Exclude<CatalogMatchStatus, 'finished'> })
-  | (MatchRecordIdentity & {
-      status: 'finished'
-      endedAt: UnixEpochMilliseconds
-      finalSourceLatestSeq: NonNegativeInteger
-      finalScore: MatchScoreProjection
-    })
-
-type MatchListRecord = MatchRecord & { participants: HydratedMatchParticipants }
+} from '../repositories/protocol-archive'
+import type { SparringMatchRepository } from '../repositories/sparring-matches'
 
 type MatchListScore =
   | {
@@ -81,36 +61,8 @@ type SparringApplicationDependencies = {
   clock: Clock
   newMatchId(): MatchId
   newControlSecret(): string
-  getOrCreateGuestPlayerRef(displayName: string): Promise<PlayerRef>
-  hydrateParticipant(playerRef: PlayerRef, locale: SupportedLocale): Promise<HydratedMatchParticipant>
-  listLiveMatchRecords(
-    finishedSince: UnixEpochMilliseconds,
-    locale: SupportedLocale,
-  ): Promise<MatchListRecord[]>
-  listFinishedMatchRecords(
-    range: {
-      readonly start: UnixEpochMilliseconds
-      readonly end: UnixEpochMilliseconds
-    },
-    locale: SupportedLocale,
-  ): Promise<MatchListRecord[]>
-  findFinishedMatchTime(
-    input: { readonly before: UnixEpochMilliseconds } | { readonly from: UnixEpochMilliseconds },
-  ): Promise<UnixEpochMilliseconds | null>
-  getMatchRecord(matchId: MatchId): Promise<MatchRecord | null>
-  getMatchRecords(matchIds: readonly MatchId[]): Promise<MatchRecord[]>
-  getFinishedMatchArchive(matchId: MatchId): Promise<FinishedMatchArchiveRecord | null>
-  getProtocolArchive(matchId: MatchId): Promise<ProtocolArchiveRecord | null>
-  beginMatchCreation(input: {
-    matchId: MatchId
-    gameKey: GameKey
-    seatAPlayerRef: PlayerRef
-    seatBPlayerRef: PlayerRef
-    createdAt: UnixEpochMilliseconds
-  }): Promise<void>
-  activateMatch(matchId: MatchId): Promise<void>
-  archiveFinishedMatch(input: MatchRoomArchiveTransfer): Promise<void>
-  markMatchFinished(input: MatchRoomArchiveTransfer): Promise<void>
+  players: Pick<PlayerRepository, keyof PlayerRepository>
+  matches: Pick<SparringMatchRepository, keyof SparringMatchRepository>
   matchRoomClient(matchId: MatchId): MatchRoomClient
 }
 
@@ -147,8 +99,8 @@ class SparringApplicationService implements SparringApplication {
     const { playerNames, ...requestInput } = parsed.output
 
     const [seatAPlayerRef, seatBPlayerRef] = await Promise.all([
-      this.#dependencies.getOrCreateGuestPlayerRef(playerNames.A),
-      this.#dependencies.getOrCreateGuestPlayerRef(playerNames.B),
+      this.#dependencies.players.ensureGuestRef(splitGuestDisplayName(playerNames.A)),
+      this.#dependencies.players.ensureGuestRef(splitGuestDisplayName(playerNames.B)),
     ])
 
     const participants: CreateMatchRequest['participants'] = [
@@ -164,18 +116,17 @@ class SparringApplicationService implements SparringApplication {
       createdAt,
     }
 
-    await this.#dependencies.beginMatchCreation({
+    await this.#dependencies.matches.beginCreation({
       matchId,
       gameKey: request.gameKey,
-      seatAPlayerRef,
-      seatBPlayerRef,
+      participantRefs: { A: seatAPlayerRef, B: seatBPlayerRef },
       createdAt,
     })
     const result = await this.#dependencies.matchRoomClient(matchId).initialize(request)
 
     if (result._tag === 'initialization-conflict')
       return { ok: false, error: 'Match already exists', status: 409 }
-    await this.#dependencies.activateMatch(matchId)
+    await this.#dependencies.matches.activate(matchId)
 
     return { ok: true, matchId }
   }
@@ -184,9 +135,8 @@ class SparringApplicationService implements SparringApplication {
     const now = this.#dependencies.clock.nowMs()
     const formattedNow = this.#dependencies.clock.instantPresentation(now)
 
-    const records = await this.#dependencies.listLiveMatchRecords(
+    const records = await this.#dependencies.matches.listLive(
       v.parse(UnixEpochMilliseconds, Math.max(0, now - RECENT_FINISHED_MATCH_WINDOW_MS)),
-      locale,
     )
 
     const matches = await this.#projectListEntries(records, locale, formattedNow, (formattedCreatedAt) =>
@@ -218,7 +168,7 @@ class SparringApplicationService implements SparringApplication {
 
     const latest =
       requestedDay === undefined
-        ? await this.#dependencies.findFinishedMatchTime({
+        ? await this.#dependencies.matches.findFinishedTime({
             before: v.parse(UnixEpochMilliseconds, Number.MAX_SAFE_INTEGER),
           })
         : null
@@ -229,7 +179,7 @@ class SparringApplicationService implements SparringApplication {
       return { scope: 'finished', matches: [], day: null, previousDay: null, nextDay: null, isToday: false }
 
     const range = this.#dependencies.clock.dayRange(day)
-    const records = await this.#dependencies.listFinishedMatchRecords(range, locale)
+    const records = await this.#dependencies.matches.listFinished(range)
 
     const matches = await this.#projectListEntries(
       records,
@@ -239,8 +189,8 @@ class SparringApplicationService implements SparringApplication {
     )
 
     const [previous, next] = await Promise.all([
-      this.#dependencies.findFinishedMatchTime({ before: range.start }),
-      this.#dependencies.findFinishedMatchTime({ from: range.end }),
+      this.#dependencies.matches.findFinishedTime({ before: range.start }),
+      this.#dependencies.matches.findFinishedTime({ from: range.end }),
     ])
 
     return {
@@ -258,7 +208,7 @@ class SparringApplicationService implements SparringApplication {
       throw new Error('Match score batch must contain unique Matches')
 
     const recordsById = new Map(
-      (await this.#dependencies.getMatchRecords(matchIds)).map((record) => [record.matchId, record]),
+      (await this.#dependencies.matches.readMatches(matchIds)).map((record) => [record.matchId, record]),
     )
 
     const records: MatchRecord[] = []
@@ -296,7 +246,7 @@ class SparringApplicationService implements SparringApplication {
     command: MatchCommand,
     expectedGameKey: GameKey,
   ): Promise<SubmitMatchCommandResult> {
-    const record = await this.#dependencies.getMatchRecord(matchId)
+    const record = await this.#dependencies.matches.readMatch(matchId)
 
     if (!record || record.gameKey !== expectedGameKey)
       return { ok: false, error: 'Unknown match', status: 404 }
@@ -338,7 +288,7 @@ class SparringApplicationService implements SparringApplication {
   }
 
   async admitMatchLive(matchId: MatchId): ReturnType<SparringApplication['admitMatchLive']> {
-    const record = await this.#dependencies.getMatchRecord(matchId)
+    const record = await this.#dependencies.matches.readMatch(matchId)
 
     if (!record) return { _tag: 'unknown' }
 
@@ -370,7 +320,10 @@ class SparringApplicationService implements SparringApplication {
           createdAtLabel: label(formattedCreatedAt),
           createdAtDate: formattedCreatedAt.date,
           createdAtIsToday: isSameLocalDate(formattedCreatedAt, formattedNow),
-          participants: record.participants,
+          participants: {
+            A: presentParticipant(record.participants.A, locale),
+            B: presentParticipant(record.participants.B, locale),
+          },
           ...score,
           hasCustomFrameTarget: hasCustomFrameTarget(record.gameKey, score.score.frameTargetPointsBySeat),
         }
@@ -404,7 +357,7 @@ class SparringApplicationService implements SparringApplication {
     expectedGameKey: GameKey,
     view: 'match' | 'protocol',
   ): Promise<ReadMatchResult<GameKey> | ReadMatchProtocolResult<GameKey>> {
-    const record = await this.#dependencies.getMatchRecord(matchId)
+    const record = await this.#dependencies.matches.readMatch(matchId)
 
     if (!record || record.gameKey !== expectedGameKey)
       return { ok: false, error: 'Unknown match', status: 404 }
@@ -459,9 +412,9 @@ class SparringApplicationService implements SparringApplication {
     try {
       const transfer = await this.#dependencies.matchRoomClient(matchId).prepareArchive()
       stage = 'archive-in-d1'
-      await this.#dependencies.archiveFinishedMatch(transfer)
+      await this.#dependencies.matches.archiveFinished(transfer)
       stage = 'mark-d1-finished'
-      await this.#dependencies.markMatchFinished(transfer)
+      await this.#dependencies.matches.markFinished(transfer)
     } catch (error) {
       console.error({ event: 'match-archive.failed', matchId, stage, error })
       throw error
@@ -493,8 +446,14 @@ class SparringApplicationService implements SparringApplication {
 
   async #hydrateParticipants(record: MatchRecord, locale: SupportedLocale) {
     return {
-      A: await this.#dependencies.hydrateParticipant(record.participantRefs.A, locale),
-      B: await this.#dependencies.hydrateParticipant(record.participantRefs.B, locale),
+      A: presentParticipant(
+        await this.#dependencies.players.readParticipant(record.participantRefs.A),
+        locale,
+      ),
+      B: presentParticipant(
+        await this.#dependencies.players.readParticipant(record.participantRefs.B),
+        locale,
+      ),
     }
   }
 
@@ -537,8 +496,8 @@ class SparringApplicationService implements SparringApplication {
     try {
       archive =
         view === 'protocol'
-          ? await this.#dependencies.getProtocolArchive(record.matchId)
-          : await this.#dependencies.getFinishedMatchArchive(record.matchId)
+          ? await this.#dependencies.matches.readProtocolArchive(record.matchId)
+          : await this.#dependencies.matches.readFinishedArchive(record.matchId)
     } catch (error) {
       const failure = error instanceof Error ? archiveReadFailure(error) : null
 

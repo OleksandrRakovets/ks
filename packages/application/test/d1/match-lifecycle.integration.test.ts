@@ -6,6 +6,7 @@ import {
   ProtocolEntry,
 } from '@ks/competition'
 import {
+  FixedClock,
   GuestPlayerId,
   type MatchCommand,
   MatchId,
@@ -20,26 +21,14 @@ import { env } from 'cloudflare:workers'
 import * as v from 'valibot'
 import { beforeEach, describe, expect, test } from 'vitest'
 
-import { guestPlayers, sparringMatches, verifiedPlayers } from '../../src/d1/schema'
-import {
-  archiveFinishedMatch,
-  markMatchFinished,
-  MatchFinalizationError,
-} from '../../src/d1/sparring/finished-matches'
-import { getFinishedMatchArchive, getProtocolArchive } from '../../src/d1/sparring/match-archives'
-import {
-  activateMatch,
-  type ActiveMatchCatalogInput,
-  beginMatchCreation,
-} from '../../src/d1/sparring/match-lifecycle'
-import {
-  findFinishedMatchTime,
-  getMatchRow,
-  listFinishedMatchRows,
-  listLiveMatchRows,
-} from '../../src/d1/sparring/matches'
-import { createApplicationDatabaseClient } from '../../src/d1/types'
+import { createApplicationDatabaseClient } from '../../d1/database'
+import { guestPlayers, sparringMatches, verifiedPlayers } from '../../d1/schema'
+import { createApplication } from '../../src/factory'
 import type { MatchRoomArchiveTransfer } from '../../src/match-room-client'
+import type { MatchCreationRecord } from '../../src/records'
+import { PlayerRepository } from '../../src/repositories/players'
+import { MatchFinalizationError } from '../../src/repositories/protocol-archive'
+import { SparringMatchRepository } from '../../src/repositories/sparring-matches'
 
 const matchId = v.parse(MatchId, '01ARZ3NDEKTSV4RRFFQ69G5FAV')
 
@@ -65,8 +54,13 @@ const createRequest = v.parse(CreateMatchRequest, {
   ],
 })
 
-function catalogInput(id = matchId, timestamp = createdAt): ActiveMatchCatalogInput {
-  return { matchId: id, gameKey: 'free-pyramid', seatAPlayerRef, seatBPlayerRef, createdAt: timestamp }
+function catalogInput(id = matchId, timestamp = createdAt): MatchCreationRecord {
+  return {
+    matchId: id,
+    gameKey: 'free-pyramid',
+    participantRefs: { A: seatAPlayerRef, B: seatBPlayerRef },
+    createdAt: timestamp,
+  }
 }
 
 function finishedMatchTransfer(
@@ -130,53 +124,82 @@ beforeEach(async () => {
 })
 
 describe('real D1 match lifecycle', () => {
+  test('creates and reuses guest players through the repository', async () => {
+    const players = new PlayerRepository(
+      createApplicationDatabaseClient(env.DB),
+      new FixedClock(new Date(createdAt), 'Europe/Kyiv'),
+    )
+
+    const name = { firstName: 'Alice', lastName: 'Alpha' }
+    const playerRef = await players.ensureGuestRef(name)
+    expect(await players.ensureGuestRef(name)).toBe(playerRef)
+    expect(await players.readParticipant(playerRef)).toEqual({
+      playerRef,
+      names: { uk: name, en: name },
+    })
+    expect(await env.DB.prepare('SELECT created_at FROM guest_players').all()).toMatchObject({
+      results: [{ created_at: createdAt }],
+    })
+  })
+
   test('creates, lists, archives, and finishes a match idempotently', async () => {
-    const db = createApplicationDatabaseClient(env.DB)
+    const matches = new SparringMatchRepository(createApplicationDatabaseClient(env.DB))
     const input = catalogInput()
-    await beginMatchCreation(db, input)
-    await beginMatchCreation(db, input)
-    await expect(beginMatchCreation(db, { ...input, gameKey: 'combined-pyramid' })).rejects.toThrow(
+    await matches.beginCreation(input)
+    await matches.beginCreation(input)
+    await expect(matches.beginCreation({ ...input, gameKey: 'combined-pyramid' })).rejects.toThrow(
       'Match row conflicts with room creation',
     )
-    await activateMatch(db, matchId)
+    await matches.activate(matchId)
 
     const otherCreatedAt = v.parse(UnixEpochMilliseconds, 3_000)
-    await beginMatchCreation(db, catalogInput(otherMatchId, otherCreatedAt))
-    await activateMatch(db, otherMatchId)
+    await matches.beginCreation(catalogInput(otherMatchId, otherCreatedAt))
+    await matches.activate(otherMatchId)
     const otherArchive = finishedMatchTransfer(otherMatchId, otherCreatedAt)
-    await archiveFinishedMatch(db, otherArchive)
-    await markMatchFinished(db, otherArchive)
-    await beginMatchCreation(db, catalogInput(newestMatchId, v.parse(UnixEpochMilliseconds, 4_000)))
-    await activateMatch(db, newestMatchId)
-    await beginMatchCreation(db, catalogInput(creatingMatchId, v.parse(UnixEpochMilliseconds, 5_000)))
+    await matches.archiveFinished(otherArchive)
+    await matches.markFinished(otherArchive)
+    await matches.beginCreation(catalogInput(newestMatchId, v.parse(UnixEpochMilliseconds, 4_000)))
+    await matches.activate(newestMatchId)
+    await matches.beginCreation(catalogInput(creatingMatchId, v.parse(UnixEpochMilliseconds, 5_000)))
 
-    expect(await getMatchRow(db, matchId)).toMatchObject({ matchId, status: 'active' })
+    const record = await matches.readMatch(matchId)
+    expect(record).toEqual({
+      matchId,
+      gameKey: 'free-pyramid',
+      status: 'active',
+      createdAt,
+      participantRefs: { A: seatAPlayerRef, B: seatBPlayerRef },
+    })
+    expect(await matches.readMatches([matchId])).toEqual([record])
+    expect(await matches.readMatches([])).toEqual([])
 
-    expect(
-      (await listLiveMatchRows(db, v.parse(UnixEpochMilliseconds, 0), 'en')).map((row) => row.matchId),
-    ).toEqual([newestMatchId, matchId, otherMatchId])
+    expect((await matches.listLive(v.parse(UnixEpochMilliseconds, 0))).map((row) => row.matchId)).toEqual([
+      newestMatchId,
+      matchId,
+      otherMatchId,
+    ])
 
     const archive = {
       ...finishedMatchTransfer(),
       endedAt: v.parse(UnixEpochMilliseconds, 4_500),
     }
 
-    await archiveFinishedMatch(db, archive)
-    expect(await getMatchRow(db, matchId)).toMatchObject({ status: 'active' })
-    expect(await getProtocolArchive(db, matchId)).toMatchObject({
+    await matches.archiveFinished(archive)
+    expect(await matches.readMatch(matchId)).toMatchObject({ status: 'active' })
+    expect(await matches.readProtocolArchive(matchId)).toMatchObject({
       sourceLatestSeq: archive.sourceLatestSeq,
       protocolVersion: 1,
       state: archive.finalState,
     })
-    await archiveFinishedMatch(db, archive)
+    await matches.archiveFinished(archive)
     await expect(
-      archiveFinishedMatch(db, { ...archive, sourceLatestSeq: archive.sourceLatestSeq + 1 }),
+      matches.archiveFinished({ ...archive, sourceLatestSeq: archive.sourceLatestSeq + 1 }),
     ).rejects.toThrow(MatchFinalizationError)
-    expect(await getMatchRow(db, matchId)).toMatchObject({ status: 'active' })
+    expect(await matches.readMatch(matchId)).toMatchObject({ status: 'active' })
 
-    await markMatchFinished(db, archive)
-    await markMatchFinished(db, archive)
-    expect(await getMatchRow(db, matchId)).toMatchObject({
+    await matches.markFinished(archive)
+    await matches.markFinished(archive)
+    expect(await matches.readMatch(matchId)).toMatchObject({
       status: 'finished',
       finalSourceLatestSeq: archive.sourceLatestSeq,
       finalScore: {
@@ -193,30 +216,46 @@ describe('real D1 match lifecycle', () => {
     ).toBe(archive.endedAt)
     expect(
       (
-        await listFinishedMatchRows(
-          db,
-          {
-            start: createdAt,
-            end: v.parse(UnixEpochMilliseconds, 4_000),
-          },
-          'en',
-        )
+        await matches.listFinished({
+          start: createdAt,
+          end: v.parse(UnixEpochMilliseconds, 4_000),
+        })
       ).map((row) => row.matchId),
     ).toEqual([otherMatchId, matchId])
-    expect(await findFinishedMatchTime(db, { before: v.parse(UnixEpochMilliseconds, 3_000) })).toBe(createdAt)
-    expect(await findFinishedMatchTime(db, { from: v.parse(UnixEpochMilliseconds, 2_000) })).toBe(3_000)
-    expect(
-      (await listLiveMatchRows(db, v.parse(UnixEpochMilliseconds, 3_000), 'en')).map((row) => row.matchId),
-    ).toEqual([newestMatchId, matchId, otherMatchId])
+    expect(await matches.findFinishedTime({ before: v.parse(UnixEpochMilliseconds, 3_000) })).toBe(createdAt)
+    expect(await matches.findFinishedTime({ from: v.parse(UnixEpochMilliseconds, 2_000) })).toBe(3_000)
+    expect((await matches.listLive(v.parse(UnixEpochMilliseconds, 3_000))).map((row) => row.matchId)).toEqual([
+      newestMatchId,
+      matchId,
+      otherMatchId,
+    ])
+
+    const application = createApplication(
+      {
+        DB: env.DB,
+        MATCH_ROOM: {
+          getByName: () => {
+            throw new Error('Finished reads must not select MatchRoom')
+          },
+        },
+      },
+      new FixedClock(new Date(createdAt), 'Europe/Kyiv'),
+    )
+
+    expect(await application.sparring.readMatch(matchId, 'en', 'free-pyramid')).toMatchObject({
+      ok: true,
+      lifecycle: 'finished',
+      state: archive.finalState,
+    })
   })
 
   test('rejects unmigrated archives and scores instead of inferring winners on reads or retries', async () => {
-    const db = createApplicationDatabaseClient(env.DB)
-    await beginMatchCreation(db, catalogInput())
-    await activateMatch(db, matchId)
+    const matches = new SparringMatchRepository(createApplicationDatabaseClient(env.DB))
+    await matches.beginCreation(catalogInput())
+    await matches.activate(matchId)
     const archive = finishedMatchTransfer()
-    await archiveFinishedMatch(db, archive)
-    await markMatchFinished(db, archive)
+    await matches.archiveFinished(archive)
+    await matches.markFinished(archive)
     const legacyStateJson = JSON.stringify({ ...archive.finalState, winnerSeat: undefined })
     const legacyScoreJson = JSON.stringify({ ...projectMatchScore(archive.finalState), winnerSeat: undefined })
     await env.DB.prepare('UPDATE sparring_match_archives SET state_json = ? WHERE match_id = ?')
@@ -226,12 +265,12 @@ describe('real D1 match lifecycle', () => {
       .bind(legacyScoreJson, matchId)
       .run()
 
-    await expect(getFinishedMatchArchive(db, matchId)).rejects.toThrow('Protocol archive storage corruption')
-    await expect(getProtocolArchive(db, matchId)).rejects.toThrow('Protocol archive storage corruption')
-    await expect(getMatchRow(db, matchId)).rejects.toThrow()
-    await expect(listFinishedMatchRows(db, { start: createdAt, end: archive.endedAt }, 'en')).rejects.toThrow()
-    await expect(archiveFinishedMatch(db, archive)).rejects.toThrow(MatchFinalizationError)
-    await expect(markMatchFinished(db, archive)).rejects.toThrow(MatchFinalizationError)
+    await expect(matches.readFinishedArchive(matchId)).rejects.toThrow('Protocol archive storage corruption')
+    await expect(matches.readProtocolArchive(matchId)).rejects.toThrow('Protocol archive storage corruption')
+    await expect(matches.readMatch(matchId)).rejects.toThrow()
+    await expect(matches.listFinished({ start: createdAt, end: archive.endedAt })).rejects.toThrow()
+    await expect(matches.archiveFinished(archive)).rejects.toThrow(MatchFinalizationError)
+    await expect(matches.markFinished(archive)).rejects.toThrow(MatchFinalizationError)
     expect(
       (
         await env.DB.prepare('SELECT state_json FROM sparring_match_archives WHERE match_id = ?')
@@ -242,9 +281,9 @@ describe('real D1 match lifecycle', () => {
   })
 
   test('persists an explicit winner independent of frame scores and rejects a changed winner on retry', async () => {
-    const db = createApplicationDatabaseClient(env.DB)
-    await beginMatchCreation(db, catalogInput())
-    await activateMatch(db, matchId)
+    const matches = new SparringMatchRepository(createApplicationDatabaseClient(env.DB))
+    await matches.beginCreation(catalogInput())
+    await matches.activate(matchId)
     const base = finishedMatchTransfer()
 
     const archive = {
@@ -252,18 +291,19 @@ describe('real D1 match lifecycle', () => {
       finalState: { ...base.finalState, status: 'finished' as const, winnerSeat: 'B' as const },
     }
 
-    await archiveFinishedMatch(db, archive)
-    await markMatchFinished(db, archive)
-    expect(await getFinishedMatchArchive(db, matchId)).toMatchObject({
+    await matches.archiveFinished(archive)
+    await matches.markFinished(archive)
+    expect(await matches.readFinishedArchive(matchId)).toMatchObject({
       state: { winnerSeat: 'B', framesWonBySeat: { A: 1, B: 0 } },
     })
-    expect(await getMatchRow(db, matchId)).toMatchObject({ finalScore: { winnerSeat: 'B' } })
-    await expect(archiveFinishedMatch(db, base)).rejects.toThrow(MatchFinalizationError)
-    await expect(markMatchFinished(db, base)).rejects.toThrow(MatchFinalizationError)
+    expect(await matches.readMatch(matchId)).toMatchObject({ finalScore: { winnerSeat: 'B' } })
+    await expect(matches.archiveFinished(base)).rejects.toThrow(MatchFinalizationError)
+    await expect(matches.markFinished(base)).rejects.toThrow(MatchFinalizationError)
   })
 
   test('lists a crowded finished-match day with localized guest and verified names and missing-player fallback', async () => {
     const db = createApplicationDatabaseClient(env.DB)
+    const matches = new SparringMatchRepository(db)
     const verifiedRef = v.parse(PlayerRef, 'vp_01HX0000000000000000000002')
     const missingRef = v.parse(PlayerRef, 'gp_01HX0000000000000000000003')
 
@@ -301,8 +341,23 @@ describe('real D1 match lifecycle', () => {
     for (const row of rows) await db.insert(sparringMatches).values(row)
 
     const range = { start: createdAt, end: v.parse(UnixEpochMilliseconds, createdAt + 26) }
-    const uk = await listFinishedMatchRows(db, range, 'uk')
-    const en = await listFinishedMatchRows(db, range, 'en')
+    const records = await matches.listFinished(range)
+    expect(records.map((row) => row.matchId)).toEqual(rows.map((row) => row.matchId).reverse())
+
+    const application = createApplication(
+      {
+        DB: env.DB,
+        MATCH_ROOM: {
+          getByName: () => {
+            throw new Error('Finished lists must not select MatchRoom')
+          },
+        },
+      },
+      new FixedClock(new Date(createdAt), 'Europe/Kyiv'),
+    )
+
+    const uk = (await application.sparring.listFinishedMatches('uk', '1970-01-01')).matches
+    const en = (await application.sparring.listFinishedMatches('en', '1970-01-01')).matches
 
     expect(uk.map((row) => row.matchId)).toEqual(rows.map((row) => row.matchId).reverse())
     expect(uk[0]?.participants).toEqual({
@@ -323,23 +378,26 @@ describe('real D1 match lifecycle', () => {
       shortDisplayName: 'V. Verified',
     })
     expect(en[0]?.participants.B).toMatchObject({ displayName: 'Gina Guest', shortDisplayName: 'G. Guest' })
-    expect(
-      (await listLiveMatchRows(db, v.parse(UnixEpochMilliseconds, 0), 'en')).map((row) => row.matchId),
-    ).toEqual(rows.map((row) => row.matchId).reverse())
+    const players = new PlayerRepository(db, new FixedClock(new Date(createdAt), 'Europe/Kyiv'))
+    expect(await players.readParticipant(verifiedRef)).toEqual(records[0]?.participants.A)
+    expect(await players.readParticipant(missingRef)).toEqual(records[25]?.participants.B)
+    expect((await matches.listLive(v.parse(UnixEpochMilliseconds, 0))).map((row) => row.matchId)).toEqual(
+      rows.map((row) => row.matchId).reverse(),
+    )
   })
 
   test('rejects conflicting persisted archive data without changing the active match row', async () => {
-    const db = createApplicationDatabaseClient(env.DB)
-    await beginMatchCreation(db, catalogInput())
-    await activateMatch(db, matchId)
+    const matches = new SparringMatchRepository(createApplicationDatabaseClient(env.DB))
+    await matches.beginCreation(catalogInput())
+    await matches.activate(matchId)
     const archive = finishedMatchTransfer()
     await env.DB.prepare(
       'INSERT INTO sparring_match_archives (match_id, source_latest_seq, protocol_version, rows_json, state_json, created_at) VALUES (?, ?, ?, ?, ?, ?)',
     )
       .bind(matchId, archive.sourceLatestSeq, 1, '[]', '{}', archive.endedAt)
       .run()
-    await expect(archiveFinishedMatch(db, archive)).rejects.toThrow(MatchFinalizationError)
-    expect(await getMatchRow(db, matchId)).toMatchObject({ status: 'active' })
+    await expect(matches.archiveFinished(archive)).rejects.toThrow(MatchFinalizationError)
+    expect(await matches.readMatch(matchId)).toMatchObject({ status: 'active' })
     expect(
       (
         await env.DB.prepare('SELECT state_json FROM sparring_match_archives WHERE match_id = ?')
@@ -350,18 +408,18 @@ describe('real D1 match lifecycle', () => {
   })
 
   test('rejects finishing a matching archive when the match row has a conflicting endedAt', async () => {
-    const db = createApplicationDatabaseClient(env.DB)
-    await beginMatchCreation(db, catalogInput())
-    await activateMatch(db, matchId)
+    const matches = new SparringMatchRepository(createApplicationDatabaseClient(env.DB))
+    await matches.beginCreation(catalogInput())
+    await matches.activate(matchId)
     const archive = finishedMatchTransfer()
-    await archiveFinishedMatch(db, archive)
+    await matches.archiveFinished(archive)
     const conflictingEndedAt = archive.endedAt + 1
     await env.DB.prepare('UPDATE sparring_matches SET ended_at = ? WHERE match_id = ?')
       .bind(conflictingEndedAt, matchId)
       .run()
 
-    await expect(markMatchFinished(db, archive)).rejects.toThrow(MatchFinalizationError)
-    expect(await getMatchRow(db, matchId)).toMatchObject({ status: 'active' })
+    await expect(matches.markFinished(archive)).rejects.toThrow(MatchFinalizationError)
+    expect(await matches.readMatch(matchId)).toMatchObject({ status: 'active' })
     expect(
       (await env.DB.prepare('SELECT ended_at FROM sparring_matches WHERE match_id = ?').bind(matchId).first())
         ?.ended_at,
@@ -369,9 +427,9 @@ describe('real D1 match lifecycle', () => {
   })
 
   test('concurrent conflicting archive attempts converge on one immutable archive', async () => {
-    const db = createApplicationDatabaseClient(env.DB)
-    await beginMatchCreation(db, catalogInput())
-    await activateMatch(db, matchId)
+    const matches = new SparringMatchRepository(createApplicationDatabaseClient(env.DB))
+    await matches.beginCreation(catalogInput())
+    await matches.activate(matchId)
     const first = finishedMatchTransfer()
     const conflictingTimestamp = v.parse(UnixEpochMilliseconds, first.endedAt + 1)
 
@@ -388,12 +446,12 @@ describe('real D1 match lifecycle', () => {
     ]
 
     const results = await Promise.allSettled(
-      candidates.map(async (candidate) => archiveFinishedMatch(db, candidate)),
+      candidates.map(async (candidate) => matches.archiveFinished(candidate)),
     )
 
     expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1)
     expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1)
-    expect(await getMatchRow(db, matchId)).toMatchObject({ status: 'active' })
+    expect(await matches.readMatch(matchId)).toMatchObject({ status: 'active' })
     expect(
       candidates.map((candidate) => ({
         sourceLatestSeq: candidate.sourceLatestSeq,
@@ -402,13 +460,13 @@ describe('real D1 match lifecycle', () => {
         state: candidate.finalState,
         gameResult: candidate.gameResult,
       })),
-    ).toContainEqual(await getProtocolArchive(db, matchId))
+    ).toContainEqual(await matches.readProtocolArchive(matchId))
   })
 
   test('reads the long-game result without loading Protocol rows and rejects a changed archive retry', async () => {
-    const db = createApplicationDatabaseClient(env.DB)
-    await beginMatchCreation(db, { ...catalogInput(), gameKey: 'free-pyramid-long' })
-    await activateMatch(db, matchId)
+    const matches = new SparringMatchRepository(createApplicationDatabaseClient(env.DB))
+    await matches.beginCreation({ ...catalogInput(), gameKey: 'free-pyramid-long' })
+    await matches.activate(matchId)
     const base = finishedMatchTransfer()
 
     const archive = {
@@ -421,10 +479,10 @@ describe('real D1 match lifecycle', () => {
       },
     }
 
-    await archiveFinishedMatch(db, archive)
-    await archiveFinishedMatch(db, archive)
+    await matches.archiveFinished(archive)
+    await matches.archiveFinished(archive)
     await expect(
-      archiveFinishedMatch(db, {
+      matches.archiveFinished({
         ...archive,
         gameResult: { ...archive.gameResult, racks: [{ rackNumber: 1, scoreBySeat: { A: 1, B: 1 } }] },
       }),
@@ -434,27 +492,27 @@ describe('real D1 match lifecycle', () => {
       .bind('[', matchId)
       .run()
 
-    expect(await getFinishedMatchArchive(db, matchId)).toMatchObject({
+    expect(await matches.readFinishedArchive(matchId)).toMatchObject({
       state: archive.finalState,
       gameResult: archive.gameResult,
     })
-    await expect(getProtocolArchive(db, matchId)).rejects.toThrow('Protocol archive storage corruption')
+    await expect(matches.readProtocolArchive(matchId)).rejects.toThrow('Protocol archive storage corruption')
   })
 
   test.each([
     ['malformed JSON', '[', '{}', 1, `Protocol archive storage corruption for match ${matchId}`],
     ['unsupported version', '[]', '{}', 2, `Unsupported protocol archive version 2 for match ${matchId}`],
   ])('reports %s in a persisted archive', async (_label, rowsJson, stateJson, version, message) => {
-    const db = createApplicationDatabaseClient(env.DB)
+    const matches = new SparringMatchRepository(createApplicationDatabaseClient(env.DB))
     await seedArchive(rowsJson, stateJson, version)
-    await expect(getProtocolArchive(db, matchId)).rejects.toThrow(message)
+    await expect(matches.readProtocolArchive(matchId)).rejects.toThrow(message)
   })
 
   test('rejects a persisted zero source sequence', async () => {
-    const db = createApplicationDatabaseClient(env.DB)
+    const matches = new SparringMatchRepository(createApplicationDatabaseClient(env.DB))
     const state = finishedMatchTransfer().finalState
     await seedArchive('[]', JSON.stringify(state), 1, 0)
-    await expect(getProtocolArchive(db, matchId)).rejects.toThrow(
+    await expect(matches.readProtocolArchive(matchId)).rejects.toThrow(
       `Protocol archive storage corruption for match ${matchId}`,
     )
   })
@@ -477,7 +535,7 @@ describe('D1 match-winner backfill', () => {
   ] as const)(
     'backfills winner %s despite a point-leading conceder',
     async (winnerSeat, concedingSeat, points, frames) => {
-      const db = createApplicationDatabaseClient(env.DB)
+      const matches = new SparringMatchRepository(createApplicationDatabaseClient(env.DB))
       const archive = finishedMatchTransfer(matchId, createdAt, concedingSeat)
       await seedLegacyFinishedMatch(archive)
       await applyD1Migrations(env.DB, env.TEST_MIGRATIONS)
@@ -491,13 +549,13 @@ describe('D1 match-winner backfill', () => {
         activeFrame: null,
       }
 
-      expect(await getFinishedMatchArchive(db, matchId)).toMatchObject({ state: archive.finalState })
-      expect(await getProtocolArchive(db, matchId)).toMatchObject({
+      expect(await matches.readFinishedArchive(matchId)).toMatchObject({ state: archive.finalState })
+      expect(await matches.readProtocolArchive(matchId)).toMatchObject({
         state: { winnerSeat },
         entries: JSON.parse(JSON.stringify(archive.protocolEntries)),
       })
-      expect(await getMatchRow(db, matchId)).toMatchObject({ finalScore: expectedScore })
-      expect(await listFinishedMatchRows(db, { start: createdAt, end: archive.endedAt }, 'en')).toMatchObject([
+      expect(await matches.readMatch(matchId)).toMatchObject({ finalScore: expectedScore })
+      expect(await matches.listFinished({ start: createdAt, end: archive.endedAt })).toMatchObject([
         { finalScore: expectedScore },
       ])
       expect(
@@ -505,15 +563,15 @@ describe('D1 match-winner backfill', () => {
           .bind(matchId)
           .first('final_score_json'),
       ).toBe(JSON.stringify(expectedScore))
-      await archiveFinishedMatch(db, archive)
-      await markMatchFinished(db, archive)
+      await matches.archiveFinished(archive)
+      await matches.markFinished(archive)
       await applyD1Migrations(env.DB, env.TEST_MIGRATIONS)
-      expect(await getMatchRow(db, matchId)).toMatchObject({ finalScore: expectedScore })
+      expect(await matches.readMatch(matchId)).toMatchObject({ finalScore: expectedScore })
     },
   )
 
   test('preserves an explicit winner and rebuilds multi-frame scores without single-frame points', async () => {
-    const db = createApplicationDatabaseClient(env.DB)
+    const matches = new SparringMatchRepository(createApplicationDatabaseClient(env.DB))
     const base = finishedMatchTransfer()
 
     const archive = {
@@ -527,10 +585,10 @@ describe('D1 match-winner backfill', () => {
       },
     }
 
-    await beginMatchCreation(db, catalogInput())
-    await activateMatch(db, matchId)
-    await archiveFinishedMatch(db, archive)
-    await markMatchFinished(db, archive)
+    await matches.beginCreation(catalogInput())
+    await matches.activate(matchId)
+    await matches.archiveFinished(archive)
+    await matches.markFinished(archive)
     const originalStateJson = JSON.stringify(archive.finalState)
     await applyD1Migrations(env.DB, env.TEST_MIGRATIONS)
     expect(
@@ -538,7 +596,7 @@ describe('D1 match-winner backfill', () => {
         .bind(matchId)
         .first('state_json'),
     ).toBe(originalStateJson)
-    expect(await getMatchRow(db, matchId)).toMatchObject({
+    expect(await matches.readMatch(matchId)).toMatchObject({
       finalScore: {
         matchTargetFrames: 3,
         frameTargetPointsBySeat: { A: 8, B: 7 },
@@ -548,8 +606,8 @@ describe('D1 match-winner backfill', () => {
         activeFrame: null,
       },
     })
-    await archiveFinishedMatch(db, archive)
-    await markMatchFinished(db, archive)
+    await matches.archiveFinished(archive)
+    await matches.markFinished(archive)
   })
 
   test.each([
@@ -600,11 +658,11 @@ describe('D1 match-winner backfill', () => {
 })
 
 async function seedLegacyFinishedMatch(archive: MatchRoomArchiveTransfer): Promise<void> {
-  const db = createApplicationDatabaseClient(env.DB)
-  await beginMatchCreation(db, catalogInput(archive.matchId, archive.createdAt))
-  await activateMatch(db, archive.matchId)
-  await archiveFinishedMatch(db, archive)
-  await markMatchFinished(db, archive)
+  const matches = new SparringMatchRepository(createApplicationDatabaseClient(env.DB))
+  await matches.beginCreation(catalogInput(archive.matchId, archive.createdAt))
+  await matches.activate(archive.matchId)
+  await matches.archiveFinished(archive)
+  await matches.markFinished(archive)
   await env.DB.batch([
     env.DB.prepare(
       "UPDATE sparring_match_archives SET state_json = json_remove(state_json, '$.winnerSeat') WHERE match_id = ?",

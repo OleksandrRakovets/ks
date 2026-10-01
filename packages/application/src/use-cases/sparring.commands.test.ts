@@ -84,8 +84,8 @@ describe('sparring commands and finalization', () => {
     })
 
     const app = sparring(room, events, {
-      overrides: {
-        archiveFinishedMatch: async () => {
+      matches: {
+        archiveFinished: async () => {
           events.push('archive-failed')
           throw new Error('archive failed')
         },
@@ -119,8 +119,8 @@ describe('sparring commands and finalization', () => {
     })
 
     const app = sparring(room, events, {
-      overrides: {
-        archiveFinishedMatch: async () => {
+      matches: {
+        archiveFinished: async () => {
           archiveAttempts += 1
           events.push(archiveAttempts === 1 ? 'archive-persisted-response-lost' : 'archive-retry')
 
@@ -160,8 +160,8 @@ describe('sparring commands and finalization', () => {
     })
 
     const app = sparring(room, events, {
-      overrides: {
-        markMatchFinished: async () => {
+      matches: {
+        markFinished: async () => {
           finishAttempts += 1
           events.push(finishAttempts === 1 ? 'finish-failed' : 'finish-retry')
 

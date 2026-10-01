@@ -1,5 +1,7 @@
 /** Browser/server shared application contracts; server adapters are exported from @ks/application/server. */
-export type { Application } from './contracts'
+import type { SparringApplication } from './contracts/sparring'
+
+export type Application = { sparring: SparringApplication }
 
 export type {
   HydratedMatchParticipants,

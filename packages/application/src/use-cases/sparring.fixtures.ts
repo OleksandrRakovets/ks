@@ -18,6 +18,23 @@ export const participants = {
   B: { playerRef: playerRefB, displayName: 'Bob Beta', shortDisplayName: 'B. Beta' },
 }
 
+export const participantRecords = {
+  A: {
+    playerRef: playerRefA,
+    names: {
+      uk: { firstName: 'Аліса', lastName: 'Альфа' },
+      en: { firstName: 'Alice', lastName: 'Alpha' },
+    },
+  },
+  B: {
+    playerRef: playerRefB,
+    names: {
+      uk: { firstName: 'Боб', lastName: 'Бета' },
+      en: { firstName: 'Bob', lastName: 'Beta' },
+    },
+  },
+}
+
 export const createdAt = v.parse(UnixEpochMilliseconds, 1_700_000_000_000)
 
 const clock = new FixedClock(new Date(createdAt), 'Europe/Kyiv')
@@ -73,7 +90,9 @@ export function sparring(
   events: string[] = [],
   options: {
     initialStatus?: 'active' | 'finished'
-    overrides?: Partial<Dependencies>
+    overrides?: Partial<Omit<Dependencies, 'players' | 'matches'>>
+    players?: Partial<Dependencies['players']>
+    matches?: Partial<Dependencies['matches']>
   } = {},
 ) {
   let status = options.initialStatus ?? ('active' as const)
@@ -101,54 +120,59 @@ export function sparring(
     clock,
     newMatchId: () => matchId,
     newControlSecret: () => 'control-secret-1234567890',
-    getOrCreateGuestPlayerRef: async (name) => (name === 'A Player' ? playerRefA : playerRefB),
-    hydrateParticipant: async (playerRef) => ({
-      playerRef,
-      displayName: playerRef,
-      shortDisplayName: playerRef,
-    }),
-    listLiveMatchRecords: async () => [],
-    listFinishedMatchRecords: async () => [],
-    findFinishedMatchTime: async () => null,
-    getMatchRecord: async () => matchRecord(),
-    getMatchRecords: async () => [matchRecord()],
-    getFinishedMatchArchive: async () => ({
-      sourceLatestSeq: 1,
-      state: transfer.finalState,
-      gameResult: null,
-    }),
-    getProtocolArchive: async () => ({
-      sourceLatestSeq: 1,
-      protocolVersion: 1,
-      entries: [
-        {
-          acceptedSeq: 1,
-          entryIndex: 0,
-          causedByCommandId: newCommandId(),
-          acceptedAt: createdAt,
-          frameIndex: 1,
-          gameKey: 'free-pyramid',
-          source: 'player',
-          entryType: 'player-command',
-          seat: 'A',
-          body: { commandType: 'frame.commence' },
-        },
-      ],
-      state: transfer.finalState,
-      gameResult: null,
-    }),
-    beginMatchCreation: async () => {
-      events.push('begin')
+    players: {
+      ensureGuestRef: async (name) => (name.firstName === 'A' ? playerRefA : playerRefB),
+      readParticipant: async (playerRef) => ({
+        playerRef,
+        names: null,
+      }),
+      ...options.players,
     },
-    activateMatch: async () => {
-      events.push('activate')
-    },
-    archiveFinishedMatch: async () => {
-      events.push('archive')
-    },
-    markMatchFinished: async () => {
-      events.push('finish')
-      status = 'finished'
+    matches: {
+      listLive: async () => [],
+      listFinished: async () => [],
+      findFinishedTime: async () => null,
+      readMatch: async () => matchRecord(),
+      readMatches: async () => [matchRecord()],
+      readFinishedArchive: async () => ({
+        sourceLatestSeq: 1,
+        state: transfer.finalState,
+        gameResult: null,
+      }),
+      readProtocolArchive: async () => ({
+        sourceLatestSeq: 1,
+        protocolVersion: 1,
+        entries: [
+          {
+            acceptedSeq: 1,
+            entryIndex: 0,
+            causedByCommandId: newCommandId(),
+            acceptedAt: createdAt,
+            frameIndex: 1,
+            gameKey: 'free-pyramid',
+            source: 'player',
+            entryType: 'player-command',
+            seat: 'A',
+            body: { commandType: 'frame.commence' },
+          },
+        ],
+        state: transfer.finalState,
+        gameResult: null,
+      }),
+      beginCreation: async () => {
+        events.push('begin')
+      },
+      activate: async () => {
+        events.push('activate')
+      },
+      archiveFinished: async () => {
+        events.push('archive')
+      },
+      markFinished: async () => {
+        events.push('finish')
+        status = 'finished'
+      },
+      ...options.matches,
     },
     matchRoomClient: (selectedMatchId) => {
       expect(selectedMatchId).toBe(matchId)

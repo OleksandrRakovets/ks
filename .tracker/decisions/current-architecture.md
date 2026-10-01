@@ -118,7 +118,10 @@ The match-ending update is broadcast and sockets are closed when its command is 
 
 ## Persistence Boundaries
 
-- Canonical schemas are `packages/application/src/d1/schema.ts` and `do/match-room/src/storage/schema.ts`.
+- Canonical schemas are `packages/application/d1/schema.ts` and `do/match-room/src/storage/schema.ts`.
+- Application composes private `PlayerRepository` and `SparringMatchRepository` instances under `packages/application/src/repositories`. Only repository methods execute application D1 queries; codecs and mapping helpers accept values, never a database client. Repositories own storage validation and idempotent writes; use cases retain cross-store lifecycle orchestration, source selection, and presentation. Joined list reads return participant records without per-player queries; application formats the names for the requested locale.
+- Internal application definitions live in `src/records.ts`, independently of Drizzle. Repository `read*` methods return these records; `select*` helpers return raw database rows. Row/insert types derive from the D1 schema. `src/contracts/` remains public workflow contracts, and `src/index.ts` defines `Application`; neither exports repositories or internal records.
+- The D1 client, schema, migrations, Drizzle configuration, and local seeds live under `packages/application/d1`; Play retains the D1 binding and Wrangler migration execution.
 - D1 and MatchRoom SQLite have independent migration histories and application mechanisms.
 - Persisted rows and JSON are decoded and validated at the storage boundary. Malformed data fails the operation rather than yielding partial state.
 - Expected RPC outcomes are semantic variants, not HTTP failures. Application owns HTTP adaptation. Missing or corrupt authority and invalid lifecycle calls are defects that throw.
