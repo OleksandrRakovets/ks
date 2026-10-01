@@ -3,8 +3,6 @@ import { type GameKey, registry } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
 import * as v from 'valibot'
 
-import type { AppLoadContext } from '@/.server/context'
-import { requireApplication } from '@/.server/context'
 import type {
   ControlActionData,
   MatchPageData,
@@ -12,6 +10,8 @@ import type {
   ProtocolPageData,
 } from '@/features/sparring/match/types'
 import { localeFromContext } from '@/i18n'
+import type { AppLoadContext } from '@/server/context.server'
+import { requireApplication } from '@/server/context.server'
 
 type RouteArgs = {
   params: { matchId?: string }

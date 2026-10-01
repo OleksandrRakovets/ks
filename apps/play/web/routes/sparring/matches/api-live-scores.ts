@@ -1,7 +1,7 @@
 import { MatchId } from '@ks/core'
 import * as v from 'valibot'
 
-import { requireApplication } from '@/.server/context'
+import { requireApplication } from '@/server/context.server'
 
 import type { Route } from './+types/api-live-scores'
 

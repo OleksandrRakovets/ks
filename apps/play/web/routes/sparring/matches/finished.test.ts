@@ -3,7 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import type { Application } from '@ks/application'
 import { RouterContextProvider } from 'react-router'
 
-import { cloudflareContext } from '@/.server/context'
+import { cloudflareContext } from '@/server/context.server'
 
 import { loader } from './finished'
 

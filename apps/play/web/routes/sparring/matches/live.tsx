@@ -1,8 +1,8 @@
 import { useLoaderData } from 'react-router'
 
-import { requireApplication } from '@/.server/context'
 import { MatchListPage } from '@/features/sparring/matches/match-list-page'
 import { localeFromContext } from '@/i18n'
+import { requireApplication } from '@/server/context.server'
 
 import type { Route } from './+types/live'
 

@@ -1,7 +1,7 @@
 import { data } from 'react-router'
 import * as v from 'valibot'
 
-import { themeCookieValue } from '@/.server/theme'
+import { themeCookieValue } from '@/server/theme.server'
 import type { AppTheme } from '@/theme'
 
 export async function action({ request }: { request: Request }) {

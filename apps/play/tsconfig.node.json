@@ -25,7 +25,7 @@
     "vite.config.ts",
     "react-router.config.ts",
     "domain/**/*.ts",
-    "web/.server/context.ts",
+    "web/server/context.server.ts",
     "workers/**/*.ts",
     "workers/virtual.d.ts",
     "../../do/match-room/src/**/*"

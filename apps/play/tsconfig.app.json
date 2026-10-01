@@ -27,13 +27,6 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": [
-    "web",
-    "web/.server/**/*.ts",
-    "domain",
-    "workers",
-    ".react-router/types/**/*",
-    "../../do/match-room/src/**/*"
-  ],
+  "include": ["web", "domain", "workers", ".react-router/types/**/*", "../../do/match-room/src/**/*"],
   "exclude": ["domain/**/*.test.ts"]
 }

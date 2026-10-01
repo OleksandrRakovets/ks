@@ -13,10 +13,10 @@ import {
 } from 'react-router'
 
 import type { Route } from './+types/root'
-import { iconVariantFromContext } from './.server/icon-assets'
-import { themeFromCookie } from './.server/theme'
 import { localeFromContext } from './i18n'
 import { iconBasePath, iconThemeColor, type IconVariant } from './icon-assets'
+import { iconVariantFromContext } from './server/icon-assets.server'
+import { themeFromCookie } from './server/theme.server'
 import type { AppTheme } from './theme'
 
 export type RootLoaderData = {
