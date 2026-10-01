@@ -1,0 +1,370 @@
+import { describe, expect, test } from 'bun:test'
+
+import { projectMatchScore } from '@ks/competition'
+import { FixedClock, MatchId, UnixEpochMilliseconds } from '@ks/core'
+import * as v from 'valibot'
+
+import { MatchScorePollResponse, RECENT_FINISHED_MATCH_WINDOW_MS } from '../contracts/sparring'
+import {
+  createdAt,
+  matchId,
+  participants,
+  playerRefA,
+  playerRefB,
+  selectedClient,
+  sparring,
+  state,
+  transfer,
+} from './sparring.fixtures'
+
+describe('sparring lists and score polling', () => {
+  test('reads compact active scores for list loading and polling', async () => {
+    const score = {
+      matchTargetFrames: 1,
+      frameTargetPointsBySeat: { A: 8, B: 8 },
+      framesWonBySeat: { A: 0, B: 0 },
+      winnerSeat: null,
+      singleFramePointsBySeat: null,
+      activeFrame: null,
+    }
+
+    const room = selectedClient({ getScore: async () => ({ _tag: 'active', latestSeq: 3, score }) })
+
+    const app = sparring(room, [], {
+      overrides: {
+        listLiveMatchRecords: async (since, locale) => {
+          expect(since).toBe(v.parse(UnixEpochMilliseconds, createdAt - RECENT_FINISHED_MATCH_WINDOW_MS))
+          expect(locale).toBe('en')
+
+          return [
+            {
+              matchId,
+              gameKey: 'free-pyramid',
+              status: 'active',
+              createdAt,
+              participantRefs: { A: playerRefA, B: playerRefB },
+              participants,
+            },
+          ]
+        },
+      },
+    })
+
+    expect(await app.listLiveMatches('en')).toMatchObject({
+      matches: [
+        {
+          matchId,
+          status: 'active',
+          createdAtIso: '2023-11-14T22:13:20.000Z',
+          createdAtLabel: '00:13',
+          createdAtDate: { year: '2023', month: '11', day: '15' },
+          createdAtIsToday: true,
+          endedAt: null,
+          latestSeq: 3,
+          score,
+          participants,
+          hasCustomFrameTarget: false,
+        },
+      ],
+      scope: 'live',
+    })
+    expect(await app.readMatchScores([matchId])).toEqual({
+      ok: true,
+      matches: [{ matchId, status: 'active', endedAt: null, latestSeq: 3, score }],
+    })
+  })
+
+  test('marks a changed target on either seat in list and finished match reads', async () => {
+    for (const frameTargetPointsBySeat of [
+      { A: 10, B: 8 },
+      { A: 8, B: 6 },
+    ]) {
+      const customState = { ...state, targets: { frameTargetPointsBySeat, matchTargetFrames: 1 } }
+      const score = projectMatchScore(customState)
+
+      const room = selectedClient({
+        getScore: async () => ({ _tag: 'active', latestSeq: 0, score }),
+        getControls: async () => ({
+          _tag: 'finalizing',
+          state: { ...customState, status: 'finished', winnerSeat: 'B' },
+          gameResult: null,
+          latestSeq: 1,
+          endedAt: transfer.endedAt,
+        }),
+      })
+
+      const app = sparring(room, [], {
+        overrides: {
+          listLiveMatchRecords: async () => [
+            {
+              matchId,
+              gameKey: 'free-pyramid',
+              status: 'active',
+              createdAt,
+              participantRefs: { A: playerRefA, B: playerRefB },
+              participants,
+            },
+          ],
+        },
+      })
+
+      expect((await app.listLiveMatches('en')).matches[0]?.hasCustomFrameTarget).toBe(true)
+      expect(await app.readMatch(matchId, 'en', 'free-pyramid')).toMatchObject({
+        ok: true,
+        lifecycle: 'finished',
+        hasCustomFrameTarget: true,
+      })
+    }
+  })
+
+  test('reads finalizing scores for the live list and polling without archiving', async () => {
+    const events: string[] = []
+
+    const score = {
+      matchTargetFrames: 1,
+      frameTargetPointsBySeat: { A: 8, B: 8 },
+      framesWonBySeat: { A: 1, B: 0 },
+      winnerSeat: 'B' as const,
+      singleFramePointsBySeat: { A: 8, B: 3 },
+      activeFrame: null,
+    }
+
+    const room = selectedClient({
+      getScore: async () => ({
+        _tag: 'finalizing',
+        endedAt: transfer.endedAt,
+        latestSeq: 4,
+        score,
+      }),
+    })
+
+    const app = sparring(room, events, {
+      overrides: {
+        listLiveMatchRecords: async () => [
+          {
+            matchId,
+            gameKey: 'free-pyramid',
+            status: 'active',
+            createdAt,
+            participantRefs: { A: playerRefA, B: playerRefB },
+            participants,
+          },
+        ],
+      },
+    })
+
+    expect(await app.listLiveMatches('en')).toMatchObject({
+      matches: [{ matchId, status: 'finished', endedAt: transfer.endedAt, latestSeq: 4, score }],
+    })
+    expect(await app.readMatchScores([matchId])).toEqual({
+      ok: true,
+      matches: [{ matchId, status: 'finished', endedAt: transfer.endedAt, latestSeq: 4, score }],
+    })
+    expect(events).toEqual([])
+  })
+
+  test('transports the stored winner to Result, Protocol, finished list, and polling without MatchRoom reads', async () => {
+    const finalState = {
+      ...transfer.finalState,
+      winnerSeat: 'B' as const,
+      framesWonBySeat: { A: 2, B: 0 },
+    }
+
+    const finalScore = projectMatchScore(finalState)
+
+    const record = {
+      matchId,
+      gameKey: 'free-pyramid' as const,
+      status: 'finished' as const,
+      createdAt,
+      endedAt: transfer.endedAt,
+      participantRefs: { A: playerRefA, B: playerRefB },
+      participants,
+      finalSourceLatestSeq: transfer.sourceLatestSeq,
+      finalScore,
+    }
+
+    const app = sparring(selectedClient(), [], {
+      initialStatus: 'finished',
+      overrides: {
+        getMatchRecord: async () => record,
+        getMatchRecords: async () => [record],
+        getFinishedMatchArchive: async () => ({ sourceLatestSeq: 1, state: finalState, gameResult: null }),
+        getProtocolArchive: async () => ({
+          sourceLatestSeq: 1,
+          state: finalState,
+          gameResult: null,
+          entries: [],
+          protocolVersion: 1,
+        }),
+        listFinishedMatchRecords: async () => [record],
+      },
+    })
+
+    expect(await app.readMatch(matchId, 'en', 'free-pyramid')).toMatchObject({ state: { winnerSeat: 'B' } })
+    expect(await app.readMatchProtocol(matchId, 'en', 'free-pyramid')).toMatchObject({
+      state: { winnerSeat: 'B' },
+    })
+    expect(await app.listFinishedMatches('en', '2023-11-15')).toMatchObject({
+      matches: [{ score: { winnerSeat: 'B' } }],
+    })
+    const poll = await app.readMatchScores([matchId])
+    expect(poll).toMatchObject({ matches: [{ score: { winnerSeat: 'B' } }] })
+    expect(v.safeParse(MatchScorePollResponse, poll).success).toBe(true)
+  })
+
+  test('reports when a recently finished match leaves the live list window', async () => {
+    const finalScore = projectMatchScore(transfer.finalState)
+    const endedAt = v.parse(UnixEpochMilliseconds, createdAt - 5 * 60 * 1_000)
+
+    const app = sparring(selectedClient(), [], {
+      overrides: {
+        listLiveMatchRecords: async () => [
+          {
+            matchId,
+            gameKey: 'free-pyramid',
+            status: 'finished',
+            createdAt,
+            endedAt,
+            participantRefs: { A: playerRefA, B: playerRefB },
+            participants,
+            finalSourceLatestSeq: transfer.sourceLatestSeq,
+            finalScore,
+          },
+        ],
+      },
+    })
+
+    expect(await app.listLiveMatches('en')).toMatchObject({
+      recentFinishedMatchExpiresAfterMs: 10 * 60 * 1_000,
+    })
+  })
+
+  test('loads the finished list from stored projections without selecting MatchRoom', async () => {
+    const finalScore = projectMatchScore(transfer.finalState)
+
+    const nextDayClock = new FixedClock(new Date('2023-11-15T22:30:00.000Z'), 'Europe/Kyiv')
+
+    const app = sparring(selectedClient(), [], {
+      overrides: {
+        clock: nextDayClock,
+        hydrateParticipant: async () => {
+          throw new Error('List entries must use participants returned by the list read')
+        },
+        findFinishedMatchTime: async (query) => {
+          if ('before' in query && query.before === Number.MAX_SAFE_INTEGER) return createdAt
+
+          return null
+        },
+        listFinishedMatchRecords: async (range, locale) => {
+          expect(range).toEqual({
+            start: v.parse(UnixEpochMilliseconds, Date.parse('2023-11-14T22:00:00Z')),
+            end: v.parse(UnixEpochMilliseconds, Date.parse('2023-11-15T22:00:00Z')),
+          })
+          expect(locale).toBe('en')
+
+          return [
+            {
+              matchId,
+              gameKey: 'free-pyramid',
+              status: 'finished',
+              createdAt,
+              endedAt: transfer.endedAt,
+              participantRefs: { A: playerRefA, B: playerRefB },
+              participants,
+              finalSourceLatestSeq: transfer.sourceLatestSeq,
+              finalScore,
+            },
+          ]
+        },
+      },
+    })
+
+    expect(await app.listFinishedMatches('en')).toMatchObject({
+      matches: [
+        {
+          matchId,
+          status: 'finished',
+          createdAtIso: '2023-11-14T22:13:20.000Z',
+          createdAtLabel: '00:13',
+          createdAtDate: { year: '2023', month: '11', day: '15' },
+          createdAtIsToday: false,
+          endedAt: transfer.endedAt,
+          latestSeq: transfer.sourceLatestSeq,
+          score: finalScore,
+          participants,
+          hasCustomFrameTarget: false,
+        },
+      ],
+      scope: 'finished',
+      day: '2023-11-15',
+      previousDay: null,
+      nextDay: null,
+      isToday: false,
+    })
+  })
+
+  test('skips calendar gaps using only the two indexed neighboring instants', async () => {
+    const selected = '2023-11-20'
+    const before = v.parse(UnixEpochMilliseconds, Date.parse('2023-11-19T22:00:00Z'))
+    const from = v.parse(UnixEpochMilliseconds, Date.parse('2023-11-20T22:00:00Z'))
+    const newer = v.parse(UnixEpochMilliseconds, Date.parse('2023-11-25T23:00:00Z'))
+    const seeks: unknown[] = []
+
+    const app = sparring(selectedClient(), [], {
+      overrides: {
+        listFinishedMatchRecords: async (range) => {
+          expect(range).toEqual({ start: before, end: from })
+
+          return []
+        },
+        findFinishedMatchTime: async (query) => {
+          seeks.push(query)
+
+          return 'before' in query ? createdAt : newer
+        },
+      },
+    })
+
+    expect(await app.listFinishedMatches('en', selected)).toEqual({
+      scope: 'finished',
+      matches: [],
+      day: selected,
+      previousDay: '2023-11-15',
+      nextDay: '2023-11-26',
+      isToday: false,
+    })
+    expect(seeks).toEqual([{ before }, { from }])
+  })
+
+  test('polls more than ten finished score projections without truncating or reordering them', async () => {
+    const ids = Array.from({ length: 12 }, (_, index) =>
+      v.parse(MatchId, `${matchId.slice(0, 24)}${String(index).padStart(2, '0')}`),
+    )
+
+    const finalScore = projectMatchScore(transfer.finalState)
+
+    const app = sparring(selectedClient(), [], {
+      overrides: {
+        getMatchRecords: async (requested) =>
+          requested.map((id) => ({
+            matchId: id,
+            gameKey: 'free-pyramid',
+            status: 'finished' as const,
+            createdAt,
+            endedAt: transfer.endedAt,
+            participantRefs: { A: playerRefA, B: playerRefB },
+            finalSourceLatestSeq: transfer.sourceLatestSeq,
+            finalScore,
+          })),
+      },
+    })
+
+    const result = await app.readMatchScores(ids)
+    expect(result.ok).toBe(true)
+
+    if (!result.ok) return
+    expect(result.matches.map((match) => match.matchId)).toEqual(ids)
+    expect(v.safeParse(MatchScorePollResponse, { matches: result.matches }).success).toBe(true)
+  })
+})

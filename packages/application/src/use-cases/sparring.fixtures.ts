@@ -1,0 +1,160 @@
+import { expect } from 'bun:test'
+
+import { projectMatchScore } from '@ks/competition'
+import { FixedClock, MatchId, newCommandId, PlayerRef, UnixEpochMilliseconds } from '@ks/core'
+import * as v from 'valibot'
+
+import type { MatchRoomArchiveTransfer, MatchRoomClient } from '../match-room-client'
+import { createSparringApplicationWithDependencies } from './sparring'
+
+export const matchId = v.parse(MatchId, '01ARZ3NDEKTSV4RRFFQ69G5FAV')
+
+export const playerRefA = v.parse(PlayerRef, 'gp_01ARZ3NDEKTSV4RRFFQ69G5FAA')
+
+export const playerRefB = v.parse(PlayerRef, 'gp_01ARZ3NDEKTSV4RRFFQ69G5FAB')
+
+export const participants = {
+  A: { playerRef: playerRefA, displayName: 'Alice Alpha', shortDisplayName: 'A. Alpha' },
+  B: { playerRef: playerRefB, displayName: 'Bob Beta', shortDisplayName: 'B. Beta' },
+}
+
+export const createdAt = v.parse(UnixEpochMilliseconds, 1_700_000_000_000)
+
+const clock = new FixedClock(new Date(createdAt), 'Europe/Kyiv')
+
+export const state = {
+  matchId,
+  gameKey: 'free-pyramid' as const,
+  targets: { frameTargetPointsBySeat: { A: 8, B: 8 }, matchTargetFrames: 1 },
+  status: 'active' as const,
+  winnerSeat: null,
+  currentFrameIndex: 1,
+  framesWonBySeat: { A: 0, B: 0 },
+  frames: [{ frameIndex: 1, breakerSeat: 'A' as const, pointsBySeat: { A: 0, B: 0 } }],
+}
+
+export const transfer: MatchRoomArchiveTransfer = {
+  matchId,
+  gameKey: 'free-pyramid',
+  createdAt,
+  sourceLatestSeq: 1,
+  endedAt: v.parse(UnixEpochMilliseconds, 1_700_000_001_000),
+  protocolEntries: [],
+  finalState: {
+    ...state,
+    status: 'finished',
+    winnerSeat: 'A',
+    framesWonBySeat: { A: 1, B: 0 },
+    frames: [{ ...state.frames[0]!, winnerSeat: 'A' }],
+  },
+  gameResult: null,
+}
+
+export function selectedClient(overrides: Partial<MatchRoomClient> = {}): MatchRoomClient {
+  const unexpected = async (): Promise<never> => {
+    throw new Error('Unexpected MatchRoom call')
+  }
+
+  return {
+    initialize: unexpected,
+    getControls: unexpected,
+    getProtocol: unexpected,
+    getScore: unexpected,
+    submitCommand: unexpected,
+    prepareArchive: unexpected,
+    ...overrides,
+  }
+}
+
+type Dependencies = Parameters<typeof createSparringApplicationWithDependencies>[0]
+
+export function sparring(
+  room: MatchRoomClient,
+  events: string[] = [],
+  options: {
+    initialStatus?: 'active' | 'finished'
+    overrides?: Partial<Dependencies>
+  } = {},
+) {
+  let status = options.initialStatus ?? ('active' as const)
+
+  const matchRecord = () => {
+    const identity = {
+      matchId,
+      gameKey: 'free-pyramid' as const,
+      createdAt,
+      participantRefs: { A: playerRefA, B: playerRefB },
+    }
+
+    return status === 'finished'
+      ? {
+          ...identity,
+          status,
+          endedAt: transfer.endedAt,
+          finalSourceLatestSeq: transfer.sourceLatestSeq,
+          finalScore: projectMatchScore(transfer.finalState),
+        }
+      : { ...identity, status }
+  }
+
+  return createSparringApplicationWithDependencies({
+    clock,
+    newMatchId: () => matchId,
+    newControlSecret: () => 'control-secret-1234567890',
+    getOrCreateGuestPlayerRef: async (name) => (name === 'A Player' ? playerRefA : playerRefB),
+    hydrateParticipant: async (playerRef) => ({
+      playerRef,
+      displayName: playerRef,
+      shortDisplayName: playerRef,
+    }),
+    listLiveMatchRecords: async () => [],
+    listFinishedMatchRecords: async () => [],
+    findFinishedMatchTime: async () => null,
+    getMatchRecord: async () => matchRecord(),
+    getMatchRecords: async () => [matchRecord()],
+    getFinishedMatchArchive: async () => ({
+      sourceLatestSeq: 1,
+      state: transfer.finalState,
+      gameResult: null,
+    }),
+    getProtocolArchive: async () => ({
+      sourceLatestSeq: 1,
+      protocolVersion: 1,
+      entries: [
+        {
+          acceptedSeq: 1,
+          entryIndex: 0,
+          causedByCommandId: newCommandId(),
+          acceptedAt: createdAt,
+          frameIndex: 1,
+          gameKey: 'free-pyramid',
+          source: 'player',
+          entryType: 'player-command',
+          seat: 'A',
+          body: { commandType: 'frame.commence' },
+        },
+      ],
+      state: transfer.finalState,
+      gameResult: null,
+    }),
+    beginMatchCreation: async () => {
+      events.push('begin')
+    },
+    activateMatch: async () => {
+      events.push('activate')
+    },
+    archiveFinishedMatch: async () => {
+      events.push('archive')
+    },
+    markMatchFinished: async () => {
+      events.push('finish')
+      status = 'finished'
+    },
+    matchRoomClient: (selectedMatchId) => {
+      expect(selectedMatchId).toBe(matchId)
+
+      return room
+    },
+    ...options.overrides,
+  })
+}
