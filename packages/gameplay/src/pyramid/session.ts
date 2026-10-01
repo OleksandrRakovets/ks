@@ -129,26 +129,26 @@ export function restorePyramidGameplaySession<K extends PyramidGameKey>(
   checkpoint: PyramidCheckpoint,
 ): GameplaySession<K> {
   const rules = PyramidRuleSpecificsByGameKey[gameKey]
+  const storedRules = checkpoint.context.rules
 
+  invariant(checkpoint.value !== 'frame-over', 'Cannot restore completed Pyramid frame')
   invariant(
-    !(
-      checkpoint.value === 'frame-over' ||
-      checkpoint.context.rules.gameKey !== gameKey ||
-      checkpoint.context.rules.allowNegative !== rules.allowNegative ||
-      checkpoint.context.rules.foulPenalty !== rules.foulPenalty ||
-      checkpoint.context.rules.shotPointOptions.length !== rules.shotPointOptions.length ||
-      checkpoint.context.rules.shotPointOptions.some(
-        (option, index) => option !== rules.shotPointOptions[index],
-      ) ||
-      (checkpoint.value === 'winner-determined') !== (checkpoint.context.winner !== null)
-    ),
-    'Pyramid checkpoint rules or phase do not match the game',
+    (checkpoint.value === 'winner-determined') === (checkpoint.context.winner !== null),
+    'Pyramid winner must match phase',
+  )
+  invariant(storedRules.gameKey === gameKey, 'Pyramid rules must match game')
+  invariant(storedRules.allowNegative === rules.allowNegative, 'Pyramid negative-score rule must match game')
+  invariant(storedRules.foulPenalty === rules.foulPenalty, 'Pyramid foul penalty must match game')
+  invariant(
+    storedRules.shotPointOptions.length === rules.shotPointOptions.length &&
+      storedRules.shotPointOptions.every((option, index) => option === rules.shotPointOptions[index]),
+    'Pyramid shot point options must match game',
   )
 
   // SAFETY: indexed rules correspond to the selected key.
   return new PyramidGameplaySession(
     gameKey,
-    checkpoint.context.rules as PyramidRulesFor<K>,
+    storedRules as PyramidRulesFor<K>,
     PyramidFrameMachine.resolveState(checkpoint),
   )
 }

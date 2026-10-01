@@ -4,12 +4,15 @@ import { FrameOutcome } from '@ks/core'
 import * as v from 'valibot'
 
 import { GameProtocolEntry } from './gameplay-session'
-import { LongFreePyramidGamePresentation } from './long-free-pyramid/definitions'
+import { LongFreePyramidCheckpoint, LongFreePyramidGamePresentation } from './long-free-pyramid/definitions'
+import { restoreLongFreePyramidGameplaySession } from './long-free-pyramid/session'
 import {
   CombinedPyramidGamePresentation,
   CombinedPyramidOldGamePresentation,
   FreePyramidGamePresentation,
+  PyramidCheckpoint,
 } from './pyramid/definitions'
+import { restorePyramidGameplaySession } from './pyramid/session'
 import { createGameplaySession } from './session-factory'
 import { StrilaCheckpoint, type StrilaCommand, StrilaGamePresentation } from './strila-v2/definitions'
 import { restoreStrilaGameplaySession } from './strila-v2/session'
@@ -102,6 +105,72 @@ describe('GameplaySession', () => {
       expect(replay.deriveControls()).toEqual(session.deriveControls())
     })
   }
+
+  test('Pyramid restoration requires the selected rules, including ordered shot options', () => {
+    const session = createGameplaySession('free-pyramid', { targetPointsBySeat: { A: 8, B: 9 } })
+    expect(session.execute({ type: 'frame.commence', seat: 'B' })._tag).toBe('accepted')
+    const checkpoint = v.parse(PyramidCheckpoint, session.exportCheckpoint())
+    const restored = restorePyramidGameplaySession('free-pyramid', checkpoint)
+    expect(restored.exportCheckpoint()).toEqual(checkpoint)
+    expect(restored.execute({ type: 'pot.record', seat: 'B', pottedBallCount: 4 })._tag).toBe('accepted')
+    expect(restored.getScore()).toEqual({ A: 0, B: 4 })
+
+    for (const change of [
+      { gameKey: 'combined-pyramid' },
+      { allowNegative: true },
+      { foulPenalty: 'offender-minus-one' },
+      { shotPointOptions: [1, 2] },
+      { shotPointOptions: [1, 2, 4, 8] },
+      { shotPointOptions: [1, 4, 2] },
+    ]) {
+      const wrongRules = v.parse(PyramidCheckpoint, {
+        ...checkpoint,
+        context: { ...checkpoint.context, rules: { ...checkpoint.context.rules, ...change } },
+      })
+
+      expect(() => restorePyramidGameplaySession('free-pyramid', wrongRules)).toThrow()
+    }
+  })
+
+  test('Long Pyramid restoration checks every rack number and both scores, allowing a total of 16', () => {
+    const session = createGameplaySession('free-pyramid-long', {
+      targetPointsBySeat: { A: 20, B: 21 },
+      rackRollover: 14,
+    })
+
+    expect(session.execute({ type: 'frame.commence', seat: 'A' })._tag).toBe('accepted')
+
+    const checkpoint = v.parse(LongFreePyramidCheckpoint, {
+      ...session.exportCheckpoint(),
+      context: {
+        ...session.exportCheckpoint().context,
+        racks: [
+          { rackNumber: 1, scoreBySeat: { A: 5, B: 11 } },
+          { rackNumber: 2, scoreBySeat: { A: 2, B: 3 } },
+        ],
+      },
+    })
+
+    const restored = restoreLongFreePyramidGameplaySession(checkpoint)
+    expect(restored.exportCheckpoint()).toEqual(checkpoint)
+    expect(restored.getScore()).toEqual({ A: 7, B: 14 })
+    expect(restored.execute({ type: 'foul.commit', seat: 'A' })._tag).toBe('accepted')
+    expect(restored.getScore()).toEqual({ A: 7, B: 15 })
+
+    for (const rack of [
+      { rackNumber: 3, scoreBySeat: { A: 2, B: 3 } },
+      { rackNumber: 2, scoreBySeat: { A: -1, B: 3 } },
+      { rackNumber: 2, scoreBySeat: { A: 2, B: -1 } },
+      { rackNumber: 2, scoreBySeat: { A: 12, B: 5 } },
+    ]) {
+      const wrongRack = v.parse(LongFreePyramidCheckpoint, {
+        ...checkpoint,
+        context: { ...checkpoint.context, racks: [checkpoint.context.racks[0], rack] },
+      })
+
+      expect(() => restoreLongFreePyramidGameplaySession(wrongRack)).toThrow()
+    }
+  })
 
   test('Strila restoration requires an offender only while selecting a foul penalty', () => {
     const session = createGameplaySession('strila-v2', { targetPointsBySeat: { A: 9, B: 9 } })
