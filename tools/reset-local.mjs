@@ -12,7 +12,7 @@ for (const directory of WRANGLER_DIRECTORIES) {
 
 for (const command of ['db:migrate:local', 'db:seed:local']) {
   const result = spawnSync(process.execPath, ['run', command], {
-    cwd: ROOT,
+    cwd: join(ROOT, 'packages/application'),
     stdio: 'inherit',
   })
 

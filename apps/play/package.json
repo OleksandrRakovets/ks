@@ -5,8 +5,6 @@
   "type": "module",
   "scripts": {
     "dev": "react-router dev",
-    "db:migrate:local": "wrangler d1 migrations apply ks --local",
-    "db:seed:local": "wrangler d1 execute ks --local --file ../../d1/seeds/local-players.sql",
     "build": "react-router build",
     "preview": "vite preview",
     "typegen": "wrangler types --config wrangler.jsonc && react-router typegen"

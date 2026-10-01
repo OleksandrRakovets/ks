@@ -1,7 +1,7 @@
 import type { ProtocolEntry } from '@ks/competition'
 import type { BySeatNumber, Control } from '@ks/core'
 
-import { protocolEntryMessage, type ProtocolMessage } from './protocol'
+import { protocolEntryMessage, type ProtocolMessage } from './protocol-projection'
 
 type SeatNames = Readonly<{ A: string; B: string }>
 

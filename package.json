@@ -35,12 +35,7 @@
     "check:full": "bun run check:fast && bun run test:integration && bun run build",
     "check:boundaries": "node ./tools/check-boundaries.mjs",
     "build": "turbo run build --log-order=grouped",
-    "db:generate:d1": "bun ./tools/generate-migration.mjs d1/migrations --config d1/drizzle.config.ts",
-    "db:generate:match-room": "bun ./tools/generate-migration.mjs do/match-room/drizzle --config do/match-room/drizzle.config.ts",
-    "db:migrate:local": "bun run --cwd apps/play db:migrate:local",
     "db:reset:local": "bun ./tools/reset-local.mjs",
-    "db:seed:local": "bun run --cwd apps/play db:seed:local",
-    "db:studio:local": "KS_D1_LOCAL_URL=$(find apps/play/.wrangler/state/v3/d1/miniflare-D1DatabaseObject -maxdepth 1 -type f -name '*.sqlite' ! -name 'metadata.sqlite' -print -quit) drizzle-kit studio --config d1/drizzle.config.ts --host ${KS_DB_STUDIO_HOST:-127.0.0.1}",
     "dev": "BUN_OPTIONS=--silent turbo watch @ks/play#dev",
     "dev:human": "BUN_OPTIONS=--silent turbo watch @ks/play#dev --ui=tui",
     "format": "oxfmt .",
@@ -55,7 +50,6 @@
   "devDependencies": {
     "@oxlint/plugins": "1.85.0",
     "bun-types": "catalog:",
-    "drizzle-kit": "catalog:",
     "knip": "6.38.0",
     "oxfmt": "^0.70.0",
     "oxlint": "1.85.0",
@@ -71,7 +65,6 @@
   },
   "knip": {
     "ignore": [
-      "d1/drizzle.config.ts",
       "do/match-room/drizzle/migrations.d.ts",
       "tools/**"
     ],

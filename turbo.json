@@ -21,11 +21,6 @@
       "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/apps/play/wrangler.jsonc"],
       "outputs": []
     },
-    "@ks/application#test:integration": {
-      "dependsOn": ["^test:integration"],
-      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/d1/migrations/**/migration.sql"],
-      "outputs": []
-    },
     "dev": {
       "cache": false,
       "persistent": true

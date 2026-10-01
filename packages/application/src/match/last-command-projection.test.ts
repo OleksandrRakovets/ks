@@ -4,8 +4,8 @@ import type { ProtocolEntry } from '@ks/competition'
 import { type Control, FixedClock, newCommandId, UnixEpochMilliseconds } from '@ks/core'
 import * as v from 'valibot'
 
-import { presentLastCommand } from './control'
-import { renderProtocolRows } from './protocol'
+import { presentLastCommand } from './last-command-projection'
+import { renderProtocolRows } from './protocol-projection'
 
 const clock = new FixedClock(new Date('2026-09-24T10:00:00Z'), 'Europe/Kyiv')
 

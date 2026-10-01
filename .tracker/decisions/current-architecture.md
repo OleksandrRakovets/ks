@@ -119,10 +119,11 @@ The match-ending update is broadcast and sockets are closed when its command is 
 ## Persistence Boundaries
 
 - Canonical schemas are `packages/application/src/d1/schema.ts` and `do/match-room/src/storage/schema.ts`.
+- Application owns D1 tooling and runtime storage access; Play supplies its D1 binding and deployment configuration. See `packages/application/AGENTS.md` for module organization and storage boundaries.
 - D1 and MatchRoom SQLite have independent migration histories and application mechanisms.
 - Persisted rows and JSON are decoded and validated at the storage boundary. Malformed data fails the operation rather than yielding partial state.
-- Expected RPC outcomes are semantic variants, not HTTP failures. Application owns HTTP adaptation. Missing or corrupt authority and invalid lifecycle calls are defects that throw.
-- See each component's local guidance for repository mechanics and `.tracker/db.md` for migration and inspection procedures.
+- Expected RPC outcomes are semantic variants, not HTTP failures. Play owns HTTP adaptation. Missing or corrupt authority and invalid lifecycle calls are defects that throw.
+- See each component's local guidance for storage mechanics and `.tracker/db.md` for migration and inspection procedures.
 
 ## Deployment
 
