@@ -6,6 +6,7 @@
       "name": "ks",
       "devDependencies": {
         "@oxlint/plugins": "1.85.0",
+        "@types/node": "catalog:",
         "bun-types": "catalog:",
         "knip": "6.38.0",
         "oxfmt": "^0.70.0",

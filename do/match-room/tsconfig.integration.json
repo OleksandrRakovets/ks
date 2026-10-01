@@ -7,5 +7,5 @@
     "exactOptionalPropertyTypes": false,
     "types": ["@cloudflare/vitest-plugin/types", "@cloudflare/workers-types", "node"]
   },
-  "include": ["src/**/*", "drizzle/**/*.ts", "test/**/*.ts", "vitest.config.ts"]
+  "include": ["src/**/*", "drizzle/**/*.ts", "test/**/*.ts", "vitest.config.ts", "drizzle.config.ts"]
 }
