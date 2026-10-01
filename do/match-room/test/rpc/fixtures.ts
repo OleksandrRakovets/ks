@@ -29,10 +29,6 @@ export async function initializedRoom() {
   return { matchId, stub }
 }
 
-export function prepareCommand() {
-  return { commandId: newCommandId(), source: 'match' as const, command: { type: 'frame.prepare' } }
-}
-
 export function commenceCommand() {
   return {
     commandId: newCommandId(),
@@ -50,7 +46,6 @@ export function matchEndingCommand() {
 }
 
 export async function makeRoomFinalizing(stub: ReturnType<typeof env.MATCH_ROOM.getByName>) {
-  await stub.submitCommand(prepareCommand())
   await stub.submitCommand(commenceCommand())
   const command = matchEndingCommand()
   await stub.submitCommand(command)

@@ -58,9 +58,14 @@ Creation is coordinated by application:
 
 ```text
 D1 matches.status: creating
-  -> MatchRoom.initialize persists config and match.created
+  -> MatchRoom.initialize persists config and the prepared first-frame checkpoint at sequence 0
   -> D1 matches.status: active
 ```
+
+The match machine automatically passes through transient `between-frames` into `frame-in-progress` on creation and
+non-final frame completion. Gameplay remains uncommenced until a player submits `frame.commence`. Initial preparation
+has no Protocol row; subsequent `frame-prepared` entries belong to the preceding frame-ending Accepted Command,
+alongside its award. There is no preparation Command, additional acceptance, or additional storage transaction.
 
 Ordinary commands verify the match row's lifecycle, then write only to MatchRoom. `commandId` receipts make retries idempotent and reject reuse with a different canonical request. A valid Command envelope whose nested match/game command is unsupported returns `invalid-command`; malformed browser input remains an expected HTTP failure rather than an RPC exception.
 

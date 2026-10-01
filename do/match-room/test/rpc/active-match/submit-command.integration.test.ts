@@ -3,19 +3,16 @@ import { evictDurableObject, runInDurableObject } from 'cloudflare:test'
 import { env } from 'cloudflare:workers'
 import { expect, test } from 'vitest'
 
-import {
-  captureRpcError,
-  commenceCommand,
-  initializedRoom,
-  matchEndingCommand,
-  prepareCommand,
-} from '../fixtures'
+import { captureRpcError, commenceCommand, initializedRoom, matchEndingCommand } from '../fixtures'
 
 test('persists accepted and rejected outcomes and retries them after eviction', async () => {
   const { matchId, stub } = await initializedRoom()
-  const rejected = commenceCommand()
-  expect(await stub.submitCommand(rejected)).toEqual({ _tag: 'rejected', reason: { code: 'no-active-frame' } })
-  const accepted = prepareCommand()
+  const rejected = { ...commenceCommand(), command: { type: 'frame.commence', seat: 'B' } }
+  expect(await stub.submitCommand(rejected)).toEqual({
+    _tag: 'rejected',
+    reason: { code: 'wrong-breaker', expectedSeat: 'A' },
+  })
+  const accepted = commenceCommand()
   expect(await stub.submitCommand(accepted)).toEqual({
     _tag: 'accepted',
     acceptedSeq: 1,
@@ -25,7 +22,7 @@ test('persists accepted and rejected outcomes and retries them after eviction', 
   const restored = env.MATCH_ROOM.getByName(matchId)
   expect(await restored.submitCommand(rejected)).toEqual({
     _tag: 'rejected',
-    reason: { code: 'no-active-frame' },
+    reason: { code: 'wrong-breaker', expectedSeat: 'A' },
   })
   expect(await restored.submitCommand(accepted)).toEqual({
     _tag: 'accepted',
@@ -60,25 +57,28 @@ test('returns malformed nested Commands as data and allows a corrected request t
       command: { type: 'unsupported' },
     }),
   ).toEqual({ _tag: 'invalid-command' })
-  expect(await stub.submitCommand({ commandId, source: 'match', command: { type: 'frame.prepare' } })).toEqual(
-    {
-      _tag: 'accepted',
-      acceptedSeq: 1,
-      endsMatch: false,
-    },
-  )
+  expect(
+    await stub.submitCommand({ commandId, source: 'match', command: { type: 'frame.commence', seat: 'A' } }),
+  ).toEqual({
+    _tag: 'accepted',
+    acceptedSeq: 1,
+    endsMatch: false,
+  })
 })
 
 test('serializes concurrent Commands into one authoritative accepted order', async () => {
   const { stub } = await initializedRoom()
 
   const results = await Promise.all([
-    stub.submitCommand(prepareCommand()),
-    stub.submitCommand(prepareCommand()),
+    stub.submitCommand(commenceCommand()),
+    stub.submitCommand(commenceCommand()),
   ])
 
   expect(results).toContainEqual({ _tag: 'accepted', acceptedSeq: 1, endsMatch: false })
-  expect(results).toContainEqual({ _tag: 'rejected', reason: { code: 'frame-already-active' } })
+  expect(results).toContainEqual({
+    _tag: 'rejected',
+    reason: { code: 'game-command-rejected', reason: { code: 'command-not-available' } },
+  })
 })
 
 test('discards speculative resident state and rolls back both writes after persistence failure', async () => {
@@ -89,7 +89,7 @@ test('discards speculative resident state and rolls back both writes after persi
     )
   })
   await captureRpcError(async () => {
-    await stub.submitCommand(prepareCommand())
+    await stub.submitCommand(commenceCommand())
   })
   await runInDurableObject(stub, (_room, state) => {
     expect(
@@ -106,7 +106,7 @@ test('discards speculative resident state and rolls back both writes after persi
     ).toEqual({ latest_seq: 0 })
     state.storage.sql.exec('DROP TRIGGER fail_cursor')
   })
-  expect(await stub.submitCommand(prepareCommand())).toEqual({
+  expect(await stub.submitCommand(commenceCommand())).toEqual({
     _tag: 'accepted',
     acceptedSeq: 1,
     endsMatch: false,
@@ -115,20 +115,19 @@ test('discards speculative resident state and rolls back both writes after persi
 
 test('a match-ending retry still reports endsMatch while an earlier accepted retry does not', async () => {
   const { matchId, stub } = await initializedRoom()
-  const rejected = commenceCommand()
+  const rejected = { ...commenceCommand(), command: { type: 'frame.commence', seat: 'B' } }
   await stub.submitCommand(rejected)
-  const earlier = prepareCommand()
+  const earlier = commenceCommand()
   await stub.submitCommand(earlier)
-  await stub.submitCommand(commenceCommand())
   const endingCommand = matchEndingCommand()
   expect(await stub.submitCommand(endingCommand)).toEqual({
     _tag: 'accepted',
-    acceptedSeq: 3,
+    acceptedSeq: 2,
     endsMatch: true,
   })
   expect(await stub.submitCommand(endingCommand)).toEqual({
     _tag: 'accepted',
-    acceptedSeq: 3,
+    acceptedSeq: 2,
     endsMatch: true,
   })
   expect(await stub.submitCommand(earlier)).toEqual({
@@ -136,18 +135,18 @@ test('a match-ending retry still reports endsMatch while an earlier accepted ret
     acceptedSeq: 1,
     endsMatch: false,
   })
-  expect(await stub.submitCommand(prepareCommand())).toEqual({ _tag: 'finalizing' })
+  expect(await stub.submitCommand(commenceCommand())).toEqual({ _tag: 'finalizing' })
 
   await evictDurableObject(stub)
   const restored = env.MATCH_ROOM.getByName(matchId)
   expect(await restored.submitCommand(endingCommand)).toEqual({
     _tag: 'accepted',
-    acceptedSeq: 3,
+    acceptedSeq: 2,
     endsMatch: true,
   })
   expect(await restored.submitCommand(rejected)).toEqual({
     _tag: 'rejected',
-    reason: { code: 'no-active-frame' },
+    reason: { code: 'wrong-breaker', expectedSeat: 'A' },
   })
   expect(
     await restored.submitCommand({
@@ -158,5 +157,5 @@ test('a match-ending retry still reports endsMatch while an earlier accepted ret
       },
     }),
   ).toEqual({ _tag: 'command-id-conflict' })
-  expect(await restored.submitCommand(prepareCommand())).toEqual({ _tag: 'finalizing' })
+  expect(await restored.submitCommand(commenceCommand())).toEqual({ _tag: 'finalizing' })
 })

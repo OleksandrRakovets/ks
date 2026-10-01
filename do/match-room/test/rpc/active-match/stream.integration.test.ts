@@ -3,7 +3,7 @@ import { env } from 'cloudflare:workers'
 import * as v from 'valibot'
 import { expect, test } from 'vitest'
 
-import { initializedRoom, makeRoomFinalizing, matchEndingCommand, prepareCommand } from '../fixtures'
+import { initializedRoom, makeRoomFinalizing, matchEndingCommand } from '../fixtures'
 
 function liveRequest(matchId: string, view: 'control' | 'protocol' = 'control'): Request {
   return new Request(`https://match-room/api/sparring-match/${matchId}/live/?contract=1&view=${view}`, {
@@ -40,13 +40,12 @@ test('rejects a routed identity mismatch before reading MatchRoom storage', asyn
 
 test('sends one catch-up cursor and broadcasts acceptances that do not end the Match', async () => {
   const { matchId, stub } = await initializedRoom()
-  await stub.submitCommand(prepareCommand())
   const first = await connect(stub, matchId)
   expect(await nextMessage(first)).toEqual({
     contractVersion: 1,
     type: 'caught-up',
     matchId,
-    latestSeq: 1,
+    latestSeq: 0,
   })
   const live = nextMessage(first)
   await stub.submitCommand({
@@ -57,14 +56,13 @@ test('sends one catch-up cursor and broadcasts acceptances that do not end the M
   expect(await live).toMatchObject({
     contractVersion: 1,
     type: 'update',
-    update: { acceptedSeq: 2, endsMatch: false },
+    update: { acceptedSeq: 1, endsMatch: false },
   })
   first.close()
 })
 
 test('broadcasts and closes on the durable match-ending command before archive preparation', async () => {
   const { matchId, stub } = await initializedRoom()
-  await stub.submitCommand(prepareCommand())
   await stub.submitCommand({
     commandId: newCommandId(),
     source: 'match',
@@ -81,7 +79,7 @@ test('broadcasts and closes on the durable match-ending command before archive p
   await stub.submitCommand(matchEndingCommand())
   expect(await endingUpdate).toMatchObject({
     type: 'update',
-    update: { acceptedSeq: 3, endsMatch: true },
+    update: { acceptedSeq: 2, endsMatch: true },
   })
   expect((await closed).code).toBe(4000)
   expect((await stub.fetch(liveRequest(matchId))).status).toBe(410)

@@ -372,7 +372,6 @@ function renderMatch() {
 
 function renderMatchControls(snap: MatchSnapshot) {
   const phase = getMatchPhase(snap)
-  const ctx = snap.context
   controls.innerHTML = ''
   controls.append(
     btn(
@@ -400,23 +399,6 @@ function renderMatchControls(snap: MatchSnapshot) {
   )
 
   if (phase === 'finished') return
-
-  if (phase === 'between-frames') {
-    controls.append(
-      btn(
-        `Prepare frame ${ctx.nextFrameIndex}`,
-        () =>
-          matchActor.send({
-            type: 'frame.prepared',
-            frameIndex: ctx.nextFrameIndex,
-            breakerSeat: ctx.nextFrameIndex % 2 === 1 ? 'A' : 'B',
-          }),
-        'primary',
-      ),
-    )
-
-    return
-  }
 
   controls.append(
     el('div', 'Complete the active frame with a synthetic outcome.', 'frame-info'),

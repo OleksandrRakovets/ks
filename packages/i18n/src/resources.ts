@@ -57,7 +57,6 @@ export const resources = {
         control: {
           title: 'Керування матчем',
           awardFrame: 'Зарахувати фрейм',
-          prepareNextFrame: 'Підготувати наступний фрейм',
           endMatch: 'Завершити матч',
           invalidCommandPayload: 'Некоректні дані команди',
           commandRejectedByRules: 'Команду відхилено правилами матчу',
@@ -66,7 +65,6 @@ export const resources = {
             match: {
               frame: {
                 commence: 'Початковий удар',
-                prepare: 'Підготувати наступну партію',
                 concede: 'Визнати поразку в партії',
               },
               match: { end: 'Завершити матч' },
@@ -364,14 +362,13 @@ export const resources = {
         control: {
           title: 'Match control',
           awardFrame: 'Award frame',
-          prepareNextFrame: 'Prepare next frame',
           endMatch: 'End match',
           invalidCommandPayload: 'Invalid command payload',
           commandRejectedByRules: 'Command rejected by match rules',
           targetReached: 'Target reached',
           commands: {
             match: {
-              frame: { commence: 'Break-off', prepare: 'Prepare next frame', concede: 'Concede frame' },
+              frame: { commence: 'Break-off', concede: 'Concede frame' },
               match: { end: 'End match' },
             },
             game: {

@@ -5,6 +5,12 @@ import * as v from 'valibot'
 
 import type { MatchConfig } from './definitions'
 import { createMatch, type Match, MatchCheckpoint, restoreMatchCheckpoint } from './match'
+import {
+  createInitialSnapshot,
+  deriveLifecycleState,
+  restoreLifecycleSnapshot,
+  sendLifecycleEvent,
+} from './match-machine-internals'
 
 function config(gameKey: MatchConfig['gameKey'], matchTargetFrames = 2): MatchConfig {
   const base: MatchConfig = {
@@ -37,11 +43,45 @@ function roundTrip(match: Match): Match {
   return restored
 }
 
-test('initial, prepared, between-frames and finished states retain execution and lifecycle Protocol', () => {
+test('machine automatically settles creation and completion into stable phases', () => {
+  const initial = createInitialSnapshot(config('free-pyramid', 2))
+  expect(deriveLifecycleState(initial)).toMatchObject({
+    phase: 'frame-in-progress',
+    activeFrame: { frameIndex: 1, breakerSeat: 'B' },
+    completedFrames: [],
+  })
+  const outcome = { winnerSeat: 'A', score: { A: 2, B: 1 }, winReason: 'conceded' } as const
+  const next = sendLifecycleEvent(initial, { type: 'frame.completed', frameIndex: 1, outcome })
+  expect(deriveLifecycleState(next)).toMatchObject({
+    phase: 'frame-in-progress',
+    activeFrame: { frameIndex: 2, breakerSeat: 'A' },
+    completedFrames: [{ frameIndex: 1, outcome }],
+    framesWonBySeat: { A: 1, B: 0 },
+  })
+  expect(
+    deriveLifecycleState(restoreLifecycleSnapshot({ value: 'frame-in-progress', context: next.context })),
+  ).toEqual(deriveLifecycleState(next))
+  const finished = sendLifecycleEvent(next, { type: 'frame.completed', frameIndex: 2, outcome })
+  expect(deriveLifecycleState(finished)).toMatchObject({
+    phase: 'finished',
+    winnerSeat: 'A',
+    framesWonBySeat: { A: 2, B: 0 },
+  })
+  expect(finished.context.activeFrame).toBeNull()
+  expect(finished.context.completedFrames).toHaveLength(2)
+})
+
+test('stable initial, next-frame and finished checkpoints retain execution and lifecycle Protocol', () => {
   const match = createMatch(config('free-pyramid', 2))
   const initial = roundTrip(match)
-  const prepare = { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } } as const
-  expect(initial.execute(prepare)).toEqual(match.execute(prepare))
+
+  const commence = {
+    commandId: newCommandId(),
+    source: 'match',
+    command: { type: 'frame.commence', seat: 'B' },
+  } as const
+
+  expect(initial.execute(commence)).toEqual(match.execute(commence))
   const prepared = roundTrip(match)
 
   const concede = {
@@ -51,18 +91,24 @@ test('initial, prepared, between-frames and finished states retain execution and
   } as const
 
   expect(prepared.execute(concede)).toEqual(match.execute(concede))
-  const between = roundTrip(match)
-  expect(between.execute(prepare)).toEqual(match.execute(prepare))
   const next = roundTrip(match)
+  expect(next.phase()).toBe('frame-in-progress')
+  expect(next.state()).toMatchObject({
+    currentFrameIndex: 2,
+    frames: [{ winnerSeat: 'B' }, { breakerSeat: 'A', pointsBySeat: { A: 0, B: 0 } }],
+  })
+  send(next, 'match', { type: 'frame.commence', seat: 'A' })
+  send(match, 'match', { type: 'frame.commence', seat: 'A' })
   expect(next.execute(concede)).toEqual(match.execute(concede))
   const finished = roundTrip(match)
   expect(finished.state().framesWonBySeat).toEqual({ A: 0, B: 2 })
-  expect(finished.execute(prepare)).toEqual(match.execute(prepare))
+  expect(finished.state().frames).toHaveLength(2)
+  expect(finished.exportCheckpoint().gameplay).toBeNull()
+  expect(finished.execute(commence)).toEqual(match.execute(commence))
 })
 
 test('Strila nested foul phase preserves offender and subsequent Protocol', () => {
   const match = createMatch(config('strila-v2'))
-  send(match, 'match', { type: 'frame.prepare' })
   send(match, 'match', { type: 'frame.commence', seat: 'B' })
   send(match, 'game', { type: 'foul.commit', seat: 'B' })
   const checkpoint = match.exportCheckpoint()
@@ -82,7 +128,6 @@ test('Strila nested foul phase preserves offender and subsequent Protocol', () =
 
 test('pyramid rule-specific negative score survives restore for old combined rules', () => {
   const match = createMatch(config('combined-pyramid-old'))
-  send(match, 'match', { type: 'frame.prepare' })
   send(match, 'match', { type: 'frame.commence', seat: 'B' })
   send(match, 'game', { type: 'foul.commit', seat: 'B' })
   const restored = roundTrip(match)
@@ -103,7 +148,6 @@ test('restored winner-determined gameplay produces the final outcome and complet
     targets: { frameTargetPointsBySeat: { A: 3, B: 5 }, matchTargetFrames: 1 },
   })
 
-  send(match, 'match', { type: 'frame.prepare' })
   send(match, 'match', { type: 'frame.commence', seat: 'B' })
   send(match, 'game', { type: 'pot.record', seat: 'B', pottedBallCount: 1 })
   send(match, 'game', { type: 'pot.record', seat: 'A', pottedBallCount: 2 })
@@ -169,7 +213,6 @@ test('long pyramid awaiting-award restores a foul-determined winner and retained
     targets: { frameTargetPointsBySeat: { A: 4, B: 2 }, matchTargetFrames: 1 },
   })
 
-  send(match, 'match', { type: 'frame.prepare' })
   send(match, 'match', { type: 'frame.commence', seat: 'B' })
   send(match, 'game', { type: 'foul.commit', seat: 'A' })
   send(match, 'game', { type: 'foul.commit', seat: 'A' })
@@ -203,7 +246,6 @@ test('long pyramid awaiting-award restores a foul-determined winner and retained
 
 test('long pyramid rack rollover and retained result after completed frame', () => {
   const match = createMatch(config('free-pyramid-long', 1))
-  send(match, 'match', { type: 'frame.prepare' })
   send(match, 'match', { type: 'frame.commence', seat: 'B' })
 
   for (const count of [4, 4, 4, 2])
@@ -224,10 +266,18 @@ test('long pyramid rack rollover and retained result after completed frame', () 
 
 test('retained long result coexists with the next active frame', () => {
   const match = createMatch(config('free-pyramid-long'))
-  send(match, 'match', { type: 'frame.prepare' })
+  send(match, 'match', { type: 'frame.commence', seat: 'B' })
+  send(match, 'game', { type: 'pot.record', seat: 'B', pottedBallCount: 2 })
   send(match, 'match', { type: 'frame.concede', seat: 'A' })
-  const completed = roundTrip(match).gameResult()
-  send(match, 'match', { type: 'frame.prepare' })
+  const completed = match.exportCheckpoint().completedGameResult
+  expect(completed).toEqual({
+    gameKey: 'free-pyramid-long',
+    racks: [{ rackNumber: 1, scoreBySeat: { A: 0, B: 2 } }],
+  })
+  expect(match.state().frames).toEqual([
+    { frameIndex: 1, breakerSeat: 'B', winnerSeat: 'B', pointsBySeat: { A: 0, B: 2 } },
+    { frameIndex: 2, breakerSeat: 'A', pointsBySeat: { A: 0, B: 0 } },
+  ])
   expect(match.exportCheckpoint().completedGameResult).toEqual(completed)
   const restored = roundTrip(match)
 
@@ -242,7 +292,6 @@ test('retained long result coexists with the next active frame', () => {
 
 test.each(['free-pyramid', 'combined-pyramid'] as const)('%s restores an active scoring frame', (gameKey) => {
   const match = createMatch(config(gameKey))
-  send(match, 'match', { type: 'frame.prepare' })
   send(match, 'match', { type: 'frame.commence', seat: 'B' })
   send(match, 'game', { type: 'pot.record', seat: 'A', pottedBallCount: 1 })
   const restored = roundTrip(match)
@@ -258,13 +307,23 @@ test.each(['free-pyramid', 'combined-pyramid'] as const)('%s restores an active 
 
 test('rejects inconsistent persisted aggregates and corrupted hidden rule context', () => {
   const match = createMatch(config('combined-pyramid'))
-  send(match, 'match', { type: 'frame.prepare' })
   // SAFETY: JSON parsing yields an untrusted value that the checkpoint schema validates.
   const checkpoint = v.parse(MatchCheckpoint, JSON.parse(JSON.stringify(match.exportCheckpoint())) as unknown)
 
   const gameplay = checkpoint.gameplay
 
   if (gameplay?.gameKey !== 'combined-pyramid') throw new Error('Expected combined gameplay')
+  expect(() =>
+    restoreMatchCheckpoint({
+      ...checkpoint,
+      lifecycle: {
+        ...checkpoint.lifecycle,
+        value: 'between-frames',
+        context: { ...checkpoint.lifecycle.context, activeFrame: null },
+      },
+      gameplay: null,
+    }),
+  ).toThrow('transient')
   expect(() => restoreMatchCheckpoint({ ...checkpoint, gameplay: null })).toThrow()
   expect(() =>
     restoreMatchCheckpoint({

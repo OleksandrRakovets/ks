@@ -37,7 +37,6 @@ type MatchCommandParseFailure = {
 }
 
 export const MatchRejection = v.variant('code', [
-  v.pipe(v.object({ code: v.literal('frame-already-active') }), v.readonly()),
   v.pipe(v.object({ code: v.literal('no-active-frame') }), v.readonly()),
   v.pipe(v.object({ code: v.literal('wrong-breaker'), expectedSeat: Seat }), v.readonly()),
   v.pipe(v.object({ code: v.literal('match-already-over') }), v.readonly()),
@@ -88,7 +87,6 @@ type MatchControlProjection =
     }[GameKey]
 
 const MatchLifecycleCommand = v.variant('type', [
-  v.pipe(v.strictObject({ type: v.literal('frame.prepare') }), v.readonly()),
   v.pipe(v.strictObject({ type: v.literal('frame.commence'), seat: Seat }), v.readonly()),
   v.pipe(v.strictObject({ type: v.literal('frame.concede'), seat: Seat }), v.readonly()),
 ])
@@ -132,7 +130,7 @@ class Match {
       return parsed.success ? this.#applyMatchCommand(parsed.output, command) : parseFailed()
     }
 
-    if (['frame.prepare', 'frame.commence', 'frame.concede'].includes(commandType)) return parseFailed()
+    if (['frame.commence', 'frame.concede'].includes(commandType)) return parseFailed()
     const gameKey = gameKeyOf(lifecycle.config.gameKey)
 
     return this.#applyGameCommand(gameKey, command.command, command, commandType)
@@ -196,14 +194,6 @@ class Match {
 
     const matchControls: Control[] = []
 
-    if (lifecycle.phase === 'between-frames')
-      matchControls.push({
-        source: 'match',
-        type: 'frame.prepare',
-        fixedInput: {},
-        prominence: 'secondary',
-      })
-
     if (lifecycle.phase !== 'frame-in-progress') {
       return { controlPhase: 'between-frames', state, game: undefined, controls: matchControls }
     }
@@ -259,38 +249,6 @@ class Match {
     const gameKey = gameKeyOf(lifecycle.config.gameKey)
 
     if (lifecycle.phase === 'finished') return { _tag: 'rejected', reason: { code: 'match-already-over' } }
-
-    if (command.type === 'frame.prepare') {
-      if (lifecycle.phase !== 'between-frames')
-        return { _tag: 'rejected', reason: { code: 'frame-already-active' } }
-      const frameIndex = lifecycle.nextFrameIndex
-
-      const breakerSeat =
-        frameIndex % 2 === 1
-          ? lifecycle.config.firstBreakerSeat
-          : opponentOf(lifecycle.config.firstBreakerSeat)
-
-      this.#snapshot = sendLifecycleEvent(this.#snapshot, { type: 'frame.prepared', frameIndex, breakerSeat })
-      this.#gameplay = createGameplay(gameKey, lifecycle.config)
-
-      return {
-        _tag: 'accepted',
-        command: acceptedCommand,
-        protocolEntryContents: [
-          {
-            gameKey,
-            frameIndex,
-            source: 'system',
-            entryType: 'frame-prepared',
-            seat: breakerSeat,
-            body: {
-              targetPointsBySeat: lifecycle.config.targets.frameTargetPointsBySeat,
-              gameConfiguration: lifecycle.config.gameConfiguration,
-            },
-          },
-        ],
-      }
-    }
 
     if (lifecycle.phase !== 'frame-in-progress' || !this.#gameplay)
       return { _tag: 'rejected', reason: { code: 'no-active-frame' } }
@@ -428,6 +386,7 @@ class Match {
       outcome,
     })
     const resulting = deriveLifecycleState(this.#snapshot)
+    this.#completedGameResult = this.#gameplay?.session.deriveResult?.() ?? null
 
     if (resulting.phase === 'finished')
       protocolEntryContents.push({
@@ -438,21 +397,33 @@ class Match {
         seat: resulting.winnerSeat,
         body: {},
       })
-    this.#completedGameResult = this.#gameplay?.session.deriveResult?.() ?? null
-    this.#gameplay = null
+    else if (resulting.phase === 'frame-in-progress')
+      protocolEntryContents.push({
+        gameKey,
+        frameIndex: resulting.activeFrame.frameIndex,
+        source: 'system',
+        entryType: 'frame-prepared',
+        seat: resulting.activeFrame.breakerSeat,
+        body: {
+          targetPointsBySeat: resulting.config.targets.frameTargetPointsBySeat,
+          gameConfiguration: resulting.config.gameConfiguration,
+        },
+      })
+
+    this.#gameplay = resulting.phase === 'frame-in-progress' ? createGameplay(gameKey, resulting.config) : null
 
     return { _tag: 'accepted', command: acceptedCommand, protocolEntryContents }
   }
 }
 
 /**
- * Constructs a new executable Match before its first Frame is prepared.
+ * Constructs a new executable Match with its first Frame prepared, waiting for player commencement.
  * @throws A Valibot parse error when the configuration uses an unregistered game key.
  */
 export function createMatch(config: MatchConfig): Match {
-  gameKeyOf(config.gameKey)
+  const gameKey = gameKeyOf(config.gameKey)
 
-  return new Match(createInitialSnapshot(config), null)
+  return new Match(createInitialSnapshot(config), createGameplay(gameKey, config))
 }
 
 /** Validates persisted state and restores one local executable aggregate without replay. */

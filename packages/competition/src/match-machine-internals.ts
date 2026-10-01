@@ -56,17 +56,11 @@ export type MatchLifecycleState =
       readonly winnerSeat: Seat
     })
 
-export type MatchLifecycleEvent =
-  | {
-      readonly type: 'frame.prepared'
-      readonly frameIndex: number
-      readonly breakerSeat: Seat
-    }
-  | {
-      readonly type: 'frame.completed'
-      readonly frameIndex: number
-      readonly outcome: FrameOutcome
-    }
+export type MatchLifecycleEvent = {
+  readonly type: 'frame.completed'
+  readonly frameIndex: number
+  readonly outcome: FrameOutcome
+}
 
 export const MatchMachine = setup({
   types: {
@@ -78,22 +72,8 @@ export const MatchMachine = setup({
     input: {} as MatchConfig,
   },
   guards: {
-    isValidFramePrepare: ({ context, event }) => {
-      if (event.type !== 'frame.prepared') return false
-
-      return (
-        event.frameIndex === context.nextFrameIndex &&
-        event.breakerSeat === expectedBreakerSeat(context.config, event.frameIndex)
-      )
-    },
-    isValidFrameComplete: ({ context, event }) => {
-      if (event.type !== 'frame.completed') return false
-
-      return context.activeFrame?.frameIndex === event.frameIndex
-    },
+    isValidFrameComplete: ({ context, event }) => context.activeFrame?.frameIndex === event.frameIndex,
     isMatchWinningFrameComplete: ({ context, event }) => {
-      if (event.type !== 'frame.completed') return false
-
       if (context.activeFrame?.frameIndex !== event.frameIndex) return false
       const nextWins = winsAfterOutcome(context.framesWonBySeat, event.outcome)
 
@@ -101,18 +81,13 @@ export const MatchMachine = setup({
     },
   },
   actions: {
-    activateFrame: assign(({ event }) => {
-      if (event.type !== 'frame.prepared') throw new Error('Expected frame.prepared')
-
-      return {
-        activeFrame: {
-          frameIndex: event.frameIndex,
-          breakerSeat: event.breakerSeat,
-        },
-      }
-    }),
+    activateFrame: assign(({ context }) => ({
+      activeFrame: {
+        frameIndex: context.nextFrameIndex,
+        breakerSeat: expectedBreakerSeat(context.config, context.nextFrameIndex),
+      },
+    })),
     recordCompletedFrame: assign(({ context, event }) => {
-      if (event.type !== 'frame.completed') throw new Error('Expected frame.completed')
       const activeFrame = context.activeFrame
 
       if (!activeFrame) throw new Error('No active frame to complete')
@@ -133,13 +108,7 @@ export const MatchMachine = setup({
         nextFrameIndex: context.nextFrameIndex + 1,
       }
     }),
-    setWinner: assign(({ event }) => {
-      if (event.type !== 'frame.completed') throw new Error('Expected frame.completed')
-
-      return {
-        winnerSeat: event.outcome.winnerSeat,
-      }
-    }),
+    setWinner: assign(({ event }) => ({ winnerSeat: event.outcome.winnerSeat })),
   },
 }).createMachine({
   id: 'match',
@@ -154,12 +123,9 @@ export const MatchMachine = setup({
   }),
   states: {
     'between-frames': {
-      on: {
-        'frame.prepared': {
-          guard: 'isValidFramePrepare',
-          target: 'frame-in-progress',
-          actions: 'activateFrame',
-        },
+      always: {
+        target: 'frame-in-progress',
+        actions: 'activateFrame',
       },
     },
     'frame-in-progress': {
@@ -198,6 +164,9 @@ export function createInitialSnapshot(config: MatchConfig): MatchSnapshot {
 
 export function restoreLifecycleSnapshot(checkpoint: MatchMachineCheckpoint): MatchSnapshot {
   const { value, context } = checkpoint
+
+  if (value === 'between-frames') throw new Error('Cannot restore a transient match phase')
+
   const wins = { A: 0, B: 0 }
 
   for (const [index, frame] of context.completedFrames.entries()) {

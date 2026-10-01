@@ -28,14 +28,13 @@ test.each([14, 15] as const)(
       expect(result._tag).toBe('accepted')
     }
 
-    await submit('match', { type: 'frame.prepare' })
     await submit('match', { type: 'frame.commence', seat: 'A' })
 
     for (const count of [4, 4, 4])
       await submit('game', { type: 'pot.record', seat: 'A', pottedBallCount: count })
     await submit('game', { type: 'pot.record', seat: 'B', pottedBallCount: rollover - 12 })
 
-    expect(await stub.getScore()).toMatchObject({ _tag: 'active', latestSeq: 6 })
+    expect(await stub.getScore()).toMatchObject({ _tag: 'active', latestSeq: 5 })
 
     const racks = [
       { rackNumber: 1, scoreBySeat: { A: 12, B: rollover - 12 } },

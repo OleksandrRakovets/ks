@@ -5,10 +5,10 @@ import { expect, test } from 'vitest'
 
 import {
   captureRpcError,
+  commenceCommand,
   initialization,
   initializedRoom,
   makeRoomFinalizing,
-  prepareCommand,
 } from '../fixtures'
 
 test('returns active Controls at the authoritative sequence and restores after eviction', async () => {
@@ -17,17 +17,16 @@ test('returns active Controls at the authoritative sequence and restores after e
   expect(initial).toMatchObject({
     _tag: 'active',
     latestSeq: 0,
-    state: { status: 'active', currentFrameIndex: 0 },
-    game: undefined,
-    controls: [{ source: 'match', type: 'frame.prepare' }],
+    state: { status: 'active', currentFrameIndex: 1 },
+    game: { gameKey: 'free-pyramid', details: { phase: 'not-started' } },
+    controls: [{ source: 'match', type: 'frame.commence', seat: 'A' }],
   })
   expect(initial).not.toHaveProperty('controlPhase')
   expect(initial).not.toHaveProperty('protocolEntries')
-  await stub.submitCommand(prepareCommand())
   await evictDurableObject(stub)
   expect(await env.MATCH_ROOM.getByName(matchId).getControls()).toMatchObject({
     _tag: 'active',
-    latestSeq: 1,
+    latestSeq: 0,
     state: {
       currentFrameIndex: 1,
       frames: [{ frameIndex: 1, breakerSeat: 'A', pointsBySeat: { A: 0, B: 0 } }],
@@ -39,10 +38,9 @@ test('returns active Controls at the authoritative sequence and restores after e
 
 test('returns the compact score at the authoritative sequence', async () => {
   const { stub } = await initializedRoom()
-  await stub.submitCommand(prepareCommand())
   expect(await stub.getScore()).toEqual({
     _tag: 'active',
-    latestSeq: 1,
+    latestSeq: 0,
     score: {
       matchTargetFrames: 1,
       frameTargetPointsBySeat: { A: 8, B: 8 },
@@ -55,7 +53,7 @@ test('returns the compact score at the authoritative sequence', async () => {
 
 test('reads score and command receipts without restoring a damaged checkpoint, but rejects rich reads', async () => {
   const { matchId, stub } = await initializedRoom()
-  const accepted = prepareCommand()
+  const accepted = commenceCommand()
   await stub.submitCommand(accepted)
   await runInDurableObject(stub, (_room, state) => {
     state.storage.sql.exec("UPDATE checkpoints SET aggregate_json = '{}' WHERE seq = 1")
@@ -81,13 +79,13 @@ test('reads score and command receipts without restoring a damaged checkpoint, b
   expect(
     (
       await captureRpcError(async () => {
-        await restored.submitCommand(prepareCommand())
+        await restored.submitCommand(commenceCommand())
       })
     ).message,
   ).toContain('checkpoint storage corruption')
 })
 
-test('restores asymmetric game scoring and keeps the effective last command across system-only preparation', async () => {
+test('persists award and next preparation in one acceptance through retries and eviction', async () => {
   const matchId = newMatchId()
   const stub = env.MATCH_ROOM.getByName(matchId)
   await stub.initialize({
@@ -97,7 +95,6 @@ test('restores asymmetric game scoring and keeps the effective last command acro
       matchTargetFrames: 2,
     },
   })
-  await stub.submitCommand(prepareCommand())
   await stub.submitCommand({
     commandId: newCommandId(),
     source: 'match',
@@ -117,53 +114,99 @@ test('restores asymmetric game scoring and keeps the effective last command acro
   const restored = env.MATCH_ROOM.getByName(matchId)
   expect(await restored.getControls()).toMatchObject({
     _tag: 'active',
-    latestSeq: 4,
+    latestSeq: 3,
     state: { framesWonBySeat: { A: 0, B: 0 } },
     lastCommand: {
-      entry: { acceptedSeq: 4, scoreAfter: { A: 2, B: 0 } },
+      entry: { acceptedSeq: 3, scoreAfter: { A: 2, B: 0 } },
       correction: {
         type: 'command.correct',
-        fixedInput: { targetSeq: 4 },
+        fixedInput: { targetSeq: 3 },
       },
     },
   })
-  expect(
-    await restored.submitCommand({
-      commandId: newCommandId(),
-      source: 'game',
-      command: { type: 'frame.award', seat: 'A' },
-    }),
-  ).toMatchObject({
+
+  const award = {
+    commandId: newCommandId(),
+    source: 'game' as const,
+    command: { type: 'frame.award', seat: 'A' },
+  }
+
+  expect(await restored.submitCommand(award)).toMatchObject({
     _tag: 'accepted',
-    acceptedSeq: 5,
+    acceptedSeq: 4,
     endsMatch: false,
   })
   expect(await restored.getProtocol()).toMatchObject({
-    latestSeq: 5,
+    latestSeq: 4,
     state: { framesWonBySeat: { A: 1, B: 0 }, status: 'active' },
     protocolEntries: expect.arrayContaining([
-      expect.objectContaining({ acceptedSeq: 5, entryType: 'frame-awarded', seat: 'A' }),
+      expect.objectContaining({
+        acceptedSeq: 4,
+        entryIndex: 0,
+        entryType: 'player-command',
+        causedByCommandId: award.commandId,
+      }),
+      expect.objectContaining({
+        acceptedSeq: 4,
+        entryIndex: 1,
+        entryType: 'frame-awarded',
+        seat: 'A',
+        causedByCommandId: award.commandId,
+      }),
+      expect.objectContaining({
+        acceptedSeq: 4,
+        entryIndex: 2,
+        entryType: 'frame-prepared',
+        frameIndex: 2,
+        seat: 'B',
+        causedByCommandId: award.commandId,
+      }),
     ]),
   })
   const controls = await restored.getControls()
 
   if (!('lastCommand' in controls)) throw new Error('Expected active controls')
   expect(controls).toMatchObject({
-    state: { status: 'active', frames: [{ winnerSeat: 'A', pointsBySeat: { A: 2, B: 0 } }] },
-    game: undefined,
-    controls: [{ source: 'match', type: 'frame.prepare' }],
+    state: {
+      status: 'active',
+      currentFrameIndex: 2,
+      frames: [
+        { winnerSeat: 'A', pointsBySeat: { A: 2, B: 0 } },
+        { breakerSeat: 'B', pointsBySeat: { A: 0, B: 0 } },
+      ],
+    },
+    game: { gameKey: 'free-pyramid', score: { A: 0, B: 0 }, details: { phase: 'not-started' } },
+    controls: [{ source: 'match', type: 'frame.commence', seat: 'B' }],
   })
   expect(controls.lastCommand).toEqual({
     entry: expect.objectContaining({
-      acceptedSeq: 5,
+      acceptedSeq: 4,
       source: 'player',
       entryType: 'player-command',
     }),
   })
-  await restored.submitCommand(prepareCommand())
+  const protocol = await restored.getProtocol()
+  await runInDurableObject(restored, (_room, state) => {
+    expect(
+      state.storage.sql
+        .exec<{ count: number }>('SELECT count(*) AS count FROM commands WHERE accepted_seq IS NOT NULL')
+        .one().count,
+    ).toBe(4)
+    expect(
+      state.storage.sql.exec<{ count: number }>('SELECT count(*) AS count FROM checkpoints').one().count,
+    ).toBe(5)
+  })
   await evictDurableObject(restored)
-  expect(await env.MATCH_ROOM.getByName(matchId).getControls()).toMatchObject({
-    latestSeq: 6,
+  const next = env.MATCH_ROOM.getByName(matchId)
+  expect(await next.submitCommand(award)).toEqual({ _tag: 'accepted', acceptedSeq: 4, endsMatch: false })
+  expect(await next.getProtocol()).toEqual(protocol)
+  expect(await next.getControls()).toMatchObject({
+    latestSeq: 4,
+    state: {
+      currentFrameIndex: 2,
+      frames: [{ winnerSeat: 'A' }, { breakerSeat: 'B', pointsBySeat: { A: 0, B: 0 } }],
+    },
+    controls: expect.arrayContaining([expect.objectContaining({ type: 'frame.commence', seat: 'B' })]),
     lastCommand: controls.lastCommand,
   })
 })
@@ -176,7 +219,6 @@ test('restores nested Strila foul state and archives a natural award after evict
     gameKey: 'strila-v2',
     targets: { frameTargetPointsBySeat: { A: 2, B: 1 }, matchTargetFrames: 1 },
   })
-  await stub.submitCommand(prepareCommand())
   await stub.submitCommand({
     commandId: newCommandId(),
     source: 'match',
@@ -196,16 +238,16 @@ test('restores nested Strila foul state and archives a natural award after evict
       source: 'game',
       command: { type: 'penalty.select', seat: 'B', choice: 'pass-position' },
     }),
-  ).toEqual({ _tag: 'accepted', acceptedSeq: 4, endsMatch: false })
+  ).toEqual({ _tag: 'accepted', acceptedSeq: 3, endsMatch: false })
   const restoredProtocol = await restored.getProtocol()
   expect(restoredProtocol).toMatchObject({
     _tag: 'active',
-    latestSeq: 4,
+    latestSeq: 3,
     state: { frames: [{ pointsBySeat: { A: 0, B: 1 } }] },
   })
   expect(
     restoredProtocol.protocolEntries
-      .filter((entry) => entry.acceptedSeq === 4)
+      .filter((entry) => entry.acceptedSeq === 3)
       .map(({ source, entryType, seat, scoreAfter, body }) => ({ source, entryType, seat, scoreAfter, body })),
   ).toEqual([
     {
@@ -232,7 +274,7 @@ test('restores nested Strila foul state and archives a natural award after evict
       source: 'game',
       command: { type: 'frame.award', seat: 'B' },
     }),
-  ).toEqual({ _tag: 'accepted', acceptedSeq: 5, endsMatch: true })
+  ).toEqual({ _tag: 'accepted', acceptedSeq: 4, endsMatch: true })
   await evictDurableObject(winnerDetermined)
 
   const finalizing = env.MATCH_ROOM.getByName(matchId)
@@ -240,7 +282,7 @@ test('restores nested Strila foul state and archives a natural award after evict
   expect(transfer).toMatchObject({
     matchId,
     gameKey: 'strila-v2',
-    sourceLatestSeq: 5,
+    sourceLatestSeq: 4,
     finalState: {
       status: 'finished',
       framesWonBySeat: { A: 0, B: 1 },
@@ -249,7 +291,7 @@ test('restores nested Strila foul state and archives a natural award after evict
   })
   expect(
     transfer.protocolEntries
-      .filter((entry) => entry.acceptedSeq === 5)
+      .filter((entry) => entry.acceptedSeq === 4)
       .map(({ source, entryType, seat, body }) => ({ source, entryType, seat, body })),
   ).toEqual([
     {
@@ -274,13 +316,13 @@ test('returns durable final state and score after a match-ending acceptance', as
   const controls = await stub.getControls()
   expect(controls).toMatchObject({
     _tag: 'finalizing',
-    latestSeq: 3,
+    latestSeq: 2,
     state: { status: 'finished', framesWonBySeat: { A: 1, B: 0 } },
     endedAt: expect.any(Number),
   })
   expect(await stub.getScore()).toEqual({
     _tag: 'finalizing',
-    latestSeq: 3,
+    latestSeq: 2,
     endedAt: controls.endedAt,
     score: {
       matchTargetFrames: 1,

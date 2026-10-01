@@ -33,7 +33,10 @@ describe('commandMatchAction adaptation', () => {
     })
 
     const form = new FormData()
-    form.set('command', JSON.stringify({ commandId, source: 'match', command: { type: 'frame.prepare' } }))
+    form.set(
+      'command',
+      JSON.stringify({ commandId, source: 'match', command: { type: 'frame.commence', seat: 'A' } }),
+    )
 
     const result = await commandMatchAction(
       {
@@ -54,12 +57,15 @@ describe('commandMatchAction adaptation', () => {
     const context = makeContext({
       submitMatchCommand: async () => ({
         ok: true,
-        outcome: { _tag: 'rejected', reason: { code: 'frame-already-active' } },
+        outcome: { _tag: 'rejected', reason: { code: 'wrong-breaker', expectedSeat: 'B' } },
       }),
     })
 
     const form = new FormData()
-    form.set('command', JSON.stringify({ commandId, source: 'match', command: { type: 'frame.prepare' } }))
+    form.set(
+      'command',
+      JSON.stringify({ commandId, source: 'match', command: { type: 'frame.commence', seat: 'A' } }),
+    )
 
     const result = await commandMatchAction(
       {

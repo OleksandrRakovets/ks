@@ -33,15 +33,24 @@ function observables(match: ReturnType<typeof createMatch>) {
 }
 
 describe('Match', () => {
-  test('creation precedes command execution and prepare emits a focal-seat lifecycle entry', () => {
-    const match = createMatch(config())
-    expect(match.state().currentFrameIndex).toBe(0)
-    expect(
-      accept(match, { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } }),
-    ).toMatchObject({
-      command: { source: 'match', command: { type: 'frame.prepare' } },
-      protocolEntryContents: [{ entryType: 'frame-prepared', frameIndex: 1, seat: 'A' }],
+  test('creation prepares the configured breaker and asymmetric targets without a command', () => {
+    const match = createMatch({
+      ...config(),
+      firstBreakerSeat: 'B',
+      targets: { frameTargetPointsBySeat: { A: 3, B: 5 }, matchTargetFrames: 2 },
     })
+
+    expect(match.state()).toMatchObject({
+      currentFrameIndex: 1,
+      frames: [{ breakerSeat: 'B', pointsBySeat: { A: 0, B: 0 } }],
+      targets: { frameTargetPointsBySeat: { A: 3, B: 5 } },
+    })
+    const { controls } = match.controlProjection()
+    expect(controls.find(({ type }) => type === 'frame.commence')).toMatchObject({ seat: 'B' })
+    expect(controls.some(({ type }) => type === 'frame.prepare')).toBe(false)
+    expect(
+      match.execute({ commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } }),
+    ).toMatchObject({ _tag: 'parse-failed', reason: { code: 'unsupported-match-command' } })
   })
 
   test('accepts a below-target Strila outcome and emits complete Protocol through award', () => {
@@ -54,7 +63,6 @@ describe('Match', () => {
     const match = createMatch(matchConfig)
 
     for (const submitted of [
-      { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } },
       { commandId: newCommandId(), source: 'match', command: { type: 'frame.commence', seat: 'A' } },
       {
         commandId: newCommandId(),
@@ -103,16 +111,7 @@ describe('Match', () => {
     const match = createMatch(config())
 
     for (const breakerSeat of ['A', 'B', 'A'] as const) {
-      const prepared = accept(match, {
-        commandId: newCommandId(),
-        source: 'match',
-        command: { type: 'frame.prepare' },
-      })
-
-      expect(prepared.protocolEntryContents[0]).toMatchObject({
-        entryType: 'frame-prepared',
-        seat: breakerSeat,
-      })
+      expect(match.state().frames.at(-1)).toMatchObject({ breakerSeat, pointsBySeat: { A: 0, B: 0 } })
       accept(match, {
         commandId: newCommandId(),
         source: 'match',
@@ -165,7 +164,11 @@ describe('Match', () => {
 
   test('concession records concession, award, and match-ending lifecycle in order', () => {
     const match = createMatch(config(1))
-    accept(match, { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } })
+    accept(match, {
+      commandId: newCommandId(),
+      source: 'match',
+      command: { type: 'frame.commence', seat: 'A' },
+    })
 
     const result = accept(match, {
       commandId: newCommandId(),
@@ -188,7 +191,6 @@ describe('Match', () => {
       targets: { frameTargetPointsBySeat: { A: 1, B: 9 }, matchTargetFrames: 1 },
     })
 
-    accept(match, { commandId: newCommandId(), source: 'match', command: { type: 'frame.prepare' } })
     accept(match, {
       commandId: newCommandId(),
       source: 'match',
@@ -226,7 +228,7 @@ describe('Match', () => {
       match.execute({
         commandId: newCommandId(),
         source: 'match',
-        command: { type: 'frame.concede', seat: 'A' },
+        command: { type: 'frame.commence', seat: 'B' },
       }),
     ).toMatchObject({
       _tag: 'rejected',
