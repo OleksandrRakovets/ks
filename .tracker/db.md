@@ -11,7 +11,7 @@ Run commands from the repository root.
 
 These stores have independent lifecycles. MatchRoom SQLite contains Accepted Commands and outcomes, one immutable aggregate checkpoint per acceptance sequence, complete Protocol entries, the acceptance cursor, compact score projection, and lifecycle. Rich reads restore and project the checkpoint at the acceptance cursor; controls are request-local and are not persisted. D1 contains players and match rows and receives the unchanged final Protocol archive and projected Final Match State. Existing rooms without checkpoints require an explicit migration decision; do not reset or silently replay them.
 
-Drizzle ORM and Kit are pinned to `1.0.0-rc.4`. The project has not been deployed. Do not rewrite migration history after deployment.
+Drizzle ORM and Kit are pinned to `1.0.0-rc.4`. Do not rewrite applied migration history.
 
 ## Local D1
 
@@ -46,7 +46,7 @@ Replace `--local` with `--remote` only intentionally. `wrangler d1 execute` is n
 ## Change D1 Schema
 
 1. Edit `packages/application/src/d1/schema.ts`.
-2. Generate SQL: `bunx drizzle-kit generate --config d1/drizzle.config.ts --name <short-name>`.
+2. Generate SQL: `bun run db:generate:d1 --name <short-name>`.
 3. Review the generated SQL and snapshot under `d1/migrations/`.
 4. Validate with `bunx drizzle-kit check --config d1/drizzle.config.ts`.
 5. Apply locally with `bun run db:migrate:local` and run `bun run check:full`.
@@ -59,10 +59,14 @@ bunx wrangler d1 migrations apply ks --remote --config apps/play/wrangler.jsonc
 
 Use Drizzle Kit to generate and Wrangler to apply. Do not use `drizzle-kit push` or `drizzle-kit migrate` for D1.
 
+For data-only migrations, add `--custom` to the generation command, then edit the generated SQL and follow the same review, validation, and application steps.
+
+Generation commands minify Drizzle's `snapshot.json` metadata without changing its JSON values. Oxfmt excludes these snapshots from CLI and editor formatting; review the SQL for migration behavior.
+
 ## Change MatchRoom Schema
 
 1. Edit `do/match-room/src/storage/schema.ts`.
-2. Generate SQL: `bunx drizzle-kit generate --config do/match-room/drizzle.config.ts --name <short-name>`.
+2. Generate SQL: `bun run db:generate:match-room --name <short-name>`.
 3. Review the generated SQL and snapshot under `do/match-room/drizzle/`.
 4. Add the SQL import and migration key to `do/match-room/drizzle/migrations.js`.
 5. Run `bunx drizzle-kit check --config do/match-room/drizzle.config.ts` and `bun run check:full`.

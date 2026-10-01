@@ -1,4 +1,5 @@
-import type { D1Database, D1Migration } from '@cloudflare/workers-types'
+import type { D1Database } from '@cloudflare/workers-types'
+import type { D1Migration } from 'cloudflare:test'
 
 declare global {
   namespace Cloudflare {

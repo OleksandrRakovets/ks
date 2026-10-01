@@ -46,6 +46,7 @@ const MatchRecord = v.pipe(
     score: scoreJson,
   })),
   v.check((row) => row.matchId === row.config.matchId),
+  v.check((row) => (row.status === 'finalizing') === (row.score.winnerSeat !== null)),
   v.readonly(),
 )
 
