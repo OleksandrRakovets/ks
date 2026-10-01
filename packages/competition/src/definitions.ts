@@ -100,15 +100,14 @@ const MatchStateFields = {
   frames: v.pipe(v.array(FrameState), v.readonly()),
 }
 
+const ActiveMatchState = v.pipe(v.object({ ...MatchStateFields, status: v.literal('active') }), v.readonly())
+
 export const FinishedMatchState = v.pipe(
   v.object({ ...MatchStateFields, status: v.literal('finished') }),
   v.readonly(),
 )
 
-export const MatchState = v.variant('status', [
-  v.pipe(v.object({ ...MatchStateFields, status: v.literal('active') }), v.readonly()),
-  FinishedMatchState,
-])
+export const MatchState = v.variant('status', [ActiveMatchState, FinishedMatchState])
 
 export type MatchState = v.InferOutput<typeof MatchState>
 

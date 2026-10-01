@@ -57,45 +57,45 @@ export function protocolEntryMessage(entry: ProtocolEntry, seatNames: SeatNames)
   const actor = seatLabel(entry.seat)
 
   if (entry.entryType === 'player-command') {
-    const body = entry.body
-
-    switch (body.commandType) {
+    switch (entry.body.commandType) {
       case 'frame.commence':
         return { key: 'match.protocol.commands.frame.commence', actor }
       case 'respotted-black.opening.select':
         return { key: 'match.protocol.commands.respotted-black.opening.select', actor }
       case 'pot.record':
-        if ('pottedBalls' in body) {
-          return { key: 'match.protocol.commands.pot.record.balls', actor, pottedBalls: body.pottedBalls }
+        if ('pottedBalls' in entry.body) {
+          return {
+            key: 'match.protocol.commands.pot.record.balls',
+            actor,
+            pottedBalls: entry.body.pottedBalls,
+          }
         }
 
         return {
           key: 'match.protocol.commands.pot.record.pottedBallCount',
           actor,
-          params: { pottedBallCount: `+${body.pottedBallCount}` },
+          params: { pottedBallCount: `+${entry.body.pottedBallCount}` },
         }
       case 'miss.record':
         return { key: 'match.protocol.commands.miss.record', actor }
       case 'foul.commit':
         return {
-          key: `match.protocol.commands.foul.commit.${'penalty' in body ? body.penalty : 'default'}`,
+          key: `match.protocol.commands.foul.commit.${'penalty' in entry.body ? entry.body.penalty : 'default'}`,
           actor,
         }
       case 'penalty.select':
-        return { key: `match.protocol.commands.penalty.select.${body.choice}`, actor }
+        return { key: `match.protocol.commands.penalty.select.${entry.body.choice}`, actor }
       case 'frame.award':
         return { key: 'match.protocol.commands.frame.award', actor }
     }
   }
 
   if (entry.entryType === 'system-note') {
-    const body = entry.body
-
-    switch (body.systemType) {
+    switch (entry.body.systemType) {
       case 'automatic-foul':
-        return { key: `match.protocol.system.automatic-foul.${body.reason}` }
+        return { key: `match.protocol.system.automatic-foul.${entry.body.reason}` }
       case 'winner-determined':
-        return { key: `match.protocol.system.winner-determined.${body.reason}` }
+        return { key: `match.protocol.system.winner-determined.${entry.body.reason}` }
       case 'respotted-black-declared':
         return { key: 'match.protocol.system.respotted-black-declared' }
     }
