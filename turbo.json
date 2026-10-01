@@ -1,29 +1,42 @@
 {
   "$schema": "https://turborepo.com/schema.json",
   "noUpdateNotifier": true,
+  "globalDependencies": ["tsconfig.base.json"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
       "outputs": []
     },
+    "@ks/play#build": {
+      "description": "Package-specific tasks replace defaults. Keep ^build so source-only workspace transit nodes propagate their file hashes without running build scripts.",
+      "dependsOn": ["^build"],
+      "outputs": ["build/**"]
+    },
     "test:integration": {
       "dependsOn": ["^test:integration"],
+      "outputs": []
+    },
+    "@ks/match-room#test:integration": {
+      "dependsOn": ["^test:integration"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/apps/play/wrangler.jsonc"],
+      "outputs": []
+    },
+    "@ks/application#test:integration": {
+      "dependsOn": ["^test:integration"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/d1/migrations/**/migration.sql"],
       "outputs": []
     },
     "dev": {
       "cache": false,
       "persistent": true
     },
-    "@ks/play#preview": {
-      "dependsOn": ["build"],
+    "@ks/play#dev": {
       "cache": false,
       "persistent": true,
       "passThroughEnv": ["BUN_OPTIONS"]
     },
-    "@ks/play#build": {
-      "outputs": ["build/**"]
-    },
-    "@ks/play#dev": {
+    "@ks/play#preview": {
+      "dependsOn": ["build"],
       "cache": false,
       "persistent": true,
       "passThroughEnv": ["BUN_OPTIONS"]
