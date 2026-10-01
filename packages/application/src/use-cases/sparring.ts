@@ -114,33 +114,41 @@ type SparringApplicationDependencies = {
   matchRoomClient(matchId: MatchId): MatchRoomClient
 }
 
-function archiveReadFailure(error: Error): ReadMatchFailure | null {
-  if (error instanceof UnsupportedProtocolArchiveVersionError) {
-    return { ok: false, error: 'Unsupported protocol archive version', status: 500 }
-  }
-
-  if (error instanceof ProtocolArchiveCorruptionError) {
-    return { ok: false, error: 'Protocol archive corruption', status: 500 }
-  }
-
-  return null
-}
-
 export function createSparringApplicationWithDependencies(
   dependencies: SparringApplicationDependencies,
 ): SparringApplication {
-  async function createMatch(input: CreateSparringMatchInput): Promise<CreateSparringMatchResult> {
+  return new SparringApplicationService(dependencies)
+}
+
+class SparringApplicationService implements SparringApplication {
+  readonly #dependencies: SparringApplicationDependencies
+
+  constructor(dependencies: SparringApplicationDependencies) {
+    this.#dependencies = dependencies
+
+    // Preserve the factory's receiver-independent operations for callback consumers.
+    this.createMatch = this.createMatch.bind(this)
+    this.listLiveMatches = this.listLiveMatches.bind(this)
+    this.listFinishedMatches = this.listFinishedMatches.bind(this)
+    this.readMatchScores = this.readMatchScores.bind(this)
+    this.readMatch = this.readMatch.bind(this)
+    this.submitMatchCommand = this.submitMatchCommand.bind(this)
+    this.readMatchProtocol = this.readMatchProtocol.bind(this)
+    this.admitMatchLive = this.admitMatchLive.bind(this)
+  }
+
+  async createMatch(input: CreateSparringMatchInput): Promise<CreateSparringMatchResult> {
     const parsed = v.safeParse(CreateSparringMatchInput, input)
 
     if (!parsed.success) return { ok: false, error: 'Invalid match creation input', status: 400 }
-    const matchId = dependencies.newMatchId()
-    const controlSecret = dependencies.newControlSecret()
-    const createdAt = dependencies.clock.nowMs()
+    const matchId = this.#dependencies.newMatchId()
+    const controlSecret = this.#dependencies.newControlSecret()
+    const createdAt = this.#dependencies.clock.nowMs()
     const { playerNames, ...requestInput } = parsed.output
 
     const [seatAPlayerRef, seatBPlayerRef] = await Promise.all([
-      dependencies.getOrCreateGuestPlayerRef(playerNames.A),
-      dependencies.getOrCreateGuestPlayerRef(playerNames.B),
+      this.#dependencies.getOrCreateGuestPlayerRef(playerNames.A),
+      this.#dependencies.getOrCreateGuestPlayerRef(playerNames.B),
     ])
 
     const participants: CreateMatchRequest['participants'] = [
@@ -156,32 +164,32 @@ export function createSparringApplicationWithDependencies(
       createdAt,
     }
 
-    await dependencies.beginMatchCreation({
+    await this.#dependencies.beginMatchCreation({
       matchId,
       gameKey: request.gameKey,
       seatAPlayerRef,
       seatBPlayerRef,
       createdAt,
     })
-    const result = await dependencies.matchRoomClient(matchId).initialize(request)
+    const result = await this.#dependencies.matchRoomClient(matchId).initialize(request)
 
     if (result._tag === 'initialization-conflict')
       return { ok: false, error: 'Match already exists', status: 409 }
-    await dependencies.activateMatch(matchId)
+    await this.#dependencies.activateMatch(matchId)
 
     return { ok: true, matchId }
   }
 
-  async function listLiveMatches(locale: SupportedLocale): Promise<LiveMatchListPage> {
-    const now = dependencies.clock.nowMs()
-    const formattedNow = dependencies.clock.instantPresentation(now)
+  async listLiveMatches(locale: SupportedLocale): Promise<LiveMatchListPage> {
+    const now = this.#dependencies.clock.nowMs()
+    const formattedNow = this.#dependencies.clock.instantPresentation(now)
 
-    const records = await dependencies.listLiveMatchRecords(
+    const records = await this.#dependencies.listLiveMatchRecords(
       v.parse(UnixEpochMilliseconds, Math.max(0, now - RECENT_FINISHED_MATCH_WINDOW_MS)),
       locale,
     )
 
-    const matches = await projectListEntries(records, locale, formattedNow, (formattedCreatedAt) =>
+    const matches = await this.#projectListEntries(records, locale, formattedNow, (formattedCreatedAt) =>
       matchCreatedAtLabel(formattedCreatedAt, formattedNow),
     )
 
@@ -201,29 +209,29 @@ export function createSparringApplicationWithDependencies(
         }
   }
 
-  async function listFinishedMatches(
+  async listFinishedMatches(
     locale: SupportedLocale,
     requestedDay?: MatchListDay,
   ): Promise<FinishedMatchListPage> {
-    const now = dependencies.clock.nowMs()
-    const formattedNow = dependencies.clock.instantPresentation(now)
+    const now = this.#dependencies.clock.nowMs()
+    const formattedNow = this.#dependencies.clock.instantPresentation(now)
 
     const latest =
       requestedDay === undefined
-        ? await dependencies.findFinishedMatchTime({
+        ? await this.#dependencies.findFinishedMatchTime({
             before: v.parse(UnixEpochMilliseconds, Number.MAX_SAFE_INTEGER),
           })
         : null
 
-    const day = requestedDay ?? (latest === null ? null : localDay(latest))
+    const day = requestedDay ?? (latest === null ? null : this.#localDay(latest))
 
     if (day === null)
       return { scope: 'finished', matches: [], day: null, previousDay: null, nextDay: null, isToday: false }
 
-    const range = dependencies.clock.dayRange(day)
-    const records = await dependencies.listFinishedMatchRecords(range, locale)
+    const range = this.#dependencies.clock.dayRange(day)
+    const records = await this.#dependencies.listFinishedMatchRecords(range, locale)
 
-    const matches = await projectListEntries(
+    const matches = await this.#projectListEntries(
       records,
       locale,
       formattedNow,
@@ -231,60 +239,26 @@ export function createSparringApplicationWithDependencies(
     )
 
     const [previous, next] = await Promise.all([
-      dependencies.findFinishedMatchTime({ before: range.start }),
-      dependencies.findFinishedMatchTime({ from: range.end }),
+      this.#dependencies.findFinishedMatchTime({ before: range.start }),
+      this.#dependencies.findFinishedMatchTime({ from: range.end }),
     ])
 
     return {
       scope: 'finished',
       matches,
       day,
-      previousDay: previous === null ? null : localDay(previous),
-      nextDay: next === null ? null : localDay(next),
-      isToday: day === localDay(now),
+      previousDay: previous === null ? null : this.#localDay(previous),
+      nextDay: next === null ? null : this.#localDay(next),
+      isToday: day === this.#localDay(now),
     }
   }
 
-  async function projectListEntries(
-    records: readonly MatchListRecord[],
-    locale: SupportedLocale,
-    formattedNow: InstantPresentation,
-    label: (formattedCreatedAt: InstantPresentation) => string,
-  ): Promise<MatchListEntry[]> {
-    return Promise.all(
-      records.map(async (record) => {
-        const score = await readMatchScoreForList(record)
-
-        const formattedCreatedAt = dependencies.clock.instantPresentation(record.createdAt)
-
-        return {
-          matchId: record.matchId,
-          gameKey: record.gameKey,
-          shortGameTitle: registry[record.gameKey].meta.shortGameTitle[locale],
-          createdAtIso: formattedCreatedAt.isoString,
-          createdAtLabel: label(formattedCreatedAt),
-          createdAtDate: formattedCreatedAt.date,
-          createdAtIsToday: isSameLocalDate(formattedCreatedAt, formattedNow),
-          participants: record.participants,
-          ...score,
-          hasCustomFrameTarget: hasCustomFrameTarget(record.gameKey, score.score.frameTargetPointsBySeat),
-        }
-      }),
-    )
-  }
-
-  function localDay(instant: UnixEpochMilliseconds): MatchListDay {
-    const { year, month, day } = dependencies.clock.instantPresentation(instant).date
-
-    return `${year}-${month}-${day}`
-  }
-
-  async function readMatchScores(matchIds: readonly MatchId[]): Promise<ReadMatchScoresResult> {
+  async readMatchScores(matchIds: readonly MatchId[]): Promise<ReadMatchScoresResult> {
     if (matchIds.length < 1 || new Set(matchIds).size !== matchIds.length)
       throw new Error('Match score batch must contain unique Matches')
 
     const recordsById = new Map(
-      (await dependencies.getMatchRecords(matchIds)).map((record) => [record.matchId, record]),
+      (await this.#dependencies.getMatchRecords(matchIds)).map((record) => [record.matchId, record]),
     )
 
     const records: MatchRecord[] = []
@@ -302,53 +276,154 @@ export function createSparringApplicationWithDependencies(
     const matches: MatchScorePollEntry[] = await Promise.all(
       records.map(async (record) => ({
         matchId: record.matchId,
-        ...(await readMatchScoreForList(record)),
+        ...(await this.#readMatchScoreForList(record)),
       })),
     )
 
     return { ok: true, matches }
   }
 
-  // The overloads retain the requested game key after the catalog/room or archive identity checks below.
-  // Enrichment preserves the owning state and presentation rather than re-stamping their key or lifecycle.
-  function readKeyedMatch<K extends GameKey>(
+  async readMatch<K extends GameKey>(
     matchId: MatchId,
     locale: SupportedLocale,
     expectedGameKey: K,
-    view: 'match',
-  ): Promise<ReadMatchResult<K>>
-  function readKeyedMatch<K extends GameKey>(
+  ): Promise<ReadMatchResult<K>> {
+    return this.#readKeyedMatch(matchId, locale, expectedGameKey, 'match')
+  }
+
+  async submitMatchCommand(
     matchId: MatchId,
-    locale: SupportedLocale,
-    expectedGameKey: K,
-    view: 'protocol',
-  ): Promise<ReadMatchProtocolResult<K>>
-  async function readKeyedMatch(
-    matchId: MatchId,
-    locale: SupportedLocale,
+    command: MatchCommand,
     expectedGameKey: GameKey,
-    view: 'match' | 'protocol',
-  ): Promise<ReadMatchResult<GameKey> | ReadMatchProtocolResult<GameKey>> {
-    const record = await dependencies.getMatchRecord(matchId)
+  ): Promise<SubmitMatchCommandResult> {
+    const record = await this.#dependencies.getMatchRecord(matchId)
 
     if (!record || record.gameKey !== expectedGameKey)
       return { ok: false, error: 'Unknown match', status: 404 }
 
     if (record.status === 'finished') {
-      return readArchivedMatch(record, locale, expectedGameKey, view)
+      return { ok: false, error: 'Match is finished', status: 409 }
+    }
+
+    if (record.status !== 'active') return { ok: false, error: 'Unknown match', status: 404 }
+    const result = await this.#dependencies.matchRoomClient(matchId).submitCommand(command)
+
+    if (result._tag === 'accepted' && result.endsMatch) {
+      await this.#archiveAndMarkFinished(matchId)
+
+      return { ok: true, outcome: { _tag: 'accepted', acceptedSeq: result.acceptedSeq } }
+    }
+
+    if (result._tag === 'finalizing') {
+      await this.#archiveAndMarkFinished(matchId)
+
+      return { ok: false, error: 'match-locked', status: 409 }
+    }
+
+    if (result._tag === 'invalid-command') return { ok: false, error: 'invalid-command-body', status: 400 }
+
+    if (result._tag === 'command-id-conflict') return { ok: false, error: 'command-id-conflict', status: 409 }
+
+    return result._tag === 'accepted'
+      ? { ok: true, outcome: { _tag: 'accepted', acceptedSeq: result.acceptedSeq } }
+      : { ok: true, outcome: result }
+  }
+
+  async readMatchProtocol<K extends GameKey>(
+    matchId: MatchId,
+    locale: SupportedLocale,
+    expectedGameKey: K,
+  ): Promise<ReadMatchProtocolResult<K>> {
+    return this.#readKeyedMatch(matchId, locale, expectedGameKey, 'protocol')
+  }
+
+  async admitMatchLive(matchId: MatchId): ReturnType<SparringApplication['admitMatchLive']> {
+    const record = await this.#dependencies.getMatchRecord(matchId)
+
+    if (!record) return { _tag: 'unknown' }
+
+    if (record.status === 'finished') return { _tag: 'finished' }
+
+    if (record.status === 'creating')
+      throw new Error('Creating Match cannot be admitted to the live transport')
+
+    return { _tag: 'admitted' }
+  }
+
+  async #projectListEntries(
+    records: readonly MatchListRecord[],
+    locale: SupportedLocale,
+    formattedNow: InstantPresentation,
+    label: (formattedCreatedAt: InstantPresentation) => string,
+  ): Promise<MatchListEntry[]> {
+    return Promise.all(
+      records.map(async (record) => {
+        const score = await this.#readMatchScoreForList(record)
+
+        const formattedCreatedAt = this.#dependencies.clock.instantPresentation(record.createdAt)
+
+        return {
+          matchId: record.matchId,
+          gameKey: record.gameKey,
+          shortGameTitle: registry[record.gameKey].meta.shortGameTitle[locale],
+          createdAtIso: formattedCreatedAt.isoString,
+          createdAtLabel: label(formattedCreatedAt),
+          createdAtDate: formattedCreatedAt.date,
+          createdAtIsToday: isSameLocalDate(formattedCreatedAt, formattedNow),
+          participants: record.participants,
+          ...score,
+          hasCustomFrameTarget: hasCustomFrameTarget(record.gameKey, score.score.frameTargetPointsBySeat),
+        }
+      }),
+    )
+  }
+
+  #localDay(instant: UnixEpochMilliseconds): MatchListDay {
+    const { year, month, day } = this.#dependencies.clock.instantPresentation(instant).date
+
+    return `${year}-${month}-${day}`
+  }
+
+  // The overloads retain the requested game key after the catalog/room or archive identity checks below.
+  // Enrichment preserves the owning state and presentation rather than re-stamping their key or lifecycle.
+  #readKeyedMatch<K extends GameKey>(
+    matchId: MatchId,
+    locale: SupportedLocale,
+    expectedGameKey: K,
+    view: 'match',
+  ): Promise<ReadMatchResult<K>>
+  #readKeyedMatch<K extends GameKey>(
+    matchId: MatchId,
+    locale: SupportedLocale,
+    expectedGameKey: K,
+    view: 'protocol',
+  ): Promise<ReadMatchProtocolResult<K>>
+  async #readKeyedMatch(
+    matchId: MatchId,
+    locale: SupportedLocale,
+    expectedGameKey: GameKey,
+    view: 'match' | 'protocol',
+  ): Promise<ReadMatchResult<GameKey> | ReadMatchProtocolResult<GameKey>> {
+    const record = await this.#dependencies.getMatchRecord(matchId)
+
+    if (!record || record.gameKey !== expectedGameKey)
+      return { ok: false, error: 'Unknown match', status: 404 }
+
+    if (record.status === 'finished') {
+      return this.#readArchivedMatch(record, locale, expectedGameKey, view)
     }
 
     if (record.status !== 'active') return { ok: false, error: 'Unknown match', status: 404 }
 
-    const roomClient = dependencies.matchRoomClient(matchId)
+    const roomClient = this.#dependencies.matchRoomClient(matchId)
     const room = view === 'match' ? await roomClient.getControls() : await roomClient.getProtocol()
 
-    if (room._tag === 'finalizing') return readFinalizingMatch(record, room, locale, expectedGameKey)
+    if (room._tag === 'finalizing') return this.#readFinalizingMatch(record, room, locale, expectedGameKey)
 
     if (room.state.matchId !== matchId || room.state.gameKey !== expectedGameKey)
       throw new Error('MatchRoom active identity conflicts with D1')
 
-    const participants = await hydrateParticipants(record, locale)
+    const participants = await this.#hydrateParticipants(record, locale)
     const seatNames = { A: participants.A.displayName, B: participants.B.displayName }
 
     const base = {
@@ -374,93 +449,26 @@ export function createSparringApplicationWithDependencies(
 
     return {
       ...active,
-      protocolRows: renderProtocolRows(room.protocolEntries, seatNames, dependencies.clock).reverse(),
+      protocolRows: renderProtocolRows(room.protocolEntries, seatNames, this.#dependencies.clock).reverse(),
     }
   }
 
-  async function readMatch<K extends GameKey>(
-    matchId: MatchId,
-    locale: SupportedLocale,
-    expectedGameKey: K,
-  ): Promise<ReadMatchResult<K>> {
-    return readKeyedMatch(matchId, locale, expectedGameKey, 'match')
-  }
-
-  async function submitMatchCommand(
-    matchId: MatchId,
-    command: MatchCommand,
-    expectedGameKey: GameKey,
-  ): Promise<SubmitMatchCommandResult> {
-    const record = await dependencies.getMatchRecord(matchId)
-
-    if (!record || record.gameKey !== expectedGameKey)
-      return { ok: false, error: 'Unknown match', status: 404 }
-
-    if (record.status === 'finished') {
-      return { ok: false, error: 'Match is finished', status: 409 }
-    }
-
-    if (record.status !== 'active') return { ok: false, error: 'Unknown match', status: 404 }
-    const result = await dependencies.matchRoomClient(matchId).submitCommand(command)
-
-    if (result._tag === 'accepted' && result.endsMatch) {
-      await archiveAndMarkFinished(matchId)
-
-      return { ok: true, outcome: { _tag: 'accepted', acceptedSeq: result.acceptedSeq } }
-    }
-
-    if (result._tag === 'finalizing') {
-      await archiveAndMarkFinished(matchId)
-
-      return { ok: false, error: 'match-locked', status: 409 }
-    }
-
-    if (result._tag === 'invalid-command') return { ok: false, error: 'invalid-command-body', status: 400 }
-
-    if (result._tag === 'command-id-conflict') return { ok: false, error: 'command-id-conflict', status: 409 }
-
-    return result._tag === 'accepted'
-      ? { ok: true, outcome: { _tag: 'accepted', acceptedSeq: result.acceptedSeq } }
-      : { ok: true, outcome: result }
-  }
-
-  async function readMatchProtocol<K extends GameKey>(
-    matchId: MatchId,
-    locale: SupportedLocale,
-    expectedGameKey: K,
-  ): Promise<ReadMatchProtocolResult<K>> {
-    return readKeyedMatch(matchId, locale, expectedGameKey, 'protocol')
-  }
-
-  async function archiveAndMarkFinished(matchId: MatchId): Promise<void> {
+  async #archiveAndMarkFinished(matchId: MatchId): Promise<void> {
     let stage = 'prepare-archive'
 
     try {
-      const transfer = await dependencies.matchRoomClient(matchId).prepareArchive()
+      const transfer = await this.#dependencies.matchRoomClient(matchId).prepareArchive()
       stage = 'archive-in-d1'
-      await dependencies.archiveFinishedMatch(transfer)
+      await this.#dependencies.archiveFinishedMatch(transfer)
       stage = 'mark-d1-finished'
-      await dependencies.markMatchFinished(transfer)
+      await this.#dependencies.markMatchFinished(transfer)
     } catch (error) {
       console.error({ event: 'match-archive.failed', matchId, stage, error })
       throw error
     }
   }
 
-  function matchCreatedAtLabel(
-    formattedCreatedAt: InstantPresentation,
-    formattedNow: InstantPresentation,
-  ): string {
-    if (isSameLocalDate(formattedCreatedAt, formattedNow)) return formattedCreatedAt.time
-
-    const date = `${formattedCreatedAt.date.day}.${formattedCreatedAt.date.month}`
-
-    return formattedCreatedAt.date.year === formattedNow.date.year
-      ? date
-      : `${date}.${formattedCreatedAt.date.year}`
-  }
-
-  async function readMatchScoreForList(record: MatchRecord): Promise<MatchListScore> {
+  async #readMatchScoreForList(record: MatchRecord): Promise<MatchListScore> {
     if (record.status === 'finished')
       return {
         status: 'finished',
@@ -470,7 +478,7 @@ export function createSparringApplicationWithDependencies(
       }
 
     if (record.status === 'creating') throw new Error('Creating Match cannot be included in the Match list')
-    const room = await dependencies.matchRoomClient(record.matchId).getScore()
+    const room = await this.#dependencies.matchRoomClient(record.matchId).getScore()
 
     if (room._tag === 'active')
       return { status: 'active', endedAt: null, latestSeq: room.latestSeq, score: room.score }
@@ -483,14 +491,14 @@ export function createSparringApplicationWithDependencies(
     }
   }
 
-  async function hydrateParticipants(record: MatchRecord, locale: SupportedLocale) {
+  async #hydrateParticipants(record: MatchRecord, locale: SupportedLocale) {
     return {
-      A: await dependencies.hydrateParticipant(record.participantRefs.A, locale),
-      B: await dependencies.hydrateParticipant(record.participantRefs.B, locale),
+      A: await this.#dependencies.hydrateParticipant(record.participantRefs.A, locale),
+      B: await this.#dependencies.hydrateParticipant(record.participantRefs.B, locale),
     }
   }
 
-  async function readFinalizingMatch(
+  async #readFinalizingMatch(
     record: MatchRecord,
     room:
       | Extract<Awaited<ReturnType<MatchRoomClient['getControls']>>, { _tag: 'finalizing' }>
@@ -501,7 +509,7 @@ export function createSparringApplicationWithDependencies(
     if (room.state.matchId !== record.matchId || room.state.gameKey !== expectedGameKey)
       throw new Error('MatchRoom finalizing identity conflicts with D1')
 
-    const finished = await presentFinishedMatch(record, room, locale)
+    const finished = await this.#presentFinishedMatch(record, room, locale)
 
     return 'protocolEntries' in room
       ? {
@@ -512,13 +520,13 @@ export function createSparringApplicationWithDependencies(
               A: finished.participants.A.displayName,
               B: finished.participants.B.displayName,
             },
-            dependencies.clock,
+            this.#dependencies.clock,
           ),
         }
       : finished
   }
 
-  async function readArchivedMatch(
+  async #readArchivedMatch(
     record: Extract<MatchRecord, { status: 'finished' }>,
     locale: SupportedLocale,
     expectedGameKey: GameKey,
@@ -529,8 +537,8 @@ export function createSparringApplicationWithDependencies(
     try {
       archive =
         view === 'protocol'
-          ? await dependencies.getProtocolArchive(record.matchId)
-          : await dependencies.getFinishedMatchArchive(record.matchId)
+          ? await this.#dependencies.getProtocolArchive(record.matchId)
+          : await this.#dependencies.getFinishedMatchArchive(record.matchId)
     } catch (error) {
       const failure = error instanceof Error ? archiveReadFailure(error) : null
 
@@ -543,7 +551,7 @@ export function createSparringApplicationWithDependencies(
 
     if (state.gameKey !== expectedGameKey) return { ok: false, error: 'Unknown match', status: 404 }
 
-    const finished = await presentFinishedMatch(
+    const finished = await this.#presentFinishedMatch(
       record,
       {
         state,
@@ -564,12 +572,12 @@ export function createSparringApplicationWithDependencies(
               A: finished.participants.A.displayName,
               B: finished.participants.B.displayName,
             },
-            dependencies.clock,
+            this.#dependencies.clock,
           ),
         }
   }
 
-  async function presentFinishedMatch(
+  async #presentFinishedMatch(
     record: MatchRecord,
     match: Pick<
       Extract<Awaited<ReturnType<MatchRoomClient['getControls']>>, { _tag: 'finalizing' }>,
@@ -577,7 +585,7 @@ export function createSparringApplicationWithDependencies(
     >,
     locale: SupportedLocale,
   ): Promise<Extract<ReadMatchResult<GameKey>, { ok: true; lifecycle: 'finished' }>> {
-    const endedAtPresentation = dependencies.clock.instantPresentation(match.endedAt)
+    const endedAtPresentation = this.#dependencies.clock.instantPresentation(match.endedAt)
 
     return {
       ok: true,
@@ -588,44 +596,47 @@ export function createSparringApplicationWithDependencies(
       endedAtIso: endedAtPresentation.isoString,
       endedAtTime: endedAtPresentation.time,
       endedAtDate: endedAtPresentation.date,
-      endedAtIsToday: isSameLocalDate(endedAtPresentation, dependencies.clock.nowPresentation()),
-      participants: await hydrateParticipants(record, locale),
+      endedAtIsToday: isSameLocalDate(endedAtPresentation, this.#dependencies.clock.nowPresentation()),
+      participants: await this.#hydrateParticipants(record, locale),
       hasCustomFrameTarget: hasCustomFrameTarget(
         match.state.gameKey,
         match.state.targets.frameTargetPointsBySeat,
       ),
     }
   }
+}
 
-  function isSameLocalDate(left: InstantPresentation, right: InstantPresentation): boolean {
-    return (
-      left.date.year === right.date.year &&
-      left.date.month === right.date.month &&
-      left.date.day === right.date.day
-    )
+function archiveReadFailure(error: Error): ReadMatchFailure | null {
+  if (error instanceof UnsupportedProtocolArchiveVersionError) {
+    return { ok: false, error: 'Unsupported protocol archive version', status: 500 }
   }
 
-  return {
-    createMatch,
-    listLiveMatches,
-    listFinishedMatches,
-    readMatchScores,
-    readMatch,
-    submitMatchCommand,
-    readMatchProtocol,
-    admitMatchLive: async (matchId) => {
-      const record = await dependencies.getMatchRecord(matchId)
-
-      if (!record) return { _tag: 'unknown' }
-
-      if (record.status === 'finished') return { _tag: 'finished' }
-
-      if (record.status === 'creating')
-        throw new Error('Creating Match cannot be admitted to the live transport')
-
-      return { _tag: 'admitted' }
-    },
+  if (error instanceof ProtocolArchiveCorruptionError) {
+    return { ok: false, error: 'Protocol archive corruption', status: 500 }
   }
+
+  return null
+}
+
+function matchCreatedAtLabel(
+  formattedCreatedAt: InstantPresentation,
+  formattedNow: InstantPresentation,
+): string {
+  if (isSameLocalDate(formattedCreatedAt, formattedNow)) return formattedCreatedAt.time
+
+  const date = `${formattedCreatedAt.date.day}.${formattedCreatedAt.date.month}`
+
+  return formattedCreatedAt.date.year === formattedNow.date.year
+    ? date
+    : `${date}.${formattedCreatedAt.date.year}`
+}
+
+function isSameLocalDate(left: InstantPresentation, right: InstantPresentation): boolean {
+  return (
+    left.date.year === right.date.year &&
+    left.date.month === right.date.month &&
+    left.date.day === right.date.day
+  )
 }
 
 function hasCustomFrameTarget(
