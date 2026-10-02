@@ -1,32 +1,36 @@
 import type { MatchCommand, MatchId } from '@ks/core'
 import type { GameKey } from '@ks/gameplay/definitions'
+import type { EffectDrizzleQueryError } from 'drizzle-orm/effect-core/errors'
+import { Effect } from 'effect'
 
+import { MatchRooms } from '../match/match-room'
 import type { SubmitMatchCommandResult } from './contract'
-import type { SparringDependencies } from './sparring-application'
+import { SparringMatchStorage } from './storage/sparring-match-storage'
 
-export async function submitMatchCommand(
-  deps: SparringDependencies,
+export const submitMatchCommand = Effect.fn('submitMatchCommand')(function* (
   matchId: MatchId,
   command: MatchCommand,
   expectedGameKey: GameKey,
-): Promise<SubmitMatchCommandResult> {
-  const record = await deps.matches.findMatch(matchId)
+): Effect.fn.Return<SubmitMatchCommandResult, EffectDrizzleQueryError, MatchRooms | SparringMatchStorage> {
+  const matches = yield* SparringMatchStorage
+  const rooms = yield* MatchRooms
+  const record = yield* matches.findMatch(matchId)
 
   if (!record || record.gameKey !== expectedGameKey) return { ok: false, reason: 'unknown-match' }
 
   if (record.status === 'finished') return { ok: false, reason: 'match-finished' }
 
   if (record.status !== 'active') return { ok: false, reason: 'unknown-match' }
-  const result = await deps.matchRoomClient(matchId).submitCommand(command)
+  const result = yield* rooms.get(matchId).submitCommand(command)
 
   if (result._tag === 'accepted' && result.endsMatch) {
-    await archiveAndMarkFinished(deps, matchId)
+    yield* archiveAndMarkFinished(matchId)
 
     return { ok: true, outcome: { _tag: 'accepted', acceptedSeq: result.acceptedSeq } }
   }
 
   if (result._tag === 'finalizing') {
-    await archiveAndMarkFinished(deps, matchId)
+    yield* archiveAndMarkFinished(matchId)
 
     return { ok: false, reason: 'match-locked' }
   }
@@ -38,19 +42,20 @@ export async function submitMatchCommand(
   return result._tag === 'accepted'
     ? { ok: true, outcome: { _tag: 'accepted', acceptedSeq: result.acceptedSeq } }
     : { ok: true, outcome: result }
-}
+})
 
-async function archiveAndMarkFinished(deps: SparringDependencies, matchId: MatchId): Promise<void> {
+const archiveAndMarkFinished = Effect.fn('archiveAndMarkFinished')(function* (matchId: MatchId) {
+  const matches = yield* SparringMatchStorage
+  const rooms = yield* MatchRooms
   let stage = 'prepare-archive'
 
-  try {
-    const transfer = await deps.matchRoomClient(matchId).prepareArchive()
+  yield* Effect.gen(function* () {
+    const transfer = yield* rooms.get(matchId).prepareArchive()
     stage = 'archive-in-d1'
-    await deps.matches.archiveFinished(transfer)
+    yield* matches.archiveFinished(transfer)
     stage = 'mark-d1-finished'
-    await deps.matches.markFinished(transfer)
-  } catch (error) {
-    console.error({ event: 'match-archive.failed', matchId, stage, error })
-    throw error
-  }
-}
+    yield* matches.markFinished(transfer)
+  }).pipe(
+    Effect.tapCause((cause) => Effect.logError({ event: 'match-archive.failed', matchId, stage, cause })),
+  )
+})

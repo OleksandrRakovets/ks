@@ -1,11 +1,14 @@
 /** Server-only application composition over D1 and the MatchRoom binding. */
 import type { D1Database } from '@cloudflare/workers-types'
 import { type Clock, newMatchId } from '@ks/core'
+import { type Config, Effect, Layer, type Scope } from 'effect'
 
-import { createApplicationDatabaseClient } from './d1/client'
+import { ApplicationDatabase } from './d1/client'
 import type { Application } from './index'
-import type { MatchRoomNamespace } from './match/match-room'
+import { ApplicationClock } from './match/clock'
+import { type MatchRoomNamespace, MatchRooms } from './match/match-room'
 import { PlayerStorage } from './player/storage/player-storage'
+import { MatchCreation } from './sparring/create-match'
 import { createSparringApplication } from './sparring/sparring-application'
 import { SparringMatchStorage } from './sparring/storage/sparring-match-storage'
 
@@ -14,20 +17,29 @@ export type ApplicationBindings = {
   MATCH_ROOM: MatchRoomNamespace
 }
 
-export function createApplication(bindings: ApplicationBindings, clock: Clock): Application {
-  const db = createApplicationDatabaseClient(bindings.DB)
+/** The caller keeps the Scope open while Router loaders/actions use the Promise-facing application. */
+export const createApplication = Effect.fn('createApplication')(function* (
+  bindings: ApplicationBindings,
+  clock: Clock,
+): Effect.fn.Return<Application, Config.ConfigError, Scope.Scope> {
+  const clockLayer = Layer.succeed(ApplicationClock, clock)
 
-  const sparring = createSparringApplication({
-    clock,
-    newMatchId,
-    newControlSecret,
-    players: new PlayerStorage(db, clock),
-    matches: new SparringMatchStorage(db),
-    matchRoomClient: (matchId) => bindings.MATCH_ROOM.getByName(matchId),
-  })
+  const storageLayer = Layer.merge(PlayerStorage.layer, SparringMatchStorage.layer).pipe(
+    Layer.provide(ApplicationDatabase.layer(bindings.DB)),
+    Layer.provide(clockLayer),
+  )
 
-  return { sparring }
-}
+  const applicationLayer = Layer.mergeAll(
+    storageLayer,
+    clockLayer,
+    MatchRooms.layer(bindings.MATCH_ROOM),
+    Layer.succeed(MatchCreation, { newMatchId, newControlSecret }),
+  )
+
+  const context = yield* Layer.build(applicationLayer)
+
+  return { sparring: createSparringApplication(context) }
+})
 
 function newControlSecret(): string {
   const bytes = new Uint8Array(24)

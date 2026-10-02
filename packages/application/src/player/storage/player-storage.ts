@@ -1,95 +1,97 @@
-import {
-  type Clock,
-  formatPlayerRef,
-  GuestPlayerId,
-  newGuestPlayerId,
-  type PlayerRef,
-  VerifiedPlayerId,
-} from '@ks/core'
+import { formatPlayerRef, GuestPlayerId, newGuestPlayerId, type PlayerRef, VerifiedPlayerId } from '@ks/core'
 import { and, eq } from 'drizzle-orm'
+import type { EffectDrizzleQueryError } from 'drizzle-orm/effect-core/errors'
+import { Context, Effect, Layer } from 'effect'
 import * as v from 'valibot'
 
-import type { ApplicationDatabase } from '../../d1/client'
+import { ApplicationDatabase } from '../../d1/client'
 import { guestPlayers, verifiedPlayers } from '../../d1/schema'
+import { ApplicationClock } from '../../match/clock'
 import { type ParticipantRecord, participantRecordFromRow, type PlayerName } from './records'
 
-export class PlayerStorage {
-  readonly #db: ApplicationDatabase
-  readonly #clock: Clock
+export class PlayerStorage extends Context.Service<PlayerStorage>()(
+  '@ks/application/player/storage/player-storage',
+  {
+    make: Effect.gen(function* () {
+      const db = yield* ApplicationDatabase
+      const clock = yield* ApplicationClock
 
-  constructor(db: ApplicationDatabase, clock: Clock) {
-    this.#db = db
-    this.#clock = clock
-  }
+      const selectPlayerRow = Effect.fnUntraced(function* (playerRef: PlayerRef) {
+        if (playerRef.startsWith('gp_')) {
+          const guestPlayerId = v.parse(GuestPlayerId, playerRef.slice(3))
 
-  async ensureGuestRef({ firstName, lastName }: PlayerName): Promise<PlayerRef> {
-    const existing = await this.#db
-      .select({ guestPlayerId: guestPlayers.guestPlayerId })
-      .from(guestPlayers)
-      .where(
-        and(
-          eq(guestPlayers.firstNameUk, firstName),
-          eq(guestPlayers.lastNameUk, lastName),
-          eq(guestPlayers.firstNameEn, firstName),
-          eq(guestPlayers.lastNameEn, lastName),
-        ),
-      )
-      .limit(1)
+          return (
+            (yield* db
+              .select({
+                firstNameUk: guestPlayers.firstNameUk,
+                lastNameUk: guestPlayers.lastNameUk,
+                firstNameEn: guestPlayers.firstNameEn,
+                lastNameEn: guestPlayers.lastNameEn,
+              })
+              .from(guestPlayers)
+              .where(eq(guestPlayers.guestPlayerId, guestPlayerId))
+              .get()) ?? null
+          )
+        }
 
-    if (existing[0]?.guestPlayerId) return formatPlayerRef('gp', existing[0].guestPlayerId)
+        if (playerRef.startsWith('vp_')) {
+          const verifiedPlayerId = v.parse(VerifiedPlayerId, playerRef.slice(3))
 
-    const guestPlayerId = newGuestPlayerId()
-    await this.#db.insert(guestPlayers).values({
-      guestPlayerId,
-      firstNameUk: firstName,
-      lastNameUk: lastName,
-      firstNameEn: firstName,
-      lastNameEn: lastName,
-      createdAt: this.#clock.nowMs(),
-    })
+          return (
+            (yield* db
+              .select({
+                firstNameUk: verifiedPlayers.firstNameUk,
+                lastNameUk: verifiedPlayers.lastNameUk,
+                firstNameEn: verifiedPlayers.firstNameEn,
+                lastNameEn: verifiedPlayers.lastNameEn,
+              })
+              .from(verifiedPlayers)
+              .where(eq(verifiedPlayers.verifiedPlayerId, verifiedPlayerId))
+              .get()) ?? null
+          )
+        }
 
-    return formatPlayerRef('gp', guestPlayerId)
-  }
+        return null
+      })
 
-  async readParticipant(playerRef: PlayerRef): Promise<ParticipantRecord> {
-    return participantRecordFromRow(playerRef, await this.#selectPlayerRow(playerRef))
-  }
-
-  async #selectPlayerRow(playerRef: PlayerRef) {
-    if (playerRef.startsWith('gp_')) {
-      const guestPlayerId = v.parse(GuestPlayerId, playerRef.slice(3))
-
-      return (
-        (await this.#db
-          .select({
-            firstNameUk: guestPlayers.firstNameUk,
-            lastNameUk: guestPlayers.lastNameUk,
-            firstNameEn: guestPlayers.firstNameEn,
-            lastNameEn: guestPlayers.lastNameEn,
-          })
+      const ensureGuestRef = Effect.fnUntraced(function* ({ firstName, lastName }: PlayerName) {
+        const existing = yield* db
+          .select({ guestPlayerId: guestPlayers.guestPlayerId })
           .from(guestPlayers)
-          .where(eq(guestPlayers.guestPlayerId, guestPlayerId))
-          .get()) ?? null
-      )
-    }
+          .where(
+            and(
+              eq(guestPlayers.firstNameUk, firstName),
+              eq(guestPlayers.lastNameUk, lastName),
+              eq(guestPlayers.firstNameEn, firstName),
+              eq(guestPlayers.lastNameEn, lastName),
+            ),
+          )
+          .limit(1)
 
-    if (playerRef.startsWith('vp_')) {
-      const verifiedPlayerId = v.parse(VerifiedPlayerId, playerRef.slice(3))
+        if (existing[0]?.guestPlayerId) return formatPlayerRef('gp', existing[0].guestPlayerId)
 
-      return (
-        (await this.#db
-          .select({
-            firstNameUk: verifiedPlayers.firstNameUk,
-            lastNameUk: verifiedPlayers.lastNameUk,
-            firstNameEn: verifiedPlayers.firstNameEn,
-            lastNameEn: verifiedPlayers.lastNameEn,
-          })
-          .from(verifiedPlayers)
-          .where(eq(verifiedPlayers.verifiedPlayerId, verifiedPlayerId))
-          .get()) ?? null
-      )
-    }
+        const guestPlayerId = newGuestPlayerId()
+        yield* db.insert(guestPlayers).values({
+          guestPlayerId,
+          firstNameUk: firstName,
+          lastNameUk: lastName,
+          firstNameEn: firstName,
+          lastNameEn: lastName,
+          createdAt: clock.nowMs(),
+        })
 
-    return null
-  }
+        return formatPlayerRef('gp', guestPlayerId)
+      })
+
+      const readParticipant = Effect.fnUntraced(function* (
+        playerRef: PlayerRef,
+      ): Effect.fn.Return<ParticipantRecord, EffectDrizzleQueryError> {
+        return participantRecordFromRow(playerRef, yield* selectPlayerRow(playerRef))
+      })
+
+      return { ensureGuestRef, readParticipant }
+    }),
+  },
+) {
+  static readonly layer = Layer.effect(this, this.make)
 }

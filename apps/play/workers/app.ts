@@ -1,5 +1,6 @@
 import { createApplication } from '@ks/application/server'
 import { SystemClock } from '@ks/core'
+import { Effect } from 'effect'
 import { createRequestHandler, RouterContextProvider } from 'react-router'
 import * as v from 'valibot'
 
@@ -17,24 +18,31 @@ const requestHandler = createRequestHandler(
 const RequestTimeZone = v.optional(v.string())
 
 export default {
-  async fetch(request: Request, env: Cloudflare.Env) {
-    const requestTimeZone = v.parse(RequestTimeZone, request.cf?.timezone)
-    const application = createApplication(env, new SystemClock(requestTimeZone))
-    // Sparring Match WebSocket URLs are forwarded directly to the owning MatchRoom Durable Object.
-    const liveResponse = await handleSparringMatchLiveRequest(request, env, application)
+  fetch(request: Request, env: Cloudflare.Env) {
+    return Effect.runPromise(
+      Effect.gen(function* () {
+        const requestTimeZone = v.parse(RequestTimeZone, request.cf?.timezone)
+        const application = yield* createApplication(env, new SystemClock(requestTimeZone))
 
-    if (liveResponse) return liveResponse
+        // Sparring Match WebSocket URLs are forwarded directly to the owning MatchRoom Durable Object.
+        const liveResponse = yield* Effect.promise(() =>
+          handleSparringMatchLiveRequest(request, env, application),
+        )
 
-    // All remaining requests are handed to React Router.
-    const context = new RouterContextProvider()
+        if (liveResponse) return liveResponse
 
-    const loadContext: CloudflareLoadContext = {
-      application,
-      isProduction: new URL(request.url).hostname === 'play.ks.ua',
-    }
+        // All remaining requests are handed to React Router.
+        const context = new RouterContextProvider()
 
-    context.set(cloudflareContext, loadContext)
+        const loadContext: CloudflareLoadContext = {
+          application,
+          isProduction: new URL(request.url).hostname === 'play.ks.ua',
+        }
 
-    return requestHandler(request, context)
+        context.set(cloudflareContext, loadContext)
+
+        return yield* Effect.promise(() => requestHandler(request, context))
+      }).pipe(Effect.scoped),
+    )
   },
 }

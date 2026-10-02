@@ -1,34 +1,42 @@
 import type { InstantPresentation, MatchId } from '@ks/core'
 import { UnixEpochMilliseconds } from '@ks/core'
 import type { SupportedLocale } from '@ks/i18n'
+import type { EffectDrizzleQueryError } from 'drizzle-orm/effect-core/errors'
+import { Effect } from 'effect'
 import * as v from 'valibot'
 
+import { ApplicationClock } from '../match/clock'
+import { MatchRooms } from '../match/match-room'
 import type {
   FinishedMatchListPage,
   LiveMatchListPage,
   MatchListDay,
-  MatchListEntry,
   MatchScorePollEntry,
   ReadMatchScoresResult,
 } from './contract'
 import { matchCreatedAtLabel, presentListEntry } from './projections'
-import type { SparringDependencies } from './sparring-application'
 import type { MatchListRecord, MatchRecord } from './storage/records'
+import { SparringMatchStorage } from './storage/sparring-match-storage'
 
 const RECENT_FINISHED_MATCH_WINDOW_MS = 15 * 60 * 1_000
 
-export async function listLiveMatches(
-  deps: SparringDependencies,
+export const listLiveMatches = Effect.fn('listLiveMatches')(function* (
   locale: SupportedLocale,
-): Promise<LiveMatchListPage> {
-  const now = deps.clock.nowMs()
-  const formattedNow = deps.clock.instantPresentation(now)
+): Effect.fn.Return<
+  LiveMatchListPage,
+  EffectDrizzleQueryError,
+  ApplicationClock | MatchRooms | SparringMatchStorage
+> {
+  const clock = yield* ApplicationClock
+  const matchesStorage = yield* SparringMatchStorage
+  const now = clock.nowMs()
+  const formattedNow = clock.instantPresentation(now)
 
-  const records = await deps.matches.listLive(
+  const records = yield* matchesStorage.listLive(
     v.parse(UnixEpochMilliseconds, Math.max(0, now - RECENT_FINISHED_MATCH_WINDOW_MS)),
   )
 
-  const matches = await projectListEntries(deps, records, locale, formattedNow, (formattedCreatedAt) =>
+  const matches = yield* projectListEntries(records, locale, formattedNow, (formattedCreatedAt) =>
     matchCreatedAtLabel(formattedCreatedAt, formattedNow),
   )
 
@@ -46,63 +54,71 @@ export async function listLiveMatches(
         matches,
         recentFinishedMatchExpiresAfterMs: Math.max(0, earliestRecentFinishedMatchExpiry - now),
       }
-}
+})
 
-export async function listFinishedMatches(
-  deps: SparringDependencies,
+export const listFinishedMatches = Effect.fn('listFinishedMatches')(function* (
   locale: SupportedLocale,
   requestedDay?: typeof MatchListDay.Type,
-): Promise<FinishedMatchListPage> {
-  const now = deps.clock.nowMs()
-  const formattedNow = deps.clock.instantPresentation(now)
+): Effect.fn.Return<
+  FinishedMatchListPage,
+  EffectDrizzleQueryError,
+  ApplicationClock | MatchRooms | SparringMatchStorage
+> {
+  const clock = yield* ApplicationClock
+  const matchesStorage = yield* SparringMatchStorage
+  const now = clock.nowMs()
+  const formattedNow = clock.instantPresentation(now)
 
   const latest =
     requestedDay === undefined
-      ? await deps.matches.findFinishedTime({
+      ? yield* matchesStorage.findFinishedTime({
           before: v.parse(UnixEpochMilliseconds, Number.MAX_SAFE_INTEGER),
         })
       : null
 
-  const day = requestedDay ?? (latest === null ? null : localDay(deps, latest))
+  const day = requestedDay ?? (latest === null ? null : localDay(clock, latest))
 
   if (day === null)
     return { scope: 'finished', matches: [], day: null, previousDay: null, nextDay: null, isToday: false }
 
-  const range = deps.clock.dayRange(day)
-  const records = await deps.matches.listFinished(range)
+  const range = clock.dayRange(day)
+  const records = yield* matchesStorage.listFinished(range)
 
-  const matches = await projectListEntries(
-    deps,
+  const matches = yield* projectListEntries(
     records,
     locale,
     formattedNow,
     (formattedCreatedAt) => formattedCreatedAt.time,
   )
 
-  const [previous, next] = await Promise.all([
-    deps.matches.findFinishedTime({ before: range.start }),
-    deps.matches.findFinishedTime({ from: range.end }),
-  ])
+  const [previous, next] = yield* Effect.all(
+    [
+      matchesStorage.findFinishedTime({ before: range.start }),
+      matchesStorage.findFinishedTime({ from: range.end }),
+    ],
+    { concurrency: 'unbounded' },
+  )
 
   return {
     scope: 'finished',
     matches,
     day,
-    previousDay: previous === null ? null : localDay(deps, previous),
-    nextDay: next === null ? null : localDay(deps, next),
-    isToday: day === localDay(deps, now),
+    previousDay: previous === null ? null : localDay(clock, previous),
+    nextDay: next === null ? null : localDay(clock, next),
+    isToday: day === localDay(clock, now),
   }
-}
+})
 
-export async function readMatchScores(
-  deps: SparringDependencies,
+export const readMatchScores = Effect.fn('readMatchScores')(function* (
   matchIds: readonly MatchId[],
-): Promise<ReadMatchScoresResult> {
+): Effect.fn.Return<ReadMatchScoresResult, EffectDrizzleQueryError, MatchRooms | SparringMatchStorage> {
   if (matchIds.length < 1 || new Set(matchIds).size !== matchIds.length)
     throw new Error('Match score batch must contain unique Matches')
 
+  const matchesStorage = yield* SparringMatchStorage
+
   const recordsById = new Map(
-    (await deps.matches.listMatches(matchIds)).map((record) => [record.matchId, record]),
+    (yield* matchesStorage.listMatches(matchIds)).map((record) => [record.matchId, record]),
   )
 
   const records: MatchRecord[] = []
@@ -117,27 +133,33 @@ export async function readMatchScores(
     records.push(record)
   }
 
-  const matches: MatchScorePollEntry[] = await Promise.all(
-    records.map(async (record) => ({
-      matchId: record.matchId,
-      ...(await readMatchScoreForList(deps, record)),
-    })),
+  const matches: MatchScorePollEntry[] = yield* Effect.forEach(
+    records,
+    Effect.fnUntraced(function* (record) {
+      return {
+        matchId: record.matchId,
+        ...(yield* readMatchScoreForList(record)),
+      }
+    }),
+    { concurrency: 'unbounded' },
   )
 
   return { ok: true, matches }
-}
+})
 
-async function projectListEntries(
-  deps: SparringDependencies,
+const projectListEntries = Effect.fnUntraced(function* (
   records: readonly MatchListRecord[],
   locale: SupportedLocale,
   formattedNow: InstantPresentation,
   label: (formattedCreatedAt: InstantPresentation) => string,
-): Promise<MatchListEntry[]> {
-  return Promise.all(
-    records.map(async (record) => {
-      const score = await readMatchScoreForList(deps, record)
-      const formattedCreatedAt = deps.clock.instantPresentation(record.createdAt)
+) {
+  const clock = yield* ApplicationClock
+
+  return yield* Effect.forEach(
+    records,
+    Effect.fnUntraced(function* (record) {
+      const score = yield* readMatchScoreForList(record)
+      const formattedCreatedAt = clock.instantPresentation(record.createdAt)
 
       return presentListEntry(
         record,
@@ -148,19 +170,22 @@ async function projectListEntries(
         label(formattedCreatedAt),
       )
     }),
+    { concurrency: 'unbounded' },
   )
-}
+})
 
-function localDay(deps: SparringDependencies, instant: UnixEpochMilliseconds): typeof MatchListDay.Type {
-  const { year, month, day } = deps.clock.instantPresentation(instant).date
+function localDay(
+  clock: ApplicationClock['Service'],
+  instant: UnixEpochMilliseconds,
+): typeof MatchListDay.Type {
+  const { year, month, day } = clock.instantPresentation(instant).date
 
   return `${year}-${month}-${day}`
 }
 
-async function readMatchScoreForList(
-  deps: SparringDependencies,
+const readMatchScoreForList = Effect.fnUntraced(function* (
   record: MatchRecord,
-): Promise<Parameters<typeof presentListEntry>[1]> {
+): Effect.fn.Return<Parameters<typeof presentListEntry>[1], never, MatchRooms> {
   if (record.status === 'finished')
     return {
       status: 'finished',
@@ -170,10 +195,11 @@ async function readMatchScoreForList(
     }
 
   if (record.status === 'creating') throw new Error('Creating Match cannot be included in the Match list')
-  const room = await deps.matchRoomClient(record.matchId).getScore()
+  const rooms = yield* MatchRooms
+  const room = yield* rooms.get(record.matchId).getScore()
 
   if (room._tag === 'active')
     return { status: 'active', endedAt: null, latestSeq: room.latestSeq, score: room.score }
 
   return { status: 'finished', endedAt: room.endedAt, latestSeq: room.latestSeq, score: room.score }
-}
+})

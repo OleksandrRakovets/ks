@@ -1,35 +1,31 @@
-import type { Clock, MatchId } from '@ks/core'
+import { Context, Effect } from 'effect'
 
-import type { MatchRoomClient } from '../match/match-room'
-import type { PlayerStorage } from '../player/storage/player-storage'
+import { ApplicationClock } from '../match/clock'
+import { MatchRooms } from '../match/match-room'
+import { PlayerStorage } from '../player/storage/player-storage'
 import { admitMatchLive } from './admit-live'
 import type { SparringApplication } from './contract'
-import { createMatch } from './create-match'
+import { createMatch, MatchCreation } from './create-match'
 import { listFinishedMatches, listLiveMatches, readMatchScores } from './list-matches'
 import { readMatch, readMatchProtocol } from './read-match'
-import type { SparringMatchStorage } from './storage/sparring-match-storage'
+import { SparringMatchStorage } from './storage/sparring-match-storage'
 import { submitMatchCommand } from './submit-command'
 
-export type SparringDependencies = {
-  clock: Clock
-  newMatchId(): MatchId
-  newControlSecret(): string
-  players: Pick<PlayerStorage, keyof PlayerStorage>
-  matches: Pick<SparringMatchStorage, keyof SparringMatchStorage>
-  matchRoomClient(matchId: MatchId): MatchRoomClient
-}
+type SparringContext = ApplicationClock | MatchCreation | MatchRooms | PlayerStorage | SparringMatchStorage
 
-export function createSparringApplication(deps: SparringDependencies): SparringApplication {
+export function createSparringApplication(context: Context.Context<SparringContext>): SparringApplication {
+  const run = Effect.runPromiseWith(context)
+
   return {
-    createMatch: (input) => createMatch(deps, input),
-    listLiveMatches: (locale) => listLiveMatches(deps, locale),
-    listFinishedMatches: (locale, day) => listFinishedMatches(deps, locale, day),
-    readMatchScores: (matchIds) => readMatchScores(deps, matchIds),
-    readMatch: (matchId, locale, expectedGameKey) => readMatch(deps, matchId, locale, expectedGameKey),
+    createMatch: (input) => run(createMatch(input)),
+    listLiveMatches: (locale) => run(listLiveMatches(locale)),
+    listFinishedMatches: (locale, day) => run(listFinishedMatches(locale, day)),
+    readMatchScores: (matchIds) => run(readMatchScores(matchIds)),
+    readMatch: (matchId, locale, expectedGameKey) => run(readMatch(matchId, locale, expectedGameKey)),
     submitMatchCommand: (matchId, command, expectedGameKey) =>
-      submitMatchCommand(deps, matchId, command, expectedGameKey),
+      run(submitMatchCommand(matchId, command, expectedGameKey)),
     readMatchProtocol: (matchId, locale, expectedGameKey) =>
-      readMatchProtocol(deps, matchId, locale, expectedGameKey),
-    admitMatchLive: (matchId) => admitMatchLive(deps, matchId),
+      run(readMatchProtocol(matchId, locale, expectedGameKey)),
+    admitMatchLive: (matchId) => run(admitMatchLive(matchId)),
   }
 }

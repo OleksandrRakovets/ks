@@ -1,11 +1,17 @@
 import { expect } from 'bun:test'
 
 import { projectMatchScore } from '@ks/competition'
+import type { Clock } from '@ks/core'
 import { FixedClock, MatchId, newCommandId, PlayerRef, UnixEpochMilliseconds } from '@ks/core'
+import { Context, Effect, pipe } from 'effect'
 import * as v from 'valibot'
 
-import type { MatchRoomArchiveTransfer, MatchRoomClient } from '../match/match-room'
-import { createSparringApplication, type SparringDependencies } from './sparring-application'
+import { ApplicationClock } from '../match/clock'
+import { type MatchRoomArchiveTransfer, type MatchRoomClient, MatchRooms } from '../match/match-room'
+import { PlayerStorage } from '../player/storage/player-storage'
+import { MatchCreation } from './create-match'
+import { createSparringApplication } from './sparring-application'
+import { SparringMatchStorage } from './storage/sparring-match-storage'
 
 export const matchId = v.parse(MatchId, '01ARZ3NDEKTSV4RRFFQ69G5FAV')
 
@@ -88,9 +94,14 @@ export function sparring(
   events: string[] = [],
   options: {
     initialStatus?: 'active' | 'finished'
-    overrides?: Partial<Omit<SparringDependencies, 'players' | 'matches'>>
-    players?: Partial<SparringDependencies['players']>
-    matches?: Partial<SparringDependencies['matches']>
+    overrides?: {
+      clock?: Clock
+      newMatchId?: () => MatchId
+      newControlSecret?: () => string
+      matchRoomClient?: (matchId: MatchId) => MatchRoomClient
+    }
+    players?: Partial<PromiseService<PlayerStorage['Service']>>
+    matches?: Partial<PromiseService<SparringMatchStorage['Service']>>
   } = {},
 ) {
   let status = options.initialStatus ?? ('active' as const)
@@ -114,69 +125,115 @@ export function sparring(
       : { ...identity, status }
   }
 
-  return createSparringApplication({
-    clock,
-    newMatchId: () => matchId,
-    newControlSecret: () => 'control-secret-1234567890',
-    players: {
-      ensureGuestRef: async (name) => (name.firstName === 'A' ? playerRefA : playerRefB),
-      readParticipant: async (playerRef) => ({
-        playerRef,
-        names: null,
-      }),
-      ...options.players,
-    },
-    matches: {
-      listLive: async () => [],
-      listFinished: async () => [],
-      findFinishedTime: async () => null,
-      findMatch: async () => matchRecord(),
-      listMatches: async () => [matchRecord()],
-      findFinishedArchive: async () => ({
-        sourceLatestSeq: 1,
-        state: transfer.finalState,
-        gameResult: null,
-      }),
-      findProtocolArchive: async () => ({
-        sourceLatestSeq: 1,
-        protocolVersion: 1,
-        entries: [
-          {
-            acceptedSeq: 1,
-            entryIndex: 0,
-            causedByCommandId: newCommandId(),
-            acceptedAt: createdAt,
-            frameIndex: 1,
-            gameKey: 'free-pyramid',
-            source: 'player',
-            entryType: 'player-command',
-            seat: 'A',
-            body: { commandType: 'frame.commence' },
-          },
-        ],
-        state: transfer.finalState,
-        gameResult: null,
-      }),
-      beginCreation: async () => {
-        events.push('begin')
-      },
-      activate: async () => {
-        events.push('activate')
-      },
-      archiveFinished: async () => {
-        events.push('archive')
-      },
-      markFinished: async () => {
-        events.push('finish')
-        status = 'finished'
-      },
-      ...options.matches,
-    },
-    matchRoomClient: (selectedMatchId) => {
-      expect(selectedMatchId).toBe(matchId)
+  const playerPromises: PromiseService<PlayerStorage['Service']> = {
+    ensureGuestRef: async (name) => (name.firstName === 'A' ? playerRefA : playerRefB),
+    readParticipant: async (playerRef) => ({
+      playerRef,
+      names: null,
+    }),
+    ...options.players,
+  }
 
-      return room
+  const matchPromises: PromiseService<SparringMatchStorage['Service']> = {
+    listLive: async () => [],
+    listFinished: async () => [],
+    findFinishedTime: async () => null,
+    findMatch: async () => matchRecord(),
+    listMatches: async () => [matchRecord()],
+    findFinishedArchive: async () => ({
+      sourceLatestSeq: 1,
+      state: transfer.finalState,
+      gameResult: null,
+    }),
+    findProtocolArchive: async () => ({
+      sourceLatestSeq: 1,
+      protocolVersion: 1,
+      entries: [
+        {
+          acceptedSeq: 1,
+          entryIndex: 0,
+          causedByCommandId: newCommandId(),
+          acceptedAt: createdAt,
+          frameIndex: 1,
+          gameKey: 'free-pyramid',
+          source: 'player',
+          entryType: 'player-command',
+          seat: 'A',
+          body: { commandType: 'frame.commence' },
+        },
+      ],
+      state: transfer.finalState,
+      gameResult: null,
+    }),
+    beginCreation: async () => {
+      events.push('begin')
     },
-    ...options.overrides,
+    activate: async () => {
+      events.push('activate')
+    },
+    archiveFinished: async () => {
+      events.push('archive')
+    },
+    markFinished: async () => {
+      events.push('finish')
+      status = 'finished'
+    },
+    ...options.matches,
+  }
+
+  const players = PlayerStorage.of({
+    ensureGuestRef: (name) => Effect.promise(() => playerPromises.ensureGuestRef(name)),
+    readParticipant: (playerRef) => Effect.promise(() => playerPromises.readParticipant(playerRef)),
   })
+
+  const matches = SparringMatchStorage.of({
+    listLive: (input) => Effect.promise(() => matchPromises.listLive(input)),
+    listFinished: (input) => Effect.promise(() => matchPromises.listFinished(input)),
+    findFinishedTime: (input) => Effect.promise(() => matchPromises.findFinishedTime(input)),
+    findMatch: (input) => Effect.promise(() => matchPromises.findMatch(input)),
+    listMatches: (input) => Effect.promise(() => matchPromises.listMatches(input)),
+    findFinishedArchive: (input) => Effect.promise(() => matchPromises.findFinishedArchive(input)),
+    findProtocolArchive: (input) => Effect.promise(() => matchPromises.findProtocolArchive(input)),
+    beginCreation: (input) => Effect.promise(() => matchPromises.beginCreation(input)),
+    activate: (input) => Effect.promise(() => matchPromises.activate(input)),
+    archiveFinished: (input) => Effect.promise(() => matchPromises.archiveFinished(input)),
+    markFinished: (input) => Effect.promise(() => matchPromises.markFinished(input)),
+  })
+
+  const rooms = MatchRooms.of({
+    get: (selectedMatchId) => {
+      expect(selectedMatchId).toBe(matchId)
+      const selected = options.overrides?.matchRoomClient?.(selectedMatchId) ?? room
+
+      return {
+        initialize: (input) => Effect.promise(() => selected.initialize(input)),
+        getControls: () => Effect.promise(() => selected.getControls()),
+        getProtocol: () => Effect.promise(() => selected.getProtocol()),
+        getScore: () => Effect.promise(() => selected.getScore()),
+        submitCommand: (command) => Effect.promise(() => selected.submitCommand(command)),
+        prepareArchive: () => Effect.promise(() => selected.prepareArchive()),
+      }
+    },
+  })
+
+  const overrides = options.overrides
+
+  const context = pipe(
+    Context.make(ApplicationClock, overrides?.clock ?? clock),
+    Context.add(MatchCreation, {
+      newMatchId: overrides?.newMatchId ?? (() => matchId),
+      newControlSecret: overrides?.newControlSecret ?? (() => 'control-secret-1234567890'),
+    }),
+    Context.add(PlayerStorage, players),
+    Context.add(SparringMatchStorage, matches),
+    Context.add(MatchRooms, rooms),
+  )
+
+  return createSparringApplication(context)
+}
+
+type PromiseService<Service> = {
+  [Key in keyof Service]: Service[Key] extends (...args: infer Args) => Effect.Effect<infer Value, unknown>
+    ? (...args: Args) => Promise<Value>
+    : never
 }

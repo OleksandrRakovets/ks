@@ -2,29 +2,39 @@ import type { MatchStateFor } from '@ks/competition/definitions'
 import type { MatchId } from '@ks/core'
 import type { GameKey, GamePresentationFor } from '@ks/gameplay/definitions'
 import type { SupportedLocale } from '@ks/i18n'
+import type { EffectDrizzleQueryError } from 'drizzle-orm/effect-core/errors'
+import { Effect } from 'effect'
 
+import { ApplicationClock } from '../match/clock'
 import { presentLastCommand } from '../match/last-command-projection'
 import type { MatchRoomClient } from '../match/match-room'
+import { MatchRooms } from '../match/match-room'
 import { renderProtocolRows } from '../match/protocol-projection'
 import { presentParticipant } from '../player/participant'
+import { PlayerStorage } from '../player/storage/player-storage'
 import type { ReadMatchFailure, ReadMatchProtocolResult, ReadMatchResult } from './contract'
 import { presentFinishedMatch, projectMatchFacts } from './projections'
-import type { SparringDependencies } from './sparring-application'
 import type { MatchRecord } from './storage/records'
+import { SparringMatchStorage } from './storage/sparring-match-storage'
 
-export async function readMatch<K extends GameKey>(
-  deps: SparringDependencies,
+export const readMatch = Effect.fn('readMatch')(function* <K extends GameKey>(
   matchId: MatchId,
   locale: SupportedLocale,
   expectedGameKey: K,
-): Promise<ReadMatchResult<K>> {
-  const result = await lookupMatch(
-    deps,
+): Effect.fn.Return<
+  ReadMatchResult<K>,
+  EffectDrizzleQueryError,
+  ApplicationClock | MatchRooms | PlayerStorage | SparringMatchStorage
+> {
+  const matches = yield* SparringMatchStorage
+  const clock = yield* ApplicationClock
+
+  const result = yield* lookupMatch(
     matchId,
     expectedGameKey,
     (room) => room.getControls(),
-    async (record) => {
-      const archive = await deps.matches.findFinishedArchive(record.matchId)
+    Effect.fnUntraced(function* (record) {
+      const archive = yield* matches.findFinishedArchive(record.matchId)
 
       return archive === null
         ? null
@@ -36,19 +46,19 @@ export async function readMatch<K extends GameKey>(
             latestSeq: archive.sourceLatestSeq,
             endedAt: record.endedAt,
           }
-    },
+    }),
   )
 
   if (!result.ok) return result
   const { record, match } = result
-  const participants = await hydrateParticipants(deps, record, locale)
+  const participants = yield* hydrateParticipants(record, locale)
 
   if (match._tag === 'ended') {
     return presentFinishedMatch(
       match,
       participants,
-      deps.clock.instantPresentation(match.endedAt),
-      deps.clock.nowPresentation(),
+      clock.instantPresentation(match.endedAt),
+      clock.nowPresentation(),
     )
   }
 
@@ -69,21 +79,26 @@ export async function readMatch<K extends GameKey>(
   const lastCommand = match.lastCommand ? presentLastCommand(match.lastCommand, seatNames) : undefined
 
   return lastCommand === undefined ? active : { ...active, lastCommand }
-}
+})
 
-export async function readMatchProtocol<K extends GameKey>(
-  deps: SparringDependencies,
+export const readMatchProtocol = Effect.fn('readMatchProtocol')(function* <K extends GameKey>(
   matchId: MatchId,
   locale: SupportedLocale,
   expectedGameKey: K,
-): Promise<ReadMatchProtocolResult<K>> {
-  const result = await lookupMatch(
-    deps,
+): Effect.fn.Return<
+  ReadMatchProtocolResult<K>,
+  EffectDrizzleQueryError,
+  ApplicationClock | MatchRooms | PlayerStorage | SparringMatchStorage
+> {
+  const matches = yield* SparringMatchStorage
+  const clock = yield* ApplicationClock
+
+  const result = yield* lookupMatch(
     matchId,
     expectedGameKey,
     (room) => room.getProtocol(),
-    async (record) => {
-      const archive = await deps.matches.findProtocolArchive(record.matchId)
+    Effect.fnUntraced(function* (record) {
+      const archive = yield* matches.findProtocolArchive(record.matchId)
 
       return archive === null
         ? null
@@ -96,14 +111,14 @@ export async function readMatchProtocol<K extends GameKey>(
             endedAt: record.endedAt,
             protocolEntries: archive.entries,
           }
-    },
+    }),
   )
 
   if (!result.ok) return result
   const { record, match } = result
-  const participants = await hydrateParticipants(deps, record, locale)
+  const participants = yield* hydrateParticipants(record, locale)
   const seatNames = { A: participants.A.displayName, B: participants.B.displayName }
-  const protocolRows = renderProtocolRows(match.protocolEntries, seatNames, deps.clock)
+  const protocolRows = renderProtocolRows(match.protocolEntries, seatNames, clock)
 
   if (match._tag === 'ended') {
     return {
@@ -124,7 +139,7 @@ export async function readMatchProtocol<K extends GameKey>(
   return match.game === undefined
     ? { ...base, controlPhase: 'between-frames' }
     : { ...base, controlPhase: 'frame-active', game: match.game }
-}
+})
 
 type RoomRead = Awaited<ReturnType<MatchRoomClient['getControls'] | MatchRoomClient['getProtocol']>>
 
@@ -135,21 +150,26 @@ type EndedMatch<Room extends RoomRead> = Omit<Extract<Room, { _tag: 'finalizing'
 
 type MatchRead<Room extends RoomRead> = Extract<Room, { _tag: 'active' }> | EndedMatch<Room>
 
-async function lookupMatch<K extends GameKey, Room extends RoomRead>(
-  deps: SparringDependencies,
+const lookupMatch = Effect.fnUntraced(function* <K extends GameKey, Room extends RoomRead>(
   matchId: MatchId,
   expectedGameKey: K,
-  readRoom: (room: MatchRoomClient) => Promise<Room>,
-  readArchive: (record: Extract<MatchRecord, { status: 'finished' }>) => Promise<EndedMatch<Room> | null>,
-): Promise<
+  readRoom: (room: EffectMatchRoomClient) => Effect.Effect<Room>,
+  readArchive: (
+    record: Extract<MatchRecord, { status: 'finished' }>,
+  ) => Effect.Effect<EndedMatch<Room> | null, EffectDrizzleQueryError>,
+): Effect.fn.Return<
   | ReadMatchFailure
   | {
       ok: true
       record: MatchRecord
       match: MatchRead<Room> & { state: MatchStateFor<K>; game?: GamePresentationFor<K> | undefined }
-    }
+    },
+  EffectDrizzleQueryError,
+  MatchRooms | SparringMatchStorage
 > {
-  const record = await deps.matches.findMatch(matchId)
+  const matches = yield* SparringMatchStorage
+  const rooms = yield* MatchRooms
+  const record = yield* matches.findMatch(matchId)
 
   if (!record || record.gameKey !== expectedGameKey) return { ok: false, reason: 'unknown-match' }
 
@@ -157,7 +177,7 @@ async function lookupMatch<K extends GameKey, Room extends RoomRead>(
   let match: MatchRead<RoomRead>
 
   if (record.status === 'finished') {
-    const archived = await readArchive(record)
+    const archived = yield* readArchive(record)
 
     if (!archived) throw new Error('Missing finished match archive')
 
@@ -166,7 +186,7 @@ async function lookupMatch<K extends GameKey, Room extends RoomRead>(
 
     match = archived
   } else {
-    const room = await readRoom(deps.matchRoomClient(matchId))
+    const room = yield* readRoom(rooms.get(matchId))
 
     if (room.state.matchId !== matchId || room.state.gameKey !== expectedGameKey)
       throw new Error(`MatchRoom ${room._tag} identity conflicts with D1`)
@@ -180,11 +200,15 @@ async function lookupMatch<K extends GameKey, Room extends RoomRead>(
     record,
     match: match as MatchRead<Room> & { state: MatchStateFor<K>; game?: GamePresentationFor<K> | undefined },
   }
-}
+})
 
-async function hydrateParticipants(deps: SparringDependencies, record: MatchRecord, locale: SupportedLocale) {
+const hydrateParticipants = Effect.fnUntraced(function* (record: MatchRecord, locale: SupportedLocale) {
+  const players = yield* PlayerStorage
+
   return {
-    A: presentParticipant(await deps.players.readParticipant(record.participantRefs.A), locale),
-    B: presentParticipant(await deps.players.readParticipant(record.participantRefs.B), locale),
+    A: presentParticipant(yield* players.readParticipant(record.participantRefs.A), locale),
+    B: presentParticipant(yield* players.readParticipant(record.participantRefs.B), locale),
   }
-}
+})
+
+type EffectMatchRoomClient = ReturnType<MatchRooms['Service']['get']>
