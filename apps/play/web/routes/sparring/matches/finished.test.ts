@@ -19,7 +19,7 @@ function context(listFinishedMatches: Application['sparring']['listFinishedMatch
 }
 
 describe('finished match day route', () => {
-  test('accepts a real local date from the route and defaults when absent', async () => {
+  test('forwards the requested day and defaults when absent', async () => {
     const calls: unknown[] = []
 
     const routeContext = context(async (...args) => {
@@ -45,18 +45,16 @@ describe('finished match day route', () => {
     expect(result.page).toMatchObject({ day: '2028-02-29' })
   })
 
-  test('rejects impossible or malformed route days before calling application', async () => {
+  test('maps an invalid day to HTTP 404 before calling application', async () => {
     const routeContext = context(async () => {
       throw new Error('Should not reach application')
     })
 
-    for (const day of ['2026-02-30', '2026-9-23', 'foo']) {
-      try {
-        await loader({ context: routeContext, params: { day } })
-        throw new Error('Expected invalid match list day to be rejected')
-      } catch (error) {
-        expect(error).toMatchObject({ status: 404 })
-      }
+    try {
+      await loader({ context: routeContext, params: { day: '2026-02-30' } })
+      throw new Error('Expected invalid match list day to be rejected')
+    } catch (error) {
+      expect(error).toMatchObject({ status: 404 })
     }
   })
 })

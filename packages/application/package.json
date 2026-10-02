@@ -20,6 +20,7 @@
     "@ks/i18n": "workspace:*",
     "@ks/match-room": "workspace:*",
     "drizzle-orm": "catalog:",
+    "effect": "catalog:",
     "valibot": "catalog:"
   },
   "devDependencies": {

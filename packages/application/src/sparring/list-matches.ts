@@ -51,7 +51,7 @@ export async function listLiveMatches(
 export async function listFinishedMatches(
   deps: SparringDependencies,
   locale: SupportedLocale,
-  requestedDay?: MatchListDay,
+  requestedDay?: typeof MatchListDay.Type,
 ): Promise<FinishedMatchListPage> {
   const now = deps.clock.nowMs()
   const formattedNow = deps.clock.instantPresentation(now)
@@ -151,7 +151,7 @@ async function projectListEntries(
   )
 }
 
-function localDay(deps: SparringDependencies, instant: UnixEpochMilliseconds): MatchListDay {
+function localDay(deps: SparringDependencies, instant: UnixEpochMilliseconds): typeof MatchListDay.Type {
   const { year, month, day } = deps.clock.instantPresentation(instant).date
 
   return `${year}-${month}-${day}`

@@ -45,7 +45,7 @@ Page controllers own submission and live revalidation using identity, lifecycle,
 
 ### Schema Conventions
 
-- A Valibot schema and its inferred output type share the same name; do not add a `Schema` suffix.
+- Schemas are migrating incrementally from Valibot to Effect v4 Schema; do not add a `Schema` suffix. Migrated schemas export only the schema value, with consumers inferring `typeof Contract.Type` directly or through a local alias. Unmigrated Valibot schemas retain their same-name inferred type exports. Contracts without schemas and generic relationships keep named type exports.
 - Domain values such as commands, Protocol entries, game state, and projections are readonly. Construction may use mutable locals, with readonly established at the validated or returned boundary rather than through extra copying.
 - Use non-empty tuple schemas when non-emptiness is part of the domain contract. Use strict objects for closed variants and internal state shapes; keep stripping objects at persisted, wire, and browser-storage boundaries where forward compatibility is intentional.
 

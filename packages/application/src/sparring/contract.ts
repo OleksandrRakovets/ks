@@ -15,6 +15,7 @@ import {
 } from '@ks/core'
 import type { GameKey, GamePresentationFor } from '@ks/gameplay/definitions'
 import type { SupportedLocale } from '@ks/i18n'
+import { Schema } from 'effect'
 import * as v from 'valibot'
 
 import type { LastCommandPresentation } from '../match/last-command-projection'
@@ -63,17 +64,14 @@ export type MatchListEntry = Readonly<
     ({ status: 'active'; endedAt: null } | { status: 'finished'; endedAt: UnixEpochMilliseconds })
 >
 
-export const MatchListDay = v.pipe(
-  v.string(),
-  v.regex(/^\d{4}-\d{2}-\d{2}$/),
-  v.check((day) => {
+export const MatchListDay = Schema.String.check(
+  Schema.isPattern(/^\d{4}-\d{2}-\d{2}$/),
+  Schema.makeFilter((day) => {
     const instant = Date.parse(`${day}T00:00:00Z`)
 
     return Number.isFinite(instant) && instant >= 0 && new Date(instant).toISOString().slice(0, 10) === day
   }),
 )
-
-export type MatchListDay = v.InferOutput<typeof MatchListDay>
 
 export type LiveMatchListPage = Readonly<{
   scope: 'live'
@@ -84,9 +82,9 @@ export type LiveMatchListPage = Readonly<{
 export type FinishedMatchListPage = Readonly<{
   scope: 'finished'
   matches: readonly MatchListEntry[]
-  day: MatchListDay | null
-  previousDay: MatchListDay | null
-  nextDay: MatchListDay | null
+  day: typeof MatchListDay.Type | null
+  previousDay: typeof MatchListDay.Type | null
+  nextDay: typeof MatchListDay.Type | null
   isToday: boolean
 }>
 
@@ -195,7 +193,7 @@ export type ReadMatchProtocolResult<K extends GameKey> =
 export type SparringApplication = {
   createMatch(input: CreateSparringMatchInput): Promise<CreateSparringMatchResult>
   listLiveMatches(locale: SupportedLocale): Promise<LiveMatchListPage>
-  listFinishedMatches(locale: SupportedLocale, day?: MatchListDay): Promise<FinishedMatchListPage>
+  listFinishedMatches(locale: SupportedLocale, day?: typeof MatchListDay.Type): Promise<FinishedMatchListPage>
   readMatchScores(matchIds: readonly MatchId[]): Promise<ReadMatchScoresResult>
   readMatch<K extends GameKey>(
     matchId: MatchId,

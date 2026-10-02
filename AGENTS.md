@@ -52,7 +52,7 @@ These commands overlap. Choose the appropriate gate; do not rerun its constituen
 - `@ks/application` owns private D1 adapters and its private typed MatchRoom capability. It must not expose generic repositories.
 - MatchRoom must not import Play, application, or D1 code.
 - Validate at external trust and representation boundaries: HTTP, persisted rows/JSON, browser storage, and restored machine state. Internal MatchRoom RPC within the Play Worker is a trusted typed capability; do not add runtime schemas or reparse canonical values solely because a call crosses Cloudflare RPC.
-- Schemas use Valibot. Prefer built-in actions such as `v.trim()` and `v.parseJson()`. Give the inferred type the exact name as the schema (the core package already does this).
+- Schemas are migrating incrementally from Valibot to Effect v4 Schema. Prefer built-in validation and transformation APIs. Export migrated schema values without redundant inferred type exports; consumers use `typeof Contract.Type` or a local alias. Keep named type exports for contracts without schemas and generic relationships. Existing Valibot schemas retain their same-name inferred types until migrated.
 - Use core seat contracts (`Seat`, `BySeatNumber`, `opponentOf`) rather than local equivalents.
 - Keep one `game` path; gameplay runtimes own game-specific semantics.
 - Gameplay uses its directly declared `tiny-invariant` for predicate/invariant guards; their messages are stripped in production. Unconditional unsupported-case throws may remain explicit. Other packages use explicit/custom errors to retain production diagnostics. Invariant guards do not replace boundary validation or typed rejections.

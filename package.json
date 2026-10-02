@@ -16,6 +16,7 @@
       "bun-types": "1.4.2",
       "drizzle-kit": "1.0.0-rc.4",
       "drizzle-orm": "1.0.0-rc.4",
+      "effect": "4.0.0",
       "react": "^19.3.0",
       "react-dom": "^19.3.0",
       "tailwindcss": "^4.3.3",
