@@ -1,5 +1,5 @@
-import { BySeatNumber, NonEmptyString, Seat } from '@ks/core'
-import * as v from 'valibot'
+import { BySeatNumber, NonEmptyString, Seat, StrictStruct } from '@ks/core'
+import { Schema } from 'effect'
 
 import {
   FoulCommitCommand,
@@ -9,33 +9,19 @@ import {
   GameProtocolEntryFields,
 } from '../constants'
 
-const CueBall = v.literal(0)
+const CueBall = Schema.Literal(0)
 
-const ColoredBall = v.union([
-  v.literal(1),
-  v.literal(2),
-  v.literal(3),
-  v.literal(4),
-  v.literal(5),
-  v.literal(6),
-  v.literal(7),
-])
+export const StrilaColoredBall = Schema.Literals([1, 2, 3, 4, 5, 6, 7])
 
-export type StrilaColoredBall = v.InferOutput<typeof ColoredBall>
+const COLORED_BALLS: readonly (typeof StrilaColoredBall.Type)[] = [1, 2, 3, 4, 5, 6, 7]
 
-const COLORED_BALLS: readonly StrilaColoredBall[] = [1, 2, 3, 4, 5, 6, 7]
+export const StrilaBall = Schema.Union([CueBall, StrilaColoredBall])
 
-const Ball = v.union([CueBall, ColoredBall])
+const BALLS: readonly (typeof StrilaBall.Type)[] = [0, ...COLORED_BALLS]
 
-export type StrilaBall = v.InferOutput<typeof Ball>
-
-const BALLS: readonly StrilaBall[] = [0, ...COLORED_BALLS]
-
-const PottedBalls = v.pipe(
-  v.array(Ball),
-  v.minLength(1),
-  v.check((balls) => new Set(balls).size === balls.length, 'Potted balls must be unique'),
-  v.readonly(),
+const PottedBalls = Schema.Array(StrilaBall).check(
+  Schema.isMinLength(1),
+  Schema.isUnique({ message: 'Potted balls must be unique' }),
 )
 
 export const StrilaMeta = {
@@ -45,27 +31,19 @@ export const StrilaMeta = {
   defaultTargetPoints: { A: 9, B: 9 },
 } as const
 
-const FoulResponseChoice = v.picklist(['play-from-position', 'pass-position', 'ball-in-hand'])
+const FoulResponseChoice = Schema.Literals(['play-from-position', 'pass-position', 'ball-in-hand'])
 
-export const StrilaCommand = v.variant('type', [
+export const StrilaCommand = Schema.Union([
   FrameCommenceCommand,
-  v.pipe(v.strictObject({ type: v.literal('respotted-black.opening.select'), seat: Seat }), v.readonly()),
-  v.pipe(
-    v.strictObject({ type: v.literal('pot.record'), seat: Seat, pottedBalls: PottedBalls }),
-    v.readonly(),
-  ),
-  v.pipe(v.strictObject({ type: v.literal('miss.record'), seat: Seat }), v.readonly()),
+  StrictStruct({ type: Schema.Literal('respotted-black.opening.select'), seat: Seat }),
+  StrictStruct({ type: Schema.Literal('pot.record'), seat: Seat, pottedBalls: PottedBalls }),
+  StrictStruct({ type: Schema.Literal('miss.record'), seat: Seat }),
   FoulCommitCommand,
-  v.pipe(
-    v.strictObject({ type: v.literal('penalty.select'), seat: Seat, choice: FoulResponseChoice }),
-    v.readonly(),
-  ),
+  StrictStruct({ type: Schema.Literal('penalty.select'), seat: Seat, choice: FoulResponseChoice }),
   FrameAwardCommand,
 ])
 
-export type StrilaCommand = v.InferOutput<typeof StrilaCommand>
-
-export const StrilaPhase = v.picklist([
+export const StrilaPhase = Schema.Literals([
   'not-started',
   'open-play',
   'foul-committed.penalty-selection',
@@ -77,208 +55,145 @@ export const StrilaPhase = v.picklist([
   'frame-over',
 ])
 
-export type StrilaPhase = v.InferOutput<typeof StrilaPhase>
-
-const WinnerDeterminationReason = v.picklist([
+const WinnerDeterminationReason = Schema.Literals([
   'target-reached',
   'table-cleared',
   'respotted-black-won',
   'automatic-foul',
 ])
 
-const PottedBallsBySeat = v.pipe(
-  v.object({
-    A: v.pipe(v.array(Ball), v.readonly()),
-    B: v.pipe(v.array(Ball), v.readonly()),
-  }),
-  v.readonly(),
-)
-
-export const StrilaContext = v.pipe(
-  v.object({
-    score: BySeatNumber,
-    targetPoints: BySeatNumber,
-    coloredBallsOnTable: v.pipe(v.array(ColoredBall), v.readonly()),
-    pottedBallsBySeat: PottedBallsBySeat,
-    cueBallSerialPots: v.nullable(
-      v.pipe(
-        v.object({
-          seat: Seat,
-          count: v.union([v.literal(1), v.literal(2)]),
-        }),
-        v.readonly(),
-      ),
-    ),
-    foulOffender: v.nullable(Seat),
-    respottedBlackOpeningSeat: v.nullable(Seat),
-    winner: v.nullable(Seat),
-    winnerDeterminationReason: v.nullable(WinnerDeterminationReason),
-    continuationAllowed: v.boolean(),
-  }),
-  v.readonly(),
-)
-
-export type StrilaContext = v.InferOutput<typeof StrilaContext>
-
-export const FoulSnapshotValue = v.strictObject({
-  'foul-committed': v.picklist(['penalty-selection', 'ball-in-hand']),
+const PottedBallsBySeat = Schema.Struct({
+  A: Schema.Array(StrilaBall),
+  B: Schema.Array(StrilaBall),
 })
 
-export const RespottedBlackSnapshotValue = v.strictObject({
-  'respotted-black': v.picklist(['opening-selection', 'opening', 'play']),
+export const StrilaContext = Schema.Struct({
+  score: BySeatNumber,
+  targetPoints: BySeatNumber,
+  coloredBallsOnTable: Schema.Array(StrilaColoredBall),
+  pottedBallsBySeat: PottedBallsBySeat,
+  cueBallSerialPots: Schema.NullOr(Schema.Struct({ seat: Seat, count: Schema.Literals([1, 2]) })),
+  foulOffender: Schema.NullOr(Seat),
+  respottedBlackOpeningSeat: Schema.NullOr(Seat),
+  winner: Schema.NullOr(Seat),
+  winnerDeterminationReason: Schema.NullOr(WinnerDeterminationReason),
+  continuationAllowed: Schema.Boolean,
 })
 
-export const StrilaSnapshotValue = v.union([
-  v.picklist(['not-started', 'open-play', 'winner-determined', 'frame-over']),
+export const FoulSnapshotValue = StrictStruct({
+  'foul-committed': Schema.Literals(['penalty-selection', 'ball-in-hand']),
+})
+
+export const RespottedBlackSnapshotValue = StrictStruct({
+  'respotted-black': Schema.Literals(['opening-selection', 'opening', 'play']),
+})
+
+export const StrilaSnapshotValue = Schema.Union([
+  Schema.Literals(['not-started', 'open-play', 'winner-determined', 'frame-over']),
   FoulSnapshotValue,
   RespottedBlackSnapshotValue,
 ])
 
-export const StrilaCheckpoint = v.object({ value: StrilaSnapshotValue, context: StrilaContext })
+export const StrilaCheckpoint = Schema.Struct({ value: StrilaSnapshotValue, context: StrilaContext })
 
-export type StrilaCheckpoint = v.InferOutput<typeof StrilaCheckpoint>
+const BallStatus = Schema.Literals(['object', 'on-table', 'potted'])
 
-const BallStatus = v.picklist(['object', 'on-table', 'potted'])
+export const StrilaBallStatuses = Schema.Struct({
+  0: BallStatus,
+  1: BallStatus,
+  2: BallStatus,
+  3: BallStatus,
+  4: BallStatus,
+  5: BallStatus,
+  6: BallStatus,
+  7: BallStatus,
+})
 
-export const StrilaBallStatuses = v.pipe(
-  v.object({
-    0: BallStatus,
-    1: BallStatus,
-    2: BallStatus,
-    3: BallStatus,
-    4: BallStatus,
-    5: BallStatus,
-    6: BallStatus,
-    7: BallStatus,
+const LastColoredBallPotOutcome = Schema.Struct({
+  seat: Seat,
+  result: Schema.Union([
+    Schema.Struct({ type: Schema.Literal('winner-determined'), winnerSeat: Seat }),
+    Schema.Struct({ type: Schema.Literal('respotted-black') }),
+  ]),
+})
+
+const StrilaRuleNote = Schema.Union([
+  Schema.Struct({ severity: Schema.Literal('warning'), code: Schema.Literal('cue-ball-and-colored-is-foul') }),
+  Schema.Struct({
+    severity: Schema.Literal('warning'),
+    code: Schema.Literal('manual-foul-cue-ball-response'),
   }),
-  v.readonly(),
-)
-
-export type StrilaBallStatuses = v.InferOutput<typeof StrilaBallStatuses>
-
-const LastColoredBallPotOutcome = v.pipe(
-  v.object({
+  Schema.Struct({
+    severity: Schema.Literal('warning'),
+    code: Schema.Literal('third-consecutive-cue-ball-pot'),
     seat: Seat,
-    result: v.variant('type', [
-      v.pipe(v.object({ type: v.literal('winner-determined'), winnerSeat: Seat }), v.readonly()),
-      v.pipe(v.object({ type: v.literal('respotted-black') }), v.readonly()),
-    ]),
   }),
-  v.readonly(),
-)
-
-const StrilaRuleNote = v.variant('code', [
-  v.pipe(
-    v.object({ severity: v.literal('warning'), code: v.literal('cue-ball-and-colored-is-foul') }),
-    v.readonly(),
-  ),
-  v.pipe(
-    v.object({ severity: v.literal('warning'), code: v.literal('manual-foul-cue-ball-response') }),
-    v.readonly(),
-  ),
-  v.pipe(
-    v.object({
-      severity: v.literal('warning'),
-      code: v.literal('third-consecutive-cue-ball-pot'),
-      seat: Seat,
-    }),
-    v.readonly(),
-  ),
-  v.pipe(
-    v.object({ severity: v.literal('info'), code: v.literal('respotted-black-opening-toss') }),
-    v.readonly(),
-  ),
-  v.pipe(v.object({ severity: v.literal('info'), code: v.literal('respotted-black-opening') }), v.readonly()),
-  v.pipe(
-    v.object({
-      severity: v.picklist(['warning', 'info']),
-      code: v.literal('last-colored-ball-pot-outcomes'),
-      ball: ColoredBall,
-      outcomes: v.pipe(v.array(LastColoredBallPotOutcome), v.minLength(1), v.readonly()),
-    }),
-    v.readonly(),
-  ),
+  Schema.Struct({ severity: Schema.Literal('info'), code: Schema.Literal('respotted-black-opening-toss') }),
+  Schema.Struct({ severity: Schema.Literal('info'), code: Schema.Literal('respotted-black-opening') }),
+  Schema.Struct({
+    severity: Schema.Literals(['warning', 'info']),
+    code: Schema.Literal('last-colored-ball-pot-outcomes'),
+    ball: StrilaColoredBall,
+    outcomes: Schema.Array(LastColoredBallPotOutcome).check(Schema.isMinLength(1)),
+  }),
 ])
 
-type StrilaRuleNote = v.InferOutput<typeof StrilaRuleNote>
+export const StrilaGamePresentationDetails = Schema.Struct({
+  phase: StrilaPhase,
+  seat: Schema.optional(Seat),
+  situationTitle: NonEmptyString,
+  situationSummary: Schema.optional(NonEmptyString),
+  isBallSetVisible: Schema.Boolean,
+  isPotCommandAvailable: Schema.Boolean,
+  ballStatuses: StrilaBallStatuses,
+  pottedBallsBySeat: PottedBallsBySeat,
+  ruleNotes: Schema.Array(StrilaRuleNote),
+})
 
-const StrilaGamePresentationDetails = v.pipe(
-  v.object({
-    phase: StrilaPhase,
-    seat: v.optional(Seat),
-    situationTitle: NonEmptyString,
-    situationSummary: v.optional(NonEmptyString),
-    isBallSetVisible: v.boolean(),
-    isPotCommandAvailable: v.boolean(),
-    ballStatuses: StrilaBallStatuses,
-    pottedBallsBySeat: PottedBallsBySeat,
-    ruleNotes: v.pipe(v.array(StrilaRuleNote), v.readonly()),
-  }),
-  v.readonly(),
-)
+export const StrilaGamePresentation = Schema.Struct({
+  ...GamePresentation.fields,
+  gameKey: Schema.Literal('strila-v2'),
+  score: BySeatNumber,
+  details: StrilaGamePresentationDetails,
+})
 
-export type StrilaGamePresentationDetails = v.InferOutput<typeof StrilaGamePresentationDetails>
-
-export const StrilaGamePresentation = v.pipe(
-  v.object({
-    ...GamePresentation.entries,
-    gameKey: v.literal('strila-v2'),
-    score: BySeatNumber,
-    details: StrilaGamePresentationDetails,
-  }),
-  v.readonly(),
-)
-
-export type StrilaGamePresentation = v.InferOutput<typeof StrilaGamePresentation>
-
-const AutomaticFoulReason = v.picklist([
+const AutomaticFoulReason = Schema.Literals([
   'third-consecutive-cue-ball-pot',
   'illegal-ball-in-hand-pot',
   'respotted-black-opening-illegal-pot',
 ])
 
-const StrilaPlayerProtocolEntryBody = v.variant('commandType', [
-  v.pipe(v.strictObject({ commandType: v.literal('frame.commence') }), v.readonly()),
-  v.pipe(v.strictObject({ commandType: v.literal('respotted-black.opening.select') }), v.readonly()),
-  v.pipe(v.strictObject({ commandType: v.literal('pot.record'), pottedBalls: PottedBalls }), v.readonly()),
-  v.pipe(v.strictObject({ commandType: v.literal('miss.record') }), v.readonly()),
-  v.pipe(v.strictObject({ commandType: v.literal('foul.commit') }), v.readonly()),
-  v.pipe(
-    v.strictObject({ commandType: v.literal('penalty.select'), choice: FoulResponseChoice }),
-    v.readonly(),
-  ),
-  v.pipe(v.strictObject({ commandType: v.literal('frame.award') }), v.readonly()),
+const StrilaPlayerProtocolEntryBody = Schema.Union([
+  StrictStruct({ commandType: Schema.Literal('frame.commence') }),
+  StrictStruct({ commandType: Schema.Literal('respotted-black.opening.select') }),
+  StrictStruct({ commandType: Schema.Literal('pot.record'), pottedBalls: PottedBalls }),
+  StrictStruct({ commandType: Schema.Literal('miss.record') }),
+  StrictStruct({ commandType: Schema.Literal('foul.commit') }),
+  StrictStruct({ commandType: Schema.Literal('penalty.select'), choice: FoulResponseChoice }),
+  StrictStruct({ commandType: Schema.Literal('frame.award') }),
 ])
 
-const StrilaSystemProtocolEntryBody = v.variant('systemType', [
-  v.pipe(
-    v.strictObject({ systemType: v.literal('automatic-foul'), reason: AutomaticFoulReason }),
-    v.readonly(),
-  ),
-  v.pipe(
-    v.strictObject({ systemType: v.literal('winner-determined'), reason: WinnerDeterminationReason }),
-    v.readonly(),
-  ),
-  v.pipe(v.strictObject({ systemType: v.literal('respotted-black-declared') }), v.readonly()),
+const StrilaSystemProtocolEntryBody = Schema.Union([
+  StrictStruct({ systemType: Schema.Literal('automatic-foul'), reason: AutomaticFoulReason }),
+  StrictStruct({
+    systemType: Schema.Literal('winner-determined'),
+    reason: WinnerDeterminationReason,
+  }),
+  StrictStruct({ systemType: Schema.Literal('respotted-black-declared') }),
 ])
 
 /** Combines the common game Protocol envelope with Strila's typed player/system body variants. */
-export const StrilaProtocolEntry = v.pipe(
-  v.variant('entryType', [
-    v.object({
-      ...GameProtocolEntryFields,
-      gameKey: v.literal('strila-v2'),
-      entryType: v.literal('player-command'),
-      body: StrilaPlayerProtocolEntryBody,
-    }),
-    v.object({
-      ...GameProtocolEntryFields,
-      gameKey: v.literal('strila-v2'),
-      entryType: v.literal('system-note'),
-      body: StrilaSystemProtocolEntryBody,
-    }),
-  ]),
-  v.readonly(),
-)
-
-export type StrilaProtocolEntry = v.InferOutput<typeof StrilaProtocolEntry>
+export const StrilaProtocolEntry = Schema.Union([
+  Schema.Struct({
+    ...GameProtocolEntryFields,
+    gameKey: Schema.Literal('strila-v2'),
+    entryType: Schema.Literal('player-command'),
+    body: StrilaPlayerProtocolEntryBody,
+  }),
+  Schema.Struct({
+    ...GameProtocolEntryFields,
+    gameKey: Schema.Literal('strila-v2'),
+    entryType: Schema.Literal('system-note'),
+    body: StrilaSystemProtocolEntryBody,
+  }),
+])

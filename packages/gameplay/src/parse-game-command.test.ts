@@ -1,10 +1,12 @@
 import { describe, expect, test } from 'bun:test'
 
 import { Seat } from '@ks/core'
-import * as v from 'valibot'
+import { Schema } from 'effect'
 
 import { parseGameCommand } from './parse-game-command'
 import { type GameKey, listGameKeys } from './registry'
+
+type GameKey = typeof GameKey.Type
 
 const strilaValidCommands = [
   { type: 'frame.commence', seat: 'A' },
@@ -61,9 +63,17 @@ describe('parseGameCommand', () => {
   })
 
   test.each(listGameKeys())('%s rejects unknown fields', (gameKey) => {
-    expect(parseGameCommand(gameKey, { ...representativePotCommand(gameKey), extra: true })._tag).toBe(
-      'game-command-parse-failure',
-    )
+    for (const command of validCommandsByKey[gameKey]) {
+      const result = parseGameCommand(gameKey, { ...command, extra: true })
+      expect(result._tag).toBe('game-command-parse-failure')
+
+      if (result._tag === 'game-command-parse-failure') {
+        expect(result.gameKey).toBe(gameKey)
+        expect(result.commandType).toBe(command.type)
+        expect(Schema.isSchemaError(result.error)).toBe(true)
+        expect(result.error.message).not.toBe('')
+      }
+    }
   })
 
   test.each(listGameKeys())('%s rejects missing required fields', (gameKey) => {
@@ -73,7 +83,7 @@ describe('parseGameCommand', () => {
   test.each(listGameKeys())('%s rejects invalid seat', (gameKey) => {
     const result = parseGameCommand(gameKey, { ...representativePotCommand(gameKey), seat: 'C' })
     expect(result._tag).toBe('game-command-parse-failure')
-    expect(v.safeParse(Seat, 'C').success).toBe(false)
+    expect(Schema.is(Seat)('C')).toBe(false)
   })
 
   test('Strila rejects duplicate, out-of-range, and empty ball selections', () => {

@@ -1,10 +1,14 @@
 import { describe, expect, test } from 'bun:test'
 
 import { type BySeatNumber, FrameOutcome } from '@ks/core'
-import * as v from 'valibot'
+import { Schema } from 'effect'
 
 import { createInitialSnapshot, getPhase, type PyramidFrameSnapshot, sendEvent } from './machine'
 import { type PyramidRules, PyramidRuleSpecificsByGameKey } from './rules'
+
+type BySeatNumber = typeof BySeatNumber.Type
+
+type PyramidRules = typeof PyramidRules.Type
 
 const FREE_RULES = PyramidRuleSpecificsByGameKey['free-pyramid']
 
@@ -55,7 +59,7 @@ describe('PyramidFrameMachine: basic', () => {
 
     expect(getPhase(snap)).toBe('frame-over')
     expect(snap.output).toEqual({ winnerSeat: 'A', winReason: 'game-rules', score: { A: 2, B: 0 } })
-    expect(v.is(FrameOutcome, snap.output)).toBe(true)
+    expect(Schema.is(FrameOutcome)(snap.output)).toBe(true)
   })
 
   test('frame.award by non-leader throws', () => {

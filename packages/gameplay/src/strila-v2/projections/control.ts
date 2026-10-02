@@ -1,11 +1,10 @@
 import { opponentOf, type Seat } from '@ks/core'
+import { Schema } from 'effect'
 import invariant from 'tiny-invariant'
-import * as v from 'valibot'
 
 import { type GameControl, type GameControlProjection } from '../../constants'
 import {
   StrilaBallStatuses,
-  type StrilaBallStatuses as StrilaBallStatusesValue,
   type StrilaGamePresentation,
   type StrilaGamePresentationDetails,
   StrilaMeta,
@@ -13,6 +12,16 @@ import {
 import { getPhase, type StrilaFrameSnapshot } from '../machine'
 import { computeStrilaObjectBalls } from './computeds'
 import { deriveStrilaRuleNotes } from './rule-notes'
+
+type Seat = typeof Seat.Type
+
+type GameControl = typeof GameControl.Type
+
+type StrilaBallStatusesValue = typeof StrilaBallStatuses.Type
+
+type StrilaGamePresentation = typeof StrilaGamePresentation.Type
+
+type StrilaGamePresentationDetails = typeof StrilaGamePresentationDetails.Type
 
 type MutableStrilaBallStatuses = {
   -readonly [K in keyof StrilaBallStatusesValue]: StrilaBallStatusesValue[K]
@@ -84,7 +93,7 @@ function deriveBallStatuses(snapshot: StrilaFrameSnapshot): StrilaGamePresentati
     ballStatuses[ball] = 'potted'
   }
 
-  return v.parse(StrilaBallStatuses, ballStatuses)
+  return Schema.decodeUnknownSync(StrilaBallStatuses)(ballStatuses)
 }
 
 function controlProjection(

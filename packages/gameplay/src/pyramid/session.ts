@@ -1,6 +1,6 @@
 import { FrameOutcome, type Seat } from '@ks/core'
+import { Schema } from 'effect'
 import invariant from 'tiny-invariant'
-import * as v from 'valibot'
 import { transition } from 'xstate'
 
 import type { GameControl } from '../constants'
@@ -16,6 +16,16 @@ import { createInitialSnapshot, getPhase, PyramidFrameMachine, type PyramidFrame
 import { derivePyramidControlProjection } from './projections/control'
 import { createPyramidProtocolEntries } from './protocol'
 import { type PyramidGameKey, type PyramidRulesFor, PyramidRuleSpecificsByGameKey } from './rules'
+
+type Seat = typeof Seat.Type
+
+type GameControl = typeof GameControl.Type
+
+type PyramidCheckpoint = typeof PyramidCheckpoint.Type
+
+type PyramidCommand = typeof PyramidCommand.Type
+
+type PyramidGameKey = typeof PyramidGameKey.Type
 
 class PyramidGameplaySession<K extends PyramidGameKey> implements GameplaySession<K> {
   readonly gameKey: K
@@ -48,7 +58,7 @@ class PyramidGameplaySession<K extends PyramidGameKey> implements GameplaySessio
     const outcome = candidate.status === 'done' ? candidate.output : undefined
 
     invariant(
-      outcome === undefined || v.is(FrameOutcome, outcome),
+      outcome === undefined || Schema.is(FrameOutcome)(outcome),
       'Pyramid machine produced an invalid outcome',
     )
 

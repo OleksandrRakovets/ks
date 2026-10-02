@@ -1,5 +1,7 @@
 import type { StrilaColoredBall } from '../definitions'
 
+type StrilaColoredBall = typeof StrilaColoredBall.Type
+
 export function computeStrilaObjectBalls(
   coloredBallsOnTable: readonly StrilaColoredBall[],
 ): StrilaColoredBall[] {

@@ -1,37 +1,33 @@
-import { PositiveInteger } from '@ks/core'
-import * as v from 'valibot'
+import { PositiveInteger, StrictStruct } from '@ks/core'
+import { Schema } from 'effect'
 
 import { GameProtocolEntryFields } from '../constants'
 import { totalScore } from './calculations'
 import type { LongFreePyramidCommand } from './definitions'
 import type { LongFreePyramidFrameSnapshot } from './machine'
 
-const LongFreePyramidProtocolEntryBody = v.variant('commandType', [
-  v.pipe(v.strictObject({ commandType: v.literal('frame.commence') }), v.readonly()),
-  v.pipe(
-    v.strictObject({ commandType: v.literal('pot.record'), pottedBallCount: PositiveInteger }),
-    v.readonly(),
-  ),
-  v.pipe(
-    v.strictObject({ commandType: v.literal('foul.commit'), penalty: v.literal('opponent-plus-one') }),
-    v.readonly(),
-  ),
-  v.pipe(v.strictObject({ commandType: v.literal('frame.award') }), v.readonly()),
+const LongFreePyramidProtocolEntryBody = Schema.Union([
+  StrictStruct({ commandType: Schema.Literal('frame.commence') }),
+  StrictStruct({ commandType: Schema.Literal('pot.record'), pottedBallCount: PositiveInteger }),
+  StrictStruct({
+    commandType: Schema.Literal('foul.commit'),
+    penalty: Schema.Literal('opponent-plus-one'),
+  }),
+  StrictStruct({ commandType: Schema.Literal('frame.award') }),
 ])
 
-type LongFreePyramidProtocolEntryBody = v.InferOutput<typeof LongFreePyramidProtocolEntryBody>
+type LongFreePyramidProtocolEntryBody = typeof LongFreePyramidProtocolEntryBody.Type
 
-export const LongFreePyramidProtocolEntry = v.pipe(
-  v.object({
-    ...GameProtocolEntryFields,
-    gameKey: v.literal('free-pyramid-long'),
-    entryType: v.literal('player-command'),
-    body: LongFreePyramidProtocolEntryBody,
-  }),
-  v.readonly(),
-)
+export const LongFreePyramidProtocolEntry = Schema.Struct({
+  ...GameProtocolEntryFields,
+  gameKey: Schema.Literal('free-pyramid-long'),
+  entryType: Schema.Literal('player-command'),
+  body: LongFreePyramidProtocolEntryBody,
+})
 
-export type LongFreePyramidProtocolEntry = v.InferOutput<typeof LongFreePyramidProtocolEntry>
+type LongFreePyramidProtocolEntry = typeof LongFreePyramidProtocolEntry.Type
+
+type LongFreePyramidCommand = typeof LongFreePyramidCommand.Type
 
 function scoreChanged(previous: LongFreePyramidFrameSnapshot, next: LongFreePyramidFrameSnapshot): boolean {
   const previousScore = totalScore(previous.context.racks)

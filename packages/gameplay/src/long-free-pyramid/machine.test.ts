@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
 import { type BySeatNumber, FrameOutcome } from '@ks/core'
-import * as v from 'valibot'
+import { Schema } from 'effect'
 import { createActor } from 'xstate'
 
 import { ballsOnTableFromRacks, currentRack, removedByRack, totalScore } from './calculations'
@@ -12,6 +12,8 @@ import {
   type LongFreePyramidFrameSnapshot,
   sendEvent,
 } from './machine'
+
+type BySeatNumber = typeof BySeatNumber.Type
 
 const DEFAULT_TARGET: BySeatNumber = { A: 30, B: 30 }
 
@@ -236,7 +238,7 @@ describe('LongFreePyramidFrameMachine: winner flow', () => {
     snap = sendEvent(snap, { type: 'frame.award', seat: 'A' })
     expect(getPhase(snap)).toBe('frame-over')
     expect(snap.output).toEqual({ winnerSeat: 'A', winReason: 'game-rules', score: { A: 4, B: 0 } })
-    expect(v.is(FrameOutcome, snap.output)).toBe(true)
+    expect(Schema.is(FrameOutcome)(snap.output)).toBe(true)
 
     snap = start(15, { A: 8, B: 1 })
     snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })

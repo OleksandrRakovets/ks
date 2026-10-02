@@ -1,6 +1,6 @@
 import { type BySeatNumber, type FrameOutcome, opponentOf, type Seat } from '@ks/core'
+import { Schema } from 'effect'
 import invariant from 'tiny-invariant'
-import * as v from 'valibot'
 import { assign, initialTransition, setup, type SnapshotFrom, transition } from 'xstate'
 
 import {
@@ -18,6 +18,20 @@ import {
   LongFreePyramidPhase,
   type LongFreePyramidRack,
 } from './definitions'
+
+type BySeatNumber = typeof BySeatNumber.Type
+
+type FrameOutcome = typeof FrameOutcome.Type
+
+type Seat = typeof Seat.Type
+
+type LongFreePyramidCommand = typeof LongFreePyramidCommand.Type
+
+type LongFreePyramidContext = typeof LongFreePyramidContext.Type
+
+type LongFreePyramidPhase = typeof LongFreePyramidPhase.Type
+
+type LongFreePyramidRack = typeof LongFreePyramidRack.Type
 
 type LongFreePyramidMachineInput = {
   readonly targetPointsBySeat: BySeatNumber
@@ -311,7 +325,7 @@ export function createInitialSnapshot(input: LongFreePyramidMachineInput): LongF
 }
 
 export function getPhase(snapshot: LongFreePyramidFrameSnapshot): LongFreePyramidPhase {
-  return v.parse(LongFreePyramidPhase, snapshot.value)
+  return Schema.decodeUnknownSync(LongFreePyramidPhase)(snapshot.value)
 }
 
 export function sendEvent(

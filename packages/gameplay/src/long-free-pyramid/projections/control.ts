@@ -5,6 +5,14 @@ import { ballsOnTableFromRacks, currentRack, removedByRack, totalScore } from '.
 import type { LongFreePyramidGamePresentation, LongFreePyramidGamePresentationState } from '../definitions'
 import { getPhase, type LongFreePyramidFrameSnapshot } from '../machine'
 
+type Seat = typeof Seat.Type
+
+type GameControl = typeof GameControl.Type
+
+type LongFreePyramidGamePresentation = typeof LongFreePyramidGamePresentation.Type
+
+type LongFreePyramidGamePresentationState = typeof LongFreePyramidGamePresentationState.Type
+
 export function deriveLongFreePyramidControlProjection(
   snapshot: LongFreePyramidFrameSnapshot,
 ): GameControlProjection<LongFreePyramidGamePresentation> {

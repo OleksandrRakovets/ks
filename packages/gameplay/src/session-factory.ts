@@ -7,6 +7,10 @@ import { createPyramidGameplaySession, restorePyramidGameplaySession } from './p
 import type { GameKey, GameplayCheckpoint } from './registry'
 import { createStrilaGameplaySession, restoreStrilaGameplaySession } from './strila-v2/session'
 
+type GameKey = typeof GameKey.Type
+
+type GameplayCheckpoint = typeof GameplayCheckpoint.Type
+
 export function restoreGameplaySession(checkpoint: GameplayCheckpoint): AnyGameplaySession {
   switch (checkpoint.gameKey) {
     case 'strila-v2':

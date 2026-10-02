@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
 import { FrameOutcome } from '@ks/core'
-import * as v from 'valibot'
+import { Schema } from 'effect'
 
 import { GameProtocolEntry } from './gameplay-session'
 import { LongFreePyramidCheckpoint, LongFreePyramidGamePresentation } from './long-free-pyramid/definitions'
@@ -13,9 +13,14 @@ import {
   PyramidCheckpoint,
 } from './pyramid/definitions'
 import { restorePyramidGameplaySession } from './pyramid/session'
-import { createGameplaySession } from './session-factory'
+import { GameplayCheckpoint } from './registry'
+import { createGameplaySession, restoreGameplaySession } from './session-factory'
 import { StrilaCheckpoint, type StrilaCommand, StrilaGamePresentation } from './strila-v2/definitions'
 import { restoreStrilaGameplaySession } from './strila-v2/session'
+
+type StrilaCommand = typeof StrilaCommand.Type
+
+type StrilaCheckpoint = typeof StrilaCheckpoint.Type
 
 const scenarios = [
   {
@@ -58,7 +63,7 @@ describe('GameplaySession', () => {
       expect(session.gameKey).toBe(scenario.gameKey)
       expect(session.canCommence('A')).toBe(true)
       expect(session.canConcede()).toBe(true)
-      expect(v.is(scenario.presentationSchema, session.deriveControls().game)).toBe(true)
+      expect(Schema.is(scenario.presentationSchema)(session.deriveControls().game)).toBe(true)
 
       const initial = session.getScore()
       // SAFETY: deliberately bypass readonly to verify callers cannot mutate resident session state.
@@ -72,7 +77,7 @@ describe('GameplaySession', () => {
 
       if (commenced._tag === 'accepted') {
         expect(commenced.gameProtocolEntries.length).toBeGreaterThan(0)
-        expect(commenced.gameProtocolEntries.every((entry) => v.is(GameProtocolEntry, entry))).toBe(true)
+        expect(commenced.gameProtocolEntries.every(Schema.is(GameProtocolEntry))).toBe(true)
       }
 
       const scoreBeforeRejection = session.getScore()
@@ -91,7 +96,8 @@ describe('GameplaySession', () => {
       const frameCompletion = session.execute({ type: 'frame.award', seat: 'A' })
       expect(frameCompletion._tag).toBe('accepted')
 
-      if (frameCompletion._tag === 'accepted') expect(v.is(FrameOutcome, frameCompletion.outcome)).toBe(true)
+      if (frameCompletion._tag === 'accepted')
+        expect(Schema.is(FrameOutcome)(frameCompletion.outcome)).toBe(true)
 
       expect(session.deriveControls()).not.toBe(session.deriveControls())
       expect(session.getScore()).not.toBe(session.getScore())
@@ -104,12 +110,89 @@ describe('GameplaySession', () => {
       expect(replay.getScore()).toEqual(session.getScore())
       expect(replay.deriveControls()).toEqual(session.deriveControls())
     })
+
+    test(`${scenario.gameKey} preserves persisted JSON and local object policies`, () => {
+      const session = scenario.create()
+      const checkpoint = { gameKey: scenario.gameKey, state: session.exportCheckpoint() }
+      const stored = JSON.stringify(checkpoint)
+      const restored = restoreGameplaySession(Schema.decodeUnknownSync(GameplayCheckpoint)(JSON.parse(stored)))
+      expect(JSON.stringify({ gameKey: restored.gameKey, state: restored.exportCheckpoint() })).toBe(stored)
+
+      expect(
+        JSON.stringify(
+          Schema.decodeUnknownSync(GameplayCheckpoint)({
+            ...checkpoint,
+            extra: true,
+            state: { ...checkpoint.state, extra: true, context: { ...checkpoint.state.context, extra: true } },
+          }),
+        ),
+      ).toBe(stored)
+
+      const presentation = session.deriveControls().game
+      expect(
+        JSON.stringify(
+          Schema.decodeUnknownSync(scenario.presentationSchema)({
+            ...presentation,
+            extra: true,
+            details: { ...presentation.details, extra: true },
+          }),
+        ),
+      ).toBe(JSON.stringify(presentation))
+
+      const commenced = session.execute({ type: 'frame.commence', seat: 'A' })
+      expect(commenced._tag).toBe('accepted')
+
+      if (commenced._tag === 'accepted') {
+        const entry = commenced.gameProtocolEntries[0]
+
+        const presentUndefined = Schema.decodeUnknownSync(GameProtocolEntry)({
+          ...entry,
+          scoreAfter: undefined,
+        })
+
+        expect(Object.hasOwn(presentUndefined, 'scoreAfter')).toBe(true)
+        expect(presentUndefined.scoreAfter).toBeUndefined()
+        const omitted = Schema.decodeUnknownSync(GameProtocolEntry)(JSON.parse(JSON.stringify(entry)))
+        expect(Object.hasOwn(omitted, 'scoreAfter')).toBe(false)
+        expect(
+          Schema.decodeUnknownSync(GameProtocolEntry)({
+            ...entry,
+            extra: true,
+            scoreAfter: { A: 2, B: 5, extra: true },
+          }),
+        ).toEqual({ ...entry, scoreAfter: { A: 2, B: 5 } })
+        expect(() =>
+          Schema.decodeUnknownSync(GameProtocolEntry)({
+            ...entry,
+            body: { ...entry.body, extra: true },
+          }),
+        ).toThrow()
+      }
+    })
   }
+
+  test('Strila compound snapshot values reject excess keys without tightening context', () => {
+    const context = createGameplaySession('strila-v2', {
+      targetPointsBySeat: { A: 9, B: 9 },
+    }).exportCheckpoint().context
+
+    for (const value of [
+      { 'foul-committed': 'penalty-selection' },
+      { 'respotted-black': 'opening-selection' },
+    ] as const) {
+      expect(
+        Schema.decodeUnknownSync(StrilaCheckpoint)({ value, context: { ...context, extra: true } }),
+      ).toEqual({ value, context })
+      expect(() =>
+        Schema.decodeUnknownSync(StrilaCheckpoint)({ value: { ...value, extra: true }, context }),
+      ).toThrow()
+    }
+  })
 
   test('Pyramid restoration requires the selected rules, including ordered shot options', () => {
     const session = createGameplaySession('free-pyramid', { targetPointsBySeat: { A: 8, B: 9 } })
     expect(session.execute({ type: 'frame.commence', seat: 'B' })._tag).toBe('accepted')
-    const checkpoint = v.parse(PyramidCheckpoint, session.exportCheckpoint())
+    const checkpoint = Schema.decodeUnknownSync(PyramidCheckpoint)(session.exportCheckpoint())
     const restored = restorePyramidGameplaySession('free-pyramid', checkpoint)
     expect(restored.exportCheckpoint()).toEqual(checkpoint)
     expect(restored.execute({ type: 'pot.record', seat: 'B', pottedBallCount: 4 })._tag).toBe('accepted')
@@ -123,7 +206,7 @@ describe('GameplaySession', () => {
       { shotPointOptions: [1, 2, 4, 8] },
       { shotPointOptions: [1, 4, 2] },
     ]) {
-      const wrongRules = v.parse(PyramidCheckpoint, {
+      const wrongRules = Schema.decodeUnknownSync(PyramidCheckpoint)({
         ...checkpoint,
         context: { ...checkpoint.context, rules: { ...checkpoint.context.rules, ...change } },
       })
@@ -140,7 +223,7 @@ describe('GameplaySession', () => {
 
     expect(session.execute({ type: 'frame.commence', seat: 'A' })._tag).toBe('accepted')
 
-    const checkpoint = v.parse(LongFreePyramidCheckpoint, {
+    const checkpoint = Schema.decodeUnknownSync(LongFreePyramidCheckpoint)({
       ...session.exportCheckpoint(),
       context: {
         ...session.exportCheckpoint().context,
@@ -163,7 +246,7 @@ describe('GameplaySession', () => {
       { rackNumber: 2, scoreBySeat: { A: 2, B: -1 } },
       { rackNumber: 2, scoreBySeat: { A: 12, B: 5 } },
     ]) {
-      const wrongRack = v.parse(LongFreePyramidCheckpoint, {
+      const wrongRack = Schema.decodeUnknownSync(LongFreePyramidCheckpoint)({
         ...checkpoint,
         context: { ...checkpoint.context, racks: [checkpoint.context.racks[0], rack] },
       })
@@ -178,7 +261,7 @@ describe('GameplaySession', () => {
     expect(session.execute({ type: 'foul.commit', seat: 'B' })._tag).toBe('accepted')
     const checkpoint = session.exportCheckpoint()
 
-    const missingOffender = v.parse(StrilaCheckpoint, {
+    const missingOffender = Schema.decodeUnknownSync(StrilaCheckpoint)({
       ...checkpoint,
       context: { ...checkpoint.context, foulOffender: null },
     })
@@ -188,12 +271,12 @@ describe('GameplaySession', () => {
       'Penalty selection requires foul offender',
     )
 
-    const selecting = restoreStrilaGameplaySession(v.parse(StrilaCheckpoint, checkpoint))
+    const selecting = restoreStrilaGameplaySession(Schema.decodeUnknownSync(StrilaCheckpoint)(checkpoint))
     expect(selecting.exportCheckpoint()).toEqual(checkpoint)
     expect(selecting.execute({ type: 'penalty.select', seat: 'A', choice: 'ball-in-hand' })._tag).toBe(
       'accepted',
     )
-    const ballInHand = v.parse(StrilaCheckpoint, selecting.exportCheckpoint())
+    const ballInHand = Schema.decodeUnknownSync(StrilaCheckpoint)(selecting.exportCheckpoint())
     expect(ballInHand).toMatchObject({
       value: { 'foul-committed': 'ball-in-hand' },
       context: { foulOffender: null },
@@ -233,10 +316,10 @@ describe('GameplaySession', () => {
       { command: { type: 'miss.record', seat: 'B' }, value: { 'respotted-black': 'play' } },
       { command: { type: 'foul.commit', seat: 'A' }, value: 'winner-determined' },
     ] satisfies { command: StrilaCommand; value: StrilaCheckpoint['value'] }[]) {
-      const checkpoint = v.parse(StrilaCheckpoint, session.exportCheckpoint())
+      const checkpoint = Schema.decodeUnknownSync(StrilaCheckpoint)(session.exportCheckpoint())
 
       for (const coloredBallsOnTable of [[6], [7, 7]]) {
-        const wrongTable = v.parse(StrilaCheckpoint, {
+        const wrongTable = Schema.decodeUnknownSync(StrilaCheckpoint)({
           ...checkpoint,
           context: { ...checkpoint.context, coloredBallsOnTable },
         })

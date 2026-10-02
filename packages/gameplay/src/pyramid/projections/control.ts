@@ -5,6 +5,10 @@ import type { AnyPyramidGamePresentation, PyramidGamePresentationFor } from '../
 import { getPhase, type PyramidFrameSnapshot } from '../machine'
 import type { PyramidGameKey, PyramidRulesFor } from '../rules'
 
+type GameControl = typeof GameControl.Type
+
+type PyramidGameKey = typeof PyramidGameKey.Type
+
 function pyramidDetails(snapshot: PyramidFrameSnapshot) {
   return {
     phase: getPhase(snapshot),

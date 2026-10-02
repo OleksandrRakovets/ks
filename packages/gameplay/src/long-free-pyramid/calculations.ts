@@ -3,6 +3,16 @@ import invariant from 'tiny-invariant'
 
 import type { LongFreePyramidContext, LongFreePyramidPhase, LongFreePyramidRack } from './definitions'
 
+type BySeatNumber = typeof BySeatNumber.Type
+
+type Seat = typeof Seat.Type
+
+type LongFreePyramidContext = typeof LongFreePyramidContext.Type
+
+type LongFreePyramidPhase = typeof LongFreePyramidPhase.Type
+
+type LongFreePyramidRack = typeof LongFreePyramidRack.Type
+
 export function zeroScore(): BySeatNumber {
   return { A: 0, B: 0 }
 }

@@ -4,6 +4,10 @@ import invariant from 'tiny-invariant'
 import { type StrilaGamePresentationDetails } from '../definitions'
 import { getPhase, sendEvent, type StrilaFrameSnapshot } from '../machine'
 
+type Seat = typeof Seat.Type
+
+type StrilaGamePresentationDetails = typeof StrilaGamePresentationDetails.Type
+
 export function deriveStrilaRuleNotes(
   snapshot: StrilaFrameSnapshot,
 ): StrilaGamePresentationDetails['ruleNotes'] {

@@ -1,92 +1,61 @@
-import { BySeatNumber, NonEmptyString, PositiveInteger, Seat } from '@ks/core'
-import * as v from 'valibot'
+import { BySeatNumber, NonEmptyString, PositiveInteger, Seat, StrictStruct } from '@ks/core'
+import { Schema } from 'effect'
 
 import { FoulCommitCommand, FrameAwardCommand, FrameCommenceCommand, GamePresentation } from '../constants'
 import { type PyramidGameKey, PyramidRules } from './rules'
 
-export const PyramidCommand = v.variant('type', [
+type PyramidGameKey = typeof PyramidGameKey.Type
+
+export const PyramidCommand = Schema.Union([
   FrameCommenceCommand,
-  v.pipe(
-    v.strictObject({ type: v.literal('pot.record'), seat: Seat, pottedBallCount: PositiveInteger }),
-    v.readonly(),
-  ),
+  StrictStruct({ type: Schema.Literal('pot.record'), seat: Seat, pottedBallCount: PositiveInteger }),
   FoulCommitCommand,
   FrameAwardCommand,
 ])
 
-export type PyramidCommand = v.InferOutput<typeof PyramidCommand>
+export const PyramidPhase = Schema.Literals(['not-started', 'open-play', 'winner-determined', 'frame-over'])
 
-export const PyramidPhase = v.picklist(['not-started', 'open-play', 'winner-determined', 'frame-over'])
+export const PyramidContext = Schema.Struct({
+  score: BySeatNumber,
+  targetPoints: BySeatNumber,
+  rules: PyramidRules,
+  winner: Schema.NullOr(Seat),
+})
 
-export type PyramidPhase = v.InferOutput<typeof PyramidPhase>
+export const PyramidCheckpoint = Schema.Struct({ value: PyramidPhase, context: PyramidContext })
 
-export const PyramidContext = v.pipe(
-  v.object({
-    score: BySeatNumber,
-    targetPoints: BySeatNumber,
-    rules: PyramidRules,
-    winner: v.nullable(Seat),
-  }),
-  v.readonly(),
-)
+const PyramidGamePresentationState = Schema.Struct({
+  phase: PyramidPhase,
+  winner: Schema.optional(Seat),
+})
 
-export type PyramidContext = v.InferOutput<typeof PyramidContext>
-
-export const PyramidCheckpoint = v.object({ value: PyramidPhase, context: PyramidContext })
-
-export type PyramidCheckpoint = v.InferOutput<typeof PyramidCheckpoint>
-
-const PyramidGamePresentationState = v.pipe(
-  v.object({
-    phase: PyramidPhase,
-    winner: v.optional(Seat),
-  }),
-  v.readonly(),
-)
-
-type PyramidGamePresentationState = v.InferOutput<typeof PyramidGamePresentationState>
-
-const PyramidGamePresentationDetails = v.pipe(
-  v.object({
-    ...PyramidGamePresentationState.entries,
-    situationTitle: NonEmptyString,
-    situationSummary: NonEmptyString,
-    isPotCommandAvailable: v.boolean(),
-  }),
-  v.readonly(),
-)
-
-type PyramidGamePresentationDetails = v.InferOutput<typeof PyramidGamePresentationDetails>
+const PyramidGamePresentationDetails = Schema.Struct({
+  ...PyramidGamePresentationState.fields,
+  situationTitle: NonEmptyString,
+  situationSummary: NonEmptyString,
+  isPotCommandAvailable: Schema.Boolean,
+})
 
 function gamePresentation<K extends PyramidGameKey>(gameKey: K) {
-  return v.pipe(
-    v.object({
-      ...GamePresentation.entries,
-      gameKey: v.literal(gameKey),
-      details: PyramidGamePresentationDetails,
-    }),
-    v.readonly(),
-  )
+  return Schema.Struct({
+    ...GamePresentation.fields,
+    gameKey: Schema.Literal(gameKey),
+    details: PyramidGamePresentationDetails,
+  })
 }
 
 export const FreePyramidGamePresentation = gamePresentation('free-pyramid')
 
-export type FreePyramidGamePresentation = v.InferOutput<typeof FreePyramidGamePresentation>
-
 export const CombinedPyramidGamePresentation = gamePresentation('combined-pyramid')
-
-export type CombinedPyramidGamePresentation = v.InferOutput<typeof CombinedPyramidGamePresentation>
 
 export const CombinedPyramidOldGamePresentation = gamePresentation('combined-pyramid-old')
 
-export type CombinedPyramidOldGamePresentation = v.InferOutput<typeof CombinedPyramidOldGamePresentation>
-
-export type AnyPyramidGamePresentation = Omit<FreePyramidGamePresentation, 'gameKey'> & {
+export type AnyPyramidGamePresentation = Omit<typeof FreePyramidGamePresentation.Type, 'gameKey'> & {
   readonly gameKey: PyramidGameKey
 }
 
 export type PyramidGamePresentationFor<K extends PyramidGameKey> = Omit<
-  FreePyramidGamePresentation,
+  typeof FreePyramidGamePresentation.Type,
   'gameKey'
 > & {
   readonly gameKey: K

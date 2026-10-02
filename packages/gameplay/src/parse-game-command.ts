@@ -1,39 +1,33 @@
 import type { MatchCommand } from '@ks/core'
-import * as v from 'valibot'
+import { Result, Schema } from 'effect'
 
 import { type GameCommandFor, type GameKey, registry } from './registry'
+
+type GameKey = typeof GameKey.Type
 
 type GameCommandParseFailure = {
   readonly _tag: 'game-command-parse-failure'
   readonly gameKey: GameKey
   readonly commandType: string
-  readonly issues: readonly v.BaseIssue<unknown>[]
+  readonly error: Schema.SchemaError
 }
 
 export type ParseGameCommandResult<K extends GameKey> =
   | { readonly _tag: 'parsed'; readonly command: GameCommandFor<K> }
   | GameCommandParseFailure
 
-function parseFailure(
-  gameKey: GameKey,
-  commandType: string,
-  issues: readonly v.BaseIssue<unknown>[],
-): GameCommandParseFailure {
-  return { _tag: 'game-command-parse-failure', gameKey, commandType, issues }
-}
-
 export function parseGameCommand<K extends GameKey>(
   gameKey: K,
-  input: MatchCommand['command'],
+  input: (typeof MatchCommand.Type)['command'],
 ): ParseGameCommandResult<K> {
-  const parsed = v.safeParse(registry[gameKey].commandSchema, input)
+  const parsed = Schema.decodeUnknownResult(registry[gameKey].commandSchema)(input)
 
-  if (!parsed.success) {
-    const discriminator = v.safeParse(v.object({ type: v.string() }), input)
-    const commandType = discriminator.success ? discriminator.output.type : 'unknown'
+  if (Result.isFailure(parsed)) {
+    const discriminator = Schema.decodeUnknownResult(Schema.Struct({ type: Schema.String }))(input)
+    const commandType = Result.isSuccess(discriminator) ? discriminator.success.type : 'unknown'
 
-    return parseFailure(gameKey, commandType, parsed.issues)
+    return { _tag: 'game-command-parse-failure', gameKey, commandType, error: parsed.failure }
   }
 
-  return { _tag: 'parsed', command: parsed.output }
+  return { _tag: 'parsed', command: parsed.success }
 }

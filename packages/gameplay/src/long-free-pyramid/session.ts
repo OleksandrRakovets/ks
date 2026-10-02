@@ -1,6 +1,6 @@
 import { FrameOutcome, type Seat } from '@ks/core'
+import { Schema } from 'effect'
 import invariant from 'tiny-invariant'
-import * as v from 'valibot'
 import { transition } from 'xstate'
 
 import {
@@ -19,6 +19,12 @@ import {
 } from './machine'
 import { deriveLongFreePyramidControlProjection } from './projections/control'
 import { createLongFreePyramidProtocolEntries } from './protocol'
+
+type Seat = typeof Seat.Type
+
+type LongFreePyramidCheckpoint = typeof LongFreePyramidCheckpoint.Type
+
+type LongFreePyramidCommand = typeof LongFreePyramidCommand.Type
 
 class LongFreePyramidGameplaySession implements GameplaySession<'free-pyramid-long'> {
   readonly gameKey = 'free-pyramid-long' as const
@@ -44,7 +50,7 @@ class LongFreePyramidGameplaySession implements GameplaySession<'free-pyramid-lo
     const outcome = candidate.status === 'done' ? candidate.output : undefined
 
     invariant(
-      outcome === undefined || v.is(FrameOutcome, outcome),
+      outcome === undefined || Schema.is(FrameOutcome)(outcome),
       'Long free Pyramid machine produced an invalid outcome',
     )
 

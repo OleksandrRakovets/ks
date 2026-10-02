@@ -1,40 +1,35 @@
-import { PositiveInteger } from '@ks/core'
-import * as v from 'valibot'
+import { PositiveInteger, StrictStruct } from '@ks/core'
+import { Schema } from 'effect'
 
 import { GameProtocolEntryFields } from '../constants'
 import type { PyramidCommand } from './definitions'
 import type { PyramidFrameSnapshot } from './machine'
 import type { PyramidRules } from './rules'
 
-const PyramidProtocolEntryBody = v.variant('commandType', [
-  v.pipe(v.strictObject({ commandType: v.literal('frame.commence') }), v.readonly()),
-  v.pipe(
-    v.strictObject({ commandType: v.literal('pot.record'), pottedBallCount: PositiveInteger }),
-    v.readonly(),
-  ),
-  v.pipe(
-    v.strictObject({
-      commandType: v.literal('foul.commit'),
-      penalty: v.picklist(['opponent-plus-one', 'offender-minus-one']),
-    }),
-    v.readonly(),
-  ),
-  v.pipe(v.strictObject({ commandType: v.literal('frame.award') }), v.readonly()),
+const PyramidProtocolEntryBody = Schema.Union([
+  StrictStruct({ commandType: Schema.Literal('frame.commence') }),
+  StrictStruct({ commandType: Schema.Literal('pot.record'), pottedBallCount: PositiveInteger }),
+  StrictStruct({
+    commandType: Schema.Literal('foul.commit'),
+    penalty: Schema.Literals(['opponent-plus-one', 'offender-minus-one']),
+  }),
+  StrictStruct({ commandType: Schema.Literal('frame.award') }),
 ])
 
-type PyramidProtocolEntryBody = v.InferOutput<typeof PyramidProtocolEntryBody>
+type PyramidProtocolEntryBody = typeof PyramidProtocolEntryBody.Type
 
-export const PyramidProtocolEntry = v.pipe(
-  v.object({
-    ...GameProtocolEntryFields,
-    gameKey: v.picklist(['free-pyramid', 'combined-pyramid', 'combined-pyramid-old']),
-    entryType: v.literal('player-command'),
-    body: PyramidProtocolEntryBody,
-  }),
-  v.readonly(),
-)
+export const PyramidProtocolEntry = Schema.Struct({
+  ...GameProtocolEntryFields,
+  gameKey: Schema.Literals(['free-pyramid', 'combined-pyramid', 'combined-pyramid-old']),
+  entryType: Schema.Literal('player-command'),
+  body: PyramidProtocolEntryBody,
+})
 
-export type PyramidProtocolEntry = v.InferOutput<typeof PyramidProtocolEntry>
+type PyramidProtocolEntry = typeof PyramidProtocolEntry.Type
+
+type PyramidCommand = typeof PyramidCommand.Type
+
+type PyramidRules = typeof PyramidRules.Type
 
 function scoreChanged(previous: PyramidFrameSnapshot, next: PyramidFrameSnapshot): boolean {
   return previous.context.score.A !== next.context.score.A || previous.context.score.B !== next.context.score.B

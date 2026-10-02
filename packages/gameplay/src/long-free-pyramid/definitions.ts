@@ -1,5 +1,5 @@
-import { BySeatNumber, Integer, Seat } from '@ks/core'
-import * as v from 'valibot'
+import { BySeatNumber, Integer, Seat, StrictStruct } from '@ks/core'
+import { Schema } from 'effect'
 
 import {
   FoulCommitCommand,
@@ -9,37 +9,27 @@ import {
   LongFreePyramidRack,
 } from '../constants'
 
-export { type LongFreePyramidRack } from '../constants'
+export { LongFreePyramidRack } from '../constants'
 
-const LongFreePyramidPottedBallCount = v.picklist([1, 2, 3, 4])
+const LongFreePyramidPottedBallCount = Schema.Literals([1, 2, 3, 4])
 
-export const LongFreePyramidCommand = v.variant('type', [
+export const LongFreePyramidCommand = Schema.Union([
   FrameCommenceCommand,
-  v.pipe(
-    v.strictObject({
-      type: v.literal('pot.record'),
-      seat: Seat,
-      pottedBallCount: LongFreePyramidPottedBallCount,
-    }),
-    v.readonly(),
-  ),
+  StrictStruct({
+    type: Schema.Literal('pot.record'),
+    seat: Seat,
+    pottedBallCount: LongFreePyramidPottedBallCount,
+  }),
   FoulCommitCommand,
   FrameAwardCommand,
 ])
 
-export type LongFreePyramidCommand = v.InferOutput<typeof LongFreePyramidCommand>
+const LongFreePyramidMessage = Schema.Struct({
+  code: Schema.Literal('rack-started'),
+  rackNumber: Integer.check(Schema.isGreaterThanOrEqualTo(1)),
+})
 
-const LongFreePyramidMessage = v.pipe(
-  v.object({
-    code: v.literal('rack-started'),
-    rackNumber: v.pipe(Integer, v.minValue(1)),
-  }),
-  v.readonly(),
-)
-
-type LongFreePyramidMessage = v.InferOutput<typeof LongFreePyramidMessage>
-
-export const LongFreePyramidPhase = v.picklist([
+export const LongFreePyramidPhase = Schema.Literals([
   'not-started',
   'open-play',
   'winner-determined',
@@ -47,61 +37,37 @@ export const LongFreePyramidPhase = v.picklist([
   'frame-over',
 ])
 
-export type LongFreePyramidPhase = v.InferOutput<typeof LongFreePyramidPhase>
+export const LongFreePyramidContext = Schema.Struct({
+  racks: Schema.Array(LongFreePyramidRack).check(Schema.isMinLength(1)),
+  targetPoints: BySeatNumber,
+  rackRollover: Schema.Literals([14, 15]),
+  winner: Schema.NullOr(Seat),
+  messages: Schema.Array(LongFreePyramidMessage),
+})
 
-export const LongFreePyramidContext = v.pipe(
-  v.object({
-    racks: v.pipe(v.array(LongFreePyramidRack), v.minLength(1), v.readonly()),
-    targetPoints: BySeatNumber,
-    rackRollover: v.picklist([14, 15]),
-    winner: v.nullable(Seat),
-    messages: v.pipe(v.array(LongFreePyramidMessage), v.readonly()),
-  }),
-  v.readonly(),
-)
-
-export type LongFreePyramidContext = v.InferOutput<typeof LongFreePyramidContext>
-
-export const LongFreePyramidCheckpoint = v.object({
+export const LongFreePyramidCheckpoint = Schema.Struct({
   value: LongFreePyramidPhase,
   context: LongFreePyramidContext,
 })
 
-export type LongFreePyramidCheckpoint = v.InferOutput<typeof LongFreePyramidCheckpoint>
+export const LongFreePyramidGamePresentationState = Schema.Struct({
+  phase: LongFreePyramidPhase,
+  winner: Schema.optional(Seat),
+  rackHistory: Schema.Array(LongFreePyramidRack).check(Schema.isMinLength(1)),
+  currentRack: LongFreePyramidRack,
+  rackRollover: Schema.Literals([14, 15]),
+  ballsRemoved: Integer.check(Schema.isGreaterThanOrEqualTo(0)),
+  ballsOnTable: Integer.check(Schema.isGreaterThanOrEqualTo(0)),
+  messages: Schema.Array(LongFreePyramidMessage),
+})
 
-const LongFreePyramidGamePresentationState = v.pipe(
-  v.object({
-    phase: LongFreePyramidPhase,
-    winner: v.optional(Seat),
-    rackHistory: v.pipe(v.array(LongFreePyramidRack), v.minLength(1), v.readonly()),
-    currentRack: LongFreePyramidRack,
-    rackRollover: v.picklist([14, 15]),
-    ballsRemoved: v.pipe(Integer, v.minValue(0)),
-    ballsOnTable: v.pipe(Integer, v.minValue(0)),
-    messages: v.pipe(v.array(LongFreePyramidMessage), v.readonly()),
-  }),
-  v.readonly(),
-)
+const LongFreePyramidGamePresentationDetails = Schema.Struct({
+  ...LongFreePyramidGamePresentationState.fields,
+  isPotCommandAvailable: Schema.Boolean,
+})
 
-export type LongFreePyramidGamePresentationState = v.InferOutput<typeof LongFreePyramidGamePresentationState>
-
-const LongFreePyramidGamePresentationDetails = v.pipe(
-  v.object({
-    ...LongFreePyramidGamePresentationState.entries,
-    isPotCommandAvailable: v.boolean(),
-  }),
-  v.readonly(),
-)
-
-type LongFreePyramidGamePresentationDetails = v.InferOutput<typeof LongFreePyramidGamePresentationDetails>
-
-export const LongFreePyramidGamePresentation = v.pipe(
-  v.object({
-    ...GamePresentation.entries,
-    gameKey: v.literal('free-pyramid-long'),
-    details: LongFreePyramidGamePresentationDetails,
-  }),
-  v.readonly(),
-)
-
-export type LongFreePyramidGamePresentation = v.InferOutput<typeof LongFreePyramidGamePresentation>
+export const LongFreePyramidGamePresentation = Schema.Struct({
+  ...GamePresentation.fields,
+  gameKey: Schema.Literal('free-pyramid-long'),
+  details: LongFreePyramidGamePresentationDetails,
+})

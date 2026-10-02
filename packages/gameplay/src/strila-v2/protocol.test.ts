@@ -1,10 +1,12 @@
 import { expect, test } from 'bun:test'
 
-import * as v from 'valibot'
+import { Schema } from 'effect'
 
 import { type StrilaCommand, StrilaProtocolEntry } from './definitions'
 import { createInitialSnapshot, sendEvent } from './machine'
 import { createStrilaProtocolEntries } from './protocol'
+
+type StrilaCommand = typeof StrilaCommand.Type
 
 test('winning foul bonus records the updated score before the chooser winner note', () => {
   let previous = sendEvent(createInitialSnapshot({ A: 9, B: 9 }), { type: 'frame.commence', seat: 'A' })
@@ -58,7 +60,7 @@ test('orders player entry before winner system note and records exact scoreAfter
 
 test('rejects a Strila system body mislabeled as a player command at validation', () => {
   expect(
-    v.is(StrilaProtocolEntry, {
+    Schema.is(StrilaProtocolEntry)({
       gameKey: 'strila-v2',
       source: 'system',
       entryType: 'player-command',
@@ -66,6 +68,24 @@ test('rejects a Strila system body mislabeled as a player command at validation'
       body: { systemType: 'winner-determined', reason: 'target-reached' },
     }),
   ).toBe(false)
+})
+
+test('Strila system Protocol strips envelope extras but rejects body extras', () => {
+  const entry = {
+    gameKey: 'strila-v2',
+    source: 'system',
+    entryType: 'system-note',
+    seat: 'B',
+    body: { systemType: 'winner-determined', reason: 'target-reached' },
+  } as const
+
+  expect(Schema.decodeUnknownSync(StrilaProtocolEntry)({ ...entry, extra: true })).toEqual(entry)
+  expect(() =>
+    Schema.decodeUnknownSync(StrilaProtocolEntry)({
+      ...entry,
+      body: { ...entry.body, extra: true },
+    }),
+  ).toThrow()
 })
 
 test('table-cleared Protocol attributes the pot to the shooter and the win to the leader', () => {

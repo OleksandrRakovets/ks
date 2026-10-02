@@ -1,10 +1,16 @@
 import { describe, expect, test } from 'bun:test'
 
 import { type BySeatNumber, FrameOutcome, type Seat } from '@ks/core'
-import * as v from 'valibot'
+import { Schema } from 'effect'
 
 import { type StrilaCommand, StrilaMeta } from './definitions'
 import { createInitialSnapshot, getPhase, sendEvent, type StrilaFrameSnapshot } from './machine'
+
+type BySeatNumber = typeof BySeatNumber.Type
+
+type Seat = typeof Seat.Type
+
+type StrilaCommand = typeof StrilaCommand.Type
 
 function start(targetPointsBySeat?: BySeatNumber): StrilaFrameSnapshot {
   return createInitialSnapshot(targetPointsBySeat ?? StrilaMeta.defaultTargetPoints)
@@ -74,7 +80,7 @@ describe('StrilaFrameMachine: basic', () => {
 
     expect(getPhase(snap)).toBe('frame-over')
     expect(snap.output).toEqual({ winnerSeat: 'A', winReason: 'game-rules', score: { A: 10, B: 0 } })
-    expect(v.is(FrameOutcome, snap.output)).toBe(true)
+    expect(Schema.is(FrameOutcome)(snap.output)).toBe(true)
   })
 })
 
@@ -247,7 +253,7 @@ describe('StrilaFrameMachine: empty table', () => {
     snap = sendEvent(snap, { type: 'frame.award', seat: 'B' })
     expect(getPhase(snap)).toBe('frame-over')
     expect(snap.output).toEqual({ winnerSeat: 'B', score: { A: 6, B: 8 }, winReason: 'game-rules' })
-    expect(v.is(FrameOutcome, snap.output)).toBe(true)
+    expect(Schema.is(FrameOutcome)(snap.output)).toBe(true)
   })
 })
 

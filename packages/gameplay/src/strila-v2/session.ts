@@ -1,6 +1,6 @@
 import { FrameOutcome, type Seat } from '@ks/core'
+import { Schema } from 'effect'
 import invariant from 'tiny-invariant'
-import * as v from 'valibot'
 import { transition } from 'xstate'
 
 import {
@@ -19,6 +19,12 @@ import {
 import { deriveStrilaControlProjection } from './projections/control'
 import { createStrilaProtocolEntries } from './protocol'
 
+type Seat = typeof Seat.Type
+
+type StrilaCheckpoint = typeof StrilaCheckpoint.Type
+
+type StrilaCommand = typeof StrilaCommand.Type
+
 class StrilaGameplaySession implements GameplaySession<'strila-v2'> {
   readonly gameKey = 'strila-v2' as const
   #snapshot: StrilaFrameSnapshot
@@ -28,7 +34,10 @@ class StrilaGameplaySession implements GameplaySession<'strila-v2'> {
   }
 
   exportCheckpoint(): StrilaCheckpoint {
-    return { value: v.parse(StrilaSnapshotValue, this.#snapshot.value), context: this.#snapshot.context }
+    return {
+      value: Schema.decodeUnknownSync(StrilaSnapshotValue)(this.#snapshot.value),
+      context: this.#snapshot.context,
+    }
   }
 
   execute(command: StrilaCommand): GameCommandExecution {
@@ -40,7 +49,7 @@ class StrilaGameplaySession implements GameplaySession<'strila-v2'> {
     const outcome = candidate.status === 'done' ? candidate.output : undefined
 
     invariant(
-      outcome === undefined || v.is(FrameOutcome, outcome),
+      outcome === undefined || Schema.is(FrameOutcome)(outcome),
       'Strila machine produced an invalid outcome',
     )
 

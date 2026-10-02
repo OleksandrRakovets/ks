@@ -1,4 +1,4 @@
-import * as v from 'valibot'
+import { Schema } from 'effect'
 
 import type { GameMeta } from './constants'
 import {
@@ -17,9 +17,9 @@ import { StrilaCheckpoint, StrilaCommand, StrilaGamePresentation } from './stril
 
 type RegistryEntry = {
   readonly meta: GameMeta
-  readonly commandSchema: v.GenericSchema
-  readonly presentationSchema: v.GenericSchema
-  readonly checkpointSchema: v.GenericSchema
+  readonly commandSchema: Schema.ConstraintDecoder<unknown>
+  readonly presentationSchema: Schema.ConstraintDecoder<unknown>
+  readonly checkpointSchema: Schema.ConstraintDecoder<unknown>
 }
 
 export const registry = {
@@ -113,34 +113,36 @@ export const registry = {
 // SAFETY: registry is a non-empty object, and Object.keys returns exactly its runtime string keys.
 const registeredGameKeys = Object.keys(registry) as [keyof typeof registry, ...(keyof typeof registry)[]]
 
-export const GameKey = v.picklist(registeredGameKeys)
+export const GameKey = Schema.Literals(registeredGameKeys)
 
-export type GameKey = v.InferOutput<typeof GameKey>
+type GameKey = typeof GameKey.Type
 
 /** Correlates the registered game key with its complete executable frame state. */
-export const GameplayCheckpoint = v.variant('gameKey', [
-  v.object({ gameKey: v.literal('strila-v2'), state: registry['strila-v2'].checkpointSchema }),
-  v.object({ gameKey: v.literal('free-pyramid-long'), state: registry['free-pyramid-long'].checkpointSchema }),
-  v.object({ gameKey: v.literal('free-pyramid'), state: registry['free-pyramid'].checkpointSchema }),
-  v.object({ gameKey: v.literal('combined-pyramid'), state: registry['combined-pyramid'].checkpointSchema }),
-  v.object({
-    gameKey: v.literal('combined-pyramid-old'),
+export const GameplayCheckpoint = Schema.Union([
+  Schema.Struct({ gameKey: Schema.Literal('strila-v2'), state: registry['strila-v2'].checkpointSchema }),
+  Schema.Struct({
+    gameKey: Schema.Literal('free-pyramid-long'),
+    state: registry['free-pyramid-long'].checkpointSchema,
+  }),
+  Schema.Struct({ gameKey: Schema.Literal('free-pyramid'), state: registry['free-pyramid'].checkpointSchema }),
+  Schema.Struct({
+    gameKey: Schema.Literal('combined-pyramid'),
+    state: registry['combined-pyramid'].checkpointSchema,
+  }),
+  Schema.Struct({
+    gameKey: Schema.Literal('combined-pyramid-old'),
     state: registry['combined-pyramid-old'].checkpointSchema,
   }),
 ])
 
-export type GameplayCheckpoint = v.InferOutput<typeof GameplayCheckpoint>
+export type GameplayCheckpointStateFor<K extends GameKey> = (typeof registry)[K]['checkpointSchema']['Type']
 
-export type GameplayCheckpointStateFor<K extends GameKey> = v.InferOutput<
-  (typeof registry)[K]['checkpointSchema']
->
+export type GamePresentationFor<K extends GameKey> = (typeof registry)[K]['presentationSchema']['Type']
 
-export type GamePresentationFor<K extends GameKey> = v.InferOutput<(typeof registry)[K]['presentationSchema']>
-
-export type GameCommandFor<K extends GameKey> = v.InferOutput<(typeof registry)[K]['commandSchema']>
+export type GameCommandFor<K extends GameKey> = (typeof registry)[K]['commandSchema']['Type']
 
 export function isGameKey(value: string): value is GameKey {
-  return v.is(GameKey, value)
+  return Schema.is(GameKey)(value)
 }
 
 export function listGameKeys(): GameKey[] {

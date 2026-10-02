@@ -1,10 +1,24 @@
 import { type BySeatNumber, type FrameOutcome, opponentOf, type Seat } from '@ks/core'
+import { Schema } from 'effect'
 import invariant from 'tiny-invariant'
-import * as v from 'valibot'
 import { assign, initialTransition, setup, type SnapshotFrom, transition } from 'xstate'
 
 import { type PyramidCommand, type PyramidContext, PyramidPhase } from './definitions'
 import type { PyramidRules } from './rules'
+
+type BySeatNumber = typeof BySeatNumber.Type
+
+type FrameOutcome = typeof FrameOutcome.Type
+
+type Seat = typeof Seat.Type
+
+type PyramidCommand = typeof PyramidCommand.Type
+
+type PyramidContext = typeof PyramidContext.Type
+
+type PyramidPhase = typeof PyramidPhase.Type
+
+type PyramidRules = typeof PyramidRules.Type
 
 type PyramidMachineInput = {
   targetPointsBySeat: BySeatNumber
@@ -253,7 +267,7 @@ export function createInitialSnapshot(
 }
 
 export function getPhase(snapshot: PyramidFrameSnapshot): PyramidPhase {
-  return v.parse(PyramidPhase, snapshot.value)
+  return Schema.decodeUnknownSync(PyramidPhase)(snapshot.value)
 }
 
 export function sendEvent(snapshot: PyramidFrameSnapshot, event: PyramidCommand): PyramidFrameSnapshot {

@@ -1,23 +1,18 @@
 import { Integer } from '@ks/core'
-import * as v from 'valibot'
+import { Schema } from 'effect'
 
-const PyramidGameKey = v.picklist(['free-pyramid', 'combined-pyramid', 'combined-pyramid-old'])
+export const PyramidGameKey = Schema.Literals(['free-pyramid', 'combined-pyramid', 'combined-pyramid-old'])
 
-export type PyramidGameKey = v.InferOutput<typeof PyramidGameKey>
+type PyramidGameKey = typeof PyramidGameKey.Type
 
-export const PyramidRules = v.pipe(
-  v.object({
-    gameKey: PyramidGameKey,
-    allowNegative: v.boolean(),
-    foulPenalty: v.picklist(['opponent-plus-one', 'offender-minus-one']),
-    shotPointOptions: v.pipe(v.array(Integer), v.minLength(1), v.readonly()),
-  }),
-  v.readonly(),
-)
+export const PyramidRules = Schema.Struct({
+  gameKey: PyramidGameKey,
+  allowNegative: Schema.Boolean,
+  foulPenalty: Schema.Literals(['opponent-plus-one', 'offender-minus-one']),
+  shotPointOptions: Schema.Array(Integer).check(Schema.isMinLength(1)),
+})
 
-export type PyramidRules = v.InferOutput<typeof PyramidRules>
-
-export type PyramidRulesFor<K extends PyramidGameKey> = PyramidRules & { readonly gameKey: K }
+export type PyramidRulesFor<K extends PyramidGameKey> = typeof PyramidRules.Type & { readonly gameKey: K }
 
 export const PyramidRuleSpecificsByGameKey = {
   'free-pyramid': {

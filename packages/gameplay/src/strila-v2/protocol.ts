@@ -3,6 +3,10 @@ import invariant from 'tiny-invariant'
 import type { StrilaCommand, StrilaProtocolEntry } from './definitions'
 import { getPhase, type StrilaFrameSnapshot } from './machine'
 
+type StrilaCommand = typeof StrilaCommand.Type
+
+type StrilaProtocolEntry = typeof StrilaProtocolEntry.Type
+
 function isMixedBallInHandPot(previous: StrilaFrameSnapshot, command: StrilaCommand): boolean {
   return (
     getPhase(previous) === 'foul-committed.ball-in-hand' &&

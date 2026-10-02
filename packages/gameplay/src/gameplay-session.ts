@@ -1,5 +1,5 @@
 import type { BySeatNumber, FrameOutcome, Seat } from '@ks/core'
-import * as v from 'valibot'
+import { Schema } from 'effect'
 
 import type { GameControl, GameResult } from './constants'
 import { LongFreePyramidProtocolEntry } from './long-free-pyramid/protocol'
@@ -7,20 +7,29 @@ import { PyramidProtocolEntry } from './pyramid/protocol'
 import type { GameCommandFor, GameKey, GameplayCheckpointStateFor, GamePresentationFor } from './registry'
 import { StrilaProtocolEntry } from './strila-v2/definitions'
 
-export const GameProtocolEntry = v.union([
-  StrilaProtocolEntry,
+type BySeatNumber = typeof BySeatNumber.Type
+
+type FrameOutcome = typeof FrameOutcome.Type
+
+type Seat = typeof Seat.Type
+
+type GameControl = typeof GameControl.Type
+
+type GameResult = typeof GameResult.Type
+
+type GameKey = typeof GameKey.Type
+
+export const GameProtocolEntry = Schema.Union([
+  ...StrilaProtocolEntry.members,
   LongFreePyramidProtocolEntry,
   PyramidProtocolEntry,
 ])
 
-export type GameProtocolEntry = v.InferOutput<typeof GameProtocolEntry>
+type GameProtocolEntry = typeof GameProtocolEntry.Type
 
-export const GameCommandRejection = v.pipe(
-  v.object({ code: v.literal('command-not-available') }),
-  v.readonly(),
-)
+export const GameCommandRejection = Schema.Struct({ code: Schema.Literal('command-not-available') })
 
-export type GameCommandRejection = v.InferOutput<typeof GameCommandRejection>
+type GameCommandRejection = typeof GameCommandRejection.Type
 
 export type GameCommandExecution =
   | {

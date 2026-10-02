@@ -1,6 +1,6 @@
 import { type BySeatNumber, type FrameOutcome, opponentOf, type Seat } from '@ks/core'
+import { Result, Schema } from 'effect'
 import invariant from 'tiny-invariant'
-import * as v from 'valibot'
 import { assign, initialTransition, setup, type SnapshotFrom, transition } from 'xstate'
 
 import {
@@ -14,6 +14,22 @@ import {
   StrilaPhase,
   StrilaSnapshotValue,
 } from './definitions'
+
+type BySeatNumber = typeof BySeatNumber.Type
+
+type FrameOutcome = typeof FrameOutcome.Type
+
+type Seat = typeof Seat.Type
+
+type StrilaBall = typeof StrilaBall.Type
+
+type StrilaColoredBall = typeof StrilaColoredBall.Type
+
+type StrilaCommand = typeof StrilaCommand.Type
+
+type StrilaContext = typeof StrilaContext.Type
+
+type StrilaPhase = typeof StrilaPhase.Type
 
 const RESPOTTED_BLACK: readonly StrilaColoredBall[] = [7]
 
@@ -583,19 +599,22 @@ export function getStrilaFramePhase(snapshot: StrilaFrameSnapshot): StrilaPhase 
 }
 
 export function getPhase(snapshot: StrilaFrameSnapshot): StrilaPhase {
-  const value = v.parse(StrilaSnapshotValue, snapshot.value)
-  const phase = v.safeParse(StrilaPhase, value)
+  const value = Schema.decodeUnknownSync(StrilaSnapshotValue)(snapshot.value)
+  const phase = Schema.decodeUnknownResult(StrilaPhase)(value)
 
-  if (phase.success) return phase.output
+  if (Result.isSuccess(phase)) return phase.success
 
-  const foul = v.safeParse(FoulSnapshotValue, value)
+  const foul = Schema.decodeUnknownResult(FoulSnapshotValue)(value)
 
-  if (foul.success) return v.parse(StrilaPhase, `foul-committed.${foul.output['foul-committed']}`)
+  if (Result.isSuccess(foul))
+    return Schema.decodeUnknownSync(StrilaPhase)(`foul-committed.${foul.success['foul-committed']}`)
 
-  const respottedBlack = v.safeParse(RespottedBlackSnapshotValue, value)
+  const respottedBlack = Schema.decodeUnknownResult(RespottedBlackSnapshotValue)(value)
 
-  if (respottedBlack.success)
-    return v.parse(StrilaPhase, `respotted-black.${respottedBlack.output['respotted-black']}`)
+  if (Result.isSuccess(respottedBlack))
+    return Schema.decodeUnknownSync(StrilaPhase)(
+      `respotted-black.${respottedBlack.success['respotted-black']}`,
+    )
 
   throw new Error(`Unknown Strila phase: ${JSON.stringify(value)}`)
 }
