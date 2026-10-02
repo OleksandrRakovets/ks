@@ -1,4 +1,4 @@
-import type { ReadMatchProtocolResult, ReadMatchResult } from '@ks/application'
+import type { MatchReadFacts, ReadMatchProtocolResult, ReadMatchResult } from '@ks/application'
 import type { GameKey } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
 
@@ -35,3 +35,12 @@ export type ActiveMatchData<K extends GameKey = GameKey> = Extract<MatchData<K>,
 export type FinishedMatchData<K extends GameKey = GameKey> = Extract<MatchData<K>, { lifecycle: 'finished' }>
 
 export type ActiveProtocolData<K extends GameKey = GameKey> = Extract<ProtocolData<K>, { lifecycle: 'active' }>
+
+export type FinishedProtocolData<K extends GameKey = GameKey> = Extract<
+  ProtocolData<K>,
+  { lifecycle: 'finished' }
+>
+
+export type FinishedSurfaceData = Extract<MatchReadFacts, { lifecycle: 'finished' }> & {
+  readonly shortGameTitle: string
+}

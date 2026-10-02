@@ -9,7 +9,7 @@ import { matchProtocolUrl, matchUrl } from '@/features/sparring/urls'
 import { localizedPath } from '@/i18n'
 import { useRootLocale } from '@/root'
 
-import type { ActiveMatchData, ActiveProtocolData, FinishedMatchData } from '../types'
+import type { ActiveMatchData, ActiveProtocolData, FinishedSurfaceData } from '../types'
 import { Board } from './board'
 import { presentActiveSurface, presentFinishedSurface } from './presentation'
 import { Shell, type ShellNavigation } from './shell'
@@ -31,7 +31,7 @@ export function ActiveSurface<K extends GameKey>(
       active={props.active}
       layout={props.layout}
       header={presentation.header}
-      navigation={navigationFor(props.data.state, locale, t, t(keys.match.sparring.tabControl))}
+      navigation={navigationFor(props.data, locale, t, t(keys.match.sparring.tabControl))}
       board={<Board presentation={presentation.board} />}
       headerControl={props.headerControl}
       footer={props.footer}
@@ -41,7 +41,7 @@ export function ActiveSurface<K extends GameKey>(
   )
 }
 
-export function FinishedSurface(props: SurfaceContent & { data: FinishedMatchData }) {
+export function FinishedSurface(props: SurfaceContent & { data: FinishedSurfaceData }) {
   const { t } = useTranslation()
   const locale = useRootLocale()
   const presentation = presentFinishedSurface(props.data, t)
@@ -51,7 +51,7 @@ export function FinishedSurface(props: SurfaceContent & { data: FinishedMatchDat
       active={props.active}
       layout="reading"
       header={presentation.header}
-      navigation={navigationFor(props.data.state, locale, t, t(keys.match.result.tabResult))}
+      navigation={navigationFor(props.data, locale, t, t(keys.match.result.tabResult))}
       board={<Board presentation={presentation.board} />}
       headerControl={props.headerControl}
       footer={props.footer}

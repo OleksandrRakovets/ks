@@ -245,7 +245,11 @@ describe('real D1 match lifecycle', () => {
     expect(await application.sparring.readMatch(matchId, 'en', 'free-pyramid')).toMatchObject({
       ok: true,
       lifecycle: 'finished',
-      state: archive.finalState,
+      matchId,
+      gameKey: 'free-pyramid',
+      winnerSeat: 'A',
+      framesWonBySeat: { A: 1, B: 0 },
+      representedFrame: { frameIndex: 1, pointsBySeat: { A: 2, B: 0 } },
     })
   })
 

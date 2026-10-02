@@ -1,4 +1,4 @@
-import type { MatchState } from '@ks/competition/definitions'
+import type { MatchReadFacts } from '@ks/application'
 import type { MatchCommand } from '@ks/core'
 import { keys } from '@ks/i18n'
 import { useEffect, useRef } from 'react'
@@ -69,8 +69,7 @@ export function transitionControlLive(
 }
 
 export function useControlLiveRevalidation(
-  state: MatchState,
-  latestSeq: number,
+  { matchId, lifecycle, latestSeq }: Pick<MatchReadFacts, 'matchId' | 'lifecycle' | 'latestSeq'>,
   fetcher: { state: string; data?: ControlActionData },
 ): () => void {
   const revalidator = useRevalidator()
@@ -139,7 +138,7 @@ export function useControlLiveRevalidation(
   }, [fetcher.state])
 
   useEffect(() => {
-    if (state.status !== 'active') return undefined
+    if (lifecycle !== 'active') return undefined
 
     function catchUp() {
       if (document.visibilityState !== 'visible' || revalidatorStateRef.current !== 'idle') return
@@ -149,7 +148,7 @@ export function useControlLiveRevalidation(
     }
 
     const subscription = subscribeSparringMatchLive({
-      matchId: state.matchId,
+      matchId,
       pageKind: 'control',
       currentLatestSeq: () => loaderLatestSeqRef.current,
       onCaughtUp: requestRevalidation,
@@ -180,14 +179,18 @@ export function useControlLiveRevalidation(
       window.removeEventListener('online', catchUp)
       subscription.stop()
     }
-  }, [state.matchId, state.status])
+  }, [matchId, lifecycle])
 
   return () => {
     applyLiveEvent({ type: 'submit-started' })
   }
 }
 
-export function useProtocolLiveRevalidation(state: MatchState, latestSeq: number): void {
+export function useProtocolLiveRevalidation({
+  matchId,
+  lifecycle,
+  latestSeq,
+}: Pick<MatchReadFacts, 'matchId' | 'lifecycle' | 'latestSeq'>): void {
   const revalidator = useRevalidator()
   const latestSeqRef = useRef(latestSeq)
   const revalidateRef = useRef(revalidator.revalidate)
@@ -214,7 +217,7 @@ export function useProtocolLiveRevalidation(state: MatchState, latestSeq: number
     requestRevalidation(targetSeqRef.current)
   }, [latestSeq, revalidator.state])
   useEffect(() => {
-    if (state.status !== 'active') return undefined
+    if (lifecycle !== 'active') return undefined
 
     function catchUp() {
       if (document.visibilityState !== 'visible' || revalidatorStateRef.current !== 'idle') return
@@ -224,7 +227,7 @@ export function useProtocolLiveRevalidation(state: MatchState, latestSeq: number
     }
 
     const subscription = subscribeSparringMatchLive({
-      matchId: state.matchId,
+      matchId,
       pageKind: 'protocol',
       currentLatestSeq: () => latestSeqRef.current,
       onCaughtUp: requestRevalidation,
@@ -250,5 +253,5 @@ export function useProtocolLiveRevalidation(state: MatchState, latestSeq: number
       window.removeEventListener('online', catchUp)
       subscription.stop()
     }
-  }, [state.matchId, state.status])
+  }, [matchId, lifecycle])
 }

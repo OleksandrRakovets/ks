@@ -1,10 +1,10 @@
-import type { MatchState } from '@ks/competition'
+import type { MatchReadFacts } from '@ks/application'
 import { type BySeatNumber, type HydratedMatchParticipants, opponentOf, type Seat } from '@ks/core'
 import { type GameKey, type StrilaBall } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
 import type { TFunction } from 'i18next'
 
-import type { ActiveMatchData, ActiveProtocolData, FinishedMatchData } from '../types'
+import type { ActiveMatchData, ActiveProtocolData, FinishedSurfaceData } from '../types'
 
 type BoardDetails =
   | { kind: 'balls'; ballsBySeat: { A: readonly StrilaBall[]; B: readonly StrilaBall[] } }
@@ -24,7 +24,7 @@ export function presentActiveSurface<K extends GameKey>(
   data: ActiveMatchData<K> | ActiveProtocolData<K>,
   t: TFunction,
 ) {
-  const board = presentBoard(data.state, data.participants, t)
+  const board = presentBoard(data, data.participants, t)
   board.label = t(keys.match.control.perGameContainer)
 
   if (data.controlPhase === 'frame-active' && data.game.gameKey === 'strila-v2') {
@@ -51,43 +51,41 @@ export function presentActiveSurface<K extends GameKey>(
   return {
     header: {
       title: t(keys.match.scoreboard.frameWithNumber, {
-        frameIndex: Math.max(1, data.state.currentFrameIndex),
+        frameIndex: Math.max(1, data.representedFrame?.frameIndex ?? 0),
       }),
-      rule: t(keys.match.scoreboard.raceToWins, { targetFrames: data.state.targets.matchTargetFrames }),
+      rule: t(keys.match.scoreboard.raceToWins, { targetFrames: data.targets.matchTargetFrames }),
     },
     board,
   }
 }
 
-export function presentFinishedSurface(data: FinishedMatchData, t: TFunction) {
-  const board = presentBoard(data.state, data.participants, t)
+export function presentFinishedSurface(data: FinishedSurfaceData, t: TFunction) {
+  const board = presentBoard(data, data.participants, t)
   board.winnerLabel = t(keys.match.result.winner, {
-    name: data.participants[data.state.winnerSeat].displayName,
+    name: data.participants[data.winnerSeat].displayName,
   })
 
   return {
     header: {
       title: data.shortGameTitle,
       rule:
-        data.state.gameKey === 'free-pyramid-long'
+        data.gameKey === 'free-pyramid-long'
           ? ''
-          : t(keys.match.scoreboard.target, { target: data.state.targets.matchTargetFrames }),
+          : t(keys.match.scoreboard.target, { target: data.targets.matchTargetFrames }),
     },
     board,
   }
 }
 
 /** Finished frame-based matches prioritize frame wins; active matches and long pyramid prioritize points. */
-export function presentBoardScore(state: MatchState) {
-  const frameWinsArePrimary = state.status === 'finished' && state.gameKey !== 'free-pyramid-long'
+export function presentBoardScore(data: MatchReadFacts) {
+  const frameWinsArePrimary = data.lifecycle === 'finished' && data.gameKey !== 'free-pyramid-long'
 
   const primary = frameWinsArePrimary
-    ? state.framesWonBySeat
-    : state.currentFrameIndex > 0
-      ? state.frames[state.currentFrameIndex - 1].pointsBySeat
-      : { A: 0, B: 0 }
+    ? data.framesWonBySeat
+    : (data.representedFrame?.pointsBySeat ?? { A: 0, B: 0 })
 
-  const configuredTargets = state.targets.frameTargetPointsBySeat
+  const configuredTargets = data.targets.frameTargetPointsBySeat
 
   const targets = {
     A: frameWinsArePrimary ? undefined : configuredTargets.A,
@@ -97,21 +95,21 @@ export function presentBoardScore(state: MatchState) {
   return {
     primary,
     targets,
-    framesWon: !frameWinsArePrimary && state.targets.matchTargetFrames > 1 ? state.framesWonBySeat : undefined,
-    winnerSeat: state.winnerSeat,
+    framesWon: !frameWinsArePrimary && data.targets.matchTargetFrames > 1 ? data.framesWonBySeat : undefined,
+    winnerSeat: data.winnerSeat,
     compactScore: Math.max(primary.A, primary.B, targets.A ?? 0, targets.B ?? 0) >= 100,
   }
 }
 
 function presentBoard(
-  state: MatchState,
+  data: MatchReadFacts,
   participants: HydratedMatchParticipants,
   t: TFunction,
 ): BoardPresentation {
   return {
     names: { A: participants.A.displayName, B: participants.B.displayName },
-    score: presentBoardScore(state),
-    mutedSeat: state.winnerSeat === null ? null : opponentOf(state.winnerSeat),
+    score: presentBoardScore(data),
+    mutedSeat: data.winnerSeat === null ? null : opponentOf(data.winnerSeat),
     framesLabel: t(keys.match.control.frames),
     details: null,
   }

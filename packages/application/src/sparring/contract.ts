@@ -1,15 +1,19 @@
 import type { MatchRejection } from '@ks/competition'
-import { MatchCreationDefinition, MatchScoreProjection, type MatchStateFor } from '@ks/competition/definitions'
+import { MatchCreationDefinition, MatchScoreProjection } from '@ks/competition/definitions'
 import {
+  type BySeatNumber,
   type Control,
+  type GameConfiguration,
   type HydratedMatchParticipants,
   type InstantPresentation,
   type MatchCommand,
   MatchId,
+  type MatchTargets,
   NonNegativeInteger,
+  type Seat,
   UnixEpochMilliseconds,
 } from '@ks/core'
-import type { GameKey, GamePresentationFor, GameResult } from '@ks/gameplay/definitions'
+import type { GameKey, GamePresentationFor } from '@ks/gameplay/definitions'
 import type { SupportedLocale } from '@ks/i18n'
 import * as v from 'valibot'
 
@@ -120,51 +124,49 @@ export type ReadMatchScoresResult =
   | { readonly ok: true; readonly matches: readonly MatchScorePollEntry[] }
   | ReadMatchFailure
 
-type MatchStateForLifecycle<K extends GameKey, Lifecycle extends 'active' | 'finished'> = MatchStateFor<K> & {
-  readonly status: Lifecycle
-}
+export type MatchReadFacts<K extends GameKey = GameKey> = Readonly<{
+  ok: true
+  matchId: MatchId
+  gameKey: K
+  latestSeq: number
+  participants: HydratedMatchParticipants
+  targets: MatchTargets
+  framesWonBySeat: BySeatNumber
+  /** Frame identified by the authoritative current index, even after award or Match end. */
+  representedFrame: Readonly<{ frameIndex: number; pointsBySeat: BySeatNumber }> | null
+}> &
+  (
+    | { readonly lifecycle: 'active'; readonly winnerSeat: null }
+    | { readonly lifecycle: 'finished'; readonly winnerSeat: Seat }
+  )
+
+type ActiveRead<K extends GameKey> = Extract<MatchReadFacts<K>, { lifecycle: 'active' }> &
+  /** A prepared gameplay frame is frame-active even before it has commenced. */
+  (
+    | { readonly controlPhase: 'frame-active'; readonly game: GamePresentationFor<K> }
+    /** Complete match-level control phase between frames, distinct from tertiary overflow controls. */
+    | { readonly controlPhase: 'between-frames'; readonly game?: never }
+  )
+
+export type ResultScores = Readonly<{
+  kind: 'frames' | 'racks'
+  rows: readonly Readonly<{ index: number; score: BySeatNumber }>[]
+}>
 
 export type ReadMatchResult<K extends GameKey> =
-  /** A prepared gameplay frame is frame-active even before it has commenced. */
-  | {
-      readonly ok: true
-      readonly lifecycle: 'active'
-      readonly controlPhase: 'frame-active'
-      readonly state: MatchStateForLifecycle<K, 'active'>
-      readonly latestSeq: number
-      readonly game: GamePresentationFor<K>
+  | (ActiveRead<K> & {
       readonly controls: readonly Control[]
-      readonly participants: HydratedMatchParticipants
       /** Most recent uncorrected Accepted Command represented for the control surface. */
       readonly lastCommand?: LastCommandPresentation
-    }
-  | {
-      readonly ok: true
-      readonly lifecycle: 'active'
-      /** Complete match-level control phase between frames, distinct from tertiary overflow controls. */
-      readonly controlPhase: 'between-frames'
-      readonly state: MatchStateForLifecycle<K, 'active'>
-      readonly latestSeq: number
-      readonly game?: never
-      readonly controls: readonly Control[]
-      readonly participants: HydratedMatchParticipants
-      /** Most recent uncorrected Accepted Command represented for the control surface. */
-      readonly lastCommand?: LastCommandPresentation
-    }
-  | {
-      readonly ok: true
-      readonly lifecycle: 'finished'
-      readonly state: MatchStateForLifecycle<K, 'finished'>
-      readonly latestSeq: number
+    })
+  | (Extract<MatchReadFacts<K>, { lifecycle: 'finished' }> & {
+      readonly resultScores: ResultScores
       readonly endedAtIso: string
       readonly endedAtTime: string
       readonly endedAtDate: InstantPresentation['date']
       readonly endedAtIsToday: boolean
-      readonly game?: never
-      readonly gameResult: GameResult | null
-      readonly participants: HydratedMatchParticipants
-      readonly hasCustomFrameTarget: boolean
-    }
+      readonly gameConfiguration?: GameConfiguration
+    })
   | ReadMatchFailure
 
 export type SubmitMatchCommandResult =
@@ -185,27 +187,7 @@ type SparringMatchLiveAdmission =
   | { readonly _tag: 'finished' }
 
 export type ReadMatchProtocolResult<K extends GameKey> =
-  | {
-      readonly ok: true
-      readonly lifecycle: 'active'
-      readonly controlPhase: 'frame-active'
-      readonly state: MatchStateForLifecycle<K, 'active'>
-      readonly latestSeq: number
-      readonly game: GamePresentationFor<K>
-      readonly participants: HydratedMatchParticipants
-      readonly protocolRows: readonly ProtocolRow[]
-    }
-  | {
-      readonly ok: true
-      readonly lifecycle: 'active'
-      readonly controlPhase: 'between-frames'
-      readonly state: MatchStateForLifecycle<K, 'active'>
-      readonly latestSeq: number
-      readonly game?: never
-      readonly participants: HydratedMatchParticipants
-      readonly protocolRows: readonly ProtocolRow[]
-    }
-  | (Extract<ReadMatchResult<K>, { readonly ok: true; readonly lifecycle: 'finished' }> & {
+  | ((ActiveRead<K> | Extract<MatchReadFacts<K>, { lifecycle: 'finished' }>) & {
       readonly protocolRows: readonly ProtocolRow[]
     })
   | ReadMatchFailure

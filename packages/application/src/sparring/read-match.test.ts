@@ -84,13 +84,17 @@ describe('sparring match and Protocol reads', () => {
     const app = sparring(selectedClient(), [], {
       initialStatus: 'finished',
       matches: {
+        findFinishedArchive: async () => {
+          throw defect
+        },
         findProtocolArchive: async () => {
           throw defect
         },
       },
     })
 
-    expect(await readFailure(app, 'readMatchProtocol')).toBe(defect)
+    for (const read of ['readMatch', 'readMatchProtocol'] as const)
+      expect(await readFailure(app, read)).toBe(defect)
   })
 
   test('rejects finished archive identity conflicts instead of treating them as unknown Matches', async () => {
@@ -150,38 +154,6 @@ describe('sparring match and Protocol reads', () => {
     }
   })
 
-  test('reads canonical active controls without RPC reparsing or a Protocol call', async () => {
-    const match = createMatch({
-      matchId,
-      gameKey: state.gameKey,
-      targets: state.targets,
-      firstBreakerSeat: 'A',
-    })
-
-    const { game, controls } = match.controlProjection()
-
-    if (game?.gameKey !== 'free-pyramid') throw new Error('Expected prepared pyramid gameplay')
-
-    const room = selectedClient({
-      getControls: async () => ({
-        _tag: 'active',
-        latestSeq: 0,
-        state,
-        game,
-        controls,
-        lastCommand: null,
-      }),
-    })
-
-    expect(await sparring(room).readMatch(matchId, 'en', 'free-pyramid')).toMatchObject({
-      ok: true,
-      lifecycle: 'active',
-      controlPhase: 'frame-active',
-      latestSeq: 0,
-      state,
-    })
-  })
-
   test('enriches prepared and open-play Controls with the current frame and last-command correction', async () => {
     const match = createMatch({
       matchId,
@@ -192,9 +164,11 @@ describe('sparring match and Protocol reads', () => {
 
     const potCommandId = newCommandId()
     let latestSeq = 0
+    let calls = 0
 
     const room = selectedClient({
       getControls: async () => {
+        calls += 1
         const projected = match.controlProjection()
 
         if (projected.controlPhase === 'finished') throw new Error('Expected active fixture')
@@ -233,14 +207,23 @@ describe('sparring match and Protocol reads', () => {
     })
 
     const app = sparring(room)
-    expect(await app.readMatch(matchId, 'en', 'free-pyramid')).toMatchObject({
+    const prepared = await app.readMatch(matchId, 'en', 'free-pyramid')
+    expect(prepared).toMatchObject({
       ok: true,
       lifecycle: 'active',
       controlPhase: 'frame-active',
       latestSeq: 0,
-      state: { status: 'active', frames: [{ pointsBySeat: { A: 0, B: 0 } }] },
+      matchId,
+      gameKey: 'free-pyramid',
+      targets: { frameTargetPointsBySeat: { A: 8, B: 8 }, matchTargetFrames: 1 },
+      framesWonBySeat: { A: 0, B: 0 },
+      winnerSeat: null,
+      representedFrame: { frameIndex: 1, pointsBySeat: { A: 0, B: 0 } },
       game: { gameKey: 'free-pyramid', details: { phase: 'not-started' } },
+      controls: [{ source: 'match', type: 'frame.commence', seat: 'A' }],
     })
+    expect(prepared).not.toHaveProperty('lastCommand')
+    expect(calls).toBe(1)
     match.execute({
       commandId: newCommandId(),
       source: 'match',
@@ -258,7 +241,7 @@ describe('sparring match and Protocol reads', () => {
       lifecycle: 'active',
       controlPhase: 'frame-active',
       latestSeq: 2,
-      state: { status: 'active', frames: [{ pointsBySeat: { A: 0, B: 2 } }] },
+      representedFrame: { frameIndex: 1, pointsBySeat: { A: 0, B: 2 } },
       game: { gameKey: 'free-pyramid', score: { A: 0, B: 2 }, details: { phase: 'open-play' } },
       lastCommand: {
         message: {
@@ -270,56 +253,79 @@ describe('sparring match and Protocol reads', () => {
       },
     })
     expect(result).not.toHaveProperty('protocolRows')
+    expect(result).not.toHaveProperty('state')
+    expect(result).not.toHaveProperty('gameResult')
+    expect(calls).toBe(2)
   })
 
   test('reads Protocol with its own durable presentation without a Controls call', async () => {
     const commandId = newCommandId()
 
+    const { game } = createMatch({
+      matchId,
+      gameKey: 'free-pyramid',
+      targets: state.targets,
+      firstBreakerSeat: 'A',
+    }).controlProjection()
+
+    if (game?.gameKey !== 'free-pyramid') throw new Error('Expected prepared pyramid gameplay')
+    let calls = 0
+
     const room = selectedClient({
-      getProtocol: async () => ({
-        _tag: 'active',
-        latestSeq: 2,
-        state: { ...state, currentFrameIndex: 1 },
-        game: undefined,
-        protocolEntries: [
-          {
-            acceptedSeq: 1,
-            entryIndex: 0,
-            causedByCommandId: commandId,
-            acceptedAt: createdAt,
-            frameIndex: 1,
-            gameKey: 'free-pyramid',
-            source: 'player',
-            entryType: 'player-command',
-            seat: 'A',
-            body: { commandType: 'pot.record', pottedBallCount: 1 },
-          },
-          {
-            acceptedSeq: 2,
-            entryIndex: 0,
-            causedByCommandId: newCommandId(),
-            acceptedAt: createdAt,
-            frameIndex: 1,
-            gameKey: 'free-pyramid',
-            source: 'player',
-            entryType: 'player-command',
-            seat: 'B',
-            body: { commandType: 'pot.record', pottedBallCount: 1 },
-          },
-        ],
-      }),
+      getProtocol: async () => {
+        calls += 1
+
+        return {
+          _tag: 'active',
+          latestSeq: 2,
+          state: { ...state, currentFrameIndex: 1 },
+          game,
+          protocolEntries: [
+            {
+              acceptedSeq: 1,
+              entryIndex: 0,
+              causedByCommandId: commandId,
+              acceptedAt: createdAt,
+              frameIndex: 1,
+              gameKey: 'free-pyramid',
+              source: 'player',
+              entryType: 'player-command',
+              seat: 'A',
+              body: { commandType: 'pot.record', pottedBallCount: 1 },
+            },
+            {
+              acceptedSeq: 2,
+              entryIndex: 0,
+              causedByCommandId: newCommandId(),
+              acceptedAt: createdAt,
+              frameIndex: 1,
+              gameKey: 'free-pyramid',
+              source: 'player',
+              entryType: 'player-command',
+              seat: 'B',
+              body: { commandType: 'pot.record', pottedBallCount: 1 },
+            },
+          ],
+        }
+      },
     })
 
     const result = await sparring(room).readMatchProtocol(matchId, 'en', 'free-pyramid')
 
     expect(result).toMatchObject({
       ok: true,
+      lifecycle: 'active',
+      controlPhase: 'frame-active',
       latestSeq: 2,
-      state: { currentFrameIndex: 1 },
+      representedFrame: { frameIndex: 1, pointsBySeat: { A: 0, B: 0 } },
+      game: { gameKey: 'free-pyramid', details: { phase: 'not-started' } },
       protocolRows: [{ key: 'protocol-2-0' }, { key: 'protocol-1-0' }],
     })
     expect(result).not.toHaveProperty('controls')
     expect(result).not.toHaveProperty('lastCommand')
+    expect(result).not.toHaveProperty('state')
+    expect(result).not.toHaveProperty('gameResult')
+    expect(calls).toBe(1)
   })
 
   test('reads finalizing controls from MatchRoom without archiving', async () => {
@@ -345,14 +351,17 @@ describe('sparring match and Protocol reads', () => {
     expect(result).toMatchObject({
       ok: true,
       lifecycle: 'finished',
-      state: { status: 'finished', winnerSeat: 'A' },
+      winnerSeat: 'A',
       latestSeq: 2,
+      resultScores: { kind: 'frames', rows: [{ index: 1, score: { A: 0, B: 0 } }] },
       endedAtIso: '2023-11-14T22:13:21.000Z',
       endedAtTime: '00:13',
       endedAtDate: { year: '2023', month: '11', day: '15' },
       endedAtIsToday: false,
     })
-    expect(result).not.toHaveProperty('endedAt')
+
+    for (const field of ['endedAt', 'state', 'gameResult', 'hasCustomFrameTarget', 'protocolRows'])
+      expect(result).not.toHaveProperty(field)
     expect(events).toEqual([])
   })
 
@@ -415,19 +424,40 @@ describe('sparring match and Protocol reads', () => {
     expect(control).toMatchObject({
       ok: true,
       lifecycle: 'finished',
-      state: { status: 'finished' },
+      winnerSeat: 'A',
       latestSeq: 2,
+      resultScores: { kind: 'frames', rows: [{ index: 1, score: { A: 0, B: 0 } }] },
       endedAtIso: '2023-11-14T22:13:21.000Z',
       endedAtIsToday: true,
-      hasCustomFrameTarget: false,
     })
     expect(control).not.toHaveProperty('protocolRows')
     const protocol = await app.readMatchProtocol(matchId, 'en', 'free-pyramid')
     expect(protocol).toMatchObject({
-      ...control,
+      ok: true,
+      lifecycle: 'finished',
+      latestSeq: 2,
+      winnerSeat: 'A',
+      representedFrame: { frameIndex: 1, pointsBySeat: { A: 0, B: 0 } },
       protocolRows: [{ key: 'protocol-1-0' }, { key: 'protocol-2-0' }],
     })
-    expect(protocol).not.toHaveProperty('controls')
+
+    for (const field of [
+      'state',
+      'gameResult',
+      'controls',
+      'lastCommand',
+      'resultScores',
+      'gameConfiguration',
+      'endedAtIso',
+      'endedAtTime',
+      'endedAtDate',
+      'endedAtIsToday',
+      'hasCustomFrameTarget',
+    ])
+      expect(protocol).not.toHaveProperty(field)
+
+    for (const field of ['state', 'gameResult', 'hasCustomFrameTarget', 'gameConfiguration'])
+      expect(control).not.toHaveProperty(field)
     expect(events).toEqual(['finished-read', 'protocol-read'])
   })
 
@@ -437,8 +467,12 @@ describe('sparring match and Protocol reads', () => {
     const room = selectedClient({
       getProtocol: async () => ({
         _tag: 'finalizing',
-        state: transfer.finalState,
-        gameResult: null,
+        state: {
+          ...transfer.finalState,
+          gameKey: 'free-pyramid-long',
+          gameConfiguration: { rackRollover: 14 },
+        },
+        gameResult: { gameKey: 'free-pyramid-long', racks: [{ rackNumber: 1, scoreBySeat: { A: 0, B: 0 } }] },
         latestSeq: 2,
         endedAt: transfer.endedAt,
         protocolEntries: [
@@ -448,7 +482,7 @@ describe('sparring match and Protocol reads', () => {
             causedByCommandId: newCommandId(),
             acceptedAt: transfer.endedAt,
             frameIndex: 1,
-            gameKey: 'free-pyramid',
+            gameKey: 'free-pyramid-long',
             source: 'system',
             entryType: 'match-ended',
             seat: 'A',
@@ -458,13 +492,80 @@ describe('sparring match and Protocol reads', () => {
       }),
     })
 
-    expect(await sparring(room, events).readMatchProtocol(matchId, 'en', 'free-pyramid')).toMatchObject({
+    const app = sparring(room, events, {
+      matches: {
+        findMatch: async () => ({
+          matchId,
+          gameKey: 'free-pyramid-long',
+          createdAt,
+          status: 'active',
+          participantRefs: { A: playerRefA, B: playerRefB },
+        }),
+      },
+    })
+
+    const result = await app.readMatchProtocol(matchId, 'en', 'free-pyramid-long')
+    expect(result).toMatchObject({
       ok: true,
-      state: { status: 'finished', winnerSeat: 'A' },
+      lifecycle: 'finished',
+      winnerSeat: 'A',
       latestSeq: 2,
       protocolRows: [{ key: 'protocol-2-0', message: { key: 'match.protocol.system.match-ended' } }],
     })
+
+    for (const field of ['state', 'gameResult', 'resultScores', 'gameConfiguration', 'endedAtIso'])
+      expect(result).not.toHaveProperty(field)
     expect(events).toEqual([])
+  })
+
+  test('assembles between-frames payloads from one selected room response per read', async () => {
+    const calls: string[] = []
+
+    const projection = {
+      _tag: 'active' as const,
+      state: {
+        ...state,
+        targets: { ...state.targets, matchTargetFrames: 2 },
+        framesWonBySeat: { A: 1, B: 0 },
+        frames: [{ ...state.frames[0]!, winnerSeat: 'A' as const }],
+      },
+      latestSeq: 7,
+      game: undefined,
+    }
+
+    const app = sparring(
+      selectedClient({
+        getControls: async () => {
+          calls.push('controls')
+
+          return { ...projection, controls: [], lastCommand: null }
+        },
+        getProtocol: async () => {
+          calls.push('protocol')
+
+          return { ...projection, protocolEntries: [] }
+        },
+      }),
+    )
+
+    for (const read of ['readMatch', 'readMatchProtocol'] as const) {
+      const result = await app[read](matchId, 'en', 'free-pyramid')
+      expect(result).toMatchObject({
+        ok: true,
+        gameKey: 'free-pyramid',
+        lifecycle: 'active',
+        controlPhase: 'between-frames',
+        latestSeq: 7,
+        winnerSeat: null,
+        framesWonBySeat: { A: 1, B: 0 },
+        representedFrame: { frameIndex: 1, pointsBySeat: { A: 0, B: 0 } },
+      })
+
+      for (const field of ['state', 'gameResult', 'game', 'resultScores'])
+        expect(result).not.toHaveProperty(field)
+    }
+
+    expect(calls).toEqual(['controls', 'protocol'])
   })
 })
 

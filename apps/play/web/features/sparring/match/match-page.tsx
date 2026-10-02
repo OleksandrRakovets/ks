@@ -34,7 +34,7 @@ function ControlPage<K extends GameKey>(props: {
 }) {
   const { t } = useTranslation()
   const fetcher = useFetcher<ControlActionData>()
-  const markLocalSubmit = useControlLiveRevalidation(props.data.state, props.data.latestSeq, fetcher)
+  const markLocalSubmit = useControlLiveRevalidation(props.data, fetcher)
   const sections = groupControlsIntoSections(props.data.controls)
   const submitting = fetcher.state !== 'idle'
 

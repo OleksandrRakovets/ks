@@ -7,6 +7,7 @@ export type {
   HydratedMatchParticipants,
   MatchListEntry,
   MatchListPage,
+  MatchReadFacts,
   ReadMatchResult,
   ReadMatchProtocolResult,
 } from './sparring/contract'

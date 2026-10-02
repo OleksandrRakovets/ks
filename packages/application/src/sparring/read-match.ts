@@ -8,7 +8,7 @@ import type { MatchRoomClient } from '../match/match-room'
 import { renderProtocolRows } from '../match/protocol-projection'
 import { presentParticipant } from '../player/participant'
 import type { ReadMatchFailure, ReadMatchProtocolResult, ReadMatchResult } from './contract'
-import { presentFinishedMatch } from './projections'
+import { presentFinishedMatch, projectMatchFacts } from './projections'
 import type { SparringDependencies } from './sparring-application'
 import type { MatchRecord } from './storage/records'
 
@@ -55,11 +55,9 @@ export async function readMatch<K extends GameKey>(
   const seatNames = { A: participants.A.displayName, B: participants.B.displayName }
 
   const base = {
-    ok: true as const,
+    ...projectMatchFacts(match.state, match.latestSeq, participants),
     lifecycle: 'active' as const,
-    state: match.state,
-    latestSeq: match.latestSeq,
-    participants,
+    winnerSeat: null,
     controls: match.controls,
   }
 
@@ -109,22 +107,17 @@ export async function readMatchProtocol<K extends GameKey>(
 
   if (match._tag === 'ended') {
     return {
-      ...presentFinishedMatch(
-        match,
-        participants,
-        deps.clock.instantPresentation(match.endedAt),
-        deps.clock.nowPresentation(),
-      ),
+      ...projectMatchFacts(match.state, match.latestSeq, participants),
+      lifecycle: 'finished',
+      winnerSeat: match.state.winnerSeat,
       protocolRows,
     }
   }
 
   const base = {
-    ok: true as const,
+    ...projectMatchFacts(match.state, match.latestSeq, participants),
     lifecycle: 'active' as const,
-    state: match.state,
-    latestSeq: match.latestSeq,
-    participants,
+    winnerSeat: null,
     protocolRows: protocolRows.reverse(),
   }
 

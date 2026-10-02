@@ -36,8 +36,12 @@ Game keys come from `packages/gameplay/src/registry.ts`. Each game has an explic
 Competition composes match controls before game controls into one flat list. MatchRoom exposes distinct scoring and Protocol read contracts; application preserves them, and Play alone groups scoring controls into stable presentation sections for layout. MatchRoom RPC is a trusted typed capability and does not reparse these values at that seam.
 
 Play's match pages share Active and Finished surface compositions with their corresponding Protocol pages.
-Feature-local presentation functions derive header copy, board data, and result rows; the Shell and Board
-render resolved props without interpreting match state. Page controllers own submission and live revalidation.
+Application projects checked identity, targets, authoritative frame wins and winner, and the frame identified
+by the current index, including awarded and finished frames. Match reads add Controls or indexed frame/rack
+Result scores and rematch configuration; Protocol reads add only Protocol rows and active game presentation.
+Full Match State and Game Result remain internal to room transfers and archives. Feature-local presentation
+functions derive header copy, board emphasis, and Result labels; the Shell and Board render resolved props.
+Page controllers own submission and live revalidation using identity, lifecycle, and the acceptance cursor.
 
 ### Schema Conventions
 

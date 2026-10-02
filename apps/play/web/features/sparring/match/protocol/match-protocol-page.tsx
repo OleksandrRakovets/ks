@@ -10,7 +10,7 @@ import { ProtocolPanel } from './protocol-panel'
 
 export function MatchProtocolPage<K extends GameKey>(props: { data: ProtocolPageData<K> }) {
   const { t } = useTranslation()
-  useProtocolLiveRevalidation(props.data.match.state, props.data.match.latestSeq)
+  useProtocolLiveRevalidation(props.data.match)
 
   const content = (
     <ProtocolPanel rows={props.data.match.protocolRows} emptyLabel={t(keys.match.sparring.protocolEmpty)} />

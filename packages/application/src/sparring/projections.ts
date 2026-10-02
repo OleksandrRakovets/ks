@@ -1,12 +1,12 @@
 import type { MatchScoreProjection } from '@ks/competition'
 import type { MatchStateFor } from '@ks/competition/definitions'
 import type { HydratedMatchParticipants, InstantPresentation, UnixEpochMilliseconds } from '@ks/core'
-import { type GameKey, registry } from '@ks/gameplay/definitions'
+import { type GameKey, type GameResult, registry } from '@ks/gameplay/definitions'
 import type { SupportedLocale } from '@ks/i18n'
 
 import type { MatchRoomClient } from '../match/match-room'
 import { presentParticipant } from '../player/participant'
-import type { MatchListEntry, ReadMatchResult } from './contract'
+import type { MatchListEntry, MatchReadFacts, ReadMatchResult, ResultScores } from './contract'
 import type { MatchListRecord } from './storage/records'
 
 export function presentListEntry(
@@ -44,21 +44,45 @@ export function presentFinishedMatch<K extends GameKey>(
   endedAt: InstantPresentation,
   now: InstantPresentation,
 ): Extract<ReadMatchResult<K>, { ok: true; lifecycle: 'finished' }> {
-  return {
-    ok: true,
+  const finished: Extract<ReadMatchResult<K>, { ok: true; lifecycle: 'finished' }> = {
+    ...projectMatchFacts(match.state, match.latestSeq, participants),
     lifecycle: 'finished',
-    state: match.state,
-    gameResult: match.gameResult,
-    latestSeq: match.latestSeq,
+    winnerSeat: match.state.winnerSeat,
+    resultScores: projectResultScores(match.state, match.gameResult),
     endedAtIso: endedAt.isoString,
     endedAtTime: endedAt.time,
     endedAtDate: endedAt.date,
     endedAtIsToday: isSameLocalDate(endedAt, now),
+  }
+
+  return match.state.gameConfiguration === undefined
+    ? finished
+    : { ...finished, gameConfiguration: match.state.gameConfiguration }
+}
+
+export function projectMatchFacts<K extends GameKey>(
+  state: MatchStateFor<K>,
+  latestSeq: number,
+  participants: HydratedMatchParticipants,
+): Omit<MatchReadFacts<K>, 'lifecycle' | 'winnerSeat'> {
+  let representedFrame: MatchReadFacts<K>['representedFrame'] = null
+
+  if (state.currentFrameIndex !== 0) {
+    const frame = state.frames.find((frame) => frame.frameIndex === state.currentFrameIndex)
+
+    if (frame === undefined) throw new Error('Missing represented Match frame')
+    representedFrame = { frameIndex: frame.frameIndex, pointsBySeat: frame.pointsBySeat }
+  }
+
+  return {
+    ok: true,
+    matchId: state.matchId,
+    gameKey: state.gameKey,
+    latestSeq,
     participants,
-    hasCustomFrameTarget: hasCustomFrameTarget(
-      match.state.gameKey,
-      match.state.targets.frameTargetPointsBySeat,
-    ),
+    targets: state.targets,
+    framesWonBySeat: state.framesWonBySeat,
+    representedFrame,
   }
 }
 
@@ -73,6 +97,18 @@ export function matchCreatedAtLabel(
   return formattedCreatedAt.date.year === formattedNow.date.year
     ? date
     : `${date}.${formattedCreatedAt.date.year}`
+}
+
+function projectResultScores(state: MatchStateFor<GameKey>, gameResult: GameResult | null): ResultScores {
+  return gameResult?.gameKey === 'free-pyramid-long'
+    ? {
+        kind: 'racks',
+        rows: gameResult.racks.map((rack) => ({ index: rack.rackNumber, score: rack.scoreBySeat })),
+      }
+    : {
+        kind: 'frames',
+        rows: state.frames.map((frame) => ({ index: frame.frameIndex, score: frame.pointsBySeat })),
+      }
 }
 
 function isSameLocalDate(left: InstantPresentation, right: InstantPresentation): boolean {

@@ -11,25 +11,23 @@ import { useRootLocale } from '@/root'
 export function RematchLink<K extends GameKey>(props: { data: FinishedMatchData<K> }) {
   const { t } = useTranslation()
   const locale = useRootLocale()
-  const { state } = props.data
-  const rackRollover = state.gameConfiguration?.rackRollover
+  const { data } = props
+  const rackRollover = data.gameConfiguration?.rackRollover
 
-  if (state.gameKey === 'free-pyramid-long' && rackRollover === undefined) return null
+  if (data.gameKey === 'free-pyramid-long' && rackRollover === undefined) return null
 
   const rematch = {
     playerNames: {
       A: props.data.participants.A.displayName,
       B: props.data.participants.B.displayName,
     },
-    targets: state.targets,
+    targets: data.targets,
   }
 
   const to = matchSetupUrl(
-    state.gameKey,
+    data.gameKey,
     locale,
-    state.gameConfiguration === undefined
-      ? rematch
-      : { ...rematch, gameConfiguration: state.gameConfiguration },
+    data.gameConfiguration === undefined ? rematch : { ...rematch, gameConfiguration: data.gameConfiguration },
   )
 
   return (

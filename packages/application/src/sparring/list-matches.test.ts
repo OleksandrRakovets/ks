@@ -83,7 +83,7 @@ describe('sparring lists and score polling', () => {
     })
   })
 
-  test('marks a changed target on either seat in list and finished match reads', async () => {
+  test('marks a changed target on either seat in list metadata', async () => {
     for (const frameTargetPointsBySeat of [
       { A: 10, B: 8 },
       { A: 8, B: 6 },
@@ -93,13 +93,6 @@ describe('sparring lists and score polling', () => {
 
       const room = selectedClient({
         getScore: async () => ({ _tag: 'active', latestSeq: 0, score }),
-        getControls: async () => ({
-          _tag: 'finalizing',
-          state: { ...customState, status: 'finished', winnerSeat: 'B' },
-          gameResult: null,
-          latestSeq: 1,
-          endedAt: transfer.endedAt,
-        }),
       })
 
       const app = sparring(room, [], {
@@ -118,11 +111,6 @@ describe('sparring lists and score polling', () => {
       })
 
       expect((await app.listLiveMatches('en')).matches[0]?.hasCustomFrameTarget).toBe(true)
-      expect(await app.readMatch(matchId, 'en', 'free-pyramid')).toMatchObject({
-        ok: true,
-        lifecycle: 'finished',
-        hasCustomFrameTarget: true,
-      })
     }
   })
 
@@ -210,9 +198,9 @@ describe('sparring lists and score polling', () => {
       },
     })
 
-    expect(await app.readMatch(matchId, 'en', 'free-pyramid')).toMatchObject({ state: { winnerSeat: 'B' } })
+    expect(await app.readMatch(matchId, 'en', 'free-pyramid')).toMatchObject({ winnerSeat: 'B' })
     expect(await app.readMatchProtocol(matchId, 'en', 'free-pyramid')).toMatchObject({
-      state: { winnerSeat: 'B' },
+      winnerSeat: 'B',
     })
     expect(await app.listFinishedMatches('en', '2023-11-15')).toMatchObject({
       matches: [{ score: { winnerSeat: 'B' } }],
