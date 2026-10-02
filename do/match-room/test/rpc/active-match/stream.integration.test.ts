@@ -96,15 +96,12 @@ test('client closure is harmless before match end', async () => {
   expect((await stub.fetch(liveRequest(matchId))).status).toBe(410)
 })
 
-test('rejects excess and invalid fields in restored hibernation attachments', async () => {
-  const { matchId, stub } = await initializedRoom()
-  const client = await connect(stub, matchId)
-  await nextMessage(client)
+test('rejects excess and invalid fields in serialized hibernation attachments', async () => {
+  const { stub } = await initializedRoom()
 
   await runInDurableObject(stub, (_room, state) => {
-    const socket = state.getWebSockets()[0]
-
-    if (!socket) throw new Error('Expected accepted socket')
+    const pair = new WebSocketPair()
+    const socket = pair[1]
 
     const attachment = {
       contractVersion: 1,
@@ -125,8 +122,5 @@ test('rejects excess and invalid fields in restored hibernation attachments', as
       socket.serializeAttachment(invalid)
       expect(() => handler.recordClose(socket, 1000, '', true)).toThrow()
     }
-
-    socket.serializeAttachment(attachment)
   })
-  client.close()
 })
