@@ -1,8 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 
-import { Schema } from 'effect'
+import { Result, Schema } from 'effect'
 
 import { BySeatNumber, GameConfiguration, MatchTargets } from './match'
+import { StrictStruct } from './valicombos'
 
 describe('match value schemas', () => {
   test('requires positive frame and match targets', () => {
@@ -30,6 +31,16 @@ describe('match value schemas', () => {
     expect(Schema.decodeUnknownSync(BySeatNumber)({ A: -2, B: 4 })).toEqual({ A: -2, B: 4 })
   })
 
+  test('accepts represented integers beyond the safe range but rejects fractional and non-finite scores', () => {
+    const large = Number.MAX_SAFE_INTEGER + 1
+
+    expect(Schema.decodeUnknownSync(BySeatNumber)({ A: large, B: -large })).toEqual({ A: large, B: -large })
+
+    for (const invalid of [0.5, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+      expect(Result.isFailure(Schema.decodeUnknownResult(BySeatNumber)({ A: invalid, B: 4 }))).toBe(true)
+    }
+  })
+
   test('rejects a negative per-seat match target independently', () => {
     expect(
       Schema.is(MatchTargets)({
@@ -48,5 +59,17 @@ describe('match value schemas', () => {
     expect(present).toHaveProperty('rackRollover', undefined)
     expect(present).not.toHaveProperty('other')
     expect(Schema.is(GameConfiguration)({ rackRollover: null })).toBe(false)
+  })
+
+  test('closed objects reject their own excess keys without closing nested stripping objects', () => {
+    const ClosedScore = StrictStruct({ score: BySeatNumber })
+
+    expect(Schema.decodeUnknownSync(ClosedScore)({ score: { A: -2, B: 4, other: 9 } })).toEqual({
+      score: { A: -2, B: 4 },
+    })
+    expect(
+      Result.isFailure(Schema.decodeUnknownResult(ClosedScore)({ score: { A: -2, B: 4 }, other: 9 })),
+    ).toBe(true)
+    expect(Result.isFailure(Schema.decodeUnknownResult(ClosedScore)(null))).toBe(true)
   })
 })

@@ -2,7 +2,8 @@ import { Schema } from 'effect'
 
 export const NonEmptyString = Schema.String.check(Schema.isMinLength(1))
 
-export const Integer = Schema.Number.check(Schema.isInt())
+// isInt requires safe integers; existing contracts accept all represented integers.
+export const Integer = Schema.Number.check(Schema.makeFilter(Number.isInteger, { expected: 'an integer' }))
 
 export const PositiveInteger = Integer.check(Schema.isGreaterThanOrEqualTo(1))
 
