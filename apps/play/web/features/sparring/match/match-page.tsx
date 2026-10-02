@@ -47,6 +47,7 @@ function ControlPage<K extends GameKey>(props: {
   }
 
   function discardMatch() {
+    markLocalSubmit()
     void discardFetcher.submit({ intent: 'discard' }, { method: 'post' })
   }
 

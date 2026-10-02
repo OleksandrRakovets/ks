@@ -82,7 +82,7 @@ export type MatchListDay = v.InferOutput<typeof MatchListDay>
 export type LiveMatchListPage = Readonly<{
   scope: 'live'
   matches: readonly MatchListEntry[]
-  recentFinishedMatchExpiresAfterMs?: number
+  recentFinishedMatchExpiresAt?: UnixEpochMilliseconds
 }>
 
 export type FinishedMatchListPage = Readonly<{

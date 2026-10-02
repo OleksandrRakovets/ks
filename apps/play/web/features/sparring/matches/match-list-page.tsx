@@ -7,7 +7,7 @@ import {
 import type { MatchScoreProjection } from '@ks/competition/definitions'
 import type { BySeatNumber, MatchId } from '@ks/core'
 import { keys } from '@ks/i18n'
-import { useCallback, useEffect, useMemo, useReducer } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useRevalidator } from 'react-router'
 import * as v from 'valibot'
@@ -19,13 +19,15 @@ import { matchUrl } from '@/features/sparring/urls'
 import { localizedPath } from '@/i18n'
 import { useRootLocale } from '@/root'
 
+import { LiveListController } from './live-list-controller'
+
 type MatchListView = 'live' | 'finished'
 
 type MatchListUpdates =
   | {
       readonly kind: 'poll-scores'
       readonly matchIds: readonly MatchId[]
-      readonly revalidateAfterMs?: number
+      readonly recentFinishedMatchExpiresAt?: number
     }
   | { readonly kind: 'none' }
 
@@ -50,7 +52,7 @@ function PollingMatchListPage({
 }) {
   const [overrides, dispatch] = useReducer(scoreOverridesReducer, new Map())
   const { revalidate } = useRevalidator()
-  const requestRevalidation = useCallback(() => void revalidate(), [revalidate])
+  const requestRevalidation = useCallback(() => revalidate(), [revalidate])
 
   const matches = useMemo(
     () => data.page.matches.map((match) => mergeMatchEntry(match, overrides.get(match.matchId))),
@@ -64,8 +66,7 @@ function PollingMatchListPage({
     [matches, pollableIds],
   )
 
-  useMatchScorePolling(activeMatches, dispatch, requestRevalidation)
-  useMatchListExpiry(updates.revalidateAfterMs, requestRevalidation)
+  useLiveMatchList(activeMatches, updates.recentFinishedMatchExpiresAt, dispatch, requestRevalidation)
 
   return <MatchListContent view={data.view} page={data.page} matches={matches} />
 }
@@ -404,49 +405,38 @@ function shouldReplaceScore(current: ScoreSnapshot, incoming: ScoreSnapshot): bo
   return current.status === 'active' && incoming.status === 'finished'
 }
 
-function useMatchScorePolling(
+function useLiveMatchList(
   activeMatches: readonly MatchListEntry[],
+  recentFinishedMatchExpiresAt: number | undefined,
   dispatch: React.Dispatch<ScoreOverridesAction>,
-  onMatchFinished: () => void,
+  revalidate: () => Promise<void>,
 ) {
+  const current = useRef({ activeMatches, recentFinishedMatchExpiresAt, dispatch, revalidate })
+  useLayoutEffect(() => {
+    current.current = { activeMatches, recentFinishedMatchExpiresAt, dispatch, revalidate }
+  }, [activeMatches, recentFinishedMatchExpiresAt, dispatch, revalidate])
+  const controller = useRef<LiveListController>(null)
+
   useEffect(() => {
-    if (activeMatches.length === 0) return undefined
-    let disposed = false
-    let timer: number | undefined
-    let requestController: AbortController | undefined
-
-    function clearTimer() {
-      if (timer === undefined) return
-      window.clearTimeout(timer)
-      timer = undefined
-    }
-
-    function scheduleNextPoll() {
-      if (disposed || document.visibilityState === 'hidden') return
-      clearTimer()
-      const jitter = 0.9 + Math.random() * 0.2
-      timer = window.setTimeout(() => void poll(), 30_000 * jitter)
-    }
-
-    async function poll() {
-      if (disposed || requestController !== undefined || document.visibilityState === 'hidden') return
-      clearTimer()
-      const requestedMatches = activeMatches
-      const controller = new AbortController()
-      requestController = controller
-
-      try {
+    const scheduler = new LiveListController({
+      hasScores: () => current.current.activeMatches.length > 0,
+      recentFinishedMatchExpiresAt: current.current.recentFinishedMatchExpiresAt,
+      readFullList: async () => current.current.revalidate(),
+      readScores: async (signal) => {
+        const requestedMatches = current.current.activeMatches
         const search = new URLSearchParams()
 
         for (const match of requestedMatches) search.append('matchId', match.matchId)
 
         const response = await fetch(`/api/sparring-matches/live-scores/?${search}`, {
           headers: { Accept: 'application/json' },
-          signal: controller.signal,
+          cache: 'no-store',
+          signal,
         })
 
         if (response.status === 404) {
-          if (!controller.signal.aborted) onMatchFinished()
+          // A discarded match no longer exists; only the loader can replace list membership.
+          if (!signal.aborted) controller.current?.demandFullRead()
 
           return
         }
@@ -457,68 +447,36 @@ function useMatchScorePolling(
         if (!result.success || result.output.matches.length !== requestedMatches.length)
           throw new Error('Invalid Match score polling response')
 
-        for (const [index, entry] of result.output.matches.entries()) {
+        for (const [index, entry] of result.output.matches.entries())
           if (entry.matchId !== requestedMatches[index]?.matchId)
             throw new Error('Mismatched Match score polling response')
-        }
 
-        if (controller.signal.aborted) return
+        if (signal.aborted) return
 
-        const changedEntries = result.output.matches.filter((entry, index) => {
-          const current = requestedMatches[index]
+        const entries = result.output.matches.filter((entry, index) =>
+          shouldReplaceScore(requestedMatches[index], entry),
+        )
 
-          return shouldReplaceScore(current, entry)
-        })
+        if (entries.length > 0) current.current.dispatch({ entries })
 
-        if (changedEntries.length > 0) {
-          dispatch({ entries: changedEntries })
+        if (entries.some((entry) => entry.status === 'finished')) controller.current?.demandFullRead()
+      },
+    })
 
-          if (changedEntries.some((entry) => entry.status === 'finished')) onMatchFinished()
-        }
-      } catch {
-        // Retain the last successful projections and retry on the next scheduled or browser-triggered poll.
-      } finally {
-        requestController = undefined
-        scheduleNextPoll()
-      }
-    }
-
-    function catchUp() {
-      if (document.visibilityState !== 'visible') {
-        clearTimer()
-
-        return
-      }
-
-      if (requestController !== undefined) return
-      clearTimer()
-      void poll()
-    }
-
-    document.addEventListener('visibilitychange', catchUp)
-    window.addEventListener('focus', catchUp)
-    window.addEventListener('online', catchUp)
-    scheduleNextPoll()
+    controller.current = scheduler
+    scheduler.start()
 
     return () => {
-      disposed = true
-      clearTimer()
-      requestController?.abort()
-      document.removeEventListener('visibilitychange', catchUp)
-      window.removeEventListener('focus', catchUp)
-      window.removeEventListener('online', catchUp)
+      scheduler.dispose()
+      controller.current = null
     }
-  }, [activeMatches, dispatch, onMatchFinished])
-}
+  }, [])
 
-function useMatchListExpiry(revalidateAfterMs: number | undefined, revalidate: () => void) {
   useEffect(() => {
-    if (revalidateAfterMs === undefined) return undefined
-
-    const timer = window.setTimeout(revalidate, revalidateAfterMs + 100)
-
-    return () => window.clearTimeout(timer)
-  }, [revalidate, revalidateAfterMs])
+    // Loader completion can precede React's commit. Reconsider the schedule after newly discovered
+    // Active Matches land, even when their recent-result expiry is still undefined.
+    controller.current?.snapshot(recentFinishedMatchExpiresAt)
+  }, [activeMatches, recentFinishedMatchExpiresAt])
 }
 
 function displayedScore(match: MatchListEntry): BySeatNumber {

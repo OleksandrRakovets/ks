@@ -1,5 +1,6 @@
 import { keys, resources, type SupportedLocale } from '@ks/i18n'
 import i18next, { type i18n as I18nInstance } from 'i18next'
+import { useEffect } from 'react'
 import { I18nextProvider, initReactI18next, useTranslation } from 'react-i18next'
 import {
   isRouteErrorResponse,
@@ -8,6 +9,7 @@ import {
   Outlet,
   Scripts,
   ScrollRestoration,
+  useRevalidator,
   useRouteError,
   useRouteLoaderData,
 } from 'react-router'
@@ -94,8 +96,92 @@ export default function App() {
 export function ErrorBoundary() {
   const error = useRouteError()
   const { t } = useTranslation()
+  const { revalidate } = useRevalidator()
+  const notFound = isRouteErrorResponse(error) && error.status === 404
 
-  if (isRouteErrorResponse(error) && error.status === 404) {
+  useEffect(() => {
+    if (notFound) return undefined
+    // A loader failure unmounts the feature's live controller. The error surface must therefore
+    // recover on its own. Only GET loaders are retried; no Command POST is replayed. A genuine
+    // 404 is excluded because returning to the tab cannot make an unknown URL into a live page.
+    let disposed = false
+    let pending = false
+    let catchingUp = false
+    let generation = 0
+    let timer: number | undefined
+
+    const clearTimer = () => {
+      if (timer !== undefined) window.clearTimeout(timer)
+      timer = undefined
+    }
+
+    const schedule = () => {
+      clearTimer()
+
+      if (!disposed && document.visibilityState === 'visible') timer = window.setTimeout(retry, 60_000)
+    }
+
+    const retry = () => {
+      if (disposed || document.visibilityState !== 'visible' || pending) return
+      clearTimer()
+      pending = true
+      const readGeneration = generation
+
+      // Router owns cancellation. A return after hiding replaces its pre-hide GET; generations
+      // prevent that old promise's completion from rearming this boundary's watchdog.
+      const finished = () => {
+        if (disposed || readGeneration !== generation) return
+        pending = false
+        catchingUp = false
+        schedule()
+      }
+
+      void revalidate().then(finished, finished)
+    }
+
+    const hide = () => {
+      generation++
+      pending = false
+      catchingUp = false
+      clearTimer()
+    }
+
+    const catchUp = () => {
+      if (disposed || document.visibilityState !== 'visible' || catchingUp) return
+      catchingUp = true
+      generation++
+      pending = false
+      retry()
+    }
+
+    const visibilityChange = () => {
+      if (document.visibilityState === 'hidden') hide()
+      else catchUp()
+    }
+
+    const pageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) catchUp()
+    }
+
+    document.addEventListener('visibilitychange', visibilityChange)
+    window.addEventListener('pagehide', hide)
+    window.addEventListener('pageshow', pageShow)
+    window.addEventListener('focus', catchUp)
+    window.addEventListener('online', catchUp)
+    schedule()
+
+    return () => {
+      disposed = true
+      clearTimer()
+      document.removeEventListener('visibilitychange', visibilityChange)
+      window.removeEventListener('pagehide', hide)
+      window.removeEventListener('pageshow', pageShow)
+      window.removeEventListener('focus', catchUp)
+      window.removeEventListener('online', catchUp)
+    }
+  }, [notFound, revalidate])
+
+  if (notFound) {
     return (
       <main className="flex min-h-dvh flex-1 items-center justify-center bg-background px-6 text-foreground">
         <div className="w-full max-w-lg rounded-2xl border border-border bg-card p-8 text-center">

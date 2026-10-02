@@ -44,7 +44,7 @@ export async function listLiveMatches(
     : {
         scope: 'live',
         matches,
-        recentFinishedMatchExpiresAfterMs: Math.max(0, earliestRecentFinishedMatchExpiry - now),
+        recentFinishedMatchExpiresAt: v.parse(UnixEpochMilliseconds, earliestRecentFinishedMatchExpiry),
       }
 }
 

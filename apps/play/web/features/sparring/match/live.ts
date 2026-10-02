@@ -1,267 +1,110 @@
 import type { MatchReadFacts } from '@ks/application'
 import type { MatchCommand } from '@ks/core'
 import { keys } from '@ks/i18n'
-import { useEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 import { useRevalidator } from 'react-router'
 
-import { subscribeSparringMatchLive } from './live-client'
+import { MatchLiveController } from './live-controller'
 import type { ControlActionData } from './types'
 
 export function matchCommandForm(command: MatchCommand) {
   return { command: JSON.stringify(command) }
 }
 
-/** @internal Exported for live-revalidation contract tests. */
-export type ControlLiveState = {
-  latestSeq: number
-  suppressUntilSeq: number
-  localSubmitInFlight: boolean
-}
-
-type ControlLiveEvent =
-  | { type: 'snapshot'; latestSeq: number }
-  | { type: 'submit-started' }
-  | { type: 'submit-finished' }
-  | { type: 'accepted'; seq: number }
-  | { type: 'update'; seq: number }
-  | { type: 'match-finished'; seq: number }
-
-type ControlLiveTransition = {
-  state: ControlLiveState
-  revalidate: boolean
-}
-
-/** @internal Exported for live-revalidation contract tests. */
-export function transitionControlLive(
-  state: ControlLiveState,
-  event: ControlLiveEvent,
-): ControlLiveTransition {
-  if (event.type === 'snapshot') {
-    return { state: { ...state, latestSeq: event.latestSeq }, revalidate: false }
-  }
-
-  if (event.type === 'submit-started') {
-    return { state: { ...state, localSubmitInFlight: true }, revalidate: false }
-  }
-
-  if (event.type === 'submit-finished') {
-    return { state: { ...state, localSubmitInFlight: false }, revalidate: false }
-  }
-
-  if (event.type === 'accepted') {
-    return {
-      state: { ...state, suppressUntilSeq: Math.max(state.suppressUntilSeq, event.seq) },
-      revalidate: false,
-    }
-  }
-
-  if (event.type === 'match-finished') {
-    return {
-      state: { ...state, latestSeq: Math.max(state.latestSeq, event.seq) },
-      revalidate: true,
-    }
-  }
-
-  if (event.seq <= state.latestSeq) return { state, revalidate: false }
-
-  return {
-    state: { ...state, latestSeq: event.seq },
-    revalidate: !state.localSubmitInFlight && event.seq > state.suppressUntilSeq,
-  }
-}
-
+/**
+ * Wires Control-page loader facts and the local submission lifecycle into one live controller.
+ * The returned callback must run before submitting a Command or discard, closing the small interval
+ * before React exposes fetcher.state. Accepted Commands still use Router's normal post-action loader read.
+ */
 export function useControlLiveRevalidation(
-  { matchId, lifecycle, latestSeq }: Pick<MatchReadFacts, 'matchId' | 'lifecycle' | 'latestSeq'>,
+  facts: Pick<MatchReadFacts, 'matchId' | 'lifecycle' | 'latestSeq'>,
   fetcher: { state: string; data?: ControlActionData },
   discarding: boolean,
 ): () => void {
-  const revalidator = useRevalidator()
-  const discardingRef = useRef(discarding)
+  // Discard is also a local submission: its terminal socket close must not read the page into a 404
+  // before the redirect arrives.
+  const controller = useMatchLiveController(facts, 'control', fetcher.state !== 'idle' || discarding)
 
-  const liveStateRef = useRef<ControlLiveState>({
-    latestSeq,
-    suppressUntilSeq: latestSeq,
-    localSubmitInFlight: false,
-  })
-
-  const revalidateRef = useRef(revalidator.revalidate)
-  const revalidatorStateRef = useRef(revalidator.state)
-  const loaderLatestSeqRef = useRef(latestSeq)
-  const targetSeqRef = useRef(latestSeq)
-
-  function drainRevalidation() {
-    if (
-      !liveStateRef.current.localSubmitInFlight &&
-      revalidatorStateRef.current === 'idle' &&
-      loaderLatestSeqRef.current < targetSeqRef.current
-    ) {
-      revalidatorStateRef.current = 'loading'
-      void revalidateRef.current()
+  useEffect(() => {
+    if (fetcher.data?.ok === false && fetcher.data.errorKey === keys.match.control.correctionUnavailable) {
+      controller.current?.forceRead()
     }
-  }
+  }, [fetcher.data, controller])
 
-  function requestRevalidation(seq: number) {
-    targetSeqRef.current = Math.max(targetSeqRef.current, seq)
-    drainRevalidation()
-  }
-
-  function applyLiveEvent(event: ControlLiveEvent) {
-    if (event.type === 'update' || event.type === 'match-finished') {
-      targetSeqRef.current = Math.max(targetSeqRef.current, event.seq)
-    }
-
-    const transition = transitionControlLive(liveStateRef.current, event)
-    liveStateRef.current = transition.state
-
-    if (transition.revalidate || event.type === 'submit-finished') drainRevalidation()
-  }
-
-  useEffect(() => {
-    revalidateRef.current = revalidator.revalidate
-  }, [revalidator.revalidate])
-  useEffect(() => {
-    revalidatorStateRef.current = revalidator.state
-  }, [revalidator.state])
-  useEffect(() => {
-    discardingRef.current = discarding
-  }, [discarding])
-  useEffect(() => {
-    loaderLatestSeqRef.current = latestSeq
-    applyLiveEvent({ type: 'snapshot', latestSeq })
-    requestRevalidation(targetSeqRef.current)
-  }, [latestSeq, revalidator.state])
-  useEffect(() => {
-    if (fetcher.data?.ok === true && fetcher.data.acceptedSeqMax != null) {
-      applyLiveEvent({ type: 'accepted', seq: fetcher.data.acceptedSeqMax })
-    } else if (
-      fetcher.data?.ok === false &&
-      fetcher.data.errorKey === keys.match.control.correctionUnavailable
-    ) {
-      void revalidateRef.current()
-    }
-  }, [fetcher.data])
-  useEffect(() => {
-    applyLiveEvent({ type: fetcher.state === 'idle' ? 'submit-finished' : 'submit-started' })
-  }, [fetcher.state])
-
-  useEffect(() => {
-    if (lifecycle !== 'active') return undefined
-
-    function catchUp() {
-      if (document.visibilityState !== 'visible' || revalidatorStateRef.current !== 'idle') return
-
-      revalidatorStateRef.current = 'loading'
-      void revalidateRef.current()
-    }
-
-    const subscription = subscribeSparringMatchLive({
-      matchId,
-      pageKind: 'control',
-      currentLatestSeq: () => loaderLatestSeqRef.current,
-      onCaughtUp: requestRevalidation,
-      onUpdate: (update) =>
-        applyLiveEvent(
-          update.endsMatch
-            ? { type: 'match-finished', seq: update.acceptedSeq }
-            : { type: 'update', seq: update.acceptedSeq },
-        ),
-      onConnectionState: (connectionState) => {
-        // The room closes this page's socket before the discard redirect arrives; revalidating would show a 404.
-        if (discardingRef.current) return
-
-        if (
-          (connectionState === 'disconnected' || connectionState === 'finished') &&
-          revalidatorStateRef.current === 'idle'
-        ) {
-          revalidatorStateRef.current = 'loading'
-          void revalidateRef.current()
-        }
-      },
-    })
-
-    document.addEventListener('visibilitychange', catchUp)
-    window.addEventListener('focus', catchUp)
-    window.addEventListener('online', catchUp)
-
-    return () => {
-      document.removeEventListener('visibilitychange', catchUp)
-      window.removeEventListener('focus', catchUp)
-      window.removeEventListener('online', catchUp)
-      subscription.stop()
-    }
-  }, [matchId, lifecycle])
-
-  return () => {
-    applyLiveEvent({ type: 'submit-started' })
-  }
+  return () => controller.current?.setSubmitting(true)
 }
 
-export function useProtocolLiveRevalidation({
-  matchId,
-  lifecycle,
-  latestSeq,
-}: Pick<MatchReadFacts, 'matchId' | 'lifecycle' | 'latestSeq'>): void {
-  const revalidator = useRevalidator()
-  const latestSeqRef = useRef(latestSeq)
-  const revalidateRef = useRef(revalidator.revalidate)
-  const revalidatorStateRef = useRef(revalidator.state)
-  const targetSeqRef = useRef(latestSeq)
+/** Wires active Protocol pages to the same match freshness rules, without a submission gate. */
+export function useProtocolLiveRevalidation(
+  facts: Pick<MatchReadFacts, 'matchId' | 'lifecycle' | 'latestSeq'>,
+): void {
+  useMatchLiveController(facts, 'protocol', false)
+}
 
-  function requestRevalidation(seq: number) {
-    targetSeqRef.current = Math.max(targetSeqRef.current, seq)
+function useMatchLiveController(
+  facts: Pick<MatchReadFacts, 'matchId' | 'lifecycle' | 'latestSeq'>,
+  pageKind: 'control' | 'protocol',
+  submitting: boolean,
+) {
+  const { matchId, lifecycle, latestSeq } = facts
+  const { revalidate } = useRevalidator()
+  const current = useRef({ revalidate, facts, submitting })
+  const committedReads = useRef(new Set<() => void>())
 
-    if (revalidatorStateRef.current === 'idle' && latestSeqRef.current < targetSeqRef.current) {
-      revalidatorStateRef.current = 'loading'
-      void revalidateRef.current()
-    }
-  }
+  useLayoutEffect(() => {
+    current.current = { revalidate, facts, submitting }
+  }, [revalidate, facts, submitting])
 
-  useEffect(() => {
-    revalidateRef.current = revalidator.revalidate
-  }, [revalidator.revalidate])
-  useEffect(() => {
-    revalidatorStateRef.current = revalidator.state
-  }, [revalidator.state])
-  useEffect(() => {
-    latestSeqRef.current = latestSeq
-    requestRevalidation(targetSeqRef.current)
-  }, [latestSeq, revalidator.state])
+  useLayoutEffect(() => {
+    // Router's revalidate promise means its state was updated, not that React has committed the
+    // projection. Each new loader result has a new facts object, including equal-cursor reads.
+    // Complete GETs only after that commit, otherwise the controller still sees the old cursor
+    // and immediately requests a redundant GET. This also works when commit precedes the promise.
+    for (const complete of committedReads.current) complete()
+    committedReads.current.clear()
+  }, [facts])
+  const controller = useRef<MatchLiveController>(null)
+
   useEffect(() => {
     if (lifecycle !== 'active') return undefined
+    const completions = committedReads.current
+    let disposed = false
 
-    function catchUp() {
-      if (document.visibilityState !== 'visible' || revalidatorStateRef.current !== 'idle') return
+    const live = new MatchLiveController(matchId, pageKind, current.current.facts.latestSeq, async () => {
+      const previousFacts = current.current.facts
+      await current.current.revalidate()
 
-      revalidatorStateRef.current = 'loading'
-      void revalidateRef.current()
-    }
+      if (disposed) return
 
-    const subscription = subscribeSparringMatchLive({
-      matchId,
-      pageKind: 'protocol',
-      currentLatestSeq: () => latestSeqRef.current,
-      onCaughtUp: requestRevalidation,
-      onUpdate: (update) => requestRevalidation(update.acceptedSeq),
-      onConnectionState: (connectionState) => {
-        if (
-          (connectionState === 'disconnected' || connectionState === 'finished') &&
-          revalidatorStateRef.current === 'idle'
-        ) {
-          revalidatorStateRef.current = 'loading'
-          void revalidateRef.current()
-        }
-      },
+      if (current.current.facts === previousFacts) {
+        await new Promise<void>((resolve) => {
+          completions.add(resolve)
+        })
+      }
+
+      live.snapshot(current.current.facts.latestSeq)
     })
 
-    document.addEventListener('visibilitychange', catchUp)
-    window.addEventListener('focus', catchUp)
-    window.addEventListener('online', catchUp)
+    controller.current = live
+    live.setSubmitting(current.current.submitting)
+    live.start()
 
     return () => {
-      document.removeEventListener('visibilitychange', catchUp)
-      window.removeEventListener('focus', catchUp)
-      window.removeEventListener('online', catchUp)
-      subscription.stop()
+      disposed = true
+      live.dispose()
+      controller.current = null
+
+      // A loader error or Result transition unmounts this active owner. Release commit waiters;
+      // disposed-controller guards make their late completions inert, without retaining closures.
+      for (const complete of completions) complete()
+      completions.clear()
     }
-  }, [matchId, lifecycle])
+  }, [matchId, lifecycle, pageKind])
+
+  useEffect(() => {
+    controller.current?.snapshot(latestSeq)
+    controller.current?.setSubmitting(submitting)
+  }, [latestSeq, submitting])
+
+  return controller
 }

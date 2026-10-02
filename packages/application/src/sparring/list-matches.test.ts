@@ -233,7 +233,7 @@ describe('sparring lists and score polling', () => {
     })
 
     expect(await app.listLiveMatches('en')).toMatchObject({
-      recentFinishedMatchExpiresAfterMs: 10 * 60 * 1_000,
+      recentFinishedMatchExpiresAt: endedAt + 15 * 60 * 1_000,
     })
   })
 
