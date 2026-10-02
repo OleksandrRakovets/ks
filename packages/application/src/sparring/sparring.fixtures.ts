@@ -246,6 +246,7 @@ export function sparring(
   const service = Effect.runSync(SparringService.make.pipe(Effect.provideContext(context)))
 
   return {
+    service,
     createMatch: (...args: Parameters<typeof service.createMatch>) =>
       Effect.runPromise(service.createMatch(...args)),
     listLiveMatches: (...args: Parameters<typeof service.listLiveMatches>) =>

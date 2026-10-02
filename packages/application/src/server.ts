@@ -11,6 +11,18 @@ import { MatchCreation } from './sparring/create-match'
 import { SparringService } from './sparring/sparring-service'
 import { SparringMatchStorage } from './sparring/storage/sparring-match-storage'
 
+export { ApplicationStorageError } from './d1/storage-error'
+
+export {
+  InvalidMatchCommand,
+  InvalidMatchInput,
+  MatchCommandIdConflict,
+  MatchFinished,
+  MatchInitializationConflict,
+  MatchLocked,
+  MatchNotFound,
+} from './sparring/errors'
+
 export { SparringService } from './sparring/sparring-service'
 
 export type ApplicationBindings = {

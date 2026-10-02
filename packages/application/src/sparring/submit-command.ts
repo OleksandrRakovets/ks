@@ -1,61 +1,71 @@
 import type { MatchCommand, MatchId } from '@ks/core'
 import type { GameKey } from '@ks/gameplay/definitions'
-import type { EffectDrizzleQueryError } from 'drizzle-orm/effect-core/errors'
 import { Effect, Match } from 'effect'
 
 import { MatchRooms } from '../match/match-room'
-import { CommandReceiptOutcome, type SubmitMatchCommandResult } from './contract'
+import { CommandReceiptOutcome } from './contract'
+import {
+  InvalidMatchCommand,
+  MatchCommandIdConflict,
+  MatchFinished,
+  MatchLocked,
+  MatchNotFound,
+} from './errors'
 import { SparringMatchStorage } from './storage/sparring-match-storage'
 
-export const submitMatchCommand = Effect.fn('submitMatchCommand')(function* (
-  matchId: MatchId,
-  command: MatchCommand,
-  expectedGameKey: GameKey,
-): Effect.fn.Return<SubmitMatchCommandResult, EffectDrizzleQueryError, MatchRooms | SparringMatchStorage> {
+export const commandMethods = Effect.gen(function* () {
   const matches = yield* SparringMatchStorage
   const rooms = yield* MatchRooms
-  const record = yield* matches.findMatch(matchId)
 
-  if (!record || record.gameKey !== expectedGameKey) return { ok: false, reason: 'unknown-match' }
+  const submitMatchCommand = Effect.fn('SparringService.submitMatchCommand')(function* (
+    matchId: MatchId,
+    command: MatchCommand,
+    expectedGameKey: GameKey,
+  ) {
+    const record = yield* matches.findMatch(matchId)
 
-  if (record.status === 'finished') return { ok: false, reason: 'match-finished' }
+    if (!record || record.gameKey !== expectedGameKey) return yield* Effect.fail(new MatchNotFound())
 
-  if (record.status !== 'active') return { ok: false, reason: 'unknown-match' }
-  const result = yield* rooms.get(matchId).submitCommand(command)
+    if (record.status === 'finished') return yield* Effect.fail(new MatchFinished())
 
-  return yield* Match.value(result).pipe(
-    Match.tagsExhaustive({
-      accepted: Effect.fnUntraced(function* ({ acceptedSeq, endsMatch }) {
-        if (endsMatch) yield* archiveAndMarkFinished(matchId)
+    if (record.status !== 'active') return yield* Effect.fail(new MatchNotFound())
 
-        return { ok: true as const, outcome: CommandReceiptOutcome.accepted({ acceptedSeq }) }
+    const result = yield* rooms.get(matchId).submitCommand(command)
+
+    return yield* Match.value(result).pipe(
+      Match.tagsExhaustive({
+        accepted: Effect.fnUntraced(function* ({ acceptedSeq, endsMatch }) {
+          if (endsMatch) yield* archiveAndMarkFinished(matchId)
+
+          return CommandReceiptOutcome.accepted({ acceptedSeq })
+        }),
+        finalizing: Effect.fnUntraced(function* () {
+          yield* archiveAndMarkFinished(matchId)
+
+          return yield* Effect.fail(new MatchLocked())
+        }),
+        'invalid-command': () => Effect.fail(new InvalidMatchCommand()),
+        'command-id-conflict': () => Effect.fail(new MatchCommandIdConflict()),
+        rejected: (outcome) => Effect.succeed(outcome),
       }),
-      finalizing: Effect.fnUntraced(function* () {
-        yield* archiveAndMarkFinished(matchId)
+    )
+  })
 
-        return { ok: false as const, reason: 'match-locked' as const }
-      }),
-      'invalid-command': () =>
-        Effect.succeed<SubmitMatchCommandResult>({ ok: false, reason: 'invalid-command' }),
-      'command-id-conflict': () =>
-        Effect.succeed<SubmitMatchCommandResult>({ ok: false, reason: 'command-id-conflict' }),
-      rejected: (outcome) => Effect.succeed<SubmitMatchCommandResult>({ ok: true, outcome }),
-    }),
-  )
-})
+  const archiveAndMarkFinished = Effect.fn('SparringService.archiveAndMarkFinished')(function* (
+    matchId: MatchId,
+  ) {
+    let stage = 'prepare-archive'
 
-const archiveAndMarkFinished = Effect.fn('archiveAndMarkFinished')(function* (matchId: MatchId) {
-  const matches = yield* SparringMatchStorage
-  const rooms = yield* MatchRooms
-  let stage = 'prepare-archive'
+    yield* Effect.gen(function* () {
+      const transfer = yield* rooms.get(matchId).prepareArchive()
+      stage = 'archive-in-d1'
+      yield* matches.archiveFinished(transfer)
+      stage = 'mark-d1-finished'
+      yield* matches.markFinished(transfer)
+    }).pipe(
+      Effect.tapCause((cause) => Effect.logError({ event: 'match-archive.failed', matchId, stage, cause })),
+    )
+  })
 
-  yield* Effect.gen(function* () {
-    const transfer = yield* rooms.get(matchId).prepareArchive()
-    stage = 'archive-in-d1'
-    yield* matches.archiveFinished(transfer)
-    stage = 'mark-d1-finished'
-    yield* matches.markFinished(transfer)
-  }).pipe(
-    Effect.tapCause((cause) => Effect.logError({ event: 'match-archive.failed', matchId, stage, cause })),
-  )
+  return { submitMatchCommand }
 })

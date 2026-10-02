@@ -26,6 +26,7 @@
     "react-router.config.ts",
     "domain/**/*.ts",
     "web/server/context.server.ts",
+    "web/server/application-storage-error.server.ts",
     "workers/**/*.ts",
     "workers/virtual.d.ts",
     "../../do/match-room/src/**/*"

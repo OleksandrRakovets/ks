@@ -23,10 +23,10 @@ describe('sparring lists and score polling', () => {
   test('returns unknown-match when any requested score is missing, before reading rooms', async () => {
     const missingId = v.parse(MatchId, '01ARZ3NDEKTSV4RRFFQ69G5FAW')
 
-    expect(await sparring(selectedClient()).readMatchScores([matchId, missingId])).toEqual({
-      ok: false,
-      reason: 'unknown-match',
-    })
+    expect(sparring(selectedClient()).readMatchScores([matchId, missingId])).rejects.toHaveProperty(
+      '_tag',
+      'MatchNotFound',
+    )
   })
 
   test('reads compact active scores for list loading and polling', async () => {
@@ -79,7 +79,6 @@ describe('sparring lists and score polling', () => {
       scope: 'live',
     })
     expect(await app.readMatchScores([matchId])).toEqual({
-      ok: true,
       matches: [{ matchId, status: 'active', endedAt: null, latestSeq: 3, score }],
     })
   })
@@ -155,7 +154,6 @@ describe('sparring lists and score polling', () => {
       matches: [{ matchId, status: 'finished', endedAt: transfer.endedAt, latestSeq: 4, score }],
     })
     expect(await app.readMatchScores([matchId])).toEqual({
-      ok: true,
       matches: [{ matchId, status: 'finished', endedAt: transfer.endedAt, latestSeq: 4, score }],
     })
     expect(events).toEqual([])
@@ -360,9 +358,6 @@ describe('sparring lists and score polling', () => {
     })
 
     const result = await app.readMatchScores(ids)
-    expect(result.ok).toBe(true)
-
-    if (!result.ok) return
     expect(result.matches.map((match) => match.matchId)).toEqual(ids)
     expect(v.safeParse(MatchScorePollResponse, { matches: result.matches }).success).toBe(true)
   })

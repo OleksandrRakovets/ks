@@ -23,10 +23,7 @@ test('sends an identified correction through the existing action and names a sta
       Effect.sync(() => {
         expect([id, command, gameKey]).toEqual([matchId, submitted, 'free-pyramid'])
 
-        return {
-          ok: true as const,
-          outcome: CommandReceiptOutcome.rejected({ reason: { code: 'correction-not-available' } }),
-        }
+        return CommandReceiptOutcome.rejected({ reason: { code: 'correction-not-available' } })
       }),
   })
 

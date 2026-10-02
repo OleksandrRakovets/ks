@@ -42,7 +42,7 @@ describe('sparring match and Protocol reads', () => {
       const app = sparring(selectedClient(), [], { matches: { findMatch: async () => record } })
 
       for (const read of ['readMatch', 'readMatchProtocol'] as const)
-        expect(await app[read](matchId, 'en', 'free-pyramid')).toEqual({ ok: false, reason: 'unknown-match' })
+        expect(app[read](matchId, 'en', 'free-pyramid')).rejects.toHaveProperty('_tag', 'MatchNotFound')
     }
   })
 
@@ -208,7 +208,6 @@ describe('sparring match and Protocol reads', () => {
     const app = sparring(room)
     const prepared = await app.readMatch(matchId, 'en', 'free-pyramid')
     expect(prepared).toMatchObject({
-      ok: true,
       lifecycle: 'active',
       controlPhase: 'frame-active',
       latestSeq: 0,
@@ -236,7 +235,6 @@ describe('sparring match and Protocol reads', () => {
     latestSeq = 2
     const result = await app.readMatch(matchId, 'en', 'free-pyramid')
     expect(result).toMatchObject({
-      ok: true,
       lifecycle: 'active',
       controlPhase: 'frame-active',
       latestSeq: 2,
@@ -311,7 +309,6 @@ describe('sparring match and Protocol reads', () => {
     const result = await sparring(room).readMatchProtocol(matchId, 'en', 'free-pyramid')
 
     expect(result).toMatchObject({
-      ok: true,
       lifecycle: 'active',
       controlPhase: 'frame-active',
       latestSeq: 2,
@@ -347,7 +344,6 @@ describe('sparring match and Protocol reads', () => {
     )
 
     expect(result).toMatchObject({
-      ok: true,
       lifecycle: 'finished',
       winnerSeat: 'A',
       latestSeq: 2,
@@ -420,7 +416,6 @@ describe('sparring match and Protocol reads', () => {
 
     const control = await app.readMatch(matchId, 'en', 'free-pyramid')
     expect(control).toMatchObject({
-      ok: true,
       lifecycle: 'finished',
       winnerSeat: 'A',
       latestSeq: 2,
@@ -431,7 +426,6 @@ describe('sparring match and Protocol reads', () => {
     expect(control).not.toHaveProperty('protocolRows')
     const protocol = await app.readMatchProtocol(matchId, 'en', 'free-pyramid')
     expect(protocol).toMatchObject({
-      ok: true,
       lifecycle: 'finished',
       latestSeq: 2,
       winnerSeat: 'A',
@@ -507,7 +501,6 @@ describe('sparring match and Protocol reads', () => {
 
     const result = await app.readMatchProtocol(matchId, 'en', 'free-pyramid-long')
     expect(result).toMatchObject({
-      ok: true,
       lifecycle: 'finished',
       winnerSeat: 'A',
       latestSeq: 2,
@@ -551,7 +544,6 @@ describe('sparring match and Protocol reads', () => {
     for (const read of ['readMatch', 'readMatchProtocol'] as const) {
       const result = await app[read](matchId, 'en', 'free-pyramid')
       expect(result).toMatchObject({
-        ok: true,
         gameKey: 'free-pyramid',
         lifecycle: 'active',
         controlPhase: 'between-frames',

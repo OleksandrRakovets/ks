@@ -1,8 +1,9 @@
 import { SparringService } from '@ks/application/server'
 import { MatchId, SparringMatchLiveQuery } from '@ks/core'
-import { Predicate } from 'effect'
+import { Effect } from 'effect'
 import * as v from 'valibot'
 
+import { applicationStorageErrorResponse } from '../web/server/application-storage-error.server'
 import type { RunEffect } from '../web/server/context.server'
 
 const path = /^\/api\/sparring-match\/([^/]+)\/live\/$/
@@ -32,14 +33,19 @@ export async function handleSparringMatchLiveRequest(
   )
     return new Response('Invalid live request', { status: 400 })
 
+  const admission = await runEffect(
+    SparringService.use((sparring) => sparring.admitMatchLive(matchId.output)).pipe(
+      Effect.catchTags({
+        MatchNotFound: () => Effect.succeed(new Response('Unknown match', { status: 404 })),
+        MatchFinished: () => Effect.succeed(new Response('Match is finished', { status: 410 })),
+        ApplicationStorageError: (error) => Effect.succeed(applicationStorageErrorResponse(error)),
+      }),
+    ),
+  )
+
+  if (admission instanceof Response) return admission
+
   try {
-    const admission = await runEffect(
-      SparringService.use((sparring) => sparring.admitMatchLive(matchId.output)),
-    )
-
-    if (Predicate.isTagged(admission, 'unknown')) return new Response('Unknown match', { status: 404 })
-
-    if (Predicate.isTagged(admission, 'finished')) return new Response('Match is finished', { status: 410 })
     const roomUrl = new URL(`https://match-room/api/sparring-match/${matchId.output}/live/`)
     roomUrl.searchParams.set('contract', '1')
     roomUrl.searchParams.set('view', query.output.view)

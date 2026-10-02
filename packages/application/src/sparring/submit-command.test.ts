@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
 import { newCommandId } from '@ks/core'
+import { Effect } from 'effect'
 
 import {
   createdAt,
@@ -35,36 +36,45 @@ describe('sparring commands and finalization', () => {
       const app = sparring(selectedClient(), [], { matches: { findMatch: async () => record } })
 
       expect(
-        await app.submitMatchCommand(
+        app.submitMatchCommand(
           matchId,
           { commandId: newCommandId(), source: 'match', command: { type: 'frame.concede', seat: 'B' } },
           'free-pyramid',
         ),
-      ).toEqual({ ok: false, reason: 'unknown-match' })
+      ).rejects.toHaveProperty('_tag', 'MatchNotFound')
     }
   })
 
   test('returns match-finished without submitting or archiving again', async () => {
+    const events: string[] = []
+
     expect(
-      await sparring(selectedClient(), [], { initialStatus: 'finished' }).submitMatchCommand(
+      sparring(selectedClient(), events, { initialStatus: 'finished' }).submitMatchCommand(
         matchId,
         { commandId: newCommandId(), source: 'match', command: { type: 'frame.concede', seat: 'B' } },
         'free-pyramid',
       ),
-    ).toEqual({ ok: false, reason: 'match-finished' })
+    ).rejects.toHaveProperty('_tag', 'MatchFinished')
+    expect(events).toEqual([])
   })
 
   test('returns command-id-conflict without archiving', async () => {
     const events: string[] = []
     const room = selectedClient({ submitCommand: async () => RoomCommandResult['command-id-conflict']() })
 
-    expect(
-      await sparring(room, events).submitMatchCommand(
-        matchId,
-        { commandId: newCommandId(), source: 'match', command: { type: 'frame.concede', seat: 'B' } },
-        'free-pyramid',
+    const app = sparring(room, events)
+
+    const failure = await Effect.runPromise(
+      Effect.flip(
+        app.service.submitMatchCommand(
+          matchId,
+          { commandId: newCommandId(), source: 'match', command: { type: 'frame.concede', seat: 'B' } },
+          'free-pyramid',
+        ),
       ),
-    ).toEqual({ ok: false, reason: 'command-id-conflict' })
+    )
+
+    expect(failure).toHaveProperty('_tag', 'MatchCommandIdConflict')
     expect(events).toEqual([])
   })
 
@@ -86,9 +96,9 @@ describe('sparring commands and finalization', () => {
       'free-pyramid',
     )
 
-    expect(result).toMatchObject({ ok: true, outcome: { acceptedSeq: 1 } })
-    expect(result).toHaveProperty('outcome._tag', 'accepted')
-    expect(result).not.toHaveProperty('outcome.endsMatch')
+    expect(result).toMatchObject({ acceptedSeq: 1 })
+    expect(result).toHaveProperty('_tag', 'accepted')
+    expect(result).not.toHaveProperty('endsMatch')
     expect(events).toEqual(['prepare', 'archive', 'finish'])
   })
 
@@ -101,24 +111,24 @@ describe('sparring commands and finalization', () => {
     })
 
     expect(
-      await sparring(room, events).submitMatchCommand(
+      sparring(room, events).submitMatchCommand(
         matchId,
         { commandId: newCommandId(), source: 'match', command: { type: 'frame.concede', seat: 'B' } },
         'free-pyramid',
       ),
-    ).toEqual({ ok: false, reason: 'match-locked' })
+    ).rejects.toHaveProperty('_tag', 'MatchLocked')
     expect(events).toEqual(['archive', 'finish'])
   })
 
   test('returns malformed nested Commands as invalid request data', async () => {
     const room = selectedClient({ submitCommand: async () => RoomCommandResult['invalid-command']() })
     expect(
-      await sparring(room).submitMatchCommand(
+      sparring(room).submitMatchCommand(
         matchId,
         { commandId: newCommandId(), source: 'match', command: { type: 'unsupported' } },
         'free-pyramid',
       ),
-    ).toEqual({ ok: false, reason: 'invalid-command' })
+    ).rejects.toHaveProperty('_tag', 'InvalidMatchCommand')
   })
 
   test('does not synthesize transport failures for thrown MatchRoom defects', async () => {
@@ -211,7 +221,7 @@ describe('sparring commands and finalization', () => {
 
     expect(archiveError?.message).toBe('lost archive response')
     expect(events).toEqual(['archive-persisted-response-lost'])
-    expect(await app.submitMatchCommand(matchId, command, 'free-pyramid')).toMatchObject({ ok: true })
+    expect(await app.submitMatchCommand(matchId, command, 'free-pyramid')).toHaveProperty('_tag', 'accepted')
     expect(events).toEqual(['archive-persisted-response-lost', 'archive-retry', 'finish'])
   })
 
@@ -252,7 +262,7 @@ describe('sparring commands and finalization', () => {
 
     expect(finishError?.message).toBe('finish failed')
     expect(events).toEqual(['archive', 'finish-failed'])
-    expect(await app.submitMatchCommand(matchId, command, 'free-pyramid')).toMatchObject({ ok: true })
+    expect(await app.submitMatchCommand(matchId, command, 'free-pyramid')).toHaveProperty('_tag', 'accepted')
     expect(events).toEqual(['archive', 'finish-failed', 'archive', 'finish-retry'])
   })
 })

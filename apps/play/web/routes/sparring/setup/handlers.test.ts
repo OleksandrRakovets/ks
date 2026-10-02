@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
 
 import type { CreateSparringMatchInput } from '@ks/application'
+import { InvalidMatchInput, MatchInitializationConflict } from '@ks/application/server'
 import { Effect } from 'effect'
 import { RouterContextProvider } from 'react-router'
 
@@ -10,11 +11,11 @@ import { sparringContext } from '@/server/context.fixtures'
 import { createSetupMatch, loadSetupPage } from './handlers'
 
 test.each([
-  ['invalid-input', 400],
-  ['initialization-conflict', 409],
+  [new InvalidMatchInput(), 400],
+  [new MatchInitializationConflict(), 409],
 ] as const)('setup maps %s to HTTP %i', async (reason, status) => {
   const context = sparringContext({
-    createMatch: () => Effect.succeed({ ok: false, reason }),
+    createMatch: () => Effect.fail(reason),
   })
 
   const form = new FormData()
@@ -54,11 +55,7 @@ test.each([
 
     const context = sparringContext({
       createMatch: (input) =>
-        Effect.sync(() => {
-          inputs.push(input)
-
-          return { ok: false as const, reason: 'invalid-input' as const }
-        }),
+        Effect.sync(() => inputs.push(input)).pipe(Effect.flatMap(() => Effect.fail(new InvalidMatchInput()))),
     })
 
     const form = new FormData()

@@ -1,6 +1,14 @@
 import { describe, expect, test } from 'bun:test'
 
 import { CommandReceiptOutcome } from '@ks/application'
+import {
+  ApplicationStorageError,
+  InvalidMatchCommand,
+  MatchCommandIdConflict,
+  MatchFinished,
+  MatchLocked,
+  MatchNotFound,
+} from '@ks/application/server'
 import { newCommandId, newMatchId } from '@ks/core'
 import { keys } from '@ks/i18n'
 import { Effect } from 'effect'
@@ -11,12 +19,12 @@ import { commandMatchAction, loadMatchPage, loadMatchProtocolPage } from './hand
 
 describe('commandMatchAction adaptation', () => {
   test.each([
-    ['match-finished', keys.match.control.matchLocked],
-    ['match-locked', keys.match.control.matchLocked],
-    ['invalid-command', keys.match.control.invalidCommandPayload],
-    ['command-id-conflict', keys.match.control.invalidCommandPayload],
+    [new MatchFinished(), keys.match.control.matchLocked],
+    [new MatchLocked(), keys.match.control.matchLocked],
+    [new InvalidMatchCommand(), keys.match.control.invalidCommandPayload],
+    [new MatchCommandIdConflict(), keys.match.control.invalidCommandPayload],
   ] as const)('maps %s to its control error', async (reason, errorKey) => {
-    const context = sparringContext({ submitMatchCommand: () => Effect.succeed({ ok: false, reason }) })
+    const context = sparringContext({ submitMatchCommand: () => Effect.fail(reason) })
 
     expect(
       await commandMatchAction(
@@ -28,7 +36,7 @@ describe('commandMatchAction adaptation', () => {
 
   test('throws HTTP 404 for unknown-match', async () => {
     const context = sparringContext({
-      submitMatchCommand: () => Effect.succeed({ ok: false, reason: 'unknown-match' }),
+      submitMatchCommand: () => Effect.fail(new MatchNotFound()),
     })
 
     expect(
@@ -46,11 +54,7 @@ describe('commandMatchAction adaptation', () => {
     const commandId = newCommandId()
 
     const context = sparringContext({
-      submitMatchCommand: () =>
-        Effect.succeed({
-          ok: true,
-          outcome: CommandReceiptOutcome.accepted({ acceptedSeq: 5 }),
-        }),
+      submitMatchCommand: () => Effect.succeed(CommandReceiptOutcome.accepted({ acceptedSeq: 5 })),
     })
 
     const form = new FormData()
@@ -77,10 +81,9 @@ describe('commandMatchAction adaptation', () => {
 
     const context = sparringContext({
       submitMatchCommand: () =>
-        Effect.succeed({
-          ok: true,
-          outcome: CommandReceiptOutcome.rejected({ reason: { code: 'wrong-breaker', expectedSeat: 'B' } }),
-        }),
+        Effect.succeed(
+          CommandReceiptOutcome.rejected({ reason: { code: 'wrong-breaker', expectedSeat: 'B' } }),
+        ),
     })
 
     const form = new FormData()
@@ -105,8 +108,8 @@ describe('commandMatchAction adaptation', () => {
 describe('match and Protocol loader failures', () => {
   test('maps unknown-match to HTTP 404 on both pages', async () => {
     const context = sparringContext({
-      readMatch: () => Effect.succeed({ ok: false, reason: 'unknown-match' }),
-      readMatchProtocol: () => Effect.succeed({ ok: false, reason: 'unknown-match' }),
+      readMatch: () => Effect.fail(new MatchNotFound()),
+      readMatchProtocol: () => Effect.fail(new MatchNotFound()),
     })
 
     for (const load of [loadMatchPage, loadMatchProtocolPage])
@@ -137,6 +140,40 @@ describe('match and Protocol loader failures', () => {
           ),
         ),
       ).toBe(defect)
+  })
+
+  test('maps storage failures to generic HTTP 500 without catching defects', async () => {
+    const storageCause = new Error('private SQL diagnostic')
+
+    const context = sparringContext({
+      readMatch: () => Effect.fail(new ApplicationStorageError({ cause: storageCause })),
+    })
+
+    const originalError = console.error
+    const diagnostics: unknown[][] = []
+    console.error = (...args) => {
+      diagnostics.push(args)
+    }
+
+    try {
+      const response = await handlerFailure(() =>
+        loadMatchPage(
+          {
+            params: { matchId: newMatchId() },
+            request: new Request('http://localhost'),
+            context,
+          },
+          'free-pyramid',
+        ),
+      )
+
+      expect(response).toBeInstanceOf(Response)
+      expect(response).toMatchObject({ status: 500 })
+      expect(response instanceof Response && (await response.text())).toBe('Internal server error')
+      expect(diagnostics[0]?.[1]).toMatchObject({ cause: storageCause })
+    } finally {
+      console.error = originalError
+    }
   })
 })
 

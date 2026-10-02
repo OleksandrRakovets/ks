@@ -41,10 +41,6 @@ export const CreateSparringMatchInput = v.pipe(
 
 export type CreateSparringMatchInput = v.InferOutput<typeof CreateSparringMatchInput>
 
-export type CreateSparringMatchResult =
-  | { readonly ok: true; readonly matchId: MatchId }
-  | { readonly ok: false; readonly reason: 'invalid-input' | 'initialization-conflict' }
-
 type MatchListEntryIdentity = {
   matchId: MatchId
   gameKey: GameKey
@@ -116,14 +112,7 @@ export const MatchScorePollResponse = v.pipe(
 
 export type MatchScorePollResponse = v.InferOutput<typeof MatchScorePollResponse>
 
-export type ReadMatchFailure = { readonly ok: false; readonly reason: 'unknown-match' }
-
-export type ReadMatchScoresResult =
-  | { readonly ok: true; readonly matches: readonly MatchScorePollEntry[] }
-  | ReadMatchFailure
-
 export type MatchReadFacts<K extends GameKey = GameKey> = Readonly<{
-  ok: true
   matchId: MatchId
   gameKey: K
   latestSeq: number
@@ -165,29 +154,10 @@ export type ReadMatchResult<K extends GameKey> =
       readonly endedAtIsToday: boolean
       readonly gameConfiguration?: GameConfiguration
     })
-  | ReadMatchFailure
 
-export type SubmitMatchCommandResult =
-  | { readonly ok: true; readonly outcome: CommandReceiptOutcome }
-  | {
-      readonly ok: false
-      readonly reason:
-        | 'unknown-match'
-        | 'match-finished'
-        | 'match-locked'
-        | 'invalid-command'
-        | 'command-id-conflict'
-    }
-
-export type SparringMatchLiveAdmission =
-  | { readonly _tag: 'admitted' }
-  | { readonly _tag: 'unknown' }
-  | { readonly _tag: 'finished' }
-
-export const SparringMatchLiveAdmission = Data.taggedEnum<SparringMatchLiveAdmission>()
-
-export type ReadMatchProtocolResult<K extends GameKey> =
-  | ((ActiveRead<K> | Extract<MatchReadFacts<K>, { lifecycle: 'finished' }>) & {
-      readonly protocolRows: readonly ProtocolRow[]
-    })
-  | ReadMatchFailure
+export type ReadMatchProtocolResult<K extends GameKey> = (
+  | ActiveRead<K>
+  | Extract<MatchReadFacts<K>, { lifecycle: 'finished' }>
+) & {
+  readonly protocolRows: readonly ProtocolRow[]
+}

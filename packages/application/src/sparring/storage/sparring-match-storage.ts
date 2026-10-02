@@ -14,6 +14,7 @@ import {
   StoredMatchStatus,
   verifiedPlayers,
 } from '../../d1/schema'
+import { ApplicationStorageError } from '../../d1/storage-error'
 import type { MatchRoomArchiveTransfer } from '../../match/match-room'
 import {
   encodeProtocolArchive,
@@ -109,14 +110,14 @@ export class SparringMatchStorage extends Context.Service<SparringMatchStorage>(
           stored.createdAt !== input.createdAt
         )
           throw new Error('Match row conflicts with room creation')
-      })
+      }, mapStorageError)
 
       const activate = Effect.fnUntraced(function* (matchId: MatchId) {
         yield* db
           .update(sparringMatches)
           .set({ status: StoredMatchStatus.active })
           .where(eq(sparringMatches.matchId, matchId))
-      })
+      }, mapStorageError)
 
       const findMatch = Effect.fnUntraced(function* (
         matchId: MatchId,
@@ -128,7 +129,7 @@ export class SparringMatchStorage extends Context.Service<SparringMatchStorage>(
           .get()
 
         return row ? matchRecordFromRow(v.parse(MatchRow, row)) : null
-      })
+      }, mapStorageError)
 
       const listMatches = Effect.fnUntraced(function* (
         matchIds: readonly MatchId[],
@@ -141,7 +142,7 @@ export class SparringMatchStorage extends Context.Service<SparringMatchStorage>(
           .where(inArray(sparringMatches.matchId, matchIds))
 
         return rows.map((row) => matchRecordFromRow(v.parse(MatchRow, row)))
-      })
+      }, mapStorageError)
 
       const listLive = Effect.fnUntraced(function* (finishedSince: UnixEpochMilliseconds) {
         const rows = yield* selectJoinedMatchRows()
@@ -161,7 +162,7 @@ export class SparringMatchStorage extends Context.Service<SparringMatchStorage>(
           )
 
         return rows.map((row) => matchListRecordFromRow(row))
-      })
+      }, mapStorageError)
 
       const listFinished = Effect.fnUntraced(function* (range: {
         readonly start: UnixEpochMilliseconds
@@ -178,7 +179,7 @@ export class SparringMatchStorage extends Context.Service<SparringMatchStorage>(
           .orderBy(sql`${sparringMatches.createdAt} DESC`, sql`${sparringMatches.matchId} DESC`)
 
         return rows.map((row) => matchListRecordFromRow(row))
-      })
+      }, mapStorageError)
 
       /** Find one occupied finished-match day on either side of a UTC day boundary. */
       const findFinishedTime = Effect.fnUntraced(function* (
@@ -200,7 +201,7 @@ export class SparringMatchStorage extends Context.Service<SparringMatchStorage>(
           .get()
 
         return row?.createdAt ?? null
-      })
+      }, mapStorageError)
 
       const findFinishedArchive = Effect.fnUntraced(function* (
         matchId: MatchId,
@@ -217,7 +218,7 @@ export class SparringMatchStorage extends Context.Service<SparringMatchStorage>(
           .get()
 
         return row ? finishedMatchArchiveRecordFromRow(row) : null
-      })
+      }, mapStorageError)
 
       const findProtocolArchive = Effect.fnUntraced(function* (
         matchId: MatchId,
@@ -225,11 +226,11 @@ export class SparringMatchStorage extends Context.Service<SparringMatchStorage>(
         const row = yield* selectArchiveRow(matchId)
 
         return row ? protocolArchiveRecordFromRow(row) : null
-      })
+      }, mapStorageError)
 
       const archiveFinished: (
         input: MatchRoomArchiveTransfer,
-      ) => Effect.Effect<void, EffectDrizzleQueryError> = Effect.fnUntraced(function* (input) {
+      ) => Effect.Effect<void, ApplicationStorageError> = Effect.fnUntraced(function* (input) {
         const archive = encodeProtocolArchive(input)
 
         const storedMatch = yield* db
@@ -268,9 +269,9 @@ export class SparringMatchStorage extends Context.Service<SparringMatchStorage>(
 
         if (!persistedArchive || !semanticArchiveEqual(persistedArchive, archive))
           throw new MatchFinalizationError('Finished match archive conflicts with existing data')
-      })
+      }, mapStorageError)
 
-      const markFinished: (input: MatchRoomArchiveTransfer) => Effect.Effect<void, EffectDrizzleQueryError> =
+      const markFinished: (input: MatchRoomArchiveTransfer) => Effect.Effect<void, ApplicationStorageError> =
         Effect.fnUntraced(function* (input) {
           const finalScoreJson = JSON.stringify(projectMatchScore(input.finalState))
 
@@ -316,7 +317,7 @@ export class SparringMatchStorage extends Context.Service<SparringMatchStorage>(
             result[0].finalScoreJson !== finalScoreJson
           )
             throw new MatchFinalizationError('Finished match is not ready to mark finished')
-        })
+        }, mapStorageError)
 
       return {
         beginCreation,
@@ -356,3 +357,7 @@ const seatAVerified = alias(verifiedPlayers, 'seat_a_verified')
 const seatBGuest = alias(guestPlayers, 'seat_b_guest')
 
 const seatBVerified = alias(verifiedPlayers, 'seat_b_verified')
+
+const mapStorageError = Effect.mapError(
+  (cause: EffectDrizzleQueryError) => new ApplicationStorageError({ cause }),
+)

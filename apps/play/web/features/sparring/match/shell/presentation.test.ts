@@ -315,7 +315,6 @@ test.each(['racks', 'frames'] as const)(
 
 function finishedFacts(gameKey: MatchReadFacts['gameKey']) {
   return {
-    ok: true as const,
     matchId: newMatchId(),
     gameKey,
     latestSeq: 4,

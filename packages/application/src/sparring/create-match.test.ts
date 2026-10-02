@@ -15,13 +15,13 @@ describe('sparring creation', () => {
     })
 
     expect(
-      await app.createMatch({
+      app.createMatch({
         gameKey: 'free-pyramid',
         targets: state.targets,
         firstBreakerSeat: 'A',
         playerNames: { A: 'Same Player', B: 'Same Player' },
       }),
-    ).toEqual({ ok: false, reason: 'invalid-input' })
+    ).rejects.toHaveProperty('_tag', 'InvalidMatchInput')
     expect(events).toEqual([])
   })
 
@@ -37,13 +37,13 @@ describe('sparring creation', () => {
     })
 
     expect(
-      await sparring(room, events).createMatch({
+      sparring(room, events).createMatch({
         gameKey: 'free-pyramid',
         targets: state.targets,
         firstBreakerSeat: 'A',
         playerNames: { A: 'A Player', B: 'B Player' },
       }),
-    ).toEqual({ ok: false, reason: 'initialization-conflict' })
+    ).rejects.toHaveProperty('_tag', 'MatchInitializationConflict')
     expect(events).toEqual(['begin', 'initialize'])
   })
 
@@ -66,7 +66,7 @@ describe('sparring creation', () => {
         firstBreakerSeat: 'A',
         playerNames: { A: 'A Player', B: 'B Player' },
       }),
-    ).toEqual({ ok: true, matchId })
+    ).toEqual({ matchId })
     expect(events).toEqual(['begin', 'initialize', 'activate'])
   })
 })

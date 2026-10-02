@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test'
 
+import { MatchNotFound } from '@ks/application/server'
 import { newMatchId } from '@ks/core'
 import { Effect } from 'effect'
 
@@ -12,11 +13,9 @@ test('live scores maps unknown-match to HTTP 404 JSON', async () => {
 
   const context = sparringContext({
     readMatchScores: (ids) =>
-      Effect.sync(() => {
-        expect(ids).toEqual([matchId])
-
-        return { ok: false as const, reason: 'unknown-match' as const }
-      }),
+      Effect.sync(() => expect(ids).toEqual([matchId])).pipe(
+        Effect.flatMap(() => Effect.fail(new MatchNotFound())),
+      ),
   })
 
   const response = await loader({

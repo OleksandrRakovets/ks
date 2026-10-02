@@ -43,8 +43,8 @@ export function presentFinishedMatch<K extends GameKey>(
   participants: HydratedMatchParticipants,
   endedAt: InstantPresentation,
   now: InstantPresentation,
-): Extract<ReadMatchResult<K>, { ok: true; lifecycle: 'finished' }> {
-  const finished: Extract<ReadMatchResult<K>, { ok: true; lifecycle: 'finished' }> = {
+): Extract<ReadMatchResult<K>, { lifecycle: 'finished' }> {
+  const finished: Extract<ReadMatchResult<K>, { lifecycle: 'finished' }> = {
     ...projectMatchFacts(match.state, match.latestSeq, participants),
     lifecycle: 'finished',
     winnerSeat: match.state.winnerSeat,
@@ -75,7 +75,6 @@ export function projectMatchFacts<K extends GameKey>(
   }
 
   return {
-    ok: true,
     matchId: state.matchId,
     gameKey: state.gameKey,
     latestSeq,

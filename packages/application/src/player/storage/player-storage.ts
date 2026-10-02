@@ -6,6 +6,7 @@ import * as v from 'valibot'
 
 import { ApplicationDatabase } from '../../d1/client'
 import { guestPlayers, verifiedPlayers } from '../../d1/schema'
+import { ApplicationStorageError } from '../../d1/storage-error'
 import { ApplicationClock } from '../../match/clock'
 import { type ParticipantRecord, participantRecordFromRow, type PlayerName } from './records'
 
@@ -81,13 +82,13 @@ export class PlayerStorage extends Context.Service<PlayerStorage>()(
         })
 
         return formatPlayerRef('gp', guestPlayerId)
-      })
+      }, mapStorageError)
 
       const readParticipant = Effect.fnUntraced(function* (
         playerRef: PlayerRef,
       ): Effect.fn.Return<ParticipantRecord, EffectDrizzleQueryError> {
         return participantRecordFromRow(playerRef, yield* selectPlayerRow(playerRef))
-      })
+      }, mapStorageError)
 
       return { ensureGuestRef, readParticipant }
     }),
@@ -95,3 +96,7 @@ export class PlayerStorage extends Context.Service<PlayerStorage>()(
 ) {
   static readonly layer = Layer.effect(this, this.make)
 }
+
+const mapStorageError = Effect.mapError(
+  (cause: EffectDrizzleQueryError) => new ApplicationStorageError({ cause }),
+)

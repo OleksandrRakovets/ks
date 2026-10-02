@@ -1,21 +1,24 @@
 import type { MatchId } from '@ks/core'
-import type { EffectDrizzleQueryError } from 'drizzle-orm/effect-core/errors'
 import { Effect } from 'effect'
 
-import { SparringMatchLiveAdmission } from './contract'
+import { MatchFinished, MatchNotFound } from './errors'
 import { SparringMatchStorage } from './storage/sparring-match-storage'
 
-export const admitMatchLive = Effect.fn('admitMatchLive')(function* (
-  matchId: MatchId,
-): Effect.fn.Return<SparringMatchLiveAdmission, EffectDrizzleQueryError, SparringMatchStorage> {
+export const liveMethods = Effect.gen(function* () {
   const matches = yield* SparringMatchStorage
-  const record = yield* matches.findMatch(matchId)
 
-  if (!record) return SparringMatchLiveAdmission.unknown()
+  const admitMatchLive = Effect.fn('SparringService.admitMatchLive')(function* (matchId: MatchId) {
+    const record = yield* matches.findMatch(matchId)
 
-  if (record.status === 'finished') return SparringMatchLiveAdmission.finished()
+    if (!record) return yield* Effect.fail(new MatchNotFound())
 
-  if (record.status === 'creating') throw new Error('Creating Match cannot be admitted to the live transport')
+    if (record.status === 'finished') return yield* Effect.fail(new MatchFinished())
 
-  return SparringMatchLiveAdmission.admitted()
+    if (record.status === 'creating')
+      throw new Error('Creating Match cannot be admitted to the live transport')
+
+    return undefined
+  })
+
+  return { admitMatchLive }
 })

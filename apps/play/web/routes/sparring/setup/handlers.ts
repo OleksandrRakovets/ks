@@ -2,6 +2,7 @@ import { type CreateSparringMatchInput, DisplayName } from '@ks/application'
 import { SparringService } from '@ks/application/server'
 import { PositiveInteger, Seat } from '@ks/core'
 import { isGameKey, registry } from '@ks/gameplay/definitions'
+import { Effect } from 'effect'
 import { redirect } from 'react-router'
 import * as v from 'valibot'
 
@@ -12,6 +13,7 @@ import {
 } from '@/features/sparring/setup/profile'
 import { matchUrl } from '@/features/sparring/urls'
 import { localeFromContext } from '@/i18n'
+import { applicationStorageErrorResponse } from '@/server/application-storage-error.server'
 import type { AppLoadContext } from '@/server/context.server'
 import { requireRunEffect } from '@/server/context.server'
 
@@ -193,21 +195,20 @@ export async function createSetupMatch({
     : createInputBase
 
   const result = await requireRunEffect(context)(
-    SparringService.use((sparring) => sparring.createMatch(createInput)),
+    SparringService.use((sparring) => sparring.createMatch(createInput)).pipe(
+      Effect.map(({ matchId }) => redirect(matchUrl(gameKey, matchId, localeFromContext(context)))),
+      Effect.catchTags({
+        InvalidMatchInput: () => Effect.succeed(new Response('Could not create match', { status: 400 })),
+        MatchInitializationConflict: () =>
+          Effect.succeed(new Response('Could not create match', { status: 409 })),
+        ApplicationStorageError: (error) => Effect.succeed(applicationStorageErrorResponse(error)),
+      }),
+    ),
   )
 
-  if (!result.ok) {
-    switch (result.reason) {
-      case 'invalid-input':
-        throw new Response('Could not create match', { status: 400 })
-      case 'initialization-conflict':
-        throw new Response('Could not create match', { status: 409 })
-      default:
-        throw new Error('Unhandled match creation failure', { cause: result.reason satisfies never })
-    }
-  }
+  if (result.status !== 302) throw result
 
-  return redirect(matchUrl(gameKey, result.matchId, localeFromContext(context)))
+  return result
 }
 
 function stringFormValue(form: FormData, key: string): string {

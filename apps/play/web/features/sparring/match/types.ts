@@ -2,11 +2,11 @@ import type { MatchReadFacts, ReadMatchProtocolResult, ReadMatchResult } from '@
 import type { GameKey } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
 
-type MatchData<K extends GameKey = GameKey> = Extract<ReadMatchResult<K>, { ok: true }> & {
+type MatchData<K extends GameKey = GameKey> = ReadMatchResult<K> & {
   readonly shortGameTitle: string
 }
 
-type ProtocolData<K extends GameKey> = Extract<ReadMatchProtocolResult<K>, { ok: true }> & {
+type ProtocolData<K extends GameKey> = ReadMatchProtocolResult<K> & {
   readonly shortGameTitle: string
 }
 

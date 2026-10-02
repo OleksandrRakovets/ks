@@ -377,7 +377,6 @@ describe('real D1 match lifecycle', () => {
     )
 
     expect(result).toMatchObject({
-      ok: true,
       lifecycle: 'finished',
       matchId,
       gameKey: 'free-pyramid',
@@ -670,6 +669,40 @@ test('native Effect D1 queries preserve empty results and typed SQL failures', a
       expect(failure.query).toBe('SELECT FROM')
     }).pipe(Effect.provide(D1Client.layer({ db: env.DB }))),
   )
+})
+
+test('storage and public Sparring failures retain SQL diagnostics in the application error channel', async () => {
+  await env.DB.exec('DROP TABLE guest_players; DROP TABLE sparring_matches;')
+
+  const playerFailure = await runtime.runPromise(
+    PlayerStorage.use((players) =>
+      Effect.flip(players.ensureGuestRef({ firstName: 'Storage', lastName: 'Failure' })),
+    ),
+  )
+
+  expect(playerFailure).toHaveProperty('_tag', 'ApplicationStorageError')
+  expect(playerFailure).toHaveProperty('cause._tag', 'EffectDrizzleQueryError')
+
+  const matchFailure = await Effect.runPromise(
+    SparringService.use((sparring) => Effect.flip(sparring.readMatch(matchId, 'en', 'free-pyramid'))).pipe(
+      Effect.provide(
+        applicationLayer(
+          {
+            DB: env.DB,
+            MATCH_ROOM: {
+              getByName: () => {
+                throw new Error('Failed catalog reads must not select MatchRoom')
+              },
+            },
+          },
+          new FixedClock(new Date(createdAt), 'Europe/Kyiv'),
+        ),
+      ),
+    ),
+  )
+
+  expect(matchFailure).toHaveProperty('_tag', 'ApplicationStorageError')
+  expect(matchFailure).toHaveProperty('cause._tag', 'EffectDrizzleQueryError')
 })
 
 describe('D1 match-winner backfill', () => {
