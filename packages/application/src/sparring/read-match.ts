@@ -24,8 +24,8 @@ export const readMethods = Effect.gen(function* () {
   const players = yield* PlayerStorage
   const rooms = yield* MatchRooms
 
-  const readMatch = Effect.fn('SparringService.readMatch')(function* <K extends GameKey>(
-    matchId: MatchId,
+  const readMatch = Effect.fn('SparringService.readMatch')(function* <K extends typeof GameKey.Type>(
+    matchId: typeof MatchId.Type,
     locale: SupportedLocale,
     expectedGameKey: K,
   ): Effect.fn.Return<ReadMatchResult<K>, ApplicationStorageError | MatchNotFound> {
@@ -78,8 +78,10 @@ export const readMethods = Effect.gen(function* () {
     return lastCommand === undefined ? active : { ...active, lastCommand }
   })
 
-  const readMatchProtocol = Effect.fn('SparringService.readMatchProtocol')(function* <K extends GameKey>(
-    matchId: MatchId,
+  const readMatchProtocol = Effect.fn('SparringService.readMatchProtocol')(function* <
+    K extends typeof GameKey.Type,
+  >(
+    matchId: typeof MatchId.Type,
     locale: SupportedLocale,
     expectedGameKey: K,
   ): Effect.fn.Return<ReadMatchProtocolResult<K>, ApplicationStorageError | MatchNotFound> {
@@ -128,8 +130,8 @@ export const readMethods = Effect.gen(function* () {
       : { ...base, controlPhase: 'frame-active', game: match.game }
   })
 
-  const lookupMatch = Effect.fnUntraced(function* <K extends GameKey, Room extends RoomRead>(
-    matchId: MatchId,
+  const lookupMatch = Effect.fnUntraced(function* <K extends typeof GameKey.Type, Room extends RoomRead>(
+    matchId: typeof MatchId.Type,
     expectedGameKey: K,
     readRoom: (room: EffectMatchRoomClient) => Effect.Effect<Room>,
     readArchive: (

@@ -1,8 +1,7 @@
 import { formatPlayerRef, GuestPlayerId, newGuestPlayerId, type PlayerRef, VerifiedPlayerId } from '@ks/core'
 import { and, eq } from 'drizzle-orm'
 import type { EffectDrizzleQueryError } from 'drizzle-orm/effect-core/errors'
-import { Context, Effect, Layer } from 'effect'
-import * as v from 'valibot'
+import { Context, Effect, Layer, Schema } from 'effect'
 
 import { ApplicationDatabase } from '../../d1/client'
 import { guestPlayers, verifiedPlayers } from '../../d1/schema'
@@ -17,9 +16,9 @@ export class PlayerStorage extends Context.Service<PlayerStorage>()(
       const db = yield* ApplicationDatabase
       const clock = yield* ApplicationClock
 
-      const selectPlayerRow = Effect.fnUntraced(function* (playerRef: PlayerRef) {
+      const selectPlayerRow = Effect.fnUntraced(function* (playerRef: typeof PlayerRef.Type) {
         if (playerRef.startsWith('gp_')) {
-          const guestPlayerId = v.parse(GuestPlayerId, playerRef.slice(3))
+          const guestPlayerId = Schema.decodeUnknownSync(GuestPlayerId)(playerRef.slice(3))
 
           return (
             (yield* db
@@ -36,7 +35,7 @@ export class PlayerStorage extends Context.Service<PlayerStorage>()(
         }
 
         if (playerRef.startsWith('vp_')) {
-          const verifiedPlayerId = v.parse(VerifiedPlayerId, playerRef.slice(3))
+          const verifiedPlayerId = Schema.decodeUnknownSync(VerifiedPlayerId)(playerRef.slice(3))
 
           return (
             (yield* db
@@ -85,7 +84,7 @@ export class PlayerStorage extends Context.Service<PlayerStorage>()(
       }, mapStorageError)
 
       const readParticipant = Effect.fnUntraced(function* (
-        playerRef: PlayerRef,
+        playerRef: typeof PlayerRef.Type,
       ): Effect.fn.Return<ParticipantRecord, EffectDrizzleQueryError> {
         return participantRecordFromRow(playerRef, yield* selectPlayerRow(playerRef))
       }, mapStorageError)

@@ -7,7 +7,7 @@ import { SparringMatchStorage } from './storage/sparring-match-storage'
 export const liveMethods = Effect.gen(function* () {
   const matches = yield* SparringMatchStorage
 
-  const admitMatchLive = Effect.fn('SparringService.admitMatchLive')(function* (matchId: MatchId) {
+  const admitMatchLive = Effect.fn('SparringService.admitMatchLive')(function* (matchId: typeof MatchId.Type) {
     const record = yield* matches.findMatch(matchId)
 
     if (!record) return yield* Effect.fail(new MatchNotFound())

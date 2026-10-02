@@ -22,7 +22,7 @@ export class ActiveMatchHandler {
     this.#liveConnections = liveConnections
   }
 
-  submitCommand(command: MatchCommand): ActiveCommandResult {
+  submitCommand(command: typeof MatchCommand.Type): ActiveCommandResult {
     const priorReceipt = this.#storage.findCommandReceipt(command)
 
     if (priorReceipt) {
@@ -43,7 +43,7 @@ export class ActiveMatchHandler {
       : this.#handleAdvancingCommand(command)
   }
 
-  #handleAdvancingCommand(command: MatchCommand): ActiveCommandResult {
+  #handleAdvancingCommand(command: typeof MatchCommand.Type): ActiveCommandResult {
     const match = restoreMatchCheckpoint(this.#storage.readCurrentCheckpoint())
     const result = match.execute(command)
 
@@ -70,7 +70,7 @@ export class ActiveMatchHandler {
     }
   }
 
-  #handleCorrectionCommand(command: MatchCommand): ActiveCommandResult {
+  #handleCorrectionCommand(command: typeof MatchCommand.Type): ActiveCommandResult {
     const target = this.#storage.findCorrectionTarget()
 
     if (!target)
@@ -106,7 +106,7 @@ export class ActiveMatchHandler {
   }
 
   #handleFailedCommand(
-    command: MatchCommand,
+    command: typeof MatchCommand.Type,
     result: Exclude<ReturnType<Match['execute']>, { _tag: 'accepted' }>,
   ): ActiveCommandResult {
     // Nested command validation failed before execution, so allow a corrected request to reuse this command ID.
@@ -122,7 +122,10 @@ export class ActiveMatchHandler {
     const { controlPhase: _controlPhase, ...projection } = this.#readProjection()
     const lastCommand = this.#storage.findLastAdvancingPlayerCommand()
 
-    const presentedLastCommand: { readonly entry: ProtocolEntry; readonly correction?: Control } | null =
+    const presentedLastCommand: {
+      readonly entry: typeof ProtocolEntry.Type
+      readonly correction?: typeof Control.Type
+    } | null =
       lastCommand && isCorrectableCommand(lastCommand.command)
         ? {
             entry: lastCommand.entry,
@@ -134,7 +137,7 @@ export class ActiveMatchHandler {
                 targetCommandId: lastCommand.command.commandId,
               },
               prominence: 'secondary',
-            } satisfies Control,
+            } satisfies typeof Control.Type,
           }
         : lastCommand && { entry: lastCommand.entry }
 
@@ -191,10 +194,10 @@ type ActiveCommandResult =
       readonly acceptedSeq: number
       readonly endsMatch: boolean
     }
-  | Extract<CommandReceipt, { _tag: 'rejected' }>
+  | Extract<typeof CommandReceipt.Type, { _tag: 'rejected' }>
 
 type ActiveScoreResult = {
   readonly _tag: 'active'
-  readonly latestSeq: NonNegativeInteger
-  readonly score: MatchScoreProjection
+  readonly latestSeq: typeof NonNegativeInteger.Type
+  readonly score: typeof MatchScoreProjection.Type
 }

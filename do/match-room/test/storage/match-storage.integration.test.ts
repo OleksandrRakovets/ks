@@ -8,22 +8,23 @@ import {
 import { newCommandId, newMatchId, PlayerRef, UnixEpochMilliseconds } from '@ks/core'
 import { runInDurableObject } from 'cloudflare:test'
 import { env } from 'cloudflare:workers'
-import * as v from 'valibot'
+import { Schema } from 'effect'
 import { expect, test } from 'vitest'
 
 import { MatchStorage } from '../../src/storage/match-storage'
+import { matchRecordFromRow } from '../../src/storage/records'
 
-const request = v.parse(CreateMatchRequest, {
+const request = Schema.decodeUnknownSync(CreateMatchRequest)({
   gameKey: 'free-pyramid',
   targets: { frameTargetPointsBySeat: { A: 8, B: 8 }, matchTargetFrames: 1 },
   firstBreakerSeat: 'A',
   participants: [
-    { seat: 'A', playerRef: v.parse(PlayerRef, 'gp_01ARZ3NDEKTSV4RRFFQ69G5FAA') },
-    { seat: 'B', playerRef: v.parse(PlayerRef, 'gp_01ARZ3NDEKTSV4RRFFQ69G5FAB') },
+    { seat: 'A', playerRef: Schema.decodeUnknownSync(PlayerRef)('gp_01ARZ3NDEKTSV4RRFFQ69G5FAA') },
+    { seat: 'B', playerRef: Schema.decodeUnknownSync(PlayerRef)('gp_01ARZ3NDEKTSV4RRFFQ69G5FAB') },
   ],
 })
 
-const createdAt = v.parse(UnixEpochMilliseconds, 1_700_000_000_000)
+const createdAt = Schema.decodeUnknownSync(UnixEpochMilliseconds)(1_700_000_000_000)
 
 const controlSecret = 'control-secret-1234567890'
 
@@ -189,4 +190,44 @@ test('rejects multiple Match rows as corrupt authority', async () => {
     )
     expect(() => new MatchStorage(state.storage).anyMatchRecord).toThrow('multiple Match rows')
   })
+})
+
+test('decodes storage JSON and strips extras while rejecting incoherent Match headers', () => {
+  const matchId = newMatchId()
+  const config = buildMatchConfig(matchId, request)
+  const score = projectMatchScore(createMatch(config).state())
+
+  const row = {
+    matchId,
+    controlSecret,
+    configJson: JSON.stringify({ ...config, extra: true }),
+    scoreJson: JSON.stringify({ ...score, extra: true }),
+    latestSeq: 0,
+    createdAt,
+    status: 'active' as const,
+    endedAt: null,
+    extra: true,
+  }
+
+  expect(matchRecordFromRow(row)).toEqual({
+    matchId,
+    controlSecret,
+    config,
+    score,
+    latestSeq: 0,
+    createdAt,
+    status: 'active',
+    endedAt: null,
+  })
+
+  for (const invalid of [
+    { ...row, configJson: '{' },
+    { ...row, configJson: JSON.stringify({ ...config, matchId: newMatchId() }) },
+    { ...row, scoreJson: JSON.stringify({ ...score, winnerSeat: 'A' }) },
+    { ...row, status: 'finalizing' as const, endedAt: createdAt },
+    { ...row, controlSecret: 'short' },
+    { ...row, latestSeq: 0.5 },
+  ]) {
+    expect(() => matchRecordFromRow(invalid)).toThrow('MatchRoom active_matches storage corruption')
+  }
 })

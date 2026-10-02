@@ -6,21 +6,20 @@ import {
   SparringMatchLiveContractVersion,
   SparringMatchLivePageKind,
   SparringMatchLiveQuery,
+  StrictStruct,
 } from '@ks/core'
-import * as v from 'valibot'
+import { Result, Schema } from 'effect'
 
 export type LiveConnectionCursor = {
-  readonly matchId: MatchId
+  readonly matchId: typeof MatchId.Type
   readonly latestSeq: number
 }
 
-const ConnectionAttachment = v.strictObject({
+const ConnectionAttachment = StrictStruct({
   contractVersion: SparringMatchLiveContractVersion,
-  connectionId: v.pipe(v.string(), v.uuid()),
+  connectionId: Schema.String.check(Schema.isGUID()),
   pageKind: SparringMatchLivePageKind,
 })
-
-type ConnectionAttachment = v.InferOutput<typeof ConnectionAttachment>
 
 export class LiveConnectionHandler {
   readonly #ctx: DurableObjectState
@@ -30,12 +29,12 @@ export class LiveConnectionHandler {
   }
 
   /** Accepts a socket and sends its catch-up cursor synchronously, leaving no command-delivery gap. */
-  connect(cursor: LiveConnectionCursor, pageKind: SparringMatchLivePageKind): Response {
+  connect(cursor: LiveConnectionCursor, pageKind: typeof SparringMatchLivePageKind.Type): Response {
     const pair = new WebSocketPair()
     const client = pair[0]
     const server = pair[1]
 
-    const attachment: ConnectionAttachment = {
+    const attachment: typeof ConnectionAttachment.Type = {
       contractVersion: 1,
       connectionId: crypto.randomUUID(),
       pageKind,
@@ -80,7 +79,7 @@ export class LiveConnectionHandler {
     })
   }
 
-  broadcast(update: MatchStreamUpdate): void {
+  broadcast(update: typeof MatchStreamUpdate.Type): void {
     const message = JSON.stringify({ contractVersion: 1, type: 'update', update })
 
     for (const socket of this.#ctx.getWebSockets()) {
@@ -102,26 +101,26 @@ export class LiveConnectionHandler {
     }
   }
 
-  validateHandshake(request: Request): SparringMatchLivePageKind | null {
+  validateHandshake(request: Request): typeof SparringMatchLivePageKind.Type | null {
     const url = new URL(request.url)
     const route = /^\/api\/sparring-match\/([^/]+)\/live\/$/.exec(url.pathname)
-    const matchId = v.safeParse(MatchId, route?.[1])
-    const query = v.safeParse(SparringMatchLiveQuery, Object.fromEntries(url.searchParams))
+    const matchId = Schema.decodeUnknownResult(MatchId)(route?.[1])
+    const query = Schema.decodeUnknownResult(SparringMatchLiveQuery)(Object.fromEntries(url.searchParams))
 
     if (
-      !matchId.success ||
-      matchId.output !== this.#ctx.id.name ||
-      !query.success ||
+      Result.isFailure(matchId) ||
+      matchId.success !== this.#ctx.id.name ||
+      Result.isFailure(query) ||
       request.method !== 'GET' ||
       request.headers.get('Upgrade')?.toLowerCase() !== 'websocket' ||
       url.searchParams.size !== 2
     )
       return null
 
-    return query.output.view
+    return query.success.view
   }
 }
 
-function deserializeConnectionAttachment(socket: WebSocket): ConnectionAttachment {
-  return v.parse(ConnectionAttachment, socket.deserializeAttachment())
+function deserializeConnectionAttachment(socket: WebSocket): typeof ConnectionAttachment.Type {
+  return Schema.decodeUnknownSync(ConnectionAttachment)(socket.deserializeAttachment())
 }

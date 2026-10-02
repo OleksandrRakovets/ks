@@ -1,21 +1,21 @@
 import { CreateMatchRequest } from '@ks/competition'
 import { newCommandId, newMatchId, PlayerRef, UnixEpochMilliseconds } from '@ks/core'
 import { env } from 'cloudflare:workers'
-import * as v from 'valibot'
+import { Schema } from 'effect'
 
-const request = v.parse(CreateMatchRequest, {
+const request = Schema.decodeUnknownSync(CreateMatchRequest)({
   gameKey: 'free-pyramid',
   targets: { frameTargetPointsBySeat: { A: 8, B: 8 }, matchTargetFrames: 1 },
   firstBreakerSeat: 'A',
   participants: [
-    { seat: 'A', playerRef: v.parse(PlayerRef, 'gp_01ARZ3NDEKTSV4RRFFQ69G5FAA') },
-    { seat: 'B', playerRef: v.parse(PlayerRef, 'gp_01ARZ3NDEKTSV4RRFFQ69G5FAB') },
+    { seat: 'A', playerRef: Schema.decodeUnknownSync(PlayerRef)('gp_01ARZ3NDEKTSV4RRFFQ69G5FAA') },
+    { seat: 'B', playerRef: Schema.decodeUnknownSync(PlayerRef)('gp_01ARZ3NDEKTSV4RRFFQ69G5FAB') },
   ],
 })
 
 const controlSecret = 'control-secret-1234567890'
 
-const createdAt = v.parse(UnixEpochMilliseconds, 1_700_000_000_000)
+const createdAt = Schema.decodeUnknownSync(UnixEpochMilliseconds)(1_700_000_000_000)
 
 export function initialization(matchId: ReturnType<typeof newMatchId>) {
   return { ...request, matchId, controlSecret, createdAt }

@@ -1,8 +1,10 @@
 import { newCommandId, newMatchId, SparringMatchLiveServerMessage } from '@ks/core'
+import { runInDurableObject } from 'cloudflare:test'
 import { env } from 'cloudflare:workers'
-import * as v from 'valibot'
+import { Schema } from 'effect'
 import { expect, test } from 'vitest'
 
+import { LiveConnectionHandler } from '../../../src/live/live-connection-handler'
 import { initializedRoom, makeRoomFinalizing, matchEndingCommand } from '../fixtures'
 
 function liveRequest(matchId: string, view: 'control' | 'protocol' = 'control'): Request {
@@ -22,12 +24,12 @@ async function connect(stub: Awaited<ReturnType<typeof initializedRoom>>['stub']
   return socket
 }
 
-function nextMessage(socket: WebSocket): Promise<SparringMatchLiveServerMessage> {
+function nextMessage(socket: WebSocket): Promise<typeof SparringMatchLiveServerMessage.Type> {
   return new Promise((resolve) =>
     socket.addEventListener(
       'message',
       (event) =>
-        resolve(v.parse(v.pipe(v.string(), v.parseJson(), SparringMatchLiveServerMessage), event.data)),
+        resolve(Schema.decodeUnknownSync(Schema.fromJsonString(SparringMatchLiveServerMessage))(event.data)),
       { once: true },
     ),
   )
@@ -92,4 +94,39 @@ test('client closure is harmless before match end', async () => {
   socket.close()
   await makeRoomFinalizing(stub)
   expect((await stub.fetch(liveRequest(matchId))).status).toBe(410)
+})
+
+test('rejects excess and invalid fields in restored hibernation attachments', async () => {
+  const { matchId, stub } = await initializedRoom()
+  const client = await connect(stub, matchId)
+  await nextMessage(client)
+
+  await runInDurableObject(stub, (_room, state) => {
+    const socket = state.getWebSockets()[0]
+
+    if (!socket) throw new Error('Expected accepted socket')
+
+    const attachment = {
+      contractVersion: 1,
+      connectionId: '01234567-89ab-cdef-0123-456789abcdef',
+      pageKind: 'control',
+    }
+
+    const handler = new LiveConnectionHandler(state)
+    socket.serializeAttachment(attachment)
+    expect(() => handler.recordClose(socket, 1000, '', true)).not.toThrow()
+
+    for (const invalid of [
+      { ...attachment, extra: true },
+      { ...attachment, connectionId: 'invalid-uuid' },
+      { ...attachment, contractVersion: 2 },
+      { ...attachment, pageKind: 'unknown' },
+    ]) {
+      socket.serializeAttachment(invalid)
+      expect(() => handler.recordClose(socket, 1000, '', true)).toThrow()
+    }
+
+    socket.serializeAttachment(attachment)
+  })
+  client.close()
 })

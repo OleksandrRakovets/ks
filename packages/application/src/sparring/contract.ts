@@ -14,50 +14,45 @@ import {
 } from '@ks/core'
 import type { GameKey, GamePresentationFor } from '@ks/gameplay/definitions'
 import { Data, Schema } from 'effect'
-import * as v from 'valibot'
 
 import type { LastCommandPresentation } from '../match/last-command-projection'
 import type { ProtocolRow } from '../match/protocol-projection'
 import { DisplayName } from '../player/contract'
 
-export type { HydratedMatchParticipants } from '@ks/core'
+export { HydratedMatchParticipants } from '@ks/core'
 
 type CommandReceiptOutcome =
   | { readonly _tag: 'accepted'; readonly acceptedSeq: number }
-  | { readonly _tag: 'rejected'; readonly reason: MatchRejection }
+  | { readonly _tag: 'rejected'; readonly reason: typeof MatchRejection.Type }
 
 export const CommandReceiptOutcome = Data.taggedEnum<CommandReceiptOutcome>()
 
-export const CreateSparringMatchInput = v.pipe(
-  v.intersect([
-    MatchCreationDefinition,
-    v.object({
-      playerNames: v.pipe(v.object({ A: DisplayName, B: DisplayName }), v.readonly()),
-    }),
-  ]),
-  v.check((value) => value.playerNames.A !== value.playerNames.B, 'Players must have different display names'),
-  v.readonly(),
+export const CreateSparringMatchInput = MatchCreationDefinition.mapFields(
+  (fields) => ({ ...fields, playerNames: Schema.Struct({ A: DisplayName, B: DisplayName }) }),
+  { unsafePreserveChecks: true },
+).check(
+  Schema.makeFilter((value) => value.playerNames.A !== value.playerNames.B, {
+    expected: 'Players must have different display names',
+  }),
 )
 
-export type CreateSparringMatchInput = v.InferOutput<typeof CreateSparringMatchInput>
-
 type MatchListEntryIdentity = {
-  matchId: MatchId
-  gameKey: GameKey
+  matchId: typeof MatchId.Type
+  gameKey: typeof GameKey.Type
   shortGameTitle: string
   createdAtIso: string
   createdAtLabel: string
   createdAtDate: InstantPresentation['date']
   createdAtIsToday: boolean
-  participants: HydratedMatchParticipants
-  latestSeq: NonNegativeInteger
-  score: MatchScoreProjection
+  participants: typeof HydratedMatchParticipants.Type
+  latestSeq: typeof NonNegativeInteger.Type
+  score: typeof MatchScoreProjection.Type
   hasCustomFrameTarget: boolean
 }
 
 export type MatchListEntry = Readonly<
   MatchListEntryIdentity &
-    ({ status: 'active'; endedAt: null } | { status: 'finished'; endedAt: UnixEpochMilliseconds })
+    ({ status: 'active'; endedAt: null } | { status: 'finished'; endedAt: typeof UnixEpochMilliseconds.Type })
 >
 
 export const MatchListDay = Schema.String.check(
@@ -86,48 +81,41 @@ export type FinishedMatchListPage = Readonly<{
 
 export type MatchListPage = LiveMatchListPage | FinishedMatchListPage
 
-export const MatchScorePollEntry = v.pipe(
-  v.intersect([
-    v.object({
-      matchId: MatchId,
-      latestSeq: NonNegativeInteger,
-      score: MatchScoreProjection,
-    }),
-    v.variant('status', [
-      v.object({ status: v.literal('active'), endedAt: v.null() }),
-      v.object({ status: v.literal('finished'), endedAt: UnixEpochMilliseconds }),
-    ]),
-  ]),
-  v.readonly(),
-)
+const MatchScorePollFields = {
+  matchId: MatchId,
+  latestSeq: NonNegativeInteger,
+  score: MatchScoreProjection,
+}
 
-export type MatchScorePollEntry = v.InferOutput<typeof MatchScorePollEntry>
-
-export const MatchScorePollResponse = v.pipe(
-  v.object({
-    matches: v.pipe(v.array(MatchScorePollEntry), v.readonly()),
+export const MatchScorePollEntry = Schema.Union([
+  Schema.Struct({ ...MatchScorePollFields, status: Schema.Literal('active'), endedAt: Schema.Null }),
+  Schema.Struct({
+    ...MatchScorePollFields,
+    status: Schema.Literal('finished'),
+    endedAt: UnixEpochMilliseconds,
   }),
-  v.readonly(),
-)
+])
 
-export type MatchScorePollResponse = v.InferOutput<typeof MatchScorePollResponse>
+export const MatchScorePollResponse = Schema.Struct({
+  matches: Schema.Array(MatchScorePollEntry),
+})
 
-export type MatchReadFacts<K extends GameKey = GameKey> = Readonly<{
-  matchId: MatchId
+export type MatchReadFacts<K extends typeof GameKey.Type = typeof GameKey.Type> = Readonly<{
+  matchId: typeof MatchId.Type
   gameKey: K
   latestSeq: number
-  participants: HydratedMatchParticipants
-  targets: MatchTargets
-  framesWonBySeat: BySeatNumber
+  participants: typeof HydratedMatchParticipants.Type
+  targets: typeof MatchTargets.Type
+  framesWonBySeat: typeof BySeatNumber.Type
   /** Frame identified by the authoritative current index, even after award or Match end. */
-  representedFrame: Readonly<{ frameIndex: number; pointsBySeat: BySeatNumber }> | null
+  representedFrame: Readonly<{ frameIndex: number; pointsBySeat: typeof BySeatNumber.Type }> | null
 }> &
   (
     | { readonly lifecycle: 'active'; readonly winnerSeat: null }
-    | { readonly lifecycle: 'finished'; readonly winnerSeat: Seat }
+    | { readonly lifecycle: 'finished'; readonly winnerSeat: typeof Seat.Type }
   )
 
-type ActiveRead<K extends GameKey> = Extract<MatchReadFacts<K>, { lifecycle: 'active' }> &
+type ActiveRead<K extends typeof GameKey.Type> = Extract<MatchReadFacts<K>, { lifecycle: 'active' }> &
   /** A prepared gameplay frame is frame-active even before it has commenced. */
   (
     | { readonly controlPhase: 'frame-active'; readonly game: GamePresentationFor<K> }
@@ -137,12 +125,12 @@ type ActiveRead<K extends GameKey> = Extract<MatchReadFacts<K>, { lifecycle: 'ac
 
 export type ResultScores = Readonly<{
   kind: 'frames' | 'racks'
-  rows: readonly Readonly<{ index: number; score: BySeatNumber }>[]
+  rows: readonly Readonly<{ index: number; score: typeof BySeatNumber.Type }>[]
 }>
 
-export type ReadMatchResult<K extends GameKey> =
+export type ReadMatchResult<K extends typeof GameKey.Type> =
   | (ActiveRead<K> & {
-      readonly controls: readonly Control[]
+      readonly controls: readonly (typeof Control.Type)[]
       /** Most recent uncorrected Accepted Command represented for the control surface. */
       readonly lastCommand?: LastCommandPresentation
     })
@@ -152,10 +140,10 @@ export type ReadMatchResult<K extends GameKey> =
       readonly endedAtTime: string
       readonly endedAtDate: InstantPresentation['date']
       readonly endedAtIsToday: boolean
-      readonly gameConfiguration?: GameConfiguration
+      readonly gameConfiguration?: typeof GameConfiguration.Type
     })
 
-export type ReadMatchProtocolResult<K extends GameKey> = (
+export type ReadMatchProtocolResult<K extends typeof GameKey.Type> = (
   | ActiveRead<K>
   | Extract<MatchReadFacts<K>, { lifecycle: 'finished' }>
 ) & {

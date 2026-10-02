@@ -18,9 +18,9 @@ export const commandMethods = Effect.gen(function* () {
   const rooms = yield* MatchRooms
 
   const submitMatchCommand = Effect.fn('SparringService.submitMatchCommand')(function* (
-    matchId: MatchId,
-    command: MatchCommand,
-    expectedGameKey: GameKey,
+    matchId: typeof MatchId.Type,
+    command: typeof MatchCommand.Type,
+    expectedGameKey: typeof GameKey.Type,
   ) {
     const record = yield* matches.findMatch(matchId)
 
@@ -52,7 +52,7 @@ export const commandMethods = Effect.gen(function* () {
   })
 
   const archiveAndMarkFinished = Effect.fn('SparringService.archiveAndMarkFinished')(function* (
-    matchId: MatchId,
+    matchId: typeof MatchId.Type,
   ) {
     let stage = 'prepare-archive'
 

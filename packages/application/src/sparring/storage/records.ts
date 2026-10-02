@@ -1,7 +1,7 @@
 import { MatchScoreProjection, type MatchState, type ProtocolEntries } from '@ks/competition'
 import { MatchId, NonNegativeInteger, PlayerRef, UnixEpochMilliseconds } from '@ks/core'
 import { GameKey, type GameResult } from '@ks/gameplay/definitions'
-import * as v from 'valibot'
+import { Schema } from 'effect'
 
 import {
   type guestPlayers,
@@ -12,10 +12,10 @@ import {
 import { type ParticipantRecord, participantRecordFromRow } from '../../player/storage/records'
 
 export type MatchCreationRecord = Readonly<{
-  matchId: MatchId
-  gameKey: GameKey
-  createdAt: UnixEpochMilliseconds
-  participantRefs: Readonly<{ A: PlayerRef; B: PlayerRef }>
+  matchId: typeof MatchId.Type
+  gameKey: typeof GameKey.Type
+  createdAt: typeof UnixEpochMilliseconds.Type
+  participantRefs: Readonly<{ A: typeof PlayerRef.Type; B: typeof PlayerRef.Type }>
 }>
 
 export type MatchRecord = MatchCreationRecord &
@@ -23,9 +23,9 @@ export type MatchRecord = MatchCreationRecord &
     | Readonly<{ status: 'creating' | 'active' }>
     | Readonly<{
         status: 'finished'
-        endedAt: UnixEpochMilliseconds
-        finalSourceLatestSeq: NonNegativeInteger
-        finalScore: MatchScoreProjection
+        endedAt: typeof UnixEpochMilliseconds.Type
+        finalSourceLatestSeq: typeof NonNegativeInteger.Type
+        finalScore: typeof MatchScoreProjection.Type
       }>
   )
 
@@ -34,14 +34,14 @@ export type MatchListRecord = MatchRecord &
 
 type ArchiveStateRecord = Readonly<{
   sourceLatestSeq: number
-  state: Extract<MatchState, { status: 'finished' }>
-  gameResult: GameResult | null
+  state: Extract<typeof MatchState.Type, { status: 'finished' }>
+  gameResult: typeof GameResult.Type | null
 }>
 
 export type FinishedMatchArchiveRecord = ArchiveStateRecord & Readonly<{ entries?: never }>
 
 export type ProtocolArchiveRecord = ArchiveStateRecord &
-  Readonly<{ protocolVersion: number; entries: ProtocolEntries }>
+  Readonly<{ protocolVersion: number; entries: typeof ProtocolEntries.Type }>
 
 const MatchRowIdentity = {
   matchId: MatchId,
@@ -51,40 +51,38 @@ const MatchRowIdentity = {
   seatBPlayerRef: PlayerRef,
 }
 
-export const MatchRow = v.pipe(
-  v.variant('status', [
-    v.object({
-      ...MatchRowIdentity,
-      status: v.literal(StoredMatchStatus.creating),
-      endedAt: v.nullable(UnixEpochMilliseconds),
-      finalSourceLatestSeq: v.null(),
-      finalScore: v.null(),
+export const MatchRow = Schema.Union([
+  Schema.Struct({
+    ...MatchRowIdentity,
+    status: Schema.Literal(StoredMatchStatus.creating),
+    endedAt: Schema.NullOr(UnixEpochMilliseconds),
+    finalSourceLatestSeq: Schema.Null,
+    finalScore: Schema.Null,
+  }),
+  Schema.Struct({
+    ...MatchRowIdentity,
+    status: Schema.Literal(StoredMatchStatus.active),
+    endedAt: Schema.NullOr(UnixEpochMilliseconds),
+    finalSourceLatestSeq: Schema.Null,
+    finalScore: Schema.Null,
+  }),
+  Schema.Struct({
+    ...MatchRowIdentity,
+    status: Schema.Literal(StoredMatchStatus.finished),
+    endedAt: UnixEpochMilliseconds,
+    finalSourceLatestSeq: NonNegativeInteger,
+    finalScore: Schema.fromJsonString(MatchScoreProjection),
+  }).check(
+    Schema.makeFilter((row) => row.finalScore.activeFrame === null, {
+      expected: 'Finished Match row has an active Frame',
     }),
-    v.object({
-      ...MatchRowIdentity,
-      status: v.literal(StoredMatchStatus.active),
-      endedAt: v.nullable(UnixEpochMilliseconds),
-      finalSourceLatestSeq: v.null(),
-      finalScore: v.null(),
+    Schema.makeFilter((row) => row.finalScore.winnerSeat !== null, {
+      expected: 'Finished Match row has no winner',
     }),
-    v.pipe(
-      v.object({
-        ...MatchRowIdentity,
-        status: v.literal(StoredMatchStatus.finished),
-        endedAt: UnixEpochMilliseconds,
-        finalSourceLatestSeq: NonNegativeInteger,
-        finalScore: v.pipe(v.string(), v.parseJson(), MatchScoreProjection),
-      }),
-      v.check((row) => row.finalScore.activeFrame === null, 'Finished Match row has an active Frame'),
-      v.check((row) => row.finalScore.winnerSeat !== null, 'Finished Match row has no winner'),
-    ),
-  ]),
-  v.readonly(),
-)
+  ),
+])
 
-export type MatchRow = v.InferOutput<typeof MatchRow>
-
-export function matchRecordFromRow(row: MatchRow): MatchRecord {
+export function matchRecordFromRow(row: typeof MatchRow.Type): MatchRecord {
   const identity = {
     matchId: row.matchId,
     gameKey: row.gameKey,
@@ -112,7 +110,7 @@ export function matchListRecordFromRow(
     seatBVerified: typeof verifiedPlayers.$inferSelect | null
   },
 ): MatchListRecord {
-  const match = v.parse(MatchRow, row)
+  const match = Schema.decodeUnknownSync(MatchRow)(row)
 
   return {
     ...matchRecordFromRow(match),

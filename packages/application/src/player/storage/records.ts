@@ -5,12 +5,12 @@ import type { guestPlayers } from '../../d1/schema'
 export type PlayerName = Readonly<{ firstName: string; lastName: string }>
 
 export type ParticipantRecord = Readonly<{
-  playerRef: PlayerRef
+  playerRef: typeof PlayerRef.Type
   names: Readonly<{ uk: PlayerName; en: PlayerName }> | null
 }>
 
 export function participantRecordFromRow(
-  playerRef: PlayerRef,
+  playerRef: typeof PlayerRef.Type,
   row: LocalizedPlayerRow | null,
 ): ParticipantRecord {
   return {

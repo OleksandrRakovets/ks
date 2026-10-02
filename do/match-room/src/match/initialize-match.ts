@@ -30,12 +30,12 @@ export function initializeMatch(storage: MatchStorage, input: InitializeMatchInp
   return { _tag: 'initialized', matchId: config.matchId }
 }
 
-export type InitializeMatchInput = CreateMatchRequest & {
-  readonly matchId: MatchId
+export type InitializeMatchInput = typeof CreateMatchRequest.Type & {
+  readonly matchId: typeof MatchId.Type
   readonly controlSecret: string
-  readonly createdAt: UnixEpochMilliseconds
+  readonly createdAt: typeof UnixEpochMilliseconds.Type
 }
 
 export type InitializeMatchResult =
-  | { readonly _tag: 'initialized'; readonly matchId: MatchId }
+  | { readonly _tag: 'initialized'; readonly matchId: typeof MatchId.Type }
   | { readonly _tag: 'initialization-conflict' }

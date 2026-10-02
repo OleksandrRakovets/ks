@@ -5,14 +5,14 @@ import { check, integer, primaryKey, sqliteTable, text, unique } from 'drizzle-o
 export const activeMatches = sqliteTable(
   'active_matches',
   {
-    matchId: text('match_id').$type<MatchId>().primaryKey(),
+    matchId: text('match_id').$type<typeof MatchId.Type>().primaryKey(),
     controlSecret: text('control_secret').notNull(),
     configJson: text('config_json').notNull(),
     latestSeq: integer('latest_seq').notNull(),
     scoreJson: text('score_json').notNull(),
     status: text('status').$type<'active' | 'finalizing'>().notNull(),
-    createdAt: integer('created_at').$type<UnixEpochMilliseconds>().notNull(),
-    endedAt: integer('ended_at').$type<UnixEpochMilliseconds>(),
+    createdAt: integer('created_at').$type<typeof UnixEpochMilliseconds.Type>().notNull(),
+    endedAt: integer('ended_at').$type<typeof UnixEpochMilliseconds.Type>(),
   },
   (table) => [
     check(
@@ -60,15 +60,15 @@ export const protocolEntries = sqliteTable(
 export const commands = sqliteTable(
   'commands',
   {
-    commandId: text('command_id').$type<CommandId>().primaryKey(),
+    commandId: text('command_id').$type<typeof CommandId.Type>().primaryKey(),
     matchId: text('match_id')
-      .$type<MatchId>()
+      .$type<typeof MatchId.Type>()
       .notNull()
       .references(() => activeMatches.matchId),
     requestJson: text('request_json').notNull(),
     outcome: text('outcome').$type<'accepted' | 'rejected'>().notNull(),
     acceptedSeq: integer('accepted_seq'),
-    acceptedAt: integer('accepted_at').$type<UnixEpochMilliseconds>(),
+    acceptedAt: integer('accepted_at').$type<typeof UnixEpochMilliseconds.Type>(),
     rejectionJson: text('rejection_json'),
   },
   (table) => [

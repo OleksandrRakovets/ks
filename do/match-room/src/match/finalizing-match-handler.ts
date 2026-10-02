@@ -17,7 +17,7 @@ export class FinalizingMatchHandler {
     this.#storage = storage
   }
 
-  submitCommand(command: MatchCommand): FinalizingCommandResult {
+  submitCommand(command: typeof MatchCommand.Type): FinalizingCommandResult {
     const prior = this.#storage.findCommandReceipt(command)
 
     if (!prior) return { _tag: 'finalizing' }
@@ -110,32 +110,32 @@ type FinalizingResult = { readonly _tag: 'finalizing' }
 
 type FinalizingReadResult = {
   readonly _tag: 'finalizing'
-  readonly state: Extract<MatchState, { status: 'finished' }>
-  readonly gameResult: GameResult | null
-  readonly latestSeq: NonNegativeInteger
-  readonly endedAt: UnixEpochMilliseconds
+  readonly state: Extract<typeof MatchState.Type, { status: 'finished' }>
+  readonly gameResult: typeof GameResult.Type | null
+  readonly latestSeq: typeof NonNegativeInteger.Type
+  readonly endedAt: typeof UnixEpochMilliseconds.Type
 }
 
 type FinalizingProtocolResult = FinalizingReadResult & {
-  readonly protocolEntries: readonly ProtocolEntry[]
+  readonly protocolEntries: readonly (typeof ProtocolEntry.Type)[]
 }
 
 type FinalizingScoreResult = {
   readonly _tag: 'finalizing'
-  readonly latestSeq: NonNegativeInteger
-  readonly endedAt: UnixEpochMilliseconds
-  readonly score: MatchScoreProjection
+  readonly latestSeq: typeof NonNegativeInteger.Type
+  readonly endedAt: typeof UnixEpochMilliseconds.Type
+  readonly score: typeof MatchScoreProjection.Type
 }
 
 export type FinishedMatchTransfer = {
-  readonly matchId: MatchId
-  readonly gameKey: GameKey
-  readonly createdAt: UnixEpochMilliseconds
-  readonly sourceLatestSeq: NonNegativeInteger
-  readonly endedAt: UnixEpochMilliseconds
-  readonly protocolEntries: readonly ProtocolEntry[]
-  readonly finalState: Extract<MatchState, { status: 'finished' }>
-  readonly gameResult: GameResult | null
+  readonly matchId: typeof MatchId.Type
+  readonly gameKey: typeof GameKey.Type
+  readonly createdAt: typeof UnixEpochMilliseconds.Type
+  readonly sourceLatestSeq: typeof NonNegativeInteger.Type
+  readonly endedAt: typeof UnixEpochMilliseconds.Type
+  readonly protocolEntries: readonly (typeof ProtocolEntry.Type)[]
+  readonly finalState: Extract<typeof MatchState.Type, { status: 'finished' }>
+  readonly gameResult: typeof GameResult.Type | null
 }
 
 export type FinalizingCommandResult =
@@ -146,4 +146,4 @@ export type FinalizingCommandResult =
       readonly acceptedSeq: number
       readonly endsMatch: boolean
     }
-  | Extract<CommandReceipt, { _tag: 'rejected' }>
+  | Extract<typeof CommandReceipt.Type, { _tag: 'rejected' }>

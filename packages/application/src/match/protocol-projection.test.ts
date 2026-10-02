@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test'
 
 import type { ProtocolEntry } from '@ks/competition'
 import { FixedClock, newCommandId, UnixEpochMilliseconds } from '@ks/core'
-import * as v from 'valibot'
+import { Schema } from 'effect'
 
 import { presentLastCommand } from './last-command-projection'
 import { type ProtocolMessage, renderProtocolRows } from './protocol-projection'
@@ -14,13 +14,13 @@ const entry = {
   acceptedSeq: 1,
   entryIndex: 0,
   causedByCommandId: newCommandId(),
-  acceptedAt: v.parse(UnixEpochMilliseconds, Date.parse('2026-09-22T21:15:00Z')),
+  acceptedAt: Schema.decodeUnknownSync(UnixEpochMilliseconds)(Date.parse('2026-09-22T21:15:00Z')),
   frameIndex: 1,
   source: 'system' as const,
   entryType: 'frame-prepared',
   seat: 'A' as const,
   body: { targetPointsBySeat: { A: 9, B: 9 } },
-} satisfies ProtocolEntry
+} satisfies typeof ProtocolEntry.Type
 
 test('adapts normalized Protocol entries directly', () => {
   const row = renderProtocolRows([entry], { A: 'Alice', B: 'Bob' }, clock)[0]
@@ -70,7 +70,7 @@ test('attributes the respotted-black opening selection to the chosen player', ()
 })
 
 test('distinguishes Strila ball selections from Pyramid counts in Protocol and last-command messages', () => {
-  const entries: ProtocolEntry[] = [
+  const entries: (typeof ProtocolEntry.Type)[] = [
     {
       ...entry,
       source: 'player',
@@ -115,7 +115,7 @@ test('distinguishes Strila ball selections from Pyramid counts in Protocol and l
 })
 
 test('dispatches default, opponent and offender foul messages from their typed bodies', () => {
-  const entries: ProtocolEntry[] = [
+  const entries: (typeof ProtocolEntry.Type)[] = [
     { ...entry, source: 'player', entryType: 'player-command', body: { commandType: 'foul.commit' } },
     {
       ...entry,
@@ -142,7 +142,7 @@ test('dispatches default, opponent and offender foul messages from their typed b
 })
 
 test('renders the selected Strila penalty without falling back to a default message', () => {
-  const entries: ProtocolEntry[] = [
+  const entries: (typeof ProtocolEntry.Type)[] = [
     {
       ...entry,
       source: 'player',

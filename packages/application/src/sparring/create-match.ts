@@ -1,7 +1,6 @@
 import type { CreateMatchRequest } from '@ks/competition'
 import type { MatchId } from '@ks/core'
-import { Context, Effect, Predicate } from 'effect'
-import * as v from 'valibot'
+import { Context, Effect, Predicate, Result, Schema } from 'effect'
 
 import { ApplicationClock } from '../match/clock'
 import type { MatchRoomInitializationInput } from '../match/match-room'
@@ -14,7 +13,7 @@ import { SparringMatchStorage } from './storage/sparring-match-storage'
 
 export class MatchCreation extends Context.Service<
   MatchCreation,
-  { newMatchId(): MatchId; newControlSecret(): string }
+  { newMatchId(): typeof MatchId.Type; newControlSecret(): string }
 >()('@ks/application/sparring/create-match') {}
 
 export const creationMethods = Effect.gen(function* () {
@@ -24,15 +23,17 @@ export const creationMethods = Effect.gen(function* () {
   const matches = yield* SparringMatchStorage
   const rooms = yield* MatchRooms
 
-  const createMatch = Effect.fn('SparringService.createMatch')(function* (input: CreateSparringMatchInput) {
-    const parsed = v.safeParse(CreateSparringMatchInput, input)
+  const createMatch = Effect.fn('SparringService.createMatch')(function* (
+    input: typeof CreateSparringMatchInput.Type,
+  ) {
+    const parsed = Schema.decodeUnknownResult(CreateSparringMatchInput)(input)
 
-    if (!parsed.success) return yield* Effect.fail(new InvalidMatchInput())
+    if (Result.isFailure(parsed)) return yield* Effect.fail(new InvalidMatchInput())
 
     const matchId = creation.newMatchId()
     const controlSecret = creation.newControlSecret()
     const createdAt = clock.nowMs()
-    const { playerNames, ...requestInput } = parsed.output
+    const { playerNames, ...requestInput } = parsed.success
 
     const [seatAPlayerRef, seatBPlayerRef] = yield* Effect.all(
       [
@@ -42,7 +43,7 @@ export const creationMethods = Effect.gen(function* () {
       { concurrency: 'unbounded' },
     )
 
-    const participants: CreateMatchRequest['participants'] = [
+    const participants: (typeof CreateMatchRequest.Type)['participants'] = [
       { seat: 'A', playerRef: seatAPlayerRef },
       { seat: 'B', playerRef: seatBPlayerRef },
     ]

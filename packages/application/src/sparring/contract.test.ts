@@ -1,7 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
 import { Result, Schema } from 'effect'
-import * as v from 'valibot'
 
 import { CreateSparringMatchInput, MatchListDay } from './contract'
 
@@ -10,13 +9,13 @@ const baseInput = {
   targets: { frameTargetPointsBySeat: { A: 8, B: 8 }, matchTargetFrames: 3 },
   firstBreakerSeat: 'A',
   playerNames: { A: 'Alice', B: 'Bob' },
-}
+} satisfies typeof CreateSparringMatchInput.Type
 
 describe('application match creation input', () => {
   test('accepts a 127-character normalized name whose generated short form reaches the canonical 128 limit', () => {
     const name = `A ${'x'.repeat(125)}`
 
-    const parsed = v.parse(CreateSparringMatchInput, {
+    const parsed = Schema.decodeUnknownSync(CreateSparringMatchInput)({
       ...baseInput,
       playerNames: { A: ` ${name} `, B: 'Bob' },
     })
@@ -27,14 +26,59 @@ describe('application match creation input', () => {
 
   test('rejects empty and 128-character normalized creation names', () => {
     expect(
-      v.safeParse(CreateSparringMatchInput, { ...baseInput, playerNames: { A: ' ', B: 'Bob' } }).success,
-    ).toBe(false)
+      Result.isFailure(
+        Schema.decodeUnknownResult(CreateSparringMatchInput)({
+          ...baseInput,
+          playerNames: { A: ' ', B: 'Bob' },
+        }),
+      ),
+    ).toBe(true)
     expect(
-      v.safeParse(CreateSparringMatchInput, {
+      Result.isFailure(
+        Schema.decodeUnknownResult(CreateSparringMatchInput)({
+          ...baseInput,
+          playerNames: { A: `A ${'x'.repeat(126)}`, B: 'Bob' },
+        }),
+      ),
+    ).toBe(true)
+  })
+
+  test('normalizes whitespace before checking distinct names and strips unknown fields', () => {
+    expect(
+      Schema.decodeUnknownSync(CreateSparringMatchInput)({
         ...baseInput,
-        playerNames: { A: `A ${'x'.repeat(126)}`, B: 'Bob' },
-      }).success,
-    ).toBe(false)
+        extra: true,
+        playerNames: { A: ' \tAlice\n Alpha  ', B: 'Bob', extra: true },
+      }),
+    ).toEqual({ ...baseInput, playerNames: { A: 'Alice Alpha', B: 'Bob' } })
+    expect(
+      Result.isFailure(
+        Schema.decodeUnknownResult(CreateSparringMatchInput)({
+          ...baseInput,
+          playerNames: { A: ' Alice  Alpha ', B: 'Alice\tAlpha' },
+        }),
+      ),
+    ).toBe(true)
+  })
+
+  test('retains competition checks when adding player names', () => {
+    const longInput = { ...baseInput, gameKey: 'free-pyramid-long' }
+    expect(Result.isFailure(Schema.decodeUnknownResult(CreateSparringMatchInput)(longInput))).toBe(true)
+    expect(
+      Result.isFailure(
+        Schema.decodeUnknownResult(CreateSparringMatchInput)({
+          ...longInput,
+          gameConfiguration: { rackRollover: 14 },
+        }),
+      ),
+    ).toBe(true)
+    expect(
+      Schema.decodeUnknownSync(CreateSparringMatchInput)({
+        ...longInput,
+        gameConfiguration: { rackRollover: 14 },
+        targets: { ...baseInput.targets, matchTargetFrames: 1 },
+      }).gameKey,
+    ).toBe('free-pyramid-long')
   })
 })
 

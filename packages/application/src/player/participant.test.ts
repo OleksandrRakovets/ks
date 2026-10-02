@@ -1,12 +1,12 @@
 import { describe, expect, test } from 'bun:test'
 
 import { PlayerRef } from '@ks/core'
-import * as v from 'valibot'
+import { Schema } from 'effect'
 
 import { presentParticipant, splitGuestDisplayName } from './participant'
 import type { ParticipantRecord } from './storage/records'
 
-const playerRef = v.parse(PlayerRef, 'gp_01ARZ3NDEKTSV4RRFFQ69G5FAA')
+const playerRef = Schema.decodeUnknownSync(PlayerRef)('gp_01ARZ3NDEKTSV4RRFFQ69G5FAA')
 
 function localized(firstName: string, lastName: string): ParticipantRecord {
   return {

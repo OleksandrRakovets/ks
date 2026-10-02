@@ -6,14 +6,14 @@ import { protocolEntryMessage, type ProtocolMessage } from './protocol-projectio
 type SeatNames = Readonly<{ A: string; B: string }>
 
 type LastCommand = Readonly<{
-  entry: ProtocolEntry
-  correction?: Control
+  entry: typeof ProtocolEntry.Type
+  correction?: typeof Control.Type
 }>
 
 export type LastCommandPresentation = Readonly<{
   message: ProtocolMessage
-  score?: BySeatNumber | undefined
-  correction?: Control
+  score?: typeof BySeatNumber.Type | undefined
+  correction?: typeof Control.Type
 }>
 
 export function presentLastCommand(lastCommand: LastCommand, seatNames: SeatNames): LastCommandPresentation {

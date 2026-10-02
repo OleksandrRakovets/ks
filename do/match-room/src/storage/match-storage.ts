@@ -23,7 +23,7 @@ import {
 import { and, asc, eq } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/durable-sqlite'
 import { migrate } from 'drizzle-orm/durable-sqlite/migrator'
-import * as v from 'valibot'
+import { Schema } from 'effect'
 
 import migrationsBundle from '../../drizzle/migrations.js'
 import {
@@ -87,13 +87,13 @@ export class MatchStorage {
     this.#cacheMatchRecord(matchRecord)
   }
 
-  get optionalMatchRecord(): MatchRecord | null {
+  get optionalMatchRecord(): typeof MatchRecord.Type | null {
     this.#loadMatchRecord()
 
     return this.#activeMatchRecord ?? this.#finalizingMatchRecord
   }
 
-  get anyMatchRecord(): MatchRecord {
+  get anyMatchRecord(): typeof MatchRecord.Type {
     this.#loadMatchRecord()
 
     if (this.#activeMatchRecord) return this.#activeMatchRecord
@@ -119,7 +119,7 @@ export class MatchStorage {
     return this.#finalizingMatchRecord
   }
 
-  findCommandReceipt(command: MatchCommand): CommandReceiptLookup | null {
+  findCommandReceipt(command: typeof MatchCommand.Type): CommandReceiptLookup | null {
     const row = this.#db
       .select()
       .from(schema.commands)
@@ -134,9 +134,9 @@ export class MatchStorage {
   }
 
   commitRejectedCommand(args: {
-    command: MatchCommand
-    reason: MatchRejection
-  }): Extract<CommandReceipt, { _tag: 'rejected' }> {
+    command: typeof MatchCommand.Type
+    reason: typeof MatchRejection.Type
+  }): Extract<typeof CommandReceipt.Type, { _tag: 'rejected' }> {
     this.#db
       .insert(schema.commands)
       .values({
@@ -155,13 +155,13 @@ export class MatchStorage {
     args: AcceptedCommandCommit,
     previousCheckpointSeq: number,
   ): {
-    receipt: Extract<CommandReceipt, { _tag: 'accepted' }>
-    streamUpdate: MatchStreamUpdate
+    receipt: Extract<typeof CommandReceipt.Type, { _tag: 'accepted' }>
+    streamUpdate: typeof MatchStreamUpdate.Type
   } {
     const matchRecord = this.activeMatchRecord
     const previousCheckpoint = this.#selectCheckpointRow(previousCheckpointSeq)
 
-    const acceptedCommand: AcceptedCommand = {
+    const acceptedCommand: typeof AcceptedCommand.Type = {
       ...args.command,
       acceptedSeq: matchRecord.latestSeq + 1,
       acceptedAt: this.#clock.nowMs(),
@@ -169,7 +169,7 @@ export class MatchStorage {
 
     const endsMatch = args.state.status === 'finished'
 
-    const entries = args.protocolEntryContents.map((content, entryIndex): ProtocolEntry => ({
+    const entries = args.protocolEntryContents.map((content, entryIndex): typeof ProtocolEntry.Type => ({
       ...content,
       acceptedSeq: acceptedCommand.acceptedSeq,
       acceptedAt: acceptedCommand.acceptedAt,
@@ -249,8 +249,8 @@ export class MatchStorage {
           endsMatch,
         },
       } satisfies {
-        receipt: Extract<CommandReceipt, { _tag: 'accepted' }>
-        streamUpdate: MatchStreamUpdate
+        receipt: Extract<typeof CommandReceipt.Type, { _tag: 'accepted' }>
+        streamUpdate: typeof MatchStreamUpdate.Type
       }
     })
 
@@ -290,7 +290,7 @@ export class MatchStorage {
     const previous = this.#selectEffectiveCheckpointRow(targetRow.previousCheckpointSeq)
 
     return {
-      acceptedSeq: v.parse(PositiveInteger, targetRow.seq),
+      acceptedSeq: Schema.decodeUnknownSync(PositiveInteger)(targetRow.seq),
       command: targetCommand,
       protocolEntries: this.#readProtocolEntriesAt(targetRow.seq),
       previousCheckpointSeq: previous.seq,
@@ -298,15 +298,15 @@ export class MatchStorage {
     }
   }
 
-  readCurrentCheckpoint(): MatchCheckpoint {
+  readCurrentCheckpoint(): typeof MatchCheckpoint.Type {
     const matchRecord = this.anyMatchRecord
 
     return checkpointFromRow(this.#selectCheckpointRow(matchRecord.latestSeq), matchRecord)
   }
 
   findLastAdvancingPlayerCommand(): {
-    readonly command: MatchCommand
-    readonly entry: ProtocolEntry
+    readonly command: typeof MatchCommand.Type
+    readonly entry: typeof ProtocolEntry.Type
   } | null {
     const row = this.#selectCheckpointRow(this.activeMatchRecord.latestSeq)
 
@@ -331,7 +331,7 @@ export class MatchStorage {
     }
   }
 
-  readProtocol(): ProtocolEntry[] {
+  readProtocol(): (typeof ProtocolEntry.Type)[] {
     const matchRecord = this.anyMatchRecord
 
     const rows = this.#db
@@ -363,7 +363,7 @@ export class MatchStorage {
     return entries
   }
 
-  #readProtocolEntriesAt(seq: number): ProtocolEntry[] {
+  #readProtocolEntriesAt(seq: number): (typeof ProtocolEntry.Type)[] {
     return this.#db
       .select()
       .from(schema.protocolEntries)
@@ -396,7 +396,7 @@ export class MatchStorage {
     return row
   }
 
-  #readMatchRecord(): MatchRecord | null {
+  #readMatchRecord(): typeof MatchRecord.Type | null {
     const rows = this.#db.select().from(schema.activeMatches).limit(2).all()
 
     if (rows.length > 1) throw new Error('MatchRoom contains multiple Match rows')
@@ -412,7 +412,7 @@ export class MatchStorage {
     this.#cacheMatchRecord(this.#readMatchRecord())
   }
 
-  #cacheMatchRecord(matchRecord: MatchRecord | null): void {
+  #cacheMatchRecord(matchRecord: typeof MatchRecord.Type | null): void {
     this.#activeMatchRecord = matchRecord?.status === 'active' ? matchRecord : null
     this.#finalizingMatchRecord = matchRecord?.status === 'finalizing' ? matchRecord : null
     this.#matchRecordLoaded = true
@@ -428,21 +428,21 @@ export class MatchStorage {
 }
 
 export type MatchCreation = {
-  readonly config: MatchConfig
+  readonly config: typeof MatchConfig.Type
   readonly controlSecret: string
-  readonly createdAt: UnixEpochMilliseconds
-  readonly checkpoint: MatchCheckpoint
-  readonly score: MatchScoreProjection
+  readonly createdAt: typeof UnixEpochMilliseconds.Type
+  readonly checkpoint: typeof MatchCheckpoint.Type
+  readonly score: typeof MatchScoreProjection.Type
 }
 
 type AcceptedCommandCommit = {
-  readonly command: MatchCommand
-  readonly checkpoint: MatchCheckpoint
-  readonly state: MatchState
-  readonly protocolEntryContents: readonly ProtocolEntryContent[]
+  readonly command: typeof MatchCommand.Type
+  readonly checkpoint: typeof MatchCheckpoint.Type
+  readonly state: typeof MatchState.Type
+  readonly protocolEntryContents: readonly (typeof ProtocolEntryContent.Type)[]
 }
 
 export type StoredCorrectionTarget = MatchCorrectionTarget & {
   readonly previousCheckpointSeq: number
-  readonly previousCheckpoint: MatchCheckpoint
+  readonly previousCheckpoint: typeof MatchCheckpoint.Type
 }

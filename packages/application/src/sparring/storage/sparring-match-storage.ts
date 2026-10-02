@@ -3,8 +3,7 @@ import type { MatchId, UnixEpochMilliseconds } from '@ks/core'
 import { and, asc, desc, eq, gte, inArray, isNull, lt, or, sql } from 'drizzle-orm'
 import type { EffectDrizzleQueryError } from 'drizzle-orm/effect-core/errors'
 import { alias } from 'drizzle-orm/sqlite-core'
-import { Context, Effect, Layer } from 'effect'
-import * as v from 'valibot'
+import { Context, Effect, Layer, Schema } from 'effect'
 
 import { ApplicationDatabase } from '../../d1/client'
 import {
@@ -39,7 +38,7 @@ export class SparringMatchStorage extends Context.Service<SparringMatchStorage>(
     make: Effect.gen(function* () {
       const db = yield* ApplicationDatabase
 
-      const selectArchiveRow = (matchId: MatchId) =>
+      const selectArchiveRow = (matchId: typeof MatchId.Type) =>
         db.select().from(sparringMatchArchives).where(eq(sparringMatchArchives.matchId, matchId)).get()
 
       /** Match only the ref's player kind; strip its prefix on the match side so each player PK stays indexed. */
@@ -112,7 +111,7 @@ export class SparringMatchStorage extends Context.Service<SparringMatchStorage>(
           throw new Error('Match row conflicts with room creation')
       }, mapStorageError)
 
-      const activate = Effect.fnUntraced(function* (matchId: MatchId) {
+      const activate = Effect.fnUntraced(function* (matchId: typeof MatchId.Type) {
         yield* db
           .update(sparringMatches)
           .set({ status: StoredMatchStatus.active })
@@ -120,7 +119,7 @@ export class SparringMatchStorage extends Context.Service<SparringMatchStorage>(
       }, mapStorageError)
 
       const findMatch = Effect.fnUntraced(function* (
-        matchId: MatchId,
+        matchId: typeof MatchId.Type,
       ): Effect.fn.Return<MatchRecord | null, EffectDrizzleQueryError> {
         const row = yield* db
           .select(matchRowSelection)
@@ -128,11 +127,11 @@ export class SparringMatchStorage extends Context.Service<SparringMatchStorage>(
           .where(eq(sparringMatches.matchId, matchId))
           .get()
 
-        return row ? matchRecordFromRow(v.parse(MatchRow, row)) : null
+        return row ? matchRecordFromRow(Schema.decodeUnknownSync(MatchRow)(row)) : null
       }, mapStorageError)
 
       const listMatches = Effect.fnUntraced(function* (
-        matchIds: readonly MatchId[],
+        matchIds: readonly (typeof MatchId.Type)[],
       ): Effect.fn.Return<MatchRecord[], EffectDrizzleQueryError> {
         if (matchIds.length === 0) return []
 
@@ -141,10 +140,10 @@ export class SparringMatchStorage extends Context.Service<SparringMatchStorage>(
           .from(sparringMatches)
           .where(inArray(sparringMatches.matchId, matchIds))
 
-        return rows.map((row) => matchRecordFromRow(v.parse(MatchRow, row)))
+        return rows.map((row) => matchRecordFromRow(Schema.decodeUnknownSync(MatchRow)(row)))
       }, mapStorageError)
 
-      const listLive = Effect.fnUntraced(function* (finishedSince: UnixEpochMilliseconds) {
+      const listLive = Effect.fnUntraced(function* (finishedSince: typeof UnixEpochMilliseconds.Type) {
         const rows = yield* selectJoinedMatchRows()
           .where(
             or(
@@ -165,8 +164,8 @@ export class SparringMatchStorage extends Context.Service<SparringMatchStorage>(
       }, mapStorageError)
 
       const listFinished = Effect.fnUntraced(function* (range: {
-        readonly start: UnixEpochMilliseconds
-        readonly end: UnixEpochMilliseconds
+        readonly start: typeof UnixEpochMilliseconds.Type
+        readonly end: typeof UnixEpochMilliseconds.Type
       }) {
         const rows = yield* selectJoinedMatchRows()
           .where(
@@ -183,8 +182,10 @@ export class SparringMatchStorage extends Context.Service<SparringMatchStorage>(
 
       /** Find one occupied finished-match day on either side of a UTC day boundary. */
       const findFinishedTime = Effect.fnUntraced(function* (
-        input: { readonly before: UnixEpochMilliseconds } | { readonly from: UnixEpochMilliseconds },
-      ): Effect.fn.Return<UnixEpochMilliseconds | null, EffectDrizzleQueryError> {
+        input:
+          | { readonly before: typeof UnixEpochMilliseconds.Type }
+          | { readonly from: typeof UnixEpochMilliseconds.Type },
+      ): Effect.fn.Return<typeof UnixEpochMilliseconds.Type | null, EffectDrizzleQueryError> {
         const older = 'before' in input
 
         const row = yield* db
@@ -204,7 +205,7 @@ export class SparringMatchStorage extends Context.Service<SparringMatchStorage>(
       }, mapStorageError)
 
       const findFinishedArchive = Effect.fnUntraced(function* (
-        matchId: MatchId,
+        matchId: typeof MatchId.Type,
       ): Effect.fn.Return<FinishedMatchArchiveRecord | null, EffectDrizzleQueryError> {
         const row = yield* db
           .select({
@@ -221,7 +222,7 @@ export class SparringMatchStorage extends Context.Service<SparringMatchStorage>(
       }, mapStorageError)
 
       const findProtocolArchive = Effect.fnUntraced(function* (
-        matchId: MatchId,
+        matchId: typeof MatchId.Type,
       ): Effect.fn.Return<ProtocolArchiveRecord | null, EffectDrizzleQueryError> {
         const row = yield* selectArchiveRow(matchId)
 

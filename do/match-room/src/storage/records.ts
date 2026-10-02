@@ -9,76 +9,71 @@ import {
 } from '@ks/competition'
 import { MatchCommand, MatchId, NonNegativeInteger, PositiveInteger, UnixEpochMilliseconds } from '@ks/core'
 import { GameKey } from '@ks/gameplay/definitions'
-import * as v from 'valibot'
+import { Schema } from 'effect'
 
 import * as schema from './schema'
 
-const CommandReceipt = v.variant('_tag', [
-  v.pipe(v.object({ _tag: v.literal('accepted'), acceptedSeq: PositiveInteger }), v.readonly()),
-  v.pipe(v.object({ _tag: v.literal('rejected'), reason: MatchRejection }), v.readonly()),
+export const CommandReceipt = Schema.Union([
+  Schema.Struct({ _tag: Schema.Literal('accepted'), acceptedSeq: PositiveInteger }),
+  Schema.Struct({ _tag: Schema.Literal('rejected'), reason: MatchRejection }),
 ])
 
-export type CommandReceipt = v.InferOutput<typeof CommandReceipt>
-
 export type CommandReceiptLookup =
-  | { readonly _tag: 'retry'; readonly receipt: CommandReceipt }
+  | { readonly _tag: 'retry'; readonly receipt: typeof CommandReceipt.Type }
   | { readonly _tag: 'command-id-conflict' }
 
-const ActiveMatchConfig = v.pipe(v.object({ ...MatchConfig.entries, gameKey: GameKey }), v.readonly())
+const ActiveMatchConfig = Schema.Struct({ ...MatchConfig.fields, gameKey: GameKey })
 
 const MatchRecordFields = {
   matchId: MatchId,
-  controlSecret: v.pipe(v.string(), v.minLength(16)),
-  configJson: v.pipe(v.string(), v.parseJson(), ActiveMatchConfig),
+  controlSecret: Schema.String.check(Schema.isMinLength(16)),
+  config: Schema.fromJsonString(ActiveMatchConfig),
   latestSeq: NonNegativeInteger,
-  scoreJson: v.pipe(v.string(), v.parseJson(), MatchScoreProjection),
+  score: Schema.fromJsonString(MatchScoreProjection),
   createdAt: UnixEpochMilliseconds,
 }
 
-const MatchRecord = v.pipe(
-  v.variant('status', [
-    v.object({ ...MatchRecordFields, status: v.literal('active'), endedAt: v.null() }),
-    v.object({ ...MatchRecordFields, status: v.literal('finalizing'), endedAt: UnixEpochMilliseconds }),
-  ]),
-  v.transform(({ configJson, scoreJson, ...row }) => ({
-    ...row,
-    config: configJson,
-    score: scoreJson,
-  })),
-  v.check((row) => row.matchId === row.config.matchId),
-  v.check((row) => (row.status === 'finalizing') === (row.score.winnerSeat !== null)),
-  v.readonly(),
+export const MatchRecord = Schema.Union([
+  Schema.Struct({ ...MatchRecordFields, status: Schema.Literal('active'), endedAt: Schema.Null }).pipe(
+    Schema.encodeKeys({ config: 'configJson', score: 'scoreJson' }),
+  ),
+  Schema.Struct({
+    ...MatchRecordFields,
+    status: Schema.Literal('finalizing'),
+    endedAt: UnixEpochMilliseconds,
+  }).pipe(Schema.encodeKeys({ config: 'configJson', score: 'scoreJson' })),
+]).check(
+  Schema.makeFilter((row) => row.matchId === row.config.matchId),
+  Schema.makeFilter((row) => (row.status === 'finalizing') === (row.score.winnerSeat !== null)),
 )
 
-export type MatchRecord = v.InferOutput<typeof MatchRecord>
+export type ActiveMatchRecord = Extract<typeof MatchRecord.Type, { status: 'active' }>
 
-export type ActiveMatchRecord = Extract<MatchRecord, { status: 'active' }>
+export type FinalizingMatchRecord = Extract<typeof MatchRecord.Type, { status: 'finalizing' }>
 
-export type FinalizingMatchRecord = Extract<MatchRecord, { status: 'finalizing' }>
-
-export function matchRecordFromRow(row: typeof schema.activeMatches.$inferSelect): MatchRecord {
+export function matchRecordFromRow(row: typeof schema.activeMatches.$inferSelect): typeof MatchRecord.Type {
   try {
-    return v.parse(MatchRecord, row)
+    return Schema.decodeUnknownSync(MatchRecord)(row)
   } catch (cause) {
     throw new Error('MatchRoom active_matches storage corruption', { cause })
   }
 }
 
-export function commandFromRow(row: typeof schema.commands.$inferSelect): MatchCommand {
+export function commandFromRow(row: typeof schema.commands.$inferSelect): typeof MatchCommand.Type {
   try {
-    return v.parse(v.pipe(v.string(), v.parseJson(), MatchCommand), row.requestJson)
+    return Schema.decodeUnknownSync(Schema.fromJsonString(MatchCommand))(row.requestJson)
   } catch (cause) {
     throw new Error(`MatchRoom commands storage corruption for command ${row.commandId}`, { cause })
   }
 }
 
-export function commandReceiptFromRow(row: typeof schema.commands.$inferSelect): CommandReceipt {
+export function commandReceiptFromRow(row: typeof schema.commands.$inferSelect): typeof CommandReceipt.Type {
   try {
     if (row.outcome === 'accepted')
-      return v.parse(CommandReceipt, { _tag: 'accepted', acceptedSeq: row.acceptedSeq })
+      return Schema.decodeUnknownSync(CommandReceipt)({ _tag: 'accepted', acceptedSeq: row.acceptedSeq })
     const rejectionReason: unknown = JSON.parse(row.rejectionJson ?? '')
 
-    return v.parse(CommandReceipt, { _tag: 'rejected', reason: rejectionReason })
+    return Schema.decodeUnknownSync(CommandReceipt)({ _tag: 'rejected', reason: rejectionReason })
   } catch (cause) {
     throw new Error(`MatchRoom commands storage corruption for command ${row.commandId}`, { cause })
   }
@@ -86,10 +81,10 @@ export function commandReceiptFromRow(row: typeof schema.commands.$inferSelect):
 
 export function checkpointFromRow(
   row: typeof schema.checkpoints.$inferSelect,
-  matchRecord: MatchRecord,
-): MatchCheckpoint {
+  matchRecord: typeof MatchRecord.Type,
+): typeof MatchCheckpoint.Type {
   try {
-    const checkpoint = v.parse(v.pipe(v.string(), v.parseJson(), MatchCheckpoint), row.aggregateJson)
+    const checkpoint = Schema.decodeUnknownSync(Schema.fromJsonString(MatchCheckpoint))(row.aggregateJson)
 
     if (
       !isDeepStrictEqual(checkpoint.lifecycle.context.config, matchRecord.config) ||
@@ -103,9 +98,11 @@ export function checkpointFromRow(
   }
 }
 
-export function protocolEntryFromRow(row: typeof schema.protocolEntries.$inferSelect): ProtocolEntry {
+export function protocolEntryFromRow(
+  row: typeof schema.protocolEntries.$inferSelect,
+): typeof ProtocolEntry.Type {
   try {
-    const entry = v.parse(v.pipe(v.string(), v.parseJson(), ProtocolEntry), row.entryJson)
+    const entry = Schema.decodeUnknownSync(Schema.fromJsonString(ProtocolEntry))(row.entryJson)
 
     if (entry.acceptedSeq !== row.acceptedSeq || entry.entryIndex !== row.entryIndex)
       throw new Error('position mismatch')

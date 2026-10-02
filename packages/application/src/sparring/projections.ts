@@ -12,7 +12,7 @@ import type { MatchListRecord } from './storage/records'
 export function presentListEntry(
   record: MatchListRecord,
   score: Pick<MatchListEntry, 'latestSeq' | 'score'> &
-    ({ status: 'active'; endedAt: null } | { status: 'finished'; endedAt: UnixEpochMilliseconds }),
+    ({ status: 'active'; endedAt: null } | { status: 'finished'; endedAt: typeof UnixEpochMilliseconds.Type }),
   locale: SupportedLocale,
   formattedCreatedAt: InstantPresentation,
   formattedNow: InstantPresentation,
@@ -35,12 +35,12 @@ export function presentListEntry(
   }
 }
 
-export function presentFinishedMatch<K extends GameKey>(
+export function presentFinishedMatch<K extends typeof GameKey.Type>(
   match: Pick<
     Extract<Awaited<ReturnType<MatchRoomClient['getControls']>>, { _tag: 'finalizing' }>,
     'state' | 'gameResult' | 'latestSeq' | 'endedAt'
   > & { state: MatchStateFor<K> & { status: 'finished' } },
-  participants: HydratedMatchParticipants,
+  participants: typeof HydratedMatchParticipants.Type,
   endedAt: InstantPresentation,
   now: InstantPresentation,
 ): Extract<ReadMatchResult<K>, { lifecycle: 'finished' }> {
@@ -60,10 +60,10 @@ export function presentFinishedMatch<K extends GameKey>(
     : { ...finished, gameConfiguration: match.state.gameConfiguration }
 }
 
-export function projectMatchFacts<K extends GameKey>(
+export function projectMatchFacts<K extends typeof GameKey.Type>(
   state: MatchStateFor<K>,
   latestSeq: number,
-  participants: HydratedMatchParticipants,
+  participants: typeof HydratedMatchParticipants.Type,
 ): Omit<MatchReadFacts<K>, 'lifecycle' | 'winnerSeat'> {
   let representedFrame: MatchReadFacts<K>['representedFrame'] = null
 
@@ -98,7 +98,10 @@ export function matchCreatedAtLabel(
     : `${date}.${formattedCreatedAt.date.year}`
 }
 
-function projectResultScores(state: MatchStateFor<GameKey>, gameResult: GameResult | null): ResultScores {
+function projectResultScores(
+  state: MatchStateFor<typeof GameKey.Type>,
+  gameResult: typeof GameResult.Type | null,
+): ResultScores {
   return gameResult?.gameKey === 'free-pyramid-long'
     ? {
         kind: 'racks',
@@ -119,8 +122,8 @@ function isSameLocalDate(left: InstantPresentation, right: InstantPresentation):
 }
 
 function hasCustomFrameTarget(
-  gameKey: GameKey,
-  target: MatchScoreProjection['frameTargetPointsBySeat'],
+  gameKey: typeof GameKey.Type,
+  target: (typeof MatchScoreProjection.Type)['frameTargetPointsBySeat'],
 ): boolean {
   const defaults = registry[gameKey].meta.defaultFrameTargetPointsBySeat
 

@@ -2,20 +2,20 @@ import { expect, test } from 'bun:test'
 
 import type { ProtocolEntry } from '@ks/competition'
 import { type Control, FixedClock, newCommandId, UnixEpochMilliseconds } from '@ks/core'
-import * as v from 'valibot'
+import { Schema } from 'effect'
 
 import { presentLastCommand } from './last-command-projection'
 import { renderProtocolRows } from './protocol-projection'
 
 const clock = new FixedClock(new Date('2026-09-24T10:00:00Z'), 'Europe/Kyiv')
 
-const acceptedAt = v.parse(UnixEpochMilliseconds, Date.parse('2026-09-24T10:00:00Z'))
+const acceptedAt = Schema.decodeUnknownSync(UnixEpochMilliseconds)(Date.parse('2026-09-24T10:00:00Z'))
 
 const names = { A: 'Аня', B: 'Богдан' }
 
 const originalId = newCommandId()
 
-const pot: ProtocolEntry = {
+const pot: typeof ProtocolEntry.Type = {
   acceptedSeq: 3,
   entryIndex: 0,
   causedByCommandId: originalId,
@@ -29,7 +29,7 @@ const pot: ProtocolEntry = {
   body: { commandType: 'pot.record', pottedBalls: [0] },
 }
 
-const foul: ProtocolEntry = {
+const foul: typeof ProtocolEntry.Type = {
   ...pot,
   entryIndex: 1,
   source: 'system',
@@ -37,7 +37,7 @@ const foul: ProtocolEntry = {
   body: { systemType: 'automatic-foul', reason: 'third-consecutive-cue-ball-pot' },
 }
 
-const correction: ProtocolEntry = {
+const correction: typeof ProtocolEntry.Type = {
   ...pot,
   acceptedSeq: 4,
   entryIndex: 1,
@@ -47,14 +47,14 @@ const correction: ProtocolEntry = {
   body: { targetSeq: 3, targetCommandId: originalId, targetEntryIndex: 0 },
 }
 
-const foulCorrection: ProtocolEntry = {
+const foulCorrection: typeof ProtocolEntry.Type = {
   ...correction,
   entryIndex: 0,
   source: 'system',
   body: { targetSeq: 3, targetCommandId: originalId, targetEntryIndex: 1 },
 }
 
-const correctionControl: Control = {
+const correctionControl: typeof Control.Type = {
   source: 'match',
   type: 'command.correct',
   fixedInput: { targetSeq: 3, targetCommandId: originalId },
@@ -69,7 +69,7 @@ test('targets the player command, not its later system entry', () => {
 })
 
 test('renders the effective predecessor supplied by MatchRoom after compensation', () => {
-  const earlier: ProtocolEntry = {
+  const earlier: typeof ProtocolEntry.Type = {
     ...pot,
     acceptedSeq: 2,
     causedByCommandId: newCommandId(),
@@ -94,7 +94,7 @@ test('renders the effective predecessor supplied by MatchRoom after compensation
 })
 
 test('links both correction entries to their own original without adding a stack step', () => {
-  const earlier: ProtocolEntry = {
+  const earlier: typeof ProtocolEntry.Type = {
     ...pot,
     acceptedSeq: 2,
     causedByCommandId: newCommandId(),

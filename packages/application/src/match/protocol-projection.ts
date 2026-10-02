@@ -7,7 +7,7 @@ type SeatNames = Readonly<{ A: string; B: string }>
 export type ProtocolRow = Readonly<{
   key: string
   message: ProtocolMessage
-  score?: BySeatNumber | undefined
+  score?: typeof BySeatNumber.Type | undefined
   acceptedAtIso: string
   acceptedAtLabel: string
 }>
@@ -16,12 +16,15 @@ export type ProtocolMessage = Readonly<{
   key: string
   actor?: string | undefined
   params?: Readonly<Record<string, string | number>>
-  pottedBalls?: readonly StrilaBall[]
+  pottedBalls?: readonly (typeof StrilaBall.Type)[]
   correctedEntry?: ProtocolMessage
 }>
 
-export function protocolEntryMessage(entry: ProtocolEntry, seatNames: SeatNames): ProtocolRow['message'] {
-  const seatLabel = (seat: Seat) => seatNames[seat]
+export function protocolEntryMessage(
+  entry: typeof ProtocolEntry.Type,
+  seatNames: SeatNames,
+): ProtocolRow['message'] {
+  const seatLabel = (seat: typeof Seat.Type) => seatNames[seat]
   const actor = seatLabel(entry.seat)
 
   if (entry.entryType === 'player-command') {
@@ -90,7 +93,7 @@ export function protocolEntryMessage(entry: ProtocolEntry, seatNames: SeatNames)
 }
 
 export function renderProtocolRows(
-  entries: readonly ProtocolEntry[],
+  entries: readonly (typeof ProtocolEntry.Type)[],
   seatNames: SeatNames,
   clock: Clock,
 ): ProtocolRow[] {
@@ -108,15 +111,15 @@ export function renderProtocolRows(
 }
 
 function correctionMessage(
-  entry: ProtocolEntry,
-  entries: readonly ProtocolEntry[],
+  entry: typeof ProtocolEntry.Type,
+  entries: readonly (typeof ProtocolEntry.Type)[],
   seatNames: SeatNames,
 ): ProtocolMessage | undefined {
   const reference = correctionReferenceOf(entry)
 
   if (!reference) return undefined
 
-  let original: ProtocolEntry | undefined
+  let original: typeof ProtocolEntry.Type | undefined
 
   for (let index = entries.length - 1; index >= 0; index -= 1) {
     const candidate = entries[index]

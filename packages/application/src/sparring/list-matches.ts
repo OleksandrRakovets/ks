@@ -1,8 +1,7 @@
 import type { InstantPresentation, MatchId } from '@ks/core'
 import { UnixEpochMilliseconds } from '@ks/core'
 import type { SupportedLocale } from '@ks/i18n'
-import { Effect, Predicate } from 'effect'
-import * as v from 'valibot'
+import { Effect, Predicate, Schema } from 'effect'
 
 import type { ApplicationStorageError } from '../d1/storage-error'
 import { ApplicationClock } from '../match/clock'
@@ -27,7 +26,7 @@ export const listMethods = Effect.gen(function* () {
     const formattedNow = clock.instantPresentation(now)
 
     const records = yield* matchesStorage.listLive(
-      v.parse(UnixEpochMilliseconds, Math.max(0, now - RECENT_FINISHED_MATCH_WINDOW_MS)),
+      Schema.decodeUnknownSync(UnixEpochMilliseconds)(Math.max(0, now - RECENT_FINISHED_MATCH_WINDOW_MS)),
     )
 
     const matches = yield* projectListEntries(records, locale, formattedNow, (formattedCreatedAt) =>
@@ -60,7 +59,7 @@ export const listMethods = Effect.gen(function* () {
     const latest =
       requestedDay === undefined
         ? yield* matchesStorage.findFinishedTime({
-            before: v.parse(UnixEpochMilliseconds, Number.MAX_SAFE_INTEGER),
+            before: Schema.decodeUnknownSync(UnixEpochMilliseconds)(Number.MAX_SAFE_INTEGER),
           })
         : null
 
@@ -98,7 +97,7 @@ export const listMethods = Effect.gen(function* () {
   })
 
   const readMatchScores = Effect.fn('SparringService.readMatchScores')(function* (
-    matchIds: readonly MatchId[],
+    matchIds: readonly (typeof MatchId.Type)[],
   ) {
     if (matchIds.length < 1 || new Set(matchIds).size !== matchIds.length)
       throw new Error('Match score batch must contain unique Matches')
@@ -119,7 +118,7 @@ export const listMethods = Effect.gen(function* () {
       records.push(record)
     }
 
-    const matches: MatchScorePollEntry[] = yield* Effect.forEach(
+    const matches: (typeof MatchScorePollEntry.Type)[] = yield* Effect.forEach(
       records,
       Effect.fnUntraced(function* (record) {
         return {
@@ -183,7 +182,7 @@ export const listMethods = Effect.gen(function* () {
 
 function localDay(
   clock: ApplicationClock['Service'],
-  instant: UnixEpochMilliseconds,
+  instant: typeof UnixEpochMilliseconds.Type,
 ): typeof MatchListDay.Type {
   const { year, month, day } = clock.instantPresentation(instant).date
 

@@ -1,6 +1,6 @@
 import { HydratedMatchParticipant } from '@ks/core'
 import type { SupportedLocale } from '@ks/i18n'
-import * as v from 'valibot'
+import { Schema } from 'effect'
 
 import type { ParticipantRecord, PlayerName } from './storage/records'
 
@@ -15,11 +15,11 @@ export function splitGuestDisplayName(displayName: string): PlayerName {
 export function presentParticipant(
   participant: ParticipantRecord,
   locale: SupportedLocale,
-): HydratedMatchParticipant {
+): typeof HydratedMatchParticipant.Type {
   const { playerRef, names } = participant
 
   if (!names)
-    return v.parse(HydratedMatchParticipant, {
+    return Schema.decodeUnknownSync(HydratedMatchParticipant)({
       playerRef,
       displayName: playerRef,
       shortDisplayName: playerRef,
@@ -29,7 +29,7 @@ export function presentParticipant(
   const displayName = `${firstName} ${lastName}`.trim()
   const initial = firstName.trim().charAt(0)
 
-  return v.parse(HydratedMatchParticipant, {
+  return Schema.decodeUnknownSync(HydratedMatchParticipant)({
     playerRef,
     displayName,
     shortDisplayName: initial ? `${initial}. ${lastName}`.trim() : lastName.trim(),

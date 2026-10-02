@@ -14,7 +14,7 @@ const now = clock.nowPresentation()
 
 describe('sparring Match projections', () => {
   test('selects the indexed awarded frame and preserves Owed Balls', () => {
-    const current: MatchState = {
+    const current: typeof MatchState.Type = {
       ...state,
       gameKey: 'combined-pyramid-old',
       currentFrameIndex: 2,
@@ -34,13 +34,13 @@ describe('sparring Match projections', () => {
   })
 
   test('retains prepared and winner-determined points, then selects the zero-score next frame', () => {
-    const winnerDetermined: MatchState = {
+    const winnerDetermined: typeof MatchState.Type = {
       ...state,
       targets: { ...state.targets, matchTargetFrames: 2 },
       frames: [{ frameIndex: 1, pointsBySeat: { A: 8, B: 3 }, breakerSeat: 'A' }],
     }
 
-    const nextFrame: MatchState = {
+    const nextFrame: typeof MatchState.Type = {
       ...winnerDetermined,
       currentFrameIndex: 2,
       framesWonBySeat: { A: 1, B: 0 },
@@ -77,7 +77,7 @@ describe('sparring Match projections', () => {
   })
 
   test('preserves ordinary Result row indexes and source order without inferring the winner', () => {
-    const finalState: Extract<MatchState, { status: 'finished' }> = {
+    const finalState: Extract<typeof MatchState.Type, { status: 'finished' }> = {
       ...transfer.finalState,
       framesWonBySeat: { A: 2, B: 0 },
       frames: [
@@ -108,7 +108,7 @@ describe('sparring Match projections', () => {
   })
 
   test('preserves long rack rows, empty rollover, cumulative points and optional rematch configuration', () => {
-    const finalState: Extract<MatchState, { status: 'finished' }> = {
+    const finalState: Extract<typeof MatchState.Type, { status: 'finished' }> = {
       ...transfer.finalState,
       gameKey: 'free-pyramid-long',
       winnerSeat: 'B',

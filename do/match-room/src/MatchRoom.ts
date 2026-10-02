@@ -29,7 +29,7 @@ export class MatchRoom extends DurableObject<Env> {
     return initializeMatch(this.#storage, input)
   }
 
-  async submitCommand(command: MatchCommand) {
+  async submitCommand(command: typeof MatchCommand.Type) {
     return this.#requireHandler().submitCommand(command)
   }
 

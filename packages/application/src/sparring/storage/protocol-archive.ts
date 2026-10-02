@@ -1,7 +1,7 @@
 import { FinishedMatchState, MatchState, ProtocolEntries } from '@ks/competition'
 import { MatchId, PositiveInteger } from '@ks/core'
 import { GameResult } from '@ks/gameplay/definitions'
-import * as v from 'valibot'
+import { Result, Schema } from 'effect'
 
 import type { sparringMatchArchives } from '../../d1/schema'
 import type { MatchRoomArchiveTransfer } from '../../match/match-room'
@@ -10,14 +10,14 @@ import type { FinishedMatchArchiveRecord, ProtocolArchiveRecord } from './record
 const PROTOCOL_ARCHIVE_VERSION = 1 as const
 
 export class UnsupportedProtocolArchiveVersionError extends Error {
-  constructor(matchId: MatchId, version: number) {
+  constructor(matchId: typeof MatchId.Type, version: number) {
     super(`Unsupported protocol archive version ${String(version)} for match ${matchId}`)
     this.name = 'UnsupportedProtocolArchiveVersionError'
   }
 }
 
 export class ProtocolArchiveCorruptionError extends Error {
-  constructor(matchId: MatchId) {
+  constructor(matchId: typeof MatchId.Type) {
     super(`Protocol archive storage corruption for match ${matchId}`)
     this.name = 'ProtocolArchiveCorruptionError'
   }
@@ -50,7 +50,7 @@ export function encodeProtocolArchive(input: MatchRoomArchiveTransfer): ArchiveI
 
 export function finishedMatchArchiveRecordFromRow(row: ArchiveStateRow): FinishedMatchArchiveRecord {
   try {
-    const { matchId: _matchId, ...archive } = v.parse(ArchiveStateStorageRow, row)
+    const { matchId: _matchId, ...archive } = Schema.decodeUnknownSync(ArchiveStateStorageRow)(row)
 
     return archive
   } catch {
@@ -60,9 +60,13 @@ export function finishedMatchArchiveRecordFromRow(row: ArchiveStateRow): Finishe
 
 export function protocolArchiveRecordFromRow(row: ArchiveRow): ProtocolArchiveRecord {
   try {
-    const { matchId: _matchId, ...archive } = v.parse(ArchiveStateStorageRow, row)
-    const protocolVersion = v.parse(v.literal(PROTOCOL_ARCHIVE_VERSION), row.protocolVersion)
-    const entries = v.parse(v.pipe(v.string(), v.parseJson(), ProtocolEntries), row.rowsJson)
+    const { matchId: _matchId, ...archive } = Schema.decodeUnknownSync(ArchiveStateStorageRow)(row)
+
+    const protocolVersion = Schema.decodeUnknownSync(Schema.Literal(PROTOCOL_ARCHIVE_VERSION))(
+      row.protocolVersion,
+    )
+
+    const entries = Schema.decodeUnknownSync(Schema.fromJsonString(ProtocolEntries))(row.rowsJson)
     const gameKey = archive.state.gameKey
 
     if (entries.some((entry) => entry.gameKey !== gameKey))
@@ -83,48 +87,46 @@ export function semanticArchiveEqual(left: ArchiveRow, right: ArchiveInsert): bo
     left.createdAt !== right.createdAt
   )
     return false
-  const leftRows = v.safeParse(v.pipe(v.string(), v.parseJson(), ProtocolEntries), left.rowsJson)
-  const rightRows = v.safeParse(v.pipe(v.string(), v.parseJson(), ProtocolEntries), right.rowsJson)
-  const leftState = v.safeParse(v.pipe(v.string(), v.parseJson(), MatchState), left.stateJson)
-  const rightState = v.safeParse(v.pipe(v.string(), v.parseJson(), MatchState), right.stateJson)
-  const resultSchema = v.nullable(v.pipe(v.string(), v.parseJson(), GameResult))
-  const leftResult = v.safeParse(resultSchema, left.gameResultJson)
-  const rightResult = v.safeParse(resultSchema, right.gameResultJson)
+  const leftRows = Schema.decodeUnknownResult(Schema.fromJsonString(ProtocolEntries))(left.rowsJson)
+  const rightRows = Schema.decodeUnknownResult(Schema.fromJsonString(ProtocolEntries))(right.rowsJson)
+  const leftState = Schema.decodeUnknownResult(Schema.fromJsonString(MatchState))(left.stateJson)
+  const rightState = Schema.decodeUnknownResult(Schema.fromJsonString(MatchState))(right.stateJson)
+  const resultSchema = Schema.NullOr(Schema.fromJsonString(GameResult))
+  const leftResult = Schema.decodeUnknownResult(resultSchema)(left.gameResultJson)
+  const rightResult = Schema.decodeUnknownResult(resultSchema)(right.gameResultJson)
 
   return (
-    leftRows.success &&
-    rightRows.success &&
-    leftState.success &&
-    rightState.success &&
-    leftResult.success &&
-    rightResult.success &&
-    structuralEqual(leftRows.output, rightRows.output) &&
-    structuralEqual(leftState.output, rightState.output) &&
-    structuralEqual(leftResult.output, rightResult.output)
+    Result.isSuccess(leftRows) &&
+    Result.isSuccess(rightRows) &&
+    Result.isSuccess(leftState) &&
+    Result.isSuccess(rightState) &&
+    Result.isSuccess(leftResult) &&
+    Result.isSuccess(rightResult) &&
+    structuralEqual(leftRows.success, rightRows.success) &&
+    structuralEqual(leftState.success, rightState.success) &&
+    structuralEqual(leftResult.success, rightResult.success)
   )
 }
 
-const ArchiveStateStorageRow = v.pipe(
-  v.object({
-    matchId: MatchId,
-    sourceLatestSeq: PositiveInteger,
-    stateJson: v.pipe(v.string(), v.parseJson(), FinishedMatchState),
-    gameResultJson: v.nullable(v.pipe(v.string(), v.parseJson(), GameResult)),
-  }),
-  v.transform(({ stateJson, gameResultJson, ...row }) => ({
-    ...row,
-    state: stateJson,
-    gameResult: gameResultJson,
-  })),
-  v.check((value) => value.state.matchId === value.matchId, 'Archive match ID does not match state'),
-  v.check(
-    (value) =>
-      value.state.gameKey === 'free-pyramid-long'
-        ? value.gameResult?.gameKey === value.state.gameKey
-        : value.gameResult === null,
-    'Archive game result does not match game',
-  ),
-)
+const ArchiveStateStorageRow = Schema.Struct({
+  matchId: MatchId,
+  sourceLatestSeq: PositiveInteger,
+  state: Schema.fromJsonString(FinishedMatchState),
+  gameResult: Schema.NullOr(Schema.fromJsonString(GameResult)),
+})
+  .pipe(Schema.encodeKeys({ state: 'stateJson', gameResult: 'gameResultJson' }))
+  .check(
+    Schema.makeFilter((value) => value.state.matchId === value.matchId, {
+      expected: 'Archive match ID does not match state',
+    }),
+    Schema.makeFilter(
+      (value) =>
+        value.state.gameKey === 'free-pyramid-long'
+          ? value.gameResult?.gameKey === value.state.gameKey
+          : value.gameResult === null,
+      { expected: 'Archive game result does not match game' },
+    ),
+  )
 
 type StructuralValue =
   | undefined
@@ -134,9 +136,9 @@ type StructuralValue =
   | string
   | readonly StructuralValue[]
   | StructuralObject
-  | MatchState
-  | ProtocolEntries
-  | GameResult
+  | typeof MatchState.Type
+  | typeof ProtocolEntries.Type
+  | typeof GameResult.Type
 
 type StructuralObject = { readonly [key: string]: StructuralValue }
 

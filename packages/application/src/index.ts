@@ -1,6 +1,5 @@
 /** Browser/server shared application contracts; server adapters are exported from @ks/application/server. */
 export type {
-  HydratedMatchParticipants,
   MatchListEntry,
   MatchListPage,
   MatchReadFacts,
@@ -13,6 +12,7 @@ export { DisplayName } from './player/contract'
 export {
   CommandReceiptOutcome,
   CreateSparringMatchInput,
+  HydratedMatchParticipants,
   MatchListDay,
   MatchScorePollEntry,
   MatchScorePollResponse,

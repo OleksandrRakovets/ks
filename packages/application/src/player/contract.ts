@@ -1,12 +1,12 @@
-import * as v from 'valibot'
+import { Schema, SchemaGetter } from 'effect'
 
-export const DisplayName = v.pipe(
-  v.string(),
-  v.trim(),
-  v.transform((value) => value.replace(/\s+/g, ' ')),
-  v.minLength(1),
+export const DisplayName = Schema.String.pipe(
+  Schema.decode({
+    decode: SchemaGetter.transform((value) => value.trim().replace(/\s+/g, ' ')),
+    encode: SchemaGetter.passthrough(),
+  }),
+).check(
+  Schema.isMinLength(1),
   // "I Lastname" becomes "I. Lastname" when hydrated, so creation reserves one character for the short form.
-  v.maxLength(127),
+  Schema.isMaxLength(127),
 )
-
-export type DisplayName = v.InferOutput<typeof DisplayName>

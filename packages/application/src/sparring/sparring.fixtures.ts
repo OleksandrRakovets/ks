@@ -5,8 +5,7 @@ import type { Clock } from '@ks/core'
 import { FixedClock, MatchId, newCommandId, PlayerRef, UnixEpochMilliseconds } from '@ks/core'
 import type { GameKey } from '@ks/gameplay/definitions'
 import type { SupportedLocale } from '@ks/i18n'
-import { Context, Data, Effect, pipe } from 'effect'
-import * as v from 'valibot'
+import { Context, Data, Effect, pipe, Schema } from 'effect'
 
 import { ApplicationClock } from '../match/clock'
 import { type MatchRoomArchiveTransfer, type MatchRoomClient, MatchRooms } from '../match/match-room'
@@ -27,11 +26,11 @@ export const RoomProtocol = Data.taggedEnum<Awaited<ReturnType<MatchRoomClient['
 
 export const RoomScore = Data.taggedEnum<Awaited<ReturnType<MatchRoomClient['getScore']>>>()
 
-export const matchId = v.parse(MatchId, '01ARZ3NDEKTSV4RRFFQ69G5FAV')
+export const matchId = Schema.decodeUnknownSync(MatchId)('01ARZ3NDEKTSV4RRFFQ69G5FAV')
 
-export const playerRefA = v.parse(PlayerRef, 'gp_01ARZ3NDEKTSV4RRFFQ69G5FAA')
+export const playerRefA = Schema.decodeUnknownSync(PlayerRef)('gp_01ARZ3NDEKTSV4RRFFQ69G5FAA')
 
-export const playerRefB = v.parse(PlayerRef, 'gp_01ARZ3NDEKTSV4RRFFQ69G5FAB')
+export const playerRefB = Schema.decodeUnknownSync(PlayerRef)('gp_01ARZ3NDEKTSV4RRFFQ69G5FAB')
 
 export const participants = {
   A: { playerRef: playerRefA, displayName: 'Alice Alpha', shortDisplayName: 'A. Alpha' },
@@ -55,7 +54,7 @@ export const participantRecords = {
   },
 }
 
-export const createdAt = v.parse(UnixEpochMilliseconds, 1_700_000_000_000)
+export const createdAt = Schema.decodeUnknownSync(UnixEpochMilliseconds)(1_700_000_000_000)
 
 const clock = new FixedClock(new Date(createdAt), 'Europe/Kyiv')
 
@@ -75,7 +74,7 @@ export const transfer: MatchRoomArchiveTransfer = {
   gameKey: 'free-pyramid',
   createdAt,
   sourceLatestSeq: 1,
-  endedAt: v.parse(UnixEpochMilliseconds, 1_700_000_001_000),
+  endedAt: Schema.decodeUnknownSync(UnixEpochMilliseconds)(1_700_000_001_000),
   protocolEntries: [],
   finalState: {
     ...state,
@@ -110,9 +109,9 @@ export function sparring(
     initialStatus?: 'active' | 'finished'
     overrides?: {
       clock?: Clock
-      newMatchId?: () => MatchId
+      newMatchId?: () => typeof MatchId.Type
       newControlSecret?: () => string
-      matchRoomClient?: (matchId: MatchId) => MatchRoomClient
+      matchRoomClient?: (matchId: typeof MatchId.Type) => MatchRoomClient
     }
     players?: Partial<PromiseService<PlayerStorage['Service']>>
     matches?: Partial<PromiseService<SparringMatchStorage['Service']>>
@@ -255,12 +254,18 @@ export function sparring(
       Effect.runPromise(service.listFinishedMatches(...args)),
     readMatchScores: (...args: Parameters<typeof service.readMatchScores>) =>
       Effect.runPromise(service.readMatchScores(...args)),
-    readMatch: <K extends GameKey>(matchId: MatchId, locale: SupportedLocale, expectedGameKey: K) =>
-      Effect.runPromise(service.readMatch(matchId, locale, expectedGameKey)),
+    readMatch: <K extends typeof GameKey.Type>(
+      matchId: typeof MatchId.Type,
+      locale: SupportedLocale,
+      expectedGameKey: K,
+    ) => Effect.runPromise(service.readMatch(matchId, locale, expectedGameKey)),
     submitMatchCommand: (...args: Parameters<typeof service.submitMatchCommand>) =>
       Effect.runPromise(service.submitMatchCommand(...args)),
-    readMatchProtocol: <K extends GameKey>(matchId: MatchId, locale: SupportedLocale, expectedGameKey: K) =>
-      Effect.runPromise(service.readMatchProtocol(matchId, locale, expectedGameKey)),
+    readMatchProtocol: <K extends typeof GameKey.Type>(
+      matchId: typeof MatchId.Type,
+      locale: SupportedLocale,
+      expectedGameKey: K,
+    ) => Effect.runPromise(service.readMatchProtocol(matchId, locale, expectedGameKey)),
     admitMatchLive: (...args: Parameters<typeof service.admitMatchLive>) =>
       Effect.runPromise(service.admitMatchLive(...args)),
   }

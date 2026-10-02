@@ -21,8 +21,7 @@ import { applyD1Migrations, reset } from 'cloudflare:test'
 import { env } from 'cloudflare:workers'
 import { sql } from 'drizzle-orm'
 import * as DrizzleD1 from 'drizzle-orm/effect-d1'
-import { type Config, Context, Effect, Layer, ManagedRuntime, Option, Predicate } from 'effect'
-import * as v from 'valibot'
+import { type Config, Context, Effect, Layer, ManagedRuntime, Option, Predicate, Schema } from 'effect'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 
 import { ApplicationDatabase } from '../../src/d1/client'
@@ -35,19 +34,19 @@ import { MatchFinalizationError } from '../../src/sparring/storage/protocol-arch
 import type { MatchCreationRecord } from '../../src/sparring/storage/records'
 import { SparringMatchStorage } from '../../src/sparring/storage/sparring-match-storage'
 
-const matchId = v.parse(MatchId, '01ARZ3NDEKTSV4RRFFQ69G5FAV')
+const matchId = Schema.decodeUnknownSync(MatchId)('01ARZ3NDEKTSV4RRFFQ69G5FAV')
 
-const otherMatchId = v.parse(MatchId, '01ARZ3NDEKTSV4RRFFQ69G5FAW')
+const otherMatchId = Schema.decodeUnknownSync(MatchId)('01ARZ3NDEKTSV4RRFFQ69G5FAW')
 
-const newestMatchId = v.parse(MatchId, '01ARZ3NDEKTSV4RRFFQ69G5FAX')
+const newestMatchId = Schema.decodeUnknownSync(MatchId)('01ARZ3NDEKTSV4RRFFQ69G5FAX')
 
-const creatingMatchId = v.parse(MatchId, '01ARZ3NDEKTSV4RRFFQ69G5FAY')
+const creatingMatchId = Schema.decodeUnknownSync(MatchId)('01ARZ3NDEKTSV4RRFFQ69G5FAY')
 
-const seatAPlayerRef = v.parse(PlayerRef, 'gp_01HX0000000000000000000000')
+const seatAPlayerRef = Schema.decodeUnknownSync(PlayerRef)('gp_01HX0000000000000000000000')
 
-const seatBPlayerRef = v.parse(PlayerRef, 'gp_01HX0000000000000000000001')
+const seatBPlayerRef = Schema.decodeUnknownSync(PlayerRef)('gp_01HX0000000000000000000001')
 
-const createdAt = v.parse(UnixEpochMilliseconds, 1_000)
+const createdAt = Schema.decodeUnknownSync(UnixEpochMilliseconds)(1_000)
 
 let runtime: ManagedRuntime.ManagedRuntime<
   ApplicationClock | ApplicationDatabase | PlayerStorage | SparringMatchStorage,
@@ -94,7 +93,7 @@ function makeMatchPromises(service: SparringMatchStorage['Service']) {
   }
 }
 
-const createRequest = v.parse(CreateMatchRequest, {
+const createRequest = Schema.decodeUnknownSync(CreateMatchRequest)({
   gameKey: 'free-pyramid',
   targets: { frameTargetPointsBySeat: { A: 2, B: 2 }, matchTargetFrames: 1 },
   firstBreakerSeat: 'A',
@@ -116,12 +115,12 @@ function catalogInput(id = matchId, timestamp = createdAt): MatchCreationRecord 
 function finishedMatchTransfer(
   id = matchId,
   timestamp = createdAt,
-  concedingSeat?: Seat,
+  concedingSeat?: typeof Seat.Type,
 ): MatchRoomArchiveTransfer {
   const config = buildMatchConfig(id, createRequest)
   const session = createMatch(config)
-  const acceptedAt = v.parse(UnixEpochMilliseconds, timestamp + 1_000)
-  const protocolEntries: ProtocolEntry[] = []
+  const acceptedAt = Schema.decodeUnknownSync(UnixEpochMilliseconds)(timestamp + 1_000)
+  const protocolEntries: (typeof ProtocolEntry.Type)[] = []
   let acceptedSeq = 0
 
   for (const command of [
@@ -134,7 +133,7 @@ function finishedMatchTransfer(
     concedingSeat
       ? { commandId: newCommandId(), source: 'match', command: { type: 'frame.concede', seat: concedingSeat } }
       : { commandId: newCommandId(), source: 'game', command: { type: 'frame.award', seat: 'A' } },
-  ] satisfies MatchCommand[]) {
+  ] satisfies (typeof MatchCommand.Type)[]) {
     const decision = session.execute(command)
 
     if (!Predicate.isTagged(decision, 'accepted'))
@@ -142,7 +141,7 @@ function finishedMatchTransfer(
     acceptedSeq += 1
     decision.protocolEntryContents.forEach((entry, entryIndex) => {
       protocolEntries.push(
-        v.parse(ProtocolEntry, {
+        Schema.decodeUnknownSync(ProtocolEntry)({
           ...entry,
           acceptedSeq,
           entryIndex,
@@ -226,7 +225,7 @@ describe('real D1 match lifecycle', () => {
   })
 
   test('exposes only SparringService and keeps overlapping request clocks isolated', async () => {
-    const timestamp = v.parse(UnixEpochMilliseconds, Date.parse('2026-09-30T22:30:00Z'))
+    const timestamp = Schema.decodeUnknownSync(UnixEpochMilliseconds)(Date.parse('2026-09-30T22:30:00Z'))
     await matches.beginCreation(catalogInput(matchId, timestamp))
     await matches.activate(matchId)
     const archive = finishedMatchTransfer(matchId, timestamp)
@@ -280,15 +279,19 @@ describe('real D1 match lifecycle', () => {
     )
     await matches.activate(matchId)
 
-    const otherCreatedAt = v.parse(UnixEpochMilliseconds, 3_000)
+    const otherCreatedAt = Schema.decodeUnknownSync(UnixEpochMilliseconds)(3_000)
     await matches.beginCreation(catalogInput(otherMatchId, otherCreatedAt))
     await matches.activate(otherMatchId)
     const otherArchive = finishedMatchTransfer(otherMatchId, otherCreatedAt)
     await matches.archiveFinished(otherArchive)
     await matches.markFinished(otherArchive)
-    await matches.beginCreation(catalogInput(newestMatchId, v.parse(UnixEpochMilliseconds, 4_000)))
+    await matches.beginCreation(
+      catalogInput(newestMatchId, Schema.decodeUnknownSync(UnixEpochMilliseconds)(4_000)),
+    )
     await matches.activate(newestMatchId)
-    await matches.beginCreation(catalogInput(creatingMatchId, v.parse(UnixEpochMilliseconds, 5_000)))
+    await matches.beginCreation(
+      catalogInput(creatingMatchId, Schema.decodeUnknownSync(UnixEpochMilliseconds)(5_000)),
+    )
 
     const record = await matches.findMatch(matchId)
     expect(record).toEqual({
@@ -301,15 +304,13 @@ describe('real D1 match lifecycle', () => {
     expect(await matches.listMatches([matchId])).toEqual([record])
     expect(await matches.listMatches([])).toEqual([])
 
-    expect((await matches.listLive(v.parse(UnixEpochMilliseconds, 0))).map((row) => row.matchId)).toEqual([
-      newestMatchId,
-      matchId,
-      otherMatchId,
-    ])
+    expect(
+      (await matches.listLive(Schema.decodeUnknownSync(UnixEpochMilliseconds)(0))).map((row) => row.matchId),
+    ).toEqual([newestMatchId, matchId, otherMatchId])
 
     const archive = {
       ...finishedMatchTransfer(),
-      endedAt: v.parse(UnixEpochMilliseconds, 4_500),
+      endedAt: Schema.decodeUnknownSync(UnixEpochMilliseconds)(4_500),
     }
 
     await matches.archiveFinished(archive)
@@ -346,17 +347,21 @@ describe('real D1 match lifecycle', () => {
       (
         await matches.listFinished({
           start: createdAt,
-          end: v.parse(UnixEpochMilliseconds, 4_000),
+          end: Schema.decodeUnknownSync(UnixEpochMilliseconds)(4_000),
         })
       ).map((row) => row.matchId),
     ).toEqual([otherMatchId, matchId])
-    expect(await matches.findFinishedTime({ before: v.parse(UnixEpochMilliseconds, 3_000) })).toBe(createdAt)
-    expect(await matches.findFinishedTime({ from: v.parse(UnixEpochMilliseconds, 2_000) })).toBe(3_000)
-    expect((await matches.listLive(v.parse(UnixEpochMilliseconds, 3_000))).map((row) => row.matchId)).toEqual([
-      newestMatchId,
-      matchId,
-      otherMatchId,
-    ])
+    expect(
+      await matches.findFinishedTime({ before: Schema.decodeUnknownSync(UnixEpochMilliseconds)(3_000) }),
+    ).toBe(createdAt)
+    expect(
+      await matches.findFinishedTime({ from: Schema.decodeUnknownSync(UnixEpochMilliseconds)(2_000) }),
+    ).toBe(3_000)
+    expect(
+      (await matches.listLive(Schema.decodeUnknownSync(UnixEpochMilliseconds)(3_000))).map(
+        (row) => row.matchId,
+      ),
+    ).toEqual([newestMatchId, matchId, otherMatchId])
 
     const result = await Effect.runPromise(
       SparringService.use((sparring) => sparring.readMatch(matchId, 'en', 'free-pyramid')).pipe(
@@ -437,12 +442,12 @@ describe('real D1 match lifecycle', () => {
   })
 
   test('lists a crowded finished-match day with localized guest and verified names and missing-player fallback', async () => {
-    const verifiedRef = v.parse(PlayerRef, 'vp_01HX0000000000000000000002')
-    const missingRef = v.parse(PlayerRef, 'gp_01HX0000000000000000000003')
+    const verifiedRef = Schema.decodeUnknownSync(PlayerRef)('vp_01HX0000000000000000000002')
+    const missingRef = Schema.decodeUnknownSync(PlayerRef)('gp_01HX0000000000000000000003')
 
     await runtime.runPromise(
       db.insert(guestPlayers).values({
-        guestPlayerId: v.parse(GuestPlayerId, seatAPlayerRef.slice(3)),
+        guestPlayerId: Schema.decodeUnknownSync(GuestPlayerId)(seatAPlayerRef.slice(3)),
         firstNameUk: 'Галя',
         lastNameUk: 'Гість',
         firstNameEn: 'Gina',
@@ -452,7 +457,7 @@ describe('real D1 match lifecycle', () => {
     )
     await runtime.runPromise(
       db.insert(verifiedPlayers).values({
-        verifiedPlayerId: v.parse(VerifiedPlayerId, verifiedRef.slice(3)),
+        verifiedPlayerId: Schema.decodeUnknownSync(VerifiedPlayerId)(verifiedRef.slice(3)),
         firstNameUk: 'Віра',
         lastNameUk: 'Тест',
         firstNameEn: 'Vera',
@@ -464,11 +469,11 @@ describe('real D1 match lifecycle', () => {
     const score = JSON.stringify(projectMatchScore(finishedMatchTransfer().finalState))
 
     const rows = Array.from({ length: 26 }, (_, index) => ({
-      matchId: v.parse(MatchId, `${matchId.slice(0, 24)}${String(index).padStart(2, '0')}`),
+      matchId: Schema.decodeUnknownSync(MatchId)(`${matchId.slice(0, 24)}${String(index).padStart(2, '0')}`),
       gameKey: 'free-pyramid' as const,
       status: 'finished' as const,
-      createdAt: v.parse(UnixEpochMilliseconds, createdAt + index),
-      endedAt: v.parse(UnixEpochMilliseconds, createdAt + 1_000 + index),
+      createdAt: Schema.decodeUnknownSync(UnixEpochMilliseconds)(createdAt + index),
+      endedAt: Schema.decodeUnknownSync(UnixEpochMilliseconds)(createdAt + 1_000 + index),
       seatAPlayerRef: index % 2 ? verifiedRef : seatAPlayerRef,
       seatBPlayerRef: index === 0 ? missingRef : index % 2 ? seatAPlayerRef : verifiedRef,
       finalSourceLatestSeq: 4,
@@ -477,7 +482,7 @@ describe('real D1 match lifecycle', () => {
 
     for (const row of rows) await runtime.runPromise(db.insert(sparringMatches).values(row))
 
-    const range = { start: createdAt, end: v.parse(UnixEpochMilliseconds, createdAt + 26) }
+    const range = { start: createdAt, end: Schema.decodeUnknownSync(UnixEpochMilliseconds)(createdAt + 26) }
     const records = await matches.listFinished(range)
     expect(records.map((row) => row.matchId)).toEqual(rows.map((row) => row.matchId).reverse())
 
@@ -527,9 +532,9 @@ describe('real D1 match lifecycle', () => {
     expect(en[0]?.participants.B).toMatchObject({ displayName: 'Gina Guest', shortDisplayName: 'G. Guest' })
     expect(await players.readParticipant(verifiedRef)).toEqual(records[0]?.participants.A)
     expect(await players.readParticipant(missingRef)).toEqual(records[25]?.participants.B)
-    expect((await matches.listLive(v.parse(UnixEpochMilliseconds, 0))).map((row) => row.matchId)).toEqual(
-      rows.map((row) => row.matchId).reverse(),
-    )
+    expect(
+      (await matches.listLive(Schema.decodeUnknownSync(UnixEpochMilliseconds)(0))).map((row) => row.matchId),
+    ).toEqual(rows.map((row) => row.matchId).reverse())
   })
 
   test('rejects conflicting persisted archive data without changing the active match row', async () => {
@@ -574,7 +579,7 @@ describe('real D1 match lifecycle', () => {
     await matches.beginCreation(catalogInput())
     await matches.activate(matchId)
     const first = finishedMatchTransfer()
-    const conflictingTimestamp = v.parse(UnixEpochMilliseconds, first.endedAt + 1)
+    const conflictingTimestamp = Schema.decodeUnknownSync(UnixEpochMilliseconds)(first.endedAt + 1)
 
     const candidates = [
       first,

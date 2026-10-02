@@ -17,7 +17,7 @@ export type MatchRoomNamespace = Pick<DurableObjectNamespace<MatchRoom>, 'getByN
 /** RPC results remain semantic values. Rejected RPC promises retain their original defects. */
 export class MatchRooms extends Context.Service<
   MatchRooms,
-  { get(matchId: MatchId): EffectMatchRoomClient }
+  { get(matchId: typeof MatchId.Type): EffectMatchRoomClient }
 >()('@ks/application/match/match-room') {
   static layer(namespace: MatchRoomNamespace) {
     return Layer.succeed(this, {

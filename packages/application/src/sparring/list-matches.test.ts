@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 
 import { projectMatchScore } from '@ks/competition'
 import { FixedClock, MatchId, UnixEpochMilliseconds } from '@ks/core'
-import * as v from 'valibot'
+import { Result, Schema } from 'effect'
 
 import { MatchScorePollResponse } from './contract'
 import {
@@ -21,7 +21,7 @@ import {
 
 describe('sparring lists and score polling', () => {
   test('returns unknown-match when any requested score is missing, before reading rooms', async () => {
-    const missingId = v.parse(MatchId, '01ARZ3NDEKTSV4RRFFQ69G5FAW')
+    const missingId = Schema.decodeUnknownSync(MatchId)('01ARZ3NDEKTSV4RRFFQ69G5FAW')
 
     expect(sparring(selectedClient()).readMatchScores([matchId, missingId])).rejects.toHaveProperty(
       '_tag',
@@ -44,7 +44,7 @@ describe('sparring lists and score polling', () => {
     const app = sparring(room, [], {
       matches: {
         listLive: async (since) => {
-          expect(since).toBe(v.parse(UnixEpochMilliseconds, createdAt - 15 * 60 * 1_000))
+          expect(since).toBe(Schema.decodeUnknownSync(UnixEpochMilliseconds)(createdAt - 15 * 60 * 1_000))
 
           return [
             {
@@ -206,12 +206,12 @@ describe('sparring lists and score polling', () => {
     })
     const poll = await app.readMatchScores([matchId])
     expect(poll).toMatchObject({ matches: [{ score: { winnerSeat: 'B' } }] })
-    expect(v.safeParse(MatchScorePollResponse, poll).success).toBe(true)
+    expect(Result.isSuccess(Schema.decodeUnknownResult(MatchScorePollResponse)(poll))).toBe(true)
   })
 
   test('reports when a recently finished match leaves the live list window', async () => {
     const finalScore = projectMatchScore(transfer.finalState)
-    const endedAt = v.parse(UnixEpochMilliseconds, createdAt - 5 * 60 * 1_000)
+    const endedAt = Schema.decodeUnknownSync(UnixEpochMilliseconds)(createdAt - 5 * 60 * 1_000)
 
     const app = sparring(selectedClient(), [], {
       matches: {
@@ -256,8 +256,8 @@ describe('sparring lists and score polling', () => {
         },
         listFinished: async (range) => {
           expect(range).toEqual({
-            start: v.parse(UnixEpochMilliseconds, Date.parse('2023-11-14T22:00:00Z')),
-            end: v.parse(UnixEpochMilliseconds, Date.parse('2023-11-15T22:00:00Z')),
+            start: Schema.decodeUnknownSync(UnixEpochMilliseconds)(Date.parse('2023-11-14T22:00:00Z')),
+            end: Schema.decodeUnknownSync(UnixEpochMilliseconds)(Date.parse('2023-11-15T22:00:00Z')),
           })
 
           return [
@@ -303,9 +303,9 @@ describe('sparring lists and score polling', () => {
 
   test('skips calendar gaps using only the two indexed neighboring instants', async () => {
     const selected = '2023-11-20'
-    const before = v.parse(UnixEpochMilliseconds, Date.parse('2023-11-19T22:00:00Z'))
-    const from = v.parse(UnixEpochMilliseconds, Date.parse('2023-11-20T22:00:00Z'))
-    const newer = v.parse(UnixEpochMilliseconds, Date.parse('2023-11-25T23:00:00Z'))
+    const before = Schema.decodeUnknownSync(UnixEpochMilliseconds)(Date.parse('2023-11-19T22:00:00Z'))
+    const from = Schema.decodeUnknownSync(UnixEpochMilliseconds)(Date.parse('2023-11-20T22:00:00Z'))
+    const newer = Schema.decodeUnknownSync(UnixEpochMilliseconds)(Date.parse('2023-11-25T23:00:00Z'))
     const seeks: unknown[] = []
 
     const app = sparring(selectedClient(), [], {
@@ -336,7 +336,7 @@ describe('sparring lists and score polling', () => {
 
   test('polls more than ten finished score projections without truncating or reordering them', async () => {
     const ids = Array.from({ length: 12 }, (_, index) =>
-      v.parse(MatchId, `${matchId.slice(0, 24)}${String(index).padStart(2, '0')}`),
+      Schema.decodeUnknownSync(MatchId)(`${matchId.slice(0, 24)}${String(index).padStart(2, '0')}`),
     )
 
     const finalScore = projectMatchScore(transfer.finalState)
@@ -359,6 +359,8 @@ describe('sparring lists and score polling', () => {
 
     const result = await app.readMatchScores(ids)
     expect(result.matches.map((match) => match.matchId)).toEqual(ids)
-    expect(v.safeParse(MatchScorePollResponse, { matches: result.matches }).success).toBe(true)
+    expect(
+      Result.isSuccess(Schema.decodeUnknownResult(MatchScorePollResponse)({ matches: result.matches })),
+    ).toBe(true)
   })
 })

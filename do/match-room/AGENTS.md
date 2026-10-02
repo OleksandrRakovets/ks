@@ -30,6 +30,7 @@ This file describes how MatchRoom is implemented. Use the repository architectur
 - Raw `*Json` fields and their parsing must not leave `src/storage`. Name read mappings `*FromRow`; repository and handler APIs expose records or domain values.
 - Keep writes beside the insert or update that owns them. Do not add generic `*RowFromRecord` reverse mappings when operations write different column subsets; add one only when multiple operations genuinely assemble the same complete row.
 - Validate persisted rows and JSON when they are read from storage. Do not reparse trusted typed RPC values merely because they cross the Play-to-MatchRoom binding.
+- Decode persisted JSON synchronously with Effect v4 `Schema.fromJsonString` and `Schema.decodeUnknownSync`; failures remain corruption defects. Schema values expose `.Type` instead of same-name inferred type exports. Storage structs strip extras; closed hibernation attachments use core `StrictStruct`. This schema boundary does not change synchronous transactions or XState execution.
 
 ## Durable Authority
 
