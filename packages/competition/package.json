@@ -10,7 +10,6 @@
     "@ks/core": "workspace:*",
     "@ks/gameplay": "workspace:*",
     "effect": "catalog:",
-    "valibot": "catalog:",
     "xstate": "catalog:"
   }
 }

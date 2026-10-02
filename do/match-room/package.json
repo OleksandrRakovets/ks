@@ -16,8 +16,7 @@
     "@ks/core": "workspace:*",
     "@ks/gameplay": "workspace:*",
     "drizzle-orm": "catalog:",
-    "effect": "catalog:",
-    "valibot": "catalog:"
+    "effect": "catalog:"
   },
   "devDependencies": {
     "@cloudflare/vitest-plugin": "catalog:",

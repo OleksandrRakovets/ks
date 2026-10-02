@@ -7,8 +7,7 @@
   },
   "dependencies": {
     "effect": "catalog:",
-    "ulid": "^3.0.2",
-    "valibot": "catalog:"
+    "ulid": "^3.0.2"
   },
   "devDependencies": {
     "bun-types": "catalog:"

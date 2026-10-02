@@ -47,9 +47,9 @@ Page controllers own submission and live revalidation using identity, lifecycle,
 
 ### Schema Conventions
 
-- Schemas are migrating incrementally from Valibot to Effect v4 Schema; do not add a `Schema` suffix. Migrated schemas export only the schema value, with consumers inferring `typeof Contract.Type` directly or through a local alias. Unmigrated Valibot schemas retain their same-name inferred type exports. Contracts without schemas and generic relationships keep named type exports.
+- Boundary schemas use Effect v4 Schema; do not add a `Schema` suffix. Schemas export only the schema value, with consumers inferring `typeof Contract.Type` directly or through a local alias. Contracts without schemas and generic relationships keep named type exports. IDs and epoch milliseconds use native phantom brands without changing their serialized representations.
 - Domain values such as commands, Protocol entries, game state, and projections are readonly. Construction may use mutable locals, with readonly established at the validated or returned boundary rather than through extra copying.
-- Use non-empty tuple schemas when non-emptiness is part of the domain contract. Use strict objects for closed variants and internal state shapes; keep stripping objects at persisted, wire, and browser-storage boundaries where forward compatibility is intentional.
+- Use non-empty tuple schemas when non-emptiness is part of the domain contract. Core `StrictStruct` checks keys before Struct decoding for closed variants; plain Struct strips extra properties at persisted, wire, and browser-storage boundaries where forward compatibility is intentional. Schema parse options apply globally to nested decoding, not through schema annotations. Schema replacement preserves optional/default behavior, tuple trailing-element stripping where supported, cross-field checks, and persisted JSON.
 
 ## Data Authority
 
@@ -132,7 +132,7 @@ The match-ending update is broadcast and sockets are closed when its command is 
 - Application owns D1 tooling and runtime storage access; Play supplies its D1 binding and deployment configuration. See `packages/application/AGENTS.md` for module organization and storage boundaries.
 - D1 and MatchRoom SQLite have independent migration histories and application mechanisms.
 - Persisted rows and JSON are decoded and validated at the storage boundary. Malformed data fails the operation rather than yielding partial state.
-- Expected RPC outcomes are semantic variants, not HTTP failures. Application returns domain outcomes, and Play maps them to HTTP. Missing or corrupt authority and invalid lifecycle calls are defects that throw.
+- Expected RPC outcomes are semantic variants, not HTTP failures. Application adapts them into successful values or typed domain failures, and Play maps failures to HTTP. Command rejections temporarily remain receipt values. Missing or corrupt authority and invalid lifecycle calls are defects that throw.
 - See each component's local guidance for storage mechanics and `.tracker/db.md` for migration and inspection procedures.
 
 ## Deployment

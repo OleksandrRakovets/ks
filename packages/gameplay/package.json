@@ -10,7 +10,6 @@
     "@ks/core": "workspace:*",
     "effect": "catalog:",
     "tiny-invariant": "^1.3.3",
-    "valibot": "catalog:",
     "xstate": "catalog:"
   }
 }
