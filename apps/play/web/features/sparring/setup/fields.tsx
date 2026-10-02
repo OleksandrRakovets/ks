@@ -125,6 +125,7 @@ export function MatchTargetFramesField(props: { profile: MatchCreateProfile }) {
           name="matchTargetFrames"
           inputMode="numeric"
           min={1}
+          max={props.profile.matchTargetFrames.maxValue}
           defaultValue={props.profile.matchTargetFrames.defaultValue}
           className="h-[54px] w-[68px] [appearance:textfield] border-0 bg-transparent px-0 text-center text-[26px] font-bold tabular-nums [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
           required
@@ -146,6 +147,7 @@ export function MatchTargetFramesField(props: { profile: MatchCreateProfile }) {
 export function FrameTargetFields(props: {
   playerNames: { A: string; B: string }
   defaults: BySeatNumber
+  maxValue: number
   isSingleFrame: boolean
 }) {
   const { t } = useTranslation()
@@ -156,14 +158,24 @@ export function FrameTargetFields(props: {
         {t(props.isSingleFrame ? keys.match.sparring.gameTargetPoints : keys.match.sparring.frameTargetPoints)}
       </h2>
       <div className="grid grid-cols-2 gap-2.5">
-        <TargetField seat="A" playerName={props.playerNames.A} defaultValue={props.defaults.A} />
-        <TargetField seat="B" playerName={props.playerNames.B} defaultValue={props.defaults.B} />
+        <TargetField
+          seat="A"
+          playerName={props.playerNames.A}
+          defaultValue={props.defaults.A}
+          maxValue={props.maxValue}
+        />
+        <TargetField
+          seat="B"
+          playerName={props.playerNames.B}
+          defaultValue={props.defaults.B}
+          maxValue={props.maxValue}
+        />
       </div>
     </section>
   )
 }
 
-function TargetField(props: { seat: Seat; playerName: string; defaultValue: number }) {
+function TargetField(props: { seat: Seat; playerName: string; defaultValue: number; maxValue: number }) {
   const { t } = useTranslation()
   const id = `target${props.seat}`
 
@@ -177,6 +189,7 @@ function TargetField(props: { seat: Seat; playerName: string; defaultValue: numb
         name={id}
         inputMode="numeric"
         min={1}
+        max={props.maxValue}
         defaultValue={props.defaultValue}
         aria-label={t(keys.match.sparring.playerTargetPoints, { name: props.playerName })}
         className="h-9 [appearance:textfield] border-0 bg-transparent px-0 text-[26px] leading-[1.2] font-bold tabular-nums focus-visible:ring-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"

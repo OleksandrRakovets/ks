@@ -97,6 +97,7 @@ export function SparringSetupPage(props: {
             <FrameTargetFields
               playerNames={{ A: normalizedSeatAName, B: normalizedSeatBName }}
               defaults={profile.defaultFrameTargetPointsBySeat}
+              maxValue={profile.maxFrameTargetPoints}
               isSingleFrame={profile.matchTargetFrames.mode === 'fixed'}
             />
             <RackRolloverField profile={profile} />

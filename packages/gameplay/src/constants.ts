@@ -41,6 +41,8 @@ export type GameMeta = {
   readonly title: LocalizedGameTitle
   readonly shortGameTitle: LocalizedGameTitle
   readonly defaultFrameTargetPointsBySeat: BySeatNumber
+  /** Setup input limit only; not a gameplay rule or server-side validation constraint. */
+  readonly maxFrameTargetPoints: number
 }
 
 export const GameControl = v.pipe(v.object({ ...Control.entries, source: v.literal('game') }), v.readonly())

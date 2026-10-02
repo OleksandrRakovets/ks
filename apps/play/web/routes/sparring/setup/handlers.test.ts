@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 
-import type { Application } from '@ks/application'
+import type { Application, CreateSparringMatchInput } from '@ks/application'
 import { RouterContextProvider } from 'react-router'
 
 import { matchSetupUrl } from '@/features/sparring/urls'
@@ -42,6 +42,64 @@ test.each([
     expect(error.status).toBe(status)
   }
 })
+
+test.each([
+  ['strila-v2', 15, 21],
+  ['free-pyramid', 16, 21],
+  ['free-pyramid-long', 102, 1],
+  ['combined-pyramid', 16, 21],
+  ['combined-pyramid-old', 16, 21],
+] as const)(
+  'setup does not enforce page target caps on the server for %s',
+  async (gameKey, targetA, matchTargetFrames) => {
+    const inputs: CreateSparringMatchInput[] = []
+    const context = new RouterContextProvider()
+
+    const sparring: Partial<Application['sparring']> = {
+      createMatch: async (input) => {
+        inputs.push(input)
+
+        return { ok: false, reason: 'invalid-input' }
+      },
+    }
+
+    // SAFETY: this handler uses only createMatch.
+    context.set(cloudflareContext, {
+      application: { sparring } as Application,
+      isProduction: false,
+    })
+    const form = new FormData()
+    form.set('seatAName', 'Alice')
+    form.set('seatBName', 'Bob')
+    form.set('matchTargetFrames', String(matchTargetFrames))
+    form.set('targetA', String(targetA))
+    form.set('targetB', '1')
+    form.set('firstBreakerSeat', 'B')
+
+    if (gameKey === 'free-pyramid-long') form.set('rackRollover', '14')
+
+    try {
+      await createSetupMatch({
+        params: { gameKey },
+        request: new Request('http://localhost', { method: 'POST', body: form }),
+        context,
+      })
+      throw new Error('Expected application rejection')
+    } catch (error) {
+      expect(error).toBeInstanceOf(Response)
+
+      if (!(error instanceof Response)) throw error
+
+      expect(error.status).toBe(400)
+    }
+
+    expect(inputs).toHaveLength(1)
+    expect(inputs[0]?.targets).toEqual({
+      matchTargetFrames,
+      frameTargetPointsBySeat: { A: targetA, B: 1 },
+    })
+  },
+)
 
 test('rematch setup preserves seats and Long Pyramid handicap settings without a breaker', async () => {
   const url = matchSetupUrl('free-pyramid-long', 'uk', {

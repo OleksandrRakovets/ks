@@ -6,7 +6,10 @@ export type RackRolloverOption = 14 | 15
 export type MatchCreateProfile = {
   gameKey: GameKey
   defaultFrameTargetPointsBySeat: BySeatNumber
-  matchTargetFrames: { mode: 'editable'; defaultValue: number } | { mode: 'fixed'; fixedValue: number }
+  maxFrameTargetPoints: number
+  matchTargetFrames:
+    | { mode: 'editable'; defaultValue: number; maxValue: number }
+    | { mode: 'fixed'; fixedValue: number }
   rackRollover?: {
     defaultValue: RackRolloverOption
     options: RackRolloverOption[]
@@ -14,12 +17,13 @@ export type MatchCreateProfile = {
 }
 
 export function createProfileForGame(gameKey: GameKey): MatchCreateProfile {
-  const defaultFrameTargetPointsBySeat = registry[gameKey].meta.defaultFrameTargetPointsBySeat
+  const { defaultFrameTargetPointsBySeat, maxFrameTargetPoints } = registry[gameKey].meta
 
   if (gameKey === 'free-pyramid-long') {
     return {
       gameKey,
       defaultFrameTargetPointsBySeat,
+      maxFrameTargetPoints,
       matchTargetFrames: {
         mode: 'fixed',
         fixedValue: 1,
@@ -34,6 +38,7 @@ export function createProfileForGame(gameKey: GameKey): MatchCreateProfile {
   return {
     gameKey,
     defaultFrameTargetPointsBySeat,
-    matchTargetFrames: { mode: 'editable', defaultValue: 3 },
+    maxFrameTargetPoints,
+    matchTargetFrames: { mode: 'editable', defaultValue: 3, maxValue: 20 },
   }
 }
