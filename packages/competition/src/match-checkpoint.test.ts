@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 
 import { type MatchCommand, newCommandId, newMatchId } from '@ks/core'
-import * as v from 'valibot'
+import { Schema } from 'effect'
 
 import type { MatchConfig } from './definitions'
 import { createMatch, type Match, MatchCheckpoint, restoreMatchCheckpoint } from './match'
@@ -12,8 +12,11 @@ import {
   sendLifecycleEvent,
 } from './match-machine-internals'
 
-function config(gameKey: MatchConfig['gameKey'], matchTargetFrames = 2): MatchConfig {
-  const base: MatchConfig = {
+function config(
+  gameKey: (typeof MatchConfig.Type)['gameKey'],
+  matchTargetFrames = 2,
+): typeof MatchConfig.Type {
+  const base: typeof MatchConfig.Type = {
     matchId: newMatchId(),
     gameKey,
     firstBreakerSeat: 'B',
@@ -23,7 +26,11 @@ function config(gameKey: MatchConfig['gameKey'], matchTargetFrames = 2): MatchCo
   return gameKey === 'free-pyramid-long' ? { ...base, gameConfiguration: { rackRollover: 14 } } : base
 }
 
-function send(match: Match, source: MatchCommand['source'], command: MatchCommand['command']) {
+function send(
+  match: Match,
+  source: (typeof MatchCommand.Type)['source'],
+  command: (typeof MatchCommand.Type)['command'],
+) {
   const result = match.execute({ commandId: newCommandId(), source, command })
   expect(result._tag).toBe('accepted')
 
@@ -32,7 +39,10 @@ function send(match: Match, source: MatchCommand['source'], command: MatchComman
 
 function roundTrip(match: Match): Match {
   // SAFETY: JSON parsing yields an untrusted value that the checkpoint schema validates.
-  const checkpoint = v.parse(MatchCheckpoint, JSON.parse(JSON.stringify(match.exportCheckpoint())) as unknown)
+  const checkpoint = Schema.decodeUnknownSync(MatchCheckpoint)(
+    JSON.parse(JSON.stringify(match.exportCheckpoint())) as unknown,
+  )
+
   const restored = restoreMatchCheckpoint(checkpoint)
   expect(restored.phase()).toBe(match.phase())
   expect(restored.state()).toEqual(match.state())
@@ -42,6 +52,24 @@ function roundTrip(match: Match): Match {
 
   return restored
 }
+
+test('checkpoint decoding strips persisted extras without changing restored state', () => {
+  const match = createMatch(config('free-pyramid'))
+  const checkpoint = match.exportCheckpoint()
+
+  const decoded = Schema.decodeUnknownSync(MatchCheckpoint)({
+    ...checkpoint,
+    extra: true,
+    lifecycle: {
+      ...checkpoint.lifecycle,
+      extra: true,
+      context: { ...checkpoint.lifecycle.context, extra: true },
+    },
+  })
+
+  expect(decoded).toEqual(checkpoint)
+  expect(restoreMatchCheckpoint(decoded).state()).toEqual(match.state())
+})
 
 test('machine automatically settles creation and completion into stable phases', () => {
   const initial = createInitialSnapshot(config('free-pyramid', 2))
@@ -307,8 +335,11 @@ test.each(['free-pyramid', 'combined-pyramid'] as const)('%s restores an active 
 
 test('rejects inconsistent persisted aggregates and corrupted hidden rule context', () => {
   const match = createMatch(config('combined-pyramid'))
+
   // SAFETY: JSON parsing yields an untrusted value that the checkpoint schema validates.
-  const checkpoint = v.parse(MatchCheckpoint, JSON.parse(JSON.stringify(match.exportCheckpoint())) as unknown)
+  const checkpoint = Schema.decodeUnknownSync(MatchCheckpoint)(
+    JSON.parse(JSON.stringify(match.exportCheckpoint())) as unknown,
+  )
 
   const gameplay = checkpoint.gameplay
 
@@ -348,7 +379,7 @@ test('rejects inconsistent persisted aggregates and corrupted hidden rule contex
   ).toThrow()
 
   expect(() =>
-    v.parse(MatchCheckpoint, {
+    Schema.decodeUnknownSync(MatchCheckpoint)({
       ...checkpoint,
       gameplay: { ...gameplay, state: { ...gameplay.state, value: 'unknown-phase' } },
     }),
@@ -358,7 +389,7 @@ test('rejects inconsistent persisted aggregates and corrupted hidden rule contex
 test('rejects an unsupported game key even without active gameplay', () => {
   const checkpoint = createMatch(config('free-pyramid')).exportCheckpoint()
   expect(() =>
-    v.parse(MatchCheckpoint, {
+    Schema.decodeUnknownSync(MatchCheckpoint)({
       ...checkpoint,
       lifecycle: {
         ...checkpoint.lifecycle,

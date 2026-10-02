@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
 import { MatchId, newMatchId } from '@ks/core'
-import * as v from 'valibot'
+import { Result, Schema } from 'effect'
 
 import {
   buildMatchConfig,
@@ -11,7 +11,7 @@ import {
   projectMatchScore,
 } from './definitions'
 
-const request = v.parse(CreateMatchRequest, {
+const request = Schema.decodeUnknownSync(CreateMatchRequest)({
   gameKey: 'strila-v2',
   targets: {
     frameTargetPointsBySeat: { A: 8, B: 8 },
@@ -38,16 +38,46 @@ describe('match creation helpers', () => {
     expect(config).not.toHaveProperty('gameConfiguration')
   })
 
+  test('strips request extras and trailing participants while preserving optional key presence', () => {
+    const absent = Schema.decodeUnknownSync(CreateMatchRequest)({
+      ...request,
+      extra: true,
+      participants: [...request.participants, { invalid: true }],
+    })
+
+    expect(absent).toEqual(request)
+    expect(absent).not.toHaveProperty('gameConfiguration')
+    expect(Schema.encodeSync(CreateMatchRequest)(absent)).toEqual(request)
+
+    const present = Schema.decodeUnknownSync(CreateMatchRequest)({ ...request, gameConfiguration: undefined })
+    expect(present).toHaveProperty('gameConfiguration', undefined)
+    expect(buildMatchConfig(newMatchId(), present)).not.toHaveProperty('gameConfiguration')
+    expect(() =>
+      Schema.decodeUnknownSync(CreateMatchRequest)({ ...request, gameConfiguration: null }),
+    ).toThrow()
+    expect(() =>
+      Schema.decodeUnknownSync(CreateMatchRequest)({ ...request, participants: [request.participants[0]] }),
+    ).toThrow()
+    expect(() =>
+      Schema.decodeUnknownSync(CreateMatchRequest)({
+        ...request,
+        participants: [request.participants[0], { ...request.participants[1], seat: 'A' }],
+      }),
+    ).toThrow()
+  })
+
   test('requires and preserves long free pyramid game configuration', () => {
     expect(
-      v.safeParse(CreateMatchRequest, {
-        ...request,
-        gameKey: 'free-pyramid-long',
-        targets: { ...request.targets, matchTargetFrames: 1 },
-      }).success,
+      Result.isSuccess(
+        Schema.decodeUnknownResult(CreateMatchRequest)({
+          ...request,
+          gameKey: 'free-pyramid-long',
+          targets: { ...request.targets, matchTargetFrames: 1 },
+        }),
+      ),
     ).toBe(false)
 
-    const longRequest = v.parse(CreateMatchRequest, {
+    const longRequest = Schema.decodeUnknownSync(CreateMatchRequest)({
       ...request,
       gameKey: 'free-pyramid-long',
       targets: { ...request.targets, matchTargetFrames: 1 },
@@ -55,10 +85,12 @@ describe('match creation helpers', () => {
     })
 
     expect(
-      v.safeParse(CreateMatchRequest, {
-        ...longRequest,
-        targets: { ...longRequest.targets, matchTargetFrames: 2 },
-      }).success,
+      Result.isSuccess(
+        Schema.decodeUnknownResult(CreateMatchRequest)({
+          ...longRequest,
+          targets: { ...longRequest.targets, matchTargetFrames: 2 },
+        }),
+      ),
     ).toBe(false)
 
     const matchId = newMatchId()
@@ -74,7 +106,7 @@ describe('match creation helpers', () => {
 
   test('projects only an unfinished current Frame as active', () => {
     const base = {
-      matchId: v.parse(MatchId, '01ARZ3NDEKTSV4RRFFQ69G5FAV'),
+      matchId: Schema.decodeUnknownSync(MatchId)('01ARZ3NDEKTSV4RRFFQ69G5FAV'),
       gameKey: 'free-pyramid',
       targets: { frameTargetPointsBySeat: { A: 8, B: 7 }, matchTargetFrames: 3 },
       status: 'active' as const,
@@ -87,7 +119,7 @@ describe('match creation helpers', () => {
       ],
     }
 
-    expect(projectMatchScore(v.parse(MatchState, base))).toEqual({
+    expect(projectMatchScore(Schema.decodeUnknownSync(MatchState)(base))).toEqual({
       matchTargetFrames: 3,
       frameTargetPointsBySeat: { A: 8, B: 7 },
       framesWonBySeat: { A: 1, B: 0 },
@@ -97,7 +129,7 @@ describe('match creation helpers', () => {
     })
     expect(
       projectMatchScore(
-        v.parse(MatchState, {
+        Schema.decodeUnknownSync(MatchState)({
           ...base,
           currentFrameIndex: 1,
           frames: base.frames.slice(0, 1),
@@ -106,7 +138,7 @@ describe('match creation helpers', () => {
     ).toBeNull()
     expect(
       projectMatchScore(
-        v.parse(MatchState, {
+        Schema.decodeUnknownSync(MatchState)({
           ...base,
           status: 'finished',
           winnerSeat: 'A',
@@ -117,7 +149,7 @@ describe('match creation helpers', () => {
 
     expect(
       projectMatchScore(
-        v.parse(MatchState, {
+        Schema.decodeUnknownSync(MatchState)({
           ...base,
           targets: { ...base.targets, matchTargetFrames: 1 },
           status: 'finished',
@@ -133,7 +165,7 @@ describe('match creation helpers', () => {
   test.each(['A', 'B'] as const)(
     'preserves authoritative winner %s rather than the frame-score leader',
     (winnerSeat) => {
-      const state = v.parse(MatchState, {
+      const state = Schema.decodeUnknownSync(MatchState)({
         matchId: newMatchId(),
         gameKey: 'free-pyramid',
         targets: request.targets,
@@ -146,12 +178,22 @@ describe('match creation helpers', () => {
 
       const score = projectMatchScore(state)
       expect(score.winnerSeat).toBe(winnerSeat)
-      expect(v.parse(MatchState, JSON.parse(JSON.stringify(state)))).toEqual(state)
-      expect(v.parse(MatchScoreProjection, JSON.parse(JSON.stringify(score)))).toEqual(score)
-      expect(v.safeParse(MatchState, { ...state, winnerSeat: null }).success).toBe(false)
-      expect(v.safeParse(MatchState, { ...state, status: 'active' }).success).toBe(false)
-      expect(v.safeParse(MatchState, { ...state, winnerSeat: undefined }).success).toBe(false)
-      expect(v.safeParse(MatchScoreProjection, { ...score, winnerSeat: undefined }).success).toBe(false)
+      expect(Schema.decodeUnknownSync(MatchState)(JSON.parse(JSON.stringify(state)))).toEqual(state)
+      expect(Schema.decodeUnknownSync(MatchScoreProjection)(JSON.parse(JSON.stringify(score)))).toEqual(score)
+      expect(Result.isSuccess(Schema.decodeUnknownResult(MatchState)({ ...state, winnerSeat: null }))).toBe(
+        false,
+      )
+      expect(Result.isSuccess(Schema.decodeUnknownResult(MatchState)({ ...state, status: 'active' }))).toBe(
+        false,
+      )
+      expect(
+        Result.isSuccess(Schema.decodeUnknownResult(MatchState)({ ...state, winnerSeat: undefined })),
+      ).toBe(false)
+      expect(
+        Result.isSuccess(
+          Schema.decodeUnknownResult(MatchScoreProjection)({ ...score, winnerSeat: undefined }),
+        ),
+      ).toBe(false)
     },
   )
 })

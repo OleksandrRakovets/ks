@@ -10,61 +10,59 @@ import {
   Seat,
 } from '@ks/core'
 import { GameKey } from '@ks/gameplay/definitions'
-import * as v from 'valibot'
+import { Schema, SchemaGetter } from 'effect'
 
-export const MatchCreationDefinition = v.pipe(
-  v.object({
-    gameKey: GameKey,
-    targets: MatchTargets,
-    firstBreakerSeat: Seat,
-    gameConfiguration: v.optional(GameConfiguration),
-  }),
-  v.check(
+export const MatchCreationDefinition = Schema.Struct({
+  gameKey: GameKey,
+  targets: MatchTargets,
+  firstBreakerSeat: Seat,
+  gameConfiguration: Schema.optional(GameConfiguration),
+}).check(
+  Schema.makeFilter(
     (value) =>
       value.gameKey !== 'free-pyramid-long' ||
       value.gameConfiguration?.rackRollover === 14 ||
       value.gameConfiguration?.rackRollover === 15,
-    'Long free pyramid requires rack rollover configuration',
+    { message: 'Long free pyramid requires rack rollover configuration' },
   ),
-  v.check(
+  Schema.makeFilter(
     (value) => value.gameKey !== 'free-pyramid-long' || value.targets.matchTargetFrames === 1,
-    'Long free pyramid requires a single frame',
+    { message: 'Long free pyramid requires a single frame' },
   ),
-  v.readonly(),
 )
 
-export type MatchCreationDefinition = v.InferOutput<typeof MatchCreationDefinition>
-
-export const CreateMatchRequest = v.pipe(
-  v.intersect([
-    MatchCreationDefinition,
-    v.object({
-      participants: v.pipe(v.tuple([MatchSeatAssignment, MatchSeatAssignment]), v.readonly()),
-    }),
-  ]),
-  v.check(
-    (value) => new Set(value.participants.map((participant) => participant.seat)).size === 2,
-    'Participants must include one A and one B seat',
-  ),
-  v.readonly(),
-)
-
-export type CreateMatchRequest = v.InferOutput<typeof CreateMatchRequest>
-
-export const MatchConfig = v.pipe(
-  v.object({
-    matchId: MatchId,
-    gameKey: GameKey,
-    targets: MatchTargets,
-    firstBreakerSeat: Seat,
-    gameConfiguration: v.optional(GameConfiguration),
+export const CreateMatchRequest = MatchCreationDefinition.mapFields(
+  (fields) => ({
+    ...fields,
+    participants: Schema.TupleWithRest(Schema.Tuple([MatchSeatAssignment, MatchSeatAssignment]), [
+      Schema.Unknown,
+    ]).pipe(
+      Schema.decodeTo(Schema.toType(Schema.Tuple([MatchSeatAssignment, MatchSeatAssignment])), {
+        decode: SchemaGetter.transform(([a, b]) => [a, b] as const),
+        encode: SchemaGetter.transform((participants) => participants),
+      }),
+    ),
   }),
-  v.readonly(),
+  // These checks depend only on the unchanged creation fields.
+  { unsafePreserveChecks: true },
+).check(
+  Schema.makeFilter((value) => new Set(value.participants.map((participant) => participant.seat)).size === 2, {
+    message: 'Participants must include one A and one B seat',
+  }),
 )
 
-export type MatchConfig = v.InferOutput<typeof MatchConfig>
+export const MatchConfig = Schema.Struct({
+  matchId: MatchId,
+  gameKey: GameKey,
+  targets: MatchTargets,
+  firstBreakerSeat: Seat,
+  gameConfiguration: Schema.optional(GameConfiguration),
+})
 
-export function buildMatchConfig(matchId: MatchId, input: CreateMatchRequest): MatchConfig {
+export function buildMatchConfig(
+  matchId: typeof MatchId.Type,
+  input: typeof CreateMatchRequest.Type,
+): typeof MatchConfig.Type {
   const config = {
     matchId,
     gameKey: input.gameKey,
@@ -78,68 +76,55 @@ export function buildMatchConfig(matchId: MatchId, input: CreateMatchRequest): M
     : { ...config, gameConfiguration: input.gameConfiguration }
 }
 
-export const FrameState = v.pipe(
-  v.object({
-    frameIndex: PositiveInteger,
-    pointsBySeat: BySeatNumber,
-    breakerSeat: Seat,
-    winnerSeat: v.optional(Seat),
-  }),
-  v.readonly(),
-)
-
-export type FrameState = v.InferOutput<typeof FrameState>
+export const FrameState = Schema.Struct({
+  frameIndex: PositiveInteger,
+  pointsBySeat: BySeatNumber,
+  breakerSeat: Seat,
+  winnerSeat: Schema.optional(Seat),
+})
 
 const MatchStateFields = {
   matchId: MatchId,
   gameKey: GameKey,
   targets: MatchTargets,
-  gameConfiguration: v.optional(GameConfiguration),
+  gameConfiguration: Schema.optional(GameConfiguration),
   currentFrameIndex: NonNegativeInteger,
   framesWonBySeat: BySeatNumber,
-  frames: v.pipe(v.array(FrameState), v.readonly()),
+  frames: Schema.Array(FrameState),
 }
 
-const ActiveMatchState = v.pipe(
-  v.object({ ...MatchStateFields, status: v.literal('active'), winnerSeat: v.null() }),
-  v.readonly(),
-)
+const ActiveMatchState = Schema.Struct({
+  ...MatchStateFields,
+  status: Schema.Literal('active'),
+  winnerSeat: Schema.Null,
+})
 
-export const FinishedMatchState = v.pipe(
-  v.object({ ...MatchStateFields, status: v.literal('finished'), winnerSeat: Seat }),
-  v.readonly(),
-)
+export const FinishedMatchState = Schema.Struct({
+  ...MatchStateFields,
+  status: Schema.Literal('finished'),
+  winnerSeat: Seat,
+})
 
-export const MatchState = v.variant('status', [ActiveMatchState, FinishedMatchState])
+export const MatchState = Schema.Union([ActiveMatchState, FinishedMatchState])
 
-export type MatchState = v.InferOutput<typeof MatchState>
+export type MatchStateFor<K extends typeof GameKey.Type> = typeof MatchState.Type & { readonly gameKey: K }
 
-export type MatchStateFor<K extends GameKey> = MatchState & { readonly gameKey: K }
+const ActiveFrameScoreProjection = Schema.Struct({
+  frameIndex: PositiveInteger,
+  pointsBySeat: BySeatNumber,
+})
 
-const ActiveFrameScoreProjection = v.pipe(
-  v.object({
-    frameIndex: PositiveInteger,
-    pointsBySeat: BySeatNumber,
-  }),
-  v.readonly(),
-)
-
-export const MatchScoreProjection = v.pipe(
-  v.object({
-    matchTargetFrames: PositiveInteger,
-    frameTargetPointsBySeat: v.pipe(v.object({ A: PositiveInteger, B: PositiveInteger }), v.readonly()),
-    framesWonBySeat: BySeatNumber,
-    winnerSeat: v.nullable(Seat),
-    singleFramePointsBySeat: v.nullable(BySeatNumber),
-    activeFrame: v.nullable(ActiveFrameScoreProjection),
-  }),
-  v.readonly(),
-)
-
-export type MatchScoreProjection = v.InferOutput<typeof MatchScoreProjection>
+export const MatchScoreProjection = Schema.Struct({
+  matchTargetFrames: PositiveInteger,
+  frameTargetPointsBySeat: Schema.Struct({ A: PositiveInteger, B: PositiveInteger }),
+  framesWonBySeat: BySeatNumber,
+  winnerSeat: Schema.NullOr(Seat),
+  singleFramePointsBySeat: Schema.NullOr(BySeatNumber),
+  activeFrame: Schema.NullOr(ActiveFrameScoreProjection),
+})
 
 /** Derives the compact list score without treating the last completed Frame as active. */
-export function projectMatchScore(state: MatchState): MatchScoreProjection {
+export function projectMatchScore(state: typeof MatchState.Type): typeof MatchScoreProjection.Type {
   const representedFrame = state.frames.find((frame) => frame.frameIndex === state.currentFrameIndex)
 
   const currentFrame =

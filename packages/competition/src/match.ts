@@ -1,4 +1,4 @@
-import { type Control, type FrameOutcome, type MatchCommand, opponentOf, Seat } from '@ks/core'
+import { type Control, type FrameOutcome, type MatchCommand, opponentOf, Seat, StrictStruct } from '@ks/core'
 import { GameKey, type GamePresentationFor, GameResult } from '@ks/gameplay/definitions'
 import {
   GameCommandRejection,
@@ -8,7 +8,7 @@ import {
   restoreGameplaySession,
 } from '@ks/gameplay/server'
 import { createGameplaySession } from '@ks/gameplay/server'
-import * as v from 'valibot'
+import { Result, Schema } from 'effect'
 
 import type { FrameState, MatchConfig, MatchState, MatchStateFor } from './definitions'
 import {
@@ -23,86 +23,80 @@ import {
 import type { ProtocolEntryContent } from './protocol'
 
 /** Complete executable aggregate state; storage cursor and Protocol are deliberately separate. */
-export const MatchCheckpoint = v.object({
+export const MatchCheckpoint = Schema.Struct({
   lifecycle: MatchMachineCheckpoint,
-  gameplay: v.nullable(GameplayCheckpoint),
-  completedGameResult: v.nullable(GameResult),
+  gameplay: Schema.NullOr(GameplayCheckpoint),
+  completedGameResult: Schema.NullOr(GameResult),
 })
-
-export type MatchCheckpoint = v.InferOutput<typeof MatchCheckpoint>
 
 type MatchCommandParseFailure = {
   readonly code: 'unsupported-match-command'
   readonly commandType: string
 }
 
-export const MatchRejection = v.variant('code', [
-  v.pipe(v.object({ code: v.literal('no-active-frame') }), v.readonly()),
-  v.pipe(v.object({ code: v.literal('wrong-breaker'), expectedSeat: Seat }), v.readonly()),
-  v.pipe(v.object({ code: v.literal('match-already-over') }), v.readonly()),
-  v.pipe(v.object({ code: v.literal('game-command-rejected'), reason: GameCommandRejection }), v.readonly()),
-  v.pipe(v.object({ code: v.literal('correction-not-available') }), v.readonly()),
+export const MatchRejection = Schema.Union([
+  Schema.Struct({ code: Schema.Literal('no-active-frame') }),
+  Schema.Struct({ code: Schema.Literal('wrong-breaker'), expectedSeat: Seat }),
+  Schema.Struct({ code: Schema.Literal('match-already-over') }),
+  Schema.Struct({ code: Schema.Literal('game-command-rejected'), reason: GameCommandRejection }),
+  Schema.Struct({ code: Schema.Literal('correction-not-available') }),
 ])
-
-export type MatchRejection = v.InferOutput<typeof MatchRejection>
 
 type MatchCommandResult =
   | { readonly _tag: 'parse-failed'; readonly reason: MatchCommandParseFailure }
-  | { readonly _tag: 'rejected'; readonly reason: MatchRejection }
+  | { readonly _tag: 'rejected'; readonly reason: typeof MatchRejection.Type }
   | {
       readonly _tag: 'accepted'
-      readonly command: MatchCommand
-      readonly protocolEntryContents: readonly ProtocolEntryContent[]
+      readonly command: typeof MatchCommand.Type
+      readonly protocolEntryContents: readonly (typeof ProtocolEntryContent.Type)[]
     }
 
 export type { Match }
 
-type CorrelatedGameplay<K extends GameKey> = {
+type CorrelatedGameplay<K extends typeof GameKey.Type> = {
   readonly key: K
   readonly session: GameplaySession<K>
 }
 
-type AnyCorrelatedGameplay = { [K in GameKey]: CorrelatedGameplay<K> }[GameKey]
+type AnyCorrelatedGameplay = { [K in typeof GameKey.Type]: CorrelatedGameplay<K> }[typeof GameKey.Type]
 
 type MatchControlProjection =
   | {
       readonly controlPhase: 'finished'
-      readonly state: Extract<MatchState, { status: 'finished' }>
+      readonly state: Extract<typeof MatchState.Type, { status: 'finished' }>
       readonly game: undefined
-      readonly controls: readonly Control[]
+      readonly controls: readonly (typeof Control.Type)[]
     }
   | {
       readonly controlPhase: 'between-frames'
-      readonly state: Extract<MatchState, { status: 'active' }>
+      readonly state: Extract<typeof MatchState.Type, { status: 'active' }>
       readonly game: undefined
-      readonly controls: readonly Control[]
+      readonly controls: readonly (typeof Control.Type)[]
     }
   | {
-      [K in GameKey]: {
+      [K in typeof GameKey.Type]: {
         readonly controlPhase: 'frame-active'
         readonly state: MatchStateFor<K> & { readonly status: 'active' }
         readonly game: GamePresentationFor<K>
-        readonly controls: readonly Control[]
+        readonly controls: readonly (typeof Control.Type)[]
       }
-    }[GameKey]
+    }[typeof GameKey.Type]
 
-const MatchLifecycleCommand = v.variant('type', [
-  v.pipe(v.strictObject({ type: v.literal('frame.commence'), seat: Seat }), v.readonly()),
-  v.pipe(v.strictObject({ type: v.literal('frame.concede'), seat: Seat }), v.readonly()),
+const MatchLifecycleCommand = Schema.Union([
+  StrictStruct({ type: Schema.Literal('frame.commence'), seat: Seat }),
+  StrictStruct({ type: Schema.Literal('frame.concede'), seat: Seat }),
 ])
-
-type MatchLifecycleCommand = v.InferOutput<typeof MatchLifecycleCommand>
 
 /** Executable Match aggregate; construct through createMatch or restoreMatchCheckpoint. */
 class Match {
   #snapshot: MatchSnapshot
   #gameplay: AnyCorrelatedGameplay | null
-  #completedGameResult: GameResult | null = null
+  #completedGameResult: typeof GameResult.Type | null = null
 
   constructor(
     snapshot: MatchSnapshot,
     gameplay: AnyCorrelatedGameplay | null,
-    completedGameResult: GameResult | null = null,
+    completedGameResult: typeof GameResult.Type | null = null,
   ) {
     this.#snapshot = snapshot
     this.#gameplay = gameplay
@@ -114,10 +108,10 @@ class Match {
    * The caller must discard this resident if accepted content cannot subsequently be persisted.
    * @throws An unrecoverable execution defect; resident state may have partially advanced and must be discarded.
    */
-  execute(command: MatchCommand): MatchCommandResult {
+  execute(command: typeof MatchCommand.Type): MatchCommandResult {
     const lifecycle = deriveLifecycleState(this.#snapshot)
-    const discriminator = v.safeParse(v.object({ type: v.string() }), command.command)
-    const commandType = discriminator.success ? discriminator.output.type : 'unknown'
+    const discriminator = Schema.decodeUnknownResult(Schema.Struct({ type: Schema.String }))(command.command)
+    const commandType = Result.isSuccess(discriminator) ? discriminator.success.type : 'unknown'
 
     const parseFailed = (): MatchCommandResult => ({
       _tag: 'parse-failed',
@@ -125,9 +119,9 @@ class Match {
     })
 
     if (command.source === 'match') {
-      const parsed = v.safeParse(MatchLifecycleCommand, command.command)
+      const parsed = Schema.decodeUnknownResult(MatchLifecycleCommand)(command.command)
 
-      return parsed.success ? this.#applyMatchCommand(parsed.output, command) : parseFailed()
+      return Result.isSuccess(parsed) ? this.#applyMatchCommand(parsed.success, command) : parseFailed()
     }
 
     if (['frame.commence', 'frame.concede'].includes(commandType)) return parseFailed()
@@ -137,15 +131,15 @@ class Match {
   }
 
   /** Returns the current competition lifecycle phase. */
-  phase(): MatchPhase {
+  phase(): typeof MatchPhase.Type {
     return deriveLifecycleState(this.#snapshot).phase
   }
 
   /** Returns current semantic Match state, including active gameplay score. */
-  state(): MatchState {
+  state(): typeof MatchState.Type {
     const lifecycle = deriveLifecycleState(this.#snapshot)
 
-    const frames: FrameState[] = lifecycle.completedFrames.map((frame) => ({
+    const frames: (typeof FrameState.Type)[] = lifecycle.completedFrames.map((frame) => ({
       frameIndex: frame.frameIndex,
       pointsBySeat: frame.outcome.score,
       breakerSeat: frame.breakerSeat,
@@ -175,7 +169,7 @@ class Match {
       frames,
     }
 
-    const stateWithoutConfiguration: MatchState =
+    const stateWithoutConfiguration: typeof MatchState.Type =
       lifecycle.phase === 'finished'
         ? { ...stateFields, status: 'finished', winnerSeat: lifecycle.winnerSeat }
         : { ...stateFields, status: 'active', winnerSeat: null }
@@ -192,7 +186,7 @@ class Match {
 
     if (state.status === 'finished') return { controlPhase: 'finished', state, game: undefined, controls: [] }
 
-    const matchControls: Control[] = []
+    const matchControls: (typeof Control.Type)[] = []
 
     if (lifecycle.phase !== 'frame-in-progress') {
       return { controlPhase: 'between-frames', state, game: undefined, controls: matchControls }
@@ -227,11 +221,11 @@ class Match {
   }
 
   /** Game-owned result, retained when gameplay is discarded after the frame ends. */
-  gameResult(): GameResult | null {
+  gameResult(): typeof GameResult.Type | null {
     return this.#gameplay?.session.deriveResult?.() ?? this.#completedGameResult
   }
 
-  exportCheckpoint(): MatchCheckpoint {
+  exportCheckpoint(): typeof MatchCheckpoint.Type {
     const gameplay = this.#gameplay
 
     return {
@@ -244,7 +238,10 @@ class Match {
     }
   }
 
-  #applyMatchCommand(command: MatchLifecycleCommand, acceptedCommand: MatchCommand): MatchCommandResult {
+  #applyMatchCommand(
+    command: typeof MatchLifecycleCommand.Type,
+    acceptedCommand: typeof MatchCommand.Type,
+  ): MatchCommandResult {
     const lifecycle = deriveLifecycleState(this.#snapshot)
     const gameKey = gameKeyOf(lifecycle.config.gameKey)
 
@@ -260,7 +257,7 @@ class Match {
           reason: { code: 'game-command-rejected', reason: { code: 'command-not-available' } },
         }
 
-      const outcome: FrameOutcome = {
+      const outcome: typeof FrameOutcome.Type = {
         winnerSeat: opponentOf(command.seat),
         score: this.#gameplay.session.getScore(),
         winReason: 'conceded',
@@ -290,9 +287,9 @@ class Match {
   }
 
   #applyGameCommand(
-    gameKey: GameKey,
-    gameCommand: MatchCommand['command'],
-    acceptedCommand: MatchCommand,
+    gameKey: typeof GameKey.Type,
+    gameCommand: (typeof MatchCommand.Type)['command'],
+    acceptedCommand: typeof MatchCommand.Type,
     commandType: string,
   ): MatchCommandResult {
     const lifecycle = deriveLifecycleState(this.#snapshot)
@@ -322,7 +319,7 @@ class Match {
       : { _tag: 'accepted', command: acceptedCommand, protocolEntryContents }
   }
 
-  #executeGameCommand(gameKey: GameKey, command: MatchCommand['command']) {
+  #executeGameCommand(gameKey: typeof GameKey.Type, command: (typeof MatchCommand.Type)['command']) {
     const gameplay = this.#gameplay
 
     if (!gameplay || gameplay.key !== gameKey) throw new Error(`Missing gameplay session for ${gameKey}`)
@@ -363,9 +360,9 @@ class Match {
   }
 
   #completeFrame(
-    outcome: FrameOutcome,
-    acceptedCommand: MatchCommand,
-    protocolEntryContents: ProtocolEntryContent[],
+    outcome: typeof FrameOutcome.Type,
+    acceptedCommand: typeof MatchCommand.Type,
+    protocolEntryContents: (typeof ProtocolEntryContent.Type)[],
   ): MatchCommandResult {
     const lifecycle = deriveLifecycleState(this.#snapshot)
 
@@ -418,16 +415,16 @@ class Match {
 
 /**
  * Constructs a new executable Match with its first Frame prepared, waiting for player commencement.
- * @throws A Valibot parse error when the configuration uses an unregistered game key.
+ * @throws A Schema parse error when the configuration uses an unregistered game key.
  */
-export function createMatch(config: MatchConfig): Match {
+export function createMatch(config: typeof MatchConfig.Type): Match {
   const gameKey = gameKeyOf(config.gameKey)
 
   return new Match(createInitialSnapshot(config), createGameplay(gameKey, config))
 }
 
 /** Validates persisted state and restores one local executable aggregate without replay. */
-export function restoreMatchCheckpoint(input: MatchCheckpoint): Match {
+export function restoreMatchCheckpoint(input: typeof MatchCheckpoint.Type): Match {
   const lifecycle = restoreLifecycleSnapshot(input.lifecycle)
   const config = input.lifecycle.context.config
   gameKeyOf(config.gameKey)
@@ -447,15 +444,18 @@ export function restoreMatchCheckpoint(input: MatchCheckpoint): Match {
   return new Match(lifecycle, correlated, input.completedGameResult)
 }
 
-function gameKeyOf(value: string): GameKey {
-  return v.parse(GameKey, value)
+function gameKeyOf(value: string): typeof GameKey.Type {
+  return Schema.decodeUnknownSync(GameKey)(value)
 }
 
-function wrapGameplay<K extends GameKey>(key: K, session: GameplaySession<K>): CorrelatedGameplay<K> {
+function wrapGameplay<K extends typeof GameKey.Type>(
+  key: K,
+  session: GameplaySession<K>,
+): CorrelatedGameplay<K> {
   return { key, session }
 }
 
-function createGameplay(key: GameKey, config: MatchConfig): AnyCorrelatedGameplay {
+function createGameplay(key: typeof GameKey.Type, config: typeof MatchConfig.Type): AnyCorrelatedGameplay {
   const targetPointsBySeat = config.targets.frameTargetPointsBySeat
 
   switch (key) {
@@ -479,17 +479,20 @@ function createGameplay(key: GameKey, config: MatchConfig): AnyCorrelatedGamepla
   throw new Error('Unsupported registered game')
 }
 
-function requireGameplay(key: GameKey, gameplay: AnyCorrelatedGameplay | null): AnyCorrelatedGameplay {
+function requireGameplay(
+  key: typeof GameKey.Type,
+  gameplay: AnyCorrelatedGameplay | null,
+): AnyCorrelatedGameplay {
   if (!gameplay || gameplay.key !== key) throw new Error(`Missing gameplay session for ${key}`)
 
   return gameplay
 }
 
-function concedeControl(seat: Seat): Control {
+function concedeControl(seat: typeof Seat.Type): typeof Control.Type {
   return { source: 'match', type: 'frame.concede', fixedInput: {}, seat, prominence: 'tertiary' }
 }
 
-function exportGameplayCheckpoint(gameplay: AnyCorrelatedGameplay): GameplayCheckpoint {
+function exportGameplayCheckpoint(gameplay: AnyCorrelatedGameplay): typeof GameplayCheckpoint.Type {
   switch (gameplay.key) {
     case 'strila-v2':
       return { gameKey: gameplay.key, state: gameplay.session.exportCheckpoint() }

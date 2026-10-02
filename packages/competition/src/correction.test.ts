@@ -1,23 +1,23 @@
 import { expect, test } from 'bun:test'
 
 import { type MatchCommand, newCommandId, newMatchId, UnixEpochMilliseconds } from '@ks/core'
-import * as v from 'valibot'
+import { Schema } from 'effect'
 
 import { correctMatch, isCorrectableCommand } from './correction'
 import type { MatchConfig } from './definitions'
 import { createMatch, restoreMatchCheckpoint } from './match'
 import { correctionReferenceOf, type ProtocolEntry } from './protocol'
 
-const acceptedAt = v.parse(UnixEpochMilliseconds, 1_700_000_000_000)
+const acceptedAt = Schema.decodeUnknownSync(UnixEpochMilliseconds)(1_700_000_000_000)
 
-const config: MatchConfig = {
+const config: typeof MatchConfig.Type = {
   matchId: newMatchId(),
   gameKey: 'strila-v2',
   targets: { frameTargetPointsBySeat: { A: 9, B: 9 }, matchTargetFrames: 2 },
   firstBreakerSeat: 'A',
 }
 
-function execute(match: ReturnType<typeof createMatch>, command: MatchCommand) {
+function execute(match: ReturnType<typeof createMatch>, command: typeof MatchCommand.Type) {
   const result = match.execute(command)
 
   if (result._tag !== 'accepted') throw new Error('Expected accepted command')
@@ -25,7 +25,10 @@ function execute(match: ReturnType<typeof createMatch>, command: MatchCommand) {
   return result
 }
 
-function correction(targetSeq: number, targetCommandId: ReturnType<typeof newCommandId>): MatchCommand {
+function correction(
+  targetSeq: number,
+  targetCommandId: ReturnType<typeof newCommandId>,
+): typeof MatchCommand.Type {
   return {
     commandId: newCommandId(),
     source: 'match',
@@ -59,13 +62,15 @@ test('compensates every outcome of one game command in reverse order', () => {
   const targetResult = execute(match, targetCommand)
   const targetSeq = 4
 
-  const protocolEntries: ProtocolEntry[] = targetResult.protocolEntryContents.map((entry, entryIndex) => ({
-    ...entry,
-    acceptedSeq: targetSeq,
-    entryIndex,
-    causedByCommandId: targetCommand.commandId,
-    acceptedAt,
-  }))
+  const protocolEntries: (typeof ProtocolEntry.Type)[] = targetResult.protocolEntryContents.map(
+    (entry, entryIndex) => ({
+      ...entry,
+      acceptedSeq: targetSeq,
+      entryIndex,
+      causedByCommandId: targetCommand.commandId,
+      acceptedAt,
+    }),
+  )
 
   const command = correction(targetSeq, targetCommand.commandId)
 
@@ -129,12 +134,24 @@ test('rejects a stale target and lifecycle commands, and reports malformed corre
       command: { type: 'command.correct', targetCommandId: targetCommand.commandId },
     }),
   ).toMatchObject({ _tag: 'parse-failed' })
+  expect(
+    correctMatch(match, target, {
+      commandId: newCommandId(),
+      source: 'match',
+      command: {
+        type: 'command.correct',
+        targetSeq: 3,
+        targetCommandId: targetCommand.commandId,
+        extra: true,
+      },
+    }),
+  ).toMatchObject({ _tag: 'parse-failed' })
 })
 
 test('reads zero-based correction references', () => {
   const commandId = newCommandId()
 
-  const entry: ProtocolEntry = {
+  const entry: typeof ProtocolEntry.Type = {
     acceptedSeq: 3,
     entryIndex: 0,
     causedByCommandId: commandId,

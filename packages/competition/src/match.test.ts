@@ -1,13 +1,13 @@
 import { describe, expect, test } from 'bun:test'
 
 import { type MatchCommand, newCommandId, newMatchId } from '@ks/core'
-import * as v from 'valibot'
+import { Schema } from 'effect'
 
 import type { MatchConfig } from './definitions'
 import { createMatch } from './match'
 import { ProtocolEntryContent } from './protocol'
 
-function config(target = 2): MatchConfig {
+function config(target = 2): typeof MatchConfig.Type {
   return {
     matchId: newMatchId(),
     gameKey: 'free-pyramid',
@@ -55,7 +55,7 @@ describe('Match', () => {
   })
 
   test('accepts a below-target Strila outcome and emits complete Protocol through award', () => {
-    const matchConfig: MatchConfig = {
+    const matchConfig: typeof MatchConfig.Type = {
       ...config(1),
       gameKey: 'strila-v2',
       targets: { frameTargetPointsBySeat: { A: 9, B: 9 }, matchTargetFrames: 1 },
@@ -75,11 +75,11 @@ describe('Match', () => {
         source: 'game',
         command: { type: 'pot.record', seat: 'B', pottedBalls: [5, 6, 7] },
       },
-    ] satisfies MatchCommand[]) {
+    ] satisfies (typeof MatchCommand.Type)[]) {
       const accepted = accept(match, submitted)
 
       for (const entry of accepted.protocolEntryContents)
-        expect(v.parse(ProtocolEntryContent, entry)).toEqual(entry)
+        expect(Schema.decodeUnknownSync(ProtocolEntryContent)(entry)).toEqual(entry)
     }
 
     expect(match.state().framesWonBySeat).toEqual({ A: 0, B: 0 })
@@ -91,7 +91,7 @@ describe('Match', () => {
     })
 
     for (const entry of awarded.protocolEntryContents)
-      expect(v.parse(ProtocolEntryContent, entry)).toEqual(entry)
+      expect(Schema.decodeUnknownSync(ProtocolEntryContent)(entry)).toEqual(entry)
     expect(awarded.protocolEntryContents).toContainEqual({
       gameKey: 'strila-v2',
       frameIndex: 1,
@@ -237,6 +237,19 @@ describe('Match', () => {
     ).toMatchObject({
       _tag: 'rejected',
     })
+    expect(observables(match)).toEqual(before)
+  })
+
+  test.each(['frame.commence', 'frame.concede'])('rejects excess input on the closed %s command', (type) => {
+    const match = createMatch(config())
+    const before = observables(match)
+    expect(
+      match.execute({
+        commandId: newCommandId(),
+        source: 'match',
+        command: { type, seat: 'A', extra: true },
+      }),
+    ).toEqual({ _tag: 'parse-failed', reason: { code: 'unsupported-match-command', commandType: type } })
     expect(observables(match)).toEqual(before)
   })
 })
