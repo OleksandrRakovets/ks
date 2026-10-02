@@ -1,6 +1,6 @@
 import { setTimeout as delay } from 'node:timers/promises'
 
-import { expect as browserExpect } from '@playwright/test'
+import { expect as browserExpect, type WebSocket } from '@playwright/test'
 import { expect, inject, test } from 'vitest'
 
 import {
@@ -84,6 +84,15 @@ test.each(['control', 'protocol'])(
     const { page, context } = browser
     const path = await createMatch(context.request, `Socket ${view}`)
     await command(context.request, path, { source: 'match', command: { type: 'frame.commence', seat: 'A' } })
+    let muteUpdates = false
+    let dropped = 0
+    await page.routeWebSocket('**/live/**', (socket) => {
+      const server = socket.connectToServer()
+      server.onMessage((message) => {
+        if (muteUpdates && String(message).includes('"type":"update"')) dropped++
+        else socket.send(message)
+      })
+    })
     const reads = traffic(page)
     await openPage(page, view === 'protocol' ? `${path}protocol/` : path)
     await command(context.request, path, {
@@ -101,8 +110,21 @@ test.each(['control', 'protocol'])(
     expect(reads.loaders()).toHaveLength(1)
     expect(reads.posts()).toHaveLength(0)
 
+    // Prove the watchdog still commits after a successful WS-driven read. A GET count alone
+    // would pass even if its projection never reached React. Drop only the next invalidation.
+    await page.clock.runFor(50)
+    muteUpdates = true
+    await command(context.request, path, {
+      source: 'game',
+      command: { type: 'pot.record', seat: 'B', pottedBallCount: 1 },
+    })
+    await expect.poll(() => dropped).toBe(1)
     await page.clock.runFor(60_000)
-    await expect.poll(() => reads.loaders().length).toBe(2)
+    await browserExpect(board).toContainText(/4\s*\/8\s*8\/\s*1/)
+
+    if (view === 'protocol')
+      await browserExpect(page.getByRole('article').filter({ hasText: 'Pot +1' })).toContainText('4:1')
+    await page.clock.runFor(50)
     await page.waitForLoadState('networkidle')
     expect(reads.loaders()).toHaveLength(2)
   },
@@ -143,8 +165,8 @@ test.each(['control', 'protocol'])(
       source: 'game',
       command: { type: 'pot.record', seat: 'A', pottedBallCount: 4 },
     })
-    let sockets = 0
-    page.on('websocket', () => sockets++)
+    const sockets: WebSocket[] = []
+    page.on('websocket', (socket) => sockets.push(socket))
     const reads = traffic(page)
     await openPage(page, view === 'protocol' ? `${path}protocol/` : path)
     await command(context.request, path, { source: 'game', command: { type: 'frame.award', seat: 'A' } })
@@ -155,14 +177,15 @@ test.each(['control', 'protocol'])(
     await page.clock.runFor(50)
     await page.waitForLoadState('networkidle')
     expect(reads.loaders()).toHaveLength(1)
-    expect(sockets).toBe(1)
+    expect(sockets).toHaveLength(1)
+    await expect.poll(() => sockets[0]?.isClosed()).toBe(true)
 
     await returnHints(page)
     await page.clock.runFor(180_000)
     await page.waitForLoadState('networkidle')
     expect(reads.loaders()).toHaveLength(1)
     expect(reads.posts()).toHaveLength(0)
-    expect(sockets).toBe(1)
+    expect(sockets).toHaveLength(1)
   },
 )
 
@@ -238,6 +261,11 @@ test('finished history ignores browser-return and timer hints', async () => {
   const { page } = browser
   const reads = traffic(page)
   await openPage(page, '/en/sparring/matches/finished/')
+  await browserExpect(page.getByRole('heading', { name: 'Matches', exact: true })).toBeVisible()
+  await browserExpect(page.getByRole('link', { name: 'Finished', exact: true })).toHaveAttribute(
+    'aria-current',
+    'page',
+  )
   await returnHints(page)
   await page.clock.runFor(1_800_000)
   expect(reads.loaders()).toHaveLength(0)
@@ -278,7 +306,7 @@ test.each(['timer-gap', 'hidden-return'])('recent completed rows expire after a 
   expect(reads.scores()).toHaveLength(0)
 })
 
-test('hide aborts slow score I/O; return replaces it with one full read and discards its stale body', async () => {
+test('hide aborts slow score I/O; return replaces the cancelled request with one full read', async () => {
   const { page, context } = browser
   const path = await createMatch(context.request, 'Delayed')
   await command(context.request, path, { source: 'match', command: { type: 'frame.commence', seat: 'A' } })
@@ -293,21 +321,23 @@ test('hide aborts slow score I/O; return replaces it with one full read and disc
   })
 
   let captured = false
-  let delivered = false
+  let released = false
   await page.route('**/live-scores/**', async (route) => {
     const oldResponse = await route.fetch()
     captured = true
     await held
     await route.fulfill({ response: oldResponse })
-    delivered = true
+    // The intercepted request has already failed in the browser. Completing this handler
+    // proves cancellation/recovery, not delivery of stale JSON to application code.
+    released = true
   })
   const reads = traffic(page)
-  await openPage(page, listPath)
-  const row = page.getByRole('link', { name: /Delayed Alice/ })
-  await page.clock.runFor(30_000)
-  await expect.poll(() => captured).toBe(true)
 
   try {
+    await openPage(page, listPath)
+    const row = page.getByRole('link', { name: /Delayed Alice/ })
+    await page.clock.runFor(30_000)
+    await expect.poll(() => captured).toBe(true)
     const aborted = page.waitForEvent('requestfailed', (request) => request.url().includes('/live-scores/'))
     await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: true })))
     await aborted
@@ -320,7 +350,7 @@ test('hide aborts slow score I/O; return replaces it with one full read and disc
     await returnHints(page)
     await browserExpect(row).toContainText(/Alice\s*5\s*Delayed Bob\s*0/)
     release()
-    await expect.poll(() => delivered).toBe(true)
+    await expect.poll(() => released).toBe(true)
     await page.clock.runFor(50)
     await browserExpect(row).toContainText(/Alice\s*5\s*Delayed Bob\s*0/)
     expect(reads.scores()).toHaveLength(1)
@@ -331,11 +361,13 @@ test('hide aborts slow score I/O; return replaces it with one full read and disc
   }
 })
 
-test('HTML and Router data are no-store while built assets remain cacheable', async () => {
+test('successful HTML and Router data are no-store while built CSS is not no-store', async () => {
   const { page, context } = browser
   const html = await context.request.get(listPath)
+  expect(html.ok()).toBe(true)
   expect(html.headers()['cache-control']).toBe('no-store')
   const data = await context.request.get(`${listPath}_.data`)
+  expect(data.ok()).toBe(true)
   expect(data.headers()['cache-control']).toBe('no-store')
   await openPage(page, listPath)
   const assetPath = await page.locator('link[rel="stylesheet"]').first().getAttribute('href')
@@ -367,8 +399,18 @@ test.skipIf(browserName !== 'chromium')(
         targetId: target.targetInfo.targetId,
       })
 
+      const visibleTicks = await page.evaluate(() => window.e2eLifecycle.ticks)
+      await expect.poll(() => page.evaluate(() => window.e2eLifecycle.ticks)).toBeGreaterThan(visibleTicks)
       await browserSession.send('Browser.setWindowBounds', { windowId, bounds: { windowState: 'minimized' } })
       await expect.poll(() => page.evaluate(() => document.visibilityState)).toBe('hidden')
+      const hiddenTicks = await page.evaluate(() => window.e2eLifecycle.ticks)
+      const hiddenStarted = Date.now()
+      // Establish that this hidden, unfrozen page still executes its timer. Compare freezing
+      // over a longer interval than that observed baseline, not just a throttled 250ms gap.
+      await expect
+        .poll(() => page.evaluate(() => window.e2eLifecycle.ticks), { timeout: 4_000 })
+        .toBeGreaterThan(hiddenTicks + 1)
+      const frozenObservation = Math.max(1_500, 2 * (Date.now() - hiddenStarted))
       await session.send('Page.setWebLifecycleState', { state: 'frozen' })
       await expect
         .poll(() =>
@@ -378,9 +420,9 @@ test.skipIf(browserName !== 'chromium')(
         )
         .toBe(true)
       const ticks = await page.evaluate(() => window.e2eLifecycle.ticks)
-      // Node's delay keeps running while the actual page is frozen. A timer fake or an accepted
-      // CDP response alone would not prove suspension; unchanged live ticks do.
-      await delay(250)
+      // Node keeps running while the page is frozen. Require the trusted freeze event, live
+      // baselines, and observed quiescence together; an accepted CDP command alone proves little.
+      await delay(frozenObservation)
       expect(await page.evaluate(() => window.e2eLifecycle.ticks)).toBe(ticks)
       await command(request, path, {
         source: 'game',
@@ -392,6 +434,7 @@ test.skipIf(browserName !== 'chromium')(
       await browserSession.send('Browser.setWindowBounds', { windowId, bounds: { windowState: 'normal' } })
       await browserSession.send('Target.activateTarget', { targetId: target.targetInfo.targetId })
       await expect.poll(() => page.evaluate(() => document.visibilityState)).toBe('visible')
+      await expect.poll(() => page.evaluate(() => window.e2eLifecycle.ticks)).toBeGreaterThan(ticks)
       await browserExpect(page.getByRole('region', { name: 'Per-game control container' })).toContainText(
         /4\s*\/8/,
       )
@@ -405,6 +448,24 @@ test.skipIf(browserName !== 'chromium')(
           ),
         ),
       ).toBe(true)
+    } finally {
+      await native.close()
+    }
+  },
+)
+
+test.skipIf(browserName !== 'chromium')(
+  'native Chromium cleanup tolerates a lost CDP client and repeated close',
+  async () => {
+    const native = await nativeBrowser()
+
+    try {
+      // connectOverCDP Browser.close disconnects this client; the helper still owns the child.
+      // The old cleanup attempted another CDP call and leaked its process/profile here.
+      await native.browser.close()
+      expect(native.browser.isConnected()).toBe(false)
+      await native.close()
+      await native.close()
     } finally {
       await native.close()
     }

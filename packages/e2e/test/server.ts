@@ -29,11 +29,15 @@ export default async function setup(project: TestProject) {
   let server: PreviewServer | undefined
 
   const cleanup = async () => {
-    await server?.close()
-    await rm(statePath, { recursive: true, force: true })
-
-    if (previousStatePath === undefined) delete process.env.KS_E2E_STATE_PATH
-    else process.env.KS_E2E_STATE_PATH = previousStatePath
+    try {
+      await server?.close()
+      // A failed shutdown deliberately leaves the store intact: deleting files underneath
+      // an open Miniflare instance would turn a cleanup failure into data corruption.
+      await rm(statePath, { recursive: true, force: true })
+    } finally {
+      if (previousStatePath === undefined) delete process.env.KS_E2E_STATE_PATH
+      else process.env.KS_E2E_STATE_PATH = previousStatePath
+    }
   }
 
   try {
@@ -74,7 +78,12 @@ export default async function setup(project: TestProject) {
     project.provide('baseURL', `http://127.0.0.1:${address.port}`)
     project.provide('statePath', statePath)
   } catch (error) {
-    await cleanup()
+    try {
+      await cleanup()
+    } catch (cleanupError) {
+      throw new AggregateError([error, cleanupError], 'E2E preview startup and cleanup failed')
+    }
+
     throw error
   }
 

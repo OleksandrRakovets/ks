@@ -8,6 +8,8 @@ import { inject } from 'vitest'
  * Moves completed lifecycle rows back by sixteen minutes in this run's disposable D1 only.
  * The browser's accelerated clock cannot advance Workerd. Age both timestamps to preserve
  * their ordering, so the real list query sees the same cutoff as the returning client.
+ * All completed rows must move: the page-wide clock also advances their expiry deadlines.
+ * Moving just the target leaves other recent rows artificially overdue on every server read.
  * This is a clock-gap fixture, not an application write path or a final-state correction.
  * Archive contents remain untouched; these tests only exercise list membership/expiry.
  */
