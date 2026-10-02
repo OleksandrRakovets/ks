@@ -310,10 +310,6 @@ export function createInitialSnapshot(input: LongFreePyramidMachineInput): LongF
   return snapshot
 }
 
-export function getLongFreePyramidFramePhase(snapshot: LongFreePyramidFrameSnapshot): LongFreePyramidPhase {
-  return getPhase(snapshot)
-}
-
 export function getPhase(snapshot: LongFreePyramidFrameSnapshot): LongFreePyramidPhase {
   return v.parse(LongFreePyramidPhase, snapshot.value)
 }

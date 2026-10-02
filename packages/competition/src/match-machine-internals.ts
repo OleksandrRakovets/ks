@@ -62,7 +62,7 @@ export type MatchLifecycleEvent = {
   readonly outcome: FrameOutcome
 }
 
-export const MatchMachine = setup({
+const MatchMachine = setup({
   types: {
     // SAFETY: XState reads this assertion value only to capture the declared context contract.
     context: {} as MatchMachineCheckpoint['context'],
@@ -151,10 +151,6 @@ export const MatchMachine = setup({
 })
 
 export type MatchSnapshot = SnapshotFrom<typeof MatchMachine>
-
-export function getMatchPhase(snapshot: MatchSnapshot): MatchPhase {
-  return v.parse(MatchPhase, snapshot.value)
-}
 
 export function createInitialSnapshot(config: MatchConfig): MatchSnapshot {
   const [snapshot] = initialTransition(MatchMachine, config)
@@ -249,6 +245,10 @@ export function sendLifecycleEvent(snapshot: MatchSnapshot, event: MatchLifecycl
   }
 
   return nextSnapshot
+}
+
+function getMatchPhase(snapshot: MatchSnapshot): MatchPhase {
+  return v.parse(MatchPhase, snapshot.value)
 }
 
 function expectedBreakerSeat(config: MatchConfig, frameIndex: number): Seat {

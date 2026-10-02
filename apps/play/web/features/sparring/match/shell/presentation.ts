@@ -6,7 +6,7 @@ import type { TFunction } from 'i18next'
 
 import type { ActiveMatchData, ActiveProtocolData, FinishedMatchData } from '../types'
 
-export type BoardDetails =
+type BoardDetails =
   | { kind: 'balls'; ballsBySeat: { A: readonly StrilaBall[]; B: readonly StrilaBall[] } }
   | { kind: 'rack'; scoreBySeat: BySeatNumber; tableLabel: string }
 

@@ -252,10 +252,6 @@ export function createInitialSnapshot(
   return snapshot
 }
 
-export function getPyramidFramePhase(snapshot: PyramidFrameSnapshot): PyramidPhase {
-  return getPhase(snapshot)
-}
-
 export function getPhase(snapshot: PyramidFrameSnapshot): PyramidPhase {
   return v.parse(PyramidPhase, snapshot.value)
 }
