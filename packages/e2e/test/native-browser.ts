@@ -1,10 +1,10 @@
 import { spawn } from 'node:child_process'
-import { once } from 'node:events'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
+import { setTimeout as delay } from 'node:timers/promises'
 
-import { chromium } from '@playwright/test'
+import { type Browser, chromium } from '@playwright/test'
 import { expect } from 'vitest'
 
 declare global {
@@ -40,15 +40,67 @@ export async function nativeBrowser() {
     { stdio: 'ignore' },
   )
 
-  const exited = once(process, 'exit')
+  // A failed spawn emits error and then close, not exit. Observe error immediately and make
+  // the completion promise non-rejecting so port discovery cannot leave an unhandled rejection.
+  let spawnError: Error | undefined
+  process.once('error', (error) => {
+    spawnError = error
+  })
+
+  const exited = new Promise<void>((complete) => {
+    process.once('close', () => complete())
+  })
+
+  let browser: Browser | undefined
+  let closing: Promise<void> | undefined
+
+  /**
+   * Idempotently releases this helper's owned browser process and temporary profile.
+   * CDP is best-effort: a crashed/disconnected client must not prevent process cleanup. A
+   * bounded graceful attempt falls back to signals; the profile is removed only after exit.
+   */
+  const close = () => {
+    closing ??= (async () => {
+      try {
+        if (browser?.isConnected() === true) {
+          const graceful = browser.newBrowserCDPSession().then((session) => session.send('Browser.close'))
+          await Promise.race([graceful.catch(() => undefined), delay(1_000)])
+          await Promise.race([exited, delay(1_000)])
+        }
+
+        if (process.pid !== undefined && process.exitCode === null && process.signalCode === null) {
+          process.kill('SIGTERM')
+          const terminated = await Promise.race([exited.then(() => true), delay(1_000, false)])
+
+          if (!terminated) process.kill('SIGKILL')
+        }
+
+        await exited
+      } finally {
+        // Do not remove a profile underneath a still-running browser. Disconnecting the
+        // Playwright client happens after the owned child has terminated.
+        if (process.pid === undefined || process.exitCode !== null || process.signalCode !== null) {
+          try {
+            await browser?.close()
+          } finally {
+            await rm(profile, { recursive: true, force: true })
+          }
+        }
+      }
+    })()
+
+    return closing
+  }
 
   try {
     const portFile = resolve(profile, 'DevToolsActivePort')
     await expect.poll(async () => readFile(portFile, 'utf8').catch(() => ''), { timeout: 10_000 }).not.toBe('')
+
+    if (spawnError !== undefined) throw spawnError
     const [port] = (await readFile(portFile, 'utf8')).trim().split('\n')
 
     if (port === undefined) throw new Error('Chromium did not publish its debugging port')
-    const browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`, { noDefaults: true })
+    browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`, { noDefaults: true })
     const context = browser.contexts()[0]
 
     if (context === undefined) throw new Error('Chromium did not expose its default context')
@@ -77,18 +129,17 @@ export async function nativeBrowser() {
       browser,
       context,
       page,
-      close: async () => {
-        const session = await browser.newBrowserCDPSession()
-        await session.send('Browser.close')
-        await exited
-        await browser.close()
-        await rm(profile, { recursive: true, force: true })
-      },
+      close,
     }
   } catch (error) {
-    process.kill()
-    await exited
-    await rm(profile, { recursive: true, force: true })
-    throw error
+    const failure = spawnError ?? error
+
+    try {
+      await close()
+    } catch (cleanupError) {
+      throw new AggregateError([failure, cleanupError], 'Native Chromium launch and cleanup failed')
+    }
+
+    throw failure
   }
 }

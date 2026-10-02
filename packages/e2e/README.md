@@ -42,8 +42,10 @@ every ordinary case gets a fresh browser context, page, and clock.
 - Completion becomes Result and stops live timers/sockets; history stays inert.
 - A failed loader's error boundary recovers on a trusted online event.
 - Recent-result expiry after a clock gap or hidden return, and cancellation of a
-  delayed score response which must not overwrite newer full-loader data.
-- Production HTML/Router data are `no-store`; built assets remain cacheable.
+  delayed score request followed by current full-loader data. This interception
+  proves transport cancellation, not application-level rejection of a delivered
+  stale body when cancellation is ignored.
+- Successful HTML/Router data are `no-store`; the built stylesheet lacks `no-store`.
 - Native Chromium hide/freeze actually stops page timers. A server-side update
   while hidden is displayed after one authoritative GET on return.
 - Native back navigation distinguishes a new document under production headers
@@ -73,8 +75,11 @@ with `chromium.connectOverCDP(endpoint, { noDefaults: true })`, using the
 **existing default context**. Creating a new context reinstalls Playwright's
 defaults. CDP minimizes/restores the window and freezes/activates the page;
 Playwright still supplies DOM assertions. Accepted CDP commands alone do not
-prove suspension, so tests also require trusted events and an unchanged live
-timer counter. BFCache restoration uses `waitUntil: 'commit'`, not a new `load`.
+prove suspension, so tests also require trusted events, progressing counters
+while visible and hidden-but-unfrozen, frozen quiescence beyond the observed
+hidden baseline, and progression after restoration. Cleanup tolerates a lost
+CDP client and repeated close, terminates the owned process, then removes its
+profile. BFCache restoration uses `waitUntil: 'commit'`, not a new `load`.
 
 The catalog's Vitest 4 works for this Node orchestration. Vitest 5 Browser Mode
 also passed the isolated hook spike but added no needed lifecycle capability;
