@@ -44,6 +44,7 @@
     "preview": "BUN_OPTIONS=--silent turbo run @ks/play#preview",
     "test": "bun test",
     "test:integration": "turbo run test:integration --log-order=grouped",
+    "test:e2e": "turbo run test:e2e --log-order=grouped",
     "typecheck": "bun run typegen && tsc --build",
     "typegen": "bun run --filter '@ks/play' typegen"
   },

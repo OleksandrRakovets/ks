@@ -1,0 +1,20 @@
+{
+  "name": "@ks/e2e",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:e2e": "vitest run",
+    "install:browsers": "playwright install chromium webkit"
+  },
+  "devDependencies": {
+    "@ks/core": "workspace:*",
+    "@ks/play": "workspace:*",
+    "@playwright/test": "^1.63.0",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:",
+    "wrangler": "catalog:"
+  }
+}
