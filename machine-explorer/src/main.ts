@@ -3,18 +3,18 @@ import { type ActorRefFrom, createActor } from 'xstate'
 
 import { buildMatchConfig, type CreateMatchRequest } from '../../packages/competition/src/definitions'
 import {
-  getMatchPhase,
-  MatchMachine,
+  createInitialSnapshot,
+  deriveLifecycleState,
   type MatchSnapshot,
 } from '../../packages/competition/src/match-machine-internals'
 import { formatPlayerRef, newMatchId } from '../../packages/core/src/index'
 import {
-  getLongFreePyramidFramePhase,
+  getPhase as getLongFreePyramidFramePhase,
   LongFreePyramidFrameMachine,
   type LongFreePyramidFrameSnapshot,
 } from '../../packages/gameplay/src/long-free-pyramid/machine'
 import {
-  getPyramidFramePhase,
+  getPhase as getPyramidFramePhase,
   PyramidFrameMachine,
   type PyramidFrameSnapshot,
 } from '../../packages/gameplay/src/pyramid/machine'
@@ -160,8 +160,10 @@ function buildExplorerMatchConfig() {
 }
 
 function buildMatchActor() {
-  const actor = createActor(MatchMachine, {
-    input: buildExplorerMatchConfig(),
+  const input = buildExplorerMatchConfig()
+
+  const actor = createActor(createInitialSnapshot(input).machine, {
+    input,
     inspect: inspectorInspect,
   })
 
@@ -422,7 +424,7 @@ function frameTargetRow(onApply: () => void) {
 
 function renderMatch() {
   const snap = matchActor.getSnapshot()
-  const phase = getMatchPhase(snap)
+  const phase = deriveLifecycleState(snap).phase
   status.innerHTML = `
     <div class="state-label">${phase}</div>
     <div class="context-block">${JSON.stringify(snap.context, null, 2)}</div>
@@ -432,7 +434,7 @@ function renderMatch() {
 }
 
 function renderMatchControls(snap: MatchSnapshot) {
-  const phase = getMatchPhase(snap)
+  const phase = deriveLifecycleState(snap).phase
   controls.innerHTML = ''
   controls.append(
     btn(
