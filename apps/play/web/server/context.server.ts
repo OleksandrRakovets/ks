@@ -2,7 +2,8 @@ import type { SparringService } from '@ks/application/server'
 import type { Effect } from 'effect'
 import { createContext, type RouterContextProvider } from 'react-router'
 
-export type RunEffect = ReturnType<typeof Effect.runPromiseWith<SparringService>>
+/** Expected failures must be adapted before crossing into Router; defects still reject the Promise. */
+export type RunEffect = <A>(effect: Effect.Effect<A, never, SparringService>) => Promise<A>
 
 export type CloudflareLoadContext = {
   runEffect: RunEffect
