@@ -126,7 +126,7 @@ function GameCard({
 }: {
   title: React.ReactNode
   description: React.ReactNode
-  gameKey?: GameKey
+  gameKey?: typeof GameKey.Type
   playLabel?: string
   badgeSrc?: string
   rulesHref?: string

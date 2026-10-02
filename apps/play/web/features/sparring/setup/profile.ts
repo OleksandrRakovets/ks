@@ -4,8 +4,8 @@ import { type GameKey, registry } from '@ks/gameplay/definitions'
 export type RackRolloverOption = 14 | 15
 
 export type MatchCreateProfile = {
-  gameKey: GameKey
-  defaultFrameTargetPointsBySeat: BySeatNumber
+  gameKey: typeof GameKey.Type
+  defaultFrameTargetPointsBySeat: typeof BySeatNumber.Type
   maxFrameTargetPoints: number
   matchTargetFrames:
     | { mode: 'editable'; defaultValue: number; maxValue: number }
@@ -16,7 +16,7 @@ export type MatchCreateProfile = {
   }
 }
 
-export function createProfileForGame(gameKey: GameKey): MatchCreateProfile {
+export function createProfileForGame(gameKey: typeof GameKey.Type): MatchCreateProfile {
   const { defaultFrameTargetPointsBySeat, maxFrameTargetPoints } = registry[gameKey].meta
 
   if (gameKey === 'free-pyramid-long') {

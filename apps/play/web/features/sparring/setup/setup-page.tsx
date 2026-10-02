@@ -33,7 +33,7 @@ export function SparringSetupPage(props: {
   const recentPlayers = useRecentPlayers()
   const [seatAName, setSeatAName] = useState(initialPlayerNames.A)
   const [seatBName, setSeatBName] = useState(initialPlayerNames.B)
-  const [firstBreakerSeat, setFirstBreakerSeat] = useState<Seat | null>(null)
+  const [firstBreakerSeat, setFirstBreakerSeat] = useState<typeof Seat.Type | null>(null)
 
   const [hasValidInputs, setHasValidInputs] = useState(
     initialPlayerNames.A.length > 0 && initialPlayerNames.B.length > 0,

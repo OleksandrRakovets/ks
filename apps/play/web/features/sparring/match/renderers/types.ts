@@ -1,16 +1,24 @@
-import type { HydratedMatchParticipants } from '@ks/application'
-import { type Control, type ControlSections, type MatchCommand, newCommandId } from '@ks/core'
+import {
+  type Control,
+  type ControlSections,
+  type HydratedMatchParticipants,
+  type MatchCommand,
+  newCommandId,
+} from '@ks/core'
 
 export type MatchControlRendererProps<Presentation> = {
   readonly game: Presentation
-  readonly controls: readonly Control[]
-  readonly sections: ControlSections
-  readonly participants: HydratedMatchParticipants
-  readonly onSubmitCommand: (command: MatchCommand) => void
+  readonly controls: readonly (typeof Control.Type)[]
+  readonly sections: typeof ControlSections.Type
+  readonly participants: typeof HydratedMatchParticipants.Type
+  readonly onSubmitCommand: (command: typeof MatchCommand.Type) => void
   readonly submitting: boolean
 }
 
-export function matchCommandFromControl(control: Control, input: Control['fixedInput'] = {}): MatchCommand {
+export function matchCommandFromControl(
+  control: typeof Control.Type,
+  input: (typeof Control.Type)['fixedInput'] = {},
+): typeof MatchCommand.Type {
   const command = { type: control.type, ...control.fixedInput, ...input }
 
   return {

@@ -7,20 +7,23 @@ import type { TFunction } from 'i18next'
 import type { ActiveMatchData, ActiveProtocolData, FinishedSurfaceData } from '../types'
 
 type BoardDetails =
-  | { kind: 'balls'; ballsBySeat: { A: readonly StrilaBall[]; B: readonly StrilaBall[] } }
-  | { kind: 'rack'; scoreBySeat: BySeatNumber; tableLabel: string }
+  | {
+      kind: 'balls'
+      ballsBySeat: { A: readonly (typeof StrilaBall.Type)[]; B: readonly (typeof StrilaBall.Type)[] }
+    }
+  | { kind: 'rack'; scoreBySeat: typeof BySeatNumber.Type; tableLabel: string }
 
 export type BoardPresentation = {
   names: { A: string; B: string }
   score: ReturnType<typeof presentBoardScore>
-  mutedSeat: Seat | null
+  mutedSeat: typeof Seat.Type | null
   framesLabel: string
   label?: string
   winnerLabel?: string
   details: BoardDetails | null
 }
 
-export function presentActiveSurface<K extends GameKey>(
+export function presentActiveSurface<K extends typeof GameKey.Type>(
   data: ActiveMatchData<K> | ActiveProtocolData<K>,
   t: TFunction,
 ) {
@@ -103,7 +106,7 @@ export function presentBoardScore(data: MatchReadFacts) {
 
 function presentBoard(
   data: MatchReadFacts,
-  participants: HydratedMatchParticipants,
+  participants: typeof HydratedMatchParticipants.Type,
   t: TFunction,
 ): BoardPresentation {
   return {

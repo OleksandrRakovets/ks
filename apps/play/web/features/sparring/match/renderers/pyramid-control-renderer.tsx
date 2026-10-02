@@ -13,27 +13,29 @@ import { type ControlPresentation, ControlStack } from '@/features/sparring/matc
 import { controlLabel, potRecordPottedBallCount } from './control-copy'
 import type { MatchControlRendererProps } from './types'
 
-export function FreePyramidControlRenderer(props: MatchControlRendererProps<FreePyramidGamePresentation>) {
+export function FreePyramidControlRenderer(
+  props: MatchControlRendererProps<typeof FreePyramidGamePresentation.Type>,
+) {
   return <PyramidControlRenderer {...props} />
 }
 
 export function CombinedPyramidControlRenderer(
-  props: MatchControlRendererProps<CombinedPyramidGamePresentation>,
+  props: MatchControlRendererProps<typeof CombinedPyramidGamePresentation.Type>,
 ) {
   return <PyramidControlRenderer {...props} />
 }
 
 export function CombinedPyramidOldControlRenderer(
-  props: MatchControlRendererProps<CombinedPyramidOldGamePresentation>,
+  props: MatchControlRendererProps<typeof CombinedPyramidOldGamePresentation.Type>,
 ) {
   return <PyramidControlRenderer {...props} />
 }
 
 function PyramidControlRenderer<
   TPresentation extends
-    | FreePyramidGamePresentation
-    | CombinedPyramidGamePresentation
-    | CombinedPyramidOldGamePresentation,
+    | typeof FreePyramidGamePresentation.Type
+    | typeof CombinedPyramidGamePresentation.Type
+    | typeof CombinedPyramidOldGamePresentation.Type,
 >(props: MatchControlRendererProps<TPresentation>) {
   const { t } = useTranslation()
 
@@ -49,8 +51,8 @@ function PyramidControlRenderer<
 
 function pyramidControlPresentation(
   t: TFunction,
-  control: Control,
-  participants: HydratedMatchParticipants,
+  control: typeof Control.Type,
+  participants: typeof HydratedMatchParticipants.Type,
 ): ControlPresentation {
   const pottedBallCount = potRecordPottedBallCount(control)
 

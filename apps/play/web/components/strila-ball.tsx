@@ -3,7 +3,11 @@ import type { StrilaBall as StrilaBallValue } from '@ks/gameplay/definitions'
 import { cn } from '@/components/ui/utils'
 
 /** Visual identity shared by every representation of a physical Strila ball. */
-export function StrilaBall(props: { ball: StrilaBallValue; selected?: boolean; className?: string }) {
+export function StrilaBall(props: {
+  ball: typeof StrilaBallValue.Type
+  selected?: boolean
+  className?: string
+}) {
   const colors = STRILA_BALL_PALETTE[props.ball]
 
   return (
@@ -34,4 +38,4 @@ const STRILA_BALL_PALETTE = {
   5: { highlight: '#377DB3', base: '#14598F', shade: '#072C52' },
   6: { highlight: '#F58A98', base: '#E85F75', shade: '#A52B43' },
   7: { highlight: '#59605D', base: '#292E2C', shade: '#101412' },
-} satisfies Record<StrilaBallValue, { highlight: string; base: string; shade: string }>
+} satisfies Record<typeof StrilaBallValue.Type, { highlight: string; base: string; shade: string }>

@@ -7,10 +7,10 @@ import { controlLabel } from '@/features/sparring/match/renderers/control-copy'
 import { matchCommandFromControl } from '@/features/sparring/match/renderers/types'
 
 export function OverflowSheet(props: {
-  controls: ControlSections['tertiary']
+  controls: (typeof ControlSections.Type)['tertiary']
   names: { A: string; B: string }
   submitting: boolean
-  onSubmit: (command: MatchCommand) => void
+  onSubmit: (command: typeof MatchCommand.Type) => void
 }) {
   const { t } = useTranslation()
   const hasControls = props.controls.A.length > 0 || props.controls.B.length > 0
@@ -67,9 +67,9 @@ function EllipsisIcon() {
 }
 
 function OverflowControl(props: {
-  control: Control
+  control: typeof Control.Type
   submitting: boolean
-  onSubmit: (command: MatchCommand) => void
+  onSubmit: (command: typeof MatchCommand.Type) => void
   close: () => void
 }) {
   const { t } = useTranslation()

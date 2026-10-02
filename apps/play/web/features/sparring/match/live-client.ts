@@ -4,7 +4,7 @@ import {
   SPARRING_MATCH_LIVE_FINISHED_CLOSE_CODE,
   SparringMatchLiveServerMessage,
 } from '@ks/core'
-import * as v from 'valibot'
+import { Result, Schema } from 'effect'
 
 export type SparringMatchLiveConnectionState =
   | 'connecting'
@@ -16,10 +16,10 @@ export type SparringMatchLiveConnectionState =
 export type SparringMatchLiveSubscription = { stop(): void }
 
 export function subscribeSparringMatchLive(args: {
-  matchId: MatchId
+  matchId: typeof MatchId.Type
   pageKind: 'control' | 'protocol'
   currentLatestSeq: () => number
-  onUpdate(update: MatchStreamUpdate): void
+  onUpdate(update: typeof MatchStreamUpdate.Type): void
   onCaughtUp(latestSeq: number): void
   onConnectionState(state: SparringMatchLiveConnectionState): void
 }): SparringMatchLiveSubscription {
@@ -75,25 +75,24 @@ export function subscribeSparringMatchLive(args: {
     current.addEventListener('message', (event) => {
       if (stopped || socket !== current) return
 
-      const message = v.safeParse(
-        v.pipe(v.string(), v.parseJson(), SparringMatchLiveServerMessage),
+      const message = Schema.decodeUnknownResult(Schema.fromJsonString(SparringMatchLiveServerMessage))(
         event.data,
       )
 
-      if (!message.success) {
+      if (Result.isFailure(message)) {
         rejectInvalidMessage()
 
         return
       }
 
-      if (message.output.type === 'caught-up') {
-        if (message.output.matchId !== args.matchId || serverSeq !== null) {
+      if (message.success.type === 'caught-up') {
+        if (message.success.matchId !== args.matchId || serverSeq !== null) {
           rejectInvalidMessage()
 
           return
         }
 
-        serverSeq = message.output.latestSeq
+        serverSeq = message.success.latestSeq
         reconnectAttempt = 0
 
         if (serverSeq > args.currentLatestSeq()) args.onCaughtUp(serverSeq)
@@ -107,7 +106,7 @@ export function subscribeSparringMatchLive(args: {
         return
       }
 
-      const update = message.output.update
+      const update = message.success.update
 
       if (update.acceptedSeq <= serverSeq) return
 

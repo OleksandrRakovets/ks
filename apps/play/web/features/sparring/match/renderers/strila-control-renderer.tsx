@@ -13,9 +13,9 @@ import { BallSet, OpeningToss, PenaltyTitle, PotLabel, RuleNotes } from './stril
 import { presentBallSet, presentRuleNotes, strilaControlLabel } from './strila-presentation'
 import { matchCommandFromControl, type MatchControlRendererProps } from './types'
 
-export function StrilaControlRenderer(props: MatchControlRendererProps<StrilaGamePresentation>) {
+export function StrilaControlRenderer(props: MatchControlRendererProps<typeof StrilaGamePresentation.Type>) {
   const { t } = useTranslation()
-  const [selectedBalls, setSelectedBalls] = useState<StrilaBall[]>([])
+  const [selectedBalls, setSelectedBalls] = useState<(typeof StrilaBall.Type)[]>([])
   const { sections } = props
   const details = props.game.details
   const notes = presentRuleNotes(details.ruleNotes, props.participants, t)
@@ -37,7 +37,7 @@ export function StrilaControlRenderer(props: MatchControlRendererProps<StrilaGam
     props.onSubmitCommand(command)
   }
 
-  function toggleBall(ball: StrilaBall) {
+  function toggleBall(ball: typeof StrilaBall.Type) {
     setSelectedBalls(
       selectedBalls.includes(ball)
         ? selectedBalls.filter((candidate) => candidate !== ball)
@@ -45,14 +45,14 @@ export function StrilaControlRenderer(props: MatchControlRendererProps<StrilaGam
     )
   }
 
-  function selectOpeningSeat(seat: Seat | null) {
+  function selectOpeningSeat(seat: typeof Seat.Type | null) {
     if (seat === null) return
     const control = openingControls.find((candidate) => candidate.seat === seat)
 
     if (control) submit(matchCommandFromControl(control))
   }
 
-  const renderControl = (control: Control): ControlPresentation => {
+  const renderControl = (control: typeof Control.Type): ControlPresentation => {
     const label = strilaControlLabel(t, control)
     const isPot = control.type === 'pot.record'
 

@@ -11,7 +11,7 @@ test('ball presentation distinguishes selected, potted, and unavailable balls', 
   await i18n.init({ lng: 'en', resources })
   const t = i18n.getFixedT('en')
 
-  const details: StrilaGamePresentation['details'] = {
+  const details: (typeof StrilaGamePresentation.Type)['details'] = {
     phase: 'open-play',
     situationTitle: 'Open play',
     isBallSetVisible: true,

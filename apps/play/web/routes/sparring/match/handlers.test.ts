@@ -9,7 +9,7 @@ import {
   MatchLocked,
   MatchNotFound,
 } from '@ks/application/server'
-import { newCommandId, newMatchId } from '@ks/core'
+import { type MatchCommand, newCommandId, newMatchId } from '@ks/core'
 import { keys } from '@ks/i18n'
 import { Effect } from 'effect'
 
@@ -18,6 +18,73 @@ import { sparringContext } from '@/server/context.fixtures'
 import { commandMatchAction, loadMatchPage, loadMatchProtocolPage } from './handlers'
 
 describe('commandMatchAction adaptation', () => {
+  test.each(['{', 'null', '[]', '{"source":"match","command":{}}'])(
+    'rejects malformed command JSON %s before application execution',
+    async (payload) => {
+      const form = new FormData()
+      form.set('command', payload)
+
+      const context = sparringContext({
+        submitMatchCommand: () => {
+          throw new Error('Malformed command reached application')
+        },
+      })
+
+      expect(
+        await commandMatchAction(
+          {
+            params: { matchId: newMatchId() },
+            request: new Request('http://localhost', { method: 'POST', body: form }),
+            context,
+          },
+          'free-pyramid',
+        ),
+      ).toEqual({ ok: false, errorKey: keys.match.control.invalidCommandPayload })
+    },
+  )
+
+  test('strips envelope extras but preserves nested game input', async () => {
+    const commandId = newCommandId()
+    const submitted: (typeof MatchCommand.Type)[] = []
+
+    const context = sparringContext({
+      submitMatchCommand: (_matchId, command) => {
+        submitted.push(command)
+
+        return Effect.succeed(CommandReceiptOutcome.accepted({ acceptedSeq: 9 }))
+      },
+    })
+
+    const form = new FormData()
+    form.set(
+      'command',
+      JSON.stringify({
+        commandId,
+        source: 'game',
+        extra: 'discard',
+        command: { type: 'pot.record', seat: 'B', pottedBalls: [0, 3], custom: 7 },
+      }),
+    )
+
+    expect(
+      await commandMatchAction(
+        {
+          params: { matchId: newMatchId() },
+          request: new Request('http://localhost', { method: 'POST', body: form }),
+          context,
+        },
+        'strila-v2',
+      ),
+    ).toEqual({ ok: true, acceptedSeqMax: 9 })
+    expect(submitted).toEqual([
+      {
+        commandId,
+        source: 'game',
+        command: { type: 'pot.record', seat: 'B', pottedBalls: [0, 3], custom: 7 },
+      },
+    ])
+  })
+
   test.each([
     [new MatchFinished(), keys.match.control.matchLocked],
     [new MatchLocked(), keys.match.control.matchLocked],

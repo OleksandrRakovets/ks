@@ -8,7 +8,7 @@ import type { ProtocolPageData } from '@/features/sparring/match/types'
 
 import { ProtocolPanel } from './protocol-panel'
 
-export function MatchProtocolPage<K extends GameKey>(props: { data: ProtocolPageData<K> }) {
+export function MatchProtocolPage<K extends typeof GameKey.Type>(props: { data: ProtocolPageData<K> }) {
   const { t } = useTranslation()
   useProtocolLiveRevalidation(props.data.match)
 

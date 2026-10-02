@@ -5,7 +5,7 @@ import type { Control } from '@ks/core'
 import { labelLongFreePyramidCommands } from './long-free-pyramid-control-renderer'
 
 test('winner-determined pot keeps its one-point label and original command', () => {
-  const frameAward: Control = {
+  const frameAward: typeof Control.Type = {
     source: 'game',
     type: 'frame.award',
     fixedInput: {},
@@ -13,7 +13,7 @@ test('winner-determined pot keeps its one-point label and original command', () 
     prominence: 'primary',
   }
 
-  const oneBallPot: Control = {
+  const oneBallPot: typeof Control.Type = {
     source: 'game',
     type: 'pot.record',
     fixedInput: { pottedBallCount: 1 },

@@ -16,7 +16,7 @@ import { Shell, type ShellNavigation } from './shell'
 
 type SurfaceContent = Pick<ComponentProps<typeof Shell>, 'active' | 'children' | 'headerControl' | 'footer'>
 
-export function ActiveSurface<K extends GameKey>(
+export function ActiveSurface<K extends typeof GameKey.Type>(
   props: SurfaceContent & {
     data: ActiveMatchData<K> | ActiveProtocolData<K>
     layout: 'fixed' | 'reading'
@@ -62,7 +62,7 @@ export function FinishedSurface(props: SurfaceContent & { data: FinishedSurfaceD
 }
 
 function navigationFor(
-  identity: { gameKey: GameKey; matchId: MatchId },
+  identity: { gameKey: typeof GameKey.Type; matchId: typeof MatchId.Type },
   locale: SupportedLocale,
   t: TFunction,
   primaryLabel: string,

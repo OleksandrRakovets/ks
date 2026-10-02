@@ -5,7 +5,10 @@ import { cn } from '@/components/ui/utils'
 
 import type { PresentedControl } from '../renderers/control-presentation'
 
-export type ZonePresentation = Record<Seat, { items: readonly PresentedControl[]; compact: boolean }>
+export type ZonePresentation = Record<
+  typeof Seat.Type,
+  { items: readonly PresentedControl[]; compact: boolean }
+>
 
 export function ControlZones(props: {
   selector?: ReactNode
@@ -39,7 +42,11 @@ function Zone(props: { kind: 'primary' | 'secondary'; lanes: ZonePresentation })
   )
 }
 
-function Lane(props: { kind: 'primary' | 'secondary'; seat: Seat; presentation: ZonePresentation['A'] }) {
+function Lane(props: {
+  kind: 'primary' | 'secondary'
+  seat: typeof Seat.Type
+  presentation: ZonePresentation['A']
+}) {
   const { items, compact } = props.presentation
 
   return (

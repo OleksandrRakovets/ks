@@ -17,7 +17,7 @@ import { RematchLink } from './shell/rematch-link'
 import { ActiveSurface, FinishedSurface } from './shell/surfaces'
 import type { ActiveMatchData, ControlActionData, FinishedMatchData, MatchPageData } from './types'
 
-export function MatchPage<K extends GameKey>(props: {
+export function MatchPage<K extends typeof GameKey.Type>(props: {
   data: MatchPageData<K>
   renderer: (props: MatchControlRendererProps<GamePresentationFor<K>>) => ReactNode
 }) {
@@ -28,7 +28,7 @@ export function MatchPage<K extends GameKey>(props: {
   return <ControlPage data={props.data.match} renderer={props.renderer} />
 }
 
-function ControlPage<K extends GameKey>(props: {
+function ControlPage<K extends typeof GameKey.Type>(props: {
   data: ActiveMatchData<K>
   renderer: (props: MatchControlRendererProps<GamePresentationFor<K>>) => ReactNode
 }) {
@@ -38,7 +38,7 @@ function ControlPage<K extends GameKey>(props: {
   const sections = groupControlsIntoSections(props.data.controls)
   const submitting = fetcher.state !== 'idle'
 
-  function submitCommand(command: MatchCommand) {
+  function submitCommand(command: typeof MatchCommand.Type) {
     markLocalSubmit()
     void fetcher.submit(matchCommandForm(command), { method: 'post' })
   }
@@ -95,10 +95,10 @@ function ResultPage({ data }: { data: FinishedMatchData }) {
  * controls, which remain available in the shell's overflow menu during gameplay phases.
  */
 function BetweenFramesControls(props: {
-  sections: ControlSections
+  sections: typeof ControlSections.Type
   t: ReturnType<typeof useTranslation>['t']
   submitting: boolean
-  onSubmit: (command: MatchCommand) => void
+  onSubmit: (command: typeof MatchCommand.Type) => void
 }) {
   return (
     <ControlStack
@@ -112,7 +112,7 @@ function BetweenFramesControls(props: {
 
 function betweenFramesControlPresentation(
   t: ReturnType<typeof useTranslation>['t'],
-  control: Control,
+  control: typeof Control.Type,
 ): ControlPresentation {
   const label = controlLabel(t, control)
 

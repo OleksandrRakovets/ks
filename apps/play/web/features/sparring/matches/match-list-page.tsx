@@ -7,10 +7,10 @@ import {
 import type { MatchScoreProjection } from '@ks/competition/definitions'
 import type { BySeatNumber, MatchId } from '@ks/core'
 import { keys } from '@ks/i18n'
+import { Result, Schema } from 'effect'
 import { useCallback, useEffect, useMemo, useReducer } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useRevalidator } from 'react-router'
-import * as v from 'valibot'
 
 import { Page } from '@/components/page'
 import { Button, SegmentedNavigation, SegmentedNavigationLink } from '@/components/ui'
@@ -24,7 +24,7 @@ type MatchListView = 'live' | 'finished'
 type MatchListUpdates =
   | {
       readonly kind: 'poll-scores'
-      readonly matchIds: readonly MatchId[]
+      readonly matchIds: readonly (typeof MatchId.Type)[]
       readonly revalidateAfterMs?: number
     }
   | { readonly kind: 'none' }
@@ -356,12 +356,12 @@ function PlayerScore({
 
 type ScoreSnapshot = Pick<MatchListEntry, 'status' | 'latestSeq' | 'score'>
 
-type ScoreOverrides = ReadonlyMap<MatchId, MatchScorePollEntry>
+type ScoreOverrides = ReadonlyMap<typeof MatchId.Type, typeof MatchScorePollEntry.Type>
 
-type ScoreOverridesAction = { readonly entries: readonly MatchScorePollEntry[] }
+type ScoreOverridesAction = { readonly entries: readonly (typeof MatchScorePollEntry.Type)[] }
 
 function scoreOverridesReducer(state: ScoreOverrides, action: ScoreOverridesAction): ScoreOverrides {
-  let next: Map<MatchId, MatchScorePollEntry> | undefined
+  let next: Map<typeof MatchId.Type, typeof MatchScorePollEntry.Type> | undefined
 
   for (const entry of action.entries) {
     const current = state.get(entry.matchId)
@@ -374,7 +374,7 @@ function scoreOverridesReducer(state: ScoreOverrides, action: ScoreOverridesActi
   return next ?? state
 }
 
-function mergeMatchEntry(match: MatchListEntry, override?: MatchScorePollEntry): MatchListEntry {
+function mergeMatchEntry(match: MatchListEntry, override?: typeof MatchScorePollEntry.Type): MatchListEntry {
   if (override === undefined || !shouldReplaceScore(match, override)) return match
 
   return override.status === 'active'
@@ -446,19 +446,19 @@ function useMatchScorePolling(
         })
 
         if (!response.ok) throw new Error('Match score polling failed')
-        const result = v.safeParse(MatchScorePollResponse, await response.json())
+        const result = Schema.decodeUnknownResult(MatchScorePollResponse)(await response.json())
 
-        if (!result.success || result.output.matches.length !== requestedMatches.length)
+        if (Result.isFailure(result) || result.success.matches.length !== requestedMatches.length)
           throw new Error('Invalid Match score polling response')
 
-        for (const [index, entry] of result.output.matches.entries()) {
+        for (const [index, entry] of result.success.matches.entries()) {
           if (entry.matchId !== requestedMatches[index]?.matchId)
             throw new Error('Mismatched Match score polling response')
         }
 
         if (controller.signal.aborted) return
 
-        const changedEntries = result.output.matches.filter((entry, index) => {
+        const changedEntries = result.success.matches.filter((entry, index) => {
           const current = requestedMatches[index]
 
           return shouldReplaceScore(current, entry)
@@ -515,13 +515,13 @@ function useMatchListExpiry(revalidateAfterMs: number | undefined, revalidate: (
   }, [revalidate, revalidateAfterMs])
 }
 
-function displayedScore(match: MatchListEntry): BySeatNumber {
+function displayedScore(match: MatchListEntry): typeof BySeatNumber.Type {
   if (match.score.matchTargetFrames > 1) return match.score.framesWonBySeat
 
   return match.score.singleFramePointsBySeat ?? match.score.framesWonBySeat
 }
 
-function displayedTarget(score: MatchScoreProjection): number | string {
+function displayedTarget(score: typeof MatchScoreProjection.Type): number | string {
   if (score.matchTargetFrames > 1) return score.matchTargetFrames
 
   const { A, B } = score.frameTargetPointsBySeat

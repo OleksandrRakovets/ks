@@ -1,6 +1,6 @@
 import { SystemClock, UnixEpochMilliseconds } from '@ks/core'
+import { Result, Schema } from 'effect'
 import { useSyncExternalStore } from 'react'
-import * as v from 'valibot'
 
 import { safeNormalizeDisplayName } from './player-name'
 
@@ -8,62 +8,54 @@ const RECENT_PLAYERS_KEY = 'ks.sparring.recentPlayers.v1'
 
 const MAX_RECENT_PLAYERS = 5
 
-type RecentPlayer = {
-  name: string
-  lastUsedAt: UnixEpochMilliseconds
-}
-
-type RecentPlayersStore = {
-  version: 1
-  players: RecentPlayer[]
-}
-
-const RecentPlayersStore = v.object({
-  version: v.literal(1),
-  players: v.array(v.object({ name: v.string(), lastUsedAt: UnixEpochMilliseconds })),
+const RecentPlayersStore = Schema.Struct({
+  version: Schema.Literal(1),
+  players: Schema.Array(Schema.Struct({ name: Schema.String, lastUsedAt: UnixEpochMilliseconds })),
 })
+
+type RecentPlayer = (typeof RecentPlayersStore.Type)['players'][number]
 
 function normalizeRecentKey(name: string): string {
   return name.trim().replace(/\s+/g, ' ').toLocaleLowerCase()
 }
 
-function readRecentPlayers(): RecentPlayer[] {
+function readRecentPlayers(): readonly RecentPlayer[] {
   try {
     const raw = localStorage.getItem(RECENT_PLAYERS_KEY)
 
     if (raw === null || raw.length === 0) return []
-    const parsed = v.safeParse(v.pipe(v.string(), v.parseJson(), RecentPlayersStore), raw)
+    const parsed = Schema.decodeUnknownResult(Schema.fromJsonString(RecentPlayersStore))(raw)
 
-    return parsed.success ? parsed.output.players.slice(0, MAX_RECENT_PLAYERS) : []
+    return Result.isSuccess(parsed) ? parsed.success.players.slice(0, MAX_RECENT_PLAYERS) : []
   } catch {
     return []
   }
 }
 
-const EMPTY_RECENT_PLAYERS: RecentPlayer[] = []
+const EMPTY_RECENT_PLAYERS: readonly RecentPlayer[] = []
 
-let clientRecentPlayers: RecentPlayer[] | undefined
+let clientRecentPlayers: readonly RecentPlayer[] | undefined
 
-function writeRecentPlayers(players: RecentPlayer[]) {
+function writeRecentPlayers(players: readonly RecentPlayer[]) {
   clientRecentPlayers = players
 
   try {
     localStorage.setItem(
       RECENT_PLAYERS_KEY,
-      JSON.stringify({ version: 1, players } satisfies RecentPlayersStore),
+      JSON.stringify({ version: 1, players } satisfies typeof RecentPlayersStore.Type),
     )
   } catch {
     // Recent suggestions are best-effort browser-local UX only.
   }
 }
 
-function getClientRecentPlayers(): RecentPlayer[] {
+function getClientRecentPlayers(): readonly RecentPlayer[] {
   clientRecentPlayers ??= readRecentPlayers()
 
   return clientRecentPlayers
 }
 
-function getServerRecentPlayers(): RecentPlayer[] {
+function getServerRecentPlayers(): readonly RecentPlayer[] {
   return EMPTY_RECENT_PLAYERS
 }
 
@@ -92,7 +84,7 @@ export function useRecentPlayers() {
   return useSyncExternalStore(subscribeRecentPlayers, getClientRecentPlayers, getServerRecentPlayers)
 }
 
-export function recentPlayerSuggestions(players: RecentPlayer[], excludedName: string): string[] {
+export function recentPlayerSuggestions(players: readonly RecentPlayer[], excludedName: string): string[] {
   const excludedKey = normalizeRecentKey(excludedName)
 
   return players

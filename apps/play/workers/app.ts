@@ -1,8 +1,7 @@
 import { applicationLayer } from '@ks/application/server'
 import { SystemClock } from '@ks/core'
-import { Effect, Layer } from 'effect'
+import { Effect, Layer, Schema } from 'effect'
 import { createRequestHandler, RouterContextProvider } from 'react-router'
-import * as v from 'valibot'
 
 import { cloudflareContext, type CloudflareLoadContext } from '../web/server/context.server'
 import { handleSparringMatchLiveRequest } from './sparring-match-live'
@@ -15,13 +14,13 @@ const requestHandler = createRequestHandler(
 )
 
 // Cloudflare omits request.cf in Dashboard and Playground previews, but provides timezone on production requests.
-const RequestTimeZone = v.optional(v.string())
+const RequestTimeZone = Schema.UndefinedOr(Schema.String)
 
 export default {
   fetch(request: Request, env: Cloudflare.Env) {
     return Effect.runPromise(
       Effect.gen(function* () {
-        const requestTimeZone = v.parse(RequestTimeZone, request.cf?.timezone)
+        const requestTimeZone = Schema.decodeUnknownSync(RequestTimeZone)(request.cf?.timezone)
         const services = yield* Layer.build(applicationLayer(env, new SystemClock(requestTimeZone)))
         const runEffect = Effect.runPromiseWith(services)
 

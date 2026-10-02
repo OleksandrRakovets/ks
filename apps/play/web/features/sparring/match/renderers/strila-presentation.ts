@@ -5,15 +5,15 @@ import type { TFunction } from 'i18next'
 
 import { controlLabel } from './control-copy'
 
-type StrilaRuleNote = StrilaGamePresentation['details']['ruleNotes'][number]
+type StrilaRuleNote = (typeof StrilaGamePresentation.Type)['details']['ruleNotes'][number]
 
 export type RuleNotePresentation = { key: string; lines: { player?: string; text: string }[] }
 
 export type BallSetPresentation = ReturnType<typeof presentBallSet>
 
 export function presentBallSet(
-  details: StrilaGamePresentation['details'],
-  selectedBalls: readonly StrilaBall[],
+  details: (typeof StrilaGamePresentation.Type)['details'],
+  selectedBalls: readonly (typeof StrilaBall.Type)[],
   t: TFunction,
 ) {
   return {
@@ -41,7 +41,7 @@ export function presentBallSet(
 
 export function presentRuleNotes(
   notes: readonly StrilaRuleNote[],
-  participants: HydratedMatchParticipants,
+  participants: typeof HydratedMatchParticipants.Type,
   t: TFunction,
 ): RuleNotePresentation[] {
   return notes.map((note, index) => ({
@@ -50,7 +50,7 @@ export function presentRuleNotes(
   }))
 }
 
-export function strilaControlLabel(t: TFunction, control: Control): string {
+export function strilaControlLabel(t: TFunction, control: typeof Control.Type): string {
   if (control.type !== 'penalty.select') return controlLabel(t, control)
 
   const choice = control.fixedInput.choice
@@ -68,7 +68,7 @@ export function strilaControlLabel(t: TFunction, control: Control): string {
 function ruleMessageLines(
   t: TFunction,
   note: StrilaRuleNote,
-  participants: HydratedMatchParticipants,
+  participants: typeof HydratedMatchParticipants.Type,
 ): RuleNotePresentation['lines'] {
   switch (note.code) {
     case 'cue-ball-and-colored-is-foul':

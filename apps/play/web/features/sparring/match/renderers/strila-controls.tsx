@@ -12,7 +12,7 @@ import type { BallSetPresentation, RuleNotePresentation } from './strila-present
 export function BallSet(props: {
   presentation: BallSetPresentation
   notes: readonly RuleNotePresentation[]
-  onToggle: (ball: StrilaBallValue) => void
+  onToggle: (ball: typeof StrilaBallValue.Type) => void
 }) {
   return (
     <div className="grid gap-1 px-3 pb-3.5 [@media(min-height:740px)]:pb-4 [@media(min-height:820px)]:pb-5">
@@ -57,7 +57,7 @@ export function OpeningToss(props: {
   notes: readonly RuleNotePresentation[]
   playerNames: { A: string; B: string }
   submitting: boolean
-  onSelectedSeatChange: (seat: Seat | null) => void
+  onSelectedSeatChange: (seat: typeof Seat.Type | null) => void
 }) {
   const { t } = useTranslation()
 
@@ -101,7 +101,7 @@ export function PotLabel({
   selectedBalls,
 }: {
   label: string
-  selectedBalls: readonly StrilaBallValue[]
+  selectedBalls: readonly (typeof StrilaBallValue.Type)[]
 }) {
   return (
     <span className="inline-flex flex-wrap items-center justify-center gap-1.5">

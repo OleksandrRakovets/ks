@@ -10,11 +10,11 @@ import { controlLabel, potRecordPottedBallCount } from './control-copy'
 import type { MatchControlRendererProps } from './types'
 
 type LabelledLongFreePyramidCommand =
-  | { kind: 'pottedBallCount'; command: Control; pottedBallCount: number }
-  | { kind: 'command'; command: Control }
+  | { kind: 'pottedBallCount'; command: typeof Control.Type; pottedBallCount: number }
+  | { kind: 'command'; command: typeof Control.Type }
 
 export function LongFreePyramidControlRenderer(
-  props: MatchControlRendererProps<LongFreePyramidGamePresentation>,
+  props: MatchControlRendererProps<typeof LongFreePyramidGamePresentation.Type>,
 ) {
   const { t } = useTranslation()
 
@@ -28,7 +28,9 @@ export function LongFreePyramidControlRenderer(
   )
 }
 
-export function labelLongFreePyramidCommands(controls: readonly Control[]): LabelledLongFreePyramidCommand[] {
+export function labelLongFreePyramidCommands(
+  controls: readonly (typeof Control.Type)[],
+): LabelledLongFreePyramidCommand[] {
   return controls.map((command) => {
     if (command.type !== 'pot.record') return { kind: 'command', command }
     const pottedBallCount = potRecordPottedBallCount(command)
@@ -41,8 +43,8 @@ export function labelLongFreePyramidCommands(controls: readonly Control[]): Labe
 
 function longFreePyramidControlPresentation(
   t: TFunction,
-  control: Control,
-  participants: MatchControlRendererProps<LongFreePyramidGamePresentation>['participants'],
+  control: typeof Control.Type,
+  participants: MatchControlRendererProps<typeof LongFreePyramidGamePresentation.Type>['participants'],
 ): ControlPresentation {
   const [labelled] = labelLongFreePyramidCommands([control])
 

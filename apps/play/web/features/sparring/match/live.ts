@@ -7,7 +7,7 @@ import { useRevalidator } from 'react-router'
 import { subscribeSparringMatchLive } from './live-client'
 import type { ControlActionData } from './types'
 
-export function matchCommandForm(command: MatchCommand) {
+export function matchCommandForm(command: typeof MatchCommand.Type) {
   return { command: JSON.stringify(command) }
 }
 

@@ -6,9 +6,9 @@ import type { SupportedLocale } from '@ks/i18n'
 import { localizedPath } from '@/i18n'
 
 export function matchSetupUrl(
-  gameKey: GameKey,
+  gameKey: typeof GameKey.Type,
   locale: SupportedLocale,
-  rematch?: Pick<CreateSparringMatchInput, 'playerNames' | 'targets' | 'gameConfiguration'>,
+  rematch?: Pick<typeof CreateSparringMatchInput.Type, 'playerNames' | 'targets' | 'gameConfiguration'>,
 ): string {
   const path = localizedPath(`/sparring/setup/${gameKey}/`, locale)
 
@@ -30,10 +30,18 @@ export function matchSetupUrl(
   return `${path}?${search.toString()}`
 }
 
-export function matchUrl(gameKey: GameKey, matchId: MatchId, locale: SupportedLocale): string {
+export function matchUrl(
+  gameKey: typeof GameKey.Type,
+  matchId: typeof MatchId.Type,
+  locale: SupportedLocale,
+): string {
   return localizedPath(`/sparring/match/${gameKey}/${matchId}/`, locale)
 }
 
-export function matchProtocolUrl(gameKey: GameKey, matchId: MatchId, locale: SupportedLocale): string {
+export function matchProtocolUrl(
+  gameKey: typeof GameKey.Type,
+  matchId: typeof MatchId.Type,
+  locale: SupportedLocale,
+): string {
   return localizedPath(`/sparring/match/${gameKey}/${matchId}/protocol/`, locale)
 }

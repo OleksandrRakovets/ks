@@ -1,7 +1,6 @@
 import { SparringService } from '@ks/application/server'
 import { MatchId } from '@ks/core'
-import { Effect } from 'effect'
-import * as v from 'valibot'
+import { Effect, Result, Schema } from 'effect'
 
 import { applicationStorageErrorResponse } from '@/server/application-storage-error.server'
 import { requireRunEffect } from '@/server/context.server'
@@ -14,12 +13,12 @@ export async function loader({ request, context }: Pick<Route.LoaderArgs, 'reque
 
   if (values.length < 1 || url.searchParams.size !== values.length || new Set(values).size !== values.length)
     return Response.json({ error: 'Expected unique Match IDs' }, { status: 400 })
-  const matchIds = v.safeParse(v.array(MatchId), values)
+  const matchIds = Schema.decodeUnknownResult(Schema.Array(MatchId))(values)
 
-  if (!matchIds.success) return Response.json({ error: 'Invalid Match ID' }, { status: 400 })
+  if (Result.isFailure(matchIds)) return Response.json({ error: 'Invalid Match ID' }, { status: 400 })
 
   const result = await requireRunEffect(context)(
-    SparringService.use((sparring) => sparring.readMatchScores(matchIds.output)).pipe(
+    SparringService.use((sparring) => sparring.readMatchScores(matchIds.success)).pipe(
       Effect.catchTags({
         MatchNotFound: () => Effect.succeed(Response.json({ error: 'Unknown match' }, { status: 404 })),
         ApplicationStorageError: (error) => Effect.succeed(applicationStorageErrorResponse(error)),

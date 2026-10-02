@@ -5,7 +5,7 @@ import type { Control, MatchCommand } from '@ks/core'
 import { presentControls } from './control-presentation'
 
 test('activation preserves the seat and merges selection input, with a fresh ID on every press', () => {
-  const control: Control = {
+  const control: typeof Control.Type = {
     source: 'game',
     type: 'pot.record',
     seat: 'B',
@@ -13,7 +13,7 @@ test('activation preserves the seat and merges selection input, with a fresh ID 
     fixedInput: {},
   }
 
-  const submitted: MatchCommand[] = []
+  const submitted: (typeof MatchCommand.Type)[] = []
 
   const [item] = presentControls(
     [control],
@@ -41,7 +41,7 @@ test('activation preserves the seat and merges selection input, with a fresh ID 
 })
 
 test('busy controls stay visually distinct from controls unavailable without input', () => {
-  const control: Control = {
+  const control: typeof Control.Type = {
     source: 'game',
     type: 'foul.commit',
     seat: 'A',

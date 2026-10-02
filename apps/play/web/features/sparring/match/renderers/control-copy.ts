@@ -1,16 +1,16 @@
 import { type Control, PositiveInteger } from '@ks/core'
+import { Result, Schema } from 'effect'
 import type { TFunction } from 'i18next'
-import * as v from 'valibot'
 
-const PotRecordCountPayload = v.object({ pottedBallCount: PositiveInteger })
+const PotRecordCountPayload = Schema.Struct({ pottedBallCount: PositiveInteger })
 
-export function potRecordPottedBallCount(control: Control): number | undefined {
-  const parsed = v.safeParse(PotRecordCountPayload, control.fixedInput)
+export function potRecordPottedBallCount(control: typeof Control.Type): number | undefined {
+  const parsed = Schema.decodeUnknownResult(PotRecordCountPayload)(control.fixedInput)
 
-  return parsed.success ? parsed.output.pottedBallCount : undefined
+  return Result.isSuccess(parsed) ? parsed.success.pottedBallCount : undefined
 }
 
-export function controlLabel(t: TFunction, control: Control): string {
+export function controlLabel(t: TFunction, control: typeof Control.Type): string {
   if (control.source === 'match') {
     switch (control.type) {
       case 'frame.commence':
@@ -40,7 +40,7 @@ export function controlLabel(t: TFunction, control: Control): string {
   }
 }
 
-export function controlEffect(t: TFunction, control: Control): string | undefined {
+export function controlEffect(t: TFunction, control: typeof Control.Type): string | undefined {
   switch (control.effect) {
     case undefined:
       return undefined

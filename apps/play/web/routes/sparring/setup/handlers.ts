@@ -2,9 +2,8 @@ import { type CreateSparringMatchInput, DisplayName } from '@ks/application'
 import { SparringService } from '@ks/application/server'
 import { PositiveInteger, Seat } from '@ks/core'
 import { isGameKey, registry } from '@ks/gameplay/definitions'
-import { Effect } from 'effect'
+import { Effect, Result, Schema } from 'effect'
 import { redirect } from 'react-router'
-import * as v from 'valibot'
 
 import {
   createProfileForGame,
@@ -23,18 +22,18 @@ type LoaderData = {
   initialPlayerNames: { A: string; B: string }
 }
 
-const QueryPositiveInteger = v.pipe(v.string(), v.regex(/^[1-9]\d*$/), v.transform(Number), PositiveInteger)
-
-const RematchSetupQuery = v.pipe(
-  v.object({
-    seatAName: DisplayName,
-    seatBName: DisplayName,
-    matchTargetFrames: QueryPositiveInteger,
-    targetA: QueryPositiveInteger,
-    targetB: QueryPositiveInteger,
-  }),
-  v.check(({ seatAName, seatBName }) => seatAName !== seatBName),
+const QueryPositiveInteger = Schema.String.check(Schema.isPattern(/^[1-9]\d*$/)).pipe(
+  Schema.decodeTo(Schema.NumberFromString),
+  Schema.decodeTo(PositiveInteger),
 )
+
+const RematchSetupQuery = Schema.Struct({
+  seatAName: DisplayName,
+  seatBName: DisplayName,
+  matchTargetFrames: QueryPositiveInteger,
+  targetA: QueryPositiveInteger,
+  targetB: QueryPositiveInteger,
+}).check(Schema.makeFilter(({ seatAName, seatBName }) => seatAName !== seatBName))
 
 export async function loadSetupPage({
   params,
@@ -65,12 +64,12 @@ export async function loadSetupPage({
 function rematchSetupFromUrl(
   url: string,
   profile: MatchCreateProfile,
-): Pick<CreateSparringMatchInput, 'playerNames' | 'targets' | 'gameConfiguration'> | null {
+): Pick<typeof CreateSparringMatchInput.Type, 'playerNames' | 'targets' | 'gameConfiguration'> | null {
   const search = new URL(url).searchParams
 
   if (search.get('rematch') !== '1') return null
 
-  const parsed = v.safeParse(RematchSetupQuery, {
+  const parsed = Schema.decodeUnknownResult(RematchSetupQuery)({
     seatAName: search.get('seatAName'),
     seatBName: search.get('seatBName'),
     matchTargetFrames: search.get('matchTargetFrames'),
@@ -78,11 +77,11 @@ function rematchSetupFromUrl(
     targetB: search.get('targetB'),
   })
 
-  if (!parsed.success) return null
+  if (Result.isFailure(parsed)) return null
 
   if (
     profile.matchTargetFrames.mode === 'fixed' &&
-    parsed.output.matchTargetFrames !== profile.matchTargetFrames.fixedValue
+    parsed.success.matchTargetFrames !== profile.matchTargetFrames.fixedValue
   )
     return null
 
@@ -91,10 +90,10 @@ function rematchSetupFromUrl(
   if (profile.rackRollover ? rackRollover === null : search.has('rackRollover')) return null
 
   const rematch = {
-    playerNames: { A: parsed.output.seatAName, B: parsed.output.seatBName },
+    playerNames: { A: parsed.success.seatAName, B: parsed.success.seatBName },
     targets: {
-      matchTargetFrames: parsed.output.matchTargetFrames,
-      frameTargetPointsBySeat: { A: parsed.output.targetA, B: parsed.output.targetB },
+      matchTargetFrames: parsed.success.matchTargetFrames,
+      frameTargetPointsBySeat: { A: parsed.success.targetA, B: parsed.success.targetB },
     },
   }
 
@@ -103,7 +102,7 @@ function rematchSetupFromUrl(
 
 function profileWithRematchDefaults(
   profile: MatchCreateProfile,
-  rematch: Pick<CreateSparringMatchInput, 'playerNames' | 'targets' | 'gameConfiguration'>,
+  rematch: Pick<typeof CreateSparringMatchInput.Type, 'playerNames' | 'targets' | 'gameConfiguration'>,
 ): MatchCreateProfile {
   const defaults: MatchCreateProfile = {
     ...profile,
@@ -140,8 +139,8 @@ export async function createSetupMatch({
   const profile = createProfileForGame(gameKey)
 
   const form = await request.formData()
-  const seatAName = v.safeParse(DisplayName, stringFormValue(form, 'seatAName'))
-  const seatBName = v.safeParse(DisplayName, stringFormValue(form, 'seatBName'))
+  const seatAName = Schema.decodeUnknownResult(DisplayName)(stringFormValue(form, 'seatAName'))
+  const seatBName = Schema.decodeUnknownResult(DisplayName)(stringFormValue(form, 'seatBName'))
 
   const matchTargetFrames =
     profile.matchTargetFrames.mode === 'fixed'
@@ -150,14 +149,14 @@ export async function createSetupMatch({
 
   const targetA = parsePositiveInt(form.get('targetA'))
   const targetB = parsePositiveInt(form.get('targetB'))
-  const firstBreakerSeat = v.safeParse(Seat, form.get('firstBreakerSeat'))
+  const firstBreakerSeat = Schema.decodeUnknownResult(Seat)(form.get('firstBreakerSeat'))
   const rackRollover = profile.rackRollover ? parseRackRollover(form.get('rackRollover')) : null
 
-  if (!seatAName.success || !seatBName.success) {
+  if (Result.isFailure(seatAName) || Result.isFailure(seatBName)) {
     throwInvalidSetup()
   }
 
-  if (seatAName.output === seatBName.output) {
+  if (seatAName.success === seatBName.success) {
     throwInvalidSetup()
   }
 
@@ -173,7 +172,7 @@ export async function createSetupMatch({
     throwInvalidSetup()
   }
 
-  if (!firstBreakerSeat.success) {
+  if (Result.isFailure(firstBreakerSeat)) {
     throwInvalidSetup()
   }
 
@@ -186,11 +185,11 @@ export async function createSetupMatch({
       },
       matchTargetFrames,
     },
-    firstBreakerSeat: firstBreakerSeat.output,
-    playerNames: { A: seatAName.output, B: seatBName.output },
+    firstBreakerSeat: firstBreakerSeat.success,
+    playerNames: { A: seatAName.success, B: seatBName.success },
   }
 
-  const createInput: CreateSparringMatchInput = rackRollover
+  const createInput: typeof CreateSparringMatchInput.Type = rackRollover
     ? { ...createInputBase, gameConfiguration: { rackRollover } }
     : createInputBase
 
@@ -212,9 +211,9 @@ export async function createSetupMatch({
 }
 
 function stringFormValue(form: FormData, key: string): string {
-  const value = v.safeParse(v.string(), form.get(key))
+  const value = Schema.decodeUnknownResult(Schema.String)(form.get(key))
 
-  return value.success ? value.output : ''
+  return Result.isSuccess(value) ? value.success : ''
 }
 
 function parsePositiveInt(raw: FormDataEntryValue | null): number | null {

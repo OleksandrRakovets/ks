@@ -10,7 +10,7 @@ import { matchCommandFromControl } from '@/features/sparring/match/renderers/typ
 export function LastCommandBar(props: {
   entry: LastCommandPresentation
   submitting: boolean
-  onSubmit: (command: MatchCommand) => void
+  onSubmit: (command: typeof MatchCommand.Type) => void
 }) {
   const { t } = useTranslation()
   const { entry } = props

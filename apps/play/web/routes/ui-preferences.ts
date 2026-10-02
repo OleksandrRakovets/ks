@@ -1,5 +1,5 @@
+import { Result, Schema } from 'effect'
 import { data } from 'react-router'
-import * as v from 'valibot'
 
 import { themeCookieValue } from '@/server/theme.server'
 import type { AppTheme } from '@/theme'
@@ -18,8 +18,8 @@ function normalizeTheme(value: string | null | undefined): AppTheme {
 
 async function themeCookieFromRequest(request: Request): Promise<string> {
   const form = await request.formData()
-  const value = v.safeParse(v.string(), form.get('theme'))
-  const theme = normalizeTheme(value.success ? value.output : undefined)
+  const value = Schema.decodeUnknownResult(Schema.String)(form.get('theme'))
+  const theme = normalizeTheme(Result.isSuccess(value) ? value.success : undefined)
 
   return themeCookieValue(theme)
 }

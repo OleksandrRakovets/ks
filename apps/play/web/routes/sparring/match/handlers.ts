@@ -2,8 +2,7 @@ import { SparringService } from '@ks/application/server'
 import { MatchCommand, MatchId } from '@ks/core'
 import { type GameKey, registry } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
-import { Effect, Predicate } from 'effect'
-import * as v from 'valibot'
+import { Effect, Predicate, Result, Schema } from 'effect'
 
 import type {
   ControlActionData,
@@ -22,17 +21,17 @@ type RouteArgs = {
   context: AppLoadContext
 }
 
-const SubmittedMatchCommand = v.pipe(v.string(), v.parseJson(), MatchCommand)
+const SubmittedMatchCommand = Schema.fromJsonString(MatchCommand)
 
-function matchIdFromParams(params: RouteArgs['params']): MatchId {
-  const matchId = v.safeParse(MatchId, params.matchId)
+function matchIdFromParams(params: RouteArgs['params']): typeof MatchId.Type {
+  const matchId = Schema.decodeUnknownResult(MatchId)(params.matchId)
 
-  if (!matchId.success) throw new Response('Invalid matchId', { status: 400 })
+  if (Result.isFailure(matchId)) throw new Response('Invalid matchId', { status: 400 })
 
-  return matchId.output
+  return matchId.success
 }
 
-export async function loadMatchPage<K extends GameKey>(
+export async function loadMatchPage<K extends typeof GameKey.Type>(
   args: RouteArgs,
   expectedGameKey: K,
 ): Promise<MatchPageData<K>> {
@@ -56,7 +55,7 @@ export async function loadMatchPage<K extends GameKey>(
   })
 }
 
-async function loadMatchProtocol<K extends GameKey>(args: RouteArgs, expectedGameKey: K) {
+async function loadMatchProtocol<K extends typeof GameKey.Type>(args: RouteArgs, expectedGameKey: K) {
   const matchId = matchIdFromParams(args.params)
   const locale = localeFromContext(args.context)
 
@@ -74,7 +73,7 @@ async function loadMatchProtocol<K extends GameKey>(args: RouteArgs, expectedGam
   return { ...result, shortGameTitle: registry[expectedGameKey].meta.shortGameTitle[locale] }
 }
 
-export async function loadMatchProtocolPage<K extends GameKey>(
+export async function loadMatchProtocolPage<K extends typeof GameKey.Type>(
   args: RouteArgs,
   expectedGameKey: K,
 ): Promise<ProtocolPageData<K>> {
@@ -94,19 +93,19 @@ function decideMatchPage<Data extends { lifecycle: 'active' | 'finished' }>(
 
 export async function commandMatchAction(
   args: RouteArgs,
-  expectedGameKey: GameKey,
+  expectedGameKey: typeof GameKey.Type,
 ): Promise<ControlActionData> {
   const matchId = matchIdFromParams(args.params)
   const form = await args.request.formData()
-  const command = v.safeParse(SubmittedMatchCommand, form.get('command'))
+  const command = Schema.decodeUnknownResult(SubmittedMatchCommand)(form.get('command'))
 
-  if (!command.success) {
+  if (Result.isFailure(command)) {
     return { ok: false, errorKey: keys.match.control.invalidCommandPayload }
   }
 
   const result = await requireRunEffect(args.context)(
     SparringService.use((sparring) =>
-      sparring.submitMatchCommand(matchId, command.output, expectedGameKey),
+      sparring.submitMatchCommand(matchId, command.success, expectedGameKey),
     ).pipe(
       Effect.catchTags({
         MatchNotFound: () => Effect.succeed(new Response('Unknown match', { status: 404 })),

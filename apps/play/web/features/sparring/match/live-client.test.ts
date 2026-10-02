@@ -19,7 +19,7 @@ class FakeWebSocket extends EventTarget {
     this.closeCalls += 1
   }
 
-  message(data: string): void {
+  message(data: string | Blob): void {
     this.dispatchEvent(new MessageEvent('message', { data }))
   }
 }
@@ -119,5 +119,66 @@ test('live client stops and requests catch-up for a gapped match-ending update',
   expect(caughtUp).toEqual([4])
   expect(states).toEqual(['connecting', 'finished'])
   expect(socket.closeCalls).toBe(1)
+  subscription.stop()
+})
+
+test.each([
+  '{',
+  'null',
+  new Blob(['{}']),
+  JSON.stringify({ contractVersion: 2, type: 'caught-up', latestSeq: 0 }),
+])('live client stops on malformed or unsupported input %s', (payload) => {
+  FakeWebSocket.instances = []
+  const states: string[] = []
+
+  const subscription = subscribeSparringMatchLive({
+    matchId: newMatchId(),
+    pageKind: 'protocol',
+    currentLatestSeq: () => 0,
+    onCaughtUp: () => {
+      throw new Error('Invalid input requested catch-up')
+    },
+    onUpdate: () => {
+      throw new Error('Invalid input emitted an update')
+    },
+    onConnectionState: (state) => {
+      states.push(state)
+    },
+  })
+
+  const socket = FakeWebSocket.instances.at(0)
+
+  if (socket === undefined) throw new Error('Expected live socket')
+
+  socket.message(payload)
+  expect(states).toEqual(['connecting', 'invalid-message'])
+  expect(socket.closeCalls).toBe(1)
+  subscription.stop()
+  expect(socket.closeCalls).toBe(1)
+})
+
+test('live client strips forward-compatible message fields', () => {
+  FakeWebSocket.instances = []
+  const matchId = newMatchId()
+  const caughtUp: number[] = []
+
+  const subscription = subscribeSparringMatchLive({
+    matchId,
+    pageKind: 'protocol',
+    currentLatestSeq: () => 0,
+    onCaughtUp: (seq) => {
+      caughtUp.push(seq)
+    },
+    onUpdate: () => {},
+    onConnectionState: () => {},
+  })
+
+  const socket = FakeWebSocket.instances.at(0)
+
+  if (socket === undefined) throw new Error('Expected live socket')
+
+  socket.message(JSON.stringify({ contractVersion: 1, type: 'caught-up', matchId, latestSeq: 6, extra: true }))
+  expect(caughtUp).toEqual([6])
+  expect(socket.closeCalls).toBe(0)
   subscription.stop()
 })

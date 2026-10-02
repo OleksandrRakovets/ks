@@ -127,7 +127,7 @@ function Score(props: {
   )
 }
 
-function FrameScore({ score, label }: { score: BySeatNumber | undefined; label: string }) {
+function FrameScore({ score, label }: { score: typeof BySeatNumber.Type | undefined; label: string }) {
   if (!score) return <span />
 
   return (
@@ -138,7 +138,7 @@ function FrameScore({ score, label }: { score: BySeatNumber | undefined; label: 
   )
 }
 
-function StrilaReconciliation(props: { balls: readonly StrilaBall[]; align: 'left' | 'right' }) {
+function StrilaReconciliation(props: { balls: readonly (typeof StrilaBall.Type)[]; align: 'left' | 'right' }) {
   return (
     <div className={cn('grid w-fit grid-cols-[repeat(8,13px)] gap-1', props.align === 'right' && 'ml-auto')}>
       {props.balls.map((ball, index) => (

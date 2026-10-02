@@ -7,18 +7,18 @@ import { cn } from '@/components/ui/utils'
 export function SeatChoiceToss(props: {
   headingId: string
   playerNames: { readonly A: string; readonly B: string }
-  selectedSeat: Seat | null
+  selectedSeat: typeof Seat.Type | null
   disabled?: boolean
   title: string
   coinInAir: string
   chooseSeat: (winnerName: string) => string
   tossCoin: string
   seatChoiceLabel: (playerName: string) => string
-  onSelectedSeatChange: (seat: Seat | null) => void
+  onSelectedSeatChange: (seat: typeof Seat.Type | null) => void
 }) {
-  const [tossWinner, setTossWinner] = useState<Seat | null>(null)
+  const [tossWinner, setTossWinner] = useState<typeof Seat.Type | null>(null)
   const [isRolling, setIsRolling] = useState(false)
-  const [displaySeat, setDisplaySeat] = useState<Seat | null>(null)
+  const [displaySeat, setDisplaySeat] = useState<typeof Seat.Type | null>(null)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -54,7 +54,7 @@ export function SeatChoiceToss(props: {
     }, 1800)
   }
 
-  function chooseSeat(seat: Seat) {
+  function chooseSeat(seat: typeof Seat.Type) {
     if (!tossWinner) return
     props.onSelectedSeatChange(seat)
   }
@@ -126,12 +126,12 @@ export function SeatChoiceToss(props: {
 }
 
 function SeatChoiceButton(props: {
-  seat: Seat
+  seat: typeof Seat.Type
   playerName: string
-  selectedSeat: Seat | null
+  selectedSeat: typeof Seat.Type | null
   disabled: boolean
   label: string
-  onChoose: (seat: Seat) => void
+  onChoose: (seat: typeof Seat.Type) => void
 }) {
   return (
     <Button

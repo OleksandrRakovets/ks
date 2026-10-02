@@ -20,7 +20,7 @@ function ResultScoreList({
   rows,
 }: {
   title: string
-  rows: readonly { index: number; score: BySeatNumber }[]
+  rows: readonly { index: number; score: typeof BySeatNumber.Type }[]
 }) {
   return (
     <div className="mt-3 pt-5">

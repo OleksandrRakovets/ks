@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test'
 
 import type { CreateSparringMatchInput } from '@ks/application'
 import { InvalidMatchInput, MatchInitializationConflict } from '@ks/application/server'
+import { newMatchId } from '@ks/core'
 import { Effect } from 'effect'
 import { RouterContextProvider } from 'react-router'
 
@@ -51,7 +52,7 @@ test.each([
 ] as const)(
   'setup does not enforce page target caps on the server for %s',
   async (gameKey, targetA, matchTargetFrames) => {
-    const inputs: CreateSparringMatchInput[] = []
+    const inputs: (typeof CreateSparringMatchInput.Type)[] = []
 
     const context = sparringContext({
       createMatch: (input) =>
@@ -158,6 +159,70 @@ test('rematch setup preserves editable race length and falls back entirely for m
   })
 
   expect(malformed).toEqual(ordinary)
+})
+
+test.each(['01', '2e1', '2.0', ' 2', 'Infinity'])(
+  'rematch ignores non-canonical integer query %s',
+  async (target) => {
+    const context = new RouterContextProvider()
+    const url = new URL('http://localhost/sparring/setup/strila-v2/')
+
+    const ordinary = await loadSetupPage({
+      params: { gameKey: 'strila-v2' },
+      request: new Request(url),
+      context,
+    })
+
+    url.search = new URLSearchParams({
+      rematch: '1',
+      seatAName: 'Alice',
+      seatBName: 'Bob',
+      matchTargetFrames: '7',
+      targetA: '50',
+      targetB: target,
+    }).toString()
+    expect(
+      await loadSetupPage({ params: { gameKey: 'strila-v2' }, request: new Request(url), context }),
+    ).toEqual(ordinary)
+  },
+)
+
+test('setup normalizes names before application execution and redirects on success', async () => {
+  const inputs: (typeof CreateSparringMatchInput.Type)[] = []
+  const matchId = newMatchId()
+
+  const context = sparringContext({
+    createMatch: (input) => {
+      inputs.push(input)
+
+      return Effect.succeed({ matchId })
+    },
+  })
+
+  const form = new FormData()
+  form.set('seatAName', '  Alice   Smith  ')
+  form.set('seatBName', ' Bob\tJones ')
+  form.set('matchTargetFrames', '3')
+  form.set('targetA', '8')
+  form.set('targetB', '6')
+  form.set('firstBreakerSeat', 'B')
+
+  const response = await createSetupMatch({
+    params: { gameKey: 'strila-v2' },
+    request: new Request('http://localhost', { method: 'POST', body: form }),
+    context,
+  })
+
+  expect(response.status).toBe(302)
+  expect(response.headers.get('Location')).toBe(`/sparring/match/strila-v2/${matchId}/`)
+  expect(inputs).toEqual([
+    {
+      gameKey: 'strila-v2',
+      playerNames: { A: 'Alice Smith', B: 'Bob Jones' },
+      firstBreakerSeat: 'B',
+      targets: { matchTargetFrames: 3, frameTargetPointsBySeat: { A: 8, B: 6 } },
+    },
+  ])
 })
 
 test('match setup rejects a cleared frame target instead of restoring its default', async () => {

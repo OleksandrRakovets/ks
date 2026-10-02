@@ -8,7 +8,7 @@ import type { FinishedMatchData } from '@/features/sparring/match/types'
 import { matchSetupUrl } from '@/features/sparring/urls'
 import { useRootLocale } from '@/root'
 
-export function RematchLink<K extends GameKey>(props: { data: FinishedMatchData<K> }) {
+export function RematchLink<K extends typeof GameKey.Type>(props: { data: FinishedMatchData<K> }) {
   const { t } = useTranslation()
   const locale = useRootLocale()
   const { data } = props

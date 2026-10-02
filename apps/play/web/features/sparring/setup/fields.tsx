@@ -146,7 +146,7 @@ export function MatchTargetFramesField(props: { profile: MatchCreateProfile }) {
 
 export function FrameTargetFields(props: {
   playerNames: { A: string; B: string }
-  defaults: BySeatNumber
+  defaults: typeof BySeatNumber.Type
   maxValue: number
   isSingleFrame: boolean
 }) {
@@ -175,7 +175,12 @@ export function FrameTargetFields(props: {
   )
 }
 
-function TargetField(props: { seat: Seat; playerName: string; defaultValue: number; maxValue: number }) {
+function TargetField(props: {
+  seat: typeof Seat.Type
+  playerName: string
+  defaultValue: number
+  maxValue: number
+}) {
   const { t } = useTranslation()
   const id = `target${props.seat}`
 

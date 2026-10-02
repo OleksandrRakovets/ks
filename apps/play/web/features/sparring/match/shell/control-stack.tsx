@@ -8,12 +8,12 @@ import { Takeover, TakeoverContainer } from './takeover'
 export type { ControlPresentation } from '../renderers/control-presentation'
 
 export function ControlStack(props: {
-  sections: ControlSections
+  sections: typeof ControlSections.Type
   selector?: ReactNode
   takeover?: ReactNode
-  renderControl: (control: Control, index: number) => ControlPresentation
+  renderControl: (control: typeof Control.Type, index: number) => ControlPresentation
   submitting: boolean
-  onSubmit: (command: MatchCommand) => void
+  onSubmit: (command: typeof MatchCommand.Type) => void
 }) {
   if (props.takeover !== undefined && props.takeover !== null) {
     return <TakeoverContainer>{props.takeover}</TakeoverContainer>
@@ -44,12 +44,12 @@ export function ControlStack(props: {
 }
 
 function presentZone(
-  controls: ControlSections['primary'],
+  controls: (typeof ControlSections.Type)['primary'],
   props: Parameters<typeof ControlStack>[0],
 ): ZonePresentation | null {
   if (controls.A.length === 0 && controls.B.length === 0) return null
 
-  function lane(controls: readonly Control[]) {
+  function lane(controls: readonly (typeof Control.Type)[]) {
     const items = presentControls(controls, props.renderControl, props.submitting, props.onSubmit)
 
     return { items, compact: items.length > 1 && items.every((item) => item.visibleLabel.length <= 3) }

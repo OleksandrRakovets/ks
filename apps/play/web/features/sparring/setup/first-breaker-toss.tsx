@@ -6,8 +6,8 @@ import { SeatChoiceToss } from '@/components/seat-choice-toss'
 
 type FirstBreakerFieldProps = {
   playerNames: { A: string; B: string }
-  firstBreakerSeat: Seat | null
-  onFirstBreakerSeatChange: (seat: Seat | null) => void
+  firstBreakerSeat: typeof Seat.Type | null
+  onFirstBreakerSeatChange: (seat: typeof Seat.Type | null) => void
 }
 
 export function FirstBreakerField(props: FirstBreakerFieldProps) {

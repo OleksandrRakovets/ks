@@ -9,8 +9,8 @@ export type ControlPresentation = {
   accessibleLabel?: string
   effect?: string
   disabled?: boolean
-  input?: Control['fixedInput']
-  command?: MatchCommand
+  input?: (typeof Control.Type)['fixedInput']
+  command?: typeof MatchCommand.Type
 }
 
 export type PresentedControl = {
@@ -26,10 +26,10 @@ export type PresentedControl = {
 }
 
 export function presentControls(
-  controls: readonly Control[],
-  renderControl: (control: Control, index: number) => ControlPresentation,
+  controls: readonly (typeof Control.Type)[],
+  renderControl: (control: typeof Control.Type, index: number) => ControlPresentation,
   submitting: boolean,
-  onSubmit: (command: MatchCommand) => void,
+  onSubmit: (command: typeof MatchCommand.Type) => void,
 ): PresentedControl[] {
   return controls.map((control, index) => {
     const presentation = renderControl(control, index)
