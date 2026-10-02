@@ -1,27 +1,19 @@
-import * as v from 'valibot'
+import { Schema } from 'effect'
 
-import type { Brand } from './brand'
 import { NonNegativeInteger } from './valicombos'
 
-export type UnixEpochMilliseconds = Brand<number, 'UnixEpochMilliseconds'>
-
-function toUnixEpochMilliseconds(value: number): UnixEpochMilliseconds {
-  // SAFETY: The brand records the unit/epoch invariant after the enclosing schema validates the numeric representation.
-  return value as UnixEpochMilliseconds
-}
-
-export const UnixEpochMilliseconds = v.pipe(NonNegativeInteger, v.transform(toUnixEpochMilliseconds))
+export const UnixEpochMilliseconds = NonNegativeInteger.pipe(Schema.brand('UnixEpochMilliseconds'))
 
 /** Supplies wall-clock instants and their presentation in one IANA zone. */
 export interface Clock {
   /** Returns an absolute instant in Unix epoch milliseconds; the zone does not affect it. */
-  nowMs(): UnixEpochMilliseconds
+  nowMs(): typeof UnixEpochMilliseconds.Type
   /** Returns UTC ISO, zero-padded date parts in this clock's zone, and 24-hour time; the zone is not carried in the result. */
-  instantPresentation(instant: UnixEpochMilliseconds): InstantPresentation
+  instantPresentation(instant: typeof UnixEpochMilliseconds.Type): InstantPresentation
   /** Presents this clock's current instant in its zone, without choosing a surface-specific label. */
   nowPresentation(): InstantPresentation
   /** UTC bounds of a calendar day in this Clock's zone, including daylight-saving transitions. */
-  dayRange(day: string): { start: UnixEpochMilliseconds; end: UnixEpochMilliseconds }
+  dayRange(day: string): { start: typeof UnixEpochMilliseconds.Type; end: typeof UnixEpochMilliseconds.Type }
 }
 
 /** Uses the system's current instant and one zone for calendar presentation. */
@@ -32,11 +24,11 @@ export class SystemClock implements Clock {
     this.#timeZone = timeZone
   }
 
-  nowMs(): UnixEpochMilliseconds {
-    return v.parse(UnixEpochMilliseconds, Date.now())
+  nowMs(): typeof UnixEpochMilliseconds.Type {
+    return Schema.decodeUnknownSync(UnixEpochMilliseconds)(Date.now())
   }
 
-  instantPresentation(instant: UnixEpochMilliseconds): InstantPresentation {
+  instantPresentation(instant: typeof UnixEpochMilliseconds.Type): InstantPresentation {
     const date = new Date(instant)
 
     const dateParts = new Intl.DateTimeFormat('en', {
@@ -82,8 +74,8 @@ export class FixedClock extends SystemClock {
     this.fixedDate = fixedDate
   }
 
-  override nowMs(): UnixEpochMilliseconds {
-    return v.parse(UnixEpochMilliseconds, this.fixedDate.getTime())
+  override nowMs(): typeof UnixEpochMilliseconds.Type {
+    return Schema.decodeUnknownSync(UnixEpochMilliseconds)(this.fixedDate.getTime())
   }
 }
 
@@ -103,7 +95,7 @@ function dayRange(day: string, timeZone: string) {
     timeZone,
   })
 
-  function startOf(target: number): UnixEpochMilliseconds {
+  function startOf(target: number): typeof UnixEpochMilliseconds.Type {
     const estimate = target
     let low = Math.max(0, estimate - 36 * 3_600_000)
     let high = estimate + 36 * 3_600_000
@@ -120,7 +112,7 @@ function dayRange(day: string, timeZone: string) {
       else high = middle
     }
 
-    return v.parse(UnixEpochMilliseconds, low)
+    return Schema.decodeUnknownSync(UnixEpochMilliseconds)(low)
   }
 
   return { start: startOf(startDay), end: startOf(startDay + 86_400_000) }

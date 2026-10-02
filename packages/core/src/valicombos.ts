@@ -1,25 +1,22 @@
-import * as v from 'valibot'
+import { Schema } from 'effect'
 
-export const NonEmptyString = v.pipe(v.string(), v.minLength(1))
+export const NonEmptyString = Schema.String.check(Schema.isMinLength(1))
 
-export type NonEmptyString = v.InferOutput<typeof NonEmptyString>
+export const Integer = Schema.Number.check(Schema.isInt())
 
-export const Integer = v.pipe(v.number(), v.integer())
+export const PositiveInteger = Integer.check(Schema.isGreaterThanOrEqualTo(1))
 
-export type Integer = v.InferOutput<typeof Integer>
+export const NonNegativeInteger = Integer.check(Schema.isGreaterThanOrEqualTo(0))
 
-export const PositiveInteger = v.pipe(Integer, v.minValue(1))
-
-export type PositiveInteger = v.InferOutput<typeof PositiveInteger>
-
-export const NonNegativeInteger = v.pipe(Integer, v.minValue(0))
-
-export type NonNegativeInteger = v.InferOutput<typeof NonNegativeInteger>
-
-export const UnknownObject = v.pipe(v.objectWithRest({}, v.unknown()), v.readonly())
-
-export type UnknownObject = v.InferOutput<typeof UnknownObject>
+export const UnknownObject = Schema.Record(Schema.String, Schema.Unknown)
 
 export function SizedString(minLength: number, maxLength: number) {
-  return v.pipe(v.string(), v.minLength(minLength), v.maxLength(maxLength))
+  return Schema.String.check(Schema.isMinLength(minLength), Schema.isMaxLength(maxLength))
+}
+
+/** Checks closed object keys before Struct decoding can strip them; nested schemas retain their own policies. */
+export function StrictStruct<const Fields extends Schema.Struct.Fields>(fields: Fields) {
+  return Schema.ObjectKeyword.check(Schema.isPropertyNames(Schema.Literals(Object.keys(fields)))).pipe(
+    Schema.decodeTo(Schema.Struct(fields)),
+  )
 }

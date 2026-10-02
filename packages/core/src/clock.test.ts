@@ -1,14 +1,14 @@
 import { describe, expect, test } from 'bun:test'
 
-import * as v from 'valibot'
+import { Schema } from 'effect'
 
 import { FixedClock, SystemClock, UnixEpochMilliseconds } from './clock'
 
 describe('Unix epoch milliseconds', () => {
   test('brands non-negative integer timestamps', () => {
-    expect(Number(v.parse(UnixEpochMilliseconds, 1_700_000_000_000))).toBe(1_700_000_000_000)
-    expect(v.safeParse(UnixEpochMilliseconds, -1).success).toBe(false)
-    expect(v.safeParse(UnixEpochMilliseconds, 1.5).success).toBe(false)
+    expect(Number(Schema.decodeUnknownSync(UnixEpochMilliseconds)(1_700_000_000_000))).toBe(1_700_000_000_000)
+    expect(Schema.is(UnixEpochMilliseconds)(-1)).toBe(false)
+    expect(Schema.is(UnixEpochMilliseconds)(1.5)).toBe(false)
   })
 
   test('reads the current JavaScript epoch-millisecond clock', () => {
@@ -18,7 +18,7 @@ describe('Unix epoch milliseconds', () => {
   test('presents a supplied instant and the fixed now in the clock zone', () => {
     const fixedDate = new Date('2026-09-22T21:30:00.000Z')
     const clock = new FixedClock(fixedDate, 'Europe/Kyiv')
-    const instant = v.parse(UnixEpochMilliseconds, Date.parse('2026-09-22T21:15:00.000Z'))
+    const instant = Schema.decodeUnknownSync(UnixEpochMilliseconds)(Date.parse('2026-09-22T21:15:00.000Z'))
 
     expect(Number(clock.nowMs())).toBe(fixedDate.getTime())
     expect(clock.instantPresentation(instant)).toEqual({

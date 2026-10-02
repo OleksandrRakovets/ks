@@ -16,6 +16,7 @@
     "@ks/core": "workspace:*",
     "@ks/gameplay": "workspace:*",
     "drizzle-orm": "catalog:",
+    "effect": "catalog:",
     "valibot": "catalog:"
   },
   "devDependencies": {

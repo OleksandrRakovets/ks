@@ -1,63 +1,45 @@
-import * as v from 'valibot'
+import { Schema, SchemaGetter } from 'effect'
 
 import { MatchId } from './ids'
-import { NonNegativeInteger, PositiveInteger } from './valicombos'
+import { NonNegativeInteger, PositiveInteger, StrictStruct } from './valicombos'
 
-export const MatchStreamUpdate = v.pipe(
-  v.object({
-    type: v.literal('command-accepted'),
-    acceptedSeq: PositiveInteger,
-    endsMatch: v.boolean(),
-  }),
-  v.readonly(),
-)
+export const MatchStreamUpdate = Schema.Struct({
+  type: Schema.Literal('command-accepted'),
+  acceptedSeq: PositiveInteger,
+  endsMatch: Schema.Boolean,
+})
 
-export type MatchStreamUpdate = v.InferOutput<typeof MatchStreamUpdate>
+export const SparringMatchLiveContractVersion = Schema.Literal(1)
 
-export const SparringMatchLiveContractVersion = v.literal(1)
+export const SparringMatchLivePageKind = Schema.Literals(['control', 'protocol'])
 
-export type SparringMatchLiveContractVersion = v.InferOutput<typeof SparringMatchLiveContractVersion>
-
-export const SparringMatchLivePageKind = v.picklist(['control', 'protocol'])
-
-export type SparringMatchLivePageKind = v.InferOutput<typeof SparringMatchLivePageKind>
-
-export const SparringMatchLiveQuery = v.strictObject({
-  contract: v.pipe(
-    v.literal('1'),
-    v.transform(() => 1),
-    SparringMatchLiveContractVersion,
+export const SparringMatchLiveQuery = StrictStruct({
+  contract: Schema.Literal('1').pipe(
+    Schema.decodeTo(SparringMatchLiveContractVersion, {
+      decode: SchemaGetter.transform(() => 1 as const),
+      encode: SchemaGetter.transform(() => '1' as const),
+    }),
   ),
   view: SparringMatchLivePageKind,
 })
 
-export type SparringMatchLiveQuery = v.InferOutput<typeof SparringMatchLiveQuery>
+const SparringMatchLiveUpdateMessage = Schema.Struct({
+  contractVersion: SparringMatchLiveContractVersion,
+  type: Schema.Literal('update'),
+  update: MatchStreamUpdate,
+})
 
-const SparringMatchLiveUpdateMessage = v.pipe(
-  v.object({
-    contractVersion: SparringMatchLiveContractVersion,
-    type: v.literal('update'),
-    update: MatchStreamUpdate,
-  }),
-  v.readonly(),
-)
+const SparringMatchLiveCaughtUpMessage = Schema.Struct({
+  contractVersion: SparringMatchLiveContractVersion,
+  type: Schema.Literal('caught-up'),
+  matchId: MatchId,
+  latestSeq: NonNegativeInteger,
+})
 
-const SparringMatchLiveCaughtUpMessage = v.pipe(
-  v.object({
-    contractVersion: SparringMatchLiveContractVersion,
-    type: v.literal('caught-up'),
-    matchId: MatchId,
-    latestSeq: NonNegativeInteger,
-  }),
-  v.readonly(),
-)
-
-export const SparringMatchLiveServerMessage = v.variant('type', [
+export const SparringMatchLiveServerMessage = Schema.Union([
   SparringMatchLiveUpdateMessage,
   SparringMatchLiveCaughtUpMessage,
 ])
-
-export type SparringMatchLiveServerMessage = v.InferOutput<typeof SparringMatchLiveServerMessage>
 
 export const SPARRING_MATCH_LIVE_FINISHED_CLOSE_CODE = 4000
 

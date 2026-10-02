@@ -6,6 +6,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
+    "effect": "catalog:",
     "ulid": "^3.0.2",
     "valibot": "catalog:"
   },
