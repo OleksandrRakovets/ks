@@ -1,4 +1,5 @@
 import { type CreateSparringMatchInput, DisplayName } from '@ks/application'
+import { SparringService } from '@ks/application/server'
 import { PositiveInteger, Seat } from '@ks/core'
 import { isGameKey, registry } from '@ks/gameplay/definitions'
 import { redirect } from 'react-router'
@@ -12,7 +13,7 @@ import {
 import { matchUrl } from '@/features/sparring/urls'
 import { localeFromContext } from '@/i18n'
 import type { AppLoadContext } from '@/server/context.server'
-import { requireApplication } from '@/server/context.server'
+import { requireRunEffect } from '@/server/context.server'
 
 type LoaderData = {
   title: string
@@ -174,8 +175,6 @@ export async function createSetupMatch({
     throwInvalidSetup()
   }
 
-  const application = requireApplication(context)
-
   const createInputBase = {
     gameKey,
     targets: {
@@ -193,7 +192,9 @@ export async function createSetupMatch({
     ? { ...createInputBase, gameConfiguration: { rackRollover } }
     : createInputBase
 
-  const result = await application.sparring.createMatch(createInput)
+  const result = await requireRunEffect(context)(
+    SparringService.use((sparring) => sparring.createMatch(createInput)),
+  )
 
   if (!result.ok) {
     switch (result.reason) {

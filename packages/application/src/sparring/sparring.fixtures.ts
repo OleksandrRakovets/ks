@@ -3,6 +3,8 @@ import { expect } from 'bun:test'
 import { projectMatchScore } from '@ks/competition'
 import type { Clock } from '@ks/core'
 import { FixedClock, MatchId, newCommandId, PlayerRef, UnixEpochMilliseconds } from '@ks/core'
+import type { GameKey } from '@ks/gameplay/definitions'
+import type { SupportedLocale } from '@ks/i18n'
 import { Context, Data, Effect, pipe } from 'effect'
 import * as v from 'valibot'
 
@@ -10,7 +12,7 @@ import { ApplicationClock } from '../match/clock'
 import { type MatchRoomArchiveTransfer, type MatchRoomClient, MatchRooms } from '../match/match-room'
 import { PlayerStorage } from '../player/storage/player-storage'
 import { MatchCreation } from './create-match'
-import { createSparringApplication } from './sparring-application'
+import { SparringService } from './sparring-service'
 import { SparringMatchStorage } from './storage/sparring-match-storage'
 
 export const RoomInitialization: Data.TaggedEnum.Constructor<
@@ -241,7 +243,26 @@ export function sparring(
     Context.add(MatchRooms, rooms),
   )
 
-  return createSparringApplication(context)
+  const service = Effect.runSync(SparringService.make.pipe(Effect.provideContext(context)))
+
+  return {
+    createMatch: (...args: Parameters<typeof service.createMatch>) =>
+      Effect.runPromise(service.createMatch(...args)),
+    listLiveMatches: (...args: Parameters<typeof service.listLiveMatches>) =>
+      Effect.runPromise(service.listLiveMatches(...args)),
+    listFinishedMatches: (...args: Parameters<typeof service.listFinishedMatches>) =>
+      Effect.runPromise(service.listFinishedMatches(...args)),
+    readMatchScores: (...args: Parameters<typeof service.readMatchScores>) =>
+      Effect.runPromise(service.readMatchScores(...args)),
+    readMatch: <K extends GameKey>(matchId: MatchId, locale: SupportedLocale, expectedGameKey: K) =>
+      Effect.runPromise(service.readMatch(matchId, locale, expectedGameKey)),
+    submitMatchCommand: (...args: Parameters<typeof service.submitMatchCommand>) =>
+      Effect.runPromise(service.submitMatchCommand(...args)),
+    readMatchProtocol: <K extends GameKey>(matchId: MatchId, locale: SupportedLocale, expectedGameKey: K) =>
+      Effect.runPromise(service.readMatchProtocol(matchId, locale, expectedGameKey)),
+    admitMatchLive: (...args: Parameters<typeof service.admitMatchLive>) =>
+      Effect.runPromise(service.admitMatchLive(...args)),
+  }
 }
 
 type PromiseService<Service> = {

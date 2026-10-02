@@ -1,6 +1,6 @@
-import { createApplication } from '@ks/application/server'
+import { applicationLayer } from '@ks/application/server'
 import { SystemClock } from '@ks/core'
-import { Effect } from 'effect'
+import { Effect, Layer } from 'effect'
 import { createRequestHandler, RouterContextProvider } from 'react-router'
 import * as v from 'valibot'
 
@@ -22,11 +22,12 @@ export default {
     return Effect.runPromise(
       Effect.gen(function* () {
         const requestTimeZone = v.parse(RequestTimeZone, request.cf?.timezone)
-        const application = yield* createApplication(env, new SystemClock(requestTimeZone))
+        const services = yield* Layer.build(applicationLayer(env, new SystemClock(requestTimeZone)))
+        const runEffect = Effect.runPromiseWith(services)
 
         // Sparring Match WebSocket URLs are forwarded directly to the owning MatchRoom Durable Object.
         const liveResponse = yield* Effect.promise(() =>
-          handleSparringMatchLiveRequest(request, env, application),
+          handleSparringMatchLiveRequest(request, env, runEffect),
         )
 
         if (liveResponse) return liveResponse
@@ -35,7 +36,7 @@ export default {
         const context = new RouterContextProvider()
 
         const loadContext: CloudflareLoadContext = {
-          application,
+          runEffect,
           isProduction: new URL(request.url).hostname === 'play.ks.ua',
         }
 

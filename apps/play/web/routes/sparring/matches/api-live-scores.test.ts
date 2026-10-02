@@ -1,28 +1,22 @@
 import { expect, test } from 'bun:test'
 
-import type { Application } from '@ks/application'
 import { newMatchId } from '@ks/core'
-import { RouterContextProvider } from 'react-router'
+import { Effect } from 'effect'
 
-import { cloudflareContext } from '@/server/context.server'
+import { sparringContext } from '@/server/context.fixtures'
 
 import { loader } from './api-live-scores'
 
 test('live scores maps unknown-match to HTTP 404 JSON', async () => {
   const matchId = newMatchId()
-  const context = new RouterContextProvider()
-  // SAFETY: this loader uses only readMatchScores.
-  context.set(cloudflareContext, {
-    application: {
-      sparring: {
-        readMatchScores: async (ids) => {
-          expect(ids).toEqual([matchId])
 
-          return { ok: false, reason: 'unknown-match' }
-        },
-      },
-    } as Application,
-    isProduction: false,
+  const context = sparringContext({
+    readMatchScores: (ids) =>
+      Effect.sync(() => {
+        expect(ids).toEqual([matchId])
+
+        return { ok: false as const, reason: 'unknown-match' as const }
+      }),
   })
 
   const response = await loader({

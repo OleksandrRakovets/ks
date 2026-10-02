@@ -55,7 +55,7 @@ These commands overlap. Choose the appropriate gate; do not rerun its constituen
 ## Boundaries
 
 - Domain dependency direction is `core <- gameplay <- competition` and is enforced by `check:boundaries`.
-- Routes own HTTP parsing, cookies, redirects, and presentation adaptation. They receive `Application`; SQL, Durable Object calls, and use-case orchestration stay out of routes.
+- Routes own HTTP parsing, cookies, redirects, and presentation adaptation. They execute public application services through Play's request-bound `runEffect`; SQL, Durable Object calls, and use-case orchestration stay out of routes.
 - `@ks/application` owns private D1 adapters and its private typed MatchRoom capability. It must not expose generic repositories.
 - MatchRoom must not import Play, application, or D1 code.
 - Validate at external trust and representation boundaries: HTTP, persisted rows/JSON, browser storage, and restored machine state. Internal MatchRoom RPC within the Play Worker is a trusted typed capability; do not add runtime schemas or reparse canonical values solely because a call crosses Cloudflare RPC.
@@ -70,6 +70,7 @@ These commands overlap. Choose the appropriate gate; do not rerun its constituen
 - Migrate coherent capabilities rather than schemas one at a time. Keep synchronous XState/gameplay execution and pure projections in TypeScript unless their migration is requested separately. Preserve invariant throws as defects; do not add retries, fallback paths, or recovery state merely because Effect provides those tools.
 - Use installed Effect v4 source and bundled examples as the API reference; v3/beta examples can name removed APIs. Reusable Effect functions use `Effect.fn` for meaningful tracing boundaries or `Effect.fnUntraced` for helpers. `Effect.fn.Return<A, E, R>` defaults omitted error/environment types to `never`; preserve actual failure and dependency channels rather than widening them to `unknown`.
 - `Context.Service` classes are service keys, not implementation instances. Their string is runtime identity; use a package-qualified module identifier to avoid collisions. `yield* Service` retrieves the registered value. Layers construct/provide implementations, and reuse of the same layer within a build is memoized; service lifetime follows composition, not each Effect execution.
+- Public application services expose Effect use-case methods with private dependencies captured at layer construction. `applicationLayer` exposes only public services; Play builds it once per request and keeps its Scope open through gateway or Router handling. Play's `runEffect` is the local `Effect.runPromiseWith(context)` bridge, not an Effect convention or a per-call layer build. Keep browser-safe contracts separate from server services.
 - Construct tagged values through their owning Schema constructors or `Data.taggedEnum` for unschematized unions. Use `Match` for result adaptation and `Predicate.isTagged` for simple guards. Keep expected domain outcomes as values unless deliberately changing that contract; do not create runtime schemas only to remove type declarations.
 - System time can eventually use Effect's shared Clock, but request-local timezone/calendar presentation must remain separate. Do not globalize a clock that combines both responsibilities.
 

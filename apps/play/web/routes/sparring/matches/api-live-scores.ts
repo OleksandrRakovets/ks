@@ -1,7 +1,8 @@
+import { SparringService } from '@ks/application/server'
 import { MatchId } from '@ks/core'
 import * as v from 'valibot'
 
-import { requireApplication } from '@/server/context.server'
+import { requireRunEffect } from '@/server/context.server'
 
 import type { Route } from './+types/api-live-scores'
 
@@ -14,7 +15,10 @@ export async function loader({ request, context }: Pick<Route.LoaderArgs, 'reque
   const matchIds = v.safeParse(v.array(MatchId), values)
 
   if (!matchIds.success) return Response.json({ error: 'Invalid Match ID' }, { status: 400 })
-  const result = await requireApplication(context).sparring.readMatchScores(matchIds.output)
+
+  const result = await requireRunEffect(context)(
+    SparringService.use((sparring) => sparring.readMatchScores(matchIds.output)),
+  )
 
   if (!result.ok) {
     switch (result.reason) {

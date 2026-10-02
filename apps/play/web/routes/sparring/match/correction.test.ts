@@ -1,11 +1,11 @@
 import { expect, test } from 'bun:test'
 
-import { type Application, CommandReceiptOutcome } from '@ks/application'
+import { CommandReceiptOutcome } from '@ks/application'
 import { newCommandId, newMatchId } from '@ks/core'
 import { keys } from '@ks/i18n'
-import { RouterContextProvider } from 'react-router'
+import { Effect } from 'effect'
 
-import { cloudflareContext } from '@/server/context.server'
+import { sparringContext } from '@/server/context.fixtures'
 
 import { commandMatchAction } from './handlers'
 
@@ -18,23 +18,18 @@ test('sends an identified correction through the existing action and names a sta
     command: { type: 'command.correct', targetSeq: 5, targetCommandId: newCommandId() },
   }
 
-  const context = new RouterContextProvider()
-  // SAFETY: the test supplies the only Application operation used by this route.
-  context.set(cloudflareContext, {
-    application: {
-      sparring: {
-        submitMatchCommand: async (id, command, gameKey) => {
-          expect([id, command, gameKey]).toEqual([matchId, submitted, 'free-pyramid'])
+  const context = sparringContext({
+    submitMatchCommand: (id, command, gameKey) =>
+      Effect.sync(() => {
+        expect([id, command, gameKey]).toEqual([matchId, submitted, 'free-pyramid'])
 
-          return {
-            ok: true,
-            outcome: CommandReceiptOutcome.rejected({ reason: { code: 'correction-not-available' } }),
-          }
-        },
-      },
-    } as Application,
-    isProduction: false,
+        return {
+          ok: true as const,
+          outcome: CommandReceiptOutcome.rejected({ reason: { code: 'correction-not-available' } }),
+        }
+      }),
   })
+
   const form = new FormData()
   form.set('command', JSON.stringify(submitted))
 

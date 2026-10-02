@@ -6,7 +6,6 @@ import {
   type GameConfiguration,
   type HydratedMatchParticipants,
   type InstantPresentation,
-  type MatchCommand,
   MatchId,
   type MatchTargets,
   NonNegativeInteger,
@@ -14,7 +13,6 @@ import {
   UnixEpochMilliseconds,
 } from '@ks/core'
 import type { GameKey, GamePresentationFor } from '@ks/gameplay/definitions'
-import type { SupportedLocale } from '@ks/i18n'
 import { Data, Schema } from 'effect'
 import * as v from 'valibot'
 
@@ -181,7 +179,7 @@ export type SubmitMatchCommandResult =
         | 'command-id-conflict'
     }
 
-type SparringMatchLiveAdmission =
+export type SparringMatchLiveAdmission =
   | { readonly _tag: 'admitted' }
   | { readonly _tag: 'unknown' }
   | { readonly _tag: 'finished' }
@@ -193,26 +191,3 @@ export type ReadMatchProtocolResult<K extends GameKey> =
       readonly protocolRows: readonly ProtocolRow[]
     })
   | ReadMatchFailure
-
-export type SparringApplication = {
-  createMatch(input: CreateSparringMatchInput): Promise<CreateSparringMatchResult>
-  listLiveMatches(locale: SupportedLocale): Promise<LiveMatchListPage>
-  listFinishedMatches(locale: SupportedLocale, day?: typeof MatchListDay.Type): Promise<FinishedMatchListPage>
-  readMatchScores(matchIds: readonly MatchId[]): Promise<ReadMatchScoresResult>
-  readMatch<K extends GameKey>(
-    matchId: MatchId,
-    locale: SupportedLocale,
-    expectedGameKey: K,
-  ): Promise<ReadMatchResult<K>>
-  submitMatchCommand(
-    matchId: MatchId,
-    command: MatchCommand,
-    expectedGameKey: GameKey,
-  ): Promise<SubmitMatchCommandResult>
-  readMatchProtocol<K extends GameKey>(
-    matchId: MatchId,
-    locale: SupportedLocale,
-    expectedGameKey: K,
-  ): Promise<ReadMatchProtocolResult<K>>
-  admitMatchLive(matchId: MatchId): Promise<SparringMatchLiveAdmission>
-}

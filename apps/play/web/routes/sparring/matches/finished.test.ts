@@ -1,38 +1,29 @@
 import { describe, expect, test } from 'bun:test'
 
-import type { Application } from '@ks/application'
-import { RouterContextProvider } from 'react-router'
+import { Effect } from 'effect'
 
-import { cloudflareContext } from '@/server/context.server'
+import { sparringContext } from '@/server/context.fixtures'
 
 import { loader } from './finished'
-
-function context(listFinishedMatches: Application['sparring']['listFinishedMatches']): RouterContextProvider {
-  const provider = new RouterContextProvider()
-  // SAFETY: the route under test uses only listFinishedMatches.
-  provider.set(cloudflareContext, {
-    application: { sparring: { listFinishedMatches } } as Application,
-    isProduction: false,
-  })
-
-  return provider
-}
 
 describe('finished match day route', () => {
   test('forwards the requested day and defaults when absent', async () => {
     const calls: unknown[] = []
 
-    const routeContext = context(async (...args) => {
-      calls.push(args)
+    const routeContext = sparringContext({
+      listFinishedMatches: (...args) =>
+        Effect.sync(() => {
+          calls.push(args)
 
-      return {
-        scope: 'finished',
-        matches: [],
-        day: '2028-02-29',
-        previousDay: null,
-        nextDay: null,
-        isToday: false,
-      }
+          return {
+            scope: 'finished' as const,
+            matches: [],
+            day: '2028-02-29',
+            previousDay: null,
+            nextDay: null,
+            isToday: false,
+          }
+        }),
     })
 
     const result = await loader({ context: routeContext, params: { day: '2028-02-29' } })
@@ -46,8 +37,8 @@ describe('finished match day route', () => {
   })
 
   test('maps an invalid day to HTTP 404 before calling application', async () => {
-    const routeContext = context(async () => {
-      throw new Error('Should not reach application')
+    const routeContext = sparringContext({
+      listFinishedMatches: () => Effect.die(new Error('Should not reach SparringService')),
     })
 
     try {

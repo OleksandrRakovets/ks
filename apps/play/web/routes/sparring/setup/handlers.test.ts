@@ -1,10 +1,11 @@
 import { expect, test } from 'bun:test'
 
-import type { Application, CreateSparringMatchInput } from '@ks/application'
+import type { CreateSparringMatchInput } from '@ks/application'
+import { Effect } from 'effect'
 import { RouterContextProvider } from 'react-router'
 
 import { matchSetupUrl } from '@/features/sparring/urls'
-import { cloudflareContext } from '@/server/context.server'
+import { sparringContext } from '@/server/context.fixtures'
 
 import { createSetupMatch, loadSetupPage } from './handlers'
 
@@ -12,13 +13,10 @@ test.each([
   ['invalid-input', 400],
   ['initialization-conflict', 409],
 ] as const)('setup maps %s to HTTP %i', async (reason, status) => {
-  const context = new RouterContextProvider()
-  const sparring: Partial<Application['sparring']> = { createMatch: async () => ({ ok: false, reason }) }
-  // SAFETY: this handler uses only createMatch.
-  context.set(cloudflareContext, {
-    application: { sparring } as Application,
-    isProduction: false,
+  const context = sparringContext({
+    createMatch: () => Effect.succeed({ ok: false, reason }),
   })
+
   const form = new FormData()
   form.set('seatAName', 'Alice')
   form.set('seatBName', 'Bob')
@@ -53,21 +51,16 @@ test.each([
   'setup does not enforce page target caps on the server for %s',
   async (gameKey, targetA, matchTargetFrames) => {
     const inputs: CreateSparringMatchInput[] = []
-    const context = new RouterContextProvider()
 
-    const sparring: Partial<Application['sparring']> = {
-      createMatch: async (input) => {
-        inputs.push(input)
+    const context = sparringContext({
+      createMatch: (input) =>
+        Effect.sync(() => {
+          inputs.push(input)
 
-        return { ok: false, reason: 'invalid-input' }
-      },
-    }
-
-    // SAFETY: this handler uses only createMatch.
-    context.set(cloudflareContext, {
-      application: { sparring } as Application,
-      isProduction: false,
+          return { ok: false as const, reason: 'invalid-input' as const }
+        }),
     })
+
     const form = new FormData()
     form.set('seatAName', 'Alice')
     form.set('seatBName', 'Bob')

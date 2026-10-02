@@ -6,8 +6,8 @@ This file describes how application is implemented. Use the repository architect
 
 - `@ks/application` is the framework-independent domain and behavior layer used by Play. Play owns HTTP parsing, cookies, redirects, and the UI framework.
 - Application consumes core, gameplay, and competition and owns D1 access, player-operated workflows, active-versus-finished source selection, and cross-store finalization. MatchRoom remains the active/finalizing execution authority.
-- `src/index.ts` is the browser-safe public surface: the `Application` type and re-exported contracts. Do not expose storage classes, internal records, or runtime server dependencies here.
-- `src/server.ts`, exported as `@ks/application/server`, builds private Effect service layers for native Drizzle Effect D1, storage, Clock, creation generators, and MatchRoom RPC. `createApplication` requires a Scope; Play keeps it open through the gateway or Router handler. Build a fresh context per request so clocks and bindings cannot leak between requests. Tests may build storage layers against disposable D1.
+- `src/index.ts` is the browser-safe public contract surface. Do not expose service tags, storage classes, internal records, or runtime server dependencies here.
+- `src/server.ts`, exported as `@ks/application/server`, exports `SparringService` and `applicationLayer`. Composition provides native Drizzle Effect D1, storage, calendar Clock, creation generators, and MatchRoom RPC privately; its output contains only public services. Play builds a fresh scoped context per request so clocks and bindings cannot leak, keeping the Scope open through the gateway or Router handler. Tests may build storage layers against disposable D1.
 
 ## Module Layout
 
@@ -15,7 +15,7 @@ This file describes how application is implemented. Use the repository architect
 - `contract.ts` defines a module's shared inputs, results, and boundary schemas.
 - Workflow code owns orchestration, lifecycle routing, and locale-aware presentation. Dependencies are private `Context.Service` capabilities supplied by layers, not an argument bag.
 - Sparring workflows live in `create-match.ts`, `read-match.ts`, `list-matches.ts`, `submit-command.ts`, and `admit-live.ts`. Exported workflows use named `Effect.fn` generators taking business arguments; yield required services from context. Keep single-file helpers unexported below the workflows; export only what another file imports. Pure Sparring projections live in `projections.ts`, and listing rules stay in `list-matches.ts`, not the contract.
-- `createSparringApplication` maps the existing Promise contract to workflows through one `Effect.runPromiseWith(context)` bridge; it does not build or dispose resources. Only `server.ts` and test fixtures call it; workflow tests go through this composition in their existing per-workflow files.
+- `SparringService` captures the private workflow context when its layer is built and exposes Effect use-case methods with no remaining environment. Keep substantial use cases in focused internal modules; the service binds them without duplicating their signatures except where generic game-key relationships need explicit preservation. Do not add an `Application` namespace or a Promise facade. Play owns the request-bound `Effect.runPromiseWith(context)` bridge named `runEffect`; workflow fixtures may retain Promise conveniences over the actual service for existing unit tests.
 - Projections are pure functions derived from domain values or validated records. Player participant presentation belongs to `player`; Protocol and last-command projections belong to `match`, independently of Sparring Match workflows.
 - Each module's `storage/records.ts` defines records independently of Drizzle and maps rows to records. Storage services capture the database and any Clock when their layer is built; their Effect methods require no remaining environment. Only storage methods run D1 queries. Codecs accept values, never database clients.
 - `src/d1/schema.ts` owns all D1 tables shared by modules; `src/d1/client.ts` owns the private `ApplicationDatabase` service and its binding-backed layer.
@@ -23,7 +23,7 @@ This file describes how application is implemented. Use the repository architect
 
 ## Effect Integration
 
-- `ApplicationDatabase` is consumed while building storage layers, not exposed in the workflow context. Multiple workflow lookups use the same request's services. Do not build a runtime/layer inside each facade method; private helpers may receive already-resolved values when another lookup adds no useful boundary.
+- `ApplicationDatabase` is consumed while building storage layers, not exposed in the workflow context. Multiple workflow lookups use the same request's services. Do not build a runtime/layer inside each use-case method; private helpers may receive already-resolved values when another lookup adds no useful boundary.
 - MatchRoom RPC uses `Effect.promise(async () => room.method(...))`: the async callback flattens Cloudflare's Promise/RpcStub result types while preserving rejected promises as defects. Do not add response schemas, unsafe casts, or invented transport error variants.
 - Derive private capability and fixture types from MatchRoom methods. If an inferred export leaks an unexported upstream type (TS2883), annotate the relevant function or constructor with that derived capability type; do not export MatchRoom internals or duplicate its DTOs to appease declaration inference.
 - Preserve Control versus Protocol generic relationships. The selected RPC determines the read shape; archive callbacks must conform rather than widen it. `NoInfer` on an archive callback's result can keep constructor inference from widening the selected RPC to the combined union.

@@ -1,8 +1,11 @@
-import type { Application } from '@ks/application'
+import type { SparringService } from '@ks/application/server'
+import type { Effect } from 'effect'
 import { createContext, type RouterContextProvider } from 'react-router'
 
+export type RunEffect = ReturnType<typeof Effect.runPromiseWith<SparringService>>
+
 export type CloudflareLoadContext = {
-  application: Application
+  runEffect: RunEffect
   isProduction: boolean
 }
 
@@ -10,10 +13,10 @@ export type AppLoadContext = Pick<RouterContextProvider, 'get'>
 
 export const cloudflareContext = createContext<CloudflareLoadContext | undefined>(undefined)
 
-export function requireApplication(context: AppLoadContext): Application {
-  const application = context.get(cloudflareContext)?.application
+export function requireRunEffect(context: AppLoadContext): RunEffect {
+  const runEffect = context.get(cloudflareContext)?.runEffect
 
-  if (!application) throw new Error('Missing application in route context')
+  if (!runEffect) throw new Error('Missing Effect executor in route context')
 
-  return application
+  return runEffect
 }

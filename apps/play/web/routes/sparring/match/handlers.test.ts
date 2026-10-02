@@ -1,21 +1,13 @@
 import { describe, expect, test } from 'bun:test'
 
-import { type Application, CommandReceiptOutcome } from '@ks/application'
+import { CommandReceiptOutcome } from '@ks/application'
 import { newCommandId, newMatchId } from '@ks/core'
 import { keys } from '@ks/i18n'
-import { RouterContextProvider } from 'react-router'
+import { Effect } from 'effect'
 
-import { type AppLoadContext, cloudflareContext } from '@/server/context.server'
+import { sparringContext } from '@/server/context.fixtures'
 
 import { commandMatchAction, loadMatchPage, loadMatchProtocolPage } from './handlers'
-
-function makeContext(sparring: Partial<Application['sparring']>): AppLoadContext {
-  const provider = new RouterContextProvider()
-  // SAFETY: each test supplies the Application operation used by the route under test.
-  provider.set(cloudflareContext, { application: { sparring } as Application, isProduction: false })
-
-  return provider
-}
 
 describe('commandMatchAction adaptation', () => {
   test.each([
@@ -24,7 +16,7 @@ describe('commandMatchAction adaptation', () => {
     ['invalid-command', keys.match.control.invalidCommandPayload],
     ['command-id-conflict', keys.match.control.invalidCommandPayload],
   ] as const)('maps %s to its control error', async (reason, errorKey) => {
-    const context = makeContext({ submitMatchCommand: async () => ({ ok: false, reason }) })
+    const context = sparringContext({ submitMatchCommand: () => Effect.succeed({ ok: false, reason }) })
 
     expect(
       await commandMatchAction(
@@ -35,8 +27,8 @@ describe('commandMatchAction adaptation', () => {
   })
 
   test('throws HTTP 404 for unknown-match', async () => {
-    const context = makeContext({
-      submitMatchCommand: async () => ({ ok: false, reason: 'unknown-match' }),
+    const context = sparringContext({
+      submitMatchCommand: () => Effect.succeed({ ok: false, reason: 'unknown-match' }),
     })
 
     expect(
@@ -53,11 +45,12 @@ describe('commandMatchAction adaptation', () => {
     const matchId = newMatchId()
     const commandId = newCommandId()
 
-    const context = makeContext({
-      submitMatchCommand: async () => ({
-        ok: true,
-        outcome: CommandReceiptOutcome.accepted({ acceptedSeq: 5 }),
-      }),
+    const context = sparringContext({
+      submitMatchCommand: () =>
+        Effect.succeed({
+          ok: true,
+          outcome: CommandReceiptOutcome.accepted({ acceptedSeq: 5 }),
+        }),
     })
 
     const form = new FormData()
@@ -82,11 +75,12 @@ describe('commandMatchAction adaptation', () => {
     const matchId = newMatchId()
     const commandId = newCommandId()
 
-    const context = makeContext({
-      submitMatchCommand: async () => ({
-        ok: true,
-        outcome: CommandReceiptOutcome.rejected({ reason: { code: 'wrong-breaker', expectedSeat: 'B' } }),
-      }),
+    const context = sparringContext({
+      submitMatchCommand: () =>
+        Effect.succeed({
+          ok: true,
+          outcome: CommandReceiptOutcome.rejected({ reason: { code: 'wrong-breaker', expectedSeat: 'B' } }),
+        }),
     })
 
     const form = new FormData()
@@ -110,9 +104,9 @@ describe('commandMatchAction adaptation', () => {
 
 describe('match and Protocol loader failures', () => {
   test('maps unknown-match to HTTP 404 on both pages', async () => {
-    const context = makeContext({
-      readMatch: async () => ({ ok: false, reason: 'unknown-match' }),
-      readMatchProtocol: async () => ({ ok: false, reason: 'unknown-match' }),
+    const context = sparringContext({
+      readMatch: () => Effect.succeed({ ok: false, reason: 'unknown-match' }),
+      readMatchProtocol: () => Effect.succeed({ ok: false, reason: 'unknown-match' }),
     })
 
     for (const load of [loadMatchPage, loadMatchProtocolPage])
@@ -129,13 +123,9 @@ describe('match and Protocol loader failures', () => {
   test('propagates archive defects without turning them into HTTP outcomes', async () => {
     const defect = new Error('archive defect')
 
-    const context = makeContext({
-      readMatch: async () => {
-        throw defect
-      },
-      readMatchProtocol: async () => {
-        throw defect
-      },
+    const context = sparringContext({
+      readMatch: () => Effect.die(defect),
+      readMatchProtocol: () => Effect.die(defect),
     })
 
     for (const load of [loadMatchPage, loadMatchProtocolPage])

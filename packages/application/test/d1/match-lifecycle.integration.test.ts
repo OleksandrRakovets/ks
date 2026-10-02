@@ -21,7 +21,7 @@ import { applyD1Migrations, reset } from 'cloudflare:test'
 import { env } from 'cloudflare:workers'
 import { sql } from 'drizzle-orm'
 import * as DrizzleD1 from 'drizzle-orm/effect-d1'
-import { type Config, Effect, Layer, ManagedRuntime, Predicate } from 'effect'
+import { type Config, Context, Effect, Layer, ManagedRuntime, Option, Predicate } from 'effect'
 import * as v from 'valibot'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 
@@ -30,7 +30,7 @@ import { guestPlayers, sparringMatches, verifiedPlayers } from '../../src/d1/sch
 import { ApplicationClock } from '../../src/match/clock'
 import type { MatchRoomArchiveTransfer } from '../../src/match/match-room'
 import { PlayerStorage } from '../../src/player/storage/player-storage'
-import { createApplication } from '../../src/server'
+import { applicationLayer, SparringService } from '../../src/server'
 import { MatchFinalizationError } from '../../src/sparring/storage/protocol-archive'
 import type { MatchCreationRecord } from '../../src/sparring/storage/records'
 import { SparringMatchStorage } from '../../src/sparring/storage/sparring-match-storage'
@@ -225,7 +225,7 @@ describe('real D1 match lifecycle', () => {
     })
   })
 
-  test('keeps overlapping application scopes isolated by request clock', async () => {
+  test('exposes only SparringService and keeps overlapping request clocks isolated', async () => {
     const timestamp = v.parse(UnixEpochMilliseconds, Date.parse('2026-09-30T22:30:00Z'))
     await matches.beginCreation(catalogInput(matchId, timestamp))
     await matches.activate(matchId)
@@ -238,19 +238,29 @@ describe('real D1 match lifecycle', () => {
         Effect.runPromise(
           Effect.scoped(
             Effect.gen(function* () {
-              const application = yield* createApplication(
-                {
-                  DB: env.DB,
-                  MATCH_ROOM: {
-                    getByName: () => {
-                      throw new Error('Finished lists must not select MatchRoom')
+              const services = yield* Layer.build(
+                applicationLayer(
+                  {
+                    DB: env.DB,
+                    MATCH_ROOM: {
+                      getByName: () => {
+                        throw new Error('Finished lists must not select MatchRoom')
+                      },
                     },
                   },
-                },
-                new FixedClock(new Date('2026-10-01T12:00:00Z'), timeZone),
+                  new FixedClock(new Date('2026-10-01T12:00:00Z'), timeZone),
+                ),
               )
 
-              return yield* Effect.promise(() => application.sparring.listFinishedMatches('en'))
+              expect(Option.isNone(Context.getOption(services, ApplicationDatabase))).toBe(true)
+              expect(Option.isNone(Context.getOption(services, ApplicationClock))).toBe(true)
+              expect(Option.isNone(Context.getOption(services, PlayerStorage))).toBe(true)
+              expect(Option.isNone(Context.getOption(services, SparringMatchStorage))).toBe(true)
+              const runEffect = Effect.runPromiseWith(services)
+
+              return yield* Effect.promise(() =>
+                runEffect(SparringService.use((sparring) => sparring.listFinishedMatches('en'))),
+              )
             }),
           ),
         ),
@@ -349,9 +359,9 @@ describe('real D1 match lifecycle', () => {
     ])
 
     const result = await Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const application = yield* createApplication(
+      SparringService.use((sparring) => sparring.readMatch(matchId, 'en', 'free-pyramid')).pipe(
+        Effect.provide(
+          applicationLayer(
             {
               DB: env.DB,
               MATCH_ROOM: {
@@ -361,10 +371,8 @@ describe('real D1 match lifecycle', () => {
               },
             },
             new FixedClock(new Date(createdAt), 'Europe/Kyiv'),
-          )
-
-          return yield* Effect.promise(() => application.sparring.readMatch(matchId, 'en', 'free-pyramid'))
-        }),
+          ),
+        ),
       ),
     )
 
@@ -475,9 +483,16 @@ describe('real D1 match lifecycle', () => {
     expect(records.map((row) => row.matchId)).toEqual(rows.map((row) => row.matchId).reverse())
 
     const [uk, en] = await Effect.runPromise(
-      Effect.scoped(
+      SparringService.use((sparring) =>
         Effect.gen(function* () {
-          const application = yield* createApplication(
+          const uk = yield* sparring.listFinishedMatches('uk', '1970-01-01')
+          const en = yield* sparring.listFinishedMatches('en', '1970-01-01')
+
+          return [uk.matches, en.matches] as const
+        }),
+      ).pipe(
+        Effect.provide(
+          applicationLayer(
             {
               DB: env.DB,
               MATCH_ROOM: {
@@ -487,16 +502,8 @@ describe('real D1 match lifecycle', () => {
               },
             },
             new FixedClock(new Date(createdAt), 'Europe/Kyiv'),
-          )
-
-          return yield* Effect.promise(
-            async () =>
-              [
-                (await application.sparring.listFinishedMatches('uk', '1970-01-01')).matches,
-                (await application.sparring.listFinishedMatches('en', '1970-01-01')).matches,
-              ] as const,
-          )
-        }),
+          ),
+        ),
       ),
     )
 

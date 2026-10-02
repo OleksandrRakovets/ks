@@ -1,13 +1,16 @@
+import { SparringService } from '@ks/application/server'
 import { useLoaderData } from 'react-router'
 
 import { MatchListPage } from '@/features/sparring/matches/match-list-page'
 import { localeFromContext } from '@/i18n'
-import { requireApplication } from '@/server/context.server'
+import { requireRunEffect } from '@/server/context.server'
 
 import type { Route } from './+types/live'
 
 export async function loader({ context }: Route.LoaderArgs) {
-  const page = await requireApplication(context).sparring.listLiveMatches(localeFromContext(context))
+  const page = await requireRunEffect(context)(
+    SparringService.use((sparring) => sparring.listLiveMatches(localeFromContext(context))),
+  )
 
   return {
     view: page.scope,

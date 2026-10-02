@@ -1,14 +1,16 @@
-import type { Application } from '@ks/application'
+import { SparringService } from '@ks/application/server'
 import { MatchId, SparringMatchLiveQuery } from '@ks/core'
 import { Predicate } from 'effect'
 import * as v from 'valibot'
+
+import type { RunEffect } from '../web/server/context.server'
 
 const path = /^\/api\/sparring-match\/([^/]+)\/live\/$/
 
 export async function handleSparringMatchLiveRequest(
   request: Request,
   env: Cloudflare.Env,
-  application: Application,
+  runEffect: RunEffect,
 ): Promise<Response | null> {
   const url = new URL(request.url)
 
@@ -31,7 +33,9 @@ export async function handleSparringMatchLiveRequest(
     return new Response('Invalid live request', { status: 400 })
 
   try {
-    const admission = await application.sparring.admitMatchLive(matchId.output)
+    const admission = await runEffect(
+      SparringService.use((sparring) => sparring.admitMatchLive(matchId.output)),
+    )
 
     if (Predicate.isTagged(admission, 'unknown')) return new Response('Unknown match', { status: 404 })
 

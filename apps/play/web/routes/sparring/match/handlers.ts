@@ -1,3 +1,4 @@
+import { SparringService } from '@ks/application/server'
 import { MatchCommand, MatchId } from '@ks/core'
 import { type GameKey, registry } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
@@ -12,7 +13,7 @@ import type {
 } from '@/features/sparring/match/types'
 import { localeFromContext } from '@/i18n'
 import type { AppLoadContext } from '@/server/context.server'
-import { requireApplication } from '@/server/context.server'
+import { requireRunEffect } from '@/server/context.server'
 
 type RouteArgs = {
   params: { matchId?: string }
@@ -36,7 +37,10 @@ export async function loadMatchPage<K extends GameKey>(
 ): Promise<MatchPageData<K>> {
   const matchId = matchIdFromParams(args.params)
   const locale = localeFromContext(args.context)
-  const result = await requireApplication(args.context).sparring.readMatch(matchId, locale, expectedGameKey)
+
+  const result = await requireRunEffect(args.context)(
+    SparringService.use((sparring) => sparring.readMatch(matchId, locale, expectedGameKey)),
+  )
 
   if (!result.ok) {
     switch (result.reason) {
@@ -58,10 +62,8 @@ async function loadMatchProtocol<K extends GameKey>(args: RouteArgs, expectedGam
   const matchId = matchIdFromParams(args.params)
   const locale = localeFromContext(args.context)
 
-  const result = await requireApplication(args.context).sparring.readMatchProtocol(
-    matchId,
-    locale,
-    expectedGameKey,
+  const result = await requireRunEffect(args.context)(
+    SparringService.use((sparring) => sparring.readMatchProtocol(matchId, locale, expectedGameKey)),
   )
 
   if (!result.ok) {
@@ -107,10 +109,8 @@ export async function commandMatchAction(
     return { ok: false, errorKey: keys.match.control.invalidCommandPayload }
   }
 
-  const result = await requireApplication(args.context).sparring.submitMatchCommand(
-    matchId,
-    command.output,
-    expectedGameKey,
+  const result = await requireRunEffect(args.context)(
+    SparringService.use((sparring) => sparring.submitMatchCommand(matchId, command.output, expectedGameKey)),
   )
 
   if (!result.ok) {
