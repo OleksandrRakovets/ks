@@ -1,4 +1,5 @@
 import { keys, resources, type SupportedLocale } from '@ks/i18n'
+import { Match } from 'effect'
 import i18next, { type i18n as I18nInstance } from 'i18next'
 import { I18nextProvider, initReactI18next, useTranslation } from 'react-i18next'
 import {
@@ -57,7 +58,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const iconVariant = data?.iconVariant ?? 'amber'
   const iconPath = iconBasePath(iconVariant)
 
-  const htmlClass = theme === 'club-light' ? 'club-light' : theme === 'club-dark' ? 'club-dark' : ''
+  const htmlClass = Match.value(theme).pipe(
+    Match.when('club-light', () => 'club-light'),
+    Match.when('club-dark', () => 'club-dark'),
+    Match.orElse(() => ''),
+  )
 
   return (
     <html lang={locale} className={htmlClass}>

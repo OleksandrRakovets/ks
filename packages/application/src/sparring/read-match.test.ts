@@ -8,6 +8,8 @@ import {
   matchId,
   playerRefA,
   playerRefB,
+  RoomControls,
+  RoomProtocol,
   selectedClient,
   sparring,
   state,
@@ -123,21 +125,19 @@ describe('sparring match and Protocol reads', () => {
     for (const identity of [{ matchId: newMatchId() }, { gameKey: 'strila-v2' as const }]) {
       for (const finalizing of [false, true]) {
         const projection = finalizing
-          ? {
-              _tag: 'finalizing' as const,
+          ? RoomControls.finalizing({
               state: { ...transfer.finalState, ...identity },
               gameResult: null,
               latestSeq: 1,
               endedAt: transfer.endedAt,
-            }
-          : {
-              _tag: 'active' as const,
+            })
+          : RoomControls.active({
               state: { ...state, ...identity },
               latestSeq: 0,
               game: undefined,
               controls: [],
               lastCommand: null,
-            }
+            })
 
         const app = sparring(
           selectedClient({
@@ -174,8 +174,7 @@ describe('sparring match and Protocol reads', () => {
         if (projected.controlPhase === 'finished') throw new Error('Expected active fixture')
         const { controlPhase: _controlPhase, ...projection } = projected
 
-        return {
-          _tag: 'active',
+        return RoomControls.active({
           ...projection,
           latestSeq,
           lastCommand:
@@ -202,7 +201,7 @@ describe('sparring match and Protocol reads', () => {
                     prominence: 'secondary',
                   },
                 },
-        }
+        })
       },
     })
 
@@ -275,8 +274,7 @@ describe('sparring match and Protocol reads', () => {
       getProtocol: async () => {
         calls += 1
 
-        return {
-          _tag: 'active',
+        return RoomProtocol.active({
           latestSeq: 2,
           state: { ...state, currentFrameIndex: 1 },
           game,
@@ -306,7 +304,7 @@ describe('sparring match and Protocol reads', () => {
               body: { commandType: 'pot.record', pottedBallCount: 1 },
             },
           ],
-        }
+        })
       },
     })
 
@@ -333,13 +331,13 @@ describe('sparring match and Protocol reads', () => {
     const nextDayClock = new FixedClock(new Date('2023-11-15T22:30:00.000Z'), 'Europe/Kyiv')
 
     const room = selectedClient({
-      getControls: async () => ({
-        _tag: 'finalizing',
-        state: transfer.finalState,
-        gameResult: null,
-        latestSeq: 2,
-        endedAt: transfer.endedAt,
-      }),
+      getControls: async () =>
+        RoomControls.finalizing({
+          state: transfer.finalState,
+          gameResult: null,
+          latestSeq: 2,
+          endedAt: transfer.endedAt,
+        }),
     })
 
     const result = await sparring(room, events, { overrides: { clock: nextDayClock } }).readMatch(
@@ -465,31 +463,34 @@ describe('sparring match and Protocol reads', () => {
     const events: string[] = []
 
     const room = selectedClient({
-      getProtocol: async () => ({
-        _tag: 'finalizing',
-        state: {
-          ...transfer.finalState,
-          gameKey: 'free-pyramid-long',
-          gameConfiguration: { rackRollover: 14 },
-        },
-        gameResult: { gameKey: 'free-pyramid-long', racks: [{ rackNumber: 1, scoreBySeat: { A: 0, B: 0 } }] },
-        latestSeq: 2,
-        endedAt: transfer.endedAt,
-        protocolEntries: [
-          {
-            acceptedSeq: 2,
-            entryIndex: 0,
-            causedByCommandId: newCommandId(),
-            acceptedAt: transfer.endedAt,
-            frameIndex: 1,
+      getProtocol: async () =>
+        RoomProtocol.finalizing({
+          state: {
+            ...transfer.finalState,
             gameKey: 'free-pyramid-long',
-            source: 'system',
-            entryType: 'match-ended',
-            seat: 'A',
-            body: {},
+            gameConfiguration: { rackRollover: 14 },
           },
-        ],
-      }),
+          gameResult: {
+            gameKey: 'free-pyramid-long',
+            racks: [{ rackNumber: 1, scoreBySeat: { A: 0, B: 0 } }],
+          },
+          latestSeq: 2,
+          endedAt: transfer.endedAt,
+          protocolEntries: [
+            {
+              acceptedSeq: 2,
+              entryIndex: 0,
+              causedByCommandId: newCommandId(),
+              acceptedAt: transfer.endedAt,
+              frameIndex: 1,
+              gameKey: 'free-pyramid-long',
+              source: 'system',
+              entryType: 'match-ended',
+              seat: 'A',
+              body: {},
+            },
+          ],
+        }),
     })
 
     const app = sparring(room, events, {
@@ -522,7 +523,6 @@ describe('sparring match and Protocol reads', () => {
     const calls: string[] = []
 
     const projection = {
-      _tag: 'active' as const,
       state: {
         ...state,
         targets: { ...state.targets, matchTargetFrames: 2 },
@@ -538,12 +538,12 @@ describe('sparring match and Protocol reads', () => {
         getControls: async () => {
           calls.push('controls')
 
-          return { ...projection, controls: [], lastCommand: null }
+          return RoomControls.active({ ...projection, controls: [], lastCommand: null })
         },
         getProtocol: async () => {
           calls.push('protocol')
 
-          return { ...projection, protocolEntries: [] }
+          return RoomProtocol.active({ ...projection, protocolEntries: [] })
         },
       }),
     )

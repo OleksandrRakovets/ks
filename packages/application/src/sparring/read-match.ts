@@ -3,7 +3,7 @@ import type { MatchId } from '@ks/core'
 import type { GameKey, GamePresentationFor } from '@ks/gameplay/definitions'
 import type { SupportedLocale } from '@ks/i18n'
 import type { EffectDrizzleQueryError } from 'drizzle-orm/effect-core/errors'
-import { Effect } from 'effect'
+import { Data, Effect, Predicate } from 'effect'
 
 import { ApplicationClock } from '../match/clock'
 import { presentLastCommand } from '../match/last-command-projection'
@@ -38,14 +38,13 @@ export const readMatch = Effect.fn('readMatch')(function* <K extends GameKey>(
 
       return archive === null
         ? null
-        : {
-            _tag: 'ended',
+        : EndedMatch({
             source: 'archive',
             state: archive.state,
             gameResult: archive.gameResult,
             latestSeq: archive.sourceLatestSeq,
             endedAt: record.endedAt,
-          }
+          })
     }),
   )
 
@@ -53,7 +52,7 @@ export const readMatch = Effect.fn('readMatch')(function* <K extends GameKey>(
   const { record, match } = result
   const participants = yield* hydrateParticipants(record, locale)
 
-  if (match._tag === 'ended') {
+  if (Predicate.isTagged(match, 'ended')) {
     return presentFinishedMatch(
       match,
       participants,
@@ -102,15 +101,14 @@ export const readMatchProtocol = Effect.fn('readMatchProtocol')(function* <K ext
 
       return archive === null
         ? null
-        : {
-            _tag: 'ended',
+        : EndedProtocol({
             source: 'archive',
             state: archive.state,
             gameResult: archive.gameResult,
             latestSeq: archive.sourceLatestSeq,
             endedAt: record.endedAt,
             protocolEntries: archive.entries,
-          }
+          })
     }),
   )
 
@@ -120,7 +118,7 @@ export const readMatchProtocol = Effect.fn('readMatchProtocol')(function* <K ext
   const seatNames = { A: participants.A.displayName, B: participants.B.displayName }
   const protocolRows = renderProtocolRows(match.protocolEntries, seatNames, clock)
 
-  if (match._tag === 'ended') {
+  if (Predicate.isTagged(match, 'ended')) {
     return {
       ...projectMatchFacts(match.state, match.latestSeq, participants),
       lifecycle: 'finished',
@@ -150,13 +148,17 @@ type EndedMatch<Room extends RoomRead> = Omit<Extract<Room, { _tag: 'finalizing'
 
 type MatchRead<Room extends RoomRead> = Extract<Room, { _tag: 'active' }> | EndedMatch<Room>
 
+const EndedMatch = Data.taggedEnum<EndedMatch<RoomRead>>().ended
+
+const EndedProtocol = Data.taggedEnum<EndedMatch<Awaited<ReturnType<MatchRoomClient['getProtocol']>>>>().ended
+
 const lookupMatch = Effect.fnUntraced(function* <K extends GameKey, Room extends RoomRead>(
   matchId: MatchId,
   expectedGameKey: K,
   readRoom: (room: EffectMatchRoomClient) => Effect.Effect<Room>,
   readArchive: (
     record: Extract<MatchRecord, { status: 'finished' }>,
-  ) => Effect.Effect<EndedMatch<Room> | null, EffectDrizzleQueryError>,
+  ) => Effect.Effect<NoInfer<EndedMatch<Room>> | null, EffectDrizzleQueryError>,
 ): Effect.fn.Return<
   | ReadMatchFailure
   | {
@@ -191,7 +193,7 @@ const lookupMatch = Effect.fnUntraced(function* <K extends GameKey, Room extends
     if (room.state.matchId !== matchId || room.state.gameKey !== expectedGameKey)
       throw new Error(`MatchRoom ${room._tag} identity conflicts with D1`)
 
-    match = room._tag === 'finalizing' ? { ...room, _tag: 'ended', source: 'room' } : room
+    match = Predicate.isTagged(room, 'finalizing') ? EndedMatch({ ...room, source: 'room' }) : room
   }
 
   // SAFETY: each source provides coherent state/game projections; the owning state's key is checked above.

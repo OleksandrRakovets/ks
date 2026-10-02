@@ -1,7 +1,7 @@
 import type { CreateMatchRequest } from '@ks/competition'
 import type { MatchId } from '@ks/core'
 import type { EffectDrizzleQueryError } from 'drizzle-orm/effect-core/errors'
-import { Context, Effect } from 'effect'
+import { Context, Effect, Predicate } from 'effect'
 import * as v from 'valibot'
 
 import { ApplicationClock } from '../match/clock'
@@ -66,7 +66,8 @@ export const createMatch = Effect.fn('createMatch')(function* (
   })
   const result = yield* rooms.get(matchId).initialize(request)
 
-  if (result._tag === 'initialization-conflict') return { ok: false, reason: 'initialization-conflict' }
+  if (Predicate.isTagged(result, 'initialization-conflict'))
+    return { ok: false, reason: 'initialization-conflict' }
   yield* matches.activate(matchId)
 
   return { ok: true, matchId }

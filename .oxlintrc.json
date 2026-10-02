@@ -30,7 +30,10 @@
     // Root maintenance scripts are outside the product-source lint policy.
     "tools/*.mjs"
   ],
-  "jsPlugins": [{ "name": "anti-slop", "specifier": "./tools/oxlint/anti-slop/index.ts" }],
+  "jsPlugins": [
+    { "name": "anti-slop", "specifier": "./tools/oxlint/anti-slop/index.ts" },
+    { "name": "anti-slop-effect", "specifier": "./tools/oxlint/anti-slop/effect/index.ts" }
+  ],
   "rules": {
     "oxc/no-accumulating-spread": "error",
     "anti-slop/no-array-filter-map": "error",
@@ -120,6 +123,17 @@
     "typescript/use-unknown-in-catch-callback-variable": "error"
   },
   "overrides": [
+    {
+      // Apply Effect policy to adopting workspaces without migrating the remaining domain/MatchRoom code.
+      "files": ["packages/application/**/*.{ts,tsx}", "apps/play/**/*.{ts,tsx}"],
+      "rules": {
+        "anti-slop-effect/no-manual-effect-error-tag": "error",
+        "anti-slop-effect/no-manual-tag-comparison": "error",
+        "anti-slop-effect/no-manual-tagged-construction": "error",
+        "anti-slop-effect/no-service-constructor-imports": "error",
+        "anti-slop-effect/prefer-effect-match": "error"
+      }
+    },
     {
       // These Node/Drizzle files remain syntax-linted but are outside checked TypeScript projects.
       "files": ["tools/check-boundaries.mjs", "do/match-room/drizzle/migrations.js"],

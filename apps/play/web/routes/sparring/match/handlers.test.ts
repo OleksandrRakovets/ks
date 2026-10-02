@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import type { Application } from '@ks/application'
+import { type Application, CommandReceiptOutcome } from '@ks/application'
 import { newCommandId, newMatchId } from '@ks/core'
 import { keys } from '@ks/i18n'
 import { RouterContextProvider } from 'react-router'
@@ -56,10 +56,7 @@ describe('commandMatchAction adaptation', () => {
     const context = makeContext({
       submitMatchCommand: async () => ({
         ok: true,
-        outcome: {
-          _tag: 'accepted',
-          acceptedSeq: 5,
-        },
+        outcome: CommandReceiptOutcome.accepted({ acceptedSeq: 5 }),
       }),
     })
 
@@ -88,7 +85,7 @@ describe('commandMatchAction adaptation', () => {
     const context = makeContext({
       submitMatchCommand: async () => ({
         ok: true,
-        outcome: { _tag: 'rejected', reason: { code: 'wrong-breaker', expectedSeat: 'B' } },
+        outcome: CommandReceiptOutcome.rejected({ reason: { code: 'wrong-breaker', expectedSeat: 'B' } }),
       }),
     })
 

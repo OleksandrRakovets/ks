@@ -45,6 +45,13 @@ These commands overlap. Choose the appropriate gate; do not rerun its constituen
 - Keep source-policy tools (`typescript`, `oxlint`, `@oxlint/plugins`, and `oxlint-tsgolint`) on exact versions so compiler or diagnostic changes happen only in explicit toolchain updates.
 - Match TypeScript to the TypeScript-Go release embedded by `oxlint-tsgolint`; for example, `oxlint-tsgolint@7.0.2001` embeds TypeScript 7.0.2 plus tsgolint revision 001. Upgrade TypeScript and tsgolint together, update Oxlint and its plugin API deliberately, run `bun install`, then run `bun run check:full`.
 
+## Vendored Lint Policy
+
+- `tools/oxlint/anti-slop/UPSTREAM.md` records the exact upstream revision and deviations. Re-vendor from the reviewed installer assets at that revision, preserving nested licenses and provenance. Keep implementation files byte-aligned with upstream and excluded from repository lint/format; do not patch rules to silence product findings.
+- Tests are not vendored. Run upstream `pnpm check` in a disposable checkout, including generic/Effect RuleTester suites and source/assets parity, then verify copied files against the assets and run the repository gate.
+- Keep `oxlint` and `@oxlint/plugins` at matching exact versions. Re-vendoring alone does not require a toolchain upgrade.
+- All five `anti-slop-effect` rules are errors in `packages/application` and `apps/play`, which directly depend on Effect. Expand the configured scope as other workspaces migrate; do not force Effect imports into unmigrated packages just to satisfy syntax-wide rules.
+
 ## Boundaries
 
 - Domain dependency direction is `core <- gameplay <- competition` and is enforced by `check:boundaries`.
@@ -57,6 +64,14 @@ These commands overlap. Choose the appropriate gate; do not rerun its constituen
 - Keep one `game` path; gameplay runtimes own game-specific semantics.
 - Gameplay uses its directly declared `tiny-invariant` for predicate/invariant guards; their messages are stripped in production. Unconditional unsupported-case throws may remain explicit. Other packages use explicit/custom errors to retain production diagnostics. Invariant guards do not replace boundary validation or typed rejections.
 - Play's UI is app-local, not a workspace package. Generic primitives live in `apps/play/web/components/ui`; reusable product visuals or interactions with explicit props may live in `apps/play/web/components`. Keep feature-specific or one-off UI with its feature owner.
+
+## Effect Adoption
+
+- Migrate coherent capabilities rather than schemas one at a time. Keep synchronous XState/gameplay execution and pure projections in TypeScript unless their migration is requested separately. Preserve invariant throws as defects; do not add retries, fallback paths, or recovery state merely because Effect provides those tools.
+- Use installed Effect v4 source and bundled examples as the API reference; v3/beta examples can name removed APIs. Reusable Effect functions use `Effect.fn` for meaningful tracing boundaries or `Effect.fnUntraced` for helpers. `Effect.fn.Return<A, E, R>` defaults omitted error/environment types to `never`; preserve actual failure and dependency channels rather than widening them to `unknown`.
+- `Context.Service` classes are service keys, not implementation instances. Their string is runtime identity; use a package-qualified module identifier to avoid collisions. `yield* Service` retrieves the registered value. Layers construct/provide implementations, and reuse of the same layer within a build is memoized; service lifetime follows composition, not each Effect execution.
+- Construct tagged values through their owning Schema constructors or `Data.taggedEnum` for unschematized unions. Use `Match` for result adaptation and `Predicate.isTagged` for simple guards. Keep expected domain outcomes as values unless deliberately changing that contract; do not create runtime schemas only to remove type declarations.
+- System time can eventually use Effect's shared Clock, but request-local timezone/calendar presentation must remain separate. Do not globalize a clock that combines both responsibilities.
 
 ## Architecture Ownership
 

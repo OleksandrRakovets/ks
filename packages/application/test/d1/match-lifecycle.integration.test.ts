@@ -21,7 +21,7 @@ import { applyD1Migrations, reset } from 'cloudflare:test'
 import { env } from 'cloudflare:workers'
 import { sql } from 'drizzle-orm'
 import * as DrizzleD1 from 'drizzle-orm/effect-d1'
-import { type Config, Effect, Layer, ManagedRuntime } from 'effect'
+import { type Config, Effect, Layer, ManagedRuntime, Predicate } from 'effect'
 import * as v from 'valibot'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 
@@ -137,7 +137,8 @@ function finishedMatchTransfer(
   ] satisfies MatchCommand[]) {
     const decision = session.execute(command)
 
-    if (decision._tag !== 'accepted') throw new Error(`Fixture command rejected: ${command.command.type}`)
+    if (!Predicate.isTagged(decision, 'accepted'))
+      throw new Error(`Fixture command rejected: ${command.command.type}`)
     acceptedSeq += 1
     decision.protocolEntryContents.forEach((entry, entryIndex) => {
       protocolEntries.push(

@@ -7,6 +7,7 @@ import {
   matchId,
   playerRefA,
   playerRefB,
+  RoomCommandResult,
   selectedClient,
   sparring,
   transfer,
@@ -55,7 +56,7 @@ describe('sparring commands and finalization', () => {
 
   test('returns command-id-conflict without archiving', async () => {
     const events: string[] = []
-    const room = selectedClient({ submitCommand: async () => ({ _tag: 'command-id-conflict' }) })
+    const room = selectedClient({ submitCommand: async () => RoomCommandResult['command-id-conflict']() })
 
     expect(
       await sparring(room, events).submitMatchCommand(
@@ -71,7 +72,7 @@ describe('sparring commands and finalization', () => {
     const events: string[] = []
 
     const room = selectedClient({
-      submitCommand: async () => ({ _tag: 'accepted', acceptedSeq: 1, endsMatch: true }),
+      submitCommand: async () => RoomCommandResult.accepted({ acceptedSeq: 1, endsMatch: true }),
       prepareArchive: async () => {
         events.push('prepare')
 
@@ -85,7 +86,9 @@ describe('sparring commands and finalization', () => {
       'free-pyramid',
     )
 
-    expect(result).toEqual({ ok: true, outcome: { _tag: 'accepted', acceptedSeq: 1 } })
+    expect(result).toMatchObject({ ok: true, outcome: { acceptedSeq: 1 } })
+    expect(result).toHaveProperty('outcome._tag', 'accepted')
+    expect(result).not.toHaveProperty('outcome.endsMatch')
     expect(events).toEqual(['prepare', 'archive', 'finish'])
   })
 
@@ -93,7 +96,7 @@ describe('sparring commands and finalization', () => {
     const events: string[] = []
 
     const room = selectedClient({
-      submitCommand: async () => ({ _tag: 'finalizing' }),
+      submitCommand: async () => RoomCommandResult.finalizing(),
       prepareArchive: async () => transfer,
     })
 
@@ -108,7 +111,7 @@ describe('sparring commands and finalization', () => {
   })
 
   test('returns malformed nested Commands as invalid request data', async () => {
-    const room = selectedClient({ submitCommand: async () => ({ _tag: 'invalid-command' }) })
+    const room = selectedClient({ submitCommand: async () => RoomCommandResult['invalid-command']() })
     expect(
       await sparring(room).submitMatchCommand(
         matchId,
@@ -141,7 +144,7 @@ describe('sparring commands and finalization', () => {
     const events: string[] = []
 
     const room = selectedClient({
-      submitCommand: async () => ({ _tag: 'accepted', acceptedSeq: 1, endsMatch: true }),
+      submitCommand: async () => RoomCommandResult.accepted({ acceptedSeq: 1, endsMatch: true }),
       prepareArchive: async () => transfer,
     })
 
@@ -176,7 +179,7 @@ describe('sparring commands and finalization', () => {
     let archiveAttempts = 0
 
     const room = selectedClient({
-      submitCommand: async () => ({ _tag: 'accepted', acceptedSeq: 1, endsMatch: true }),
+      submitCommand: async () => RoomCommandResult.accepted({ acceptedSeq: 1, endsMatch: true }),
       prepareArchive: async () => transfer,
     })
 
@@ -217,7 +220,7 @@ describe('sparring commands and finalization', () => {
     let finishAttempts = 0
 
     const room = selectedClient({
-      submitCommand: async () => ({ _tag: 'accepted', acceptedSeq: 1, endsMatch: true }),
+      submitCommand: async () => RoomCommandResult.accepted({ acceptedSeq: 1, endsMatch: true }),
       prepareArchive: async () => transfer,
     })
 

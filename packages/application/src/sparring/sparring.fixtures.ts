@@ -3,7 +3,7 @@ import { expect } from 'bun:test'
 import { projectMatchScore } from '@ks/competition'
 import type { Clock } from '@ks/core'
 import { FixedClock, MatchId, newCommandId, PlayerRef, UnixEpochMilliseconds } from '@ks/core'
-import { Context, Effect, pipe } from 'effect'
+import { Context, Data, Effect, pipe } from 'effect'
 import * as v from 'valibot'
 
 import { ApplicationClock } from '../match/clock'
@@ -12,6 +12,18 @@ import { PlayerStorage } from '../player/storage/player-storage'
 import { MatchCreation } from './create-match'
 import { createSparringApplication } from './sparring-application'
 import { SparringMatchStorage } from './storage/sparring-match-storage'
+
+export const RoomInitialization: Data.TaggedEnum.Constructor<
+  Awaited<ReturnType<MatchRoomClient['initialize']>>
+> = Data.taggedEnum<Awaited<ReturnType<MatchRoomClient['initialize']>>>()
+
+export const RoomCommandResult = Data.taggedEnum<Awaited<ReturnType<MatchRoomClient['submitCommand']>>>()
+
+export const RoomControls = Data.taggedEnum<Awaited<ReturnType<MatchRoomClient['getControls']>>>()
+
+export const RoomProtocol = Data.taggedEnum<Awaited<ReturnType<MatchRoomClient['getProtocol']>>>()
+
+export const RoomScore = Data.taggedEnum<Awaited<ReturnType<MatchRoomClient['getScore']>>>()
 
 export const matchId = v.parse(MatchId, '01ARZ3NDEKTSV4RRFFQ69G5FAV')
 

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { matchId, selectedClient, sparring, state } from './sparring.fixtures'
+import { matchId, RoomInitialization, selectedClient, sparring, state } from './sparring.fixtures'
 
 describe('sparring creation', () => {
   test('returns invalid-input before creating players, D1 rows, or a room', async () => {
@@ -32,7 +32,7 @@ describe('sparring creation', () => {
       initialize: async () => {
         events.push('initialize')
 
-        return { _tag: 'initialization-conflict' }
+        return RoomInitialization['initialization-conflict']()
       },
     })
 
@@ -55,7 +55,7 @@ describe('sparring creation', () => {
         expect(input.matchId).toBe(matchId)
         events.push('initialize')
 
-        return { _tag: 'initialized', matchId }
+        return RoomInitialization.initialized({ matchId })
       },
     })
 

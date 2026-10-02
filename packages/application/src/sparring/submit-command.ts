@@ -1,10 +1,10 @@
 import type { MatchCommand, MatchId } from '@ks/core'
 import type { GameKey } from '@ks/gameplay/definitions'
 import type { EffectDrizzleQueryError } from 'drizzle-orm/effect-core/errors'
-import { Effect } from 'effect'
+import { Effect, Match } from 'effect'
 
 import { MatchRooms } from '../match/match-room'
-import type { SubmitMatchCommandResult } from './contract'
+import { CommandReceiptOutcome, type SubmitMatchCommandResult } from './contract'
 import { SparringMatchStorage } from './storage/sparring-match-storage'
 
 export const submitMatchCommand = Effect.fn('submitMatchCommand')(function* (
@@ -23,25 +23,25 @@ export const submitMatchCommand = Effect.fn('submitMatchCommand')(function* (
   if (record.status !== 'active') return { ok: false, reason: 'unknown-match' }
   const result = yield* rooms.get(matchId).submitCommand(command)
 
-  if (result._tag === 'accepted' && result.endsMatch) {
-    yield* archiveAndMarkFinished(matchId)
+  return yield* Match.value(result).pipe(
+    Match.tagsExhaustive({
+      accepted: Effect.fnUntraced(function* ({ acceptedSeq, endsMatch }) {
+        if (endsMatch) yield* archiveAndMarkFinished(matchId)
 
-    return { ok: true, outcome: { _tag: 'accepted', acceptedSeq: result.acceptedSeq } }
-  }
+        return { ok: true as const, outcome: CommandReceiptOutcome.accepted({ acceptedSeq }) }
+      }),
+      finalizing: Effect.fnUntraced(function* () {
+        yield* archiveAndMarkFinished(matchId)
 
-  if (result._tag === 'finalizing') {
-    yield* archiveAndMarkFinished(matchId)
-
-    return { ok: false, reason: 'match-locked' }
-  }
-
-  if (result._tag === 'invalid-command') return { ok: false, reason: 'invalid-command' }
-
-  if (result._tag === 'command-id-conflict') return { ok: false, reason: 'command-id-conflict' }
-
-  return result._tag === 'accepted'
-    ? { ok: true, outcome: { _tag: 'accepted', acceptedSeq: result.acceptedSeq } }
-    : { ok: true, outcome: result }
+        return { ok: false as const, reason: 'match-locked' as const }
+      }),
+      'invalid-command': () =>
+        Effect.succeed<SubmitMatchCommandResult>({ ok: false, reason: 'invalid-command' }),
+      'command-id-conflict': () =>
+        Effect.succeed<SubmitMatchCommandResult>({ ok: false, reason: 'command-id-conflict' }),
+      rejected: (outcome) => Effect.succeed<SubmitMatchCommandResult>({ ok: true, outcome }),
+    }),
+  )
 })
 
 const archiveAndMarkFinished = Effect.fn('archiveAndMarkFinished')(function* (matchId: MatchId) {

@@ -1,6 +1,7 @@
 import { MatchCommand, MatchId } from '@ks/core'
 import { type GameKey, registry } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
+import { Predicate } from 'effect'
 import * as v from 'valibot'
 
 import type {
@@ -127,7 +128,7 @@ export async function commandMatchAction(
     }
   }
 
-  if (result.outcome._tag === 'rejected')
+  if (Predicate.isTagged(result.outcome, 'rejected'))
     return {
       ok: false,
       errorKey:

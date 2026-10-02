@@ -2,7 +2,7 @@ import type { InstantPresentation, MatchId } from '@ks/core'
 import { UnixEpochMilliseconds } from '@ks/core'
 import type { SupportedLocale } from '@ks/i18n'
 import type { EffectDrizzleQueryError } from 'drizzle-orm/effect-core/errors'
-import { Effect } from 'effect'
+import { Effect, Predicate } from 'effect'
 import * as v from 'valibot'
 
 import { ApplicationClock } from '../match/clock'
@@ -198,7 +198,7 @@ const readMatchScoreForList = Effect.fnUntraced(function* (
   const rooms = yield* MatchRooms
   const room = yield* rooms.get(record.matchId).getScore()
 
-  if (room._tag === 'active')
+  if (Predicate.isTagged(room, 'active'))
     return { status: 'active', endedAt: null, latestSeq: room.latestSeq, score: room.score }
 
   return { status: 'finished', endedAt: room.endedAt, latestSeq: room.latestSeq, score: room.score }

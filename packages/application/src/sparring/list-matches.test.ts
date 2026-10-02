@@ -12,6 +12,7 @@ import {
   participants,
   playerRefA,
   playerRefB,
+  RoomScore,
   selectedClient,
   sparring,
   state,
@@ -38,7 +39,7 @@ describe('sparring lists and score polling', () => {
       activeFrame: null,
     }
 
-    const room = selectedClient({ getScore: async () => ({ _tag: 'active', latestSeq: 3, score }) })
+    const room = selectedClient({ getScore: async () => RoomScore.active({ latestSeq: 3, score }) })
 
     const app = sparring(room, [], {
       matches: {
@@ -92,7 +93,7 @@ describe('sparring lists and score polling', () => {
       const score = projectMatchScore(customState)
 
       const room = selectedClient({
-        getScore: async () => ({ _tag: 'active', latestSeq: 0, score }),
+        getScore: async () => RoomScore.active({ latestSeq: 0, score }),
       })
 
       const app = sparring(room, [], {
@@ -127,12 +128,12 @@ describe('sparring lists and score polling', () => {
     }
 
     const room = selectedClient({
-      getScore: async () => ({
-        _tag: 'finalizing',
-        endedAt: transfer.endedAt,
-        latestSeq: 4,
-        score,
-      }),
+      getScore: async () =>
+        RoomScore.finalizing({
+          endedAt: transfer.endedAt,
+          latestSeq: 4,
+          score,
+        }),
     })
 
     const app = sparring(room, events, {

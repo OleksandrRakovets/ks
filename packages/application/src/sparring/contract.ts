@@ -15,7 +15,7 @@ import {
 } from '@ks/core'
 import type { GameKey, GamePresentationFor } from '@ks/gameplay/definitions'
 import type { SupportedLocale } from '@ks/i18n'
-import { Schema } from 'effect'
+import { Data, Schema } from 'effect'
 import * as v from 'valibot'
 
 import type { LastCommandPresentation } from '../match/last-command-projection'
@@ -27,6 +27,8 @@ export type { HydratedMatchParticipants } from '@ks/core'
 type CommandReceiptOutcome =
   | { readonly _tag: 'accepted'; readonly acceptedSeq: number }
   | { readonly _tag: 'rejected'; readonly reason: MatchRejection }
+
+export const CommandReceiptOutcome = Data.taggedEnum<CommandReceiptOutcome>()
 
 export const CreateSparringMatchInput = v.pipe(
   v.intersect([
@@ -183,6 +185,8 @@ type SparringMatchLiveAdmission =
   | { readonly _tag: 'admitted' }
   | { readonly _tag: 'unknown' }
   | { readonly _tag: 'finished' }
+
+export const SparringMatchLiveAdmission = Data.taggedEnum<SparringMatchLiveAdmission>()
 
 export type ReadMatchProtocolResult<K extends GameKey> =
   | ((ActiveRead<K> | Extract<MatchReadFacts<K>, { lifecycle: 'finished' }>) & {

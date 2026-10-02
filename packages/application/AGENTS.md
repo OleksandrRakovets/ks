@@ -21,6 +21,16 @@ This file describes how application is implemented. Use the repository architect
 - `src/d1/schema.ts` owns all D1 tables shared by modules; `src/d1/client.ts` owns the private `ApplicationDatabase` service and its binding-backed layer.
 - Workflows consume other modules' service tags, contracts, and pure functions without constructing concrete implementations. Storage stays private to application. The joined-read exception is `sparring/storage`: it may use player tables from `d1/schema.ts` and `participantRecordFromRow` from `player/storage/records.ts`. Return participant records and format names in application, without per-player list queries.
 
+## Effect Integration
+
+- `ApplicationDatabase` is consumed while building storage layers, not exposed in the workflow context. Multiple workflow lookups use the same request's services. Do not build a runtime/layer inside each facade method; private helpers may receive already-resolved values when another lookup adds no useful boundary.
+- MatchRoom RPC uses `Effect.promise(async () => room.method(...))`: the async callback flattens Cloudflare's Promise/RpcStub result types while preserving rejected promises as defects. Do not add response schemas, unsafe casts, or invented transport error variants.
+- Derive private capability and fixture types from MatchRoom methods. If an inferred export leaks an unexported upstream type (TS2883), annotate the relevant function or constructor with that derived capability type; do not export MatchRoom internals or duplicate its DTOs to appease declaration inference.
+- Preserve Control versus Protocol generic relationships. The selected RPC determines the read shape; archive callbacks must conform rather than widen it. `NoInfer` on an archive callback's result can keep constructor inference from widening the selected RPC to the combined union.
+- Use `Match.tagsExhaustive` for complete tagged-result adaptation. `Predicate.isTagged` is useful for simple guards, but its structural refinement may not exclude every imported union member in later branches; use exhaustive matching rather than casts or unreachable-case fallbacks.
+- Unschema-backed application outcomes have `Data.taggedEnum` constructors beside their contracts. Test-only room constructors derive from the private RPC contract. Assert public tags with literal expectations such as `toHaveProperty('outcome._tag', 'accepted')`, independently of the constructor used by the implementation; also check payloads, lifecycle ordering, and absence of RPC-only fields when relevant.
+- The pinned Bun patch for `drizzle-orm` bridges its Effect adapter to stable v4. On adapter upgrades, inspect `patches/drizzle-orm@1.0.0-rc.4.patch` and verify both module formats and real Workerd queries before removing it. `D1Client.layer({ db })` currently exposes `Config.ConfigError` in its upstream type even for a concrete binding; preserve that channel rather than adding recovery or erasing it.
+
 ## Storage Vocabulary And Boundary
 
 - **Row** means the Drizzle/D1 representation, including raw JSON columns. Row and insert types derive from the shared D1 schema.

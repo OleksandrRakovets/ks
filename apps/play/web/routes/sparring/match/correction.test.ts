@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 
-import type { Application } from '@ks/application'
+import { type Application, CommandReceiptOutcome } from '@ks/application'
 import { newCommandId, newMatchId } from '@ks/core'
 import { keys } from '@ks/i18n'
 import { RouterContextProvider } from 'react-router'
@@ -26,7 +26,10 @@ test('sends an identified correction through the existing action and names a sta
         submitMatchCommand: async (id, command, gameKey) => {
           expect([id, command, gameKey]).toEqual([matchId, submitted, 'free-pyramid'])
 
-          return { ok: true, outcome: { _tag: 'rejected', reason: { code: 'correction-not-available' } } }
+          return {
+            ok: true,
+            outcome: CommandReceiptOutcome.rejected({ reason: { code: 'correction-not-available' } }),
+          }
         },
       },
     } as Application,

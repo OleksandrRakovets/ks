@@ -1,5 +1,6 @@
 import type { Application } from '@ks/application'
 import { MatchId, SparringMatchLiveQuery } from '@ks/core'
+import { Predicate } from 'effect'
 import * as v from 'valibot'
 
 const path = /^\/api\/sparring-match\/([^/]+)\/live\/$/
@@ -32,9 +33,9 @@ export async function handleSparringMatchLiveRequest(
   try {
     const admission = await application.sparring.admitMatchLive(matchId.output)
 
-    if (admission._tag === 'unknown') return new Response('Unknown match', { status: 404 })
+    if (Predicate.isTagged(admission, 'unknown')) return new Response('Unknown match', { status: 404 })
 
-    if (admission._tag === 'finished') return new Response('Match is finished', { status: 410 })
+    if (Predicate.isTagged(admission, 'finished')) return new Response('Match is finished', { status: 410 })
     const roomUrl = new URL(`https://match-room/api/sparring-match/${matchId.output}/live/`)
     roomUrl.searchParams.set('contract', '1')
     roomUrl.searchParams.set('view', query.output.view)

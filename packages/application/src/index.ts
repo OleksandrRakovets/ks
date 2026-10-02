@@ -15,6 +15,7 @@ export type {
 export { DisplayName } from './player/contract'
 
 export {
+  CommandReceiptOutcome,
   CreateSparringMatchInput,
   MatchListDay,
   MatchScorePollEntry,
