@@ -38,6 +38,12 @@ Knip narrowly allows these two dependencies in this workspace and excludes its
 four test-helper modules only in production mode. Default mode still checks
 the helpers and tests for unused code.
 
+The sequencer runs `live-pages.e2e.test.ts` first because its initial discovery
+case needs an empty store. Other files use unique match fixtures and may run in
+any order afterwards. Do not shuffle cases within the freshness file. This
+avoids relying on Vitest's historical-duration cache without starting a new
+Worker/store for every test.
+
 ## What the tests prove
 
 - Live-list discovery and committed score updates, including thirty simulated
@@ -59,6 +65,19 @@ the helpers and tests for unused code.
   from genuine BFCache restoration under a cacheable HTTP fixture. The latter
   must preserve a document token, emit trusted `pageshow.persisted`, and read
   updated membership once. A reload cannot satisfy that test.
+
+The workflow files cover browser wiring, not game-rule matrices:
+
+- `preferences.e2e.test.ts`: explicit theme cookies survive reload and stay
+  isolated between contexts; auto follows both OS palettes without navigation;
+  locale changes preserve deep path/query/fragment through genuine documents.
+- `setup-rematch.e2e.test.ts`: one visible form submission creates the match,
+  normalized names survive in reload-backed suggestions, changing a name resets
+  breaker selection, and Long Pyramid rematch restores editable asymmetric
+  targets and non-default rack rollover.
+- `command-ux.e2e.test.ts`: desktop Popover/narrow Drawer keyboard dismissal
+  restores a usable trigger; an overflow action closes before its held POST
+  completes; rejected stale correction catches up both scores without replay.
 
 Fixtures create matches and submit unique Commands through HTTP. A narrowly
 scoped expiry fixture moves completed lifecycle timestamps back sixteen minutes
@@ -110,6 +129,12 @@ unchanged. Native Chromium cases are skipped in the WebKit run.
 Playwright's Linux WebKit port is **not Safari on iOS**. Neither engine proves
 Safari's suggested-URL restoration behavior, OS process termination, or which
 events iOS delivers when an app is killed. Those still need device testing.
+
+Workflow tests inspect datalist associations/options, not the OS suggestion
+popup, and emulate narrow layout rather than touch gestures. Focus is seeded
+programmatically before keyboard dismissal checks; they do not prove the whole
+page's Tab order. Rematch restores and edits setup but does not submit a second
+match; its action/parser semantics remain lower-layer test responsibilities.
 
 References: [Vitest Browser Mode](https://vitest.dev/guide/browser/),
 [Playwright CDP attachment](https://playwright.dev/docs/api/class-browsertype#browser-type-connect-over-cdp),
