@@ -6,6 +6,11 @@ import { useRootLocale } from '@/root'
 
 const previewPages = [
   {
+    href: '/top-secret/preview/coin/',
+    title: 'Coin toss',
+    description: 'Try the coin toss with Орел and Решка.',
+  },
+  {
     href: '/top-secret/preview/ui/',
     title: 'UI Preview v2',
     description: 'Preview-local Base UI components and club theme checks.',

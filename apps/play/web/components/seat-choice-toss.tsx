@@ -51,7 +51,7 @@ export function SeatChoiceToss(props: {
       setDisplaySeat(winner)
       setTossWinner(winner)
       setIsRolling(false)
-    }, 1800)
+    }, 1000)
   }
 
   function chooseSeat(seat: Seat) {
