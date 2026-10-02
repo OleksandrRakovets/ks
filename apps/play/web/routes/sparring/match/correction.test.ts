@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 
-import { CommandReceiptOutcome } from '@ks/application'
+import { MatchCommandRejected } from '@ks/application/server'
 import { newCommandId, newMatchId } from '@ks/core'
 import { keys } from '@ks/i18n'
 import { Effect } from 'effect'
@@ -22,9 +22,11 @@ test('sends an identified correction through the existing action and names a sta
     submitMatchCommand: (id, command, gameKey) =>
       Effect.sync(() => {
         expect([id, command, gameKey]).toEqual([matchId, submitted, 'free-pyramid'])
-
-        return CommandReceiptOutcome.rejected({ reason: { code: 'correction-not-available' } })
-      }),
+      }).pipe(
+        Effect.flatMap(() =>
+          Effect.fail(new MatchCommandRejected({ reason: { code: 'correction-not-available' } })),
+        ),
+      ),
   })
 
   const form = new FormData()

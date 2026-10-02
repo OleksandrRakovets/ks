@@ -1,10 +1,10 @@
 import { describe, expect, test } from 'bun:test'
 
-import { CommandReceiptOutcome } from '@ks/application'
 import {
   ApplicationStorageError,
   InvalidMatchCommand,
   MatchCommandIdConflict,
+  MatchCommandRejected,
   MatchFinished,
   MatchLocked,
   MatchNotFound,
@@ -51,7 +51,7 @@ describe('commandMatchAction adaptation', () => {
       submitMatchCommand: (_matchId, command) => {
         submitted.push(command)
 
-        return Effect.succeed(CommandReceiptOutcome.accepted({ acceptedSeq: 9 }))
+        return Effect.succeed({ acceptedSeq: 9 })
       },
     })
 
@@ -121,7 +121,7 @@ describe('commandMatchAction adaptation', () => {
     const commandId = newCommandId()
 
     const context = sparringContext({
-      submitMatchCommand: () => Effect.succeed(CommandReceiptOutcome.accepted({ acceptedSeq: 5 })),
+      submitMatchCommand: () => Effect.succeed({ acceptedSeq: 5 }),
     })
 
     const form = new FormData()
@@ -148,9 +148,7 @@ describe('commandMatchAction adaptation', () => {
 
     const context = sparringContext({
       submitMatchCommand: () =>
-        Effect.succeed(
-          CommandReceiptOutcome.rejected({ reason: { code: 'wrong-breaker', expectedSeat: 'B' } }),
-        ),
+        Effect.fail(new MatchCommandRejected({ reason: { code: 'wrong-breaker', expectedSeat: 'B' } })),
     })
 
     const form = new FormData()

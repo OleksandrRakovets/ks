@@ -78,6 +78,31 @@ describe('sparring commands and finalization', () => {
     expect(events).toEqual([])
   })
 
+  test('fails with the original command rejection reason without archiving', async () => {
+    for (const reason of [
+      { code: 'wrong-breaker', expectedSeat: 'B' },
+      { code: 'correction-not-available' },
+    ] as const) {
+      const events: string[] = []
+      const room = selectedClient({ submitCommand: async () => RoomCommandResult.rejected({ reason }) })
+      const app = sparring(room, events)
+
+      const failure = await Effect.runPromise(
+        Effect.flip(
+          app.service.submitMatchCommand(
+            matchId,
+            { commandId: newCommandId(), source: 'match', command: { type: 'frame.commence', seat: 'A' } },
+            'free-pyramid',
+          ),
+        ),
+      )
+
+      expect(failure).toHaveProperty('_tag', 'MatchCommandRejected')
+      expect(failure).toHaveProperty('reason', reason)
+      expect(events).toEqual([])
+    }
+  })
+
   test('archives and finishes after a match-ending Accepted Command', async () => {
     const events: string[] = []
 
@@ -96,9 +121,7 @@ describe('sparring commands and finalization', () => {
       'free-pyramid',
     )
 
-    expect(result).toMatchObject({ acceptedSeq: 1 })
-    expect(result).toHaveProperty('_tag', 'accepted')
-    expect(result).not.toHaveProperty('endsMatch')
+    expect(result).toEqual({ acceptedSeq: 1 })
     expect(events).toEqual(['prepare', 'archive', 'finish'])
   })
 
@@ -221,7 +244,7 @@ describe('sparring commands and finalization', () => {
 
     expect(archiveError?.message).toBe('lost archive response')
     expect(events).toEqual(['archive-persisted-response-lost'])
-    expect(await app.submitMatchCommand(matchId, command, 'free-pyramid')).toHaveProperty('_tag', 'accepted')
+    expect(await app.submitMatchCommand(matchId, command, 'free-pyramid')).toEqual({ acceptedSeq: 1 })
     expect(events).toEqual(['archive-persisted-response-lost', 'archive-retry', 'finish'])
   })
 
@@ -262,7 +285,7 @@ describe('sparring commands and finalization', () => {
 
     expect(finishError?.message).toBe('finish failed')
     expect(events).toEqual(['archive', 'finish-failed'])
-    expect(await app.submitMatchCommand(matchId, command, 'free-pyramid')).toHaveProperty('_tag', 'accepted')
+    expect(await app.submitMatchCommand(matchId, command, 'free-pyramid')).toEqual({ acceptedSeq: 1 })
     expect(events).toEqual(['archive', 'finish-failed', 'archive', 'finish-retry'])
   })
 })

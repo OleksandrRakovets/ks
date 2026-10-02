@@ -10,7 +10,6 @@ export type {
 export { DisplayName } from './player/contract'
 
 export {
-  CommandReceiptOutcome,
   CreateSparringMatchInput,
   HydratedMatchParticipants,
   MatchListDay,

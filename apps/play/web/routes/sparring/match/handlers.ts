@@ -2,7 +2,7 @@ import { SparringService } from '@ks/application/server'
 import { MatchCommand, MatchId } from '@ks/core'
 import { type GameKey, registry } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
-import { Effect, Predicate, Result, Schema } from 'effect'
+import { Effect, Result, Schema } from 'effect'
 
 import type {
   ControlActionData,
@@ -107,6 +107,7 @@ export async function commandMatchAction(
     SparringService.use((sparring) =>
       sparring.submitMatchCommand(matchId, command.success, expectedGameKey),
     ).pipe(
+      Effect.map(({ acceptedSeq }) => ({ ok: true as const, acceptedSeqMax: acceptedSeq })),
       Effect.catchTags({
         MatchNotFound: () => Effect.succeed(new Response('Unknown match', { status: 404 })),
         MatchFinished: () => Effect.succeed({ ok: false as const, errorKey: keys.match.control.matchLocked }),
@@ -115,6 +116,14 @@ export async function commandMatchAction(
           Effect.succeed({ ok: false as const, errorKey: keys.match.control.invalidCommandPayload }),
         MatchCommandIdConflict: () =>
           Effect.succeed({ ok: false as const, errorKey: keys.match.control.invalidCommandPayload }),
+        MatchCommandRejected: ({ reason }) =>
+          Effect.succeed({
+            ok: false as const,
+            errorKey:
+              reason.code === 'correction-not-available'
+                ? keys.match.control.correctionUnavailable
+                : keys.match.control.commandRejectedByRules,
+          }),
         ApplicationStorageError: (error) => Effect.succeed(applicationStorageErrorResponse(error)),
       }),
     ),
@@ -122,19 +131,5 @@ export async function commandMatchAction(
 
   if (result instanceof Response) throw result
 
-  if ('ok' in result) return result
-
-  if (Predicate.isTagged(result, 'rejected'))
-    return {
-      ok: false,
-      errorKey:
-        result.reason.code === 'correction-not-available'
-          ? keys.match.control.correctionUnavailable
-          : keys.match.control.commandRejectedByRules,
-    }
-
-  return {
-    ok: true,
-    acceptedSeqMax: result.acceptedSeq,
-  }
+  return result
 }

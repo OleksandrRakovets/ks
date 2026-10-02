@@ -1,4 +1,3 @@
-import type { MatchRejection } from '@ks/competition'
 import { MatchCreationDefinition, MatchScoreProjection } from '@ks/competition/definitions'
 import {
   type BySeatNumber,
@@ -13,19 +12,13 @@ import {
   UnixEpochMilliseconds,
 } from '@ks/core'
 import type { GameKey, GamePresentationFor } from '@ks/gameplay/definitions'
-import { Data, Schema } from 'effect'
+import { Schema } from 'effect'
 
 import type { LastCommandPresentation } from '../match/last-command-projection'
 import type { ProtocolRow } from '../match/protocol-projection'
 import { DisplayName } from '../player/contract'
 
 export { HydratedMatchParticipants } from '@ks/core'
-
-type CommandReceiptOutcome =
-  | { readonly _tag: 'accepted'; readonly acceptedSeq: number }
-  | { readonly _tag: 'rejected'; readonly reason: typeof MatchRejection.Type }
-
-export const CommandReceiptOutcome = Data.taggedEnum<CommandReceiptOutcome>()
 
 export const CreateSparringMatchInput = MatchCreationDefinition.mapFields(
   (fields) => ({ ...fields, playerNames: Schema.Struct({ A: DisplayName, B: DisplayName }) }),

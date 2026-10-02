@@ -17,6 +17,7 @@ export {
   InvalidMatchCommand,
   InvalidMatchInput,
   MatchCommandIdConflict,
+  MatchCommandRejected,
   MatchFinished,
   MatchInitializationConflict,
   MatchLocked,

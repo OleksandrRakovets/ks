@@ -3,10 +3,10 @@ import type { GameKey } from '@ks/gameplay/definitions'
 import { Effect, Match } from 'effect'
 
 import { MatchRooms } from '../match/match-room'
-import { CommandReceiptOutcome } from './contract'
 import {
   InvalidMatchCommand,
   MatchCommandIdConflict,
+  MatchCommandRejected,
   MatchFinished,
   MatchLocked,
   MatchNotFound,
@@ -37,7 +37,7 @@ export const commandMethods = Effect.gen(function* () {
         accepted: Effect.fnUntraced(function* ({ acceptedSeq, endsMatch }) {
           if (endsMatch) yield* archiveAndMarkFinished(matchId)
 
-          return CommandReceiptOutcome.accepted({ acceptedSeq })
+          return { acceptedSeq } as const
         }),
         finalizing: Effect.fnUntraced(function* () {
           yield* archiveAndMarkFinished(matchId)
@@ -46,7 +46,7 @@ export const commandMethods = Effect.gen(function* () {
         }),
         'invalid-command': () => Effect.fail(new InvalidMatchCommand()),
         'command-id-conflict': () => Effect.fail(new MatchCommandIdConflict()),
-        rejected: (outcome) => Effect.succeed(outcome),
+        rejected: ({ reason }) => Effect.fail(new MatchCommandRejected({ reason })),
       }),
     )
   })
