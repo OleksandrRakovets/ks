@@ -11,9 +11,15 @@ Run commands from the repository root.
 
 Application owns D1 runtime access and tooling. Shared client setup and tables live in `packages/application/src/d1`; each module owns its storage classes and value-only codecs. Drizzle configuration, migrations, and the local player seed live at the package root. See `packages/application/AGENTS.md` for the storage boundary. Play supplies the binding and Wrangler deployment configuration.
 
-These stores have independent lifecycles. MatchRoom SQLite contains Accepted Commands and outcomes, one immutable aggregate checkpoint per acceptance sequence, complete Protocol entries, the acceptance cursor, compact score projection, and lifecycle. Rich reads restore and project the checkpoint at the acceptance cursor; controls are request-local and are not persisted. D1 contains players and match rows and receives the unchanged final Protocol archive and projected Final Match State. Existing rooms without checkpoints require an explicit migration decision; do not reset or silently replay them.
+These stores have independent lifecycles. MatchRoom SQLite contains Accepted Commands and outcomes, one immutable aggregate checkpoint per acceptance sequence, complete Protocol entries, the acceptance cursor, compact score projection, and lifecycle. Rich reads restore and project the checkpoint at the acceptance cursor; controls are request-local and are not persisted. D1 contains players and match rows and receives the unchanged final Protocol archive and projected Final Match State.
 
 Drizzle ORM and Kit are pinned to `1.0.0-rc.4`. Do not rewrite applied migration history.
+
+## Production Migration Policy
+
+Production is deployed. Before every Worker deployment, confirm zero active Matches and no pending finalization/archival. Retained MatchRoom databases are not used for finished reads, so this policy avoids historical MatchRoom backfills and old-checkpoint compatibility code; schema migrations still initialize new rooms.
+
+For D1 schema or persisted-representation changes, prefer explicit schema/data migrations over runtime legacy fallbacks or read-time backfills. Review compatibility with the currently running Worker and state the required migration/deployment order. Call out added migrations to the user and in PR descriptions; remote application requires explicit authorization. If migrations cannot safely resolve a compatibility requirement, explain the limitation to the user before introducing legacy production code, including its scope and removal condition. Root `AGENTS.md` owns this policy.
 
 ## Local D1
 

@@ -30,7 +30,7 @@ Consult the relevant definitions in CONTEXT.md when introducing or changing doma
 
 `typegen` intentionally runs directly before the single root `tsc --build`. Keep it outside Turbo unless generated-output caching provides measured value; there are no per-package typecheck tasks for Turbo to schedule.
 
-`check` and `check:full` apply formatting before running their remaining gates. `check:full` also includes integration projects and both deployable builds.
+`check` and `check:full` apply formatting before running their remaining gates. `check:full` also includes integration projects and the Play deployable build.
 
 These commands overlap. Choose the appropriate gate; do not rerun its constituent checks on unchanged code.
 
@@ -71,8 +71,16 @@ These commands overlap. Choose the appropriate gate; do not rerun its constituen
 - Play is the single Cloudflare Worker deployable. It exports the `MatchRoom` Durable Object class from the separate `@ks/match-room` workspace and reaches rooms through an internal binding.
 - Application imports `@ks/match-room` type-only to derive its private MatchRoom capability. Play imports the class at runtime only to export it from the Worker entrypoint; generated bindings verify structural RPC compatibility without runtime response parsing.
 - Live updates use a versioned WebSocket contract through Play's Worker gateway. React Router loaders remain authoritative; socket messages are invalidation notifications that request revalidation.
-- Play's Wrangler configuration owns the MatchRoom class migration. The project has not yet been deployed.
+- Play's Wrangler configuration owns the MatchRoom class migration. The project is deployed at `https://play.ks.ua`.
 - Generated `.react-router/` and `worker-configuration.d.ts` files must not be hand-reformatted.
+
+## Deployment And Compatibility Policy
+
+- Deploy only when there are zero live Matches: no active Matches and no pending finalization/archival. Confirm this before deploying; do not deploy while a Match can still accept commands or requires MatchRoom state for archival.
+- Under this deployment policy, MatchRoom SQLite does not require historical data backfills or runtime compatibility fallbacks for old checkpoints. Finished Matches are read from D1, not retained rooms. Keep schema migrations for newly instantiated rooms and do not rewrite applied migration history.
+- For D1 schema or persisted-representation changes, prefer explicit schema/data migrations that bring existing production data to the current contract over runtime legacy branches or read-time backfills. Plan migration ordering with the running Worker.
+- Call out every added migration and its required deployment ordering to the user and in the PR description. Do not apply remote migrations without explicit authorization.
+- If migration alone cannot safely handle existing production data or compatibility, flag the limitation to the user before adding legacy production code. Explain why it is needed, its scope, and when it can be removed; do not introduce speculative fallbacks.
 
 ## Documentation
 

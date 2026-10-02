@@ -16,7 +16,7 @@ Play owns HTTP and presentation adaptation. `@ks/application` exposes the curren
 
 Play is the single Cloudflare Worker deployable and exports the MatchRoom class from the separate `@ks/match-room` workspace. MatchRoom has no public route or D1 dependency; its `fetch` method serves only WebSocket handshakes forwarded to a selected object by Play. Application imports `@ks/match-room` type-only to derive its private capability, while Play imports the class at runtime only from its Worker entrypoint. The generated internal binding verifies that the selected RPC stub is structurally compatible.
 
-Colocation accepts one larger bundle and a shared deployment lifecycle. Local startup profiling did not establish a MatchRoom cold-start benefit from a separate Worker, while one Worker removes cross-deployment compatibility, local registry orchestration, and branch-preview namespace coupling. A Play deployment can therefore restart active MatchRooms and close their sockets; clients reconnect, and gameplay or checkpoint changes must not deploy while Matches are active.
+Colocation accepts one larger bundle and a shared deployment lifecycle. Local startup profiling did not establish a MatchRoom cold-start benefit from a separate Worker, while one Worker removes cross-deployment compatibility, local registry orchestration, and branch-preview namespace coupling. A Play deployment can restart MatchRooms and close their sockets. Deployments therefore require zero live Matches and completed finalization/archival, not just compatibility of gameplay or checkpoint changes.
 
 ## Domain Boundaries
 
@@ -135,4 +135,6 @@ The match-ending update is broadcast and sockets are closed when its command is 
 
 ## Deployment
 
-Play's Wrangler configuration owns both the Worker deployment and the MatchRoom Durable Object class migration. The project has not yet been deployed.
+Play's Wrangler configuration owns both the Worker deployment and the MatchRoom Durable Object class migration. Production runs at `https://play.ks.ua`.
+
+Deploy only after all live Matches have ended and archival is complete. New Matches use the deployed MatchRoom schema and checkpoint contract; finished reads use D1, so retained rooms do not require historical backfills or checkpoint compatibility routing. D1 changes prefer explicit schema/data migrations over runtime legacy fallbacks. See root `AGENTS.md` for migration communication and compatibility policy, and `.tracker/db.md` for operational procedures.

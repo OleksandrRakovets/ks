@@ -40,7 +40,7 @@ This file describes how MatchRoom is implemented. Use the repository architectur
 - Compare command retries as decoded values rather than serialized JSON. Reusing a command ID with different content is a conflict.
 - Identical accepted and rejected retries return their stored outcomes. After finalization, only retrying the match-ending acceptance reports `endsMatch: true`.
 - Score and socket-cursor reads use the compact Match record. Rich reads restore the latest checkpoint. Protocol reads use the stored entries.
-- Checkpoints persist XState snapshot values and contexts, not running actors. Do not deploy rule changes while Matches are active; there is no checkpoint-version router or replay fallback.
+- Checkpoints persist XState snapshot values and contexts, not running actors. Every deployment requires zero live Matches and completed finalization/archival, per root `AGENTS.md`; there is no checkpoint-version router or replay fallback.
 - The match-ending acceptance stores the terminal checkpoint, `endedAt`, and `finalizing` status in the same transaction. Broadcast and socket closure happen only after that commit.
 - `prepareArchive` transfers the checkpoint-derived final state, game result, and stored Protocol. MatchRoom remains finalizing after D1 finishes; finished reads must not return here.
 - Finalizing reads do not invoke archive transfer and warn with the Match ID and age. There is no background archival retry or retained-storage cleanup yet.
@@ -55,5 +55,6 @@ This file describes how MatchRoom is implemented. Use the repository architectur
 ## Migrations And Checks
 
 - MatchRoom SQLite has a migration history independent from D1. Follow `.tracker/db.md` for schema changes.
+- The zero-live-Match deployment policy means retained historical rooms do not require data backfills or old-checkpoint compatibility code. Finished reads use D1; new rooms still require schema initialization through the runtime migrator. Do not rewrite applied migration history.
 - Drizzle generates migration SQL and snapshots. Maintain `drizzle/migrations.js` manually when generating a migration, and do not hand-format generated files.
 - Use `bun run --filter '@ks/match-room' test:integration` for storage, lifecycle, RPC, or disposal behavior. Play's build owns the deployable boundary. Use the root gates according to the root `AGENTS.md`; do not rerun overlapping checks on unchanged code.
