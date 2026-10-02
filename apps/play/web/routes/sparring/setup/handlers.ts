@@ -196,7 +196,14 @@ export async function createSetupMatch({
   const result = await application.sparring.createMatch(createInput)
 
   if (!result.ok) {
-    throw new Response('Could not create match', { status: result.status })
+    switch (result.reason) {
+      case 'invalid-input':
+        throw new Response('Could not create match', { status: 400 })
+      case 'initialization-conflict':
+        throw new Response('Could not create match', { status: 409 })
+      default:
+        throw new Error('Unhandled match creation failure', { cause: result.reason satisfies never })
+    }
   }
 
   return redirect(matchUrl(gameKey, result.matchId, localeFromContext(context)))

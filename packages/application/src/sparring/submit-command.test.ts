@@ -2,9 +2,71 @@ import { describe, expect, test } from 'bun:test'
 
 import { newCommandId } from '@ks/core'
 
-import { matchId, selectedClient, sparring, transfer } from './sparring.fixtures'
+import {
+  createdAt,
+  matchId,
+  playerRefA,
+  playerRefB,
+  selectedClient,
+  sparring,
+  transfer,
+} from './sparring.fixtures'
 
 describe('sparring commands and finalization', () => {
+  test('returns unknown-match for a missing, wrong-game, or creating Match without calling the room', async () => {
+    for (const record of [
+      null,
+      {
+        matchId,
+        gameKey: 'strila-v2' as const,
+        createdAt,
+        participantRefs: { A: playerRefA, B: playerRefB },
+        status: 'active' as const,
+      },
+      {
+        matchId,
+        gameKey: 'free-pyramid' as const,
+        createdAt,
+        participantRefs: { A: playerRefA, B: playerRefB },
+        status: 'creating' as const,
+      },
+    ]) {
+      const app = sparring(selectedClient(), [], { matches: { findMatch: async () => record } })
+
+      expect(
+        await app.submitMatchCommand(
+          matchId,
+          { commandId: newCommandId(), source: 'match', command: { type: 'frame.concede', seat: 'B' } },
+          'free-pyramid',
+        ),
+      ).toEqual({ ok: false, reason: 'unknown-match' })
+    }
+  })
+
+  test('returns match-finished without submitting or archiving again', async () => {
+    expect(
+      await sparring(selectedClient(), [], { initialStatus: 'finished' }).submitMatchCommand(
+        matchId,
+        { commandId: newCommandId(), source: 'match', command: { type: 'frame.concede', seat: 'B' } },
+        'free-pyramid',
+      ),
+    ).toEqual({ ok: false, reason: 'match-finished' })
+  })
+
+  test('returns command-id-conflict without archiving', async () => {
+    const events: string[] = []
+    const room = selectedClient({ submitCommand: async () => ({ _tag: 'command-id-conflict' }) })
+
+    expect(
+      await sparring(room, events).submitMatchCommand(
+        matchId,
+        { commandId: newCommandId(), source: 'match', command: { type: 'frame.concede', seat: 'B' } },
+        'free-pyramid',
+      ),
+    ).toEqual({ ok: false, reason: 'command-id-conflict' })
+    expect(events).toEqual([])
+  })
+
   test('archives and finishes after a match-ending Accepted Command', async () => {
     const events: string[] = []
 
@@ -41,7 +103,7 @@ describe('sparring commands and finalization', () => {
         { commandId: newCommandId(), source: 'match', command: { type: 'frame.concede', seat: 'B' } },
         'free-pyramid',
       ),
-    ).toEqual({ ok: false, error: 'match-locked', status: 409 })
+    ).toEqual({ ok: false, reason: 'match-locked' })
     expect(events).toEqual(['archive', 'finish'])
   })
 
@@ -53,7 +115,7 @@ describe('sparring commands and finalization', () => {
         { commandId: newCommandId(), source: 'match', command: { type: 'unsupported' } },
         'free-pyramid',
       ),
-    ).toEqual({ ok: false, error: 'invalid-command-body', status: 400 })
+    ).toEqual({ ok: false, reason: 'invalid-command' })
   })
 
   test('does not synthesize transport failures for thrown MatchRoom defects', async () => {

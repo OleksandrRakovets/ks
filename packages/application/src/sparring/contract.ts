@@ -38,7 +38,7 @@ export type CreateSparringMatchInput = v.InferOutput<typeof CreateSparringMatchI
 
 export type CreateSparringMatchResult =
   | { readonly ok: true; readonly matchId: MatchId }
-  | { readonly ok: false; readonly error: string; readonly status: number }
+  | { readonly ok: false; readonly reason: 'invalid-input' | 'initialization-conflict' }
 
 type MatchListEntryIdentity = {
   matchId: MatchId
@@ -58,8 +58,6 @@ export type MatchListEntry = Readonly<
   MatchListEntryIdentity &
     ({ status: 'active'; endedAt: null } | { status: 'finished'; endedAt: UnixEpochMilliseconds })
 >
-
-export const RECENT_FINISHED_MATCH_WINDOW_MS = 15 * 60 * 1_000
 
 export const MatchListDay = v.pipe(
   v.string(),
@@ -116,7 +114,7 @@ export const MatchScorePollResponse = v.pipe(
 
 export type MatchScorePollResponse = v.InferOutput<typeof MatchScorePollResponse>
 
-export type ReadMatchFailure = { readonly ok: false; readonly error: string; readonly status: number }
+export type ReadMatchFailure = { readonly ok: false; readonly reason: 'unknown-match' }
 
 export type ReadMatchScoresResult =
   | { readonly ok: true; readonly matches: readonly MatchScorePollEntry[] }
@@ -171,7 +169,15 @@ export type ReadMatchResult<K extends GameKey> =
 
 export type SubmitMatchCommandResult =
   | { readonly ok: true; readonly outcome: CommandReceiptOutcome }
-  | { readonly ok: false; readonly error: string; readonly status: number }
+  | {
+      readonly ok: false
+      readonly reason:
+        | 'unknown-match'
+        | 'match-finished'
+        | 'match-locked'
+        | 'invalid-command'
+        | 'command-id-conflict'
+    }
 
 type SparringMatchLiveAdmission =
   | { readonly _tag: 'admitted' }

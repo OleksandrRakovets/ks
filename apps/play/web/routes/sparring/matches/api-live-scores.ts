@@ -5,7 +5,7 @@ import { requireApplication } from '@/server/context.server'
 
 import type { Route } from './+types/api-live-scores'
 
-export async function loader({ request, context }: Route.LoaderArgs) {
+export async function loader({ request, context }: Pick<Route.LoaderArgs, 'request' | 'context'>) {
   const url = new URL(request.url)
   const values = url.searchParams.getAll('matchId')
 
@@ -16,7 +16,15 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   if (!matchIds.success) return Response.json({ error: 'Invalid Match ID' }, { status: 400 })
   const result = await requireApplication(context).sparring.readMatchScores(matchIds.output)
 
-  if (!result.ok) return Response.json({ error: result.error }, { status: result.status })
+  if (!result.ok) {
+    switch (result.reason) {
+      // oxlint-disable-next-line typescript/no-unnecessary-condition -- Keep the single-reason contract exhaustive.
+      case 'unknown-match':
+        return Response.json({ error: 'Unknown match' }, { status: 404 })
+      default:
+        throw new Error('Unhandled match scores failure', { cause: result.reason satisfies never })
+    }
+  }
 
   return Response.json(
     { matches: result.matches },
