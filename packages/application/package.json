@@ -14,6 +14,7 @@
     "test:integration": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
+    "@effect/sql-d1": "catalog:",
     "@ks/competition": "workspace:*",
     "@ks/core": "workspace:*",
     "@ks/gameplay": "workspace:*",

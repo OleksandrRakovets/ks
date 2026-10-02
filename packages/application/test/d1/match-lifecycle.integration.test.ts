@@ -1,3 +1,4 @@
+import { D1Client } from '@effect/sql-d1'
 import {
   buildMatchConfig,
   createMatch,
@@ -18,6 +19,9 @@ import {
 } from '@ks/core'
 import { applyD1Migrations, reset } from 'cloudflare:test'
 import { env } from 'cloudflare:workers'
+import { sql } from 'drizzle-orm'
+import * as DrizzleD1 from 'drizzle-orm/effect-d1'
+import { Effect } from 'effect'
 import * as v from 'valibot'
 import { beforeEach, describe, expect, test } from 'vitest'
 
@@ -520,6 +524,19 @@ describe('real D1 match lifecycle', () => {
       `Protocol archive storage corruption for match ${matchId}`,
     )
   })
+})
+
+test('native Effect D1 queries preserve empty results and typed SQL failures', async () => {
+  await Effect.runPromise(
+    Effect.gen(function* () {
+      const db = yield* DrizzleD1.makeWithDefaults({})
+      expect(yield* db.select().from(sparringMatches).get()).toBeUndefined()
+
+      const failure = yield* Effect.flip(db.run(sql`SELECT FROM`))
+      expect(failure._tag).toBe('EffectDrizzleQueryError')
+      expect(failure.query).toBe('SELECT FROM')
+    }).pipe(Effect.provide(D1Client.layer({ db: env.DB }))),
+  )
 })
 
 describe('D1 match-winner backfill', () => {

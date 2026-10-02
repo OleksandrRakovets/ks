@@ -1,0 +1,172 @@
+diff --git a/cache/core/cache-effect.cjs b/cache/core/cache-effect.cjs
+index 695cb9579ce1f040f1c931428fd6c6a59f49cc96..27a98172d6a323eb189298459e2597b7be4dad95 100644
+--- a/cache/core/cache-effect.cjs
++++ b/cache/core/cache-effect.cjs
+@@ -100,7 +100,7 @@ function make(cache) {
+ * This error is thrown when any cache operation (get, put, onMutate) fails.
+ * The original error is available in the `cause` property.
+ */
+-var EffectCacheError = class extends effect_Schema.TaggedErrorClass()("EffectCacheError", { cause: effect_Schema.Unknown }) {
++var EffectCacheError = class extends effect_Schema.TaggedError()("EffectCacheError", { cause: effect_Schema.Unknown }) {
+ 	static [__entity_ts.entityKind] = "EffectCacheError";
+ };
+ 
+diff --git a/cache/core/cache-effect.js b/cache/core/cache-effect.js
+index f778fffdda7a4545285498f655018a1478741436..f49663e85a6ea54a6543ae904a323adc1f17de17 100644
+--- a/cache/core/cache-effect.js
++++ b/cache/core/cache-effect.js
+@@ -94,7 +94,7 @@ function make(cache) {
+ * This error is thrown when any cache operation (get, put, onMutate) fails.
+ * The original error is available in the `cause` property.
+ */
+-var EffectCacheError = class extends Schema$1.TaggedErrorClass()("EffectCacheError", { cause: Schema$1.Unknown }) {
++var EffectCacheError = class extends Schema$1.TaggedError()("EffectCacheError", { cause: Schema$1.Unknown }) {
+ 	static [entityKind] = "EffectCacheError";
+ };
+ 
+diff --git a/effect-core/errors.cjs b/effect-core/errors.cjs
+index 9ec5bab6a265fbdb694e4fffa639ebea7be3a6cc..e012a2244705550ad4281496c690a9086244e6f1 100644
+--- a/effect-core/errors.cjs
++++ b/effect-core/errors.cjs
+@@ -5,13 +5,13 @@ let effect_Schema = require("effect/Schema");
+ effect_Schema = require_runtime.__toESM(effect_Schema);
+ 
+ //#region src/effect-core/errors.ts
+-var EffectDrizzleError = class extends effect_Schema.TaggedErrorClass()("EffectDrizzleError", {
++var EffectDrizzleError = class extends effect_Schema.TaggedError()("EffectDrizzleError", {
+ 	message: effect_Schema.String,
+ 	cause: effect_Schema.Unknown
+ }) {
+ 	static [__entity_ts.entityKind] = "EffectDrizzleError";
+ };
+-var EffectDrizzleQueryError = class EffectDrizzleQueryError extends effect_Schema.TaggedErrorClass()("EffectDrizzleQueryError", {
++var EffectDrizzleQueryError = class EffectDrizzleQueryError extends effect_Schema.TaggedError()("EffectDrizzleQueryError", {
+ 	query: effect_Schema.String,
+ 	params: effect_Schema.Array(effect_Schema.Any).pipe(effect_Schema.mutable),
+ 	cause: effect_Schema.Unknown
+@@ -25,11 +25,11 @@ var EffectDrizzleQueryError = class EffectDrizzleQueryError extends effect_Schem
+ 		Error.captureStackTrace(this, EffectDrizzleQueryError);
+ 	}
+ };
+-var EffectTransactionRollbackError = class extends effect_Schema.TaggedErrorClass()("EffectTransactionRollbackError", {}) {
++var EffectTransactionRollbackError = class extends effect_Schema.TaggedError()("EffectTransactionRollbackError", {}) {
+ 	static [__entity_ts.entityKind] = "EffectTransactionRollbackError";
+ 	message = "Rollback";
+ };
+-var MigratorInitError = class extends effect_Schema.TaggedErrorClass()("MigratorInitError", { exitCode: effect_Schema.Literals(["databaseMigrations", "localMigrations"]) }) {
++var MigratorInitError = class extends effect_Schema.TaggedError()("MigratorInitError", { exitCode: effect_Schema.Literals(["databaseMigrations", "localMigrations"]) }) {
+ 	static [__entity_ts.entityKind] = "MigratorInitError";
+ };
+ 
+diff --git a/effect-core/errors.js b/effect-core/errors.js
+index 290da3a291c8919c16f1092c74e0a7f4a5feaf53..25f33b5473c016649c9370b681dc216697eb80a1 100644
+--- a/effect-core/errors.js
++++ b/effect-core/errors.js
+@@ -2,13 +2,13 @@ import { entityKind } from "../entity.js";
+ import * as Schema$1 from "effect/Schema";
+ 
+ //#region src/effect-core/errors.ts
+-var EffectDrizzleError = class extends Schema$1.TaggedErrorClass()("EffectDrizzleError", {
++var EffectDrizzleError = class extends Schema$1.TaggedError()("EffectDrizzleError", {
+ 	message: Schema$1.String,
+ 	cause: Schema$1.Unknown
+ }) {
+ 	static [entityKind] = "EffectDrizzleError";
+ };
+-var EffectDrizzleQueryError = class EffectDrizzleQueryError extends Schema$1.TaggedErrorClass()("EffectDrizzleQueryError", {
++var EffectDrizzleQueryError = class EffectDrizzleQueryError extends Schema$1.TaggedError()("EffectDrizzleQueryError", {
+ 	query: Schema$1.String,
+ 	params: Schema$1.Array(Schema$1.Any).pipe(Schema$1.mutable),
+ 	cause: Schema$1.Unknown
+@@ -22,11 +22,11 @@ var EffectDrizzleQueryError = class EffectDrizzleQueryError extends Schema$1.Tag
+ 		Error.captureStackTrace(this, EffectDrizzleQueryError);
+ 	}
+ };
+-var EffectTransactionRollbackError = class extends Schema$1.TaggedErrorClass()("EffectTransactionRollbackError", {}) {
++var EffectTransactionRollbackError = class extends Schema$1.TaggedError()("EffectTransactionRollbackError", {}) {
+ 	static [entityKind] = "EffectTransactionRollbackError";
+ 	message = "Rollback";
+ };
+-var MigratorInitError = class extends Schema$1.TaggedErrorClass()("MigratorInitError", { exitCode: Schema$1.Literals(["databaseMigrations", "localMigrations"]) }) {
++var MigratorInitError = class extends Schema$1.TaggedError()("MigratorInitError", { exitCode: Schema$1.Literals(["databaseMigrations", "localMigrations"]) }) {
+ 	static [entityKind] = "MigratorInitError";
+ };
+ 
+diff --git a/effect-d1/session.d.cts b/effect-d1/session.d.cts
+index 02b04b2b41822a532e941309e9ba27f26643b9ee..1a4d6b7eac6feb34f9c51f5cad97130bb81ec16a 100644
+--- a/effect-d1/session.d.cts
++++ b/effect-d1/session.d.cts
+@@ -7,7 +7,7 @@ import { PreparedQueryConfig, SQLiteExecuteMethod } from "../sqlite-core/session
+ import * as Effect from "effect/Effect";
+ import { EffectCacheShape } from "../cache/core/cache-effect.cjs";
+ import { D1Client } from "@effect/sql-d1/D1Client";
+-import { SqlError } from "effect/unstable/sql/SqlError";
++import { SqlError } from "effect/sql/SqlError";
+ import { EffectDrizzleQueryError } from "../effect-core/errors.cjs";
+ import { EffectLoggerShape } from "../effect-core/logger.cjs";
+ import { QueryEffectHKTBase } from "../effect-core/query-effect.cjs";
+diff --git a/effect-d1/session.d.ts b/effect-d1/session.d.ts
+index 97b93134c38516b6794ef381020889f1612a9bfa..f8faf2baef22e6956d30d2dcf034ee350303a67b 100644
+--- a/effect-d1/session.d.ts
++++ b/effect-d1/session.d.ts
+@@ -10,7 +10,7 @@ import { QueryEffectHKTBase } from "../effect-core/query-effect.js";
+ import { EffectDrizzleQueryError } from "../effect-core/errors.js";
+ import { D1Client } from "@effect/sql-d1/D1Client";
+ import { WithCacheConfig } from "../cache/core/types.js";
+-import { SqlError } from "effect/unstable/sql/SqlError";
++import { SqlError } from "effect/sql/SqlError";
+ import { EffectLoggerShape } from "../effect-core/logger.js";
+ 
+ //#region src/effect-d1/session.d.ts
+diff --git a/sqlite-core/effect/db.d.cts b/sqlite-core/effect/db.d.cts
+index b1bf364d618fd39c3f8ae068223684c758924404..2988466d5abed9323298747da61d5fdd6842a33b 100644
+--- a/sqlite-core/effect/db.d.cts
++++ b/sqlite-core/effect/db.d.cts
+@@ -12,7 +12,7 @@ import { SQLiteDialect } from "../dialect.cjs";
+ import { RelationalQueryBuilder } from "../query-builders/query.cjs";
+ import { Effect } from "effect";
+ import { EffectCacheShape } from "../../cache/core/cache-effect.cjs";
+-import { SqlError } from "effect/unstable/sql/SqlError";
++import { SqlError } from "effect/sql/SqlError";
+ import { QueryEffectHKTBase } from "../../effect-core/query-effect.cjs";
+ import { SQLiteEffectCountBuilder } from "./count.cjs";
+ import { SQLiteEffectDeleteBase } from "./delete.cjs";
+diff --git a/sqlite-core/effect/db.d.ts b/sqlite-core/effect/db.d.ts
+index 0edf1d91963b15300f045015fa70850ea3bacd8b..13ccc72ec34f3453a72e9448eb8a3bd1627b47da 100644
+--- a/sqlite-core/effect/db.d.ts
++++ b/sqlite-core/effect/db.d.ts
+@@ -20,7 +20,7 @@ import { SQLiteEffectRelationalQueryHKT } from "./query.js";
+ import { SQLiteEffectRaw } from "./raw.js";
+ import { SQLiteEffectSelectBuilder } from "./select.js";
+ import { SQLiteEffectUpdateBuilder } from "./update.js";
+-import { SqlError } from "effect/unstable/sql/SqlError";
++import { SqlError } from "effect/sql/SqlError";
+ 
+ //#region src/sqlite-core/effect/db.d.ts
+ declare class SQLiteEffectDatabase<TEffectHKT extends QueryEffectHKTBase, TRunResult, TRelations extends AnyRelations = EmptyRelations> {
+diff --git a/sqlite-core/effect/session.d.cts b/sqlite-core/effect/session.d.cts
+index fca016ef5904e306df8f97c29faf177b2cfca87f..b070bfcc8bd72dd5344990c1bea0eec89e807b21 100644
+--- a/sqlite-core/effect/session.d.cts
++++ b/sqlite-core/effect/session.d.cts
+@@ -8,7 +8,7 @@ import { SQLiteDialect } from "../dialect.cjs";
+ import { PreparedQueryConfig, SQLiteExecuteMethod, SQLitePreparedQuery, SQLiteSession, SQLiteTransactionConfig } from "../session.cjs";
+ import * as Effect from "effect/Effect";
+ import { EffectCacheShape } from "../../cache/core/cache-effect.cjs";
+-import { SqlError } from "effect/unstable/sql/SqlError";
++import { SqlError } from "effect/sql/SqlError";
+ import { EffectTransactionRollbackError, MigratorInitError } from "../../effect-core/errors.cjs";
+ import { EffectLoggerShape } from "../../effect-core/logger.cjs";
+ import { QueryEffectHKTBase, QueryEffectKind } from "../../effect-core/query-effect.cjs";
+diff --git a/sqlite-core/effect/session.d.ts b/sqlite-core/effect/session.d.ts
+index f092421328c6272f2e071d516a49e94293a87fd9..1e3ac6d5b57e7bdf86b4219d1fa830b0831ba8c7 100644
+--- a/sqlite-core/effect/session.d.ts
++++ b/sqlite-core/effect/session.d.ts
+@@ -10,7 +10,7 @@ import { PreparedQueryConfig, SQLiteExecuteMethod, SQLitePreparedQuery, SQLiteSe
+ import { QueryEffectHKTBase, QueryEffectKind } from "../../effect-core/query-effect.js";
+ import { EffectTransactionRollbackError, MigratorInitError } from "../../effect-core/errors.js";
+ import { WithCacheConfig } from "../../cache/core/types.js";
+-import { SqlError } from "effect/unstable/sql/SqlError";
++import { SqlError } from "effect/sql/SqlError";
+ import { EffectLoggerShape } from "../../effect-core/logger.js";
+ 
+ //#region src/sqlite-core/effect/session.d.ts
