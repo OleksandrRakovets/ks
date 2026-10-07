@@ -10,6 +10,8 @@ export type AppLoadContext = Pick<RouterContextProvider, 'get'>
 
 export const cloudflareContext = createContext<CloudflareLoadContext | undefined>(undefined)
 
+export const assetsContext = createContext<Pick<Fetcher, 'fetch'>>()
+
 export function requireApplication(context: AppLoadContext): Application {
   const application = context.get(cloudflareContext)?.application
 

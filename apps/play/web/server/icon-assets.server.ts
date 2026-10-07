@@ -1,8 +1,20 @@
-import type { RouterContextProvider } from 'react-router'
+import { iconBasePath } from '../features/icon-assets'
+import { type AppLoadContext, assetsContext, cloudflareContext } from './context.server'
 
-import type { IconVariant } from '../icon-assets'
-import { cloudflareContext } from './context.server'
+/** Serves conventional icon URLs without a redirect, preserving asset validators and streaming bytes. */
+export async function iconResponse(
+  request: Request,
+  context: AppLoadContext,
+  filename: 'favicon.ico' | 'apple-touch-icon.png',
+): Promise<Response> {
+  const variant = context.get(cloudflareContext)?.isProduction === true ? 'green' : 'amber'
+  const url = new URL(`${iconBasePath(variant)}/${filename}`, request.url)
+  const asset = await context.get(assetsContext).fetch(new Request(url, request))
+  const response = new Response(asset.body, asset)
 
-export function iconVariantFromContext(context: Pick<RouterContextProvider, 'get'>): IconVariant {
-  return context.get(cloudflareContext)?.isProduction === true ? 'green' : 'amber'
+  if (response.ok || response.status === 304) {
+    response.headers.set('Cache-Control', 'public, max-age=604800')
+  }
+
+  return response
 }

@@ -1,10 +1,8 @@
-import { iconManifest } from '@/icon-assets'
-import { iconVariantFromContext } from '@/server/icon-assets.server'
+import { iconManifest } from '@/features/icon-assets'
+import { type AppLoadContext, cloudflareContext } from '@/server/context.server'
 
-import type { Route } from './+types/site-webmanifest'
-
-export function loader({ context }: Route.LoaderArgs) {
-  const variant = iconVariantFromContext(context)
+export function loader({ context }: { context: AppLoadContext }) {
+  const variant = context.get(cloudflareContext)?.isProduction === true ? 'green' : 'amber'
 
   return Response.json(iconManifest(variant), {
     headers: {

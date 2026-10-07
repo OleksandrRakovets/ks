@@ -12,10 +12,9 @@ import {
   useRouteLoaderData,
 } from 'react-router'
 
-import type { Route } from './+types/root'
+import { iconBasePath, iconThemeColor, type IconVariant } from './features/icon-assets'
 import { localeFromContext } from './i18n'
-import { iconBasePath, iconThemeColor, type IconVariant } from './icon-assets'
-import { iconVariantFromContext } from './server/icon-assets.server'
+import { type AppLoadContext, cloudflareContext } from './server/context.server'
 import { themeFromCookie } from './server/theme.server'
 import type { AppTheme } from './theme'
 
@@ -25,9 +24,9 @@ export type RootLoaderData = {
   theme: AppTheme
 }
 
-export function loader({ request, context }: Route.LoaderArgs) {
+export function loader({ request, context }: { request: Request; context: AppLoadContext }) {
   const cookie = request.headers.get('cookie')
-  const iconVariant = iconVariantFromContext(context)
+  const iconVariant = context.get(cloudflareContext)?.isProduction === true ? 'green' : 'amber'
   const locale = localeFromContext(context)
 
   return {

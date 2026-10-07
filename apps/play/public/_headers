@@ -1,0 +1,3 @@
+# Static asset responses only; unversioned files may stay in browser caches for one week.
+/*
+  Cache-Control: public, max-age=604800

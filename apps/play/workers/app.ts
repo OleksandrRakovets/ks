@@ -3,7 +3,7 @@ import { SystemClock } from '@ks/core'
 import { createRequestHandler, RouterContextProvider } from 'react-router'
 import * as v from 'valibot'
 
-import { cloudflareContext, type CloudflareLoadContext } from '../web/server/context.server'
+import { assetsContext, cloudflareContext, type CloudflareLoadContext } from '../web/server/context.server'
 import { handleSparringMatchLiveRequest } from './sparring-match-live'
 
 export { MatchRoom } from '@ks/match-room'
@@ -33,6 +33,7 @@ export default {
       isProduction: new URL(request.url).hostname === 'play.ks.ua',
     }
 
+    context.set(assetsContext, env.ASSETS)
     context.set(cloudflareContext, loadContext)
 
     return requestHandler(request, context)
