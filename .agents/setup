@@ -43,32 +43,24 @@ enable_oxlint_swap() {
 }
 
 install_bun() {
-  # Only the major.minor of devEngines.packageManager.version is enforced; patch floats (rolling).
+  # The declared version is a minimum; keep an equal or newer installed Bun.
   # Installs via the official script (see bun.sh/docs/installation) with
   # BUN_INSTALL pinned to a versioned dir. HOME is faked so the script never
   # touches real shell rc files (we manage PATH via local_bin symlinks).
-  local declared_minor
-  declared_minor="$(python3 -c 'import json; print(".".join(json.load(open("package.json"))["devEngines"]["packageManager"]["version"].split(".")[:2]))')"
+  local version
+  version="$(python3 -c 'import json; print(json.load(open("package.json"))["devEngines"]["packageManager"]["version"])')"
 
   local current
   if [[ -x "${local_bin}/bun" ]]; then
     current="$("${local_bin}/bun" --version)"
-    if [[ "${current%.*}" == "${declared_minor}" ]]; then
-      echo "Bun ${current} already installed (wanted ${declared_minor}.x)."
+    if [[ "$(printf '%s\n' "$version" "$current" | sort -V | head -n 1)" == "$version" ]]; then
+      echo "Bun ${current} already installed (minimum ${version})."
       return
     fi
-    echo "Bun ${current} installed, wanted ${declared_minor}.x — upgrading..."
+    echo "Bun ${current} installed, minimum ${version} — upgrading..."
   fi
 
-  # Resolve latest release tag first so a minor bump fails before downloading.
-  local tag version install_dir fake_home
-  tag="$(curl --fail --location --silent --show-error --output /dev/null --write-out '%{url_effective}' https://github.com/oven-sh/bun/releases/latest)"
-  version="${tag##*/bun-v}"
-  if [[ "${version%.*}" != "${declared_minor}" ]]; then
-    echo "Latest Bun is ${version}, but package.json wants ${declared_minor}.x — update devEngines.packageManager.version." >&2
-    exit 1
-  fi
-
+  local install_dir fake_home
   install_dir="${local_share}/bun-v${version}"
   if [[ ! -x "${install_dir}/bin/bun" ]]; then
     echo "Installing Bun v${version}..."
