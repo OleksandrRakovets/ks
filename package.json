@@ -70,6 +70,9 @@
         "project": [
           "**/*.{js,mjs,cjs,jsx,ts,tsx,mts,cts}!",
           "!test/rpc/fixtures.ts!"
+        ],
+        "ignore": [
+          "drizzle/migrations.d.ts"
         ]
       },
       "packages/application": {
@@ -80,7 +83,6 @@
       }
     },
     "ignore": [
-      "do/match-room/drizzle/migrations.d.ts",
       "tools/**"
     ],
     "ignoreDependencies": [

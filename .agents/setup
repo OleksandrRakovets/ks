@@ -44,9 +44,9 @@ enable_oxlint_swap() {
 
 install_bun() {
   # The declared version is a minimum; keep an equal or newer installed Bun.
-  # Installs via the official script (see bun.sh/docs/installation) with
-  # BUN_INSTALL pinned to a versioned dir. HOME is faked so the script never
-  # touches real shell rc files (we manage PATH via local_bin symlinks).
+  # Install via the official script (see bun.sh/docs/installation).
+  # BUN_INSTALL pins the destination. Isolate installer shell configuration;
+  # we manage PATH via local_bin symlinks instead.
   local version
   version="$(python3 -c 'import json; print(json.load(open("package.json"))["devEngines"]["packageManager"]["version"])')"
 
@@ -60,14 +60,17 @@ install_bun() {
     echo "Bun ${current} installed, minimum ${version} — upgrading..."
   fi
 
-  local install_dir fake_home
+  local install_dir
   install_dir="${local_share}/bun-v${version}"
   if [[ ! -x "${install_dir}/bin/bun" ]]; then
     echo "Installing Bun v${version}..."
-    fake_home="$(mktemp -d)"
-    curl --fail --location --silent --show-error https://bun.com/install \
-      | HOME="${fake_home}" BUN_INSTALL="${install_dir}" bash -s "bun-v${version}"
-    rm -rf "${fake_home}"
+    (
+      installer_home="$(mktemp -d)"
+      trap 'rm -rf -- "$installer_home"' EXIT
+      curl --fail --location --silent --show-error https://bun.com/install \
+        | HOME="$installer_home" XDG_CONFIG_HOME="$installer_home/.config" \
+          BUN_INSTALL="$install_dir" bash -s "bun-v${version}"
+    )
   fi
 
   ln -sfn "${install_dir}/bin/bun" "${local_bin}/bun"
