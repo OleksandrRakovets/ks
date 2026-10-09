@@ -77,7 +77,10 @@ export function presentFinishedSurface(data: FinishedSurfaceData, t: TFunction) 
   }
 }
 
-/** Finished frame-based matches prioritize frame wins; active matches and long pyramid prioritize points. */
+/**
+ * Finished frame-based matches prioritize frame wins; active matches and long pyramid prioritize points.
+ * @internal Exported for board-score contract tests.
+ */
 export function presentBoardScore(data: MatchReadFacts) {
   const frameWinsArePrimary = data.lifecycle === 'finished' && data.gameKey !== 'free-pyramid-long'
 

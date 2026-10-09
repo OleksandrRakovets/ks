@@ -65,6 +65,20 @@
     }
   },
   "knip": {
+    "workspaces": {
+      "do/match-room": {
+        "project": [
+          "**/*.{js,mjs,cjs,jsx,ts,tsx,mts,cts}!",
+          "!test/rpc/fixtures.ts!"
+        ]
+      },
+      "packages/application": {
+        "project": [
+          "**/*.{js,mjs,cjs,jsx,ts,tsx,mts,cts}!",
+          "!src/sparring/sparring.fixtures.ts!"
+        ]
+      }
+    },
     "ignore": [
       "do/match-room/drizzle/migrations.d.ts",
       "tools/**"

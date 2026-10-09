@@ -36,6 +36,7 @@ export type FinishedMatchData<K extends GameKey = GameKey> = Extract<MatchData<K
 
 export type ActiveProtocolData<K extends GameKey = GameKey> = Extract<ProtocolData<K>, { lifecycle: 'active' }>
 
+/** @internal Used to construct finished Protocol fixtures in presentation tests. */
 export type FinishedProtocolData<K extends GameKey = GameKey> = Extract<
   ProtocolData<K>,
   { lifecycle: 'finished' }

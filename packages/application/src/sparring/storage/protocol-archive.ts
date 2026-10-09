@@ -9,6 +9,7 @@ import type { FinishedMatchArchiveRecord, ProtocolArchiveRecord } from './record
 
 const PROTOCOL_ARCHIVE_VERSION = 1 as const
 
+/** @internal Exported for workflow tests that exercise archive failure propagation. */
 export class UnsupportedProtocolArchiveVersionError extends Error {
   constructor(matchId: MatchId, version: number) {
     super(`Unsupported protocol archive version ${String(version)} for match ${matchId}`)
@@ -16,6 +17,7 @@ export class UnsupportedProtocolArchiveVersionError extends Error {
   }
 }
 
+/** @internal Exported for workflow tests that exercise archive failure propagation. */
 export class ProtocolArchiveCorruptionError extends Error {
   constructor(matchId: MatchId) {
     super(`Protocol archive storage corruption for match ${matchId}`)

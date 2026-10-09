@@ -15,3 +15,9 @@ Read this before changing dependency versions, package-manager metadata, or the 
 - Keep `typegen` directly before the single root `tsc --build`. There are no per-package typecheck tasks; move generation into Turbo only if generated-output caching provides measured value.
 - Bun metadata has consumers outside manifests. Before changing its version, `devEngines.packageManager`, or its representation, read [provisioning guidance](../.agents/AGENTS.md) and inspect `.agents/setup`, `.agents/resume`, and CI/tooling references. Update affected consumers in the same change.
 - Provisioning verification is separate from the full code gate; follow the setup/resume checks in that guidance.
+
+## Knip Delivery Review
+
+Generate framework types with `bun run typegen` if Knip reports missing route or Worker declarations. Review both modes as required by root guidance.
+
+Test-consumed exports use declaration-level `@internal` tags with a reason: production mode omits those exports, while default mode still detects unused test APIs. Two test-only fixture files are excluded through production-only negative `project` patterns in `package.json`; they remain checked in default mode. Keep the positive project globs aligned with Knip's default source extensions. Avoid broad ignores that hide orphaned tests or unrelated exports.

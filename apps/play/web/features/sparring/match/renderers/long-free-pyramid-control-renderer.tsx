@@ -28,6 +28,7 @@ export function LongFreePyramidControlRenderer(
   )
 }
 
+/** @internal Exported for command-label contract tests. */
 export function labelLongFreePyramidCommands(controls: readonly Control[]): LabelledLongFreePyramidCommand[] {
   return controls.map((command) => {
     if (command.type !== 'pot.record') return { kind: 'command', command }

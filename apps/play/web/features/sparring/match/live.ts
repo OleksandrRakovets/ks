@@ -11,13 +11,14 @@ export function matchCommandForm(command: MatchCommand) {
   return { command: JSON.stringify(command) }
 }
 
+/** @internal Exported for live-revalidation contract tests. */
 export type ControlLiveState = {
   latestSeq: number
   suppressUntilSeq: number
   localSubmitInFlight: boolean
 }
 
-export type ControlLiveEvent =
+type ControlLiveEvent =
   | { type: 'snapshot'; latestSeq: number }
   | { type: 'submit-started' }
   | { type: 'submit-finished' }
@@ -25,11 +26,12 @@ export type ControlLiveEvent =
   | { type: 'update'; seq: number }
   | { type: 'match-finished'; seq: number }
 
-export type ControlLiveTransition = {
+type ControlLiveTransition = {
   state: ControlLiveState
   revalidate: boolean
 }
 
+/** @internal Exported for live-revalidation contract tests. */
 export function transitionControlLive(
   state: ControlLiveState,
   event: ControlLiveEvent,

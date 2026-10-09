@@ -164,6 +164,7 @@ export function isGameKey(value: string): value is GameKey {
   return v.is(GameKey, value)
 }
 
+/** @internal Enumerates registered games for command-boundary tests. */
 export function listGameKeys(): GameKey[] {
   const keys: GameKey[] = []
 

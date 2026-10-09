@@ -314,6 +314,7 @@ export function getPhase(snapshot: LongFreePyramidFrameSnapshot): LongFreePyrami
   return v.parse(LongFreePyramidPhase, snapshot.value)
 }
 
+/** @internal Direct machine transition helper for game-rule tests. */
 export function sendEvent(
   snapshot: LongFreePyramidFrameSnapshot,
   event: LongFreePyramidCommand,

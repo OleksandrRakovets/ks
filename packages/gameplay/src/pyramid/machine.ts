@@ -256,6 +256,7 @@ export function getPhase(snapshot: PyramidFrameSnapshot): PyramidPhase {
   return v.parse(PyramidPhase, snapshot.value)
 }
 
+/** @internal Direct machine transition helper for game-rule tests. */
 export function sendEvent(snapshot: PyramidFrameSnapshot, event: PyramidCommand): PyramidFrameSnapshot {
   invariant(snapshot.can(event), () => `Invalid Pyramid event ${event.type} in phase ${getPhase(snapshot)}`)
 
