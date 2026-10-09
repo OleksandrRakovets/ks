@@ -59,66 +59,6 @@ export async function loadSetupPage({
   }
 }
 
-function rematchSetupFromUrl(
-  url: string,
-  profile: MatchCreateProfile,
-): Pick<CreateSparringMatchInput, 'playerNames' | 'targets' | 'gameConfiguration'> | null {
-  const search = new URL(url).searchParams
-
-  if (search.get('rematch') !== '1') return null
-
-  const parsed = v.safeParse(RematchSetupQuery, {
-    seatAName: search.get('seatAName'),
-    seatBName: search.get('seatBName'),
-    matchTargetFrames: search.get('matchTargetFrames'),
-    targetA: search.get('targetA'),
-    targetB: search.get('targetB'),
-  })
-
-  if (!parsed.success) return null
-
-  if (
-    profile.matchTargetFrames.mode === 'fixed' &&
-    parsed.output.matchTargetFrames !== profile.matchTargetFrames.fixedValue
-  )
-    return null
-
-  const rackRollover = parseRackRollover(search.get('rackRollover'))
-
-  if (profile.rackRollover ? rackRollover === null : search.has('rackRollover')) return null
-
-  const rematch = {
-    playerNames: { A: parsed.output.seatAName, B: parsed.output.seatBName },
-    targets: {
-      matchTargetFrames: parsed.output.matchTargetFrames,
-      frameTargetPointsBySeat: { A: parsed.output.targetA, B: parsed.output.targetB },
-    },
-  }
-
-  return rackRollover === null ? rematch : { ...rematch, gameConfiguration: { rackRollover } }
-}
-
-function profileWithRematchDefaults(
-  profile: MatchCreateProfile,
-  rematch: Pick<CreateSparringMatchInput, 'playerNames' | 'targets' | 'gameConfiguration'>,
-): MatchCreateProfile {
-  const defaults: MatchCreateProfile = {
-    ...profile,
-    defaultFrameTargetPointsBySeat: rematch.targets.frameTargetPointsBySeat,
-    matchTargetFrames:
-      profile.matchTargetFrames.mode === 'fixed'
-        ? profile.matchTargetFrames
-        : { ...profile.matchTargetFrames, defaultValue: rematch.targets.matchTargetFrames },
-  }
-
-  if (!profile.rackRollover || !rematch.gameConfiguration?.rackRollover) return defaults
-
-  return {
-    ...defaults,
-    rackRollover: { ...profile.rackRollover, defaultValue: rematch.gameConfiguration.rackRollover },
-  }
-}
-
 export async function createSetupMatch({
   params,
   request,
@@ -207,6 +147,66 @@ export async function createSetupMatch({
   }
 
   return redirect(matchUrl(gameKey, result.matchId, localeFromContext(context)))
+}
+
+function rematchSetupFromUrl(
+  url: string,
+  profile: MatchCreateProfile,
+): Pick<CreateSparringMatchInput, 'playerNames' | 'targets' | 'gameConfiguration'> | null {
+  const search = new URL(url).searchParams
+
+  if (search.get('rematch') !== '1') return null
+
+  const parsed = v.safeParse(RematchSetupQuery, {
+    seatAName: search.get('seatAName'),
+    seatBName: search.get('seatBName'),
+    matchTargetFrames: search.get('matchTargetFrames'),
+    targetA: search.get('targetA'),
+    targetB: search.get('targetB'),
+  })
+
+  if (!parsed.success) return null
+
+  if (
+    profile.matchTargetFrames.mode === 'fixed' &&
+    parsed.output.matchTargetFrames !== profile.matchTargetFrames.fixedValue
+  )
+    return null
+
+  const rackRollover = parseRackRollover(search.get('rackRollover'))
+
+  if (profile.rackRollover ? rackRollover === null : search.has('rackRollover')) return null
+
+  const rematch = {
+    playerNames: { A: parsed.output.seatAName, B: parsed.output.seatBName },
+    targets: {
+      matchTargetFrames: parsed.output.matchTargetFrames,
+      frameTargetPointsBySeat: { A: parsed.output.targetA, B: parsed.output.targetB },
+    },
+  }
+
+  return rackRollover === null ? rematch : { ...rematch, gameConfiguration: { rackRollover } }
+}
+
+function profileWithRematchDefaults(
+  profile: MatchCreateProfile,
+  rematch: Pick<CreateSparringMatchInput, 'playerNames' | 'targets' | 'gameConfiguration'>,
+): MatchCreateProfile {
+  const defaults: MatchCreateProfile = {
+    ...profile,
+    defaultFrameTargetPointsBySeat: rematch.targets.frameTargetPointsBySeat,
+    matchTargetFrames:
+      profile.matchTargetFrames.mode === 'fixed'
+        ? profile.matchTargetFrames
+        : { ...profile.matchTargetFrames, defaultValue: rematch.targets.matchTargetFrames },
+  }
+
+  if (!profile.rackRollover || !rematch.gameConfiguration?.rackRollover) return defaults
+
+  return {
+    ...defaults,
+    rackRollover: { ...profile.rackRollover, defaultValue: rematch.gameConfiguration.rackRollover },
+  }
 }
 
 function stringFormValue(form: FormData, key: string): string {

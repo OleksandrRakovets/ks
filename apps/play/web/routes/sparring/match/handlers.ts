@@ -21,14 +21,6 @@ type RouteArgs = {
 
 const SubmittedMatchCommand = v.pipe(v.string(), v.parseJson(), MatchCommand)
 
-function matchIdFromParams(params: RouteArgs['params']): MatchId {
-  const matchId = v.safeParse(MatchId, params.matchId)
-
-  if (!matchId.success) throw new Response('Invalid matchId', { status: 400 })
-
-  return matchId.output
-}
-
 export async function loadMatchPage<K extends GameKey>(
   args: RouteArgs,
   expectedGameKey: K,
@@ -53,29 +45,6 @@ export async function loadMatchPage<K extends GameKey>(
   })
 }
 
-async function loadMatchProtocol<K extends GameKey>(args: RouteArgs, expectedGameKey: K) {
-  const matchId = matchIdFromParams(args.params)
-  const locale = localeFromContext(args.context)
-
-  const result = await requireApplication(args.context).sparring.readMatchProtocol(
-    matchId,
-    locale,
-    expectedGameKey,
-  )
-
-  if (!result.ok) {
-    switch (result.reason) {
-      // oxlint-disable-next-line typescript/no-unnecessary-condition -- Keep the single-reason contract exhaustive.
-      case 'unknown-match':
-        throw new Response('Unknown match', { status: 404 })
-      default:
-        throw new Error('Unhandled Protocol read failure', { cause: result.reason satisfies never })
-    }
-  }
-
-  return { ...result, shortGameTitle: registry[expectedGameKey].meta.shortGameTitle[locale] }
-}
-
 export async function loadMatchProtocolPage<K extends GameKey>(
   args: RouteArgs,
   expectedGameKey: K,
@@ -83,15 +52,6 @@ export async function loadMatchProtocolPage<K extends GameKey>(
   const protocol = await loadMatchProtocol(args, expectedGameKey)
 
   return decideMatchPage(protocol)
-}
-
-function decideMatchPage<Data extends { lifecycle: 'active' | 'finished' }>(
-  match: Data,
-): MatchPageDecision<Data> {
-  // SAFETY: lifecycle is the checked discriminant used by both Extract branches.
-  return match.lifecycle === 'finished'
-    ? { page: 'result', match: match as Extract<Data, { lifecycle: 'finished' }> }
-    : { page: 'control', match: match as Extract<Data, { lifecycle: 'active' }> }
 }
 
 export async function commandMatchAction(
@@ -140,4 +100,44 @@ export async function commandMatchAction(
     ok: true,
     acceptedSeqMax: result.outcome.acceptedSeq,
   }
+}
+
+function matchIdFromParams(params: RouteArgs['params']): MatchId {
+  const matchId = v.safeParse(MatchId, params.matchId)
+
+  if (!matchId.success) throw new Response('Invalid matchId', { status: 400 })
+
+  return matchId.output
+}
+
+async function loadMatchProtocol<K extends GameKey>(args: RouteArgs, expectedGameKey: K) {
+  const matchId = matchIdFromParams(args.params)
+  const locale = localeFromContext(args.context)
+
+  const result = await requireApplication(args.context).sparring.readMatchProtocol(
+    matchId,
+    locale,
+    expectedGameKey,
+  )
+
+  if (!result.ok) {
+    switch (result.reason) {
+      // oxlint-disable-next-line typescript/no-unnecessary-condition -- Keep the single-reason contract exhaustive.
+      case 'unknown-match':
+        throw new Response('Unknown match', { status: 404 })
+      default:
+        throw new Error('Unhandled Protocol read failure', { cause: result.reason satisfies never })
+    }
+  }
+
+  return { ...result, shortGameTitle: registry[expectedGameKey].meta.shortGameTitle[locale] }
+}
+
+function decideMatchPage<Data extends { lifecycle: 'active' | 'finished' }>(
+  match: Data,
+): MatchPageDecision<Data> {
+  // SAFETY: lifecycle is the checked discriminant used by both Extract branches.
+  return match.lifecycle === 'finished'
+    ? { page: 'result', match: match as Extract<Data, { lifecycle: 'finished' }> }
+    : { page: 'control', match: match as Extract<Data, { lifecycle: 'active' }> }
 }
