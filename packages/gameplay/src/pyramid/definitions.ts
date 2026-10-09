@@ -21,9 +21,9 @@ export const PyramidPhase = v.picklist(['not-started', 'open-play', 'winner-dete
 export type PyramidPhase = v.InferOutput<typeof PyramidPhase>
 
 export const PyramidContext = v.pipe(
-  v.object({
-    score: BySeatNumber,
-    targetPoints: BySeatNumber,
+  v.strictObject({
+    score: v.pipe(v.strictObject(BySeatNumber.entries), v.readonly()),
+    targetPoints: v.pipe(v.strictObject(BySeatNumber.entries), v.readonly()),
     rules: PyramidRules,
     winner: v.nullable(Seat),
   }),
@@ -32,7 +32,10 @@ export const PyramidContext = v.pipe(
 
 export type PyramidContext = v.InferOutput<typeof PyramidContext>
 
-export const PyramidCheckpoint = v.object({ value: PyramidPhase, context: PyramidContext })
+export const PyramidCheckpoint = v.pipe(
+  v.strictObject({ value: PyramidPhase, context: PyramidContext }),
+  v.readonly(),
+)
 
 export type PyramidCheckpoint = v.InferOutput<typeof PyramidCheckpoint>
 

@@ -6,7 +6,7 @@ const PyramidGameKey = v.picklist(['free-pyramid', 'combined-pyramid', 'combined
 export type PyramidGameKey = v.InferOutput<typeof PyramidGameKey>
 
 export const PyramidRules = v.pipe(
-  v.object({
+  v.strictObject({
     gameKey: PyramidGameKey,
     allowNegative: v.boolean(),
     foulPenalty: v.picklist(['opponent-plus-one', 'offender-minus-one']),

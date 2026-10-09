@@ -1,4 +1,12 @@
-import { BySeatNumber, FrameOutcome, opponentOf, PositiveInteger, Seat } from '@ks/core'
+import {
+  BySeatNumber,
+  FrameOutcome,
+  GameConfiguration,
+  MatchTargets,
+  opponentOf,
+  PositiveInteger,
+  Seat,
+} from '@ks/core'
 import * as v from 'valibot'
 import { assign, initialTransition, setup, type SnapshotFrom, transition } from 'xstate'
 
@@ -8,26 +16,59 @@ const MatchPhase = v.picklist(['between-frames', 'frame-in-progress', 'finished'
 
 export type MatchPhase = v.InferOutput<typeof MatchPhase>
 
-export const MatchMachineCheckpoint = v.object({
-  value: MatchPhase,
-  context: v.object({
-    config: MatchConfig,
-    completedFrames: v.pipe(
-      v.array(
-        v.object({
-          frameIndex: PositiveInteger,
-          breakerSeat: Seat,
-          outcome: FrameOutcome,
-        }),
-      ),
+export const MatchMachineCheckpoint = v.pipe(
+  v.strictObject({
+    value: MatchPhase,
+    context: v.pipe(
+      v.strictObject({
+        config: v.pipe(
+          v.strictObject({
+            ...MatchConfig.entries,
+            targets: v.pipe(
+              v.strictObject({
+                ...MatchTargets.entries,
+                frameTargetPointsBySeat: v.pipe(
+                  v.strictObject(MatchTargets.entries.frameTargetPointsBySeat.entries),
+                  v.readonly(),
+                ),
+              }),
+              v.readonly(),
+            ),
+            gameConfiguration: v.optional(v.pipe(v.strictObject(GameConfiguration.entries), v.readonly())),
+          }),
+          v.readonly(),
+        ),
+        completedFrames: v.pipe(
+          v.array(
+            v.pipe(
+              v.strictObject({
+                frameIndex: PositiveInteger,
+                breakerSeat: Seat,
+                outcome: v.pipe(
+                  v.strictObject({
+                    ...FrameOutcome.entries,
+                    score: v.pipe(v.strictObject(BySeatNumber.entries), v.readonly()),
+                  }),
+                  v.readonly(),
+                ),
+              }),
+              v.readonly(),
+            ),
+          ),
+          v.readonly(),
+        ),
+        framesWonBySeat: v.pipe(v.strictObject(BySeatNumber.entries), v.readonly()),
+        nextFrameIndex: PositiveInteger,
+        activeFrame: v.nullable(
+          v.pipe(v.strictObject({ frameIndex: PositiveInteger, breakerSeat: Seat }), v.readonly()),
+        ),
+        winnerSeat: v.nullable(Seat),
+      }),
       v.readonly(),
     ),
-    framesWonBySeat: BySeatNumber,
-    nextFrameIndex: PositiveInteger,
-    activeFrame: v.nullable(v.object({ frameIndex: PositiveInteger, breakerSeat: Seat })),
-    winnerSeat: v.nullable(Seat),
   }),
-})
+  v.readonly(),
+)
 
 export type MatchMachineCheckpoint = v.InferOutput<typeof MatchMachineCheckpoint>
 

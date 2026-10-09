@@ -119,14 +119,35 @@ export type GameKey = v.InferOutput<typeof GameKey>
 
 /** Correlates the registered game key with its complete executable frame state. */
 export const GameplayCheckpoint = v.variant('gameKey', [
-  v.object({ gameKey: v.literal('strila-v2'), state: registry['strila-v2'].checkpointSchema }),
-  v.object({ gameKey: v.literal('free-pyramid-long'), state: registry['free-pyramid-long'].checkpointSchema }),
-  v.object({ gameKey: v.literal('free-pyramid'), state: registry['free-pyramid'].checkpointSchema }),
-  v.object({ gameKey: v.literal('combined-pyramid'), state: registry['combined-pyramid'].checkpointSchema }),
-  v.object({
-    gameKey: v.literal('combined-pyramid-old'),
-    state: registry['combined-pyramid-old'].checkpointSchema,
-  }),
+  v.pipe(
+    v.strictObject({ gameKey: v.literal('strila-v2'), state: registry['strila-v2'].checkpointSchema }),
+    v.readonly(),
+  ),
+  v.pipe(
+    v.strictObject({
+      gameKey: v.literal('free-pyramid-long'),
+      state: registry['free-pyramid-long'].checkpointSchema,
+    }),
+    v.readonly(),
+  ),
+  v.pipe(
+    v.strictObject({ gameKey: v.literal('free-pyramid'), state: registry['free-pyramid'].checkpointSchema }),
+    v.readonly(),
+  ),
+  v.pipe(
+    v.strictObject({
+      gameKey: v.literal('combined-pyramid'),
+      state: registry['combined-pyramid'].checkpointSchema,
+    }),
+    v.readonly(),
+  ),
+  v.pipe(
+    v.strictObject({
+      gameKey: v.literal('combined-pyramid-old'),
+      state: registry['combined-pyramid-old'].checkpointSchema,
+    }),
+    v.readonly(),
+  ),
 ])
 
 export type GameplayCheckpoint = v.InferOutput<typeof GameplayCheckpoint>

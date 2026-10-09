@@ -10,6 +10,7 @@ Gameplay owns game-specific frame rules, execution, restoration, and the coheren
 - Game Presentation describes state; Controls are separate disposable capabilities. Derive them coherently from the same state, not as competing authorities.
 - Use the directly declared `tiny-invariant` for predicate/invariant guards; messages are stripped in production. Unconditional unsupported-case throws may remain explicit. Guards do not replace boundary validation or typed command rejections.
 - Checkpoints contain serializable snapshot values and contexts, not running actors. Restoration must preserve subsequent command behavior, not merely displayed scores.
+- Executable checkpoint objects, snapshot values, and nested contexts are closed (`strictObject`) and readonly. Shared public presentation/result representations remain tolerant; reuse their field schemas in closed state contracts rather than tightening the representations. Readonly is a type contract, not runtime freezing.
 
 ## Changes And Checks
 

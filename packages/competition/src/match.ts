@@ -1,9 +1,10 @@
 import { type Control, type FrameOutcome, type MatchCommand, opponentOf, Seat } from '@ks/core'
-import { GameKey, type GamePresentationFor, GameResult } from '@ks/gameplay/definitions'
+import { GameKey, type GamePresentationFor, type GameResult } from '@ks/gameplay/definitions'
 import {
   GameCommandRejection,
   GameplayCheckpoint,
   type GameplaySession,
+  GameResultCheckpoint,
   parseGameCommand,
   restoreGameplaySession,
 } from '@ks/gameplay/server'
@@ -23,11 +24,14 @@ import {
 import type { ProtocolEntryContent } from './protocol'
 
 /** Complete executable aggregate state; storage cursor and Protocol are deliberately separate. */
-export const MatchCheckpoint = v.object({
-  lifecycle: MatchMachineCheckpoint,
-  gameplay: v.nullable(GameplayCheckpoint),
-  completedGameResult: v.nullable(GameResult),
-})
+export const MatchCheckpoint = v.pipe(
+  v.strictObject({
+    lifecycle: MatchMachineCheckpoint,
+    gameplay: v.nullable(GameplayCheckpoint),
+    completedGameResult: v.nullable(GameResultCheckpoint),
+  }),
+  v.readonly(),
+)
 
 export type MatchCheckpoint = v.InferOutput<typeof MatchCheckpoint>
 

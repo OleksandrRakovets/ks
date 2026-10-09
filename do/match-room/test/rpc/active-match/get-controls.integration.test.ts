@@ -52,12 +52,15 @@ test('returns the compact score at the authoritative sequence', async () => {
   })
 })
 
-test('reads score and command receipts without restoring a damaged checkpoint, but rejects rich reads', async () => {
+test.each([
+  "UPDATE checkpoints SET aggregate_json = '{}' WHERE seq = 1",
+  "UPDATE checkpoints SET aggregate_json = json_set(aggregate_json, '$.gameplay.state.context.futureField', 1) WHERE seq = 1",
+])('reads score and receipts but rejects rich reads with damaged checkpoint: %s', async (damage) => {
   const { matchId, stub } = await initializedRoom()
   const accepted = commenceCommand()
   await stub.submitCommand(accepted)
   await runInDurableObject(stub, (_room, state) => {
-    state.storage.sql.exec("UPDATE checkpoints SET aggregate_json = '{}' WHERE seq = 1")
+    state.storage.sql.exec(damage)
   })
   await evictDurableObject(stub)
   const restored = env.MATCH_ROOM.getByName(matchId)

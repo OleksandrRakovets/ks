@@ -88,3 +88,25 @@ const LongFreePyramidResult = v.pipe(
 export const GameResult = LongFreePyramidResult
 
 export type GameResult = v.InferOutput<typeof GameResult>
+
+/** Closed rack state for executable checkpoints; public racks intentionally strip unknown fields. */
+export const LongFreePyramidRackCheckpoint = v.pipe(
+  v.strictObject({
+    ...LongFreePyramidRack.entries,
+    scoreBySeat: v.pipe(v.strictObject(BySeatNumber.entries), v.readonly()),
+  }),
+  v.readonly(),
+)
+
+export type LongFreePyramidRackCheckpoint = v.InferOutput<typeof LongFreePyramidRackCheckpoint>
+
+/** Retained aggregate state, distinct from the tolerant archived/public result representation. */
+export const GameResultCheckpoint = v.pipe(
+  v.strictObject({
+    ...GameResult.entries,
+    racks: v.pipe(v.array(LongFreePyramidRackCheckpoint), v.minLength(1), v.readonly()),
+  }),
+  v.readonly(),
+)
+
+export type GameResultCheckpoint = v.InferOutput<typeof GameResultCheckpoint>

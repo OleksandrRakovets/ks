@@ -7,6 +7,7 @@ import {
   FrameCommenceCommand,
   GamePresentation,
   LongFreePyramidRack,
+  LongFreePyramidRackCheckpoint,
 } from '../constants'
 
 export { type LongFreePyramidRack } from '../constants'
@@ -50,22 +51,28 @@ export const LongFreePyramidPhase = v.picklist([
 export type LongFreePyramidPhase = v.InferOutput<typeof LongFreePyramidPhase>
 
 export const LongFreePyramidContext = v.pipe(
-  v.object({
-    racks: v.pipe(v.array(LongFreePyramidRack), v.minLength(1), v.readonly()),
-    targetPoints: BySeatNumber,
+  v.strictObject({
+    racks: v.pipe(v.array(LongFreePyramidRackCheckpoint), v.minLength(1), v.readonly()),
+    targetPoints: v.pipe(v.strictObject(BySeatNumber.entries), v.readonly()),
     rackRollover: v.picklist([14, 15]),
     winner: v.nullable(Seat),
-    messages: v.pipe(v.array(LongFreePyramidMessage), v.readonly()),
+    messages: v.pipe(
+      v.array(v.pipe(v.strictObject(LongFreePyramidMessage.entries), v.readonly())),
+      v.readonly(),
+    ),
   }),
   v.readonly(),
 )
 
 export type LongFreePyramidContext = v.InferOutput<typeof LongFreePyramidContext>
 
-export const LongFreePyramidCheckpoint = v.object({
-  value: LongFreePyramidPhase,
-  context: LongFreePyramidContext,
-})
+export const LongFreePyramidCheckpoint = v.pipe(
+  v.strictObject({
+    value: LongFreePyramidPhase,
+    context: LongFreePyramidContext,
+  }),
+  v.readonly(),
+)
 
 export type LongFreePyramidCheckpoint = v.InferOutput<typeof LongFreePyramidCheckpoint>
 

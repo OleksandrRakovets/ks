@@ -95,14 +95,14 @@ const PottedBallsBySeat = v.pipe(
 )
 
 export const StrilaContext = v.pipe(
-  v.object({
-    score: BySeatNumber,
-    targetPoints: BySeatNumber,
+  v.strictObject({
+    score: v.pipe(v.strictObject(BySeatNumber.entries), v.readonly()),
+    targetPoints: v.pipe(v.strictObject(BySeatNumber.entries), v.readonly()),
     coloredBallsOnTable: v.pipe(v.array(ColoredBall), v.readonly()),
-    pottedBallsBySeat: PottedBallsBySeat,
+    pottedBallsBySeat: v.pipe(v.strictObject(PottedBallsBySeat.entries), v.readonly()),
     cueBallSerialPots: v.nullable(
       v.pipe(
-        v.object({
+        v.strictObject({
           seat: Seat,
           count: v.union([v.literal(1), v.literal(2)]),
         }),
@@ -120,13 +120,15 @@ export const StrilaContext = v.pipe(
 
 export type StrilaContext = v.InferOutput<typeof StrilaContext>
 
-export const FoulSnapshotValue = v.strictObject({
-  'foul-committed': v.picklist(['penalty-selection', 'ball-in-hand']),
-})
+export const FoulSnapshotValue = v.pipe(
+  v.strictObject({ 'foul-committed': v.picklist(['penalty-selection', 'ball-in-hand']) }),
+  v.readonly(),
+)
 
-export const RespottedBlackSnapshotValue = v.strictObject({
-  'respotted-black': v.picklist(['opening-selection', 'opening', 'play']),
-})
+export const RespottedBlackSnapshotValue = v.pipe(
+  v.strictObject({ 'respotted-black': v.picklist(['opening-selection', 'opening', 'play']) }),
+  v.readonly(),
+)
 
 export const StrilaSnapshotValue = v.union([
   v.picklist(['not-started', 'open-play', 'winner-determined', 'frame-over']),
@@ -134,7 +136,10 @@ export const StrilaSnapshotValue = v.union([
   RespottedBlackSnapshotValue,
 ])
 
-export const StrilaCheckpoint = v.object({ value: StrilaSnapshotValue, context: StrilaContext })
+export const StrilaCheckpoint = v.pipe(
+  v.strictObject({ value: StrilaSnapshotValue, context: StrilaContext }),
+  v.readonly(),
+)
 
 export type StrilaCheckpoint = v.InferOutput<typeof StrilaCheckpoint>
 
