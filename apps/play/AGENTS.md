@@ -19,6 +19,15 @@ Play is the single Cloudflare Worker deployable. It owns HTTP and presentation, 
 - Share Active/Finished surface compositions between Match and Protocol pages. Feature-local presentation functions derive copy and emphasis; Shell and Board render resolved props. Page controllers own submission and live revalidation.
 - The curated game shelf's localized JSX copy belongs in `web/routes/sparring/index.tsx`, independently of registry names used by Setup. Adding a game also requires its card and routes.
 
+## Test Boundaries
+
+- Do not add a unit test merely because a function or component was added or changed. Before adding one, identify the observable rule and a plausible incorrect decision it would catch; the test should survive moving or inlining helpers without changing that rule.
+- Unit-test Play-owned decisions: input acceptance/rejection, HTTP status and redirect mapping, live-revalidation transitions, and non-trivial presentation choices such as score emphasis or control availability. Pure functions are suitable when they make these decisions; purity alone does not justify a test. Keep game-rule matrices in gameplay, not Play.
+- Do not unit-test JSX output, rendered markup, component trees, snapshots, class names, or component/prop composition. Rendering, accessibility, styling, and user interactions belong in browser checks. Test presentation decisions through semantic values, not their JSX encoding.
+- Skip assertions that merely restate construction or wiring: a factory returns its supplied/newly defined function, a wrapper forwards unchanged arguments or props, or a helper reproduces a literal object. Assert identity, invocation order, or call counts only when they are themselves required observable behavior, not incidental implementation choices. Route tests should assert the HTTP contract rather than just mocked calls.
+- Do not extract helpers, widen exports, or add `@internal` tags solely to make trivial wiring unit-testable. Prefer an existing behavioral entrypoint; a small pure decision function is appropriate when it also clarifies production code.
+- Use the browser suite when available. Until it is merged, exercise affected UI states in the browser and report what was verified and any gaps; missing browser infrastructure is not permission to substitute JSX unit tests or introduce a temporary renderer/test harness.
+
 ## Deployment And Checks
 
 - `wrangler.jsonc` owns Worker bindings and MatchRoom class migrations. Per-room SQL migrations are separate; follow the repository-root `docs/db.md` and root deployment policy. Production is `https://play.ks.ua`.
