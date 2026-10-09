@@ -1,6 +1,6 @@
 # MatchRoom
 
-This file describes how MatchRoom is implemented. Use the repository architecture map to decide whether a task belongs here; use this file after that decision.
+MatchRoom owns serialized active/finalizing execution and per-match SQLite. For cross-store creation and archival ordering, see the repository-root `docs/decisions/current-architecture.md`.
 
 ## Runtime Shape
 
@@ -13,9 +13,7 @@ This file describes how MatchRoom is implemented. Use the repository architectur
 ## Lifecycle Handlers
 
 - Initialization verifies that the Durable Object name matches the input Match ID, persists the same configuration idempotently, and reports different initialization as `initialization-conflict`. Later RPC methods derive identity from the selected object.
-- `MatchStorage` lazily reads the single current `MatchRecord` into mutually exclusive active or finalizing pointers. `optionalMatchRecord` is nullable only for initialization; later code uses the required union or lifecycle-specific getters.
-- `MatchRoom.#requireHandler` selects the lifecycle handler from `anyMatchRecord`. Active and finalizing handlers proxy their already-narrowed storage record without repeating status checks.
-- Handler constructors receive service dependencies, not a record snapshot. Do not pass the record back into storage operations; the repository is already scoped to this Durable Object's Match.
+- Narrow lifecycle once when selecting a handler. Only initialization permits missing authority; handlers receive service dependencies, not stale record snapshots. Storage is already scoped to the selected Match.
 - Creation and Accepted Command transactions update the cached record only after SQLite commits successfully. Keep every future `active_matches` mutation and its cache update in the same storage operation.
 - Do not retain a running Match or gameplay actor across requests.
 - Active operations restore the request-local aggregate from the checkpoint at the record cursor. Finalizing operations restore the terminal checkpoint. No read replays Accepted Commands.
@@ -23,13 +21,10 @@ This file describes how MatchRoom is implemented. Use the repository architectur
 
 ## Storage Vocabulary And Boundary
 
-- **Row** means the exact Drizzle/SQLite representation, including columns such as `configJson`, `aggregateJson`, and `entryJson`.
-- **Record** means the validated storage representation after JSON columns are parsed and renamed, such as `MatchRecord`, `ActiveMatchRecord`, and `FinalizingMatchRecord`.
-- **Domain value** means values owned by core, gameplay, or competition, such as `MatchCommand`, `MatchCheckpoint`, and `ProtocolEntry`.
+- **Rows** are Drizzle/SQLite representations with raw JSON; **records** are validated storage values; **domain values** belong to core, gameplay, or competition.
 - `src/storage/schema.ts` defines rows. `src/storage/records.ts` maps rows to validated records or domain values. `src/storage/match-storage.ts` owns queries and transactions.
 - Raw `*Json` fields and their parsing must not leave `src/storage`. Name read mappings `*FromRow`; repository and handler APIs expose records or domain values.
 - Keep writes beside the insert or update that owns them. Do not add generic `*RowFromRecord` reverse mappings when operations write different column subsets; add one only when multiple operations genuinely assemble the same complete row.
-- Validate persisted rows and JSON when they are read from storage. Do not reparse trusted typed RPC values merely because they cross the Play-to-MatchRoom binding.
 
 ## Durable Authority
 
@@ -40,11 +35,10 @@ This file describes how MatchRoom is implemented. Use the repository architectur
 - Compare command retries as decoded values rather than serialized JSON. Reusing a command ID with different content is a conflict.
 - Identical accepted and rejected retries return their stored outcomes. After finalization, only retrying the match-ending acceptance reports `endsMatch: true`.
 - Score and socket-cursor reads use the compact Match record. Rich reads restore the latest checkpoint. Protocol reads use the stored entries.
-- Checkpoints persist XState snapshot values and contexts, not running actors. Every deployment requires zero live Matches and completed finalization/archival, per root `AGENTS.md`; there is no checkpoint-version router or replay fallback.
+- Checkpoints persist XState snapshot values and contexts, not running actors.
 - The match-ending acceptance stores the terminal checkpoint, `endedAt`, and `finalizing` status in the same transaction. Broadcast and socket closure happen only after that commit.
 - `prepareArchive` transfers the checkpoint-derived final state, game result, and stored Protocol. MatchRoom remains finalizing after D1 finishes; finished reads must not return here.
-- Finalizing reads do not invoke archive transfer and warn with the Match ID and age. There is no background archival retry or retained-storage cleanup yet.
-- The generated control secret is stored here but is not exposed or checked by the current command path.
+- Finalizing reads do not invoke archive transfer and warn with the Match ID and age.
 
 ## Live Connections
 
@@ -54,7 +48,7 @@ This file describes how MatchRoom is implemented. Use the repository architectur
 
 ## Migrations And Checks
 
-- MatchRoom SQLite has a migration history independent from D1. Follow `.tracker/db.md` for schema changes.
-- The zero-live-Match deployment policy means retained historical rooms do not require data backfills or old-checkpoint compatibility code. Finished reads use D1; new rooms still require schema initialization through the runtime migrator. Do not rewrite applied migration history.
+- MatchRoom SQLite has a migration history independent from D1. Follow the repository-root `docs/db.md` for schema changes.
+- Under the root deployment policy, retained rooms need no historical backfills, checkpoint-version router, or replay fallback. New rooms still require schema initialization through the runtime migrator.
 - Drizzle generates migration SQL and snapshots. Maintain `drizzle/migrations.js` manually when generating a migration, and do not hand-format generated files.
-- Use `bun run --filter '@ks/match-room' test:integration` for storage, lifecycle, RPC, or disposal behavior. Play's build owns the deployable boundary. Use the root gates according to the root `AGENTS.md`; do not rerun overlapping checks on unchanged code.
+- Storage, lifecycle, RPC, and disposal behavior belong in Workerd integration tests. Optional diagnostic shortcut from the repository root: `bun run --filter '@ks/match-room' test:integration`; the root full gate already includes it. Play's build owns the deployable boundary.

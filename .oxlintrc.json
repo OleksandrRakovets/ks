@@ -23,7 +23,7 @@
     ".pi/**",
     ".roo/**",
     // Planning prose and temporary output are outside the code lint policy.
-    ".tracker/**",
+    "docs/**",
     ".windsurf/**",
     "tmp/**",
     // Keep the intentionally unmodified vendored rules aligned with upstream.

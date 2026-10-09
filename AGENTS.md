@@ -1,92 +1,52 @@
-## Product
+# KS
 
-KS is a two-player billiards scorekeeper with public live scoring. A match is a race across frames; seats are always `A` and `B`. Supported games are registered in `packages/gameplay/src/registry.ts`.
+KS is a two-player billiards scorekeeper with public live scoring. Matches are races across frames; seats are `A` and `B`. Consult [GLOSSARY.md](GLOSSARY.md) when changing domain terminology.
 
-Consult the relevant definitions in CONTEXT.md when introducing or changing domain terminology. Treat it as authoritative.
+## Working Agreements
 
-## Working Mode
+- Prefer architectural clarity and small, reviewable changes. Ask before adding dependencies, workspace packages, or architectural layers; small internal extractions need no approval.
+- Allow focused regression tests for the requested change using existing infrastructure. Ask before broad coverage expansion, new test infrastructure, or substantial fixtures.
+- Test behavior at its lowest owning layer. Higher-level tests cover wiring, persistence, transport, and lifecycle boundaries, not repeated domain rule matrices. Assert observable contracts, not implementation shape.
 
-- Optimize for architectural clarity and small, reviewable slices.
-- For change requests, implement and verify unless the user requests an architecture-only or review-first phase. Keep reviews, investigations, and explanations read-only unless changes are requested.
-- Ask before adding dependencies or workspace packages, or introducing a new architectural layer. Small internal extractions within existing boundaries do not require approval.
-- Keep only durable, current architecture notes in `.tracker/decisions/`.
-- Allow focused regression tests for the requested change using existing test infrastructure. Ask before broad coverage expansion, new test infrastructure, or substantial fixtures.
-- Test each behavior at the lowest layer that owns it. Higher-level tests should cover wiring, persistence, transport, or lifecycle boundaries rather than repeat lower-level rule matrices. Assert observable contracts, not source strings, implementation shape, or the existence of tests.
+## Ownership And Guidance
 
-## Commands
+Domain dependencies flow `core <- gameplay <- competition`. Play owns HTTP and presentation; application owns use-case orchestration and D1; MatchRoom owns serialized active/finalizing execution and per-match SQLite. Finished reads use D1 only. Never mirror the active command ledger into D1.
 
-- Install: `bun install`
-- Develop on strict port `7529`: `bun run dev`
-- Fast gate: `bun run check`
-- Full integration/build gate: `bun run check:full`
-- Tests: `bun test`; Workerd integration: `bun run test:integration`
-- Format/lint: `bun run format`, `bun run lint`, `bun run lint:fix`
-- Boundary check: `bun run check:boundaries`
-- Local D1: `bun run --cwd packages/application db:migrate:local`, `bun run --cwd packages/application db:seed:local`, `bun run --cwd packages/application db:studio:local`
-- Generate migrations: `bun run --cwd packages/application db:generate`, `bun run --cwd do/match-room db:generate`
-- Reset local data: `bun run db:reset:local`
-- Database migration workflows: `.tracker/db.md`
-- UI design rules: `.tracker/design.md`
+Read the owning component's `AGENTS.md` before changing it:
 
-`typegen` intentionally runs directly before the single root `tsc --build`. Keep it outside Turbo unless generated-output caching provides measured value; there are no per-package typecheck tasks for Turbo to schedule.
+- [Play](apps/play/AGENTS.md): routes, browser UI, Worker deployment. For UI changes, also read [design rules](docs/design.md).
+- [Gameplay](packages/gameplay/AGENTS.md): game semantics and frame execution.
+- [Competition](packages/competition/AGENTS.md): Match lifecycle, restoration, and Correction.
+- [Application](packages/application/AGENTS.md): workflows, projections, and D1.
+- [MatchRoom](do/match-room/AGENTS.md): active/finalizing execution, receipts, SQLite, checkpoints, Protocol persistence, and socket fan-out—even when changing a caller outside that directory.
 
-`check` and `check:full` apply formatting before running their remaining gates. `check:full` also includes integration projects and the Play deployable build.
+For cross-component changes, read the [architecture map](docs/decisions/current-architecture.md). For schema/data migrations, read [database operations](docs/db.md). For dependency or toolchain changes, read [maintenance](docs/maintenance.md); Bun metadata changes also require [.agents guidance](.agents/AGENTS.md).
 
-These commands overlap. Choose the appropriate gate; do not rerun its constituent checks on unchanged code.
+## Shared Conventions
 
-## Dependencies
+- Validate external input, persisted rows/JSON, browser storage, and restored machine state. Internal MatchRoom RPC is a trusted typed capability; do not reparse canonical values solely because they cross RPC.
+- Use Valibot built-ins and give schemas and inferred types the same name, without a `Schema` suffix. Use non-empty tuples for non-empty contracts, strict objects for closed variants/internal state, and stripping objects at representation boundaries where forward compatibility is intentional.
+- Domain values and projections are readonly; mutable construction locals are fine. Establish readonly at the validated/returned boundary, without extra copying.
+- Reuse core seat contracts (`Seat`, `BySeatNumber`, `opponentOf`). Outside gameplay, use explicit/custom errors that retain production diagnostics.
+- Put primary exports before private helpers. Use native `#` private members.
+- Document supported interfaces and non-obvious invariants, not syntax or self-explanatory DTOs. Put JSDoc on the original declaration; tags must add information beyond the type.
 
-- For dependency audits or upgrades, check all workspaces with `bun outdated --recursive`.
-- Shared versions belong in root `workspaces.catalog`; consumers use `"catalog:"`.
-- Change the owning manifest, then run `bun install` to regenerate `bun.lock`.
-- Package-manager and toolchain metadata has consumers outside dependency manifests. Before changing Bun's version, `devEngines.packageManager`, or its representation, inspect `.agents/setup`, `.agents/resume`, and any CI/tooling references; update affected consumers in the same change.
-- `.agents/setup` owns orb provisioning and reads the declared Bun version. For changes affecting provisioning, run setup twice to verify idempotence, then run `.agents/resume`. `check:full` does not exercise orb startup.
-- Do not bypass Bun's configured two-day package release cooldown.
-- Keep source-policy tools (`typescript`, `oxlint`, `@oxlint/plugins`, and `oxlint-tsgolint`) on exact versions so compiler or diagnostic changes happen only in explicit toolchain updates.
-- Match TypeScript to the TypeScript-Go release embedded by `oxlint-tsgolint`; for example, `oxlint-tsgolint@7.0.2001` embeds TypeScript 7.0.2 plus tsgolint revision 001. Upgrade TypeScript and tsgolint together, update Oxlint and its plugin API deliberately, run `bun install`, then run `bun run check:full`.
+## Verification
 
-## Boundaries
+- Install: `bun install`. Develop on strict port `7529`: `bun run dev`.
+- Fast gate: `bun run check` (format, types, lint, boundaries, unit tests).
+- Full gate: `bun run check:full` (also Workerd integration and Play build).
 
-- Domain dependency direction is `core <- gameplay <- competition` and is enforced by `check:boundaries`.
-- Routes own HTTP parsing, cookies, redirects, and presentation adaptation. They receive `Application`; SQL, Durable Object calls, and use-case orchestration stay out of routes.
-- `@ks/application` owns private D1 adapters and its private typed MatchRoom capability. It must not expose generic repositories.
-- MatchRoom must not import Play, application, or D1 code.
-- Validate at external trust and representation boundaries: HTTP, persisted rows/JSON, browser storage, and restored machine state. Internal MatchRoom RPC within the Play Worker is a trusted typed capability; do not add runtime schemas or reparse canonical values solely because a call crosses Cloudflare RPC.
-- Schemas use Valibot. Prefer built-in actions such as `v.trim()` and `v.parseJson()`. Give the inferred type the exact name as the schema (the core package already does this).
-- Use core seat contracts (`Seat`, `BySeatNumber`, `opponentOf`) rather than local equivalents.
-- Keep one `game` path; gameplay runtimes own game-specific semantics.
-- Gameplay uses its directly declared `tiny-invariant` for predicate/invariant guards; their messages are stripped in production. Unconditional unsupported-case throws may remain explicit. Other packages use explicit/custom errors to retain production diagnostics. Invariant guards do not replace boundary validation or typed rejections.
-- Play's UI is app-local, not a workspace package. Generic primitives live in `apps/play/web/components/ui`; reusable product visuals or interactions with explicit props may live in `apps/play/web/components`. Keep feature-specific or one-off UI with its feature owner.
+For code changes, use the root fast gate by default before reporting completion; use the full gate for changes affecting Workerd integration or the deployable build. Focused tests are optional development feedback, not an additional completion requirement. Both gates apply formatting. Do not run the fast gate separately before the full gate or rerun constituent checks on unchanged code.
 
-## Architecture Ownership
+Before opening a PR or shipping to dev, run `bunx knip` and `bunx knip --production` from the repository root. Review both reports: fix genuine unused code/dependencies within scope, narrowly allowlist confirmed false positives with a reason, and report deferred findings rather than silently suppressing them. Keep this delivery review outside the fast/full gates; rerun after relevant code, dependency, or Knip configuration changes, not on unchanged code.
 
-- Use `.tracker/decisions/current-architecture.md` to identify the component that owns a flow; use a component's local `AGENTS.md` to understand how that component is set up.
-- Read `do/match-room/AGENTS.md` before changing active or finalizing Match execution, command receipts, per-match SQLite, checkpoints, Protocol persistence, or match WebSocket fan-out.
-- MatchRoom owns serialized active/finalizing execution and its per-match authority. Do not mirror its active command history into D1.
-- D1 owns players, the `sparring_matches` lifecycle rows, and completed Protocol archives with final match state. Application owns orchestration between D1 and MatchRoom.
-- Finished reads use D1 and must not access the retained MatchRoom.
+## Deployment Safety
 
-## Runtime Notes
+- Before every deployment, confirm no Active Matches and no pending finalization/archival.
+- Prefer explicit D1 schema/data migrations over legacy runtime branches. State migration/deployment ordering against the running Worker; report every added migration and its ordering to the user and in PR descriptions. Remote migrations require explicit authorization.
+- Do not rewrite applied migration history. If migrations cannot safely resolve compatibility, explain the limitation, scope, and removal condition before adding legacy code.
 
-- Play is the single Cloudflare Worker deployable. It exports the `MatchRoom` Durable Object class from the separate `@ks/match-room` workspace and reaches rooms through an internal binding.
-- Application imports `@ks/match-room` type-only to derive its private MatchRoom capability. Play imports the class at runtime only to export it from the Worker entrypoint; generated bindings verify structural RPC compatibility without runtime response parsing.
-- Live updates use a versioned WebSocket contract through Play's Worker gateway. React Router loaders remain authoritative; socket messages are invalidation notifications that request revalidation.
-- Play's Wrangler configuration owns the MatchRoom class migration. The project is deployed at `https://play.ks.ua`.
-- Generated `.react-router/` and `worker-configuration.d.ts` files must not be hand-reformatted.
+## Maintaining Guidance
 
-## Deployment And Compatibility Policy
-
-- Deploy only when there are zero live Matches: no active Matches and no pending finalization/archival. Confirm this before deploying; do not deploy while a Match can still accept commands or requires MatchRoom state for archival.
-- Under this deployment policy, MatchRoom SQLite does not require historical data backfills or runtime compatibility fallbacks for old checkpoints. Finished Matches are read from D1, not retained rooms. Keep schema migrations for newly instantiated rooms and do not rewrite applied migration history.
-- For D1 schema or persisted-representation changes, prefer explicit schema/data migrations that bring existing production data to the current contract over runtime legacy branches or read-time backfills. Plan migration ordering with the running Worker.
-- Call out every added migration and its required deployment ordering to the user and in the PR description. Do not apply remote migrations without explicit authorization.
-- If migration alone cannot safely handle existing production data or compatibility, flag the limitation to the user before adding legacy production code. Explain why it is needed, its scope, and when it can be removed; do not introduce speculative fallbacks.
-
-## Documentation
-
-Document supported interfaces and non-obvious invariants, authority, ordering, mutation, trust, units, or failure behavior. Do not document syntax or self-explanatory DTOs. Put JSDoc on the original declaration and add `@param`, `@returns`, or `@throws` only when they convey information beyond the type.
-
-## File Organization
-
-- Keep a module's primary export near the top, before private helper functions. Place private helpers below the primary implementation so readers encounter the public shape first.
-- Use native `#` private members for class internals rather than TypeScript's compile-time-only `private` modifier.
+Record non-obvious constraints and decisions, not implementation transcripts. Update the owning section instead of duplicating it. Keep shared rules here, component rules in nested guidance, procedures in runbooks, and only durable current architecture in `docs/decisions/`. Deferred work belongs in the issue tracker.

@@ -1,7 +1,8 @@
 # Play UI Design Rules
 
 Durable direction for `apps/play/web`. The code shows sizes and structure; this file records the
-rules and reasons the code does not. Game rules and terminology remain in `CONTEXT.md`.
+rules and reasons the code does not. Game rules and terminology remain in [GLOSSARY.md](../GLOSSARY.md);
+implementation ownership belongs to [Play guidance](../apps/play/AGENTS.md).
 
 ## Shells
 
@@ -54,10 +55,9 @@ The app has two chrome types. Do not add a third.
 - Do not mirror the button by seat, and never move `Скасувати`. After a Correction, show the
   preceding uncorrected Command so consecutive mistakes can be undone one by one. Hide the button
   when no correction is available; disable it only while submitting.
-- The button says Undo/Скасувати, but a Correction compensates for an earlier Accepted Command
-  without removing it. Protocol says Corrected/Виправлено and retains the original Command and its
-  system outcomes, with a linked correction entry for each. They are one atomic Undo step, not
-  separate targets for correction.
+- Use Undo/Скасувати on the button and Corrected/Виправлено in Protocol. Preserve the original
+  Command and its system outcomes with linked correction entries, following the domain's Correction
+  semantics. Present them as one atomic Undo step, not separate correction targets.
 
 ## Setup
 
@@ -75,9 +75,8 @@ The app has two chrome types. Do not add a third.
 
 ## Game index
 
-The shelf is curated per locale as JSX in `routes/sparring/index.tsx`. Its copy, including game names,
-lives there rather than in i18n or the gameplay registry so the owner can edit it independently.
-Setup uses registry names. Adding a game means writing its card, not adding a data row.
+The shelf is curated per locale, not generated from the registry. Its editorial copy and game names
+must be independently editable; Setup uses registry names. Play guidance identifies the owning route.
 
 ## Matches and Result
 
