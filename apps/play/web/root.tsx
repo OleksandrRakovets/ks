@@ -1,6 +1,5 @@
 import { keys, resources, type SupportedLocale } from '@ks/i18n'
 import i18next, { type i18n as I18nInstance } from 'i18next'
-import { useEffect } from 'react'
 import { I18nextProvider, initReactI18next, useTranslation } from 'react-i18next'
 import {
   isRouteErrorResponse,
@@ -9,13 +8,12 @@ import {
   Outlet,
   Scripts,
   ScrollRestoration,
-  useLocation,
   useRouteError,
   useRouteLoaderData,
 } from 'react-router'
 
 import { iconBasePath, iconThemeColor, type IconVariant } from './features/icon-assets'
-import { navigationCookieValue } from './features/pwa/navigation'
+import { useRememberNavigation } from './features/pwa/use-remember-navigation'
 import { localeFromContext } from './i18n'
 import { type AppLoadContext, cloudflareContext } from './server/context.server'
 import { themeFromCookie } from './server/theme.server'
@@ -55,20 +53,11 @@ export function useRootTheme(): AppTheme {
 export function Layout({ children }: { children: React.ReactNode }) {
   const data = useRouteLoaderData<RootLoaderData>('root')
   const locale = useRootLocale()
-  const { pathname, search, hash } = useLocation()
+  useRememberNavigation()
+
   const theme = data?.theme ?? 'club-dark'
   const iconVariant = data?.iconVariant ?? 'amber'
   const iconPath = iconBasePath(iconVariant)
-
-  useEffect(() => {
-    try {
-      const cookie = navigationCookieValue(new URL(`${window.location.origin}${pathname}${search}${hash}`))
-
-      if (cookie !== null) document.cookie = cookie
-    } catch {
-      // Resuming navigation is best-effort when browser storage is unavailable.
-    }
-  }, [pathname, search, hash])
 
   const htmlClass = theme === 'club-light' ? 'club-light' : theme === 'club-dark' ? 'club-dark' : ''
 
