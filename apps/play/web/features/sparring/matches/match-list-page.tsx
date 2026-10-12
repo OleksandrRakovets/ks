@@ -15,11 +15,10 @@ import * as v from 'valibot'
 import { Page } from '@/components/page'
 import { Button, SegmentedNavigation, SegmentedNavigationLink } from '@/components/ui'
 import { cn } from '@/components/ui/utils'
+import { LiveListController } from '@/features/sparring/matches/live-list-controller'
 import { matchUrl } from '@/features/sparring/urls'
 import { localizedPath } from '@/i18n'
 import { useRootLocale } from '@/root'
-
-import { LiveListController } from './live-list-controller'
 
 type MatchListView = 'live' | 'finished'
 

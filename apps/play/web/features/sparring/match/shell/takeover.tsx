@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 
-import type { PresentedControl } from '../renderers/control-presentation'
+import type { PresentedControl } from '@/features/sparring/match/renderers/control-presentation'
 
 export function Takeover(props: {
   title?: ReactNode

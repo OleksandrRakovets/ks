@@ -3,11 +3,10 @@ import type { SupportedLocale } from '@ks/i18n'
 import { useTranslation } from 'react-i18next'
 import { Link, useFetcher, useLocation } from 'react-router'
 
+import { Button, ResponsiveMenu, Separator, ToggleGroup, ToggleGroupItem } from '@/components/ui'
 import { localizedPath, pathForLocale } from '@/i18n'
 import { useRootLocale, useRootTheme } from '@/root'
 import type { AppTheme } from '@/theme'
-
-import { Button, ResponsiveMenu, Separator, ToggleGroup, ToggleGroupItem } from './ui'
 
 const THEME_OPTIONS: { value: AppTheme; labelKey: string }[] = [
   { value: 'club-dark', labelKey: keys.theme.dark },

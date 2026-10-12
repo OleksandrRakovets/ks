@@ -2,8 +2,7 @@ import type { Seat } from '@ks/core'
 import type { ReactNode } from 'react'
 
 import { cn } from '@/components/ui/utils'
-
-import type { PresentedControl } from '../renderers/control-presentation'
+import type { PresentedControl } from '@/features/sparring/match/renderers/control-presentation'
 
 export type ZonePresentation = Record<Seat, { items: readonly PresentedControl[]; compact: boolean }>
 

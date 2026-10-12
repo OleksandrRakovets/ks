@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useLocation } from 'react-router'
 
-import { navigationCookieValue } from './navigation'
+import { navigationCookieValue } from '@/features/pwa/navigation'
 
 export function useRememberNavigation() {
   const { pathname, search, hash } = useLocation()

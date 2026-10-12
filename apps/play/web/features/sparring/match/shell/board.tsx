@@ -4,8 +4,7 @@ import type { StrilaBall } from '@ks/gameplay/definitions'
 import { StrilaBall as StrilaBallVisual } from '@/components/strila-ball'
 import { Badge } from '@/components/ui'
 import { cn } from '@/components/ui/utils'
-
-import type { BoardPresentation } from './presentation'
+import type { BoardPresentation } from '@/features/sparring/match/shell/presentation'
 
 export function Board({ presentation }: { presentation: BoardPresentation }) {
   const { primary, targets, framesWon, compactScore } = presentation.score

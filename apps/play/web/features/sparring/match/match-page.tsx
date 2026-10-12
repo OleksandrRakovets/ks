@@ -4,18 +4,23 @@ import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useFetcher } from 'react-router'
 
-import { matchCommandForm, useControlLiveRevalidation } from './live'
-import { controlEffect, controlLabel } from './renderers/control-copy'
-import type { MatchControlRendererProps } from './renderers/types'
-import { ResultPanel } from './result-panel'
-import { presentResult } from './result-presentation'
-import { ControlPanel } from './shell/control-panel'
-import { type ControlPresentation, ControlStack } from './shell/control-stack'
-import { LastCommandBar } from './shell/last-command-bar'
-import { OverflowSheet } from './shell/overflow-sheet'
-import { RematchLink } from './shell/rematch-link'
-import { ActiveSurface, FinishedSurface } from './shell/surfaces'
-import type { ActiveMatchData, ControlActionData, FinishedMatchData, MatchPageData } from './types'
+import { matchCommandForm, useControlLiveRevalidation } from '@/features/sparring/match/live'
+import { controlEffect, controlLabel } from '@/features/sparring/match/renderers/control-copy'
+import type { MatchControlRendererProps } from '@/features/sparring/match/renderers/types'
+import { ResultPanel } from '@/features/sparring/match/result-panel'
+import { presentResult } from '@/features/sparring/match/result-presentation'
+import { ControlPanel } from '@/features/sparring/match/shell/control-panel'
+import { type ControlPresentation, ControlStack } from '@/features/sparring/match/shell/control-stack'
+import { LastCommandBar } from '@/features/sparring/match/shell/last-command-bar'
+import { OverflowSheet } from '@/features/sparring/match/shell/overflow-sheet'
+import { RematchLink } from '@/features/sparring/match/shell/rematch-link'
+import { ActiveSurface, FinishedSurface } from '@/features/sparring/match/shell/surfaces'
+import type {
+  ActiveMatchData,
+  ControlActionData,
+  FinishedMatchData,
+  MatchPageData,
+} from '@/features/sparring/match/types'
 
 export function MatchPage<K extends GameKey>(props: {
   data: MatchPageData<K>

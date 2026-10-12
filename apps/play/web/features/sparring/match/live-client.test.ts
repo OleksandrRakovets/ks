@@ -8,8 +8,7 @@ import {
 } from '@ks/core'
 
 import { LiveTestBrowser, type TestSocket } from '@/features/freshness/test-browser'
-
-import { subscribeSparringMatchLive } from './live-client'
+import { subscribeSparringMatchLive } from '@/features/sparring/match/live-client'
 
 let browser: LiveTestBrowser
 

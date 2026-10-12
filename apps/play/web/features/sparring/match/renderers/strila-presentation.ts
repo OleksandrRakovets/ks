@@ -3,7 +3,7 @@ import { type StrilaBall, type StrilaGamePresentation, StrilaMeta } from '@ks/ga
 import { keys } from '@ks/i18n'
 import type { TFunction } from 'i18next'
 
-import { controlLabel } from './control-copy'
+import { controlLabel } from '@/features/sparring/match/renderers/control-copy'
 
 type StrilaRuleNote = StrilaGamePresentation['details']['ruleNotes'][number]
 

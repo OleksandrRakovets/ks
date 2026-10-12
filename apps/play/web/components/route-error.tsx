@@ -2,7 +2,7 @@ import { keys } from '@ks/i18n'
 import { useTranslation } from 'react-i18next'
 import { isRouteErrorResponse, useRouteError } from 'react-router'
 
-import { cn } from './ui/utils'
+import { cn } from '@/components/ui/utils'
 
 /** Whether the nearest route error is a genuine 404 rather than a possibly transient failure. */
 export function useRouteErrorIsNotFound(): boolean {

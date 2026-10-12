@@ -1,1 +1,1 @@
-export { loader } from './apple-touch-icon'
+export { loader } from '@/routes/tech/apple-touch-icon'

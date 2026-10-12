@@ -3,7 +3,8 @@ import { SystemClock } from '@ks/core'
 import { createRequestHandler, RouterContextProvider } from 'react-router'
 import * as v from 'valibot'
 
-import { assetsContext, cloudflareContext, type CloudflareLoadContext } from '../web/server/context.server'
+import { assetsContext, cloudflareContext, type CloudflareLoadContext } from '@/server/context.server'
+
 import { handleSparringMatchLiveRequest } from './sparring-match-live'
 
 export { MatchRoom } from '@ks/match-room'

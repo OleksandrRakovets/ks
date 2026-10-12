@@ -1,11 +1,14 @@
 import type { Control, ControlSections, MatchCommand } from '@ks/core'
 import type { ReactNode } from 'react'
 
-import { type ControlPresentation, presentControls } from '../renderers/control-presentation'
-import { ControlZones, type ZonePresentation } from './control-zones'
-import { Takeover, TakeoverContainer } from './takeover'
+import {
+  type ControlPresentation,
+  presentControls,
+} from '@/features/sparring/match/renderers/control-presentation'
+import { ControlZones, type ZonePresentation } from '@/features/sparring/match/shell/control-zones'
+import { Takeover, TakeoverContainer } from '@/features/sparring/match/shell/takeover'
 
-export type { ControlPresentation } from '../renderers/control-presentation'
+export type { ControlPresentation } from '@/features/sparring/match/renderers/control-presentation'
 
 export function ControlStack(props: {
   sections: ControlSections

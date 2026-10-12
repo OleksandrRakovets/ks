@@ -5,10 +5,9 @@ import { newCommandId, newMatchId } from '@ks/core'
 import { keys } from '@ks/i18n'
 import { RouterContextProvider } from 'react-router'
 
+import { loadMatchPage, loadMatchProtocolPage, matchAction } from '@/routes/sparring/match/handlers'
 import { type AppLoadContext, cloudflareContext } from '@/server/context.server'
 import { consumeNotice } from '@/server/notice.server'
-
-import { loadMatchPage, loadMatchProtocolPage, matchAction } from './handlers'
 
 function makeContext(sparring: Partial<Application['sparring']>): AppLoadContext {
   const provider = new RouterContextProvider()

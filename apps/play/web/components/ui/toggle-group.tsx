@@ -2,7 +2,7 @@ import { Toggle as TogglePrimitive } from '@base-ui/react/toggle'
 import { ToggleGroup as ToggleGroupPrimitive } from '@base-ui/react/toggle-group'
 import * as React from 'react'
 
-import { cn } from './utils'
+import { cn } from '@/components/ui/utils'
 
 function ToggleGroup({ className, ...props }: ToggleGroupPrimitive.Props) {
   return (

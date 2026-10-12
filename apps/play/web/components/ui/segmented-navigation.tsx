@@ -2,7 +2,7 @@ import { mergeProps } from '@base-ui/react/merge-props'
 import { useRender } from '@base-ui/react/use-render'
 import * as React from 'react'
 
-import { cn } from './utils'
+import { cn } from '@/components/ui/utils'
 
 /**
  * Route-navigation counterpart to `ToggleGroup`. Its visual treatment originates in that component

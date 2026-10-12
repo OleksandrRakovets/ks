@@ -1,8 +1,7 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test'
 
 import { LiveTestBrowser } from '@/features/freshness/test-browser'
-
-import { LiveListController } from './live-list-controller'
+import { LiveListController } from '@/features/sparring/matches/live-list-controller'
 
 let browser: LiveTestBrowser
 

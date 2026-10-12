@@ -6,19 +6,22 @@ import { Form, useNavigation } from 'react-router'
 
 import { Page } from '@/components/page'
 import { Button } from '@/components/ui'
-import { localizedPath } from '@/i18n'
-import { useRootLocale } from '@/root'
-
 import {
   FirstBreakerField,
   FrameTargetFields,
   MatchTargetFramesField,
   PlayerNameFields,
   RackRolloverField,
-} from './fields'
-import { safeNormalizeDisplayName } from './player-name'
-import type { MatchCreateProfile } from './profile'
-import { recentPlayerSuggestions, rememberRecentPlayers, useRecentPlayers } from './recent-players'
+} from '@/features/sparring/setup/fields'
+import { safeNormalizeDisplayName } from '@/features/sparring/setup/player-name'
+import type { MatchCreateProfile } from '@/features/sparring/setup/profile'
+import {
+  recentPlayerSuggestions,
+  rememberRecentPlayers,
+  useRecentPlayers,
+} from '@/features/sparring/setup/recent-players'
+import { localizedPath } from '@/i18n'
+import { useRootLocale } from '@/root'
 
 export function SparringSetupPage(props: {
   title: string

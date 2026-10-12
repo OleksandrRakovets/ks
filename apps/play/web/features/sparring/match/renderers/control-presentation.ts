@@ -1,7 +1,7 @@
 import type { Control, MatchCommand } from '@ks/core'
 import type { ReactNode } from 'react'
 
-import { matchCommandFromControl } from './types'
+import { matchCommandFromControl } from '@/features/sparring/match/renderers/types'
 
 export type ControlPresentation = {
   label: ReactNode

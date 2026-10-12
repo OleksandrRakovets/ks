@@ -5,9 +5,17 @@ import { formatPlayerRef, newMatchId } from '@ks/core'
 import { resources } from '@ks/i18n'
 import { createInstance } from 'i18next'
 
-import { presentResult } from '../result-presentation'
-import type { ActiveProtocolData, FinishedMatchData, FinishedProtocolData } from '../types'
-import { presentActiveSurface, presentBoardScore, presentFinishedSurface } from './presentation'
+import { presentResult } from '@/features/sparring/match/result-presentation'
+import {
+  presentActiveSurface,
+  presentBoardScore,
+  presentFinishedSurface,
+} from '@/features/sparring/match/shell/presentation'
+import type {
+  ActiveProtocolData,
+  FinishedMatchData,
+  FinishedProtocolData,
+} from '@/features/sparring/match/types'
 
 const i18n = createInstance()
 

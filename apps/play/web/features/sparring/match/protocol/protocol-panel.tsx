@@ -1,7 +1,7 @@
 import type { ProtocolRow } from '@ks/application'
 import { useTranslation } from 'react-i18next'
 
-import { protocolRowLabel } from './protocol-copy'
+import { protocolRowLabel } from '@/features/sparring/match/protocol/protocol-copy'
 
 export function ProtocolPanel(props: { rows: readonly ProtocolRow[]; emptyLabel: string }) {
   const { t } = useTranslation()

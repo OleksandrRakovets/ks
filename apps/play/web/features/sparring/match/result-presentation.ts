@@ -1,7 +1,7 @@
 import { keys } from '@ks/i18n'
 import type { TFunction } from 'i18next'
 
-import type { FinishedMatchData } from './types'
+import type { FinishedMatchData } from '@/features/sparring/match/types'
 
 export type ResultPresentation = ReturnType<typeof presentResult>
 

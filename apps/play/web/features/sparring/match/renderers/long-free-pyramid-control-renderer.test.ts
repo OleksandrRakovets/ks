@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test'
 
 import type { Control } from '@ks/core'
 
-import { labelLongFreePyramidCommands } from './long-free-pyramid-control-renderer'
+import { labelLongFreePyramidCommands } from '@/features/sparring/match/renderers/long-free-pyramid-control-renderer'
 
 test('winner-determined pot keeps its one-point label and original command', () => {
   const frameAward: Control = {

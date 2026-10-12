@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { loader } from './start'
+import { loader } from '@/routes/pwa/start'
 
 describe('installed app launch', () => {
   test('redirects to the saved URL without caching a user-specific destination', () => {

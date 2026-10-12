@@ -1,7 +1,7 @@
 import { Input as InputPrimitive } from '@base-ui/react/input'
 import * as React from 'react'
 
-import { cn } from './utils'
+import { cn } from '@/components/ui/utils'
 
 function FieldGroup({ className, ...props }: React.ComponentProps<'div'>) {
   return <div data-slot="field-group" className={cn('flex flex-col gap-5', className)} {...props} />

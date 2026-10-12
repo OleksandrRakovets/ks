@@ -3,9 +3,8 @@ import { describe, expect, test } from 'bun:test'
 import type { Application } from '@ks/application'
 import { RouterContextProvider } from 'react-router'
 
+import { loader } from '@/routes/sparring/matches/finished'
 import { cloudflareContext } from '@/server/context.server'
-
-import { loader } from './finished'
 
 function context(listFinishedMatches: Application['sparring']['listFinishedMatches']): RouterContextProvider {
   const provider = new RouterContextProvider()

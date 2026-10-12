@@ -4,9 +4,8 @@ import type { Application, CreateSparringMatchInput } from '@ks/application'
 import { RouterContextProvider } from 'react-router'
 
 import { matchSetupUrl } from '@/features/sparring/urls'
+import { createSetupMatch, loadSetupPage } from '@/routes/sparring/setup/handlers'
 import { cloudflareContext } from '@/server/context.server'
-
-import { createSetupMatch, loadSetupPage } from './handlers'
 
 test.each([
   ['invalid-input', 400],

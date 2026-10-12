@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 
-import { cn } from './ui/utils'
+import { cn } from '@/components/ui/utils'
 
 type PageProps = {
   title: string

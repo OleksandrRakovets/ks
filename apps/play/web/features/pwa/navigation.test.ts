@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { navigationCookieValue, navigationFromCookie } from './navigation'
+import { navigationCookieValue, navigationFromCookie } from '@/features/pwa/navigation'
 
 describe('navigation cookie', () => {
   test('stores the whole relative URL for seven days with host-local cookie attributes', () => {

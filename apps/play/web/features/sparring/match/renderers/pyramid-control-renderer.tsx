@@ -8,10 +8,9 @@ import { keys } from '@ks/i18n'
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 
+import { controlLabel, potRecordPottedBallCount } from '@/features/sparring/match/renderers/control-copy'
+import type { MatchControlRendererProps } from '@/features/sparring/match/renderers/types'
 import { type ControlPresentation, ControlStack } from '@/features/sparring/match/shell/control-stack'
-
-import { controlLabel, potRecordPottedBallCount } from './control-copy'
-import type { MatchControlRendererProps } from './types'
 
 export function FreePyramidControlRenderer(props: MatchControlRendererProps<FreePyramidGamePresentation>) {
   return <PyramidControlRenderer {...props} />

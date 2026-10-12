@@ -3,7 +3,7 @@ import { renderToReadableStream } from 'react-dom/server'
 import type { EntryContext } from 'react-router'
 import { ServerRouter } from 'react-router'
 
-import type { AppLoadContext } from './server/context.server'
+import type { AppLoadContext } from '@/server/context.server'
 
 type RenderError = Parameters<
   NonNullable<NonNullable<Parameters<typeof renderToReadableStream>[1]>['onError']>

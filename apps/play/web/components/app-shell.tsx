@@ -2,11 +2,10 @@ import { keys } from '@ks/i18n'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 
+import { BrandWordmark } from '@/components/brand-wordmark'
+import { BurgerMenu } from '@/components/burger-menu'
 import { localizedPath } from '@/i18n'
 import { useRootLocale } from '@/root'
-
-import { BrandWordmark } from './brand-wordmark'
-import { BurgerMenu } from './burger-menu'
 
 export function AppShell() {
   const { t } = useTranslation()

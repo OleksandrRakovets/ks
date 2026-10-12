@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 
-import { consumeNotice } from './notice.server'
+import { consumeNotice } from '@/server/notice.server'
 
 function requestWithCookie(cookie?: string) {
   return new Request('http://localhost/sparring/', cookie === undefined ? {} : { headers: { cookie } })

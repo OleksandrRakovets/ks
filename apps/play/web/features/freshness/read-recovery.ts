@@ -1,4 +1,4 @@
-import { watchBrowserReturn } from './browser-return'
+import { watchBrowserReturn } from '@/features/freshness/browser-return'
 
 const RETRY_INTERVAL_MS = 60_000
 

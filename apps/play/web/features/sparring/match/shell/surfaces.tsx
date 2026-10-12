@@ -5,14 +5,13 @@ import type { TFunction } from 'i18next'
 import type { ComponentProps } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { Board } from '@/features/sparring/match/shell/board'
+import { presentActiveSurface, presentFinishedSurface } from '@/features/sparring/match/shell/presentation'
+import { Shell, type ShellNavigation } from '@/features/sparring/match/shell/shell'
+import type { ActiveMatchData, ActiveProtocolData, FinishedSurfaceData } from '@/features/sparring/match/types'
 import { matchProtocolUrl, matchUrl } from '@/features/sparring/urls'
 import { localizedPath } from '@/i18n'
 import { useRootLocale } from '@/root'
-
-import type { ActiveMatchData, ActiveProtocolData, FinishedSurfaceData } from '../types'
-import { Board } from './board'
-import { presentActiveSurface, presentFinishedSurface } from './presentation'
-import { Shell, type ShellNavigation } from './shell'
 
 type SurfaceContent = Pick<ComponentProps<typeof Shell>, 'active' | 'children' | 'headerControl' | 'footer'>
 

@@ -4,8 +4,8 @@ import { keys } from '@ks/i18n'
 import { useEffect, useLayoutEffect, useRef } from 'react'
 import { useRevalidator } from 'react-router'
 
-import { MatchLiveController } from './live-controller'
-import type { ControlActionData } from './types'
+import { MatchLiveController } from '@/features/sparring/match/live-controller'
+import type { ControlActionData } from '@/features/sparring/match/types'
 
 export function matchCommandForm(command: MatchCommand) {
   return { command: JSON.stringify(command) }
