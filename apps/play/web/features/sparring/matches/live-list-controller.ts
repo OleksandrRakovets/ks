@@ -4,7 +4,6 @@ export type LiveListSchedulerOptions = {
   readonly readScores: (signal: AbortSignal) => Promise<void>
   readonly readFullList: () => Promise<void>
   readonly hasScores: () => boolean
-  readonly recentFinishedMatchExpiresAt?: number
 }
 
 const SCORE_INTERVAL_MS = 30_000
@@ -18,9 +17,10 @@ const SCORE_TIMEOUT_MS = 10_000
  *
  * The controller deliberately owns one timer: a full loader read dominates a
  * score read whenever both deadlines are due because the loader supplies both
- * membership and authoritative scores. Deadlines are absolute wall-clock
- * instants, so a throttled or suspended tab catches up rather than accumulating
- * interval drift.
+ * membership and authoritative scores. The membership deadline also removes
+ * recent results once they leave the server's live window, at most one interval
+ * late. Deadlines are absolute local instants, so a throttled or suspended tab
+ * catches up rather than accumulating interval drift.
  */
 export class LiveListController {
   readonly #options: LiveListSchedulerOptions
@@ -36,17 +36,12 @@ export class LiveListController {
   #pendingFull = false
   #scoreDueAt: number
   #membershipDueAt: number
-  #expiryAt?: number
 
   constructor(options: LiveListSchedulerOptions) {
     this.#options = options
     const now = Date.now()
     this.#scoreDueAt = now + SCORE_INTERVAL_MS
     this.#membershipDueAt = now + MEMBERSHIP_INTERVAL_MS
-    this.#expiryAt =
-      options.recentFinishedMatchExpiresAt === undefined
-        ? undefined
-        : options.recentFinishedMatchExpiresAt + 100
   }
 
   /** Starts deadlines and installs all document/window lifecycle listeners. */
@@ -59,14 +54,10 @@ export class LiveListController {
   }
 
   /**
-   * Records a committed list projection: rereads score availability and replaces the server's
-   * absolute recent-result deadline without restarting periodic deadlines. Call when either
-   * pollable rows or expiry changes. An already elapsed instant requests a full read.
+   * Records a committed list projection and rereads score availability without restarting
+   * periodic deadlines. Call when pollable rows change.
    */
-  snapshot(expiresAt: number | undefined): void {
-    // D1's cutoff is inclusive at the exact endpoint. A small margin avoids refetching the row
-    // at equality; unlike a relative countdown, the absolute deadline cannot restart tomorrow.
-    this.#expiryAt = expiresAt === undefined ? undefined : expiresAt + 100
+  snapshot(): void {
     this.#schedule()
   }
 
@@ -114,9 +105,8 @@ export class LiveListController {
 
     if (!this.#isForeground() || this.#fullGeneration !== undefined) return
     const now = Date.now()
-    const fullDueAt = Math.min(this.#membershipDueAt, this.#expiryAt ?? Number.POSITIVE_INFINITY)
 
-    if (this.#pendingFull || fullDueAt <= now) {
+    if (this.#pendingFull || this.#membershipDueAt <= now) {
       void this.#readFull()
 
       return
@@ -130,11 +120,11 @@ export class LiveListController {
       return
     }
 
-    // While a score GET is pending the membership/expiry wake-up remains armed. Thus an expiry
-    // can preempt slow scores rather than waiting for their network completion or timeout.
-    const next = Math.min(fullDueAt, canPollScores ? this.#scoreDueAt : Infinity)
+    // While a score GET is pending the membership wake-up remains armed, so it can preempt slow
+    // scores rather than waiting for their network completion or timeout.
+    const next = Math.min(this.#membershipDueAt, canPollScores ? this.#scoreDueAt : Infinity)
 
-    if (Number.isFinite(next)) this.#timer = window.setTimeout(() => this.#schedule(), Math.max(0, next - now))
+    this.#timer = window.setTimeout(() => this.#schedule(), Math.max(0, next - now))
   }
 
   async #readFull() {
@@ -143,8 +133,6 @@ export class LiveListController {
     const generation = this.#generation
     this.#fullGeneration = generation
     this.#pendingFull = false
-
-    if (this.#expiryAt !== undefined && this.#expiryAt <= Date.now()) this.#expiryAt = undefined
     let succeeded = false
 
     try {
@@ -152,7 +140,7 @@ export class LiveListController {
       succeeded = true
     } catch {
       // Router loader errors may replace the page with its error boundary. If still mounted,
-      // retry on the membership cadence; never spin on an already consumed expiry deadline.
+      // retry on the membership cadence.
     }
 
     if (this.#disposed || generation !== this.#generation || this.#fullGeneration !== generation) return

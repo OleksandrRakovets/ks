@@ -70,34 +70,6 @@ test('empty list still discovers membership, and foreground hints coalesce', asy
   expect(reads).toBe(3)
 })
 
-test('expiry preempts a slow score read and uses a newly returned absolute deadline', async () => {
-  let reads = 0
-  let signal: AbortSignal | undefined
-  const expiry = browser.now + 35_000
-  controller = new LiveListController({
-    hasScores: () => true,
-    recentFinishedMatchExpiresAt: expiry,
-    readScores: (incoming) => {
-      signal = incoming
-
-      return new Promise<void>(() => {})
-    },
-    readFullList: async () => {
-      reads++
-      controller.snapshot(reads === 1 ? expiry + 5_000 : undefined)
-    },
-  })
-  controller.start()
-  await browser.advance(35_099)
-  expect(reads).toBe(0)
-  expect(signal?.aborted).toBe(false)
-  await browser.advance(1)
-  expect(reads).toBe(1)
-  expect(signal?.aborted).toBe(true)
-  await browser.advance(5_000)
-  expect(reads).toBe(2)
-})
-
 test('pagehide stops scores; overnight pageshow reads immediately and late work cannot restart polling', async () => {
   let fullReads = 0
   let scoreReads = 0
@@ -106,7 +78,6 @@ test('pagehide stops scores; overnight pageshow reads immediately and late work 
   let signal: AbortSignal | undefined
   controller = new LiveListController({
     hasScores: () => true,
-    recentFinishedMatchExpiresAt: browser.now + 10 * 60_000,
     readScores: (incoming) => {
       scoreReads++
       signal = incoming
@@ -117,7 +88,7 @@ test('pagehide stops scores; overnight pageshow reads immediately and late work 
     },
     readFullList: async () => {
       fullReads++
-      controller.snapshot(undefined)
+      controller.snapshot()
     },
   })
   controller.start()
@@ -177,7 +148,7 @@ test('a discovered Active Match starts scores at the next score deadline even if
   await browser.advance(60_000)
   expect(reads).toEqual(['full'])
   hasScores = true
-  controller.snapshot(undefined)
+  controller.snapshot()
   await browser.advance(29_999)
   expect(reads).toEqual(['full'])
   await browser.advance(1)
@@ -186,13 +157,12 @@ test('a discovered Active Match starts scores at the next score deadline even if
   expect(reads).toEqual(['full', 'scores', 'full'])
 })
 
-test('a new full-read requirement during a read is retained, and failed expiry does not spin', async () => {
+test('a new full-read requirement during a read is retained, and a failed read does not spin', async () => {
   let reads = 0
   let rejectRead = (_error: Error) => {}
 
   controller = new LiveListController({
     hasScores: () => false,
-    recentFinishedMatchExpiresAt: browser.now,
     readScores: async () => {},
     readFullList: () => {
       reads++
@@ -203,7 +173,7 @@ test('a new full-read requirement during a read is retained, and failed expiry d
     },
   })
   controller.start()
-  await browser.advance(100)
+  await browser.advance(60_000)
   expect(reads).toBe(1)
   controller.demandFullRead()
   rejectRead(new Error('Unavailable'))

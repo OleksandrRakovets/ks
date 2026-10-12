@@ -15,7 +15,6 @@ export async function loader({ context }: Route.LoaderArgs) {
     updates: {
       kind: 'poll-scores' as const,
       matchIds: page.matches.filter((match) => match.status === 'active').map((match) => match.matchId),
-      recentFinishedMatchExpiresAt: page.recentFinishedMatchExpiresAt,
     },
   }
 }

@@ -210,33 +210,6 @@ describe('sparring lists and score polling', () => {
     expect(v.safeParse(MatchScorePollResponse, poll).success).toBe(true)
   })
 
-  test('reports when a recently finished match leaves the live list window', async () => {
-    const finalScore = projectMatchScore(transfer.finalState)
-    const endedAt = v.parse(UnixEpochMilliseconds, createdAt - 5 * 60 * 1_000)
-
-    const app = sparring(selectedClient(), [], {
-      matches: {
-        listLive: async () => [
-          {
-            matchId,
-            gameKey: 'free-pyramid',
-            status: 'finished',
-            createdAt,
-            endedAt,
-            participantRefs: { A: playerRefA, B: playerRefB },
-            participants: participantRecords,
-            finalSourceLatestSeq: transfer.sourceLatestSeq,
-            finalScore,
-          },
-        ],
-      },
-    })
-
-    expect(await app.listLiveMatches('en')).toMatchObject({
-      recentFinishedMatchExpiresAt: endedAt + 15 * 60 * 1_000,
-    })
-  })
-
   test('loads the finished list from stored projections without selecting MatchRoom', async () => {
     const finalScore = projectMatchScore(transfer.finalState)
 

@@ -27,7 +27,6 @@ type MatchListUpdates =
   | {
       readonly kind: 'poll-scores'
       readonly matchIds: readonly MatchId[]
-      readonly recentFinishedMatchExpiresAt?: number
     }
   | { readonly kind: 'none' }
 
@@ -66,7 +65,7 @@ function PollingMatchListPage({
     [matches, pollableIds],
   )
 
-  useLiveMatchList(activeMatches, updates.recentFinishedMatchExpiresAt, dispatch, requestRevalidation)
+  useLiveMatchList(activeMatches, dispatch, requestRevalidation)
 
   return <MatchListContent view={data.view} page={data.page} matches={matches} />
 }
@@ -407,20 +406,18 @@ function shouldReplaceScore(current: ScoreSnapshot, incoming: ScoreSnapshot): bo
 
 function useLiveMatchList(
   activeMatches: readonly MatchListEntry[],
-  recentFinishedMatchExpiresAt: number | undefined,
   dispatch: React.Dispatch<ScoreOverridesAction>,
   revalidate: () => Promise<void>,
 ) {
-  const current = useRef({ activeMatches, recentFinishedMatchExpiresAt, dispatch, revalidate })
+  const current = useRef({ activeMatches, dispatch, revalidate })
   useLayoutEffect(() => {
-    current.current = { activeMatches, recentFinishedMatchExpiresAt, dispatch, revalidate }
-  }, [activeMatches, recentFinishedMatchExpiresAt, dispatch, revalidate])
+    current.current = { activeMatches, dispatch, revalidate }
+  }, [activeMatches, dispatch, revalidate])
   const controller = useRef<LiveListController>(null)
 
   useEffect(() => {
     const scheduler = new LiveListController({
       hasScores: () => current.current.activeMatches.length > 0,
-      recentFinishedMatchExpiresAt: current.current.recentFinishedMatchExpiresAt,
       readFullList: async () => current.current.revalidate(),
       readScores: async (signal) => {
         const requestedMatches = current.current.activeMatches
@@ -473,10 +470,10 @@ function useLiveMatchList(
   }, [])
 
   useEffect(() => {
-    // Loader completion can precede React's commit. Reconsider the schedule after newly discovered
-    // Active Matches land, even when their recent-result expiry is still undefined.
-    controller.current?.snapshot(recentFinishedMatchExpiresAt)
-  }, [activeMatches, recentFinishedMatchExpiresAt])
+    // Loader completion can precede React's commit. Reconsider score polling once newly discovered
+    // Active Matches land.
+    controller.current?.snapshot()
+  }, [activeMatches])
 }
 
 function displayedScore(match: MatchListEntry): BySeatNumber {

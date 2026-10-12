@@ -32,20 +32,7 @@ export async function listLiveMatches(
     matchCreatedAtLabel(formattedCreatedAt, formattedNow),
   )
 
-  const earliestRecentFinishedMatchExpiry = matches.reduce<number | undefined>((earliest, match) => {
-    if (match.status !== 'finished') return earliest
-    const expiresAt = match.endedAt + RECENT_FINISHED_MATCH_WINDOW_MS
-
-    return earliest === undefined ? expiresAt : Math.min(earliest, expiresAt)
-  }, undefined)
-
-  return earliestRecentFinishedMatchExpiry === undefined
-    ? { scope: 'live', matches }
-    : {
-        scope: 'live',
-        matches,
-        recentFinishedMatchExpiresAt: v.parse(UnixEpochMilliseconds, earliestRecentFinishedMatchExpiry),
-      }
+  return { scope: 'live', matches }
 }
 
 export async function listFinishedMatches(
