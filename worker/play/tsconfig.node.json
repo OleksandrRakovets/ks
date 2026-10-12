@@ -15,7 +15,7 @@
     "moduleDetection": "force",
     "noEmit": true,
     "paths": {
-      "@/*": ["./web/*"]
+      "@/*": ["./src/web/*"]
     },
 
     /* Linting */
@@ -27,11 +27,8 @@
   "include": [
     "vite.config.ts",
     "react-router.config.ts",
-    "domain/**/*.ts",
-    "web/server/context.server.ts",
-    "workers/**/*.ts",
-    "workers/virtual.d.ts",
+    "src/*.ts",
+    "src/web/server/context.server.ts",
     "../../do/match-room/src/**/*"
-  ],
-  "exclude": ["domain/**/*.test.ts"]
+  ]
 }

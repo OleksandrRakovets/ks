@@ -23,7 +23,7 @@ bun run --cwd packages/application db:seed:local
 bun run --cwd packages/application db:studio:local
 ```
 
-The application scripts use Play's Wrangler configuration and the same `apps/play/.wrangler/state` as its dev server.
+The application scripts use Play's Wrangler configuration and the same `worker/play/.wrangler/state` as its dev server.
 
 Wrangler commands select the stable `DB` binding rather than the deployed database name. `--local` uses local SQLite state; `--remote` accesses the bound Cloudflare database (`ks-prod`). Local development does not share production data.
 
@@ -40,10 +40,10 @@ Open the URL Drizzle prints. The browser must be on the same tailnet and able to
 Use Wrangler for terminal access:
 
 ```sh
-bunx wrangler d1 execute DB --local --config apps/play/wrangler.jsonc \
+bunx wrangler d1 execute DB --local --config worker/play/wrangler.jsonc \
   --command "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;"
 
-bunx wrangler d1 execute DB --local --config apps/play/wrangler.jsonc \
+bunx wrangler d1 execute DB --local --config worker/play/wrangler.jsonc \
   --command "SELECT match_id, game_key, status, datetime(created_at / 1000, 'unixepoch', 'localtime') AS created_at FROM sparring_matches ORDER BY created_at DESC LIMIT 20;"
 ```
 
@@ -59,8 +59,8 @@ Replace `--local` with `--remote` only intentionally. `wrangler d1 execute` is n
 6. Apply remotely only as an explicit deployment operation:
 
 ```sh
-bunx wrangler d1 migrations list DB --remote --config apps/play/wrangler.jsonc
-bunx wrangler d1 migrations apply DB --remote --config apps/play/wrangler.jsonc
+bunx wrangler d1 migrations list DB --remote --config worker/play/wrangler.jsonc
+bunx wrangler d1 migrations apply DB --remote --config worker/play/wrangler.jsonc
 ```
 
 Use Drizzle Kit to generate and Wrangler to apply. Do not use `drizzle-kit push` or `drizzle-kit migrate` for D1.
@@ -77,7 +77,7 @@ Generation commands minify Drizzle's `snapshot.json` metadata without changing i
 4. Add the SQL import and migration key to `do/match-room/drizzle/migrations.js`.
 5. From `do/match-room`, run `bunx drizzle-kit check --config drizzle.config.ts`, then run `bun run check:full` from the repository root.
 
-The `migrations` entry in `apps/play/wrangler.jsonc` manages Durable Object classes, not each object's SQLite schema. MatchRoom's Workerd integration configuration reads that class setup from Play's configuration.
+The `migrations` entry in `worker/play/wrangler.jsonc` manages Durable Object classes, not each object's SQLite schema. MatchRoom's Workerd integration configuration reads that class setup from Play's configuration.
 
 ## Reset Local Data Storage
 

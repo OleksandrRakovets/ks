@@ -1,8 +1,8 @@
 # Play UI Design Rules
 
-Durable direction for `apps/play/web`. The code shows sizes and structure; this file records the
+Durable direction for `worker/play/src/web`. The code shows sizes and structure; this file records the
 rules and reasons the code does not. Game rules and terminology remain in [GLOSSARY.md](../GLOSSARY.md);
-implementation ownership belongs to [Play guidance](../apps/play/AGENTS.md).
+implementation ownership belongs to [Play guidance](../worker/play/AGENTS.md).
 
 ## Shells
 

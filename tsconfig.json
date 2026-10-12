@@ -7,6 +7,6 @@
     { "path": "packages/i18n" },
     { "path": "packages/application" },
     { "path": "do/match-room" },
-    { "path": "apps/play" }
+    { "path": "worker/play" }
   ]
 }

@@ -216,7 +216,7 @@ import sqlite3
 
 migrations = Path('packages/application/drizzle')
 expected = {str(path.relative_to(migrations)) for path in migrations.glob('*/migration.sql')}
-databases = Path('apps/play/.wrangler/state/v3/d1/miniflare-D1DatabaseObject').glob('*.sqlite')
+databases = Path('worker/play/.wrangler/state/v3/d1/miniflare-D1DatabaseObject').glob('*.sqlite')
 for path in databases:
     if path.name == 'metadata.sqlite':
         continue
@@ -230,7 +230,7 @@ PY
 )"
 if [[ "$stale_d1" == yes ]]; then
   echo "Discarding stale local D1 state from an older orb snapshot..."
-  rm -rf -- apps/play/.wrangler/state/v3/d1
+  rm -rf -- worker/play/.wrangler/state/v3/d1
 fi
 
 echo "Applying local D1 migrations..."
