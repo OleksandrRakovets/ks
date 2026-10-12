@@ -66,6 +66,13 @@
   },
   "knip": {
     "workspaces": {
+      "apps/play": {
+        "project": [
+          "**/*.{js,mjs,cjs,jsx,ts,tsx,mts,cts}!",
+          "**/*.css!",
+          "!web/features/sparring/live-test-browser.ts!"
+        ]
+      },
       "do/match-room": {
         "project": [
           "**/*.{js,mjs,cjs,jsx,ts,tsx,mts,cts}!",
