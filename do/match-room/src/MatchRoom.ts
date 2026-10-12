@@ -98,8 +98,8 @@ export class MatchRoom extends DurableObject<Env> {
         return new FinalizingMatchHandler(this.#storage)
       case 'discarded':
         return new DiscardedMatchHandler(record.endedAt)
+      default:
+        throw new Error('Unsupported MatchRoom lifecycle', { cause: record satisfies never })
     }
-
-    throw new Error('Unsupported MatchRoom lifecycle')
   }
 }

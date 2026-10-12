@@ -128,7 +128,7 @@ describe('real D1 match lifecycle', () => {
     const matches = new SparringMatchStorage(createApplicationDatabaseClient(env.DB))
     const endedAt = v.parse(UnixEpochMilliseconds, 5_000)
     await matches.beginCreation(catalogInput())
-    await expect(matches.markDiscarded(matchId, endedAt)).rejects.toThrow(MatchFinalizationError)
+    await expect(matches.markDiscarded(matchId, endedAt)).rejects.toThrow('cannot mark Match')
     await matches.activate(matchId)
     await matches.markDiscarded(matchId, endedAt)
     await matches.markDiscarded(matchId, endedAt)
@@ -137,7 +137,7 @@ describe('real D1 match lifecycle', () => {
     expect(await matches.findProtocolArchive(matchId)).toBeNull()
     expect(await matches.findFinishedArchive(matchId)).toBeNull()
     await expect(matches.markDiscarded(matchId, v.parse(UnixEpochMilliseconds, endedAt + 1))).rejects.toThrow(
-      MatchFinalizationError,
+      'cannot mark Match',
     )
     await expect(matches.archiveFinished(finishedMatchTransfer())).rejects.toThrow(MatchFinalizationError)
     await expect(matches.markFinished(finishedMatchTransfer())).rejects.toThrow(MatchFinalizationError)
@@ -151,7 +151,7 @@ describe('real D1 match lifecycle', () => {
     const archive = finishedMatchTransfer(otherMatchId, otherCreatedAt)
     await matches.archiveFinished(archive)
     await matches.markFinished(archive)
-    await expect(matches.markDiscarded(otherMatchId, endedAt)).rejects.toThrow(MatchFinalizationError)
+    await expect(matches.markDiscarded(otherMatchId, endedAt)).rejects.toThrow('cannot mark Match')
     await matches.beginCreation(catalogInput(newestMatchId, v.parse(UnixEpochMilliseconds, 4_000)))
     await matches.activate(newestMatchId)
     expect((await matches.listLive(v.parse(UnixEpochMilliseconds, 0))).map((row) => row.matchId)).toEqual([

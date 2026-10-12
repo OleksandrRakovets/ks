@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 
-import { newMatchId, SPARRING_MATCH_LIVE_FINISHED_CLOSE_CODE } from '@ks/core'
+import { newMatchId, SPARRING_MATCH_LIVE_ENDED_CLOSE_CODE } from '@ks/core'
 
 import { subscribeSparringMatchLive } from './live-client'
 
@@ -143,7 +143,7 @@ test('terminal closure stops the subscription without requiring a score update',
 
   if (socket === undefined) throw new Error('Expected live socket')
   const closed = new Event('close')
-  Object.defineProperty(closed, 'code', { value: SPARRING_MATCH_LIVE_FINISHED_CLOSE_CODE })
+  Object.defineProperty(closed, 'code', { value: SPARRING_MATCH_LIVE_ENDED_CLOSE_CODE })
   socket.dispatchEvent(closed)
   socket.dispatchEvent(closed)
   expect(states).toEqual(['connecting', 'finished'])

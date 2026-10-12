@@ -60,6 +60,6 @@ export const SparringMatchLiveServerMessage = v.variant('type', [
 export type SparringMatchLiveServerMessage = v.InferOutput<typeof SparringMatchLiveServerMessage>
 
 /** Signals that live scoring stopped; loaders determine the Match outcome. */
-export const SPARRING_MATCH_LIVE_FINISHED_CLOSE_CODE = 4000
+export const SPARRING_MATCH_LIVE_ENDED_CLOSE_CODE = 4000
 
-export const SPARRING_MATCH_LIVE_FINISHED_CLOSE_REASON = 'match-finished'
+export const SPARRING_MATCH_LIVE_ENDED_CLOSE_REASON = 'live-ended'

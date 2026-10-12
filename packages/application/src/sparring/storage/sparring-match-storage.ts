@@ -99,7 +99,7 @@ export class SparringMatchStorage {
       )
       .returning({ matchId: sparringMatches.matchId })
 
-    if (result.length !== 1) throw new MatchFinalizationError('Match is not ready to discard')
+    if (result.length !== 1) throw new MatchDiscardConflictError(matchId, endedAt)
   }
 
   async findMatch(matchId: MatchId): Promise<MatchRecord | null> {
@@ -329,6 +329,14 @@ export class SparringMatchStorage {
           eq(seatBVerified.verifiedPlayerId, sql`substr(${sparringMatches.seatBPlayerRef}, 4)`),
         ),
       )
+  }
+}
+
+/** D1 cannot record the room's discard: the row is missing, not active, or discarded at another time. */
+class MatchDiscardConflictError extends Error {
+  constructor(matchId: MatchId, endedAt: UnixEpochMilliseconds) {
+    super(`D1 cannot mark Match ${matchId} discarded at ${endedAt}`)
+    this.name = 'MatchDiscardConflictError'
   }
 }
 

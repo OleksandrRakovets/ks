@@ -104,6 +104,6 @@ test('discard closes existing sockets and rejects new connections without a scor
   )
 
   await stub.discard()
-  expect(await closed).toMatchObject({ code: 4000, reason: 'match-finished' })
+  expect(await closed).toMatchObject({ code: 4000, reason: 'live-ended' })
   expect((await stub.fetch(liveRequest(matchId))).status).toBe(404)
 })
