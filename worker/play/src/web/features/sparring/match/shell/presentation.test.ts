@@ -9,7 +9,7 @@ import { presentResult } from '@/features/sparring/match/result-presentation'
 import {
   presentActiveSurface,
   presentBoardScore,
-  presentFinishedSurface,
+  presentFinishedBoard,
 } from '@/features/sparring/match/shell/presentation'
 import type {
   ActiveProtocolData,
@@ -54,7 +54,7 @@ test.each([
     ...finishedFacts('combined-pyramid'),
     gameKey: 'combined-pyramid' as const,
     targets: { matchTargetFrames: 3, frameTargetPointsBySeat: { A, B } },
-    shortGameTitle: 'Combined',
+    gameTitle: 'Combined Pyramid',
   }
 
   const active: ActiveProtocolData<'combined-pyramid'> = {
@@ -104,17 +104,18 @@ test.each([
   }
 
   const protocol: FinishedProtocolData<'combined-pyramid'> = { ...facts, protocolRows: [] }
-  const result = presentFinishedSurface(finished, t)
-  expect(presentFinishedSurface(protocol, t)).toEqual(result)
-  expect(result.board.score).toEqual({
+  const result = presentFinishedBoard(finished, t)
+  expect(presentFinishedBoard(protocol, t)).toEqual(result)
+  expect(result.score).toEqual({
     primary: { A: 3, B: 0 },
     targets: { A: undefined, B: undefined },
     framesWon: undefined,
     winnerSeat: 'A',
     compactScore: false,
   })
-  expect(result.board.winnerLabel).toBe('Oleksandr won')
-  expect(result.board.mutedSeat).toBe('B')
+  expect(result.winnerLabel).toBe('Oleksandr won')
+  expect(result.mutedSeat).toBe('B')
+  expect(result.caption).toBe('Combined Pyramid · race to 3 wins')
   expect(presentResult(finished, t).rows).toEqual([
     { index: 1, score: { A, B: 2 } },
     { index: 2, score: { A, B: 1 } },
@@ -147,7 +148,7 @@ test('a no-frame read falls back to zero points and displayed first frame', () =
     lifecycle: 'active',
     winnerSeat: null,
     controlPhase: 'between-frames',
-    shortGameTitle: 'Free',
+    gameTitle: 'Free Pyramid',
     representedFrame: null,
     framesWonBySeat: { A: 0, B: 0 },
     targets: { matchTargetFrames: 1, frameTargetPointsBySeat: { A: 8, B: 8 } },
@@ -196,7 +197,7 @@ test.each([
       controlPhase: 'frame-active',
       latestSeq: 12,
       protocolRows: [],
-      shortGameTitle: 'Continuous Free',
+      gameTitle: 'Continuous Free Pyramid',
       representedFrame: { frameIndex: 1, pointsBySeat: { A: 11, B: 10 } },
       framesWonBySeat: { A: 0, B: 0 },
       targets: { matchTargetFrames: 1, frameTargetPointsBySeat: { A, B } },
@@ -248,7 +249,7 @@ test.each([
       framesWonBySeat: { A: 0, B: 1 },
       representedFrame: { frameIndex: 1, pointsBySeat: points },
       targets: { matchTargetFrames: 1, frameTargetPointsBySeat: targets },
-      shortGameTitle: 'Continuous Free',
+      gameTitle: 'Continuous Free Pyramid',
     }
 
     const data: FinishedMatchData<'free-pyramid-long'> = {
@@ -272,19 +273,20 @@ test.each([
     }
 
     const protocol: FinishedProtocolData<'free-pyramid-long'> = { ...shared, protocolRows: [] }
-    const result = presentFinishedSurface(data, t)
+    const result = presentFinishedBoard(data, t)
 
-    expect(presentFinishedSurface(protocol, t)).toEqual(result)
-    expect(result.board.score).toEqual({
+    expect(presentFinishedBoard(protocol, t)).toEqual(result)
+    expect(result.score).toEqual({
       primary: points,
       targets,
       framesWon: undefined,
       winnerSeat: 'B',
       compactScore: false,
     })
-    expect(result.board.winnerLabel).toBe('Bohdan won')
-    expect(result.board.mutedSeat).toBe('A')
-    expect(result.board.details).toBeNull()
+    expect(result.winnerLabel).toBe('Bohdan won')
+    expect(result.mutedSeat).toBe('A')
+    expect(result.details).toBeNull()
+    expect(result.caption).toBe('Continuous Free Pyramid')
 
     if (targets.A === 30)
       expect(presentResult(data, t).rows).toEqual([
@@ -302,7 +304,7 @@ test.each(['racks', 'frames'] as const)(
   (kind) => {
     const data: FinishedMatchData = {
       ...finishedFacts('free-pyramid-long'),
-      shortGameTitle: 'Continuous Free',
+      gameTitle: 'Continuous Free Pyramid',
       resultScores: { kind, rows: [{ index: 4, score: { A: 11, B: 3 } }] },
       endedAtIso: '2026-10-01T18:07:00Z',
       endedAtTime: '21:07',

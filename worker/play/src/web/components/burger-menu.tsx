@@ -1,5 +1,6 @@
 import { keys } from '@ks/i18n'
 import type { SupportedLocale } from '@ks/i18n'
+import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useFetcher, useLocation } from 'react-router'
 
@@ -31,8 +32,8 @@ export function BurgerMenu({ placement }: { placement?: 'header' | 'navigation' 
   const isNewMatchRoute =
     location.pathname === sparringPath || location.pathname.startsWith(`${sparringPath}setup/`)
 
-  const matchesPath = localizedPath('/sparring/matches/', currentLocale)
-  const isMatchesRoute = location.pathname.startsWith(matchesPath)
+  const liveMatchesPath = localizedPath('/sparring/matches/', currentLocale)
+  const finishedMatchesPath = localizedPath('/sparring/matches/finished/', currentLocale)
 
   function changeTheme(values: string[]) {
     const theme = values[0]
@@ -65,24 +66,19 @@ export function BurgerMenu({ placement }: { placement?: 'header' | 'navigation' 
         <div className="flex flex-1 flex-col overflow-y-auto px-5 pb-5 md:pt-4">
           <nav className="flex flex-col gap-1" aria-label={t(keys.nav.sparring)}>
             <h2 className="px-3 py-1 text-base font-semibold">{t(keys.nav.sparring)}</h2>
-            <Link
-              to={sparringPath}
-              prefetch="render"
+            <MenuLink to={sparringPath} current={isNewMatchRoute} onClick={close}>
+              {t(keys.nav.newMatch)}
+            </MenuLink>
+            <MenuLink to={liveMatchesPath} current={location.pathname === liveMatchesPath} onClick={close}>
+              {t(keys.nav.liveMatches)}
+            </MenuLink>
+            <MenuLink
+              to={finishedMatchesPath}
+              current={location.pathname.startsWith(finishedMatchesPath)}
               onClick={close}
-              aria-current={isNewMatchRoute ? 'page' : undefined}
-              className="flex min-h-12 items-center rounded-md px-3 text-muted-foreground outline-none hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring/40 aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-foreground"
             >
-              {t(keys.nav.newGame)}
-            </Link>
-            <Link
-              to={matchesPath}
-              prefetch="render"
-              onClick={close}
-              aria-current={isMatchesRoute ? 'page' : undefined}
-              className="flex min-h-12 items-center rounded-md px-3 text-muted-foreground outline-none hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring/40 aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-foreground"
-            >
-              {t(keys.nav.allMatches)}
-            </Link>
+              {t(keys.nav.finishedMatches)}
+            </MenuLink>
           </nav>
 
           <Separator className="my-4" />
@@ -137,6 +133,20 @@ export function BurgerMenu({ placement }: { placement?: 'header' | 'navigation' 
         </div>
       )}
     </ResponsiveMenu>
+  )
+}
+
+function MenuLink(props: { to: string; current: boolean; onClick: () => void; children: ReactNode }) {
+  return (
+    <Link
+      to={props.to}
+      prefetch="render"
+      onClick={props.onClick}
+      aria-current={props.current ? 'page' : undefined}
+      className="flex min-h-12 items-center rounded-md px-3 text-muted-foreground outline-none hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring/40 aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-foreground"
+    >
+      {props.children}
+    </Link>
   )
 }
 

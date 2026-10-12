@@ -11,6 +11,7 @@ export default [
   route('api/sparring-matches/live-scores/', 'routes/sparring/matches/api-live-scores.ts'),
   route('en?', 'routes/layout-base.tsx', [
     index('routes/index.tsx'),
+    route('now/', 'routes/now.ts'),
     layout('routes/layout-app.tsx', [
       route('sparring/', 'routes/sparring/index.tsx'),
       route('sparring/setup/:gameKey/', 'routes/sparring/setup/route.tsx'),

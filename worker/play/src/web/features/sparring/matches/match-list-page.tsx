@@ -4,8 +4,7 @@ import {
   type MatchScorePollEntry,
   MatchScorePollResponse,
 } from '@ks/application'
-import type { MatchScoreProjection } from '@ks/competition/definitions'
-import type { BySeatNumber, MatchId } from '@ks/core'
+import type { MatchId } from '@ks/core'
 import { keys } from '@ks/i18n'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -16,7 +15,8 @@ import { Page } from '@/components/page'
 import { Button, SegmentedNavigation, SegmentedNavigationLink } from '@/components/ui'
 import { cn } from '@/components/ui/utils'
 import { LiveListController } from '@/features/sparring/matches/live-list-controller'
-import { matchUrl } from '@/features/sparring/urls'
+import { presentMatchCard } from '@/features/sparring/matches/match-card-presentation'
+import { finishedMatchesUrl, matchUrl } from '@/features/sparring/urls'
 import { localizedPath } from '@/i18n'
 import { useRootLocale } from '@/root'
 
@@ -83,19 +83,11 @@ function MatchListContent({
 
   return (
     <Page title={t(keys.nav.matches)} headerAction={<MatchListViewToggle view={view} locale={locale} />}>
-      {page.scope === 'finished' && page.day !== null ? (
-        <FinishedDayNavigation page={page} locale={locale} heading />
-      ) : null}
+      {page.scope === 'finished' ? <FinishedDayNavigation page={page} locale={locale} heading /> : null}
 
       {matches.length === 0 ? (
         <p className="text-muted-foreground">
-          {t(
-            view === 'live'
-              ? keys.match.sparring.noLiveMatches
-              : page.scope === 'finished' && page.day !== null
-                ? keys.match.sparring.noFinishedMatchesOnDay
-                : keys.match.sparring.noFinishedMatches,
-          )}
+          {t(view === 'live' ? keys.match.sparring.noLiveMatches : keys.match.sparring.noFinishedMatchesOnDay)}
         </p>
       ) : (
         <MatchGrid>
@@ -105,7 +97,7 @@ function MatchListContent({
         </MatchGrid>
       )}
 
-      {page.scope === 'finished' && page.day !== null && matches.length > 10 ? (
+      {page.scope === 'finished' && matches.length > 10 ? (
         <FinishedDayNavigation page={page} locale={locale} />
       ) : null}
     </Page>
@@ -123,8 +115,6 @@ function FinishedDayNavigation({
 }) {
   const { t } = useTranslation()
 
-  if (page.day === null) return null
-
   const date = page.day
   const label = page.isToday ? t(keys.match.sparring.today) : localDateLabel(date)
 
@@ -135,7 +125,7 @@ function FinishedDayNavigation({
       ) : (
         <Button
           nativeButton={false}
-          render={<Link to={matchListDayPath(locale, page.previousDay)} prefetch="intent" />}
+          render={<Link to={finishedMatchesUrl(page.previousDay, locale)} prefetch="intent" />}
           variant="outline"
           size="touch"
           className="min-w-12 gap-1 justify-self-start px-3"
@@ -158,7 +148,7 @@ function FinishedDayNavigation({
       ) : (
         <Button
           nativeButton={false}
-          render={<Link to={matchListDayPath(locale, page.nextDay)} prefetch="intent" />}
+          render={<Link to={finishedMatchesUrl(page.nextDay, locale)} prefetch="intent" />}
           variant="outline"
           size="touch"
           className="min-w-12 gap-1 justify-self-end px-3"
@@ -213,14 +203,8 @@ function MatchGrid({ children }: { children: React.ReactNode }) {
 
 function MatchRow({ match, locale }: { match: MatchListEntry; locale: 'uk' | 'en' }) {
   const { t } = useTranslation()
-  const score = displayedScore(match)
+  const card = presentMatchCard(match)
   const winner = match.score.winnerSeat
-  const showPlayerTargets = match.hasCustomFrameTarget
-
-  const activeFrame = match.gameKey === 'free-pyramid-long' ? null : match.score.activeFrame
-
-  const activeFrameScore =
-    match.status === 'active' && match.score.matchTargetFrames > 1 ? activeFrame?.pointsBySeat : undefined
 
   return (
     <Link
@@ -230,24 +214,24 @@ function MatchRow({ match, locale }: { match: MatchListEntry; locale: 'uk' | 'en
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-4 gap-y-1">
         <PlayerName
           name={match.participants.A.displayName}
-          target={showPlayerTargets ? match.score.frameTargetPointsBySeat.A : undefined}
+          target={card.playerTargets?.A}
           emphasized={winner === null || winner === 'A'}
           strong={match.status === 'finished'}
         />
         <PlayerScore
-          value={score.A}
-          activeFrameValue={activeFrameScore?.A}
+          value={card.score.A}
+          activeFrameValue={card.activeFrameScore?.A}
           emphasized={winner === null || winner === 'A'}
         />
         <PlayerName
           name={match.participants.B.displayName}
-          target={showPlayerTargets ? match.score.frameTargetPointsBySeat.B : undefined}
+          target={card.playerTargets?.B}
           emphasized={winner === null || winner === 'B'}
           strong={match.status === 'finished'}
         />
         <PlayerScore
-          value={score.B}
-          activeFrameValue={activeFrameScore?.B}
+          value={card.score.B}
+          activeFrameValue={card.activeFrameScore?.B}
           emphasized={winner === null || winner === 'B'}
         />
       </div>
@@ -259,27 +243,18 @@ function MatchRow({ match, locale }: { match: MatchListEntry; locale: 'uk' | 'en
             {t(match.status === 'active' ? keys.status.live : keys.status.finished)}
           </span>
           <span>{match.shortGameTitle}</span>
-          {(match.status === 'active' && !showPlayerTargets) ||
-          (match.hasCustomFrameTarget && match.score.matchTargetFrames > 1) ? (
+          {card.raceToWins === null ? null : (
             <>
               {' · '}
-              <span>
-                {t(keys.match.scoreboard.target, {
-                  target: displayedTarget(match.score),
-                })}
-              </span>
+              <span>{t(keys.match.scoreboard.target, { target: card.raceToWins })}</span>
             </>
-          ) : null}
-          {match.status === 'active' && activeFrame !== null ? (
+          )}
+          {card.frameIndex === null ? null : (
             <>
               {' · '}
-              <span>
-                {t(keys.match.scoreboard.frameWithNumber, {
-                  frameIndex: activeFrame.frameIndex,
-                })}
-              </span>
+              <span>{t(keys.match.scoreboard.frameWithNumber, { frameIndex: card.frameIndex })}</span>
             </>
-          ) : null}
+          )}
           {' · '}
           <time dateTime={match.createdAtIso} className="tabular-nums">
             {match.createdAtLabel}
@@ -333,7 +308,7 @@ function PlayerScore({
   emphasized,
 }: {
   value: number
-  activeFrameValue?: number
+  activeFrameValue: number | undefined
   emphasized: boolean
 }) {
   return (
@@ -473,24 +448,6 @@ function useLiveMatchList(
     // Active Matches land.
     controller.current?.snapshot()
   }, [activeMatches])
-}
-
-function displayedScore(match: MatchListEntry): BySeatNumber {
-  if (match.score.matchTargetFrames > 1) return match.score.framesWonBySeat
-
-  return match.score.singleFramePointsBySeat ?? match.score.framesWonBySeat
-}
-
-function displayedTarget(score: MatchScoreProjection): number | string {
-  if (score.matchTargetFrames > 1) return score.matchTargetFrames
-
-  const { A, B } = score.frameTargetPointsBySeat
-
-  return A === B ? A : `${A}/${B}`
-}
-
-function matchListDayPath(locale: 'uk' | 'en', day: string): string {
-  return localizedPath(`/sparring/matches/finished/${day}/`, locale)
 }
 
 function localDateLabel(date: string): string {

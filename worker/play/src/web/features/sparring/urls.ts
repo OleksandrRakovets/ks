@@ -1,4 +1,4 @@
-import type { CreateSparringMatchInput } from '@ks/application'
+import type { CreateSparringMatchInput, MatchListDay } from '@ks/application'
 import type { MatchId } from '@ks/core'
 import type { GameKey } from '@ks/gameplay/definitions'
 import type { SupportedLocale } from '@ks/i18n'
@@ -36,4 +36,8 @@ export function matchUrl(gameKey: GameKey, matchId: MatchId, locale: SupportedLo
 
 export function matchProtocolUrl(gameKey: GameKey, matchId: MatchId, locale: SupportedLocale): string {
   return localizedPath(`/sparring/match/${gameKey}/${matchId}/protocol/`, locale)
+}
+
+export function finishedMatchesUrl(day: MatchListDay, locale: SupportedLocale): string {
+  return localizedPath(`/sparring/matches/finished/${day}/`, locale)
 }

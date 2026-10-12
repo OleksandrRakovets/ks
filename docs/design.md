@@ -8,18 +8,22 @@ implementation ownership belongs to [Play guidance](../worker/play/AGENTS.md).
 
 The app has two chrome types. Do not add a third.
 
-- **App Shell** (game index, Matches, Setup): wordmark left at every width, burger right, no
-  navigation links in the bar. The burger holds navigation and preferences and has the same content
-  at every width through `ResponsiveMenu`. Do not show placeholders for future modules. Revisit
-  links in the bar only when there is more than one module.
-- **Match Shell** (Control, Protocol, Result): ✕ is the only exit. It has no global navigation and
-  no wordmark. The width is capped at `--container-match` because the match screen is a phone-shaped
-  surface used at the table. A wide desktop variant needs its own interaction study first.
+- **App Shell** (game index, Matches, Setup, Result, finished Protocol): wordmark left at every
+  width, burger right, no navigation links in the bar. The burger holds navigation and preferences
+  and has the same content at every width through `ResponsiveMenu`. Do not show placeholders for
+  future modules. Revisit links in the bar only when there is more than one module.
+- **Match Shell** (Control, active Protocol): ✕ is the only exit and always returns to the live
+  list, so operators at the table are not distracted. It has no global navigation and no wordmark.
+  Finished pages keep the match surface and tabs below the App Shell header; the game and target
+  move to a caption under the scores. The match surface width is capped at `--container-match`
+  because it is a phone-shaped surface used at the table. A wide desktop variant needs its own
+  interaction study first.
 - Control uses a fixed viewport layout. Result and both active and finished Protocol pages share a
   reading layout: the Board, page content, and any page action scroll together between the fixed
   header and bottom tabs. Do not give Protocol rows their own scroll region.
-- App Shell pages compose `Page`. The page owns its title from its own loader data. `Page` has no
-  subtitle slot: a line under a heading either restates it or makes claims the data cannot back.
+- App Shell list and form pages compose `Page`. The page owns its title from its own loader data.
+  `Page` has no subtitle slot: a line under a heading either restates it or makes claims the data
+  cannot back.
   Back links sit above the title because long game names wrap.
 - Copy must not claim ownership the data lacks. Match lists are global until identity exists, so
   use `Матчі`, not `Мої матчі`.

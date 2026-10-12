@@ -1,45 +1,47 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 
+import { AppShell } from '@/components/app-shell'
 import { cn } from '@/components/ui/utils'
 
 export type ShellNavigation = {
-  exitTo: string
-  exitLabel: string
   label: string
   primary: { to: string; label: string }
   protocol: { to: string; label: string }
 }
 
+/**
+ * Active pages use the distraction-free match header whose ✕ is the only exit; finished pages return
+ * to the App Shell header.
+ */
+export type ShellHeader =
+  | {
+      kind: 'match'
+      title: string
+      rule: string
+      exit: { to: string; label: string }
+      control?: ReactNode
+    }
+  | { kind: 'app' }
+
 /** Reading pages scroll the board, body, and footer together; fixed Control pages keep all three in the viewport. */
 export function Shell(props: {
   active: 'primary' | 'protocol'
   layout: 'fixed' | 'reading'
-  header: { title: string; rule: string }
+  header: ShellHeader
   navigation: ShellNavigation
-  headerControl?: ReactNode
   board: ReactNode
   footer?: ReactNode
   children: ReactNode
 }) {
-  return (
-    <main className="mx-auto flex h-dvh w-full max-w-match flex-col overflow-hidden bg-background text-foreground">
-      <header className="flex h-[52px] shrink-0 items-center gap-3 px-1.5">
-        <Link
-          to={props.navigation.exitTo}
-          aria-label={props.navigation.exitLabel}
-          className="grid size-11 shrink-0 place-items-center rounded-lg text-muted-foreground outline-none hover:bg-overlay hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40"
-        >
-          <CloseIcon />
-        </Link>
-        <div className="flex min-w-0 flex-1 items-center justify-between gap-4">
-          <strong className="truncate text-[17px] leading-none font-semibold">{props.header.title}</strong>
-          {props.header.rule ? (
-            <span className="shrink-0 text-base leading-none">{props.header.rule}</span>
-          ) : null}
-        </div>
-        {props.headerControl ?? <span aria-hidden className="size-11 shrink-0" />}
-      </header>
+  const surface = (
+    <main
+      className={cn(
+        'mx-auto flex w-full max-w-match flex-col overflow-hidden bg-background text-foreground',
+        props.header.kind === 'app' ? 'min-h-0 flex-1' : 'h-dvh',
+      )}
+    >
+      {props.header.kind === 'match' ? <MatchHeader {...props.header} /> : null}
 
       <div
         className={cn(
@@ -66,6 +68,34 @@ export function Shell(props: {
         </Tab>
       </nav>
     </main>
+  )
+
+  if (props.header.kind === 'match') return surface
+
+  return (
+    <div className="flex h-dvh flex-col overflow-hidden">
+      <AppShell />
+      {surface}
+    </div>
+  )
+}
+
+function MatchHeader(props: Extract<ShellHeader, { kind: 'match' }>) {
+  return (
+    <header className="flex h-[52px] shrink-0 items-center gap-3 px-1.5">
+      <Link
+        to={props.exit.to}
+        aria-label={props.exit.label}
+        className="grid size-11 shrink-0 place-items-center rounded-lg text-muted-foreground outline-none hover:bg-overlay hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40"
+      >
+        <CloseIcon />
+      </Link>
+      <div className="flex min-w-0 flex-1 items-center justify-between gap-4">
+        <strong className="truncate text-[17px] leading-none font-semibold">{props.title}</strong>
+        {props.rule ? <span className="shrink-0 text-base leading-none">{props.rule}</span> : null}
+      </div>
+      {props.control ?? <span aria-hidden className="size-11 shrink-0" />}
+    </header>
   )
 }
 
