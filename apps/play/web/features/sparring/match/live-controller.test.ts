@@ -112,6 +112,20 @@ test('local submission suppresses echoes but retains a later remote sequence', a
   expect(reads).toHaveLength(1)
 })
 
+test('a browser return during local submission waits for it instead of reading over the POST', async () => {
+  controller.start()
+  caughtUp()
+  controller.setSubmitting(true)
+  browser.visibility('hidden')
+  browser.visibility('visible')
+  browser.window.dispatchEvent(new Event('focus'))
+  await browser.advance(60_000)
+  expect(reads).toHaveLength(0)
+  controller.snapshot(5)
+  controller.setSubmitting(false)
+  expect(reads).toHaveLength(1)
+})
+
 test('terminal signal with an equal cursor forces a read after submission and stops reconnecting', async () => {
   controller.start()
   caughtUp()

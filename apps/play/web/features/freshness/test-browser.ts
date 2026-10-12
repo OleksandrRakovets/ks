@@ -67,9 +67,11 @@ export class LiveTestBrowser {
   }
 
   async flush(): Promise<void> {
-    // Promise.race, controller finally, and Router-like completion callbacks occupy successive
-    // microtasks. Drain them without advancing wall time or silently running future timers.
-    for (let i = 0; i < 8; i++) await Promise.resolve()
+    // Drain every queued microtask without advancing wall time or running fake timers. The real
+    // macrotask queue is untouched by this fixture, so setImmediate runs after promise chains settle.
+    await new Promise<void>((resolve) => {
+      setImmediate(resolve)
+    })
   }
 
   #setTimeout(callback: () => void, delay: number) {
