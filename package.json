@@ -67,16 +67,16 @@
   "knip": {
     "workspaces": {
       "do/match-room": {
-        "ignoreFiles": [
-          "test/rpc/fixtures.ts"
-        ],
-        "ignore": [
-          "drizzle/migrations.d.ts"
+        "project": [
+          "**/*.{js,mjs,cjs,jsx,ts,tsx,mts,cts}!",
+          "!test/rpc/fixtures.ts!",
+          "!drizzle/migrations.d.ts"
         ]
       },
       "packages/application": {
-        "ignoreFiles": [
-          "src/sparring/sparring.fixtures.ts"
+        "project": [
+          "**/*.{js,mjs,cjs,jsx,ts,tsx,mts,cts}!",
+          "!src/sparring/sparring.fixtures.ts!"
         ]
       }
     },
