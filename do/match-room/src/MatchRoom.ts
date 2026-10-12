@@ -5,6 +5,7 @@ import { DurableObject } from 'cloudflare:workers'
 import type { Env } from './env'
 import { LiveConnectionHandler } from './live/live-connection-handler'
 import { ActiveMatchHandler } from './match/active-match-handler'
+import { DiscardedMatchHandler } from './match/discarded-match-handler'
 import { FinalizingMatchHandler } from './match/finalizing-match-handler'
 import { initializeMatch, type InitializeMatchInput } from './match/initialize-match'
 import { MatchStorage } from './storage/match-storage'
@@ -27,6 +28,10 @@ export class MatchRoom extends DurableObject<Env> {
       throw new Error('MatchRoom routed identity does not match initialization Match')
 
     return initializeMatch(this.#storage, input)
+  }
+
+  async discard() {
+    return this.#requireHandler().discard()
   }
 
   async submitCommand(command: MatchCommand) {
@@ -57,7 +62,9 @@ export class MatchRoom extends DurableObject<Env> {
 
     return handler instanceof ActiveMatchHandler
       ? this.#liveConnections.connect(handler.liveConnectionCursor(), pageKind)
-      : new Response('Match is finalizing', { status: 410 })
+      : handler instanceof DiscardedMatchHandler
+        ? new Response('Unknown match', { status: 404 })
+        : new Response('Match is finalizing', { status: 410 })
   }
 
   webSocketMessage(socket: WebSocket): void {
@@ -75,14 +82,24 @@ export class MatchRoom extends DurableObject<Env> {
   async prepareArchive() {
     const handler = this.#requireHandler()
 
-    if (handler instanceof ActiveMatchHandler) throw new Error('Cannot prepare archive for active Match')
+    if (!(handler instanceof FinalizingMatchHandler))
+      throw new Error('Cannot prepare archive for active or discarded Match')
 
     return handler.prepareArchive()
   }
 
-  #requireHandler(): ActiveMatchHandler | FinalizingMatchHandler {
-    return this.#storage.anyMatchRecord.status === 'active'
-      ? new ActiveMatchHandler(this.#storage, this.#liveConnections)
-      : new FinalizingMatchHandler(this.#storage)
+  #requireHandler(): ActiveMatchHandler | FinalizingMatchHandler | DiscardedMatchHandler {
+    const record = this.#storage.anyMatchRecord
+
+    switch (record.status) {
+      case 'active':
+        return new ActiveMatchHandler(this.#storage, this.#liveConnections)
+      case 'finalizing':
+        return new FinalizingMatchHandler(this.#storage)
+      case 'discarded':
+        return new DiscardedMatchHandler(record.endedAt)
+    }
+
+    throw new Error('Unsupported MatchRoom lifecycle')
   }
 }

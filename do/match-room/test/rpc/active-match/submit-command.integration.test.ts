@@ -159,3 +159,52 @@ test('a match-ending retry still reports endsMatch while an earlier accepted ret
   ).toEqual({ _tag: 'command-id-conflict' })
   expect(await restored.submitCommand(commenceCommand())).toEqual({ _tag: 'finalizing' })
 })
+
+test.each([false, true])(
+  'discard locks a prepared or commenced room across eviction (commenced: %s)',
+  async (commenced) => {
+    const { matchId, stub } = await initializedRoom()
+
+    if (commenced) await stub.submitCommand(commenceCommand())
+    const discarded = await stub.discard()
+    expect(discarded).toMatchObject({ _tag: 'discarded', endedAt: expect.any(Number) })
+    expect(await stub.discard()).toEqual(discarded)
+    expect(await stub.getControls()).toEqual({ _tag: 'discarded' })
+    expect(await stub.getProtocol()).toEqual({ _tag: 'discarded' })
+    expect(await stub.getScore()).toEqual({ _tag: 'discarded' })
+    expect(await stub.submitCommand(commenceCommand())).toEqual(discarded)
+
+    await evictDurableObject(stub)
+    const restored = env.MATCH_ROOM.getByName(matchId)
+    expect(await restored.discard()).toEqual(discarded)
+    expect(await restored.submitCommand(matchEndingCommand())).toEqual(discarded)
+    expect(await restored.getProtocol()).toEqual({ _tag: 'discarded' })
+    await captureRpcError(async () => {
+      await restored.prepareArchive()
+    })
+  },
+)
+
+test.each([true, false])(
+  'discard and completion converge on exactly one terminal state (discard first: %s)',
+  async (discardFirst) => {
+    const { stub } = await initializedRoom()
+    await stub.submitCommand(commenceCommand())
+
+    const results = await Promise.all(
+      discardFirst
+        ? [stub.discard(), stub.submitCommand(matchEndingCommand())]
+        : [stub.submitCommand(matchEndingCommand()), stub.discard()],
+    )
+
+    if (results.some((result) => result._tag === 'accepted')) {
+      expect(await stub.discard()).toEqual({ _tag: 'finalizing' })
+      expect(await stub.prepareArchive()).toMatchObject({
+        finalState: { status: 'finished', winnerSeat: 'A' },
+      })
+    } else {
+      expect(results.every((result) => result._tag === 'discarded')).toBe(true)
+      expect(await stub.getScore()).toEqual({ _tag: 'discarded' })
+    }
+  },
+)

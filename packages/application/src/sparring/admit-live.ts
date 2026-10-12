@@ -9,7 +9,7 @@ export async function admitMatchLive(
 ): ReturnType<SparringApplication['admitMatchLive']> {
   const record = await deps.matches.findMatch(matchId)
 
-  if (!record) return { _tag: 'unknown' }
+  if (!record || record.status === 'discarded') return { _tag: 'unknown' }
 
   if (record.status === 'finished') return { _tag: 'finished' }
 

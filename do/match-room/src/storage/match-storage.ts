@@ -33,6 +33,7 @@ import {
   type CommandReceipt,
   commandReceiptFromRow,
   type CommandReceiptLookup,
+  type DiscardedMatchRecord,
   type FinalizingMatchRecord,
   type MatchRecord,
   matchRecordFromRow,
@@ -43,9 +44,7 @@ import * as schema from './schema'
 export class MatchStorage {
   readonly #db
   readonly #clock = new SystemClock()
-  #matchRecordLoaded = false
-  #activeMatchRecord: ActiveMatchRecord | null = null
-  #finalizingMatchRecord: FinalizingMatchRecord | null = null
+  #matchRecord: MatchRecord | null | undefined
 
   constructor(storage: DurableObjectStorage) {
     this.#db = drizzle(storage)
@@ -84,39 +83,58 @@ export class MatchStorage {
 
     if (!matchRecord) throw new Error('MatchRoom storage missing after creation')
 
-    this.#cacheMatchRecord(matchRecord)
+    this.#matchRecord = matchRecord
   }
 
   get optionalMatchRecord(): MatchRecord | null {
-    this.#loadMatchRecord()
+    if (this.#matchRecord === undefined) this.#matchRecord = this.#readMatchRecord()
 
-    return this.#activeMatchRecord ?? this.#finalizingMatchRecord
+    return this.#matchRecord
   }
 
   get anyMatchRecord(): MatchRecord {
-    this.#loadMatchRecord()
+    const matchRecord = this.optionalMatchRecord
 
-    if (this.#activeMatchRecord) return this.#activeMatchRecord
+    if (!matchRecord) throw new Error('MatchRoom storage missing')
 
-    if (this.#finalizingMatchRecord) return this.#finalizingMatchRecord
-
-    throw new Error('MatchRoom storage missing')
+    return matchRecord
   }
 
   get activeMatchRecord(): ActiveMatchRecord {
-    this.#loadMatchRecord()
+    const matchRecord = this.optionalMatchRecord
 
-    if (!this.#activeMatchRecord) throw new Error('Active Match record required')
+    if (matchRecord?.status !== 'active') throw new Error('Active Match record required')
 
-    return this.#activeMatchRecord
+    return matchRecord
   }
 
   get finalizingMatchRecord(): FinalizingMatchRecord {
-    this.#loadMatchRecord()
+    const matchRecord = this.optionalMatchRecord
 
-    if (!this.#finalizingMatchRecord) throw new Error('Finalizing Match record required')
+    if (matchRecord?.status !== 'finalizing') throw new Error('Finalizing Match record required')
 
-    return this.#finalizingMatchRecord
+    return matchRecord
+  }
+
+  /** Locks execution without changing the acceptance cursor, checkpoints, score, or Protocol. */
+  discard(): DiscardedMatchRecord {
+    const matchRecord = this.activeMatchRecord
+    const endedAt = this.#clock.nowMs()
+
+    const result = this.#db
+      .update(schema.activeMatches)
+      .set({ status: 'discarded', endedAt })
+      .where(
+        and(eq(schema.activeMatches.matchId, matchRecord.matchId), eq(schema.activeMatches.status, 'active')),
+      )
+      .run()
+
+    if (result.rowsWritten !== 1) throw new Error('Active Match discard conflict')
+
+    const discarded = { ...matchRecord, status: 'discarded' as const, endedAt }
+    this.#matchRecord = discarded
+
+    return discarded
   }
 
   findCommandReceipt(command: MatchCommand): CommandReceiptLookup | null {
@@ -254,17 +272,15 @@ export class MatchStorage {
       }
     })
 
-    this.#cacheMatchRecord(
-      endsMatch
-        ? {
-            ...matchRecord,
-            latestSeq: acceptedCommand.acceptedSeq,
-            score,
-            status: 'finalizing',
-            endedAt: acceptedCommand.acceptedAt,
-          }
-        : { ...matchRecord, latestSeq: acceptedCommand.acceptedSeq, score },
-    )
+    this.#matchRecord = endsMatch
+      ? {
+          ...matchRecord,
+          latestSeq: acceptedCommand.acceptedSeq,
+          score,
+          status: 'finalizing',
+          endedAt: acceptedCommand.acceptedAt,
+        }
+      : { ...matchRecord, latestSeq: acceptedCommand.acceptedSeq, score }
 
     return committed
   }
@@ -404,18 +420,6 @@ export class MatchStorage {
     if (!rows[0]) return null
 
     return matchRecordFromRow(rows[0])
-  }
-
-  #loadMatchRecord(): void {
-    if (this.#matchRecordLoaded) return
-
-    this.#cacheMatchRecord(this.#readMatchRecord())
-  }
-
-  #cacheMatchRecord(matchRecord: MatchRecord | null): void {
-    this.#activeMatchRecord = matchRecord?.status === 'active' ? matchRecord : null
-    this.#finalizingMatchRecord = matchRecord?.status === 'finalizing' ? matchRecord : null
-    this.#matchRecordLoaded = true
   }
 
   #selectCheckpointRow(seq: number): typeof schema.checkpoints.$inferSelect {

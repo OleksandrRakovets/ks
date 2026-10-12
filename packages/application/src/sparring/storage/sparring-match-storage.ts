@@ -78,7 +78,28 @@ export class SparringMatchStorage {
     await this.#db
       .update(sparringMatches)
       .set({ status: StoredMatchStatus.active })
-      .where(eq(sparringMatches.matchId, matchId))
+      .where(and(eq(sparringMatches.matchId, matchId), eq(sparringMatches.status, StoredMatchStatus.creating)))
+  }
+
+  /** Completes the room-first soft delete without creating a result or Protocol archive. */
+  async markDiscarded(matchId: MatchId, endedAt: UnixEpochMilliseconds): Promise<void> {
+    const result = await this.#db
+      .update(sparringMatches)
+      .set({ status: StoredMatchStatus.discarded, endedAt })
+      .where(
+        and(
+          eq(sparringMatches.matchId, matchId),
+          isNull(sparringMatches.finalSourceLatestSeq),
+          isNull(sparringMatches.finalScoreJson),
+          or(
+            and(eq(sparringMatches.status, StoredMatchStatus.active), isNull(sparringMatches.endedAt)),
+            and(eq(sparringMatches.status, StoredMatchStatus.discarded), eq(sparringMatches.endedAt, endedAt)),
+          ),
+        ),
+      )
+      .returning({ matchId: sparringMatches.matchId })
+
+    if (result.length !== 1) throw new MatchFinalizationError('Match is not ready to discard')
   }
 
   async findMatch(matchId: MatchId): Promise<MatchRecord | null> {

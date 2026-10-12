@@ -13,7 +13,7 @@ MatchRoom owns serialized active/finalizing execution and per-match SQLite. For 
 ## Lifecycle Handlers
 
 - Initialization verifies that the Durable Object name matches the input Match ID, persists the same configuration idempotently, and reports different initialization as `initialization-conflict`. Later RPC methods derive identity from the selected object.
-- Narrow lifecycle once when selecting a handler. Only initialization permits missing authority; handlers receive service dependencies, not stale record snapshots. Storage is already scoped to the selected Match.
+- Narrow lifecycle once when selecting a handler. Only initialization permits missing authority; executable handlers receive service dependencies, not stale record snapshots. Terminal handlers that cannot mutate authority may receive immutable lifecycle data. Storage is already scoped to the selected Match.
 - Creation and Accepted Command transactions update the cached record only after SQLite commits successfully. Keep every future `active_matches` mutation and its cache update in the same storage operation.
 - Do not retain a running Match or gameplay actor across requests.
 - Active operations restore the request-local aggregate from the checkpoint at the record cursor. Finalizing operations restore the terminal checkpoint. No read replays Accepted Commands.
@@ -28,7 +28,7 @@ MatchRoom owns serialized active/finalizing execution and per-match SQLite. For 
 
 ## Durable Authority
 
-- MatchRoom SQLite owns Accepted Commands and outcomes, their monotonic sequence, complete Protocol entries, executable aggregate checkpoints, the compact score projection, and active/finalizing status.
+- MatchRoom SQLite owns Accepted Commands and outcomes, their monotonic sequence, complete Protocol entries, executable aggregate checkpoints, the compact score projection, and active/finalizing/discarded status.
 - Creation stores checkpoint `0`. Every Accepted Command atomically stores its receipt, checkpoint, complete Protocol entries, and updated Match header at the next positive sequence. A rejected command stores only its receipt.
 - `previousCheckpointSeq` identifies the prior aggregate checkpoint. A Correction follows any Correction-only links behind its target, restores the effective predecessor, and stores that predecessor on its new checkpoint.
 - Correction lookup follows checkpoint links and reads only the target Command and its Protocol batch. Do not recover Correction state by replaying Accepted Commands.
@@ -39,12 +39,13 @@ MatchRoom owns serialized active/finalizing execution and per-match SQLite. For 
 - The match-ending acceptance stores the terminal checkpoint, `endedAt`, and `finalizing` status in the same transaction. Broadcast and socket closure happen only after that commit.
 - `prepareArchive` transfers the checkpoint-derived final state, game result, and stored Protocol. MatchRoom remains finalizing after D1 finishes; finished reads must not return here.
 - Finalizing reads do not invoke archive transfer and warn with the Match ID and age.
+- Discard locks the room header without altering its acceptance cursor, checkpoints, scores, or Protocol. It is not a competition Command; discarded handlers never restore gameplay or expose history, and `prepareArchive` rejects them. Socket closure follows the durable header update.
 
 ## Live Connections
 
 - Use only the Durable Object Hibernation API and reconstruct connection metadata from serialized attachments.
-- Socket messages are committed-sequence invalidations; React Router loaders remain authoritative.
-- Capture the current cursor and accept the socket in the same synchronous event turn. Reject new finalizing connections with `410`.
+- Socket messages are committed-sequence invalidations; React Router loaders remain authoritative. Finalization and discard share the terminal close signal; sockets do not classify the Match outcome.
+- Capture the current cursor and accept the socket in the same synchronous event turn. Reject new finalizing connections with `410` and discarded connections with `404`.
 
 ## Migrations And Checks
 

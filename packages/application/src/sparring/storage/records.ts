@@ -21,6 +21,7 @@ export type MatchCreationRecord = Readonly<{
 export type MatchRecord = MatchCreationRecord &
   (
     | Readonly<{ status: 'creating' | 'active' }>
+    | Readonly<{ status: 'discarded'; endedAt: UnixEpochMilliseconds }>
     | Readonly<{
         status: 'finished'
         endedAt: UnixEpochMilliseconds
@@ -67,6 +68,13 @@ export const MatchRow = v.pipe(
       finalSourceLatestSeq: v.null(),
       finalScore: v.null(),
     }),
+    v.object({
+      ...MatchRowIdentity,
+      status: v.literal(StoredMatchStatus.discarded),
+      endedAt: UnixEpochMilliseconds,
+      finalSourceLatestSeq: v.null(),
+      finalScore: v.null(),
+    }),
     v.pipe(
       v.object({
         ...MatchRowIdentity,
@@ -100,7 +108,9 @@ export function matchRecordFromRow(row: MatchRow): MatchRecord {
         finalSourceLatestSeq: row.finalSourceLatestSeq,
         finalScore: row.finalScore,
       }
-    : { ...identity, status: row.status }
+    : row.status === 'discarded'
+      ? { ...identity, status: row.status, endedAt: row.endedAt }
+      : { ...identity, status: row.status }
 }
 
 export function matchListRecordFromRow(

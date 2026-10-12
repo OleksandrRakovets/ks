@@ -93,3 +93,17 @@ test('client closure is harmless before match end', async () => {
   await makeRoomFinalizing(stub)
   expect((await stub.fetch(liveRequest(matchId))).status).toBe(410)
 })
+
+test('discard closes existing sockets and rejects new connections without a scoring acceptance', async () => {
+  const { matchId, stub } = await initializedRoom()
+  const socket = await connect(stub, matchId)
+  await nextMessage(socket)
+
+  const closed = new Promise<CloseEvent>((resolve) =>
+    socket.addEventListener('close', resolve, { once: true }),
+  )
+
+  await stub.discard()
+  expect(await closed).toMatchObject({ code: 4000, reason: 'match-finished' })
+  expect((await stub.fetch(liveRequest(matchId))).status).toBe(404)
+})

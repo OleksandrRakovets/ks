@@ -110,19 +110,23 @@ export async function readMatchScores(
   for (const matchId of matchIds) {
     const record = recordsById.get(matchId)
 
-    if (!record) return { ok: false, reason: 'unknown-match' }
+    if (!record || record.status === 'discarded') return { ok: false, reason: 'unknown-match' }
 
     if (record.status === 'creating')
       throw new Error('Creating Match cannot be included in Match score polling')
     records.push(record)
   }
 
-  const matches: MatchScorePollEntry[] = await Promise.all(
-    records.map(async (record) => ({
-      matchId: record.matchId,
-      ...(await readMatchScoreForList(deps, record)),
-    })),
-  )
+  const scores = await Promise.all(records.map((record) => readMatchScoreForList(deps, record)))
+  const matches: MatchScorePollEntry[] = []
+
+  for (const [index, record] of records.entries()) {
+    const score = scores[index]
+
+    if (!score) return { ok: false, reason: 'unknown-match' }
+
+    matches.push({ matchId: record.matchId, ...score })
+  }
 
   return { ok: true, matches }
 }
@@ -134,9 +138,11 @@ async function projectListEntries(
   formattedNow: InstantPresentation,
   label: (formattedCreatedAt: InstantPresentation) => string,
 ): Promise<MatchListEntry[]> {
-  return Promise.all(
+  const matches = await Promise.all(
     records.map(async (record) => {
       const score = await readMatchScoreForList(deps, record)
+
+      if (score === null) return null
       const formattedCreatedAt = deps.clock.instantPresentation(record.createdAt)
 
       return presentListEntry(
@@ -149,6 +155,8 @@ async function projectListEntries(
       )
     }),
   )
+
+  return matches.filter((match) => match !== null)
 }
 
 function localDay(deps: SparringDependencies, instant: UnixEpochMilliseconds): MatchListDay {
@@ -160,7 +168,9 @@ function localDay(deps: SparringDependencies, instant: UnixEpochMilliseconds): M
 async function readMatchScoreForList(
   deps: SparringDependencies,
   record: MatchRecord,
-): Promise<Parameters<typeof presentListEntry>[1]> {
+): Promise<Parameters<typeof presentListEntry>[1] | null> {
+  if (record.status === 'discarded') return null
+
   if (record.status === 'finished')
     return {
       status: 'finished',
@@ -171,6 +181,8 @@ async function readMatchScoreForList(
 
   if (record.status === 'creating') throw new Error('Creating Match cannot be included in the Match list')
   const room = await deps.matchRoomClient(record.matchId).getScore()
+
+  if (room._tag === 'discarded') return null
 
   if (room._tag === 'active')
     return { status: 'active', endedAt: null, latestSeq: room.latestSeq, score: room.score }

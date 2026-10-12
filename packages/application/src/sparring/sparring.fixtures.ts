@@ -74,6 +74,7 @@ export function selectedClient(overrides: Partial<MatchRoomClient> = {}): MatchR
 
   return {
     initialize: unexpected,
+    discard: unexpected,
     getControls: unexpected,
     getProtocol: unexpected,
     getScore: unexpected,
@@ -87,13 +88,14 @@ export function sparring(
   room: MatchRoomClient,
   events: string[] = [],
   options: {
-    initialStatus?: 'active' | 'finished'
+    initialStatus?: 'active' | 'finished' | 'discarded'
     overrides?: Partial<Omit<SparringDependencies, 'players' | 'matches'>>
     players?: Partial<SparringDependencies['players']>
     matches?: Partial<SparringDependencies['matches']>
   } = {},
 ) {
   let status = options.initialStatus ?? ('active' as const)
+  let discardedAt = transfer.endedAt
 
   const matchRecord = () => {
     const identity = {
@@ -111,7 +113,9 @@ export function sparring(
           finalSourceLatestSeq: transfer.sourceLatestSeq,
           finalScore: projectMatchScore(transfer.finalState),
         }
-      : { ...identity, status }
+      : status === 'discarded'
+        ? { ...identity, status, endedAt: discardedAt }
+        : { ...identity, status }
   }
 
   return createSparringApplication({
@@ -169,6 +173,11 @@ export function sparring(
       markFinished: async () => {
         events.push('finish')
         status = 'finished'
+      },
+      markDiscarded: async (_matchId, endedAt) => {
+        events.push('discard')
+        status = 'discarded'
+        discardedAt = endedAt
       },
       ...options.matches,
     },

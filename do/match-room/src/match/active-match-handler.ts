@@ -22,6 +22,13 @@ export class ActiveMatchHandler {
     this.#liveConnections = liveConnections
   }
 
+  discard() {
+    const record = this.#storage.discard()
+    this.#liveConnections.closeAll()
+
+    return { _tag: 'discarded' as const, endedAt: record.endedAt }
+  }
+
   submitCommand(command: MatchCommand): ActiveCommandResult {
     const priorReceipt = this.#storage.findCommandReceipt(command)
 

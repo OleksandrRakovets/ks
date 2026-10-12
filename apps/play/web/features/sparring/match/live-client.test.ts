@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 
-import { newMatchId } from '@ks/core'
+import { newMatchId, SPARRING_MATCH_LIVE_FINISHED_CLOSE_CODE } from '@ks/core'
 
 import { subscribeSparringMatchLive } from './live-client'
 
@@ -119,5 +119,33 @@ test('live client stops and requests catch-up for a gapped match-ending update',
   expect(caughtUp).toEqual([4])
   expect(states).toEqual(['connecting', 'finished'])
   expect(socket.closeCalls).toBe(1)
+  subscription.stop()
+})
+
+test('terminal closure stops the subscription without requiring a score update', () => {
+  FakeWebSocket.instances = []
+  const states: string[] = []
+
+  const subscription = subscribeSparringMatchLive({
+    matchId: newMatchId(),
+    pageKind: 'control',
+    currentLatestSeq: () => 0,
+    onCaughtUp: () => {},
+    onUpdate: () => {
+      throw new Error('Terminal closure does not require a score update')
+    },
+    onConnectionState: (state) => {
+      states.push(state)
+    },
+  })
+
+  const socket = FakeWebSocket.instances.at(0)
+
+  if (socket === undefined) throw new Error('Expected live socket')
+  const closed = new Event('close')
+  Object.defineProperty(closed, 'code', { value: SPARRING_MATCH_LIVE_FINISHED_CLOSE_CODE })
+  socket.dispatchEvent(closed)
+  socket.dispatchEvent(closed)
+  expect(states).toEqual(['connecting', 'finished'])
   subscription.stop()
 })

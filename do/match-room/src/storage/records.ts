@@ -39,6 +39,7 @@ const MatchRecord = v.pipe(
   v.variant('status', [
     v.object({ ...MatchRecordFields, status: v.literal('active'), endedAt: v.null() }),
     v.object({ ...MatchRecordFields, status: v.literal('finalizing'), endedAt: UnixEpochMilliseconds }),
+    v.object({ ...MatchRecordFields, status: v.literal('discarded'), endedAt: UnixEpochMilliseconds }),
   ]),
   v.transform(({ configJson, scoreJson, ...row }) => ({
     ...row,
@@ -55,6 +56,8 @@ export type MatchRecord = v.InferOutput<typeof MatchRecord>
 export type ActiveMatchRecord = Extract<MatchRecord, { status: 'active' }>
 
 export type FinalizingMatchRecord = Extract<MatchRecord, { status: 'finalizing' }>
+
+export type DiscardedMatchRecord = Extract<MatchRecord, { status: 'discarded' }>
 
 export function matchRecordFromRow(row: typeof schema.activeMatches.$inferSelect): MatchRecord {
   try {

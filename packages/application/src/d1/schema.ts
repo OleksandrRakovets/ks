@@ -14,6 +14,7 @@ export const StoredMatchStatus = {
   creating: 'creating',
   active: 'active',
   finished: 'finished',
+  discarded: 'discarded',
 } as const
 
 export type StoredMatchStatus = (typeof StoredMatchStatus)[keyof typeof StoredMatchStatus]

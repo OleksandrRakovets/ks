@@ -1,6 +1,7 @@
 import { MatchCommand, MatchId } from '@ks/core'
 import { type GameKey, registry } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
+import { redirect } from 'react-router'
 import * as v from 'valibot'
 
 import type {
@@ -9,7 +10,7 @@ import type {
   MatchPageDecision,
   ProtocolPageData,
 } from '@/features/sparring/match/types'
-import { localeFromContext } from '@/i18n'
+import { localeFromContext, localizedPath } from '@/i18n'
 import type { AppLoadContext } from '@/server/context.server'
 import { requireApplication } from '@/server/context.server'
 
@@ -57,9 +58,30 @@ export async function loadMatchProtocolPage<K extends GameKey>(
 export async function commandMatchAction(
   args: RouteArgs,
   expectedGameKey: GameKey,
-): Promise<ControlActionData> {
+): Promise<ControlActionData | Response> {
   const matchId = matchIdFromParams(args.params)
   const form = await args.request.formData()
+
+  if (form.has('intent')) {
+    if (form.getAll('intent').length !== 1 || form.get('intent') !== 'discard' || form.has('command'))
+      return { ok: false, errorKey: keys.match.control.invalidCommandPayload }
+
+    const result = await requireApplication(args.context).sparring.discardMatch(matchId, expectedGameKey)
+
+    if (!result.ok) {
+      switch (result.reason) {
+        case 'unknown-match':
+          throw new Response('Unknown match', { status: 404 })
+        case 'match-locked':
+          return { ok: false, errorKey: keys.match.control.matchLocked }
+        default:
+          throw new Error('Unhandled discard failure', { cause: result.reason satisfies never })
+      }
+    }
+
+    return redirect(localizedPath('/sparring/matches/', localeFromContext(args.context)), 303)
+  }
+
   const command = v.safeParse(SubmittedMatchCommand, form.get('command'))
 
   if (!command.success) {

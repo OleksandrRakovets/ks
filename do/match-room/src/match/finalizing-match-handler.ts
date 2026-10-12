@@ -17,6 +17,10 @@ export class FinalizingMatchHandler {
     this.#storage = storage
   }
 
+  discard() {
+    return { _tag: 'finalizing' as const }
+  }
+
   submitCommand(command: MatchCommand): FinalizingCommandResult {
     const prior = this.#storage.findCommandReceipt(command)
 
