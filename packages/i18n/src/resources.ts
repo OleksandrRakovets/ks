@@ -189,6 +189,7 @@ export const resources = {
           raceToWins_few: 'до {{count}} перемог',
           raceToWins_many: 'до {{count}} перемог',
           raceToWins_other: 'до {{count}} перемоги',
+          target: 'до\u00a0{{target}}',
         },
         result: {
           tabResult: 'Результат',
@@ -498,6 +499,7 @@ export const resources = {
           points: 'Points',
           raceToWins_one: 'race to {{count}} win',
           raceToWins_other: 'race to {{count}} wins',
+          target: 'to\u00a0{{target}}',
         },
         result: {
           tabResult: 'Result',

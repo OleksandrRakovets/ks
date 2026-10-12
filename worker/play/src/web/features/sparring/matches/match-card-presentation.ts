@@ -6,6 +6,7 @@ export type MatchCardPresentation = {
   /** Current Frame points beside the frame score while the Match is active. */
   readonly activeFrameScore: BySeatNumber | null
   readonly playerTargets: BySeatNumber | null
+  /** Frame wins needed; cards leave out the noun to fit their meta line. */
   readonly raceToWins: number | null
   readonly frameIndex: number | null
 }

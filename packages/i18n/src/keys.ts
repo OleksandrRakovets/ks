@@ -106,6 +106,7 @@ export const keys = {
       frameWithNumber: 'match.scoreboard.frameWithNumber',
       points: 'match.scoreboard.points',
       raceToWins: 'match.scoreboard.raceToWins',
+      target: 'match.scoreboard.target',
     },
     result: {
       tabResult: 'match.result.tabResult',

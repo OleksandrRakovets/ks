@@ -246,7 +246,7 @@ function MatchRow({ match, locale }: { match: MatchListEntry; locale: 'uk' | 'en
           {card.raceToWins === null ? null : (
             <>
               {' · '}
-              <span>{t(keys.match.scoreboard.raceToWins, { count: card.raceToWins })}</span>
+              <span>{t(keys.match.scoreboard.target, { target: card.raceToWins })}</span>
             </>
           )}
           {card.frameIndex === null ? null : (
