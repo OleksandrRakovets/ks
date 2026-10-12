@@ -68,12 +68,12 @@ export class ActiveMatchHandler {
 
     this.#liveConnections.broadcast(committed.streamUpdate)
 
-    if (committed.streamUpdate.endsMatch) this.#liveConnections.closeAll()
+    if (committed.endsMatch) this.#liveConnections.closeAll()
 
     return {
       _tag: 'accepted',
       acceptedSeq: committed.receipt.acceptedSeq,
-      endsMatch: committed.streamUpdate.endsMatch,
+      endsMatch: committed.endsMatch,
     }
   }
 
@@ -103,12 +103,12 @@ export class ActiveMatchHandler {
 
     this.#liveConnections.broadcast(committed.streamUpdate)
 
-    if (committed.streamUpdate.endsMatch) this.#liveConnections.closeAll()
+    if (committed.endsMatch) this.#liveConnections.closeAll()
 
     return {
       _tag: 'accepted',
       acceptedSeq: committed.receipt.acceptedSeq,
-      endsMatch: committed.streamUpdate.endsMatch,
+      endsMatch: committed.endsMatch,
     }
   }
 

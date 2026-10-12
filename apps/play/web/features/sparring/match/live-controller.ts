@@ -138,15 +138,11 @@ export class MatchLiveController {
       pageKind: this.#pageKind,
       currentLatestSeq: () => this.#latestSeq,
       onCaughtUp: (seq) => this.#requestSeq(seq),
-      onUpdate: (update) => {
-        this.#targetSeq = Math.max(this.#targetSeq, update.acceptedSeq)
-
-        if (!update.endsMatch) this.#drain()
-        // The transport emits finished separately. It forces a read even when this cursor is
-        // already displayed, so terminal handling never relies on an inequality alone.
-      },
+      onUpdate: (update) => this.#requestSeq(update.acceptedSeq),
       onConnectionState: (state) => {
         if (state === 'finished') {
+          // Forces a read even when this cursor is already displayed: discard ends live scoring
+          // without a newer Accepted Command.
           this.#endHinted = true
           this.forceRead()
         } else if (state === 'connected') {

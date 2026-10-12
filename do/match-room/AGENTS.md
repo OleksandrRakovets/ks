@@ -44,7 +44,7 @@ MatchRoom owns serialized active/finalizing execution and per-match SQLite. For 
 ## Live Connections
 
 - Use only the Durable Object Hibernation API and reconstruct connection metadata from serialized attachments.
-- Socket messages are committed-sequence invalidations; React Router loaders remain authoritative. Finalization and discard share the terminal close signal; sockets do not classify the Match outcome.
+- Socket messages are committed-sequence invalidations; React Router loaders remain authoritative. Every terminal path sends `live-ended` and then closes with `4000 live-ended`; sockets do not classify the Match outcome. Clients act on whichever arrives first, because workerd can deliver a server-initiated close late.
 - Capture the current cursor and accept the socket in the same synchronous event turn. Reject new finalizing connections with `410` and discarded connections with `404`.
 
 ## Migrations And Checks

@@ -36,7 +36,7 @@ export async function handleSparringMatchLiveRequest(
 
     if (admission._tag === 'finished') return new Response('Match is finished', { status: 410 })
     const roomUrl = new URL(`https://match-room/api/sparring-match/${matchId.output}/live/`)
-    roomUrl.searchParams.set('contract', '1')
+    roomUrl.searchParams.set('contract', String(query.output.contract))
     roomUrl.searchParams.set('view', query.output.view)
 
     return await env.MATCH_ROOM.getByName(matchId.output).fetch(new Request(roomUrl.toString(), request))

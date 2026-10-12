@@ -42,7 +42,7 @@ function socket(): TestSocket {
 function caughtUp(seq = 4): void {
   socket().message(
     JSON.stringify({
-      contractVersion: 1,
+      contractVersion: 2,
       type: 'caught-up',
       matchId,
       latestSeq: seq,
@@ -50,17 +50,19 @@ function caughtUp(seq = 4): void {
   )
 }
 
-function update(seq: number, endsMatch = false): void {
+function update(seq: number): void {
   socket().message(
     JSON.stringify({
-      contractVersion: 1,
+      contractVersion: 2,
       type: 'update',
-      update: {
-        type: 'command-accepted',
-        acceptedSeq: seq,
-        endsMatch,
-      },
+      update: { type: 'command-accepted', acceptedSeq: seq },
     } satisfies SparringMatchLiveServerMessage),
+  )
+}
+
+function liveEnded(): void {
+  socket().message(
+    JSON.stringify({ contractVersion: 2, type: 'live-ended' } satisfies SparringMatchLiveServerMessage),
   )
 }
 
@@ -115,7 +117,7 @@ test('terminal signal with an equal cursor forces a read after submission and st
   controller.start()
   caughtUp()
   controller.setSubmitting(true)
-  update(4, true)
+  liveEnded()
   expect(reads).toHaveLength(0)
   controller.snapshot(4)
   controller.setSubmitting(false)
@@ -136,24 +138,13 @@ test('terminal hint arriving during a read remains forced even if that read reac
   controller.start()
   caughtUp()
   update(5)
-  update(6, true)
+  update(6)
+  liveEnded()
   controller.snapshot(6)
   reads[0].resolve()
   await browser.flush()
   expect(reads).toHaveLength(2)
   expect(browser.sockets).toHaveLength(1)
-})
-
-test('one gapped terminal message starts one forced read, not competing cursor and terminal reads', async () => {
-  controller.start()
-  caughtUp()
-  update(6, true)
-  expect(reads).toHaveLength(1)
-  controller.snapshot(6)
-  reads[0].resolve()
-  await browser.flush()
-  expect(reads).toHaveLength(1)
-  expect(socket().closeCalls).toBe(1)
 })
 
 test('failed cursor read waits for the watchdog instead of retrying an unsatisfied target in a loop', async () => {

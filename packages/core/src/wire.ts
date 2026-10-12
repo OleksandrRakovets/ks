@@ -7,14 +7,13 @@ export const MatchStreamUpdate = v.pipe(
   v.object({
     type: v.literal('command-accepted'),
     acceptedSeq: PositiveInteger,
-    endsMatch: v.boolean(),
   }),
   v.readonly(),
 )
 
 export type MatchStreamUpdate = v.InferOutput<typeof MatchStreamUpdate>
 
-export const SparringMatchLiveContractVersion = v.literal(1)
+export const SparringMatchLiveContractVersion = v.literal(2)
 
 export type SparringMatchLiveContractVersion = v.InferOutput<typeof SparringMatchLiveContractVersion>
 
@@ -24,8 +23,8 @@ export type SparringMatchLivePageKind = v.InferOutput<typeof SparringMatchLivePa
 
 export const SparringMatchLiveQuery = v.strictObject({
   contract: v.pipe(
-    v.literal('1'),
-    v.transform(() => 1),
+    v.literal('2'),
+    v.transform(() => 2),
     SparringMatchLiveContractVersion,
   ),
   view: SparringMatchLivePageKind,
@@ -52,14 +51,24 @@ const SparringMatchLiveCaughtUpMessage = v.pipe(
   v.readonly(),
 )
 
+/** The single signal that live scoring stopped; loaders determine the Match outcome. */
+const SparringMatchLiveEndedMessage = v.pipe(
+  v.object({
+    contractVersion: SparringMatchLiveContractVersion,
+    type: v.literal('live-ended'),
+  }),
+  v.readonly(),
+)
+
 export const SparringMatchLiveServerMessage = v.variant('type', [
   SparringMatchLiveUpdateMessage,
   SparringMatchLiveCaughtUpMessage,
+  SparringMatchLiveEndedMessage,
 ])
 
 export type SparringMatchLiveServerMessage = v.InferOutput<typeof SparringMatchLiveServerMessage>
 
-/** Signals that live scoring stopped; loaders determine the Match outcome. */
+/** Closes sockets after the `live-ended` message; clients treat it as the same signal if the message is lost. */
 export const SPARRING_MATCH_LIVE_ENDED_CLOSE_CODE = 4000
 
 export const SPARRING_MATCH_LIVE_ENDED_CLOSE_REASON = 'live-ended'
