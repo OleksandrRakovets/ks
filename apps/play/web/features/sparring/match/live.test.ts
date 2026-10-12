@@ -208,6 +208,21 @@ test('persisted pageshow catches up even if no hide event ran, while initial pag
   expect(TestSocket.instances).toHaveLength(2)
 })
 
+test('focus on a visible page reads without replacing a healthy socket; online replaces it', async () => {
+  controller.start()
+  caughtUp()
+  browser.window.dispatchEvent(new Event('focus'))
+  expect(reads).toHaveLength(1)
+  expect(TestSocket.instances).toHaveLength(1)
+  expect(socket().closeCalls).toBe(0)
+  controller.snapshot(4)
+  reads[0].resolve()
+  await browser.flush()
+  browser.window.dispatchEvent(new Event('online'))
+  expect(reads).toHaveLength(2)
+  expect(TestSocket.instances).toHaveLength(2)
+})
+
 test('silent connected socket has an HTTP watchdog, and retries do not flood HTTP', async () => {
   controller.start()
   caughtUp()

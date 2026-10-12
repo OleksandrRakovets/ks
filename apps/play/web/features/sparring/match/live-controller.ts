@@ -54,7 +54,7 @@ export class MatchLiveController {
   start(): void {
     this.#stopWatchingBrowser = watchBrowserReturn({
       onHide: () => this.#hide(),
-      onReturn: () => this.#catchUp(),
+      onReturn: (hint) => this.#catchUp(hint !== 'focus'),
     })
     this.#connect()
     this.#schedule()
@@ -107,7 +107,7 @@ export class MatchLiveController {
     this.#stopWork()
   }
 
-  #catchUp() {
+  #catchUp(reconnect: boolean) {
     if (this.#disposed) return
     this.#hidden = false
 
@@ -118,7 +118,14 @@ export class MatchLiveController {
     // its returned promise is shared, so generations also exclude the old completion callback.
     this.#readGeneration++
     this.#reading = false
-    this.#stopWork()
+    this.#clearTimer()
+
+    // Focus alone does not suggest a dead socket; a visible return, restored page, or online hint does.
+    if (reconnect) {
+      this.#subscription?.stop()
+      this.#subscription = undefined
+    }
+
     this.forceRead()
     this.#connect()
   }
