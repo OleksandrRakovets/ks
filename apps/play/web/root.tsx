@@ -13,6 +13,7 @@ import {
 } from 'react-router'
 
 import { iconBasePath, iconThemeColor, type IconVariant } from './features/icon-assets'
+import { useRememberNavigation } from './features/pwa/use-remember-navigation'
 import { localeFromContext } from './i18n'
 import { type AppLoadContext, cloudflareContext } from './server/context.server'
 import { themeFromCookie } from './server/theme.server'
@@ -52,6 +53,7 @@ export function useRootTheme(): AppTheme {
 export function Layout({ children }: { children: React.ReactNode }) {
   const data = useRouteLoaderData<RootLoaderData>('root')
   const locale = useRootLocale()
+
   const theme = data?.theme ?? 'club-dark'
   const iconVariant = data?.iconVariant ?? 'amber'
   const iconPath = iconBasePath(iconVariant)
@@ -84,6 +86,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  useRememberNavigation()
+
   return <Outlet />
 }
 
