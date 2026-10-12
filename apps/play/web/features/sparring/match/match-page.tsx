@@ -34,13 +34,20 @@ function ControlPage<K extends GameKey>(props: {
 }) {
   const { t } = useTranslation()
   const fetcher = useFetcher<ControlActionData>()
-  const markLocalSubmit = useControlLiveRevalidation(props.data, fetcher)
+  const discardFetcher = useFetcher<ControlActionData>()
+  const discarding = discardFetcher.state !== 'idle'
+  const markLocalSubmit = useControlLiveRevalidation(props.data, fetcher, discarding)
   const sections = groupControlsIntoSections(props.data.controls)
-  const submitting = fetcher.state !== 'idle'
+  const submitting = fetcher.state !== 'idle' || discarding
+  const failure = [discardFetcher.data, fetcher.data].find((data) => data?.ok === false)
 
   function submitCommand(command: MatchCommand) {
     markLocalSubmit()
     void fetcher.submit(matchCommandForm(command), { method: 'post' })
+  }
+
+  function discardMatch() {
+    void discardFetcher.submit({ intent: 'discard' }, { method: 'post' })
   }
 
   return (
@@ -54,6 +61,7 @@ function ControlPage<K extends GameKey>(props: {
           names={{ A: props.data.participants.A.displayName, B: props.data.participants.B.displayName }}
           submitting={submitting}
           onSubmit={submitCommand}
+          onDiscard={discardMatch}
         />
       }
       footer={
@@ -62,7 +70,7 @@ function ControlPage<K extends GameKey>(props: {
         ) : null
       }
     >
-      <ControlPanel errorLabel={fetcher.data?.ok === false ? t(fetcher.data.errorKey) : undefined}>
+      <ControlPanel errorLabel={failure?.ok === false ? t(failure.errorKey) : undefined}>
         {props.data.controlPhase === 'frame-active' ? (
           <props.renderer
             game={props.data.game}

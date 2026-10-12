@@ -1,22 +1,39 @@
 import type { GameKey } from '@ks/gameplay/definitions'
-import { Link } from 'react-router'
+import { keys } from '@ks/i18n'
+import { useTranslation } from 'react-i18next'
+import { data, Link, useLoaderData } from 'react-router'
 
 import { Page } from '@/components/page'
 import { Badge, Card, CardFooter, CardHeader, CardTitle } from '@/components/ui'
 import { matchSetupUrl } from '@/features/sparring/urls'
 import { useRootLocale } from '@/root'
+import { consumeNotice, type Notice } from '@/server/notice.server'
+
+import type { Route } from './+types/index'
+
+export function loader({ request }: Route.LoaderArgs) {
+  const { notice, headers } = consumeNotice(request)
+
+  return data({ notice }, { headers })
+}
 
 export default function SparringRoute() {
   const locale = useRootLocale()
+  const { notice } = useLoaderData<typeof loader>()
 
-  return locale === 'uk' ? <UkrainianSparringIndex /> : <EnglishSparringIndex />
+  return locale === 'uk' ? (
+    <UkrainianSparringIndex notice={notice} />
+  ) : (
+    <EnglishSparringIndex notice={notice} />
+  )
 }
 
 // This curated page is intentionally hand-crafted as per-locale JSX. Keep all shelf copy here,
 // including game names, so each locale's content and layout can evolve independently.
-function UkrainianSparringIndex() {
+function UkrainianSparringIndex(props: { notice: Notice | null }) {
   return (
     <Page title="Спаринг">
+      <NoticeBar notice={props.notice} />
       <section className="grid gap-4 md:grid-cols-2" aria-label="Ігри для спарингу">
         <GameCard
           gameKey="strila-v2"
@@ -64,9 +81,10 @@ function UkrainianSparringIndex() {
   )
 }
 
-function EnglishSparringIndex() {
+function EnglishSparringIndex(props: { notice: Notice | null }) {
   return (
     <Page title="Sparring">
+      <NoticeBar notice={props.notice} />
       <section className="grid gap-4 md:grid-cols-2" aria-label="Sparring games">
         <GameCard
           gameKey="strila-v2"
@@ -111,6 +129,18 @@ function EnglishSparringIndex() {
         />
       </section>
     </Page>
+  )
+}
+
+const noticeCopy = { 'match-discarded': keys.match.sparring.matchDiscarded } satisfies Record<Notice, string>
+
+function NoticeBar(props: { notice: Notice | null }) {
+  const { t } = useTranslation()
+
+  if (props.notice === null) return null
+
+  return (
+    <output className="block rounded-lg bg-overlay px-4 py-3 text-base">{t(noticeCopy[props.notice])}</output>
   )
 }
 

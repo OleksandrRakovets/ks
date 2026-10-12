@@ -6,6 +6,7 @@ import { keys } from '@ks/i18n'
 import { RouterContextProvider } from 'react-router'
 
 import { type AppLoadContext, cloudflareContext } from '@/server/context.server'
+import { consumeNotice } from '@/server/notice.server'
 
 import { loadMatchPage, loadMatchProtocolPage, matchAction } from './handlers'
 
@@ -43,8 +44,12 @@ describe('matchAction adaptation', () => {
     else {
       expect(outcome).toMatchObject({ status })
 
-      if (outcome instanceof Response && status === 303)
-        expect(outcome.headers.get('Location')).toBe('/sparring/matches/')
+      if (outcome instanceof Response && status === 303) {
+        expect(outcome.headers.get('Location')).toBe('/sparring/')
+        const cookie = outcome.headers.get('Set-Cookie')?.split(';')[0] ?? ''
+        const destination = new Request('http://localhost/sparring/', { headers: { cookie } })
+        expect(consumeNotice(destination).notice).toBe('match-discarded')
+      }
     }
   })
 

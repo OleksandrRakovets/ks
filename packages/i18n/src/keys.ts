@@ -94,6 +94,10 @@ export const keys = {
       },
       unknownMatch: 'match.control.unknownMatch',
       matchLocked: 'match.control.matchLocked',
+      discard: 'match.control.discard',
+      discardConfirm: 'match.control.discardConfirm',
+      discardWarning: 'match.control.discardWarning',
+      discardKeep: 'match.control.discardKeep',
     },
     scoreboard: {
       frames: 'match.scoreboard.frames',
@@ -123,6 +127,7 @@ export const keys = {
       previousDay: 'match.sparring.previousDay',
       nextDay: 'match.sparring.nextDay',
       chooseAnotherGame: 'match.sparring.chooseAnotherGame',
+      matchDiscarded: 'match.sparring.matchDiscarded',
       playerA: 'match.sparring.playerA',
       playerB: 'match.sparring.playerB',
       matchTargetFrames: 'match.sparring.matchTargetFrames',
