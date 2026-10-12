@@ -15,7 +15,7 @@ test('throws before a match-ending acceptance', async () => {
         await stub.prepareArchive()
       })
     ).message,
-  ).toContain('active or discarded Match')
+  ).toContain('non-finalizing Match')
 })
 
 test('derives the same archive transfer across retries and eviction without replay', async () => {

@@ -83,7 +83,7 @@ export class MatchRoom extends DurableObject<Env> {
     const handler = this.#requireHandler()
 
     if (!(handler instanceof FinalizingMatchHandler))
-      throw new Error('Cannot prepare archive for active or discarded Match')
+      throw new Error('Cannot prepare archive for non-finalizing Match')
 
     return handler.prepareArchive()
   }
