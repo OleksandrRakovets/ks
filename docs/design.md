@@ -44,7 +44,8 @@ The app has two chrome types. Do not add a third.
   the one numeral step-down for three-digit scores.
 - Surfaces carry structure; lines almost never do. The lane spine is the only rule on the screen.
   Do not add dividers between the Board, Zones, Last Command Bar, or top bar. Keep the tonal steps
-  far enough apart to read on a dim phone at an angle, and check changes on a real phone.
+  far enough apart to read on a dim phone at an angle. The owner checks tonal changes on a real
+  phone; agents report them as needing that check.
 
 ## Last Command Bar and Correction
 

@@ -2,7 +2,7 @@
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
   "ignorePatterns": [
     "**/.agents/**",
-    "docs/**",
+    "**/*.md",
     "tools/oxlint/anti-slop/**",
     "packages/application/drizzle/**/snapshot.json",
     "do/match-room/drizzle/**/snapshot.json"

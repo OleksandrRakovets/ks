@@ -17,6 +17,7 @@ Play is the single Cloudflare Worker deployable. It owns HTTP and presentation, 
 
 - Import `web` modules through the `@/` alias, never relative paths; only React Router's generated `./+types/*` imports stay relative. Oxlint enforces this.
 - Keep UI app-local. Generic primitives belong in `src/web/components/ui`, reusable product visuals with explicit props in `src/web/components`, and one-off UI with its feature owner.
+- UI copy goes through `@ks/i18n` keys and `t()`; add each message to both the `en` and `uk` resources. Game names come from the gameplay registry, and the curated shelf (below) keeps its copy in route-local JSX.
 - Browser code uses browser-safe contracts, not executable competition/gameplay entrypoints or application server dependencies.
 - Give each game an explicit Match route and Protocol route. The Match loader selects Control or Result from lifecycle; the stable URL does not encode lifecycle state.
 - Preserve distinct scoring and Protocol contracts. Play groups flat scoring controls into layout sections; game semantics remain in gameplay.
@@ -36,10 +37,10 @@ Play is the single Cloudflare Worker deployable. It owns HTTP and presentation, 
 - Do not unit-test JSX output, rendered markup, component trees, snapshots, class names, or component/prop composition. Rendering, accessibility, styling, and user interactions belong in browser checks. Test presentation decisions through semantic values, not their JSX encoding.
 - Skip assertions that merely restate construction or wiring: a factory returns its supplied/newly defined function, a wrapper forwards unchanged arguments or props, or a helper reproduces a literal object. Assert identity, invocation order, or call counts only when they are themselves required observable behavior, not incidental implementation choices. Route tests should assert the HTTP contract rather than just mocked calls.
 - Do not extract helpers, widen exports, or add `@internal` tags solely to make trivial wiring unit-testable. Prefer an existing behavioral entrypoint; a small pure decision function is appropriate when it also clarifies production code.
-- Use the browser suite when available. Until it is merged, exercise affected UI states in the browser and report what was verified and any gaps; missing browser infrastructure is not permission to substitute JSX unit tests or introduce a temporary renderer/test harness.
+- There is no browser test suite yet. For UI changes, exercise affected states in the browser, inspect them against the design rules, and report what was verified and any gaps; missing browser infrastructure is not permission to substitute JSX unit tests or introduce a temporary renderer/test harness.
 
 ## Deployment And Checks
 
 - `wrangler.jsonc` owns Worker bindings and MatchRoom class migrations. Per-room SQL migrations are separate; follow the repository-root `docs/db.md` and root deployment policy. Production is `https://play.ks.ua`.
 - Do not hand-reformat generated `.react-router/` or `worker-configuration.d.ts` files.
-- Use the root fast gate for ordinary code changes and full gate for Worker/build/integration changes. For UI changes, exercise affected states in the browser and inspect rendered results against the design rules.
+- Use the root fast gate for ordinary code changes and full gate for Worker/build/integration changes.

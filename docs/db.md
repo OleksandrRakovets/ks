@@ -13,7 +13,7 @@ The stores have independent migration histories. Application owns D1 tooling; Pl
 
 ## Production Migration Planning
 
-Follow the [root deployment policy](../AGENTS.md#deployment-safety). Before proposing remote application, identify which schema/data changes the running Worker can tolerate and state whether each migration precedes or follows deployment. Confirm no Active Matches or pending finalization/archival before deploying; remote migrations require explicit authorization.
+Follow the [root deployment policy](../AGENTS.md#deployment-safety). Before proposing remote application, identify which schema/data changes the running Worker can tolerate and state whether each migration precedes or follows deployment. Remote migrations require explicit authorization.
 
 ## Local D1
 

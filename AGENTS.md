@@ -1,6 +1,6 @@
 # KS
 
-KS is a two-player billiards scorekeeper with public live scoring. Matches are races across frames; seats are `A` and `B`. Consult [GLOSSARY.md](GLOSSARY.md) when changing domain terminology.
+KS is a two-player billiards scorekeeper with public live scoring. Matches are races across frames; seats are `A` and `B`. Consult [GLOSSARY.md](GLOSSARY.md) before naming domain concepts in code or user-facing copy, and when changing domain terminology.
 
 ## Working Agreements
 
@@ -12,9 +12,9 @@ KS is a two-player billiards scorekeeper with public live scoring. Matches are r
 
 Linear team Billiards (`BIL`) tracks KS and Streamer work. Projects are roadmap outcomes; the `Source` label (Club request, Owner, Tech/Learning) records where an issue came from.
 
-- Work from one `BIL` issue per thread and PR. Include the issue ID anywhere in the branch name (e.g. `discard-ui-bil-51`), not in PR titles, so GitHub automation moves it to In Review on PR open and Done on merge to `dev`.
-- File out-of-scope ideas, bugs, and follow-ups as `BIL` issues with status Triage set explicitly (otherwise they land in Backlog), a `Source` label, and a link to the current thread. Mention them in the report; do not explore or implement them in the current task.
-- Statuses: Triage (undecided) → Backlog (accepted) or Parked (deferred until a 1-pager and repeated asks exist) → Shaping (1-pager or spec in progress) → Ready → In Progress → In Review → Done. Build only from Ready issues or with explicit approval; for Shaping issues, produce the spec first.
+- A direct request in the thread is enough to start work that has no issue. When work has a `BIL` issue, keep one issue per thread and PR, and include its ID anywhere in the branch name (e.g. `discard-ui-bil-51`), not in PR titles, so GitHub automation moves it to In Review on PR open and Done on merge to `dev`.
+- File an out-of-scope bug or follow-up as a `BIL` issue only when it is concrete and actionable—a problem you could defend if asked why it matters now. Set status Triage explicitly (otherwise it lands in Backlog), a `Source` label, and a link to the current thread. List minor nits and speculative ideas in the report instead of filing them. Do not explore or implement either in the current task.
+- Statuses: Triage (undecided) → Backlog (accepted) or Parked (deliberately deferred) → Shaping (1-pager or spec in progress) → Ready → In Progress → In Review → Done. Do not pick up Triage or Parked issues; the user moves them first. Only Ready issues go straight to code. For a Backlog or Shaping issue, the first deliverable is design—a spec or 1-pager, a codebase design, or visual exploration, as the issue needs. Present it and stop; change code only after the user approves the design.
 - Leave prioritization and status moves to the user and GitHub automation, except filing into Triage.
 
 ## Ownership And Guidance
@@ -23,7 +23,7 @@ Domain dependencies flow `core <- gameplay <- competition`. Play owns HTTP and p
 
 Read the owning component's `AGENTS.md` before changing it:
 
-- [Play](worker/play/AGENTS.md): routes, browser UI, Worker deployment. For UI changes, also read [design rules](docs/design.md).
+- [Play](worker/play/AGENTS.md): routes, browser UI, localized copy, Worker deployment.
 - [Gameplay](packages/gameplay/AGENTS.md): game semantics and frame execution.
 - [Competition](packages/competition/AGENTS.md): Match lifecycle, restoration, and Correction.
 - [Application](packages/application/AGENTS.md): workflows, projections, and D1.
@@ -52,7 +52,8 @@ Before opening a PR or shipping to dev, run `bunx knip` and `bunx knip --product
 
 ## Deployment Safety
 
-- Before every deployment, confirm no Active Matches and no pending finalization/archival.
+The owner runs deployments, and only when no Active Matches and no finalization/archival are pending; if asked to deploy, verify that first. Storage changes may rely on this precondition: no deployment interrupts an Active Match or pending archival, so retained MatchRoom state needs no legacy runtime compatibility (see [MatchRoom](do/match-room/AGENTS.md)).
+
 - Prefer explicit D1 schema/data migrations over legacy runtime branches. State migration/deployment ordering against the running Worker; report every added migration and its ordering to the user and in PR descriptions. Remote migrations require explicit authorization.
 - Do not rewrite applied migration history. If migrations cannot safely resolve compatibility, explain the limitation, scope, and removal condition before adding legacy code.
 

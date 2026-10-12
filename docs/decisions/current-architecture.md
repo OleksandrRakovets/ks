@@ -21,9 +21,10 @@ Browser
 | competition | Match lifecycle, execution, restoration, Correction and projections | [Competition](../../packages/competition/AGENTS.md) |
 | application | Use-case orchestration, private D1 access, source selection, cross-store finalization | [Application](../../packages/application/AGENTS.md) |
 | MatchRoom | Serialized active/finalizing execution, SQLite authority, socket fan-out | [MatchRoom](../../do/match-room/AGENTS.md) |
+| i18n | Supported locales, UI message keys and `en`/`uk` resources | [Play](../../worker/play/AGENTS.md) |
 | Play | HTTP, browser presentation, Worker deployment | [Play](../../worker/play/AGENTS.md) |
 
-Domain dependencies flow `core <- gameplay <- competition`. Application and MatchRoom consume the domain independently. Application imports MatchRoom type-only for its private RPC capability; Play exports the class at runtime from its Worker entrypoint. MatchRoom has no D1 dependency or general HTTP API.
+Domain dependencies flow `core <- gameplay <- competition`. Application and MatchRoom consume the domain independently. i18n has no dependencies; Play consumes its resources, and application imports only its locale type. Application imports MatchRoom type-only for its private RPC capability; Play exports the class at runtime from its Worker entrypoint. MatchRoom has no D1 dependency or general HTTP API.
 
 ### Why One Deployable
 
