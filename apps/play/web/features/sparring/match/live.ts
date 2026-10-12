@@ -65,7 +65,10 @@ function useMatchLiveController(
   }, [facts])
   const controller = useRef<MatchLiveController>(null)
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    // The controller owns imperative listeners/timers, so its lifetime follows the DOM commit.
+    // Passive cleanup can lag behind a visible Result projection; a foreground event or timer
+    // in that gap would still reach the active controller and start an unnecessary loader GET.
     if (lifecycle !== 'active') return undefined
     const completions = committedReads.current
     let disposed = false
