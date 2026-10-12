@@ -14,7 +14,9 @@ export function iconManifest(variant: IconVariant) {
   return {
     name: 'Play & Keep Score',
     short_name: 'Play! KS',
-    start_url: '/',
+    id: '/',
+    start_url: '/start/',
+    scope: '/',
     display: 'standalone',
     background_color: '#111c14',
     theme_color: iconThemeColor(variant),

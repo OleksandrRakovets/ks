@@ -6,6 +6,7 @@ export default [
   route('apple-touch-icon-precomposed.png', 'routes/tech/apple-touch-icon-precomposed.ts'),
   route('site.webmanifest', 'routes/tech/site-webmanifest.ts'),
   route('robots.txt', 'routes/tech/robots-txt.ts'),
+  route('start/', 'routes/start.ts'),
   route('ui-preferences/theme/', 'routes/ui-preferences.ts'),
   route('api/sparring-matches/live-scores/', 'routes/sparring/matches/api-live-scores.ts'),
   route('en?', 'routes/layout-base.tsx', [
