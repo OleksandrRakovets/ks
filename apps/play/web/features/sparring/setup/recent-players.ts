@@ -2,7 +2,7 @@ import { SystemClock, UnixEpochMilliseconds } from '@ks/core'
 import { useSyncExternalStore } from 'react'
 import * as v from 'valibot'
 
-import { safeNormalizeDisplayName } from './player-name'
+import { safeNormalizeDisplayName } from '@/features/sparring/setup/player-name'
 
 const RECENT_PLAYERS_KEY = 'ks.sparring.recentPlayers.v1'
 

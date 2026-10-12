@@ -4,7 +4,7 @@ import type { StrilaGamePresentation } from '@ks/gameplay/definitions'
 import { resources } from '@ks/i18n'
 import { createInstance } from 'i18next'
 
-import { presentBallSet } from './strila-presentation'
+import { presentBallSet } from '@/features/sparring/match/renderers/strila-presentation'
 
 test('ball presentation distinguishes selected, potted, and unavailable balls', async () => {
   const i18n = createInstance()

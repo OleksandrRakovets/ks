@@ -1,6 +1,6 @@
 import * as React from 'react'
 
-import { Input } from './form'
+import { Input } from '@/components/ui/form'
 
 function NumberInput({ onFocus, onClick, onInput, ...props }: Omit<React.ComponentProps<'input'>, 'type'>) {
   return (

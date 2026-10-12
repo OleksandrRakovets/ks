@@ -5,9 +5,8 @@ import { newCommandId, newMatchId } from '@ks/core'
 import { keys } from '@ks/i18n'
 import { RouterContextProvider } from 'react-router'
 
+import { matchAction } from '@/routes/sparring/match/handlers'
 import { cloudflareContext } from '@/server/context.server'
-
-import { matchAction } from './handlers'
 
 test('sends an identified correction through the existing action and names a stale-target rejection', async () => {
   const matchId = newMatchId()

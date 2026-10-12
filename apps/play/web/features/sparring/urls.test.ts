@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test'
 
 import { newMatchId } from '@ks/core'
 
-import { matchProtocolUrl, matchSetupUrl, matchUrl } from './urls'
+import { matchProtocolUrl, matchSetupUrl, matchUrl } from '@/features/sparring/urls'
 
 test('sparring match links retain game keys and locale across control and Protocol pages', () => {
   const matchId = newMatchId()

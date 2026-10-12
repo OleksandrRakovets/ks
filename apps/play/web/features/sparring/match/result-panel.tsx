@@ -1,8 +1,7 @@
 import type { BySeatNumber } from '@ks/core'
 
 import { cn } from '@/components/ui/utils'
-
-import type { ResultPresentation } from './result-presentation'
+import type { ResultPresentation } from '@/features/sparring/match/result-presentation'
 
 export function ResultPanel({ presentation }: { presentation: ResultPresentation }) {
   return (

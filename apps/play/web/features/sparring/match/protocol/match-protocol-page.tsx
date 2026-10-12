@@ -3,10 +3,9 @@ import { keys } from '@ks/i18n'
 import { useTranslation } from 'react-i18next'
 
 import { useProtocolLiveRevalidation } from '@/features/sparring/match/live'
+import { ProtocolPanel } from '@/features/sparring/match/protocol/protocol-panel'
 import { ActiveSurface, FinishedSurface } from '@/features/sparring/match/shell/surfaces'
 import type { ProtocolPageData } from '@/features/sparring/match/types'
-
-import { ProtocolPanel } from './protocol-panel'
 
 export function MatchProtocolPage<K extends GameKey>(props: { data: ProtocolPageData<K> }) {
   const { t } = useTranslation()

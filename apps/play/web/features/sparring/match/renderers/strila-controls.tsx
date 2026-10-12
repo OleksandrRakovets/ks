@@ -6,8 +6,10 @@ import { useTranslation } from 'react-i18next'
 import { SeatChoiceToss } from '@/components/seat-choice-toss'
 import { StrilaBall } from '@/components/strila-ball'
 import { cn } from '@/components/ui/utils'
-
-import type { BallSetPresentation, RuleNotePresentation } from './strila-presentation'
+import type {
+  BallSetPresentation,
+  RuleNotePresentation,
+} from '@/features/sparring/match/renderers/strila-presentation'
 
 export function BallSet(props: {
   presentation: BallSetPresentation

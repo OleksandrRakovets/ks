@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test'
 
 import type { Control, MatchCommand } from '@ks/core'
 
-import { presentControls } from './control-presentation'
+import { presentControls } from '@/features/sparring/match/renderers/control-presentation'
 
 test('activation preserves the seat and merges selection input, with a fresh ID on every press', () => {
   const control: Control = {

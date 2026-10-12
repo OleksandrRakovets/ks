@@ -151,6 +151,22 @@
       }
     },
     {
+      "files": ["apps/play/web/**/*.{ts,tsx}"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["./*", "../*", "!./+types/*"],
+                "message": "Import Play web modules through the @/ alias. Only React Router's generated ./+types/* imports stay relative."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
       "files": ["packages/gameplay/src/**/*.{ts,tsx}"],
       "rules": {
         "no-restricted-imports": [

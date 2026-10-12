@@ -2,9 +2,9 @@ import { useLoaderData } from 'react-router'
 
 import { MatchPage } from '@/features/sparring/match/match-page'
 import { CombinedPyramidOldControlRenderer } from '@/features/sparring/match/renderers/pyramid-control-renderer'
+import { loadMatchPage, matchAction } from '@/routes/sparring/match/handlers'
 
 import type { Route } from './+types/combined-pyramid-old-match'
-import { loadMatchPage, matchAction } from './handlers'
 
 export function loader(args: Route.LoaderArgs) {
   return loadMatchPage(args, 'combined-pyramid-old')

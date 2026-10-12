@@ -14,6 +14,7 @@ Play is the single Cloudflare Worker deployable. It owns HTTP and presentation, 
 
 ## UI Ownership
 
+- Import `web` modules through the `@/` alias, never relative paths; only React Router's generated `./+types/*` imports stay relative. Oxlint enforces this.
 - Keep UI app-local. Generic primitives belong in `web/components/ui`, reusable product visuals with explicit props in `web/components`, and one-off UI with its feature owner.
 - Browser code uses browser-safe contracts, not executable competition/gameplay entrypoints or application server dependencies.
 - Give each game an explicit Match route and Protocol route. The Match loader selects Control or Result from lifecycle; the stable URL does not encode lifecycle state.

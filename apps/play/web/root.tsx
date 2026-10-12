@@ -3,14 +3,14 @@ import i18next, { type i18n as I18nInstance } from 'i18next'
 import { I18nextProvider, initReactI18next } from 'react-i18next'
 import { Links, Meta, Outlet, Scripts, ScrollRestoration, useRouteLoaderData } from 'react-router'
 
-import { RouteError } from './components/route-error'
-import { useFailedReadRecovery } from './features/freshness/use-failed-read-recovery'
-import { iconBasePath, iconThemeColor, type IconVariant } from './features/icon-assets'
-import { useRememberNavigation } from './features/pwa/use-remember-navigation'
-import { localeFromContext } from './i18n'
-import { type AppLoadContext, cloudflareContext } from './server/context.server'
-import { themeFromCookie } from './server/theme.server'
-import type { AppTheme } from './theme'
+import { RouteError } from '@/components/route-error'
+import { useFailedReadRecovery } from '@/features/freshness/use-failed-read-recovery'
+import { iconBasePath, iconThemeColor, type IconVariant } from '@/features/icon-assets'
+import { useRememberNavigation } from '@/features/pwa/use-remember-navigation'
+import { localeFromContext } from '@/i18n'
+import { type AppLoadContext, cloudflareContext } from '@/server/context.server'
+import { themeFromCookie } from '@/server/theme.server'
+import type { AppTheme } from '@/theme'
 
 export type RootLoaderData = {
   iconVariant: IconVariant

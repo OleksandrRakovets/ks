@@ -2,8 +2,7 @@ import { useEffect } from 'react'
 import { useRevalidator } from 'react-router'
 
 import { useRouteErrorIsNotFound } from '@/components/route-error'
-
-import { ReadRecovery } from './read-recovery'
+import { ReadRecovery } from '@/features/freshness/read-recovery'
 
 /**
  * Retries failed GET loaders from an error boundary; it never replays a Command POST, and a genuine

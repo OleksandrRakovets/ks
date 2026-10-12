@@ -1,8 +1,10 @@
 import type { MatchId } from '@ks/core'
 
 import { watchBrowserReturn } from '@/features/freshness/browser-return'
-
-import { type SparringMatchLiveSubscription, subscribeSparringMatchLive } from './live-client'
+import {
+  type SparringMatchLiveSubscription,
+  subscribeSparringMatchLive,
+} from '@/features/sparring/match/live-client'
 
 /**
  * Coordinates loader freshness for one active Control or Protocol page.

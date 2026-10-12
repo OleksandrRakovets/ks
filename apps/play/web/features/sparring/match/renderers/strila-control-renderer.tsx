@@ -4,14 +4,26 @@ import { keys } from '@ks/i18n'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { controlEffect } from '@/features/sparring/match/renderers/control-copy'
+import { presentControls } from '@/features/sparring/match/renderers/control-presentation'
+import {
+  BallSet,
+  OpeningToss,
+  PenaltyTitle,
+  PotLabel,
+  RuleNotes,
+} from '@/features/sparring/match/renderers/strila-controls'
+import {
+  presentBallSet,
+  presentRuleNotes,
+  strilaControlLabel,
+} from '@/features/sparring/match/renderers/strila-presentation'
+import {
+  matchCommandFromControl,
+  type MatchControlRendererProps,
+} from '@/features/sparring/match/renderers/types'
 import { type ControlPresentation, ControlStack } from '@/features/sparring/match/shell/control-stack'
 import { Takeover } from '@/features/sparring/match/shell/takeover'
-
-import { controlEffect } from './control-copy'
-import { presentControls } from './control-presentation'
-import { BallSet, OpeningToss, PenaltyTitle, PotLabel, RuleNotes } from './strila-controls'
-import { presentBallSet, presentRuleNotes, strilaControlLabel } from './strila-presentation'
-import { matchCommandFromControl, type MatchControlRendererProps } from './types'
 
 export function StrilaControlRenderer(props: MatchControlRendererProps<StrilaGamePresentation>) {
   const { t } = useTranslation()

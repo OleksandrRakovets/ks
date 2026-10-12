@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test'
 
-import { ReadRecovery } from './read-recovery'
-import { LiveTestBrowser } from './test-browser'
+import { ReadRecovery } from '@/features/freshness/read-recovery'
+import { LiveTestBrowser } from '@/features/freshness/test-browser'
 
 let browser: LiveTestBrowser
 

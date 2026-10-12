@@ -14,10 +14,10 @@ import {
   ToggleGroupItem,
 } from '@/components/ui'
 
-export { FirstBreakerField } from './first-breaker-toss'
+export { FirstBreakerField } from '@/features/sparring/setup/first-breaker-toss'
 
-import { firstName } from './player-name'
-import type { MatchCreateProfile } from './profile'
+import { firstName } from '@/features/sparring/setup/player-name'
+import type { MatchCreateProfile } from '@/features/sparring/setup/profile'
 
 export function PlayerNameFields(props: {
   seatAName: string

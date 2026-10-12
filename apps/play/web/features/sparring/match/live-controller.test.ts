@@ -3,8 +3,7 @@ import { afterEach, beforeEach, expect, test } from 'bun:test'
 import { newMatchId, type SparringMatchLiveServerMessage } from '@ks/core'
 
 import { LiveTestBrowser, type TestSocket } from '@/features/freshness/test-browser'
-
-import { MatchLiveController } from './live-controller'
+import { MatchLiveController } from '@/features/sparring/match/live-controller'
 
 let browser: LiveTestBrowser
 

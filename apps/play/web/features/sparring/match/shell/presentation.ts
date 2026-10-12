@@ -4,7 +4,7 @@ import { type GameKey, type StrilaBall } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
 import type { TFunction } from 'i18next'
 
-import type { ActiveMatchData, ActiveProtocolData, FinishedSurfaceData } from '../types'
+import type { ActiveMatchData, ActiveProtocolData, FinishedSurfaceData } from '@/features/sparring/match/types'
 
 type BoardDetails =
   | { kind: 'balls'; ballsBySeat: { A: readonly StrilaBall[]; B: readonly StrilaBall[] } }

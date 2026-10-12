@@ -4,9 +4,8 @@ import type { Application } from '@ks/application'
 import { newMatchId } from '@ks/core'
 import { RouterContextProvider } from 'react-router'
 
+import { loader } from '@/routes/sparring/matches/api-live-scores'
 import { cloudflareContext } from '@/server/context.server'
-
-import { loader } from './api-live-scores'
 
 test('live scores maps unknown-match to HTTP 404 JSON', async () => {
   const matchId = newMatchId()

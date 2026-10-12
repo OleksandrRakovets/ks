@@ -1,5 +1,5 @@
-import { iconBasePath } from '../features/icon-assets'
-import { type AppLoadContext, assetsContext, cloudflareContext } from './context.server'
+import { iconBasePath } from '@/features/icon-assets'
+import { type AppLoadContext, assetsContext, cloudflareContext } from '@/server/context.server'
 
 /** Serves conventional icon URLs without a redirect, preserving asset validators and streaming bytes. */
 export async function iconResponse(
