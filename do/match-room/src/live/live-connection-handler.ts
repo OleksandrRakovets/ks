@@ -92,9 +92,13 @@ export class LiveConnectionHandler {
     }
   }
 
+  /** Sends the `live-ended` signal before closing, because clients may observe the close late. */
   closeAll(): void {
+    const message = JSON.stringify({ contractVersion: 1, type: 'live-ended' })
+
     for (const socket of this.#ctx.getWebSockets()) {
       try {
+        socket.send(message)
         socket.close(SPARRING_MATCH_LIVE_ENDED_CLOSE_CODE, SPARRING_MATCH_LIVE_ENDED_CLOSE_REASON)
       } catch {
         // The peer may already have disconnected.

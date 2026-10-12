@@ -175,6 +175,7 @@ export class MatchStorage {
   ): {
     receipt: Extract<CommandReceipt, { _tag: 'accepted' }>
     streamUpdate: MatchStreamUpdate
+    endsMatch: boolean
   } {
     const matchRecord = this.activeMatchRecord
     const previousCheckpoint = this.#selectCheckpointRow(previousCheckpointSeq)
@@ -261,14 +262,12 @@ export class MatchStorage {
 
       return {
         receipt: { _tag: 'accepted', acceptedSeq: acceptedCommand.acceptedSeq },
-        streamUpdate: {
-          type: 'command-accepted',
-          acceptedSeq: acceptedCommand.acceptedSeq,
-          endsMatch,
-        },
+        streamUpdate: { type: 'command-accepted', acceptedSeq: acceptedCommand.acceptedSeq },
+        endsMatch,
       } satisfies {
         receipt: Extract<CommandReceipt, { _tag: 'accepted' }>
         streamUpdate: MatchStreamUpdate
+        endsMatch: boolean
       }
     })
 

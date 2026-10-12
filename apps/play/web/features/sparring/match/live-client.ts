@@ -31,7 +31,8 @@ export type SparringMatchLiveSubscription = {
  * A socket is ready only after its first valid `caught-up` message, not merely after the browser's
  * `open` event. `connected` therefore means the server cursor is established. Updates are checked
  * against that cursor; gaps request an authoritative HTTP read through `onCaughtUp` and reconnect.
- * Terminal hints always win over cursor de-duplication and permanently finish the subscription.
+ * A `live-ended` message or the terminal close, whichever arrives first, permanently finishes the
+ * subscription. The message carries no cursor, so it never depends on update de-duplication.
  *
  * Connection and handshake failures emit `disconnected` and retry with bounded exponential
  * backoff. Browser JavaScript cannot reliably distinguish an HTTP 410 WebSocket handshake failure,
@@ -121,6 +122,13 @@ export function subscribeSparringMatchLive(args: {
         return
       }
 
+      if (message.output.type === 'live-ended') {
+        args.onConnectionState('finished')
+        stop()
+
+        return
+      }
+
       if (message.output.type === 'caught-up') {
         if (message.output.matchId !== args.matchId || serverSeq !== null) {
           rejectInvalidMessage()
@@ -151,27 +159,9 @@ export function subscribeSparringMatchLive(args: {
 
       const update = message.output.update
 
-      if (update.endsMatch && update.acceptedSeq <= serverSeq) {
-        args.onConnectionState('finished')
-        stop()
-
-        return
-      }
-
       if (update.acceptedSeq <= serverSeq) return
 
       if (update.acceptedSeq !== serverSeq + 1) {
-        if (update.endsMatch) {
-          // Announce terminal intent before requesting its cursor. The owner starts one forced
-          // GET, then retains the target, instead of starting catch-up and immediately queuing
-          // another GET for the same terminal message.
-          args.onConnectionState('finished')
-          args.onCaughtUp(update.acceptedSeq)
-          stop()
-
-          return
-        }
-
         args.onCaughtUp(update.acceptedSeq)
         current.close()
 
@@ -180,11 +170,6 @@ export function subscribeSparringMatchLive(args: {
 
       serverSeq = update.acceptedSeq
       args.onUpdate(update)
-
-      if (update.endsMatch) {
-        args.onConnectionState('finished')
-        stop()
-      }
     })
     current.addEventListener('close', (event) => {
       // A replaced socket must not clear the replacement's timers or schedule another retry.

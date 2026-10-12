@@ -22,6 +22,20 @@ async function connect(stub: Awaited<ReturnType<typeof initializedRoom>>['stub']
   return socket
 }
 
+/** Collects every message until the room closes the socket, preserving their order relative to the close. */
+function messagesUntilClose(
+  socket: WebSocket,
+): Promise<{ messages: SparringMatchLiveServerMessage[]; close: CloseEvent }> {
+  const messages: SparringMatchLiveServerMessage[] = []
+  socket.addEventListener('message', (event) => {
+    messages.push(v.parse(v.pipe(v.string(), v.parseJson(), SparringMatchLiveServerMessage), event.data))
+  })
+
+  return new Promise((resolve) =>
+    socket.addEventListener('close', (close) => resolve({ messages, close }), { once: true }),
+  )
+}
+
 function nextMessage(socket: WebSocket): Promise<SparringMatchLiveServerMessage> {
   return new Promise((resolve) =>
     socket.addEventListener(
@@ -53,15 +67,15 @@ test('sends one catch-up cursor and broadcasts acceptances that do not end the M
     source: 'match',
     command: { type: 'frame.commence', seat: 'A' },
   })
-  expect(await live).toMatchObject({
+  expect(await live).toEqual({
     contractVersion: 1,
     type: 'update',
-    update: { acceptedSeq: 1, endsMatch: false },
+    update: { type: 'command-accepted', acceptedSeq: 1 },
   })
   first.close()
 })
 
-test('broadcasts and closes on the durable match-ending command before archive preparation', async () => {
+test('broadcasts the match-ending acceptance, then live-ended, then closes before archive preparation', async () => {
   const { matchId, stub } = await initializedRoom()
   await stub.submitCommand({
     commandId: newCommandId(),
@@ -70,18 +84,15 @@ test('broadcasts and closes on the durable match-ending command before archive p
   })
   const socket = await connect(stub, matchId)
   await nextMessage(socket)
-  const endingUpdate = nextMessage(socket)
-
-  const closed = new Promise<CloseEvent>((resolve) => {
-    socket.addEventListener('close', (event) => resolve(event), { once: true })
-  })
+  const ending = messagesUntilClose(socket)
 
   await stub.submitCommand(matchEndingCommand())
-  expect(await endingUpdate).toMatchObject({
-    type: 'update',
-    update: { acceptedSeq: 2, endsMatch: true },
-  })
-  expect((await closed).code).toBe(4000)
+  const { messages, close } = await ending
+  expect(messages).toEqual([
+    { contractVersion: 1, type: 'update', update: { type: 'command-accepted', acceptedSeq: 2 } },
+    { contractVersion: 1, type: 'live-ended' },
+  ])
+  expect(close.code).toBe(4000)
   expect((await stub.fetch(liveRequest(matchId))).status).toBe(410)
 })
 
@@ -94,16 +105,15 @@ test('client closure is harmless before match end', async () => {
   expect((await stub.fetch(liveRequest(matchId))).status).toBe(410)
 })
 
-test('discard closes existing sockets and rejects new connections without a scoring acceptance', async () => {
+test('discard sends only live-ended before closing and rejects new connections', async () => {
   const { matchId, stub } = await initializedRoom()
   const socket = await connect(stub, matchId)
   await nextMessage(socket)
-
-  const closed = new Promise<CloseEvent>((resolve) =>
-    socket.addEventListener('close', resolve, { once: true }),
-  )
+  const ending = messagesUntilClose(socket)
 
   await stub.discard()
-  expect(await closed).toMatchObject({ code: 4000, reason: 'live-ended' })
+  const { messages, close } = await ending
+  expect(messages).toEqual([{ contractVersion: 1, type: 'live-ended' }])
+  expect(close).toMatchObject({ code: 4000, reason: 'live-ended' })
   expect((await stub.fetch(liveRequest(matchId))).status).toBe(404)
 })

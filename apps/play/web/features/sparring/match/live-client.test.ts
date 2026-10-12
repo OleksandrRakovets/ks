@@ -49,13 +49,19 @@ function caughtUp(socket: TestSocket, matchId: MatchId, latestSeq = 2): void {
   )
 }
 
-function update(socket: TestSocket, acceptedSeq: number, endsMatch: boolean): void {
+function update(socket: TestSocket, acceptedSeq: number): void {
   socket.message(
     JSON.stringify({
       contractVersion: 1,
       type: 'update',
-      update: { type: 'command-accepted', acceptedSeq, endsMatch },
+      update: { type: 'command-accepted', acceptedSeq },
     } satisfies SparringMatchLiveServerMessage),
+  )
+}
+
+function liveEnded(socket: TestSocket): void {
+  socket.message(
+    JSON.stringify({ contractVersion: 1, type: 'live-ended' } satisfies SparringMatchLiveServerMessage),
   )
 }
 
@@ -71,8 +77,8 @@ test('connected waits for a valid caught-up handshake and sequences updates with
   socket.dispatchEvent(new Event('open'))
   expect(states).toEqual(['connecting'])
   caughtUp(socket, matchId, 3)
-  update(socket, 4, false)
-  update(socket, 4, false)
+  update(socket, 4)
+  update(socket, 4)
   await browser.advance(60_000)
 
   expect(states).toEqual(['connecting', 'connected'])
@@ -137,8 +143,8 @@ test('stop emits no disconnection and ignores late socket callbacks and timers',
   expect(browser.sockets).toHaveLength(1)
 })
 
-test('sequential and duplicate terminal hints finish exactly once without reconnect', async () => {
-  for (const acceptedSeq of [3, 2]) {
+test('live-ended finishes exactly once before the close, with or without a final update', async () => {
+  for (const finalUpdate of [true, false]) {
     const matchId = newMatchId()
     const states: string[] = []
     const updates: number[] = []
@@ -146,28 +152,33 @@ test('sequential and duplicate terminal hints finish exactly once without reconn
     const socket = browser.sockets.at(-1)!
     const opened = browser.sockets.length
     caughtUp(socket, matchId)
-    update(socket, acceptedSeq, true)
-    socket.closed()
+
+    if (finalUpdate) update(socket, 3)
+    liveEnded(socket)
+    liveEnded(socket)
+    socket.closed(SPARRING_MATCH_LIVE_ENDED_CLOSE_CODE)
     await browser.advance(60_000)
 
     expect(states).toEqual(['connecting', 'connected', 'finished'])
-    expect(updates).toEqual(acceptedSeq === 3 ? [3] : [])
+    expect(updates).toEqual(finalUpdate ? [3] : [])
     expect(browser.sockets).toHaveLength(opened)
   }
 })
 
-test('gapped terminal hint requests catch-up then finishes without reconnect', async () => {
+test('gapped update requests catch-up and replaces the socket', async () => {
   const matchId = newMatchId()
   const states: string[] = []
   const caughtUpSeqs: number[] = []
-  subscribe(matchId, states, caughtUpSeqs)
+  const subscription = subscribe(matchId, states, caughtUpSeqs)
   const socket = browser.sockets[0]
   caughtUp(socket, matchId)
-  update(socket, 4, true)
-  await browser.advance(60_000)
-
+  update(socket, 4)
   expect(caughtUpSeqs).toEqual([4])
-  expect(states).toEqual(['connecting', 'connected', 'finished'])
   expect(socket.closeCalls).toBe(1)
-  expect(browser.sockets).toHaveLength(1)
+  socket.closed()
+  await browser.advance(625)
+
+  expect(states).toEqual(['connecting', 'connected', 'disconnected', 'connecting'])
+  expect(browser.sockets).toHaveLength(2)
+  subscription.stop()
 })
