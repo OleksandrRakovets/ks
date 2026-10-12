@@ -7,17 +7,22 @@ import * as v from 'valibot'
 import type { MatchRoomArchiveTransfer, MatchRoomClient } from '../match/match-room'
 import { createSparringApplication, type SparringDependencies } from './sparring-application'
 
+/** @internal Stable Match identity for Sparring workflow tests. */
 export const matchId = v.parse(MatchId, '01ARZ3NDEKTSV4RRFFQ69G5FAV')
 
+/** @internal Stable seat A identity for Sparring workflow tests. */
 export const playerRefA = v.parse(PlayerRef, 'gp_01ARZ3NDEKTSV4RRFFQ69G5FAA')
 
+/** @internal Stable seat B identity for Sparring workflow tests. */
 export const playerRefB = v.parse(PlayerRef, 'gp_01ARZ3NDEKTSV4RRFFQ69G5FAB')
 
+/** @internal Participant presentation fixture for Sparring workflow tests. */
 export const participants = {
   A: { playerRef: playerRefA, displayName: 'Alice Alpha', shortDisplayName: 'A. Alpha' },
   B: { playerRef: playerRefB, displayName: 'Bob Beta', shortDisplayName: 'B. Beta' },
 }
 
+/** @internal Persisted participant fixture for Sparring workflow tests. */
 export const participantRecords = {
   A: {
     playerRef: playerRefA,
@@ -35,10 +40,12 @@ export const participantRecords = {
   },
 }
 
+/** @internal Fixed creation time for deterministic Sparring workflow tests. */
 export const createdAt = v.parse(UnixEpochMilliseconds, 1_700_000_000_000)
 
 const clock = new FixedClock(new Date(createdAt), 'Europe/Kyiv')
 
+/** @internal Active Match fixture for Sparring workflow tests. */
 export const state = {
   matchId,
   gameKey: 'free-pyramid' as const,
@@ -50,6 +57,7 @@ export const state = {
   frames: [{ frameIndex: 1, breakerSeat: 'A' as const, pointsBySeat: { A: 0, B: 0 } }],
 }
 
+/** @internal Finalization transfer fixture for Sparring workflow tests. */
 export const transfer: MatchRoomArchiveTransfer = {
   matchId,
   gameKey: 'free-pyramid',
@@ -67,6 +75,7 @@ export const transfer: MatchRoomArchiveTransfer = {
   gameResult: null,
 }
 
+/** @internal Configurable room capability for Sparring workflow tests. */
 export function selectedClient(overrides: Partial<MatchRoomClient> = {}): MatchRoomClient {
   const unexpected = async (): Promise<never> => {
     throw new Error('Unexpected MatchRoom call')
@@ -84,6 +93,7 @@ export function selectedClient(overrides: Partial<MatchRoomClient> = {}): MatchR
   }
 }
 
+/** @internal In-memory application composition for Sparring workflow tests. */
 export function sparring(
   room: MatchRoomClient,
   events: string[] = [],

@@ -17,10 +17,12 @@ const controlSecret = 'control-secret-1234567890'
 
 const createdAt = v.parse(UnixEpochMilliseconds, 1_700_000_000_000)
 
+/** @internal Shared initialization input for MatchRoom integration tests. */
 export function initialization(matchId: ReturnType<typeof newMatchId>) {
   return { ...request, matchId, controlSecret, createdAt }
 }
 
+/** @internal Creates disposable rooms for MatchRoom integration tests. */
 export async function initializedRoom() {
   const matchId = newMatchId()
   const stub = env.MATCH_ROOM.getByName(matchId)
@@ -29,6 +31,7 @@ export async function initializedRoom() {
   return { matchId, stub }
 }
 
+/** @internal Generates commencement commands for MatchRoom integration tests. */
 export function commenceCommand() {
   return {
     commandId: newCommandId(),
@@ -37,6 +40,7 @@ export function commenceCommand() {
   }
 }
 
+/** @internal Generates terminal commands for MatchRoom integration tests. */
 export function matchEndingCommand() {
   return {
     commandId: newCommandId(),
@@ -45,6 +49,7 @@ export function matchEndingCommand() {
   }
 }
 
+/** @internal Establishes finalizing authority for MatchRoom integration tests. */
 export async function makeRoomFinalizing(stub: ReturnType<typeof env.MATCH_ROOM.getByName>) {
   await stub.submitCommand(commenceCommand())
   const command = matchEndingCommand()
@@ -53,6 +58,7 @@ export async function makeRoomFinalizing(stub: ReturnType<typeof env.MATCH_ROOM.
   return command
 }
 
+/** @internal Captures rejected RPC outcomes for MatchRoom integration tests. */
 export async function captureRpcError(operation: () => Promise<void>): Promise<Error> {
   try {
     await operation()
