@@ -41,7 +41,7 @@ function subscribe(matchId: MatchId, states: string[], caughtUp: number[] = [], 
 function caughtUp(socket: TestSocket, matchId: MatchId, latestSeq = 2): void {
   socket.message(
     JSON.stringify({
-      contractVersion: 2,
+      contractVersion: 1,
       type: 'caught-up',
       matchId,
       latestSeq,
@@ -52,7 +52,7 @@ function caughtUp(socket: TestSocket, matchId: MatchId, latestSeq = 2): void {
 function update(socket: TestSocket, acceptedSeq: number): void {
   socket.message(
     JSON.stringify({
-      contractVersion: 2,
+      contractVersion: 1,
       type: 'update',
       update: { type: 'command-accepted', acceptedSeq },
     } satisfies SparringMatchLiveServerMessage),
@@ -61,7 +61,7 @@ function update(socket: TestSocket, acceptedSeq: number): void {
 
 function liveEnded(socket: TestSocket): void {
   socket.message(
-    JSON.stringify({ contractVersion: 2, type: 'live-ended' } satisfies SparringMatchLiveServerMessage),
+    JSON.stringify({ contractVersion: 1, type: 'live-ended' } satisfies SparringMatchLiveServerMessage),
   )
 }
 
@@ -73,7 +73,7 @@ test('connected waits for a valid caught-up handshake and sequences updates with
   const subscription = subscribe(matchId, states, caughtUpSeqs, updates)
   const socket = browser.sockets[0]
 
-  expect(socket.url).toBe(`wss://play.example/api/sparring-match/${matchId}/live/?contract=2&view=control`)
+  expect(socket.url).toBe(`wss://play.example/api/sparring-match/${matchId}/live/?contract=1&view=control`)
   socket.dispatchEvent(new Event('open'))
   expect(states).toEqual(['connecting'])
   caughtUp(socket, matchId, 3)

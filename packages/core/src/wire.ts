@@ -13,7 +13,7 @@ export const MatchStreamUpdate = v.pipe(
 
 export type MatchStreamUpdate = v.InferOutput<typeof MatchStreamUpdate>
 
-export const SparringMatchLiveContractVersion = v.literal(2)
+export const SparringMatchLiveContractVersion = v.literal(1)
 
 export type SparringMatchLiveContractVersion = v.InferOutput<typeof SparringMatchLiveContractVersion>
 
@@ -23,8 +23,8 @@ export type SparringMatchLivePageKind = v.InferOutput<typeof SparringMatchLivePa
 
 export const SparringMatchLiveQuery = v.strictObject({
   contract: v.pipe(
-    v.literal('2'),
-    v.transform(() => 2),
+    v.literal('1'),
+    v.transform(() => 1),
     SparringMatchLiveContractVersion,
   ),
   view: SparringMatchLivePageKind,

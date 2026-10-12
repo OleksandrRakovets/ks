@@ -6,7 +6,7 @@ import { expect, test } from 'vitest'
 import { initializedRoom, makeRoomFinalizing, matchEndingCommand } from '../fixtures'
 
 function liveRequest(matchId: string, view: 'control' | 'protocol' = 'control'): Request {
-  return new Request(`https://match-room/api/sparring-match/${matchId}/live/?contract=2&view=${view}`, {
+  return new Request(`https://match-room/api/sparring-match/${matchId}/live/?contract=1&view=${view}`, {
     headers: { Upgrade: 'websocket' },
   })
 }
@@ -56,7 +56,7 @@ test('sends one catch-up cursor and broadcasts acceptances that do not end the M
   const { matchId, stub } = await initializedRoom()
   const first = await connect(stub, matchId)
   expect(await nextMessage(first)).toEqual({
-    contractVersion: 2,
+    contractVersion: 1,
     type: 'caught-up',
     matchId,
     latestSeq: 0,
@@ -68,7 +68,7 @@ test('sends one catch-up cursor and broadcasts acceptances that do not end the M
     command: { type: 'frame.commence', seat: 'A' },
   })
   expect(await live).toEqual({
-    contractVersion: 2,
+    contractVersion: 1,
     type: 'update',
     update: { type: 'command-accepted', acceptedSeq: 1 },
   })
@@ -89,8 +89,8 @@ test('broadcasts the match-ending acceptance, then live-ended, then closes befor
   await stub.submitCommand(matchEndingCommand())
   const { messages, close } = await ending
   expect(messages).toEqual([
-    { contractVersion: 2, type: 'update', update: { type: 'command-accepted', acceptedSeq: 2 } },
-    { contractVersion: 2, type: 'live-ended' },
+    { contractVersion: 1, type: 'update', update: { type: 'command-accepted', acceptedSeq: 2 } },
+    { contractVersion: 1, type: 'live-ended' },
   ])
   expect(close.code).toBe(4000)
   expect((await stub.fetch(liveRequest(matchId))).status).toBe(410)
@@ -113,7 +113,7 @@ test('discard sends only live-ended before closing and rejects new connections',
 
   await stub.discard()
   const { messages, close } = await ending
-  expect(messages).toEqual([{ contractVersion: 2, type: 'live-ended' }])
+  expect(messages).toEqual([{ contractVersion: 1, type: 'live-ended' }])
   expect(close).toMatchObject({ code: 4000, reason: 'live-ended' })
   expect((await stub.fetch(liveRequest(matchId))).status).toBe(404)
 })

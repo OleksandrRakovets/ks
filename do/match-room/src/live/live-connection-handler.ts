@@ -36,7 +36,7 @@ export class LiveConnectionHandler {
     const server = pair[1]
 
     const attachment: ConnectionAttachment = {
-      contractVersion: 2,
+      contractVersion: 1,
       connectionId: crypto.randomUUID(),
       pageKind,
     }
@@ -45,7 +45,7 @@ export class LiveConnectionHandler {
     this.#ctx.acceptWebSocket(server)
     server.send(
       JSON.stringify({
-        contractVersion: 2,
+        contractVersion: 1,
         type: 'caught-up',
         matchId: cursor.matchId,
         latestSeq: cursor.latestSeq,
@@ -81,7 +81,7 @@ export class LiveConnectionHandler {
   }
 
   broadcast(update: MatchStreamUpdate): void {
-    const message = JSON.stringify({ contractVersion: 2, type: 'update', update })
+    const message = JSON.stringify({ contractVersion: 1, type: 'update', update })
 
     for (const socket of this.#ctx.getWebSockets()) {
       try {
@@ -94,7 +94,7 @@ export class LiveConnectionHandler {
 
   /** Sends the `live-ended` signal before closing, because clients may observe the close late. */
   closeAll(): void {
-    const message = JSON.stringify({ contractVersion: 2, type: 'live-ended' })
+    const message = JSON.stringify({ contractVersion: 1, type: 'live-ended' })
 
     for (const socket of this.#ctx.getWebSockets()) {
       try {

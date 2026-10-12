@@ -91,7 +91,7 @@ export function subscribeSparringMatchLive(args: {
     const webSocketScheme = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
 
     const url = new URL(
-      `/api/sparring-match/${args.matchId}/live/?contract=2&view=${args.pageKind}`,
+      `/api/sparring-match/${args.matchId}/live/?contract=1&view=${args.pageKind}`,
       `${webSocketScheme}//${window.location.host}`,
     )
 

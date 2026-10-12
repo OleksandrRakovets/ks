@@ -42,7 +42,7 @@ function socket(): TestSocket {
 function caughtUp(seq = 4): void {
   socket().message(
     JSON.stringify({
-      contractVersion: 2,
+      contractVersion: 1,
       type: 'caught-up',
       matchId,
       latestSeq: seq,
@@ -53,7 +53,7 @@ function caughtUp(seq = 4): void {
 function update(seq: number): void {
   socket().message(
     JSON.stringify({
-      contractVersion: 2,
+      contractVersion: 1,
       type: 'update',
       update: { type: 'command-accepted', acceptedSeq: seq },
     } satisfies SparringMatchLiveServerMessage),
@@ -62,7 +62,7 @@ function update(seq: number): void {
 
 function liveEnded(): void {
   socket().message(
-    JSON.stringify({ contractVersion: 2, type: 'live-ended' } satisfies SparringMatchLiveServerMessage),
+    JSON.stringify({ contractVersion: 1, type: 'live-ended' } satisfies SparringMatchLiveServerMessage),
   )
 }
 
