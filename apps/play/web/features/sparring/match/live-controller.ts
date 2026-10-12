@@ -1,5 +1,7 @@
 import type { MatchId } from '@ks/core'
 
+import { watchBrowserReturn } from '@/features/freshness/browser-return'
+
 import { type SparringMatchLiveSubscription, subscribeSparringMatchLive } from './live-client'
 
 /**
@@ -23,6 +25,7 @@ export class MatchLiveController {
   #endHinted = false
   #disconnectReadRequested = false
   #subscription?: SparringMatchLiveSubscription
+  #stopWatchingBrowser?: () => void
   #timer?: number
   #readGeneration = 0
   #reading = false
@@ -49,11 +52,10 @@ export class MatchLiveController {
 
   /** Starts visible-only socket work and the independent 60-second HTTP freshness check. */
   start(): void {
-    document.addEventListener('visibilitychange', this.#visibilityChange)
-    window.addEventListener('pagehide', this.#pageHide)
-    window.addEventListener('pageshow', this.#pageShow)
-    window.addEventListener('focus', this.#foregroundHint)
-    window.addEventListener('online', this.#foregroundHint)
+    this.#stopWatchingBrowser = watchBrowserReturn({
+      onHide: () => this.#hide(),
+      onReturn: () => this.#catchUp(),
+    })
     this.#connect()
     this.#schedule()
   }
@@ -91,23 +93,8 @@ export class MatchLiveController {
     this.#disposed = true
     this.#readGeneration++
     this.#stopWork()
-    document.removeEventListener('visibilitychange', this.#visibilityChange)
-    window.removeEventListener('pagehide', this.#pageHide)
-    window.removeEventListener('pageshow', this.#pageShow)
-    window.removeEventListener('focus', this.#foregroundHint)
-    window.removeEventListener('online', this.#foregroundHint)
+    this.#stopWatchingBrowser?.()
   }
-
-  readonly #visibilityChange = () => {
-    if (document.visibilityState === 'hidden') this.#hide()
-    else this.#catchUp()
-  }
-
-  readonly #pageHide = () => this.#hide()
-  readonly #pageShow = (event: PageTransitionEvent) => {
-    if (event.persisted || this.#hidden) this.#catchUp()
-  }
-  readonly #foregroundHint = () => this.#catchUp()
 
   #hide() {
     this.#hidden = true
@@ -115,15 +102,13 @@ export class MatchLiveController {
     this.#catchingUp = false
     this.#reading = false
     this.#readGeneration++
-    // A delivered hide event is a chance for brief synchronous cleanup, not a guaranteed grace
-    // period. There is no portable "N milliseconds" budget, and iOS process termination may
-    // deliver no event. Do not await the socket closing handshake or start a final fetch here.
-    // The return path is independently correct even when this cleanup never ran.
+    // Do not await the socket closing handshake or start a final fetch here; the return path is
+    // correct even when this cleanup never ran.
     this.#stopWork()
   }
 
   #catchUp() {
-    if (this.#disposed || document.visibilityState !== 'visible') return
+    if (this.#disposed) return
     this.#hidden = false
 
     if (this.#catchingUp) return

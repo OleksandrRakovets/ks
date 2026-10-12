@@ -2,7 +2,8 @@ import { afterEach, beforeEach, expect, test } from 'bun:test'
 
 import { newMatchId, type SparringMatchLiveServerMessage } from '@ks/core'
 
-import { LiveTestBrowser } from '../live-test-browser'
+import { LiveTestBrowser } from '@/features/freshness/test-browser'
+
 import { MatchLiveController } from './live-controller'
 
 class TestSocket extends EventTarget {

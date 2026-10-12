@@ -1,3 +1,5 @@
+import { watchBrowserReturn } from '@/features/freshness/browser-return'
+
 export type LiveListSchedulerOptions = {
   readonly readScores: (signal: AbortSignal) => Promise<void>
   readonly readFullList: () => Promise<void>
@@ -23,6 +25,7 @@ const SCORE_TIMEOUT_MS = 10_000
 export class LiveListController {
   readonly #options: LiveListSchedulerOptions
   #timer?: number
+  #stopWatchingBrowser?: () => void
   #scoreAbort?: AbortController
   #cancelScore?: () => void
   #fullGeneration?: number
@@ -48,11 +51,10 @@ export class LiveListController {
 
   /** Starts deadlines and installs all document/window lifecycle listeners. */
   start(): void {
-    document.addEventListener('visibilitychange', this.#visibilityChange)
-    window.addEventListener('pageshow', this.#pageShow)
-    window.addEventListener('pagehide', this.#pageHide)
-    window.addEventListener('focus', this.#foregroundHint)
-    window.addEventListener('online', this.#foregroundHint)
+    this.#stopWatchingBrowser = watchBrowserReturn({
+      onHide: () => this.#hide(),
+      onReturn: () => this.#resume(),
+    })
     this.#schedule()
   }
 
@@ -77,49 +79,25 @@ export class LiveListController {
     this.#schedule()
   }
 
-  /**
-   * Synchronously stops timers, aborts explicit score I/O, and removes listeners.
-   * Browser hide cleanup has no guaranteed numeric time budget, so this method
-   * starts no asynchronous cleanup and never promises completion. In particular,
-   * mobile Safari/iOS may kill a page without firing any lifecycle event.
-   */
+  /** Synchronously stops timers, aborts explicit score I/O, and removes listeners. */
   dispose(): void {
     if (this.#disposed) return
     this.#disposed = true
     this.#generation++
     this.#stopWork()
-    document.removeEventListener('visibilitychange', this.#visibilityChange)
-    window.removeEventListener('pageshow', this.#pageShow)
-    window.removeEventListener('pagehide', this.#pageHide)
-    window.removeEventListener('focus', this.#foregroundHint)
-    window.removeEventListener('online', this.#foregroundHint)
+    this.#stopWatchingBrowser?.()
   }
-
-  readonly #visibilityChange = () => {
-    if (document.visibilityState === 'hidden') this.#hide()
-    else this.#resume()
-  }
-
-  readonly #pageHide = () => this.#hide()
-  readonly #pageShow = (event: PageTransitionEvent) => {
-    if (event.persisted || this.#pageHidden) this.#resume()
-    else this.#schedule()
-  }
-  readonly #foregroundHint = () => this.#resume()
 
   #hide() {
     this.#pageHidden = true
     this.#generation++
     this.#fullGeneration = undefined
     this.#catchingUp = false
-    // No documented portable time budget exists. If this event is delivered, clear timers and
-    // request aborts synchronously; awaiting a fetch or close handshake could outlive the process.
-    // A mobile process kill may omit the event entirely, so return does not depend on hide firing.
     this.#stopWork()
   }
 
   #resume() {
-    if (this.#disposed || document.visibilityState !== 'visible') return
+    if (this.#disposed) return
     this.#pageHidden = false
 
     if (this.#catchingUp) return

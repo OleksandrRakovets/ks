@@ -70,7 +70,7 @@
         "project": [
           "**/*.{js,mjs,cjs,jsx,ts,tsx,mts,cts}!",
           "**/*.css!",
-          "!web/features/sparring/live-test-browser.ts!"
+          "!web/features/freshness/test-browser.ts!"
         ]
       },
       "do/match-room": {
