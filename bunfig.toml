@@ -1,2 +1,6 @@
 [test]
 pathIgnorePatterns = ["**/*.integration.test.ts"]
+
+[install]
+# Two-day cooldown: skip versions published less than 172800 seconds ago.
+minimumReleaseAge = 172800
