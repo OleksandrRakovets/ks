@@ -4,6 +4,7 @@ Play is the single Cloudflare Worker deployable. It owns HTTP and presentation, 
 
 ## Server And Transport
 
+- `src` is the Cloudflare Worker layer: `src/index.ts` builds `Application`, forwards live WebSocket handshakes, and hands remaining requests to the React Router app in `src/web` through router context. Keep Worker request dispatch out of `src/web`.
 - Routes receive `Application` and own HTTP parsing, cookies, redirects, and presentation adaptation. Keep SQL, direct Durable Object calls, and use-case orchestration out of routes.
 - Map application failure reasons to HTTP/presentation with exhaustive switches. Malformed browser input is an expected HTTP failure, not an RPC exception.
 - Import the MatchRoom class at runtime only to export it from the Worker entrypoint. Application owns the private typed capability; generated bindings verify structural compatibility.
@@ -15,16 +16,16 @@ Play is the single Cloudflare Worker deployable. It owns HTTP and presentation, 
 ## UI Ownership
 
 - Import `web` modules through the `@/` alias, never relative paths; only React Router's generated `./+types/*` imports stay relative. Oxlint enforces this.
-- Keep UI app-local. Generic primitives belong in `web/components/ui`, reusable product visuals with explicit props in `web/components`, and one-off UI with its feature owner.
+- Keep UI app-local. Generic primitives belong in `src/web/components/ui`, reusable product visuals with explicit props in `src/web/components`, and one-off UI with its feature owner.
 - Browser code uses browser-safe contracts, not executable competition/gameplay entrypoints or application server dependencies.
 - Give each game an explicit Match route and Protocol route. The Match loader selects Control or Result from lifecycle; the stable URL does not encode lifecycle state.
 - Preserve distinct scoring and Protocol contracts. Play groups flat scoring controls into layout sections; game semantics remain in gameplay.
 - Share Active/Finished surface compositions between Match and Protocol pages. Feature-local presentation functions derive copy and emphasis; Shell and Board render resolved props. Page controllers own submission and live revalidation.
-- The curated game shelf's localized JSX copy belongs in `web/routes/sparring/index.tsx`, independently of registry names used by Setup. Adding a game also requires its card and routes.
+- The curated game shelf's localized JSX copy belongs in `src/web/routes/sparring/index.tsx`, independently of registry names used by Setup. Adding a game also requires its card and routes.
 
 ## Installed App Launch
 
-- `web/features/pwa` owns manifest identity and navigation restoration; `web/routes/pwa` adapts them to HTTP. The manifest depends on shared icon metadata, not icon-serving handlers. Preserve `id: "/"`; `/start/` is a launch entrypoint, not localized content.
+- `src/web/features/pwa` owns manifest identity and navigation restoration; `src/web/routes/pwa` adapts them to HTTP. The manifest depends on shared icon metadata, not icon-serving handlers. Preserve `id: "/"`; `/start/` is a launch entrypoint, not localized content.
 - Mount `useRememberNavigation` in the successful root `App`, not `Layout`, which also wraps error pages. Remember every successful standalone page's locale, query, and fragment in a seven-day cookie; prefetch, revalidation, error pages, and browser tabs must not overwrite it. Chrome shares cookies between tabs and installed apps: the standalone gate isolates writes, not cookie storage or transmission.
 - `/start/` validates the untrusted destination and returns an uncached redirect, falling back to home when absent or invalid and never resuming itself. Ordinary page URLs never auto-resume. This restores navigation only, not in-memory UI or authoritative Match state.
 

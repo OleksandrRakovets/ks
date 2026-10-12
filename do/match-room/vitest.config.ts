@@ -6,7 +6,7 @@ export default defineConfig({
     cloudflareTest({
       // Keep Play's bindings without loading its Worker and application import graph.
       main: './src/MatchRoom.ts',
-      wrangler: { configPath: '../../apps/play/wrangler.jsonc' },
+      wrangler: { configPath: '../../worker/play/wrangler.jsonc' },
     }),
   ],
   test: {

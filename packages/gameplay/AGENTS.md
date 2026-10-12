@@ -15,4 +15,4 @@ Gameplay owns game-specific frame rules, execution, restoration, and the coheren
 ## Changes And Checks
 
 - Game-rule matrices and game-specific restoration belong in adjacent Bun tests here. Do not repeat those matrices in competition or persistence integration tests.
-- When registering a game, coordinate browser-safe contracts and Play's explicit routes and curated shelf; read `apps/play/AGENTS.md` before editing those consumers.
+- When registering a game, coordinate browser-safe contracts and Play's explicit routes and curated shelf; read `worker/play/AGENTS.md` before editing those consumers.

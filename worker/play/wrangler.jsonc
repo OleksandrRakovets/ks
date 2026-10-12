@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "ks",
-  "main": "workers/app.ts",
+  "main": "src/index.ts",
   "compatibility_date": "2026-08-11",
   "assets": {
     "binding": "ASSETS",

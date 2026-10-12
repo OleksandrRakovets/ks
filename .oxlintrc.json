@@ -134,7 +134,7 @@
     },
     {
       // React Router uses thrown Response values and redirects as framework control flow.
-      "files": ["apps/play/web/routes/**/*.{ts,tsx}"],
+      "files": ["worker/play/src/web/routes/**/*.{ts,tsx}"],
       "rules": {
         "typescript/only-throw-error": "off"
       }
@@ -151,7 +151,7 @@
       }
     },
     {
-      "files": ["apps/play/web/**/*.{ts,tsx}"],
+      "files": ["worker/play/src/web/**/*.{ts,tsx}"],
       "rules": {
         "no-restricted-imports": [
           "error",

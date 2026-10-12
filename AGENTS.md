@@ -23,7 +23,7 @@ Domain dependencies flow `core <- gameplay <- competition`. Play owns HTTP and p
 
 Read the owning component's `AGENTS.md` before changing it:
 
-- [Play](apps/play/AGENTS.md): routes, browser UI, Worker deployment. For UI changes, also read [design rules](docs/design.md).
+- [Play](worker/play/AGENTS.md): routes, browser UI, Worker deployment. For UI changes, also read [design rules](docs/design.md).
 - [Gameplay](packages/gameplay/AGENTS.md): game semantics and frame execution.
 - [Competition](packages/competition/AGENTS.md): Match lifecycle, restoration, and Correction.
 - [Application](packages/application/AGENTS.md): workflows, projections, and D1.

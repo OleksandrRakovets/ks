@@ -16,7 +16,7 @@
     "moduleDetection": "force",
     "rootDirs": [".", "./.react-router/types"],
     "paths": {
-      "@/*": ["./web/*"]
+      "@/*": ["./src/web/*"]
     },
     "noEmit": true,
     "jsx": "react-jsx",
@@ -27,6 +27,5 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["web", "domain", "workers", ".react-router/types/**/*", "../../do/match-room/src/**/*"],
-  "exclude": ["domain/**/*.test.ts"]
+  "include": ["src", ".react-router/types/**/*", "../../do/match-room/src/**/*"]
 }

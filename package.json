@@ -4,7 +4,7 @@
   "workspaces": {
     "packages": [
       "packages/*",
-      "apps/*",
+      "worker/*",
       "do/*"
     ],
     "catalog": {
@@ -66,11 +66,11 @@
   },
   "knip": {
     "workspaces": {
-      "apps/play": {
+      "worker/play": {
         "project": [
           "**/*.{js,mjs,cjs,jsx,ts,tsx,mts,cts}!",
           "**/*.css!",
-          "!web/features/freshness/test-browser.ts!"
+          "!src/web/features/freshness/test-browser.ts!"
         ]
       },
       "do/match-room": {

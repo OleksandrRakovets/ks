@@ -11,7 +11,7 @@
   "singleQuote": true,
   "sortImports": {},
   "sortTailwindcss": {
-    "stylesheet": "./apps/play/web/base.css",
+    "stylesheet": "./worker/play/src/web/base.css",
     "functions": ["clsx", "cn"],
     "preserveWhitespace": true
   }

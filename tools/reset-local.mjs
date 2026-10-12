@@ -4,7 +4,7 @@ import { join } from 'node:path'
 
 const ROOT = process.cwd()
 
-const WRANGLER_DIRECTORIES = ['apps/play/.wrangler', 'do/match-room/.wrangler']
+const WRANGLER_DIRECTORIES = ['worker/play/.wrangler', 'do/match-room/.wrangler']
 
 for (const directory of WRANGLER_DIRECTORIES) {
   rmSync(join(ROOT, directory), { force: true, recursive: true })

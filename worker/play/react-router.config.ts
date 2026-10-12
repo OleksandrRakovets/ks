@@ -1,7 +1,7 @@
 import type { Config } from '@react-router/dev/config'
 
 export default {
-  appDirectory: 'web',
+  appDirectory: 'src/web',
   ssr: true,
   future: {
     unstable_optimizeDeps: true,
