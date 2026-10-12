@@ -7,7 +7,7 @@ import { RouterContextProvider } from 'react-router'
 
 import { type AppLoadContext, cloudflareContext } from '@/server/context.server'
 
-import { commandMatchAction, loadMatchPage, loadMatchProtocolPage } from './handlers'
+import { loadMatchPage, loadMatchProtocolPage, matchAction } from './handlers'
 
 function makeContext(sparring: Partial<Application['sparring']>): AppLoadContext {
   const provider = new RouterContextProvider()
@@ -17,7 +17,7 @@ function makeContext(sparring: Partial<Application['sparring']>): AppLoadContext
   return provider
 }
 
-describe('commandMatchAction adaptation', () => {
+describe('matchAction adaptation', () => {
   test.each([
     [{ ok: true } as const, 303],
     [{ ok: false, reason: 'unknown-match' } as const, 404],
@@ -28,7 +28,7 @@ describe('commandMatchAction adaptation', () => {
     form.set('intent', 'discard')
 
     const operation = () =>
-      commandMatchAction(
+      matchAction(
         {
           params: { matchId: newMatchId() },
           request: new Request('http://localhost', { method: 'POST', body: form }),
@@ -58,7 +58,7 @@ describe('commandMatchAction adaptation', () => {
 
       if (intent === 'duplicate') form.append('intent', 'other')
       expect(
-        await commandMatchAction(
+        await matchAction(
           {
             params: { matchId: newMatchId() },
             request: new Request('http://localhost', { method: 'POST', body: form }),
@@ -79,7 +79,7 @@ describe('commandMatchAction adaptation', () => {
     const context = makeContext({ submitMatchCommand: async () => ({ ok: false, reason }) })
 
     expect(
-      await commandMatchAction(
+      await matchAction(
         { params: { matchId: newMatchId() }, request: commandRequest(), context },
         'free-pyramid',
       ),
@@ -93,10 +93,7 @@ describe('commandMatchAction adaptation', () => {
 
     expect(
       await handlerFailure(() =>
-        commandMatchAction(
-          { params: { matchId: newMatchId() }, request: commandRequest(), context },
-          'free-pyramid',
-        ),
+        matchAction({ params: { matchId: newMatchId() }, request: commandRequest(), context }, 'free-pyramid'),
       ),
     ).toMatchObject({ status: 404 })
   })
@@ -121,7 +118,7 @@ describe('commandMatchAction adaptation', () => {
       JSON.stringify({ commandId, source: 'match', command: { type: 'frame.commence', seat: 'A' } }),
     )
 
-    const result = await commandMatchAction(
+    const result = await matchAction(
       {
         params: { matchId },
         request: new Request('http://localhost', { method: 'POST', body: form }),
@@ -150,7 +147,7 @@ describe('commandMatchAction adaptation', () => {
       JSON.stringify({ commandId, source: 'match', command: { type: 'frame.commence', seat: 'A' } }),
     )
 
-    const result = await commandMatchAction(
+    const result = await matchAction(
       {
         params: { matchId },
         request: new Request('http://localhost', { method: 'POST', body: form }),

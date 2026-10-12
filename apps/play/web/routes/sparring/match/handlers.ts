@@ -55,40 +55,35 @@ export async function loadMatchProtocolPage<K extends GameKey>(
   return decideMatchPage(protocol)
 }
 
-export async function commandMatchAction(
+/** Match page action: a single `intent=discard` field selects discard; otherwise the form carries one Command. */
+export async function matchAction(
   args: RouteArgs,
   expectedGameKey: GameKey,
 ): Promise<ControlActionData | Response> {
   const matchId = matchIdFromParams(args.params)
   const form = await args.request.formData()
 
-  if (form.has('intent')) {
-    if (form.getAll('intent').length !== 1 || form.get('intent') !== 'discard' || form.has('command'))
-      return { ok: false, errorKey: keys.match.control.invalidCommandPayload }
+  if (!form.has('intent')) return commandMatchAction(args.context, matchId, form, expectedGameKey)
 
-    const result = await requireApplication(args.context).sparring.discardMatch(matchId, expectedGameKey)
+  if (form.getAll('intent').length !== 1 || form.get('intent') !== 'discard' || form.has('command'))
+    return { ok: false, errorKey: keys.match.control.invalidCommandPayload }
 
-    if (!result.ok) {
-      switch (result.reason) {
-        case 'unknown-match':
-          throw new Response('Unknown match', { status: 404 })
-        case 'match-locked':
-          return { ok: false, errorKey: keys.match.control.matchLocked }
-        default:
-          throw new Error('Unhandled discard failure', { cause: result.reason satisfies never })
-      }
-    }
+  return discardMatchAction(args.context, matchId, expectedGameKey)
+}
 
-    return redirect(localizedPath('/sparring/matches/', localeFromContext(args.context)), 303)
-  }
-
+async function commandMatchAction(
+  context: AppLoadContext,
+  matchId: MatchId,
+  form: FormData,
+  expectedGameKey: GameKey,
+): Promise<ControlActionData> {
   const command = v.safeParse(SubmittedMatchCommand, form.get('command'))
 
   if (!command.success) {
     return { ok: false, errorKey: keys.match.control.invalidCommandPayload }
   }
 
-  const result = await requireApplication(args.context).sparring.submitMatchCommand(
+  const result = await requireApplication(context).sparring.submitMatchCommand(
     matchId,
     command.output,
     expectedGameKey,
@@ -122,6 +117,27 @@ export async function commandMatchAction(
     ok: true,
     acceptedSeqMax: result.outcome.acceptedSeq,
   }
+}
+
+async function discardMatchAction(
+  context: AppLoadContext,
+  matchId: MatchId,
+  expectedGameKey: GameKey,
+): Promise<ControlActionData | Response> {
+  const result = await requireApplication(context).sparring.discardMatch(matchId, expectedGameKey)
+
+  if (!result.ok) {
+    switch (result.reason) {
+      case 'unknown-match':
+        throw new Response('Unknown match', { status: 404 })
+      case 'match-locked':
+        return { ok: false, errorKey: keys.match.control.matchLocked }
+      default:
+        throw new Error('Unhandled discard failure', { cause: result.reason satisfies never })
+    }
+  }
+
+  return redirect(localizedPath('/sparring/matches/', localeFromContext(context)), 303)
 }
 
 function matchIdFromParams(params: RouteArgs['params']): MatchId {
