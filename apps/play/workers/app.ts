@@ -36,17 +36,6 @@ export default {
     context.set(assetsContext, env.ASSETS)
     context.set(cloudflareContext, loadContext)
 
-    const response = await requestHandler(request, context)
-    const contentType = response.headers.get('Content-Type') ?? ''
-
-    if (contentType.startsWith('text/html') || contentType.startsWith('text/x-script')) {
-      // Router serves both SSR documents and .data loader reads. Neither should reuse an HTTP
-      // snapshot of scores, membership, or cookie-selected presentation. Hashed JS/CSS assets
-      // are served separately. This does not prevent Safari's in-memory Page Cache restoration;
-      // page controllers still catch up on return even when no network navigation occurred.
-      response.headers.set('Cache-Control', 'no-store')
-    }
-
-    return response
+    return requestHandler(request, context)
   },
 }

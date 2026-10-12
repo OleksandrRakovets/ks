@@ -30,6 +30,15 @@ export function loader({ request, context }: { request: Request; context: AppLoa
   }
 }
 
+/**
+ * SSR documents and Router `.data` responses inherit this policy, so neither reuses an HTTP snapshot
+ * of scores, membership, or cookie-selected presentation. Resource routes and hashed assets set their
+ * own. In-memory page restoration bypasses HTTP entirely; live pages still catch up on return.
+ */
+export function headers() {
+  return { 'Cache-Control': 'no-store' }
+}
+
 /** Exposes the root loader's request-context locale to React components. */
 export function useRootLocale(): SupportedLocale {
   const data = useRouteLoaderData<RootLoaderData>('root')

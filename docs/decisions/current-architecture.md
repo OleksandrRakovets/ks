@@ -82,7 +82,7 @@ The match-ending notification precedes D1 archival: revalidation can read either
 
 Play owns browser freshness separately from MatchRoom's invalidation transport. Browser return and independent HTTP deadlines recover missed notifications and expired list membership without replaying Command POSTs. Loader network completion can precede React's commit, so match freshness acknowledges committed projections, not merely completed requests. Live lists use replacement score projections from application; a periodic membership read removes recent results that left the server window. Finished lists read D1 without room access or polling.
 
-Play sends `Cache-Control: no-store` for SSR HTML and Router loader data, not assets. HTTP caching and in-memory page restoration are separate: cache policy cannot replace lifecycle catch-up. Hide cleanup is best-effort and may never run on mobile process termination; no freshness guarantee depends on a hidden timer or final hide-handler request completing. Play's local guidance and controller declarations own the browser lifecycle constraints and schedules.
+Play's root route sends `Cache-Control: no-store` for SSR HTML and Router loader data, not assets. HTTP caching and in-memory page restoration are separate: cache policy cannot replace lifecycle catch-up. Hide cleanup is best-effort and may never run on mobile process termination; no freshness guarantee depends on a hidden timer or final hide-handler request completing. Play's local guidance and controller declarations own the browser lifecycle constraints and schedules.
 
 ## Current Capability Limits
 
