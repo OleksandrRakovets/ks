@@ -19,7 +19,7 @@ export type MatchPageData<K extends GameKey> = MatchPageDecision<MatchData<K>>
 export type ProtocolPageData<K extends GameKey> = MatchPageDecision<ProtocolData<K>>
 
 export type ControlActionData =
-  | { ok: true; acceptedSeqMax: number | null }
+  | { ok: true }
   | {
       ok: false
       errorKey:

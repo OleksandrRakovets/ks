@@ -1,42 +1,28 @@
-import { expect, test } from 'bun:test'
+import { afterEach, beforeEach, expect, test } from 'bun:test'
 
-import { newMatchId, SPARRING_MATCH_LIVE_ENDED_CLOSE_CODE } from '@ks/core'
+import {
+  type MatchId,
+  newMatchId,
+  SPARRING_MATCH_LIVE_ENDED_CLOSE_CODE,
+  type SparringMatchLiveServerMessage,
+} from '@ks/core'
+
+import { LiveTestBrowser, type TestSocket } from '@/features/freshness/test-browser'
 
 import { subscribeSparringMatchLive } from './live-client'
 
-class FakeWebSocket extends EventTarget {
-  static instances: FakeWebSocket[] = []
-  readonly url: string
-  closeCalls = 0
+let browser: LiveTestBrowser
 
-  constructor(url: string | URL) {
-    super()
-    this.url = String(url)
-    FakeWebSocket.instances.push(this)
-  }
+beforeEach(() => {
+  browser = new LiveTestBrowser()
+})
 
-  close(): void {
-    this.closeCalls += 1
-  }
+afterEach(() => {
+  browser.restore()
+})
 
-  message(data: string): void {
-    this.dispatchEvent(new MessageEvent('message', { data }))
-  }
-}
-
-test('live client validates catch-up and sequences updates without replay', async () => {
-  Object.defineProperty(globalThis, 'window', {
-    configurable: true,
-    value: { location: { protocol: 'https:', host: 'play.example' } },
-  })
-  Object.defineProperty(globalThis, 'WebSocket', { configurable: true, value: FakeWebSocket })
-  FakeWebSocket.instances = []
-  const matchId = newMatchId()
-  const caughtUp: number[] = []
-  const updates: number[] = []
-  const states: string[] = []
-
-  const subscription = subscribeSparringMatchLive({
+function subscribe(matchId: MatchId, states: string[], caughtUp: number[] = [], updates: number[] = []) {
+  return subscribeSparringMatchLive({
     matchId,
     pageKind: 'control',
     currentLatestSeq: () => 2,
@@ -50,102 +36,138 @@ test('live client validates catch-up and sequences updates without replay', asyn
       states.push(state)
     },
   })
+}
 
-  await Promise.resolve()
-  const socket = FakeWebSocket.instances.at(0)
-
-  if (socket === undefined) throw new Error('Expected live socket')
-  expect(socket.url).toBe(`wss://play.example/api/sparring-match/${matchId}/live/?contract=1&view=control`)
-  socket.dispatchEvent(new Event('open'))
-  socket.message(JSON.stringify({ contractVersion: 1, type: 'caught-up', matchId, latestSeq: 3 }))
-  socket.message(
-    JSON.stringify({
-      contractVersion: 1,
-      type: 'update',
-      update: { type: 'command-accepted', acceptedSeq: 4, endsMatch: false },
-    }),
-  )
-  socket.message(
-    JSON.stringify({
-      contractVersion: 1,
-      type: 'update',
-      update: { type: 'command-accepted', acceptedSeq: 4, endsMatch: false },
-    }),
-  )
-  expect(caughtUp).toEqual([3])
-  expect(updates).toEqual([4])
-  expect(states).toEqual(['connecting', 'connected'])
-  subscription.stop()
-  expect(socket.closeCalls).toBe(1)
-})
-
-test('live client stops and requests catch-up for a gapped match-ending update', () => {
-  FakeWebSocket.instances = []
-  const matchId = newMatchId()
-  const caughtUp: number[] = []
-  const states: string[] = []
-
-  const subscription = subscribeSparringMatchLive({
-    matchId,
-    pageKind: 'control',
-    currentLatestSeq: () => 2,
-    onCaughtUp: (seq) => {
-      caughtUp.push(seq)
-    },
-    onUpdate: () => {},
-    onConnectionState: (state) => {
-      states.push(state)
-    },
-  })
-
-  const socket = FakeWebSocket.instances.at(0)
-
-  if (socket === undefined) throw new Error('Expected live socket')
+function caughtUp(socket: TestSocket, matchId: MatchId, latestSeq = 2): void {
   socket.message(
     JSON.stringify({
       contractVersion: 1,
       type: 'caught-up',
       matchId,
-      latestSeq: 2,
-    }),
+      latestSeq,
+    } satisfies SparringMatchLiveServerMessage),
   )
+}
+
+function update(socket: TestSocket, acceptedSeq: number, endsMatch: boolean): void {
   socket.message(
     JSON.stringify({
       contractVersion: 1,
       type: 'update',
-      update: { type: 'command-accepted', acceptedSeq: 4, endsMatch: true },
-    }),
+      update: { type: 'command-accepted', acceptedSeq, endsMatch },
+    } satisfies SparringMatchLiveServerMessage),
   )
-  expect(caughtUp).toEqual([4])
-  expect(states).toEqual(['connecting', 'finished'])
-  expect(socket.closeCalls).toBe(1)
+}
+
+test('connected waits for a valid caught-up handshake and sequences updates without replay', async () => {
+  const matchId = newMatchId()
+  const states: string[] = []
+  const caughtUpSeqs: number[] = []
+  const updates: number[] = []
+  const subscription = subscribe(matchId, states, caughtUpSeqs, updates)
+  const socket = browser.sockets[0]
+
+  expect(socket.url).toBe(`wss://play.example/api/sparring-match/${matchId}/live/?contract=1&view=control`)
+  socket.dispatchEvent(new Event('open'))
+  expect(states).toEqual(['connecting'])
+  caughtUp(socket, matchId, 3)
+  update(socket, 4, false)
+  update(socket, 4, false)
+  await browser.advance(60_000)
+
+  expect(states).toEqual(['connecting', 'connected'])
+  expect(caughtUpSeqs).toEqual([3])
+  expect(updates).toEqual([4])
+  expect(browser.sockets).toHaveLength(1)
   subscription.stop()
 })
 
-test('terminal closure stops the subscription without requiring a score update', () => {
-  FakeWebSocket.instances = []
+test('handshake timeout closes the socket, reports disconnected, and retries once', async () => {
+  const matchId = newMatchId()
   const states: string[] = []
+  const subscription = subscribe(matchId, states)
+  const first = browser.sockets[0]
 
-  const subscription = subscribeSparringMatchLive({
-    matchId: newMatchId(),
-    pageKind: 'control',
-    currentLatestSeq: () => 0,
-    onCaughtUp: () => {},
-    onUpdate: () => {
-      throw new Error('Terminal closure does not require a score update')
-    },
-    onConnectionState: (state) => {
-      states.push(state)
-    },
-  })
-
-  const socket = FakeWebSocket.instances.at(0)
-
-  if (socket === undefined) throw new Error('Expected live socket')
-  const closed = new Event('close')
-  Object.defineProperty(closed, 'code', { value: SPARRING_MATCH_LIVE_ENDED_CLOSE_CODE })
-  socket.dispatchEvent(closed)
-  socket.dispatchEvent(closed)
-  expect(states).toEqual(['connecting', 'finished'])
+  first.dispatchEvent(new Event('open'))
+  await browser.advance(9_999)
+  expect(states).toEqual(['connecting'])
+  await browser.advance(1)
+  expect(first.closeCalls).toBe(1)
+  expect(states).toEqual(['connecting', 'disconnected'])
+  // The first backoff is 500 ms with at most 25% jitter.
+  await browser.advance(625)
+  expect(browser.sockets).toHaveLength(2)
+  first.closed()
+  first.dispatchEvent(new Event('error'))
+  caughtUp(browser.sockets[1], matchId)
+  await browser.advance(60_000)
+  expect(states).toEqual(['connecting', 'disconnected', 'connecting', 'connected'])
+  expect(browser.sockets).toHaveLength(2)
   subscription.stop()
+})
+
+test('terminal closure stops the subscription without requiring a score update', async () => {
+  const states: string[] = []
+  const updates: number[] = []
+  subscribe(newMatchId(), states, [], updates)
+  const socket = browser.sockets[0]
+
+  socket.closed(SPARRING_MATCH_LIVE_ENDED_CLOSE_CODE)
+  socket.closed(SPARRING_MATCH_LIVE_ENDED_CLOSE_CODE)
+  await browser.advance(60_000)
+
+  expect(states).toEqual(['connecting', 'finished'])
+  expect(updates).toEqual([])
+  expect(browser.sockets).toHaveLength(1)
+})
+
+test('stop emits no disconnection and ignores late socket callbacks and timers', async () => {
+  const matchId = newMatchId()
+  const states: string[] = []
+  const subscription = subscribe(matchId, states)
+  const socket = browser.sockets[0]
+
+  subscription.stop()
+  socket.closed()
+  socket.dispatchEvent(new Event('error'))
+  caughtUp(socket, matchId)
+  await browser.advance(60_000)
+  expect(states).toEqual(['connecting'])
+  expect(socket.closeCalls).toBe(1)
+  expect(browser.sockets).toHaveLength(1)
+})
+
+test('sequential and duplicate terminal hints finish exactly once without reconnect', async () => {
+  for (const acceptedSeq of [3, 2]) {
+    const matchId = newMatchId()
+    const states: string[] = []
+    const updates: number[] = []
+    subscribe(matchId, states, [], updates)
+    const socket = browser.sockets.at(-1)!
+    const opened = browser.sockets.length
+    caughtUp(socket, matchId)
+    update(socket, acceptedSeq, true)
+    socket.closed()
+    await browser.advance(60_000)
+
+    expect(states).toEqual(['connecting', 'connected', 'finished'])
+    expect(updates).toEqual(acceptedSeq === 3 ? [3] : [])
+    expect(browser.sockets).toHaveLength(opened)
+  }
+})
+
+test('gapped terminal hint requests catch-up then finishes without reconnect', async () => {
+  const matchId = newMatchId()
+  const states: string[] = []
+  const caughtUpSeqs: number[] = []
+  subscribe(matchId, states, caughtUpSeqs)
+  const socket = browser.sockets[0]
+  caughtUp(socket, matchId)
+  update(socket, 4, true)
+  await browser.advance(60_000)
+
+  expect(caughtUpSeqs).toEqual([4])
+  expect(states).toEqual(['connecting', 'connected', 'finished'])
+  expect(socket.closeCalls).toBe(1)
+  expect(browser.sockets).toHaveLength(1)
 })

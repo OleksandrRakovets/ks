@@ -8,7 +8,9 @@ Play is the single Cloudflare Worker deployable. It owns HTTP and presentation, 
 - Map application failure reasons to HTTP/presentation with exhaustive switches. Malformed browser input is an expected HTTP failure, not an RPC exception.
 - Import the MatchRoom class at runtime only to export it from the Worker entrypoint. Application owns the private typed capability; generated bindings verify structural compatibility.
 - The Worker gateway forwards admitted WebSocket handshakes to the selected room. Loader projections remain authoritative; versioned socket messages request revalidation, never apply command deltas locally.
-- Active pages revalidate on reconnect, visibility/focus, and online hints. Finished pages have no live subscriptions or polling. Browser `offline` estimates must not disable controls or stop retries: they do not establish server reachability.
+- Active pages catch up on reconnect, browser return (visible, persisted `pageshow`, focus, online), and independent HTTP deadlines that recover silent sockets and list membership. Never replay a Command POST during freshness recovery; gate background match reads across a local submission or discard and its loader refresh.
+- A completed Router request is not a committed React projection: acknowledge match reads after the commit, and release live listeners, timers, and sockets at the Result commit, not in a passive effect.
+- Hide handlers do brief synchronous cleanup only; nothing may depend on hide events firing. The root error boundary retries failed GETs, excluding genuine 404s; single fetch assigns a failed request to root, so route-level boundaries cannot own network recovery. Finished pages have no live subscriptions or polling. Browser `offline` estimates must not disable controls or stop retries: they do not establish server reachability.
 
 ## UI Ownership
 

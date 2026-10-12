@@ -1,17 +1,10 @@
-import { keys, resources, type SupportedLocale } from '@ks/i18n'
+import { resources, type SupportedLocale } from '@ks/i18n'
 import i18next, { type i18n as I18nInstance } from 'i18next'
-import { I18nextProvider, initReactI18next, useTranslation } from 'react-i18next'
-import {
-  isRouteErrorResponse,
-  Links,
-  Meta,
-  Outlet,
-  Scripts,
-  ScrollRestoration,
-  useRouteError,
-  useRouteLoaderData,
-} from 'react-router'
+import { I18nextProvider, initReactI18next } from 'react-i18next'
+import { Links, Meta, Outlet, Scripts, ScrollRestoration, useRouteLoaderData } from 'react-router'
 
+import { RouteError } from './components/route-error'
+import { useFailedReadRecovery } from './features/freshness/use-failed-read-recovery'
 import { iconBasePath, iconThemeColor, type IconVariant } from './features/icon-assets'
 import { useRememberNavigation } from './features/pwa/use-remember-navigation'
 import { localeFromContext } from './i18n'
@@ -35,6 +28,15 @@ export function loader({ request, context }: { request: Request; context: AppLoa
     locale,
     theme: themeFromCookie(cookie),
   }
+}
+
+/**
+ * SSR documents and Router `.data` responses inherit this policy, so neither reuses an HTTP snapshot
+ * of scores, membership, or cookie-selected presentation. Resource routes and hashed assets set their
+ * own. In-memory page restoration bypasses HTTP entirely; live pages still catch up on return.
+ */
+export function headers() {
+  return { 'Cache-Control': 'no-store' }
 }
 
 /** Exposes the root loader's request-context locale to React components. */
@@ -92,31 +94,9 @@ export default function App() {
 }
 
 export function ErrorBoundary() {
-  const error = useRouteError()
-  const { t } = useTranslation()
+  useFailedReadRecovery()
 
-  if (isRouteErrorResponse(error) && error.status === 404) {
-    return (
-      <main className="flex min-h-dvh flex-1 items-center justify-center bg-background px-6 text-foreground">
-        <div className="w-full max-w-lg rounded-2xl border border-border bg-card p-8 text-center">
-          <p className="text-sm tracking-[0.2em] text-muted-foreground uppercase">
-            {t(keys.app.notFound.eyebrow)}
-          </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight">{t(keys.app.notFound.title)}</h1>
-          <p className="mt-3 text-sm text-muted-foreground">{t(keys.app.notFound.description)}</p>
-        </div>
-      </main>
-    )
-  }
-
-  return (
-    <main className="flex min-h-dvh flex-1 items-center justify-center bg-background px-6 text-foreground">
-      <div className="w-full max-w-lg rounded-2xl border border-border bg-card p-8 text-center">
-        <p className="text-sm tracking-[0.2em] text-muted-foreground uppercase">{t(keys.app.error.eyebrow)}</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight">{t(keys.app.error.title)}</h1>
-      </div>
-    </main>
-  )
+  return <RouteError className="min-h-dvh" />
 }
 
 /** Instances are shared across requests; keep each locale's language and resources fixed. */

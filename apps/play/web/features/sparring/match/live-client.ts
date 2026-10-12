@@ -13,8 +13,32 @@ export type SparringMatchLiveConnectionState =
   | 'finished'
   | 'invalid-message'
 
-export type SparringMatchLiveSubscription = { stop(): void }
+/** A running match-live transport subscription. */
+export type SparringMatchLiveSubscription = {
+  /**
+   * Permanently disposes this subscription, cancelling handshake/reconnect work and closing its
+   * current socket. Disposal is idempotent. Events delivered later by the browser are ignored.
+   *
+   * Intentional disposal does not emit `disconnected`: the owner already knows it ended the
+   * lifecycle (for example, because its page became hidden).
+   */
+  stop(): void
+}
 
+/**
+ * Subscribes to invalidation hints for one active sparring match.
+ *
+ * A socket is ready only after its first valid `caught-up` message, not merely after the browser's
+ * `open` event. `connected` therefore means the server cursor is established. Updates are checked
+ * against that cursor; gaps request an authoritative HTTP read through `onCaughtUp` and reconnect.
+ * Terminal hints always win over cursor de-duplication and permanently finish the subscription.
+ *
+ * Connection and handshake failures emit `disconnected` and retry with bounded exponential
+ * backoff. Browser JavaScript cannot reliably distinguish an HTTP 410 WebSocket handshake failure,
+ * so a disconnect deliberately forces the owning page to perform its authoritative HTTP read.
+ * This transport does not own browser visibility lifecycle; callers should stop it and create a
+ * fresh subscription when appropriate.
+ */
 export function subscribeSparringMatchLive(args: {
   matchId: MatchId
   pageKind: 'control' | 'protocol'
@@ -26,6 +50,7 @@ export function subscribeSparringMatchLive(args: {
   let stopped = false
   let socket: WebSocket | null = null
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+  let handshakeTimer: ReturnType<typeof setTimeout> | null = null
   let reconnectAttempt = 0
   let serverSeq: number | null = null
 
@@ -34,7 +59,10 @@ export function subscribeSparringMatchLive(args: {
     stopped = true
 
     if (reconnectTimer) clearTimeout(reconnectTimer)
+
+    if (handshakeTimer) clearTimeout(handshakeTimer)
     reconnectTimer = null
+    handshakeTimer = null
     socket?.close()
     socket = null
   }
@@ -68,10 +96,17 @@ export function subscribeSparringMatchLive(args: {
 
     const current = new WebSocket(url)
     socket = current
-    current.addEventListener('open', () => {
-      if (stopped || socket !== current) return
-      args.onConnectionState('connected')
-    })
+
+    const currentHandshakeTimer = setTimeout(() => {
+      // Disposal and replacement guards are essential: browser events and timers may arrive late.
+      if (stopped || socket !== current || handshakeTimer !== currentHandshakeTimer) return
+      handshakeTimer = null
+      socket = null
+      current.close()
+      scheduleReconnect()
+    }, 10_000)
+
+    handshakeTimer = currentHandshakeTimer
     current.addEventListener('message', (event) => {
       if (stopped || socket !== current) return
 
@@ -94,7 +129,14 @@ export function subscribeSparringMatchLive(args: {
         }
 
         serverSeq = message.output.latestSeq
+
+        if (handshakeTimer === currentHandshakeTimer) {
+          clearTimeout(currentHandshakeTimer)
+          handshakeTimer = null
+        }
+
         reconnectAttempt = 0
+        args.onConnectionState('connected')
 
         if (serverSeq > args.currentLatestSeq()) args.onCaughtUp(serverSeq)
 
@@ -109,18 +151,28 @@ export function subscribeSparringMatchLive(args: {
 
       const update = message.output.update
 
+      if (update.endsMatch && update.acceptedSeq <= serverSeq) {
+        args.onConnectionState('finished')
+        stop()
+
+        return
+      }
+
       if (update.acceptedSeq <= serverSeq) return
 
       if (update.acceptedSeq !== serverSeq + 1) {
-        args.onCaughtUp(update.acceptedSeq)
-
         if (update.endsMatch) {
+          // Announce terminal intent before requesting its cursor. The owner starts one forced
+          // GET, then retains the target, instead of starting catch-up and immediately queuing
+          // another GET for the same terminal message.
           args.onConnectionState('finished')
+          args.onCaughtUp(update.acceptedSeq)
           stop()
 
           return
         }
 
+        args.onCaughtUp(update.acceptedSeq)
         current.close()
 
         return
@@ -129,12 +181,20 @@ export function subscribeSparringMatchLive(args: {
       serverSeq = update.acceptedSeq
       args.onUpdate(update)
 
-      if (update.endsMatch) stop()
+      if (update.endsMatch) {
+        args.onConnectionState('finished')
+        stop()
+      }
     })
     current.addEventListener('close', (event) => {
-      if (socket === current) socket = null
+      // A replaced socket must not clear the replacement's timers or schedule another retry.
+      if (stopped || socket !== current) return
+      socket = null
 
-      if (stopped) return
+      if (handshakeTimer === currentHandshakeTimer) {
+        clearTimeout(currentHandshakeTimer)
+        handshakeTimer = null
+      }
 
       if (event.code === SPARRING_MATCH_LIVE_ENDED_CLOSE_CODE) {
         args.onConnectionState('finished')

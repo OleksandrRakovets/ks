@@ -114,10 +114,7 @@ async function commandMatchAction(
           : keys.match.control.commandRejectedByRules,
     }
 
-  return {
-    ok: true,
-    acceptedSeqMax: result.outcome.acceptedSeq,
-  }
+  return { ok: true }
 }
 
 async function discardMatchAction(

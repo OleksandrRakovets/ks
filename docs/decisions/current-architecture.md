@@ -78,7 +78,11 @@ Discarded Match/Protocol/score reads behave as missing, including while D1 remai
 
 Play's gateway uses application for transport-neutral D1 admission before forwarding a WebSocket handshake to the selected room. The socket supplies a caught-up cursor followed by committed-sequence invalidations, not replayed commands. Browser loaders remain authoritative.
 
-The match-ending notification precedes D1 archival: revalidation can read either the room's final projection or the D1 archive. Changing read source does not require another notification. Live lists use replacement score projections from application; finished lists read D1 without room access or polling.
+The match-ending notification precedes D1 archival: revalidation can read either the room's final projection or the D1 archive. Changing read source does not require another notification. A terminal socket hint forces a loader read even with an unchanged cursor; only the committed loader projection confirms Result and releases active-page resources.
+
+Play owns browser freshness separately from MatchRoom's invalidation transport. Browser return and independent HTTP deadlines recover missed notifications and list membership without replaying Command POSTs; match freshness acknowledges committed projections, not merely completed requests. Live lists use replacement score projections from application; finished lists read D1 without room access or polling.
+
+Play's root route sends `Cache-Control: no-store` for SSR HTML and Router loader data, not assets. Cache policy cannot replace lifecycle catch-up after in-memory page restoration, and no freshness guarantee depends on hide events, which mobile process termination may skip.
 
 ## Current Capability Limits
 
