@@ -1,3 +1,4 @@
+# Declared services start on every `amp orb services ensure`; see .agents/AGENTS.md for the on-demand preview portal.
 services:
   play-dev:
     command: ./node_modules/.bin/turbo watch @ks/play#dev -- --port "$PORT"
@@ -6,10 +7,3 @@ services:
     portal:
       title: KS dev
       description: Development server with the colocated MatchRoom Durable Object.
-  play-preview:
-    command: ./node_modules/.bin/turbo run @ks/play#preview -- --port "$PORT"
-    cwd: .
-    health: /
-    portal:
-      title: KS preview
-      description: Production build preview with the colocated MatchRoom Durable Object.
