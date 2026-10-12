@@ -15,7 +15,7 @@ import {
 } from 'react-router'
 
 import { iconBasePath, iconThemeColor, type IconVariant } from './features/icon-assets'
-import { navigationCookieValue } from './features/navigation'
+import { navigationCookieValue } from './features/pwa/navigation'
 import { localeFromContext } from './i18n'
 import { type AppLoadContext, cloudflareContext } from './server/context.server'
 import { themeFromCookie } from './server/theme.server'

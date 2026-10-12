@@ -4,9 +4,9 @@ export default [
   route('favicon.ico', 'routes/tech/favicon.ts'),
   route('apple-touch-icon.png', 'routes/tech/apple-touch-icon.ts'),
   route('apple-touch-icon-precomposed.png', 'routes/tech/apple-touch-icon-precomposed.ts'),
-  route('site.webmanifest', 'routes/tech/site-webmanifest.ts'),
+  route('site.webmanifest', 'routes/pwa/site-webmanifest.ts'),
   route('robots.txt', 'routes/tech/robots-txt.ts'),
-  route('start/', 'routes/start.ts'),
+  route('start/', 'routes/pwa/start.ts'),
   route('ui-preferences/theme/', 'routes/ui-preferences.ts'),
   route('api/sparring-matches/live-scores/', 'routes/sparring/matches/api-live-scores.ts'),
   route('en?', 'routes/layout-base.tsx', [
