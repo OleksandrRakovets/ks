@@ -3,11 +3,11 @@ import type { GameKey } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
 
 type MatchData<K extends GameKey = GameKey> = Extract<ReadMatchResult<K>, { ok: true }> & {
-  readonly shortGameTitle: string
+  readonly gameTitle: string
 }
 
 type ProtocolData<K extends GameKey> = Extract<ReadMatchProtocolResult<K>, { ok: true }> & {
-  readonly shortGameTitle: string
+  readonly gameTitle: string
 }
 
 export type MatchPageDecision<Data extends { lifecycle: 'active' | 'finished' }> =
@@ -43,5 +43,5 @@ export type FinishedProtocolData<K extends GameKey = GameKey> = Extract<
 >
 
 export type FinishedSurfaceData = Extract<MatchReadFacts, { lifecycle: 'finished' }> & {
-  readonly shortGameTitle: string
+  readonly gameTitle: string
 }

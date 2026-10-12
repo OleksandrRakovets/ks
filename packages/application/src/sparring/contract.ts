@@ -87,7 +87,7 @@ export type LiveMatchListPage = Readonly<{
 export type FinishedMatchListPage = Readonly<{
   scope: 'finished'
   matches: readonly MatchListEntry[]
-  day: MatchListDay | null
+  day: MatchListDay
   previousDay: MatchListDay | null
   nextDay: MatchListDay | null
   isToday: boolean
@@ -199,7 +199,8 @@ export type SparringApplication = {
   createMatch(input: CreateSparringMatchInput): Promise<CreateSparringMatchResult>
   discardMatch(matchId: MatchId, expectedGameKey: GameKey): Promise<DiscardMatchResult>
   listLiveMatches(locale: SupportedLocale): Promise<LiveMatchListPage>
-  listFinishedMatches(locale: SupportedLocale, day?: MatchListDay): Promise<FinishedMatchListPage>
+  latestFinishedMatchDay(): Promise<MatchListDay>
+  listFinishedMatches(locale: SupportedLocale, day: MatchListDay): Promise<FinishedMatchListPage>
   readMatchScores(matchIds: readonly MatchId[]): Promise<ReadMatchScoresResult>
   readMatch<K extends GameKey>(
     matchId: MatchId,

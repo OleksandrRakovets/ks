@@ -35,26 +35,22 @@ export async function listLiveMatches(
   return { scope: 'live', matches }
 }
 
+/** The local day of the latest finished Match, or today before any Match has finished. */
+export async function latestFinishedMatchDay(deps: SparringDependencies): Promise<MatchListDay> {
+  const latest = await deps.matches.findFinishedTime({
+    before: v.parse(UnixEpochMilliseconds, Number.MAX_SAFE_INTEGER),
+  })
+
+  return localDay(deps, latest ?? deps.clock.nowMs())
+}
+
 export async function listFinishedMatches(
   deps: SparringDependencies,
   locale: SupportedLocale,
-  requestedDay?: MatchListDay,
+  day: MatchListDay,
 ): Promise<FinishedMatchListPage> {
   const now = deps.clock.nowMs()
   const formattedNow = deps.clock.instantPresentation(now)
-
-  const latest =
-    requestedDay === undefined
-      ? await deps.matches.findFinishedTime({
-          before: v.parse(UnixEpochMilliseconds, Number.MAX_SAFE_INTEGER),
-        })
-      : null
-
-  const day = requestedDay ?? (latest === null ? null : localDay(deps, latest))
-
-  if (day === null)
-    return { scope: 'finished', matches: [], day: null, previousDay: null, nextDay: null, isToday: false }
-
   const range = deps.clock.dayRange(day)
   const records = await deps.matches.listFinished(range)
 

@@ -15,7 +15,7 @@ export function Board({ presentation }: { presentation: BoardPresentation }) {
       aria-label={presentation.label}
     >
       {presentation.winnerLabel !== undefined ? (
-        <div className="mb-5">
+        <div className="mt-4 mb-5">
           <Badge variant="live" className="gap-1.5">
             <CheckIcon />
             {presentation.winnerLabel}
@@ -46,6 +46,10 @@ export function Board({ presentation }: { presentation: BoardPresentation }) {
           muted={presentation.mutedSeat === 'B'}
         />
       </div>
+
+      {presentation.caption !== undefined ? (
+        <p className="mt-3 text-center text-base text-muted-foreground">{presentation.caption}</p>
+      ) : null}
 
       {presentation.details?.kind === 'balls' ? (
         <div className="mt-1 grid grid-cols-2 gap-4">

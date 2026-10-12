@@ -43,7 +43,7 @@ export async function loadMatchPage<K extends GameKey>(
 
   return decideMatchPage({
     ...result,
-    shortGameTitle: registry[expectedGameKey].meta.shortGameTitle[locale],
+    gameTitle: registry[expectedGameKey].meta.title[locale],
   })
 }
 
@@ -169,7 +169,7 @@ async function loadMatchProtocol<K extends GameKey>(args: RouteArgs, expectedGam
     }
   }
 
-  return { ...result, shortGameTitle: registry[expectedGameKey].meta.shortGameTitle[locale] }
+  return { ...result, gameTitle: registry[expectedGameKey].meta.title[locale] }
 }
 
 function decideMatchPage<Data extends { lifecycle: 'active' | 'finished' }>(

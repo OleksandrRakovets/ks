@@ -17,6 +17,8 @@ export type BoardPresentation = {
   framesLabel: string
   label?: string
   winnerLabel?: string
+  /** Centered under the scores, where finished pages identify the game outside the match header. */
+  caption?: string
   details: BoardDetails | null
 }
 
@@ -53,28 +55,24 @@ export function presentActiveSurface<K extends GameKey>(
       title: t(keys.match.scoreboard.frameWithNumber, {
         frameIndex: Math.max(1, data.representedFrame?.frameIndex ?? 0),
       }),
-      rule: t(keys.match.scoreboard.raceToWins, { targetFrames: data.targets.matchTargetFrames }),
+      rule: t(keys.match.scoreboard.raceToWins, { count: data.targets.matchTargetFrames }),
     },
     board,
   }
 }
 
-export function presentFinishedSurface(data: FinishedSurfaceData, t: TFunction) {
+export function presentFinishedBoard(data: FinishedSurfaceData, t: TFunction): BoardPresentation {
   const board = presentBoard(data, data.participants, t)
   board.winnerLabel = t(keys.match.result.winner, {
     name: data.participants[data.winnerSeat].displayName,
   })
+  // Long pyramid shows its point targets beside the scores instead of a frame race.
+  board.caption =
+    data.gameKey === 'free-pyramid-long'
+      ? data.gameTitle
+      : `${data.gameTitle} · ${t(keys.match.scoreboard.raceToWins, { count: data.targets.matchTargetFrames })}`
 
-  return {
-    header: {
-      title: data.shortGameTitle,
-      rule:
-        data.gameKey === 'free-pyramid-long'
-          ? ''
-          : t(keys.match.scoreboard.target, { target: data.targets.matchTargetFrames }),
-    },
-    board,
-  }
+  return board
 }
 
 /**

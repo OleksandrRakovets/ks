@@ -251,7 +251,8 @@ describe('sparring lists and score polling', () => {
       },
     })
 
-    expect(await app.listFinishedMatches('en')).toMatchObject({
+    expect(await app.latestFinishedMatchDay()).toBe('2023-11-15')
+    expect(await app.listFinishedMatches('en', '2023-11-15')).toMatchObject({
       matches: [
         {
           matchId,
@@ -273,6 +274,15 @@ describe('sparring lists and score polling', () => {
       nextDay: null,
       isToday: false,
     })
+  })
+
+  test('defaults the finished day to today before any Match has finished', async () => {
+    const app = sparring(selectedClient(), [], {
+      overrides: { clock: new FixedClock(new Date('2023-11-15T22:30:00.000Z'), 'Europe/Kyiv') },
+      matches: { findFinishedTime: async () => null },
+    })
+
+    expect(await app.latestFinishedMatchDay()).toBe('2023-11-16')
   })
 
   test('skips calendar gaps using only the two indexed neighboring instants', async () => {

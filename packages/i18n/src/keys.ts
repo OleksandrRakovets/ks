@@ -17,8 +17,9 @@ export const keys = {
     close: 'nav.close',
     section: 'nav.section',
     sparring: 'nav.sparring',
-    allMatches: 'nav.allMatches',
-    newGame: 'nav.newGame',
+    newMatch: 'nav.newMatch',
+    liveMatches: 'nav.liveMatches',
+    finishedMatches: 'nav.finishedMatches',
     matches: 'nav.matches',
   },
   theme: {
@@ -105,7 +106,6 @@ export const keys = {
       frameWithNumber: 'match.scoreboard.frameWithNumber',
       points: 'match.scoreboard.points',
       raceToWins: 'match.scoreboard.raceToWins',
-      target: 'match.scoreboard.target',
     },
     result: {
       tabResult: 'match.result.tabResult',
@@ -121,7 +121,6 @@ export const keys = {
       liveMatches: 'match.sparring.liveMatches',
       finishedMatches: 'match.sparring.finishedMatches',
       noLiveMatches: 'match.sparring.noLiveMatches',
-      noFinishedMatches: 'match.sparring.noFinishedMatches',
       noFinishedMatchesOnDay: 'match.sparring.noFinishedMatchesOnDay',
       days: 'match.sparring.days',
       previousDay: 'match.sparring.previousDay',
