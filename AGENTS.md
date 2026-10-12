@@ -8,6 +8,15 @@ KS is a two-player billiards scorekeeper with public live scoring. Matches are r
 - Allow focused regression tests for the requested change using existing infrastructure. Ask before broad coverage expansion, new test infrastructure, or substantial fixtures.
 - Test behavior at its lowest owning layer. Higher-level tests cover wiring, persistence, transport, and lifecycle boundaries, not repeated domain rule matrices. Assert observable contracts, not implementation shape.
 
+## Issue Tracking
+
+Linear team Billiards (`BIL`) tracks KS and Streamer work. Projects are roadmap outcomes; the `Source` label (Club request, Owner, Tech/Learning) records where an issue came from.
+
+- Work from one `BIL` issue per thread and PR. Include the issue ID anywhere in the branch name (e.g. `discard-ui-bil-51`), not in PR titles, so GitHub automation moves it to In Review on PR open and Done on merge to `dev`.
+- File out-of-scope ideas, bugs, and follow-ups as `BIL` issues with status Triage set explicitly (otherwise they land in Backlog), a `Source` label, and a link to the current thread. Mention them in the report; do not explore or implement them in the current task.
+- Statuses: Triage (undecided) → Backlog (accepted) or Parked (deferred until a 1-pager and repeated asks exist) → Shaping (1-pager or spec in progress) → Ready → In Progress → In Review → Done. Build only from Ready issues or with explicit approval; for Shaping issues, produce the spec first.
+- Leave prioritization and status moves to the user and GitHub automation, except filing into Triage.
+
 ## Ownership And Guidance
 
 Domain dependencies flow `core <- gameplay <- competition`. Play owns HTTP and presentation; application owns use-case orchestration and D1; MatchRoom owns serialized active/finalizing execution and per-match SQLite. Finished reads use D1 only. Never mirror the active command ledger into D1.
