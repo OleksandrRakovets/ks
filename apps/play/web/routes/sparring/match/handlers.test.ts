@@ -103,7 +103,7 @@ describe('matchAction adaptation', () => {
     ).toMatchObject({ status: 404 })
   })
 
-  test('returns acceptedSeqMax for accepted outcomes', async () => {
+  test('reports accepted outcomes as ok', async () => {
     const matchId = newMatchId()
     const commandId = newCommandId()
 
@@ -132,7 +132,7 @@ describe('matchAction adaptation', () => {
       'free-pyramid',
     )
 
-    expect(result).toEqual({ ok: true, acceptedSeqMax: 5 })
+    expect(result).toEqual({ ok: true })
   })
 
   test('returns commandRejectedByRules for rejected outcomes', async () => {
