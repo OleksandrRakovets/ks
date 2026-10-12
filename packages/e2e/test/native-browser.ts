@@ -83,7 +83,9 @@ export async function nativeBrowser() {
           try {
             await browser?.close()
           } finally {
-            await rm(profile, { recursive: true, force: true })
+            // Chromium subprocesses may finish profile writes just after the main child closes.
+            // Bound transient ENOTEMPTY/EBUSY retries; persistent cleanup errors still fail.
+            await rm(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 })
           }
         }
       }

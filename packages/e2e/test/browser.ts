@@ -92,7 +92,11 @@ export async function command(
   })
 
   browserExpect(response.ok()).toBe(true)
-  browserExpect(await response.text()).toContain('acceptedSeqMax')
+  const action = await response.text()
+  // Router encodes its single-fetch response. Successful actions now expose only `ok`;
+  // rejected Commands still return HTTP 200, so status alone would silently accept a bad fixture.
+  browserExpect(action).toContain('"ok"')
+  browserExpect(action).not.toContain('"errorKey"')
 }
 
 /** Records browser-side GET/POST traffic. API fixture writes do not enter this ledger. */

@@ -40,7 +40,8 @@ test('an empty list discovers a new match, then polls its scores after the React
     command: { type: 'pot.record', seat: 'B', pottedBallCount: 1 },
   })
   await page.clock.runFor(30_000)
-  await browserExpect(row).toContainText(/Alice\s*4\s*Discovered Bob\s*1/)
+  // Active cards show current Frame points followed by Frame wins for each seat.
+  await browserExpect(row).toContainText(/Discovered Alice\s*4\s*0\s*Discovered Bob\s*1\s*0/)
   expect(reads.scores()).toHaveLength(1)
   expect(reads.loaders()).toHaveLength(1)
 })
@@ -172,20 +173,18 @@ test.each(['control', 'protocol'])(
     await command(context.request, path, { source: 'game', command: { type: 'frame.award', seat: 'A' } })
     await browserExpect(page.getByText(`End ${view} Alice won`, { exact: true })).toBeVisible()
     await browserExpect(page.getByRole('link', { name: 'Result', exact: true })).toBeVisible()
-    // The paused clock also pauses browser tasks used for React's passive effects. Allow the
-    // finished projection's effect cleanup to run before simulating a later browser return.
-    await page.clock.runFor(50)
-    await page.waitForLoadState('networkidle')
     expect(reads.loaders()).toHaveLength(1)
     expect(sockets).toHaveLength(1)
-    await expect.poll(() => sockets[0]?.isClosed()).toBe(true)
 
+    // Deliberately no settling tick: Result's DOM commit must already release the controller.
+    // Return hints must not reach active listeners waiting for deferred passive cleanup.
     await returnHints(page)
     await page.clock.runFor(180_000)
     await page.waitForLoadState('networkidle')
     expect(reads.loaders()).toHaveLength(1)
     expect(reads.posts()).toHaveLength(0)
     expect(sockets).toHaveLength(1)
+    await expect.poll(() => sockets[0]?.isClosed()).toBe(true)
   },
 )
 
@@ -348,11 +347,11 @@ test('hide aborts slow score I/O; return replaces the cancelled request with one
     await page.clock.fastForward(1_800_000)
     expect(reads.loaders()).toHaveLength(0)
     await returnHints(page)
-    await browserExpect(row).toContainText(/Alice\s*5\s*Delayed Bob\s*0/)
+    await browserExpect(row).toContainText(/Delayed Alice\s*5\s*0\s*Delayed Bob\s*0\s*0/)
     release()
     await expect.poll(() => released).toBe(true)
     await page.clock.runFor(50)
-    await browserExpect(row).toContainText(/Alice\s*5\s*Delayed Bob\s*0/)
+    await browserExpect(row).toContainText(/Delayed Alice\s*5\s*0\s*Delayed Bob\s*0\s*0/)
     expect(reads.scores()).toHaveLength(1)
     expect(reads.loaders()).toHaveLength(1)
     expect(reads.posts()).toHaveLength(0)

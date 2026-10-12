@@ -17,7 +17,8 @@ E2E_BROWSER=webkit bun run test:e2e
 
 On a fresh Linux machine, install the browser system libraries with
 `packages/e2e/node_modules/.bin/playwright install-deps chromium webkit` (requires
-root privileges). Orb setup installs those libraries and versioned browsers.
+root privileges). Browser installation is explicit, including in orbs; ordinary
+repository setup does not install browsers for this optional test layer.
 
 The root command builds Play through Turbo before testing. For a focused rerun
 against an **already current build**:
@@ -30,6 +31,12 @@ These tests are separate from fast `bun test`, Workerd `test:integration`, and
 `check:full`. Run both browser commands when changing freshness or lifecycle
 wiring. Tests run serially with one test worker and one shared preview server;
 every ordinary case gets a fresh browser context, page, and clock.
+
+The `@ks/play` dependency supplies Turbo's build edge; it is not a JavaScript
+import. Wrangler runs as a child-process CLI to migrate the disposable store.
+Knip narrowly allows these two dependencies in this workspace and excludes its
+four test-helper modules only in production mode. Default mode still checks
+the helpers and tests for unused code.
 
 ## What the tests prove
 
@@ -83,8 +90,8 @@ profile. BFCache restoration uses `waitUntil: 'commit'`, not a new `load`.
 
 The catalog's Vitest 4 works for this Node orchestration. Vitest 5 Browser Mode
 also passed the isolated hook spike but added no needed lifecycle capability;
-the Cloudflare Vitest integration currently requires Vitest 4. Keep a future
-Vitest upgrade separate from this package's browser driver.
+the current Cloudflare Vitest integration supports both versions. Keep a future
+catalog upgrade separate from this package's browser driver.
 
 ## Limits of the simulation
 
@@ -95,7 +102,7 @@ passive-effect tasks; tests let those tasks run after a projection commits
 before modelling a later browser return. Native Chromium cases do not fake
 timers or browser lifecycle events.
 
-The no-store/back-navigation result is a contract of the pinned Chromium build,
+The no-store/back-navigation result is a contract of the lockfile-selected Chromium build,
 not a universal rule that no-store prevents BFCache. The cacheable fixture changes
 HTTP headers only for its documents and Router manifest; production headers stay
 unchanged. Native Chromium cases are skipped in the WebKit run.
