@@ -2,31 +2,9 @@ import { afterEach, beforeEach, expect, test } from 'bun:test'
 
 import { newMatchId, type SparringMatchLiveServerMessage } from '@ks/core'
 
-import { LiveTestBrowser } from '@/features/freshness/test-browser'
+import { LiveTestBrowser, type TestSocket } from '@/features/freshness/test-browser'
 
 import { MatchLiveController } from './live-controller'
-
-class TestSocket extends EventTarget {
-  static instances: TestSocket[] = []
-  readonly url: string
-  closeCalls = 0
-  constructor(url: string) {
-    super()
-    this.url = url
-    TestSocket.instances.push(this)
-  }
-  close(): void {
-    this.closeCalls++
-  }
-  message(message: SparringMatchLiveServerMessage): void {
-    this.dispatchEvent(new MessageEvent('message', { data: JSON.stringify(message) }))
-  }
-  closed(code = 1006): void {
-    const event = new Event('close')
-    Object.defineProperty(event, 'code', { value: code })
-    this.dispatchEvent(event)
-  }
-}
 
 let browser: LiveTestBrowser
 
@@ -38,8 +16,6 @@ let reads: ReturnType<typeof Promise.withResolvers<void>>[]
 
 beforeEach(() => {
   browser = new LiveTestBrowser()
-  browser.replace('WebSocket', { value: TestSocket })
-  TestSocket.instances = []
   matchId = newMatchId()
   reads = []
   controller = new MatchLiveController(matchId, 'control', 4, () => {
@@ -56,7 +32,7 @@ afterEach(() => {
 })
 
 function socket(): TestSocket {
-  const current = TestSocket.instances.at(-1)
+  const current = browser.sockets.at(-1)
 
   if (!current) throw new Error('Expected socket')
 
@@ -64,19 +40,28 @@ function socket(): TestSocket {
 }
 
 function caughtUp(seq = 4): void {
-  socket().message({ contractVersion: 1, type: 'caught-up', matchId, latestSeq: seq })
+  socket().message(
+    JSON.stringify({
+      contractVersion: 1,
+      type: 'caught-up',
+      matchId,
+      latestSeq: seq,
+    } satisfies SparringMatchLiveServerMessage),
+  )
 }
 
 function update(seq: number, endsMatch = false): void {
-  socket().message({
-    contractVersion: 1,
-    type: 'update',
-    update: {
-      type: 'command-accepted',
-      acceptedSeq: seq,
-      endsMatch,
-    },
-  })
+  socket().message(
+    JSON.stringify({
+      contractVersion: 1,
+      type: 'update',
+      update: {
+        type: 'command-accepted',
+        acceptedSeq: seq,
+        endsMatch,
+      },
+    } satisfies SparringMatchLiveServerMessage),
+  )
 }
 
 test('visible WS updates coalesce and a cursor received during a read is not lost', async () => {
@@ -138,7 +123,7 @@ test('terminal signal with an equal cursor forces a read after submission and st
   expect(socket().closeCalls).toBe(1)
   browser.visibility('hidden')
   browser.visibility('visible')
-  expect(TestSocket.instances).toHaveLength(1)
+  expect(browser.sockets).toHaveLength(1)
   expect(reads).toHaveLength(2)
   controller.dispose()
 
@@ -156,7 +141,7 @@ test('terminal hint arriving during a read remains forced even if that read reac
   reads[0].resolve()
   await browser.flush()
   expect(reads).toHaveLength(2)
-  expect(TestSocket.instances).toHaveLength(1)
+  expect(browser.sockets).toHaveLength(1)
 })
 
 test('one gapped terminal message starts one forced read, not competing cursor and terminal reads', async () => {
@@ -200,7 +185,7 @@ test('pagehide releases socket and a return replaces a pending read; return hint
   browser.window.dispatchEvent(new Event('focus'))
   browser.window.dispatchEvent(new Event('online'))
   expect(reads).toHaveLength(2)
-  expect(TestSocket.instances).toHaveLength(2)
+  expect(browser.sockets).toHaveLength(2)
   previous.closed()
   caughtUp(5)
   controller.snapshot(5)
@@ -219,7 +204,7 @@ test('persisted pageshow catches up even if no hide event ran, while initial pag
   expect(reads).toHaveLength(0)
   browser.pageShow()
   expect(reads).toHaveLength(1)
-  expect(TestSocket.instances).toHaveLength(2)
+  expect(browser.sockets).toHaveLength(2)
 })
 
 test('focus on a visible page reads without replacing a healthy socket; online replaces it', async () => {
@@ -227,14 +212,14 @@ test('focus on a visible page reads without replacing a healthy socket; online r
   caughtUp()
   browser.window.dispatchEvent(new Event('focus'))
   expect(reads).toHaveLength(1)
-  expect(TestSocket.instances).toHaveLength(1)
+  expect(browser.sockets).toHaveLength(1)
   expect(socket().closeCalls).toBe(0)
   controller.snapshot(4)
   reads[0].resolve()
   await browser.flush()
   browser.window.dispatchEvent(new Event('online'))
   expect(reads).toHaveLength(2)
-  expect(TestSocket.instances).toHaveLength(2)
+  expect(browser.sockets).toHaveLength(2)
 })
 
 test('silent connected socket has an HTTP watchdog, and retries do not flood HTTP', async () => {
@@ -251,7 +236,7 @@ test('silent connected socket has an HTTP watchdog, and retries do not flood HTT
   reads[1].resolve()
   await browser.flush()
   await browser.advance(30_000)
-  expect(TestSocket.instances.length).toBeGreaterThan(1)
+  expect(browser.sockets.length).toBeGreaterThan(1)
   expect(reads).toHaveLength(2)
 })
 
@@ -259,9 +244,9 @@ test('initially hidden page connects only on return, then disposed work stays st
   browser.document.visibilityState = 'hidden'
   controller.start()
   await browser.advance(60_000)
-  expect(TestSocket.instances).toHaveLength(0)
+  expect(browser.sockets).toHaveLength(0)
   browser.visibility('visible')
-  expect(TestSocket.instances).toHaveLength(1)
+  expect(browser.sockets).toHaveLength(1)
   expect(reads).toHaveLength(1)
   controller.dispose()
   browser.pageShow()
@@ -269,5 +254,5 @@ test('initially hidden page connects only on return, then disposed work stays st
   reads[0].resolve()
   await browser.advance(60_000)
   expect(reads).toHaveLength(1)
-  expect(TestSocket.instances).toHaveLength(1)
+  expect(browser.sockets).toHaveLength(1)
 })

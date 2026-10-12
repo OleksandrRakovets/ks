@@ -1,8 +1,37 @@
 import { spyOn } from 'bun:test'
 
-/** Small deterministic browser clock for the feature's lifecycle tests, not a DOM renderer. */
+/** WebSocket stand-in whose server frames and close events are delivered by the test. */
+export class TestSocket extends EventTarget {
+  readonly url: string
+  closeCalls = 0
+
+  constructor(url: string | URL) {
+    super()
+    this.url = String(url)
+  }
+
+  close(): void {
+    this.closeCalls++
+  }
+
+  /** Delivers one server text frame. */
+  message(frame: string): void {
+    this.dispatchEvent(new MessageEvent('message', { data: frame }))
+  }
+
+  /** Delivers the browser close event; 1006 is an abnormal closure without a close frame. */
+  closed(code = 1006): void {
+    const event = new Event('close')
+    Object.defineProperty(event, 'code', { value: code })
+    this.dispatchEvent(event)
+  }
+}
+
+/** Small deterministic browser clock for live freshness tests, not a DOM renderer. */
 export class LiveTestBrowser {
   now = 1_000_000
+  /** Every socket the code under test opened, oldest first. */
+  readonly sockets: TestSocket[] = []
   readonly document = Object.assign(new EventTarget(), { visibilityState: 'visible' })
   readonly window = Object.assign(new EventTarget(), {
     location: { protocol: 'https:', host: 'play.example' },
@@ -20,6 +49,15 @@ export class LiveTestBrowser {
     this.replace('window', { value: this.window })
     this.replace('setTimeout', { value: this.window.setTimeout })
     this.replace('clearTimeout', { value: this.window.clearTimeout })
+    const sockets = this.sockets
+    this.replace('WebSocket', {
+      value: class extends TestSocket {
+        constructor(url: string | URL) {
+          super(url)
+          sockets.push(this)
+        }
+      },
+    })
   }
 
   replace(name: string, replacement: PropertyDescriptor): void {
