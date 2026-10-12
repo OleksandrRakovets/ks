@@ -13,6 +13,7 @@ import type {
 import { localeFromContext, localizedPath } from '@/i18n'
 import type { AppLoadContext } from '@/server/context.server'
 import { requireApplication } from '@/server/context.server'
+import { noticeCookie } from '@/server/notice.server'
 
 type RouteArgs = {
   params: { matchId?: string }
@@ -137,7 +138,10 @@ async function discardMatchAction(
     }
   }
 
-  return redirect(localizedPath('/sparring/matches/', localeFromContext(context)), 303)
+  return redirect(localizedPath('/sparring/', localeFromContext(context)), {
+    status: 303,
+    headers: { 'Set-Cookie': noticeCookie('match-discarded') },
+  })
 }
 
 function matchIdFromParams(params: RouteArgs['params']): MatchId {

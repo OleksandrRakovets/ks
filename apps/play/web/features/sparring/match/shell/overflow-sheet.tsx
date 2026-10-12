@@ -1,5 +1,6 @@
 import type { Control, ControlSections, MatchCommand } from '@ks/core'
 import { keys } from '@ks/i18n'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ResponsiveMenu } from '@/components/ui'
@@ -11,11 +12,9 @@ export function OverflowSheet(props: {
   names: { A: string; B: string }
   submitting: boolean
   onSubmit: (command: MatchCommand) => void
+  onDiscard: () => void
 }) {
   const { t } = useTranslation()
-  const hasControls = props.controls.A.length > 0 || props.controls.B.length > 0
-
-  if (!hasControls) return <span className="size-11" />
 
   return (
     <ResponsiveMenu
@@ -51,6 +50,9 @@ export function OverflowSheet(props: {
                 </section>
               ) : null,
             )}
+            <div className="mt-4 grid">
+              <DiscardControl submitting={props.submitting} onDiscard={props.onDiscard} close={close} />
+            </div>
           </div>
         </div>
       )}
@@ -88,5 +90,47 @@ function OverflowControl(props: {
     >
       {label}
     </button>
+  )
+}
+
+/** Discard cannot be undone, so the first tap only reveals the confirmation in place of the row. */
+function DiscardControl(props: { submitting: boolean; onDiscard: () => void; close: () => void }) {
+  const { t } = useTranslation()
+  const [confirming, setConfirming] = useState(false)
+
+  if (!confirming)
+    return (
+      <button
+        type="button"
+        disabled={props.submitting}
+        className="min-h-14 rounded-lg bg-overlay px-4 text-left text-lg font-semibold text-destructive outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-45"
+        onClick={() => setConfirming(true)}
+      >
+        {t(keys.match.control.discard)}
+      </button>
+    )
+
+  return (
+    <section className="grid gap-2" aria-label={t(keys.match.control.discard)}>
+      <p className="flex min-h-14 items-center text-lg">{t(keys.match.control.discardWarning)}</p>
+      <button
+        type="button"
+        disabled={props.submitting}
+        className="min-h-14 rounded-lg bg-destructive/15 px-4 text-left text-lg font-semibold text-destructive outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-45"
+        onClick={() => {
+          props.onDiscard()
+          props.close()
+        }}
+      >
+        {t(keys.match.control.discardConfirm)}
+      </button>
+      <button
+        type="button"
+        className="min-h-14 rounded-lg bg-overlay px-4 text-left text-lg font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+        onClick={() => setConfirming(false)}
+      >
+        {t(keys.match.control.discardKeep)}
+      </button>
+    </section>
   )
 }

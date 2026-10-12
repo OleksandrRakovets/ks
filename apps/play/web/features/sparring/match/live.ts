@@ -73,8 +73,10 @@ export function transitionControlLive(
 export function useControlLiveRevalidation(
   { matchId, lifecycle, latestSeq }: Pick<MatchReadFacts, 'matchId' | 'lifecycle' | 'latestSeq'>,
   fetcher: { state: string; data?: ControlActionData },
+  discarding: boolean,
 ): () => void {
   const revalidator = useRevalidator()
+  const discardingRef = useRef(discarding)
 
   const liveStateRef = useRef<ControlLiveState>({
     latestSeq,
@@ -121,6 +123,9 @@ export function useControlLiveRevalidation(
     revalidatorStateRef.current = revalidator.state
   }, [revalidator.state])
   useEffect(() => {
+    discardingRef.current = discarding
+  }, [discarding])
+  useEffect(() => {
     loaderLatestSeqRef.current = latestSeq
     applyLiveEvent({ type: 'snapshot', latestSeq })
     requestRevalidation(targetSeqRef.current)
@@ -161,6 +166,9 @@ export function useControlLiveRevalidation(
             : { type: 'update', seq: update.acceptedSeq },
         ),
       onConnectionState: (connectionState) => {
+        // The room closes this page's socket before the discard redirect arrives; revalidating would show a 404.
+        if (discardingRef.current) return
+
         if (
           (connectionState === 'disconnected' || connectionState === 'finished') &&
           revalidatorStateRef.current === 'idle'
