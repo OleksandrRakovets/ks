@@ -19,6 +19,12 @@ Play is the single Cloudflare Worker deployable. It owns HTTP and presentation, 
 - Share Active/Finished surface compositions between Match and Protocol pages. Feature-local presentation functions derive copy and emphasis; Shell and Board render resolved props. Page controllers own submission and live revalidation.
 - The curated game shelf's localized JSX copy belongs in `web/routes/sparring/index.tsx`, independently of registry names used by Setup. Adding a game also requires its card and routes.
 
+## Installed App Launch
+
+- `web/features/pwa` owns manifest identity and navigation restoration; `web/routes/pwa` adapts them to HTTP. The manifest depends on shared icon metadata, not icon-serving handlers. Preserve `id: "/"`; `/start/` is a launch entrypoint, not localized content.
+- Mount `useRememberNavigation` in the successful root `App`, not `Layout`, which also wraps error pages. Remember every successful standalone page's locale, query, and fragment in a seven-day cookie; prefetch, revalidation, error pages, and browser tabs must not overwrite it. Chrome shares cookies between tabs and installed apps: the standalone gate isolates writes, not cookie storage or transmission.
+- `/start/` validates the untrusted destination and returns an uncached redirect, falling back to home when absent or invalid and never resuming itself. Ordinary page URLs never auto-resume. This restores navigation only, not in-memory UI or authoritative Match state.
+
 ## Test Boundaries
 
 - Do not add a unit test merely because a function or component was added or changed. Before adding one, identify the observable rule and a plausible incorrect decision it would catch; the test should survive moving or inlining helpers without changing that rule.

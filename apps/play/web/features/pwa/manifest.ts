@@ -1,4 +1,4 @@
-import { iconBasePath, iconThemeColor, type IconVariant } from '../icon-assets'
+import { iconBasePath, iconThemeColor, type IconVariant } from '@/features/icon-assets'
 
 export function pwaManifest(variant: IconVariant) {
   const basePath = iconBasePath(variant)

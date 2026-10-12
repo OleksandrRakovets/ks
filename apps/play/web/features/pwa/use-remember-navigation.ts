@@ -8,6 +8,8 @@ export function useRememberNavigation() {
 
   useEffect(() => {
     try {
+      if (!window.matchMedia('(display-mode: standalone)').matches) return
+
       const cookie = navigationCookieValue(new URL(`${window.location.origin}${pathname}${search}${hash}`))
 
       if (cookie !== null) document.cookie = cookie

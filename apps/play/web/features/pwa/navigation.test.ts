@@ -3,12 +3,12 @@ import { describe, expect, test } from 'bun:test'
 import { navigationCookieValue, navigationFromCookie } from './navigation'
 
 describe('navigation cookie', () => {
-  test('stores the whole relative URL with persistent, host-local cookie attributes', () => {
+  test('stores the whole relative URL for seven days with host-local cookie attributes', () => {
     expect(navigationCookieValue(new URL('https://play.ks.ua/en/sparring/?game=strila-v2#rules'))).toBe(
-      'ks.lastUrl=%2Fen%2Fsparring%2F%3Fgame%3Dstrila-v2%23rules; Path=/; SameSite=Lax; Max-Age=31536000; Secure',
+      'ks.lastUrl=%2Fen%2Fsparring%2F%3Fgame%3Dstrila-v2%23rules; Path=/; SameSite=Lax; Max-Age=604800; Secure',
     )
     expect(navigationCookieValue(new URL('http://localhost:7529/'))).toBe(
-      'ks.lastUrl=%2F; Path=/; SameSite=Lax; Max-Age=31536000',
+      'ks.lastUrl=%2F; Path=/; SameSite=Lax; Max-Age=604800',
     )
   })
 

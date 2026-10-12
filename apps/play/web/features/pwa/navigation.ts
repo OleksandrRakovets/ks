@@ -11,7 +11,7 @@ export function navigationCookieValue(url: URL): string | null {
 
   const destination = `${url.pathname}${url.search}${url.hash}`
 
-  return `${COOKIE_NAME}=${encodeURIComponent(destination)}; Path=/; SameSite=Lax; Max-Age=31536000${url.protocol === 'https:' ? '; Secure' : ''}`
+  return `${COOKIE_NAME}=${encodeURIComponent(destination)}; Path=/; SameSite=Lax; Max-Age=604800${url.protocol === 'https:' ? '; Secure' : ''}`
 }
 
 export function navigationFromCookie(cookieHeader: string | null, origin: string): string {

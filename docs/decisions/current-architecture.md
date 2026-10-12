@@ -68,12 +68,6 @@ MatchRoom atomically commits match-ending acceptance, Protocol, terminal checkpo
 
 Application archives the transfer without replaying gameplay. Until D1 completion succeeds, GETs return the room's final projection without writing; a later POST can retry transfer and archival. MatchRoom remains finalizing after D1 completion. This separation preserves a durable terminal result if archival fails and avoids making reads mutate lifecycle.
 
-## Installed App Launch
-
-Play's `features/pwa` owns manifest identity and navigation restoration; `routes/pwa` adapts them to HTTP. The manifest depends on shared icon metadata, not the icon-serving handlers. Its stable `id: "/"` preserves the identity originally inferred from the old start URL; `/start/` is a launch entrypoint, not a localized content page.
-
-The root records committed router locations, including locale, query, and fragment, in a persistent browser cookie. Prefetch and revalidation do not record navigation. `/start/` validates that untrusted cookie and returns an uncached redirect to any saved internal page, or home when absent or invalid; it never resumes itself. This restores navigation only, not in-memory UI or authoritative match state. Ordinary page URLs never auto-resume.
-
 ## Live Reads
 
 Play's gateway uses application for transport-neutral D1 admission before forwarding a WebSocket handshake to the selected room. The socket supplies a caught-up cursor followed by committed-sequence invalidations, not replayed commands. Browser loaders remain authoritative.
