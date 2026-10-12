@@ -5,6 +5,7 @@ import type { PlayerStorage } from '../player/storage/player-storage'
 import { admitMatchLive } from './admit-live'
 import type { SparringApplication } from './contract'
 import { createMatch } from './create-match'
+import { discardMatch } from './discard-match'
 import { listFinishedMatches, listLiveMatches, readMatchScores } from './list-matches'
 import { readMatch, readMatchProtocol } from './read-match'
 import type { SparringMatchStorage } from './storage/sparring-match-storage'
@@ -22,6 +23,7 @@ export type SparringDependencies = {
 export function createSparringApplication(deps: SparringDependencies): SparringApplication {
   return {
     createMatch: (input) => createMatch(deps, input),
+    discardMatch: (matchId, expectedGameKey) => discardMatch(deps, matchId, expectedGameKey),
     listLiveMatches: (locale) => listLiveMatches(deps, locale),
     listFinishedMatches: (locale, day) => listFinishedMatches(deps, locale, day),
     readMatchScores: (matchIds) => readMatchScores(deps, matchIds),

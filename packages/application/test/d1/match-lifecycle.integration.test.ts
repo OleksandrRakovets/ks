@@ -124,6 +124,74 @@ beforeEach(async () => {
 })
 
 describe('real D1 match lifecycle', () => {
+  test('soft deletion preserves the row, excludes it from both lists and day navigation, and creates no archive', async () => {
+    const matches = new SparringMatchStorage(createApplicationDatabaseClient(env.DB))
+    const endedAt = v.parse(UnixEpochMilliseconds, 5_000)
+    await matches.beginCreation(catalogInput())
+    await expect(matches.markDiscarded(matchId, endedAt)).rejects.toThrow('cannot mark Match')
+    await matches.activate(matchId)
+    await matches.markDiscarded(matchId, endedAt)
+    await matches.markDiscarded(matchId, endedAt)
+    await matches.activate(matchId)
+    expect(await matches.findMatch(matchId)).toEqual({ ...catalogInput(), status: 'discarded', endedAt })
+    expect(await matches.findProtocolArchive(matchId)).toBeNull()
+    expect(await matches.findFinishedArchive(matchId)).toBeNull()
+    await expect(matches.markDiscarded(matchId, v.parse(UnixEpochMilliseconds, endedAt + 1))).rejects.toThrow(
+      'cannot mark Match',
+    )
+    await expect(matches.archiveFinished(finishedMatchTransfer())).rejects.toThrow(MatchFinalizationError)
+    await expect(matches.markFinished(finishedMatchTransfer())).rejects.toThrow(MatchFinalizationError)
+    await expect(matches.beginCreation(catalogInput())).rejects.toThrow(
+      'Match row conflicts with room creation',
+    )
+
+    const otherCreatedAt = v.parse(UnixEpochMilliseconds, 3_000)
+    await matches.beginCreation(catalogInput(otherMatchId, otherCreatedAt))
+    await matches.activate(otherMatchId)
+    const archive = finishedMatchTransfer(otherMatchId, otherCreatedAt)
+    await matches.archiveFinished(archive)
+    await matches.markFinished(archive)
+    await expect(matches.markDiscarded(otherMatchId, endedAt)).rejects.toThrow('cannot mark Match')
+    await matches.beginCreation(catalogInput(newestMatchId, v.parse(UnixEpochMilliseconds, 4_000)))
+    await matches.activate(newestMatchId)
+    expect((await matches.listLive(v.parse(UnixEpochMilliseconds, 0))).map((row) => row.matchId)).toEqual([
+      newestMatchId,
+      otherMatchId,
+    ])
+    expect((await matches.listFinished({ start: createdAt, end: endedAt })).map((row) => row.matchId)).toEqual(
+      [otherMatchId],
+    )
+    expect(await matches.findFinishedTime({ before: otherCreatedAt })).toBeNull()
+    expect(await matches.findFinishedTime({ from: createdAt })).toBe(otherCreatedAt)
+
+    const application = createApplication(
+      {
+        DB: env.DB,
+        MATCH_ROOM: {
+          getByName: () => {
+            throw new Error('Discarded reads must not select MatchRoom')
+          },
+        },
+      },
+      new FixedClock(new Date(createdAt), 'Europe/Kyiv'),
+    )
+
+    expect(await application.sparring.discardMatch(matchId, 'free-pyramid')).toEqual({ ok: true })
+    expect(await application.sparring.readMatch(matchId, 'en', 'free-pyramid')).toEqual({
+      ok: false,
+      reason: 'unknown-match',
+    })
+    expect(await application.sparring.readMatchProtocol(matchId, 'en', 'free-pyramid')).toEqual({
+      ok: false,
+      reason: 'unknown-match',
+    })
+    expect(await application.sparring.readMatchScores([matchId])).toEqual({
+      ok: false,
+      reason: 'unknown-match',
+    })
+    expect(await application.sparring.admitMatchLive(matchId)).toEqual({ _tag: 'unknown' })
+  })
+
   test('creates and reuses guest players through storage', async () => {
     const players = new PlayerStorage(
       createApplicationDatabaseClient(env.DB),

@@ -10,14 +10,14 @@ export const activeMatches = sqliteTable(
     configJson: text('config_json').notNull(),
     latestSeq: integer('latest_seq').notNull(),
     scoreJson: text('score_json').notNull(),
-    status: text('status').$type<'active' | 'finalizing'>().notNull(),
+    status: text('status').$type<'active' | 'finalizing' | 'discarded'>().notNull(),
     createdAt: integer('created_at').$type<UnixEpochMilliseconds>().notNull(),
     endedAt: integer('ended_at').$type<UnixEpochMilliseconds>(),
   },
   (table) => [
     check(
       'active_matches_finalizing_fields',
-      sql`(${table.status} = 'active' AND ${table.endedAt} IS NULL) OR (${table.status} = 'finalizing' AND ${table.endedAt} IS NOT NULL)`,
+      sql`(${table.status} = 'active' AND ${table.endedAt} IS NULL) OR (${table.status} IN ('finalizing', 'discarded') AND ${table.endedAt} IS NOT NULL)`,
     ),
   ],
 )

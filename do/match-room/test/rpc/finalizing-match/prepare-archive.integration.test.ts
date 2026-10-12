@@ -15,7 +15,7 @@ test('throws before a match-ending acceptance', async () => {
         await stub.prepareArchive()
       })
     ).message,
-  ).toContain('active Match')
+  ).toContain('non-finalizing Match')
 })
 
 test('derives the same archive transfer across retries and eviction without replay', async () => {
@@ -31,7 +31,7 @@ test('derives the same archive transfer across retries and eviction without repl
   expect(restored.sourceLatestSeq).toBe(2)
   expect(restored.finalState.status).toBe('finished')
   expect(restored.finalState.winnerSeat).toBe('A')
-  expect((await env.MATCH_ROOM.getByName(matchId).getScore()).score.winnerSeat).toBe('A')
+  expect(await env.MATCH_ROOM.getByName(matchId).getScore()).toMatchObject({ score: { winnerSeat: 'A' } })
   const endingEntries = restored.protocolEntries.filter((entry) => entry.acceptedSeq === 2)
   expect(endingEntries).toHaveLength(3)
   expect(

@@ -44,6 +44,10 @@ export type CreateSparringMatchResult =
   | { readonly ok: true; readonly matchId: MatchId }
   | { readonly ok: false; readonly reason: 'invalid-input' | 'initialization-conflict' }
 
+export type DiscardMatchResult =
+  | { readonly ok: true }
+  | { readonly ok: false; readonly reason: 'unknown-match' | 'match-locked' }
+
 type MatchListEntryIdentity = {
   matchId: MatchId
   gameKey: GameKey
@@ -194,6 +198,7 @@ export type ReadMatchProtocolResult<K extends GameKey> =
 
 export type SparringApplication = {
   createMatch(input: CreateSparringMatchInput): Promise<CreateSparringMatchResult>
+  discardMatch(matchId: MatchId, expectedGameKey: GameKey): Promise<DiscardMatchResult>
   listLiveMatches(locale: SupportedLocale): Promise<LiveMatchListPage>
   listFinishedMatches(locale: SupportedLocale, day?: MatchListDay): Promise<FinishedMatchListPage>
   readMatchScores(matchIds: readonly MatchId[]): Promise<ReadMatchScoresResult>

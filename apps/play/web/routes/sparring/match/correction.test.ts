@@ -7,7 +7,7 @@ import { RouterContextProvider } from 'react-router'
 
 import { cloudflareContext } from '@/server/context.server'
 
-import { commandMatchAction } from './handlers'
+import { matchAction } from './handlers'
 
 test('sends an identified correction through the existing action and names a stale-target rejection', async () => {
   const matchId = newMatchId()
@@ -35,7 +35,7 @@ test('sends an identified correction through the existing action and names a sta
   const form = new FormData()
   form.set('command', JSON.stringify(submitted))
 
-  const result = await commandMatchAction(
+  const result = await matchAction(
     {
       params: { matchId },
       request: new Request('http://localhost', { method: 'POST', body: form }),

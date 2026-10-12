@@ -1,7 +1,7 @@
 import {
   type MatchId,
   type MatchStreamUpdate,
-  SPARRING_MATCH_LIVE_FINISHED_CLOSE_CODE,
+  SPARRING_MATCH_LIVE_ENDED_CLOSE_CODE,
   SparringMatchLiveServerMessage,
 } from '@ks/core'
 import * as v from 'valibot'
@@ -136,7 +136,7 @@ export function subscribeSparringMatchLive(args: {
 
       if (stopped) return
 
-      if (event.code === SPARRING_MATCH_LIVE_FINISHED_CLOSE_CODE) {
+      if (event.code === SPARRING_MATCH_LIVE_ENDED_CLOSE_CODE) {
         args.onConnectionState('finished')
         stop()
 

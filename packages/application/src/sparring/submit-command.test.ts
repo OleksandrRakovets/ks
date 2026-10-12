@@ -5,6 +5,7 @@ import { newCommandId } from '@ks/core'
 import {
   createdAt,
   matchId,
+  participantRecords,
   playerRefA,
   playerRefB,
   selectedClient,
@@ -251,5 +252,130 @@ describe('sparring commands and finalization', () => {
     expect(events).toEqual(['archive', 'finish-failed'])
     expect(await app.submitMatchCommand(matchId, command, 'free-pyramid')).toMatchObject({ ok: true })
     expect(events).toEqual(['archive', 'finish-failed', 'archive', 'finish-retry'])
+  })
+})
+
+describe('sparring soft deletion', () => {
+  test('discards without archiving and makes every public read and command treat the Match as missing', async () => {
+    const app = sparring(
+      selectedClient({ discard: async () => ({ _tag: 'discarded', endedAt: transfer.endedAt }) }),
+      [],
+      {
+        matches: {
+          archiveFinished: async () => {
+            throw new Error('Discard must not archive')
+          },
+          markFinished: async () => {
+            throw new Error('Discard must not finish')
+          },
+        },
+      },
+    )
+
+    expect(await app.discardMatch(matchId, 'free-pyramid')).toEqual({ ok: true })
+    expect(await app.discardMatch(matchId, 'free-pyramid')).toEqual({ ok: true })
+    expect(await app.readMatch(matchId, 'en', 'free-pyramid')).toEqual({ ok: false, reason: 'unknown-match' })
+    expect(await app.readMatchProtocol(matchId, 'en', 'free-pyramid')).toEqual({
+      ok: false,
+      reason: 'unknown-match',
+    })
+    expect(await app.readMatchScores([matchId])).toEqual({ ok: false, reason: 'unknown-match' })
+    expect(await app.admitMatchLive(matchId)).toEqual({ _tag: 'unknown' })
+    expect(
+      await app.submitMatchCommand(
+        matchId,
+        { commandId: newCommandId(), source: 'match', command: { type: 'frame.commence', seat: 'A' } },
+        'free-pyramid',
+      ),
+    ).toEqual({ ok: false, reason: 'unknown-match' })
+  })
+
+  test('hides a room-first discard before D1 completion and recovers on a repeated discard or command POST', async () => {
+    for (const recovery of ['discard', 'command'] as const) {
+      let failWrite = true
+      let discarded = false
+
+      const app = sparring(
+        selectedClient({
+          discard: async () => ({ _tag: 'discarded', endedAt: transfer.endedAt }),
+          getControls: async () => ({ _tag: 'discarded' }),
+          getProtocol: async () => ({ _tag: 'discarded' }),
+          getScore: async () => ({ _tag: 'discarded' }),
+          submitCommand: async () => ({ _tag: 'discarded', endedAt: transfer.endedAt }),
+        }),
+        [],
+        {
+          matches: {
+            findMatch: async () => ({
+              matchId,
+              gameKey: 'free-pyramid',
+              createdAt,
+              participantRefs: { A: playerRefA, B: playerRefB },
+              ...(discarded
+                ? { status: 'discarded' as const, endedAt: transfer.endedAt }
+                : { status: 'active' as const }),
+            }),
+            markDiscarded: async () => {
+              if (failWrite) throw new Error('D1 unavailable')
+              discarded = true
+            },
+            listLive: async () => [
+              {
+                matchId,
+                gameKey: 'free-pyramid',
+                status: 'active',
+                createdAt,
+                participantRefs: { A: playerRefA, B: playerRefB },
+                participants: participantRecords,
+              },
+            ],
+          },
+        },
+      )
+
+      expect(app.discardMatch(matchId, 'free-pyramid')).rejects.toThrow('D1 unavailable')
+      expect(await app.readMatch(matchId, 'en', 'free-pyramid')).toEqual({
+        ok: false,
+        reason: 'unknown-match',
+      })
+      expect(await app.readMatchProtocol(matchId, 'en', 'free-pyramid')).toEqual({
+        ok: false,
+        reason: 'unknown-match',
+      })
+      expect(await app.readMatchScores([matchId])).toEqual({ ok: false, reason: 'unknown-match' })
+      expect((await app.listLiveMatches('en')).matches).toEqual([])
+
+      failWrite = false
+
+      if (recovery === 'discard') expect(await app.discardMatch(matchId, 'free-pyramid')).toEqual({ ok: true })
+      else
+        expect(
+          await app.submitMatchCommand(
+            matchId,
+            { commandId: newCommandId(), source: 'match', command: { type: 'frame.commence', seat: 'A' } },
+            'free-pyramid',
+          ),
+        ).toEqual({ ok: false, reason: 'unknown-match' })
+      expect(await app.admitMatchLive(matchId)).toEqual({ _tag: 'unknown' })
+    }
+  })
+
+  test('rejects finished and finalizing Matches rather than discarding their result', async () => {
+    expect(
+      await sparring(selectedClient(), [], { initialStatus: 'finished' }).discardMatch(
+        matchId,
+        'free-pyramid',
+      ),
+    ).toEqual({ ok: false, reason: 'match-locked' })
+    expect(
+      await sparring(selectedClient({ discard: async () => ({ _tag: 'finalizing' }) })).discardMatch(
+        matchId,
+        'free-pyramid',
+      ),
+    ).toEqual({ ok: false, reason: 'match-locked' })
+    expect(await sparring(selectedClient()).discardMatch(matchId, 'strila-v2')).toEqual({
+      ok: false,
+      reason: 'unknown-match',
+    })
   })
 })

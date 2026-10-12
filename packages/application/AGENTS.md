@@ -24,6 +24,7 @@ Application is the framework-independent use-case layer. It owns D1 access, play
 - Keep raw JSON and parsing inside `storage/`. Name row mappers `*FromRow`; `read*` returns records, `find*` nullable lookups, `list*` collections, and private `select*` raw rows.
 - Keep writes beside their insert/update. Archive versioning, semantic retry equality, and archive errors belong together in `sparring/storage/protocol-archive.ts`.
 - Finished reads use D1 without selecting a room. Finalizing reads project the room's final state without writing; archive transfer and D1 completion belong to command orchestration.
+- Discard is an Active-Match soft delete: lock MatchRoom first, then mark D1 discarded without archival. Reads remain write-free and treat either discarded authority as missing; later discard or command POSTs may complete a failed D1 write. Finished/finalizing Matches cannot be discarded.
 - Return expected failures as `{ ok: false, reason }`, never HTTP statuses or error strings. Missing/corrupt authority, unsupported archive versions, and invalid lifecycle calls throw.
 - Clock timezone defines list-day boundaries, including DST; group by Match start, not end. Only D1-finished rows enter the finished list. Compact score projections are derived data, not history authority.
 

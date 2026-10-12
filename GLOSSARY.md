@@ -17,6 +17,9 @@ A Match whose match-ending Accepted Command and Final Match State are durable. I
 **Finished Match**:
 A Match that has ended, whose final Protocol and Final Match State are archived by application in D1, and whose D1 row is marked finished. Finished reads use D1, not the retained MatchRoom.
 
+**Discarded Match**:
+An Active Match soft-deleted without a competitive result or Protocol archive. Public reads treat it as missing. Discard is not a scoring Command or Correction.
+
 **Sparring Match**:
 A two-player match scored by the players themselves, without a dedicated referee or secretary. It deliberately supports less officiating detail and fewer statistics than a tournament match may require.
 

@@ -249,6 +249,8 @@ test('restores nested Strila foul state and archives a natural award after evict
     latestSeq: 3,
     state: { frames: [{ pointsBySeat: { A: 0, B: 1 } }] },
   })
+
+  if (restoredProtocol._tag !== 'active') throw new Error('Expected active Protocol')
   expect(
     restoredProtocol.protocolEntries
       .filter((entry) => entry.acceptedSeq === 3)
@@ -324,6 +326,8 @@ test('returns durable final state and score after a match-ending acceptance', as
     state: { status: 'finished', framesWonBySeat: { A: 1, B: 0 } },
     endedAt: expect.any(Number),
   })
+
+  if (controls._tag !== 'finalizing') throw new Error('Expected finalizing controls')
   expect(await stub.getScore()).toEqual({
     _tag: 'finalizing',
     latestSeq: 2,

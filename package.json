@@ -69,10 +69,8 @@
       "do/match-room": {
         "project": [
           "**/*.{js,mjs,cjs,jsx,ts,tsx,mts,cts}!",
-          "!test/rpc/fixtures.ts!"
-        ],
-        "ignore": [
-          "drizzle/migrations.d.ts"
+          "!test/rpc/fixtures.ts!",
+          "!drizzle/migrations.d.ts"
         ]
       },
       "packages/application": {

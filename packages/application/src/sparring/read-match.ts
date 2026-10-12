@@ -153,7 +153,8 @@ async function lookupMatch<K extends GameKey, Room extends RoomRead>(
 
   if (!record || record.gameKey !== expectedGameKey) return { ok: false, reason: 'unknown-match' }
 
-  if (record.status === 'creating') return { ok: false, reason: 'unknown-match' }
+  if (record.status === 'creating' || record.status === 'discarded')
+    return { ok: false, reason: 'unknown-match' }
   let match: MatchRead<RoomRead>
 
   if (record.status === 'finished') {
@@ -167,6 +168,8 @@ async function lookupMatch<K extends GameKey, Room extends RoomRead>(
     match = archived
   } else {
     const room = await readRoom(deps.matchRoomClient(matchId))
+
+    if (room._tag === 'discarded') return { ok: false, reason: 'unknown-match' }
 
     if (room.state.matchId !== matchId || room.state.gameKey !== expectedGameKey)
       throw new Error(`MatchRoom ${room._tag} identity conflicts with D1`)

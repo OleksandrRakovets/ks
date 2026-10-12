@@ -12,12 +12,19 @@ export async function submitMatchCommand(
 ): Promise<SubmitMatchCommandResult> {
   const record = await deps.matches.findMatch(matchId)
 
-  if (!record || record.gameKey !== expectedGameKey) return { ok: false, reason: 'unknown-match' }
+  if (!record || record.gameKey !== expectedGameKey || record.status === 'discarded')
+    return { ok: false, reason: 'unknown-match' }
 
   if (record.status === 'finished') return { ok: false, reason: 'match-finished' }
 
   if (record.status !== 'active') return { ok: false, reason: 'unknown-match' }
   const result = await deps.matchRoomClient(matchId).submitCommand(command)
+
+  if (result._tag === 'discarded') {
+    await deps.matches.markDiscarded(matchId, result.endedAt)
+
+    return { ok: false, reason: 'unknown-match' }
+  }
 
   if (result._tag === 'accepted' && result.endsMatch) {
     await archiveAndMarkFinished(deps, matchId)

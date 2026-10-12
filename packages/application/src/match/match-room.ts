@@ -3,7 +3,7 @@ import type { MatchRoom } from '@ks/match-room'
 /** Private application capability; Play's generated binding verifies the concrete RPC stub. */
 export type MatchRoomClient = Pick<
   MatchRoom,
-  'initialize' | 'submitCommand' | 'getControls' | 'getProtocol' | 'getScore' | 'prepareArchive'
+  'initialize' | 'discard' | 'submitCommand' | 'getControls' | 'getProtocol' | 'getScore' | 'prepareArchive'
 >
 
 export type MatchRoomInitializationInput = Parameters<MatchRoomClient['initialize']>[0]

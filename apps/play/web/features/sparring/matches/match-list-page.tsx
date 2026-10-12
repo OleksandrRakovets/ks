@@ -445,6 +445,12 @@ function useMatchScorePolling(
           signal: controller.signal,
         })
 
+        if (response.status === 404) {
+          if (!controller.signal.aborted) onMatchFinished()
+
+          return
+        }
+
         if (!response.ok) throw new Error('Match score polling failed')
         const result = v.safeParse(MatchScorePollResponse, await response.json())
 

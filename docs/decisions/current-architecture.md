@@ -35,8 +35,8 @@ A Play deployment can restart rooms and close sockets. The root deployment polic
 
 | Store | Authority |
 | --- | --- |
-| D1 | Players, creating/active/finished Match rows, final Protocol archives and Final Match State |
-| MatchRoom SQLite | Active configuration, command receipts and outcomes, monotonic acceptance sequence, Protocol entries, executable checkpoints, active/finalizing status |
+| D1 | Players, creating/active/finished/discarded Match rows, final Protocol archives and Final Match State |
+| MatchRoom SQLite | Active configuration, command receipts and outcomes, monotonic acceptance sequence, Protocol entries, executable checkpoints, active/finalizing/discarded status |
 
 The acceptance ledger stays in MatchRoom and is never mirrored to D1. Execution restores checkpoints, not command replay. Compact score projections and cursors support coherent lightweight reads; projections are reproducible derived data, not a second history authority.
 
@@ -67,6 +67,12 @@ MatchRoom atomically commits match-ending acceptance, Protocol, terminal checkpo
 ```
 
 Application archives the transfer without replaying gameplay. Until D1 completion succeeds, GETs return the room's final projection without writing; a later POST can retry transfer and archival. MatchRoom remains finalizing after D1 completion. This separation preserves a durable terminal result if archival fails and avoids making reads mutate lifecycle.
+
+### Discard Is A Soft Delete, Not A Competitive Outcome
+
+Only Active Matches may be discarded. The room serializes discard against scoring and finalization, persists `discarded` with `endedAt`, and closes sockets before application idempotently marks D1 discarded with that same timestamp. No frame is awarded, winner inferred, acceptance added, or Protocol archived. Existing room history remains internal, with no restoration or public read contract.
+
+Discarded Match/Protocol/score reads behave as missing, including while D1 remains active after a failed write. Lists omit discarded rooms and rows. Reads never complete the D1 write; a later discard or command POST retries it. Creation activation cannot revive a discarded row.
 
 ## Live Reads
 
