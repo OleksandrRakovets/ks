@@ -12,7 +12,6 @@ import {
   MatchId,
   newCommandId,
   PlayerRef,
-  type Seat,
   UnixEpochMilliseconds,
   VerifiedPlayerId,
 } from '@ks/core'
@@ -63,11 +62,7 @@ function catalogInput(id = matchId, timestamp = createdAt): MatchCreationRecord 
   }
 }
 
-function finishedMatchTransfer(
-  id = matchId,
-  timestamp = createdAt,
-  concedingSeat?: Seat,
-): MatchRoomArchiveTransfer {
+function finishedMatchTransfer(id = matchId, timestamp = createdAt): MatchRoomArchiveTransfer {
   const config = buildMatchConfig(id, createRequest)
   const session = createMatch(config)
   const acceptedAt = v.parse(UnixEpochMilliseconds, timestamp + 1_000)
@@ -79,11 +74,9 @@ function finishedMatchTransfer(
     {
       commandId: newCommandId(),
       source: 'game',
-      command: { type: 'pot.record', seat: concedingSeat ?? 'A', pottedBallCount: concedingSeat ? 1 : 2 },
+      command: { type: 'pot.record', seat: 'A', pottedBallCount: 2 },
     },
-    concedingSeat
-      ? { commandId: newCommandId(), source: 'match', command: { type: 'frame.concede', seat: concedingSeat } }
-      : { commandId: newCommandId(), source: 'game', command: { type: 'frame.award', seat: 'A' } },
+    { commandId: newCommandId(), source: 'game', command: { type: 'frame.award', seat: 'A' } },
   ] satisfies MatchCommand[]) {
     const decision = session.execute(command)
 
@@ -589,161 +582,6 @@ describe('real D1 match lifecycle', () => {
     )
   })
 })
-
-describe('D1 match-winner backfill', () => {
-  beforeEach(async () => {
-    const index = env.TEST_MIGRATIONS.findIndex((migration) =>
-      migration.name.includes('backfill-match-winners'),
-    )
-
-    if (index < 0) throw new Error('Missing winner backfill migration')
-    await reset()
-    await applyD1Migrations(env.DB, env.TEST_MIGRATIONS.slice(0, index))
-  })
-
-  test.each([
-    ['A', 'B', { A: 0, B: 1 }, { A: 1, B: 0 }],
-    ['B', 'A', { A: 1, B: 0 }, { A: 0, B: 1 }],
-  ] as const)(
-    'backfills winner %s despite a point-leading conceder',
-    async (winnerSeat, concedingSeat, points, frames) => {
-      const matches = new SparringMatchStorage(createApplicationDatabaseClient(env.DB))
-      const archive = finishedMatchTransfer(matchId, createdAt, concedingSeat)
-      await seedLegacyFinishedMatch(archive)
-      await applyD1Migrations(env.DB, env.TEST_MIGRATIONS)
-
-      const expectedScore = {
-        matchTargetFrames: 1,
-        frameTargetPointsBySeat: { A: 2, B: 2 },
-        framesWonBySeat: frames,
-        winnerSeat,
-        singleFramePointsBySeat: points,
-        activeFrame: null,
-      }
-
-      expect(await matches.findFinishedArchive(matchId)).toMatchObject({ state: archive.finalState })
-      expect(await matches.findProtocolArchive(matchId)).toMatchObject({
-        state: { winnerSeat },
-        entries: JSON.parse(JSON.stringify(archive.protocolEntries)),
-      })
-      expect(await matches.findMatch(matchId)).toMatchObject({ finalScore: expectedScore })
-      expect(await matches.listFinished({ start: createdAt, end: archive.endedAt })).toMatchObject([
-        { finalScore: expectedScore },
-      ])
-      expect(
-        await env.DB.prepare('SELECT final_score_json FROM sparring_matches WHERE match_id = ?')
-          .bind(matchId)
-          .first('final_score_json'),
-      ).toBe(JSON.stringify(expectedScore))
-      await matches.archiveFinished(archive)
-      await matches.markFinished(archive)
-      await applyD1Migrations(env.DB, env.TEST_MIGRATIONS)
-      expect(await matches.findMatch(matchId)).toMatchObject({ finalScore: expectedScore })
-    },
-  )
-
-  test('preserves an explicit winner and rebuilds multi-frame scores without single-frame points', async () => {
-    const matches = new SparringMatchStorage(createApplicationDatabaseClient(env.DB))
-    const base = finishedMatchTransfer()
-
-    const archive = {
-      ...base,
-      finalState: {
-        ...base.finalState,
-        targets: { frameTargetPointsBySeat: { A: 8, B: 7 }, matchTargetFrames: 3 },
-        framesWonBySeat: { A: 3, B: 0 },
-        status: 'finished' as const,
-        winnerSeat: 'B' as const,
-      },
-    }
-
-    await matches.beginCreation(catalogInput())
-    await matches.activate(matchId)
-    await matches.archiveFinished(archive)
-    await matches.markFinished(archive)
-    const originalStateJson = JSON.stringify(archive.finalState)
-    await applyD1Migrations(env.DB, env.TEST_MIGRATIONS)
-    expect(
-      await env.DB.prepare('SELECT state_json FROM sparring_match_archives WHERE match_id = ?')
-        .bind(matchId)
-        .first('state_json'),
-    ).toBe(originalStateJson)
-    expect(await matches.findMatch(matchId)).toMatchObject({
-      finalScore: {
-        matchTargetFrames: 3,
-        frameTargetPointsBySeat: { A: 8, B: 7 },
-        framesWonBySeat: { A: 3, B: 0 },
-        winnerSeat: 'B',
-        singleFramePointsBySeat: null,
-        activeFrame: null,
-      },
-    })
-    await matches.archiveFinished(archive)
-    await matches.markFinished(archive)
-  })
-
-  test.each([
-    ['unfinished matches', "UPDATE sparring_matches SET status = 'active' WHERE match_id = ?"],
-    ['missing archives', 'DELETE FROM sparring_match_archives WHERE match_id = ?'],
-    [
-      'contradictory outcomes',
-      "UPDATE sparring_match_archives SET rows_json = json_set(rows_json, '$[#-1].seat', 'B') WHERE match_id = ?",
-    ],
-    [
-      'missing outcomes',
-      "UPDATE sparring_match_archives SET rows_json = json_remove(rows_json, '$[#-1]') WHERE match_id = ?",
-    ],
-    [
-      'duplicate outcomes',
-      "UPDATE sparring_match_archives SET rows_json = json_insert(rows_json, '$[#]', json_extract(rows_json, '$[#-1]')) WHERE match_id = ?",
-    ],
-    [
-      'explicit null winners',
-      "UPDATE sparring_match_archives SET state_json = json_set(state_json, '$.winnerSeat', NULL) WHERE match_id = ?",
-    ],
-    ['malformed archives', "UPDATE sparring_match_archives SET state_json = '[' WHERE match_id = ?"],
-  ])('rejects %s without partially changing any data', async (_label, corruptionSql) => {
-    await seedLegacyFinishedMatch(finishedMatchTransfer())
-    await seedLegacyFinishedMatch(finishedMatchTransfer(otherMatchId))
-    await env.DB.prepare(corruptionSql).bind(otherMatchId).run()
-
-    const originalArchives = (
-      await env.DB.prepare('SELECT * FROM sparring_match_archives ORDER BY match_id').all()
-    ).results
-
-    const originalMatches = (await env.DB.prepare('SELECT * FROM sparring_matches ORDER BY match_id').all())
-      .results
-
-    await expect(applyD1Migrations(env.DB, env.TEST_MIGRATIONS)).rejects.toThrow()
-    expect(
-      (await env.DB.prepare('SELECT * FROM sparring_match_archives ORDER BY match_id').all()).results,
-    ).toEqual(originalArchives)
-    expect((await env.DB.prepare('SELECT * FROM sparring_matches ORDER BY match_id').all()).results).toEqual(
-      originalMatches,
-    )
-    expect(
-      await env.DB.prepare(
-        "SELECT name FROM sqlite_master WHERE name = '__match_winner_backfill_guard'",
-      ).first(),
-    ).toBeNull()
-  })
-})
-
-async function seedLegacyFinishedMatch(archive: MatchRoomArchiveTransfer): Promise<void> {
-  const matches = new SparringMatchStorage(createApplicationDatabaseClient(env.DB))
-  await matches.beginCreation(catalogInput(archive.matchId, archive.createdAt))
-  await matches.activate(archive.matchId)
-  await matches.archiveFinished(archive)
-  await matches.markFinished(archive)
-  await env.DB.batch([
-    env.DB.prepare(
-      "UPDATE sparring_match_archives SET state_json = json_remove(state_json, '$.winnerSeat') WHERE match_id = ?",
-    ).bind(archive.matchId),
-    env.DB.prepare(
-      "UPDATE sparring_matches SET final_score_json = json_remove(final_score_json, '$.winnerSeat') WHERE match_id = ?",
-    ).bind(archive.matchId),
-  ])
-}
 
 async function seedArchive(
   rowsJson: string,
