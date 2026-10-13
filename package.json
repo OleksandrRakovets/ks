@@ -44,6 +44,8 @@
     "preview": "BUN_OPTIONS=--silent turbo run @ks/play#preview",
     "test": "bun test",
     "test:integration": "turbo run test:integration --log-order=grouped",
+    "test:e2e": "turbo run test:e2e --log-order=grouped",
+    "test:e2e:webkit": "turbo run test:e2e:webkit --log-order=grouped",
     "typecheck": "bun run typegen && tsc --build",
     "typegen": "bun run --filter '@ks/play' typegen"
   },
@@ -71,6 +73,19 @@
           "**/*.{js,mjs,cjs,jsx,ts,tsx,mts,cts}!",
           "**/*.css!",
           "!src/web/features/freshness/test-browser.ts!"
+        ]
+      },
+      "packages/e2e": {
+        "project": [
+          "**/*.{js,mjs,cjs,jsx,ts,tsx,mts,cts}!",
+          "!scripts/ensure-browser.ts!",
+          "!test/browser.ts!",
+          "!test/native-browser.ts!",
+          "!test/server.ts!"
+        ],
+        "ignoreDependencies": [
+          "@ks/play",
+          "wrangler"
         ]
       },
       "do/match-room": {

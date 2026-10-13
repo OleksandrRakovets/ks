@@ -48,7 +48,7 @@ For cross-component changes, read the [architecture map](docs/decisions/current-
 
 For code changes, use the root fast gate by default before reporting completion; use the full gate for changes affecting Workerd integration or the deployable build. Focused tests are optional development feedback, not an additional completion requirement. Both gates apply formatting. Do not run the fast gate separately before the full gate or rerun constituent checks on unchanged code.
 
-Before opening a PR or shipping to dev, run `bunx knip` and `bunx knip --production` from the repository root. Review both reports: fix genuine unused code/dependencies within scope, narrowly allowlist confirmed false positives with a reason, and report deferred findings rather than silently suppressing them. Keep this delivery review outside the fast/full gates; rerun after relevant code, dependency, or Knip configuration changes, not on unchanged code.
+Before opening a PR or shipping to dev, run `bun run test:e2e` (Chromium browser E2E; see [e2e](packages/e2e/README.md)), then `bunx knip` and `bunx knip --production` from the repository root. The first E2E run on a machine installs its browser; agents should not install it earlier. Fix E2E failures or report them with the failing trace. Review both Knip reports: fix genuine unused code/dependencies within scope, narrowly allowlist confirmed false positives with a reason, and report deferred findings rather than silently suppressing them. Keep this delivery review outside the fast/full gates; rerun after relevant code, dependency, or Knip configuration changes, not on unchanged code.
 
 ## Deployment Safety
 
