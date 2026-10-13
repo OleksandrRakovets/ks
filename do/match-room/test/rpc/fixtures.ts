@@ -2,6 +2,7 @@ import { CreateMatchRequest } from '@ks/competition'
 import { newCommandId, newMatchId, PlayerRef, UnixEpochMilliseconds } from '@ks/core'
 import { env } from 'cloudflare:workers'
 import * as v from 'valibot'
+import { expect } from 'vitest'
 
 const request = v.parse(CreateMatchRequest, {
   gameKey: 'free-pyramid',
@@ -24,7 +25,7 @@ export function initialization(matchId: ReturnType<typeof newMatchId>) {
 export async function initializedRoom() {
   const matchId = newMatchId()
   const stub = env.MATCH_ROOM.getByName(matchId)
-  await stub.initialize(initialization(matchId))
+  expect(await stub.initialize(initialization(matchId))).toEqual({ _tag: 'initialized', matchId })
 
   return { matchId, stub }
 }
@@ -46,9 +47,13 @@ export function matchEndingCommand() {
 }
 
 export async function makeRoomFinalizing(stub: ReturnType<typeof env.MATCH_ROOM.getByName>) {
-  await stub.submitCommand(commenceCommand())
+  expect(await stub.submitCommand(commenceCommand())).toEqual({
+    _tag: 'accepted',
+    acceptedSeq: 1,
+    endsMatch: false,
+  })
   const command = matchEndingCommand()
-  await stub.submitCommand(command)
+  expect(await stub.submitCommand(command)).toEqual({ _tag: 'accepted', acceptedSeq: 2, endsMatch: true })
 
   return command
 }

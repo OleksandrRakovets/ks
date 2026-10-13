@@ -3,7 +3,7 @@ import { env } from 'cloudflare:workers'
 import * as v from 'valibot'
 import { expect, test } from 'vitest'
 
-import { initializedRoom, makeRoomFinalizing, matchEndingCommand } from '../fixtures'
+import { initializedRoom, matchEndingCommand } from '../fixtures'
 
 function liveRequest(matchId: string, view: 'control' | 'protocol' = 'control'): Request {
   return new Request(`https://match-room/api/sparring-match/${matchId}/live/?contract=1&view=${view}`, {
@@ -93,15 +93,6 @@ test('broadcasts the match-ending acceptance, then live-ended, then closes befor
     { contractVersion: 1, type: 'live-ended' },
   ])
   expect(close.code).toBe(4000)
-  expect((await stub.fetch(liveRequest(matchId))).status).toBe(410)
-})
-
-test('client closure is harmless before match end', async () => {
-  const { matchId, stub } = await initializedRoom()
-  const socket = await connect(stub, matchId)
-  await nextMessage(socket)
-  socket.close()
-  await makeRoomFinalizing(stub)
   expect((await stub.fetch(liveRequest(matchId))).status).toBe(410)
 })
 

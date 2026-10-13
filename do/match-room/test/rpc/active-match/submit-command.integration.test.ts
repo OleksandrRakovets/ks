@@ -81,16 +81,20 @@ test('serializes concurrent Commands into one authoritative accepted order', asy
   })
 })
 
-test('discards speculative resident state and rolls back both writes after persistence failure', async () => {
+test('rolls back the receipt, checkpoint, Protocol, and cursor when the acceptance commit fails', async () => {
   const { stub } = await initializedRoom()
   await runInDurableObject(stub, (_room, state) => {
     state.storage.sql.exec(
       `CREATE TRIGGER fail_cursor BEFORE UPDATE ON active_matches BEGIN SELECT RAISE(FAIL, 'forced'); END`,
     )
   })
-  await captureRpcError(async () => {
-    await stub.submitCommand(commenceCommand())
-  })
+  expect(
+    (
+      await captureRpcError(async () => {
+        await stub.submitCommand(commenceCommand())
+      })
+    ).message,
+  ).toContain('Failed query: update "active_matches"')
   await runInDurableObject(stub, (_room, state) => {
     expect(
       state.storage.sql.exec<{ count: number }>('SELECT count(*) AS count FROM commands').one().count,
@@ -179,9 +183,13 @@ test.each([false, true])(
     expect(await restored.discard()).toEqual(discarded)
     expect(await restored.submitCommand(matchEndingCommand())).toEqual(discarded)
     expect(await restored.getProtocol()).toEqual({ _tag: 'discarded' })
-    await captureRpcError(async () => {
-      await restored.prepareArchive()
-    })
+    expect(
+      (
+        await captureRpcError(async () => {
+          await restored.prepareArchive()
+        })
+      ).message,
+    ).toContain('non-finalizing Match')
   },
 )
 
