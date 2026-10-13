@@ -46,10 +46,6 @@ export function newGuestPlayerId(): GuestPlayerId {
   return v.parse(GuestPlayerId, ulid())
 }
 
-export function newVerifiedPlayerId(): VerifiedPlayerId {
-  return v.parse(VerifiedPlayerId, ulid())
-}
-
 export function newMatchId(): MatchId {
   return v.parse(MatchId, ulid())
 }
