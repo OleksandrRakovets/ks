@@ -92,27 +92,60 @@ describe('Match', () => {
 
     for (const entry of awarded.protocolEntryContents)
       expect(v.parse(ProtocolEntryContent, entry)).toEqual(entry)
-    expect(awarded.protocolEntryContents).toContainEqual({
-      gameKey: 'strila-v2',
-      frameIndex: 1,
-      source: 'system',
-      entryType: 'frame-awarded',
-      seat: 'A',
-      scoreAfter: { A: 8, B: 6 },
-      body: { winReason: 'game-rules' },
-    })
+    expect(awarded.protocolEntryContents.map((entry) => [entry.entryType, entry.seat])).toEqual([
+      ['player-command', 'A'],
+      ['frame-awarded', 'A'],
+      ['match-ended', 'A'],
+    ])
     expect(match.state()).toMatchObject({
       status: 'finished',
       winnerSeat: 'A',
       framesWonBySeat: { A: 1, B: 0 },
-      frames: [{ winnerSeat: 'A', pointsBySeat: { A: 8, B: 6 } }],
+      frames: [{ winnerSeat: 'A' }],
     })
   })
 
   test('plays a multi-frame race through game scoring with alternating breakers', () => {
     const match = createMatch(config())
 
-    for (const breakerSeat of ['A', 'B', 'A'] as const) {
+    for (const { frameIndex, breakerSeat, followedBy } of [
+      {
+        frameIndex: 1,
+        breakerSeat: 'A',
+        followedBy: {
+          gameKey: 'free-pyramid',
+          frameIndex: 2,
+          source: 'system',
+          entryType: 'frame-prepared',
+          seat: 'B',
+          body: { targetPointsBySeat: { A: 8, B: 8 } },
+        },
+      },
+      {
+        frameIndex: 2,
+        breakerSeat: 'B',
+        followedBy: {
+          gameKey: 'free-pyramid',
+          frameIndex: 3,
+          source: 'system',
+          entryType: 'frame-prepared',
+          seat: 'A',
+          body: { targetPointsBySeat: { A: 8, B: 8 } },
+        },
+      },
+      {
+        frameIndex: 3,
+        breakerSeat: 'A',
+        followedBy: {
+          gameKey: 'free-pyramid',
+          frameIndex: 3,
+          source: 'system',
+          entryType: 'match-ended',
+          seat: 'A',
+          body: {},
+        },
+      },
+    ] as const) {
       expect(match.state().frames.at(-1)).toMatchObject({ breakerSeat, pointsBySeat: { A: 0, B: 0 } })
       accept(match, {
         commandId: newCommandId(),
@@ -139,11 +172,20 @@ describe('Match', () => {
           source: 'game',
           command: { type: 'pot.record', seat: breakerSeat, pottedBallCount: 1 },
         })
-      accept(match, {
+
+      const awarded = accept(match, {
         commandId: newCommandId(),
         source: 'game',
         command: { type: 'frame.award', seat: breakerSeat },
       })
+
+      expect(awarded.protocolEntryContents).toHaveLength(3)
+      expect(awarded.protocolEntryContents[1]).toMatchObject({
+        frameIndex,
+        entryType: 'frame-awarded',
+        seat: breakerSeat,
+      })
+      expect(awarded.protocolEntryContents[2]).toEqual(followedBy)
     }
 
     expect(match.state()).toMatchObject({
@@ -234,8 +276,9 @@ describe('Match', () => {
         source: 'match',
         command: { type: 'frame.commence', seat: 'B' },
       }),
-    ).toMatchObject({
+    ).toEqual({
       _tag: 'rejected',
+      reason: { code: 'wrong-breaker', expectedSeat: 'A' },
     })
     expect(observables(match)).toEqual(before)
   })

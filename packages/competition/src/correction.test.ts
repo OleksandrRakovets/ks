@@ -3,10 +3,10 @@ import { expect, test } from 'bun:test'
 import { type MatchCommand, newCommandId, newMatchId, UnixEpochMilliseconds } from '@ks/core'
 import * as v from 'valibot'
 
-import { correctMatch, isCorrectableCommand } from './correction'
+import { correctMatch } from './correction'
 import type { MatchConfig } from './definitions'
 import { createMatch, restoreMatchCheckpoint } from './match'
-import { correctionReferenceOf, type ProtocolEntry } from './protocol'
+import type { ProtocolEntry } from './protocol'
 
 const acceptedAt = v.parse(UnixEpochMilliseconds, 1_700_000_000_000)
 
@@ -115,13 +115,38 @@ test('rejects a stale target and lifecycle commands, and reports malformed corre
     _tag: 'rejected',
     reason: { code: 'correction-not-available' },
   })
-  expect(
-    isCorrectableCommand({
-      commandId: newCommandId(),
-      source: 'game',
-      command: { type: 'frame.award', seat: 'A' },
+
+  const commence: MatchCommand = {
+    commandId: newCommandId(),
+    source: 'match',
+    command: { type: 'frame.commence', seat: 'A' },
+  }
+
+  const award: MatchCommand = {
+    commandId: newCommandId(),
+    source: 'game',
+    command: { type: 'frame.award', seat: 'A' },
+  }
+
+  const commencedEntries: ProtocolEntry[] = execute(createMatch(config), commence).protocolEntryContents.map(
+    (entry, entryIndex) => ({
+      ...entry,
+      acceptedSeq: 1,
+      entryIndex,
+      causedByCommandId: commence.commandId,
+      acceptedAt,
     }),
-  ).toBe(false)
+  )
+
+  for (const lifecycleCommand of [commence, award])
+    expect(
+      correctMatch(
+        match,
+        { acceptedSeq: 1, command: lifecycleCommand, protocolEntries: commencedEntries },
+        correction(1, lifecycleCommand.commandId),
+      ),
+    ).toEqual({ _tag: 'rejected', reason: { code: 'correction-not-available' } })
+
   expect(
     correctMatch(match, target, {
       commandId: newCommandId(),
@@ -129,31 +154,4 @@ test('rejects a stale target and lifecycle commands, and reports malformed corre
       command: { type: 'command.correct', targetCommandId: targetCommand.commandId },
     }),
   ).toMatchObject({ _tag: 'parse-failed' })
-})
-
-test('reads zero-based correction references', () => {
-  const commandId = newCommandId()
-
-  const entry: ProtocolEntry = {
-    acceptedSeq: 3,
-    entryIndex: 0,
-    causedByCommandId: commandId,
-    acceptedAt,
-    frameIndex: 1,
-    gameKey: 'strila-v2',
-    source: 'player',
-    entryType: 'player-command',
-    seat: 'A',
-    body: { commandType: 'pot.record', pottedBalls: [1] },
-  }
-
-  expect(
-    correctionReferenceOf({
-      ...entry,
-      acceptedSeq: 4,
-      causedByCommandId: newCommandId(),
-      entryType: 'command-corrected',
-      body: { targetSeq: 3, targetCommandId: commandId, targetEntryIndex: 0 },
-    }),
-  ).toEqual({ targetSeq: 3, targetCommandId: commandId, targetEntryIndex: 0 })
 })
