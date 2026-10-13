@@ -3,6 +3,22 @@ export const resources = {
     translation: {
       app: {
         title: 'KS - Keep Score',
+        inAppBrowser: {
+          compactTitle: 'Відкрийте у браузері',
+          fullTitle: 'Грайте у звичайному браузері',
+          reason: 'Так буде легше повернутися до матчу й почати новий.',
+          telegramInstruction: 'У меню Telegram натисніть ⋯, потім «Відкрити у браузері».',
+          whatsappInstruction: 'У меню WhatsApp знайдіть «Відкрити у браузері».',
+          instagramInstruction: 'У меню Instagram знайдіть «Відкрити у браузері».',
+          genericInstruction: 'У меню застосунку знайдіть «Відкрити у браузері».',
+          openSafari: 'Відкрити в Safari',
+          openChrome: 'Відкрити в Chrome',
+          openBrowser: 'Відкрити у браузері',
+          copyLink: 'Скопіювати посилання',
+          copied: 'Посилання скопійовано. Вставте його в Chrome чи Safari.',
+          copyFailed: 'Не вдалося скопіювати. Натисніть на посилання нижче та скопіюйте його вручну.',
+          pasteInstruction: 'Або скопіюйте посилання й вставте його в Chrome чи Safari.',
+        },
         notFound: {
           eyebrow: '404',
           title: 'Не знайдено',
@@ -293,6 +309,22 @@ export const resources = {
     translation: {
       app: {
         title: 'KS - Keep Score',
+        inAppBrowser: {
+          compactTitle: 'Open in your browser',
+          fullTitle: 'Play in your usual browser',
+          reason: 'It will be easier to return to your match and start another.',
+          telegramInstruction: 'In Telegram’s menu, tap ⋯, then “Open in browser”.',
+          whatsappInstruction: 'Look for “Open in browser” in WhatsApp’s menu.',
+          instagramInstruction: 'Look for “Open in browser” in Instagram’s menu.',
+          genericInstruction: 'Look for “Open in browser” in the app’s menu.',
+          openSafari: 'Open in Safari',
+          openChrome: 'Open in Chrome',
+          openBrowser: 'Open in browser',
+          copyLink: 'Copy link',
+          copied: 'Link copied. Paste it into Chrome or Safari.',
+          copyFailed: 'Could not copy. Tap the link below and copy it manually.',
+          pasteInstruction: 'Or copy the link and paste it into Chrome or Safari.',
+        },
         notFound: {
           eyebrow: '404',
           title: 'Not found',
