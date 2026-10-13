@@ -290,6 +290,11 @@ describe('real D1 match lifecycle', () => {
       matchId,
       otherMatchId,
     ])
+    // Finished rows leave the live list once they ended before the cutoff; active rows stay.
+    expect((await matches.listLive(v.parse(UnixEpochMilliseconds, 4_001))).map((row) => row.matchId)).toEqual([
+      newestMatchId,
+      matchId,
+    ])
 
     const application = createApplication(
       {
