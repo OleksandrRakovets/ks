@@ -18,7 +18,7 @@ import {
 const RESPOTTED_BLACK: readonly StrilaColoredBall[] = [7]
 
 type StrilaFrameMachineInput = {
-  targetPointsBySeat: BySeatNumber | undefined
+  targetPointsBySeat: BySeatNumber
 }
 
 function pointsForPottedBalls(pottedBalls: readonly StrilaBall[]): number {
@@ -342,7 +342,7 @@ export const StrilaFrameMachine = setup({
   initial: 'not-started',
   context: ({ input }) => ({
     score: { A: 0, B: 0 },
-    targetPoints: input.targetPointsBySeat ?? { A: 9, B: 9 },
+    targetPoints: input.targetPointsBySeat,
     coloredBallsOnTable: [...StrilaMeta.coloredBalls],
     pottedBallsBySeat: { A: [], B: [] },
     cueBallSerialPots: null,
@@ -576,10 +576,6 @@ export function createInitialSnapshot(targetPointsBySeat: BySeatNumber): StrilaF
   const [snapshot] = initialTransition(StrilaFrameMachine, { targetPointsBySeat })
 
   return snapshot
-}
-
-export function getStrilaFramePhase(snapshot: StrilaFrameSnapshot): StrilaPhase {
-  return getPhase(snapshot)
 }
 
 export function getPhase(snapshot: StrilaFrameSnapshot): StrilaPhase {
