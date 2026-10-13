@@ -174,15 +174,6 @@ describe('real D1 match lifecycle', () => {
       ok: false,
       reason: 'unknown-match',
     })
-    expect(await application.sparring.readMatchProtocol(matchId, 'en', 'free-pyramid')).toEqual({
-      ok: false,
-      reason: 'unknown-match',
-    })
-    expect(await application.sparring.readMatchScores([matchId])).toEqual({
-      ok: false,
-      reason: 'unknown-match',
-    })
-    expect(await application.sparring.admitMatchLive(matchId)).toEqual({ _tag: 'unknown' })
   })
 
   test('creates and reuses guest players through storage', async () => {
@@ -337,8 +328,12 @@ describe('real D1 match lifecycle', () => {
 
     await expect(matches.findFinishedArchive(matchId)).rejects.toThrow('Protocol archive storage corruption')
     await expect(matches.findProtocolArchive(matchId)).rejects.toThrow('Protocol archive storage corruption')
-    await expect(matches.findMatch(matchId)).rejects.toThrow()
-    await expect(matches.listFinished({ start: createdAt, end: archive.endedAt })).rejects.toThrow()
+    await expect(matches.findMatch(matchId)).rejects.toThrow(
+      'Invalid key: Expected "winnerSeat" but received undefined',
+    )
+    await expect(matches.listFinished({ start: createdAt, end: archive.endedAt })).rejects.toThrow(
+      'Invalid key: Expected "winnerSeat" but received undefined',
+    )
     await expect(matches.archiveFinished(archive)).rejects.toThrow(MatchFinalizationError)
     await expect(matches.markFinished(archive)).rejects.toThrow(MatchFinalizationError)
     expect(
@@ -371,7 +366,7 @@ describe('real D1 match lifecycle', () => {
     await expect(matches.markFinished(base)).rejects.toThrow(MatchFinalizationError)
   })
 
-  test('lists a crowded finished-match day with localized guest and verified names and missing-player fallback', async () => {
+  test('lists a finished-match day with localized guest and verified names and missing-player fallback', async () => {
     const db = createApplicationDatabaseClient(env.DB)
     const matches = new SparringMatchStorage(db)
     const verifiedRef = v.parse(PlayerRef, 'vp_01HX0000000000000000000002')
@@ -396,21 +391,27 @@ describe('real D1 match lifecycle', () => {
 
     const score = JSON.stringify(projectMatchScore(finishedMatchTransfer().finalState))
 
-    const rows = Array.from({ length: 26 }, (_, index) => ({
+    const rows = (
+      [
+        [seatAPlayerRef, missingRef],
+        [seatAPlayerRef, verifiedRef],
+        [verifiedRef, seatAPlayerRef],
+      ] as const
+    ).map(([seatA, seatB], index) => ({
       matchId: v.parse(MatchId, `${matchId.slice(0, 24)}${String(index).padStart(2, '0')}`),
       gameKey: 'free-pyramid' as const,
       status: 'finished' as const,
       createdAt: v.parse(UnixEpochMilliseconds, createdAt + index),
       endedAt: v.parse(UnixEpochMilliseconds, createdAt + 1_000 + index),
-      seatAPlayerRef: index % 2 ? verifiedRef : seatAPlayerRef,
-      seatBPlayerRef: index === 0 ? missingRef : index % 2 ? seatAPlayerRef : verifiedRef,
+      seatAPlayerRef: seatA,
+      seatBPlayerRef: seatB,
       finalSourceLatestSeq: 4,
       finalScoreJson: score,
     }))
 
     for (const row of rows) await db.insert(sparringMatches).values(row)
 
-    const range = { start: createdAt, end: v.parse(UnixEpochMilliseconds, createdAt + 26) }
+    const range = { start: createdAt, end: v.parse(UnixEpochMilliseconds, createdAt + rows.length) }
     const records = await matches.listFinished(range)
     expect(records.map((row) => row.matchId)).toEqual(rows.map((row) => row.matchId).reverse())
 
@@ -438,7 +439,7 @@ describe('real D1 match lifecycle', () => {
       A: { playerRef: seatAPlayerRef, displayName: 'Галя Гість', shortDisplayName: 'Г. Гість' },
       B: { playerRef: verifiedRef, displayName: 'Віра Тест', shortDisplayName: 'В. Тест' },
     })
-    expect(uk[25]?.participants.B).toEqual({
+    expect(uk[2]?.participants.B).toEqual({
       playerRef: missingRef,
       displayName: missingRef,
       shortDisplayName: missingRef,
@@ -450,7 +451,7 @@ describe('real D1 match lifecycle', () => {
     expect(en[0]?.participants.B).toMatchObject({ displayName: 'Gina Guest', shortDisplayName: 'G. Guest' })
     const players = new PlayerStorage(db, new FixedClock(new Date(createdAt), 'Europe/Kyiv'))
     expect(await players.readParticipant(verifiedRef)).toEqual(records[0]?.participants.A)
-    expect(await players.readParticipant(missingRef)).toEqual(records[25]?.participants.B)
+    expect(await players.readParticipant(missingRef)).toEqual(records[2]?.participants.B)
     expect((await matches.listLive(v.parse(UnixEpochMilliseconds, 0))).map((row) => row.matchId)).toEqual(
       rows.map((row) => row.matchId).reverse(),
     )

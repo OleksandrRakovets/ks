@@ -1,6 +1,6 @@
 import { expect } from 'bun:test'
 
-import { projectMatchScore } from '@ks/competition'
+import { projectMatchScore, ProtocolEntries } from '@ks/competition'
 import { FixedClock, MatchId, newCommandId, PlayerRef, UnixEpochMilliseconds } from '@ks/core'
 import * as v from 'valibot'
 
@@ -50,13 +50,73 @@ export const state = {
   frames: [{ frameIndex: 1, breakerSeat: 'A' as const, pointsBySeat: { A: 0, B: 0 } }],
 }
 
+const endedAt = v.parse(UnixEpochMilliseconds, 1_700_000_001_000)
+
+const commenceCommandId = newCommandId()
+
+const concedeCommandId = newCommandId()
+
+/** The Protocol MatchRoom stores for commencement by A and a match-ending concession by B. */
+const protocolEntries = v.parse(ProtocolEntries, [
+  {
+    acceptedSeq: 1,
+    entryIndex: 0,
+    causedByCommandId: commenceCommandId,
+    acceptedAt: v.parse(UnixEpochMilliseconds, 1_700_000_000_500),
+    gameKey: 'free-pyramid',
+    frameIndex: 1,
+    source: 'player',
+    entryType: 'player-command',
+    seat: 'A',
+    body: { commandType: 'frame.commence' },
+  },
+  {
+    acceptedSeq: 2,
+    entryIndex: 0,
+    causedByCommandId: concedeCommandId,
+    acceptedAt: endedAt,
+    gameKey: 'free-pyramid',
+    frameIndex: 1,
+    source: 'player',
+    entryType: 'frame-conceded',
+    seat: 'B',
+    scoreAfter: { A: 0, B: 0 },
+    body: {},
+  },
+  {
+    acceptedSeq: 2,
+    entryIndex: 1,
+    causedByCommandId: concedeCommandId,
+    acceptedAt: endedAt,
+    gameKey: 'free-pyramid',
+    frameIndex: 1,
+    source: 'system',
+    entryType: 'frame-awarded',
+    seat: 'A',
+    scoreAfter: { A: 0, B: 0 },
+    body: { winReason: 'conceded' },
+  },
+  {
+    acceptedSeq: 2,
+    entryIndex: 2,
+    causedByCommandId: concedeCommandId,
+    acceptedAt: endedAt,
+    gameKey: 'free-pyramid',
+    frameIndex: 1,
+    source: 'system',
+    entryType: 'match-ended',
+    seat: 'A',
+    body: {},
+  },
+])
+
 export const transfer: MatchRoomArchiveTransfer = {
   matchId,
   gameKey: 'free-pyramid',
   createdAt,
-  sourceLatestSeq: 1,
-  endedAt: v.parse(UnixEpochMilliseconds, 1_700_000_001_000),
-  protocolEntries: [],
+  sourceLatestSeq: 2,
+  endedAt,
+  protocolEntries,
   finalState: {
     ...state,
     status: 'finished',
@@ -137,27 +197,14 @@ export function sparring(
       findMatch: async () => matchRecord(),
       listMatches: async () => [matchRecord()],
       findFinishedArchive: async () => ({
-        sourceLatestSeq: 1,
+        sourceLatestSeq: transfer.sourceLatestSeq,
         state: transfer.finalState,
         gameResult: null,
       }),
       findProtocolArchive: async () => ({
-        sourceLatestSeq: 1,
+        sourceLatestSeq: transfer.sourceLatestSeq,
         protocolVersion: 1,
-        entries: [
-          {
-            acceptedSeq: 1,
-            entryIndex: 0,
-            causedByCommandId: newCommandId(),
-            acceptedAt: createdAt,
-            frameIndex: 1,
-            gameKey: 'free-pyramid',
-            source: 'player',
-            entryType: 'player-command',
-            seat: 'A',
-            body: { commandType: 'frame.commence' },
-          },
-        ],
+        entries: transfer.protocolEntries,
         state: transfer.finalState,
         gameResult: null,
       }),
