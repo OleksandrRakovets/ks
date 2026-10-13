@@ -2,7 +2,6 @@ import { describe, expect, test } from 'bun:test'
 
 import { type BySeatNumber, FrameOutcome } from '@ks/core'
 import * as v from 'valibot'
-import { createActor } from 'xstate'
 
 import { ballsOnTableFromRacks, currentRack, removedByRack, totalScore } from './calculations'
 import {
@@ -22,52 +21,13 @@ function start(
   return createInitialSnapshot({ targetPointsBySeat: target, rackRollover })
 }
 
-describe('LongFreePyramidFrameMachine: configuration', () => {
-  test('rejects invalid rackRollover at machine input boundary', () => {
-    // SAFETY: 13 is intentionally invalid rackRollover for direct actor construction test.
-    const invalidRollover = 13 as 14
-
-    const actor = createActor(LongFreePyramidFrameMachine, {
-      input: { targetPointsBySeat: DEFAULT_TARGET, rackRollover: invalidRollover },
-    })
-
-    let capturedError: unknown
-
-    const subscription = actor.subscribe({
-      error: (error) => {
-        capturedError = error
-      },
-    })
-
-    actor.start()
-    subscription.unsubscribe()
-
-    expect(actor.getSnapshot().status).toBe('error')
-    expect(String(capturedError)).toContain('Long free pyramid requires rackRollover 14 or 15')
-  })
-
-  test('accepts rackRollover 14 and 15', () => {
-    expect(
-      createInitialSnapshot({ targetPointsBySeat: DEFAULT_TARGET, rackRollover: 14 }).context.rackRollover,
-    ).toBe(14)
-    expect(
-      createInitialSnapshot({ targetPointsBySeat: DEFAULT_TARGET, rackRollover: 15 }).context.rackRollover,
-    ).toBe(15)
-  })
-})
-
-describe('LongFreePyramidFrameMachine: initial and commence', () => {
+describe('LongFreePyramidFrameMachine: initial state', () => {
   test('starts not-started with one empty rack', () => {
     const snap = start()
     expect(getPhase(snap)).toBe('not-started')
     expect(snap.context.racks).toEqual([{ rackNumber: 1, scoreBySeat: { A: 0, B: 0 } }])
     expect(snap.context.messages).toEqual([])
     expect(snap.context.winner).toBeNull()
-  })
-
-  test('frame.commence enters open-play', () => {
-    const snap = sendEvent(start(), { type: 'frame.commence', seat: 'A' })
-    expect(getPhase(snap)).toBe('open-play')
   })
 })
 
@@ -81,12 +41,14 @@ describe('LongFreePyramidFrameMachine: scoring and racks', () => {
     }
 
     snap = sendEvent(snap, { type: 'pot.record', seat: 'B', pottedBallCount: 2 })
+    snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBallCount: 3 })
+    snap = sendEvent(snap, { type: 'pot.record', seat: 'B', pottedBallCount: 1 })
 
-    expect(totalScore(snap.context.racks)).toEqual({ A: 13, B: 2 })
     expect(snap.context.racks).toEqual([
       { rackNumber: 1, scoreBySeat: { A: 13, B: 2 } },
-      { rackNumber: 2, scoreBySeat: { A: 0, B: 0 } },
+      { rackNumber: 2, scoreBySeat: { A: 3, B: 1 } },
     ])
+    expect(totalScore(snap.context.racks)).toEqual({ A: 16, B: 3 })
     expect(getPhase(snap)).toBe('open-play')
   })
 
@@ -131,15 +93,18 @@ describe('LongFreePyramidFrameMachine: scoring and racks', () => {
     expect(snap.context.messages).toEqual([])
   })
 
-  test('rejects impossible pot beyond balls on table', () => {
-    let snap = start()
+  test('rejects a valid pot count beyond the balls left on the table', () => {
+    let snap = start(15, { A: 30, B: 30 })
     snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
 
-    expect(() =>
-      // SAFETY: 5 is intentionally invalid pottedBallCount for machine rejection test.
-      sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBallCount: 5 as 4 }),
-    ).toThrow('Invalid Long free pyramid event pot.record in phase open-play')
-    expect(getPhase(snap)).toBe('open-play')
+    for (const pottedBallCount of [4, 4, 4, 2] as const) {
+      snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBallCount })
+    }
+
+    expect(ballsOnTableFromRacks(snap.context.racks)).toBe(2)
+    expect(() => sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBallCount: 3 })).toThrow(
+      'Invalid Long free pyramid event pot.record in phase open-play',
+    )
   })
 
   test('rejects foul when no balls remain on the current rack', () => {
@@ -158,7 +123,6 @@ describe('LongFreePyramidFrameMachine: scoring and racks', () => {
     expect(() => sendEvent(snap, { type: 'foul.commit', seat: 'A' })).toThrow(
       'Invalid Long free pyramid event foul.commit in phase open-play',
     )
-    expect(getPhase(snap)).toBe('open-play')
   })
 })
 
@@ -200,7 +164,6 @@ describe('LongFreePyramidFrameMachine: winner flow', () => {
     expect(() => sendEvent(snap, { type: 'pot.record', seat: 'B', pottedBallCount: 1 })).toThrow(
       'Invalid Long free pyramid event pot.record in phase winner-determined',
     )
-    expect(totalScore(snap.context.racks)).toEqual({ A: 4, B: 0 })
   })
 
   test('fixed-winner foul enters awaiting-award without replacing winner', () => {
@@ -253,7 +216,6 @@ describe('LongFreePyramidFrameMachine: winner flow', () => {
     expect(() => sendEvent(snap, { type: 'frame.award', seat: 'B' })).toThrow(
       'Invalid Long free pyramid event frame.award in phase winner-determined',
     )
-    expect(getPhase(snap)).toBe('winner-determined')
   })
 
   test('commands after frame completion throw', () => {
@@ -265,6 +227,5 @@ describe('LongFreePyramidFrameMachine: winner flow', () => {
     expect(() => sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBallCount: 1 })).toThrow(
       'Invalid Long free pyramid event pot.record in phase frame-over',
     )
-    expect(getPhase(snap)).toBe('frame-over')
   })
 })

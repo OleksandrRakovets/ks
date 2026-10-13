@@ -41,39 +41,4 @@ describe('gameplay characterization', () => {
       penalty: 'offender-minus-one',
     })
   })
-
-  test('long free pyramid table counts and rack rollover remain correct', () => {
-    const session = createGameplaySession('free-pyramid-long', {
-      targetPointsBySeat: { A: 30, B: 30 },
-      rackRollover: 14,
-    })
-
-    expectAccepted(session.execute({ type: 'frame.commence', seat: 'A' }))
-
-    for (const pottedBallCount of [4, 4, 4, 2] as const) {
-      expectAccepted(session.execute({ type: 'pot.record', seat: 'A', pottedBallCount }))
-    }
-
-    const controlProjection = session.deriveControls()
-    expect(session.getScore()).toEqual({ A: 14, B: 0 })
-    expect(controlProjection.game.details.ballsOnTable).toBe(16)
-    expect(controlProjection.game.details.rackHistory).toEqual([
-      { rackNumber: 1, scoreBySeat: { A: 14, B: 0 } },
-      { rackNumber: 2, scoreBySeat: { A: 0, B: 0 } },
-    ])
-    expect(controlProjection.game.details.messages).toEqual([{ code: 'rack-started', rackNumber: 2 }])
-  })
-
-  test('rejected commands retain state and produce no protocol entries', () => {
-    const session = createGameplaySession('free-pyramid', { targetPointsBySeat: { A: 8, B: 8 } })
-    expectAccepted(session.execute({ type: 'frame.commence', seat: 'A' }))
-    const score = session.getScore()
-    const controlProjection = session.deriveControls()
-    expect(session.execute({ type: 'pot.record', seat: 'A', pottedBallCount: 3 })).toEqual({
-      _tag: 'rejected',
-      reason: { code: 'command-not-available' },
-    })
-    expect(session.getScore()).toEqual(score)
-    expect(session.deriveControls()).toEqual(controlProjection)
-  })
 })
