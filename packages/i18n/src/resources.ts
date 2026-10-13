@@ -3,6 +3,21 @@ export const resources = {
     translation: {
       app: {
         title: 'KS - Keep Score',
+        inAppBrowser: {
+          title: 'Краще працює у браузері',
+          reason: 'Там матч легко знайти знову й почати наступний.',
+          telegramInstruction: 'Не відкривається? Натисніть ⋯ угорі й виберіть «Відкрити у браузері».',
+          whatsappInstruction: 'Не відкривається? Пошукайте «Відкрити у браузері» в меню WhatsApp.',
+          instagramInstruction: 'Не відкривається? Пошукайте «Відкрити у браузері» в меню Instagram.',
+          genericInstruction: 'Не відкривається? Пошукайте «Відкрити у браузері» в меню застосунку.',
+          openSafari: 'Відкрити в Safari',
+          openChrome: 'Відкрити в Chrome',
+          openBrowser: 'Відкрити у браузері',
+          copyLink: 'Скопіювати посилання',
+          copied: 'Скопійовано. Вставте посилання в Safari чи Chrome.',
+          copyFailed: 'Не вдалося скопіювати. Виділіть посилання нижче й скопіюйте вручну.',
+          link: 'Посилання',
+        },
         notFound: {
           eyebrow: '404',
           title: 'Не знайдено',
@@ -295,6 +310,21 @@ export const resources = {
     translation: {
       app: {
         title: 'KS - Keep Score',
+        inAppBrowser: {
+          title: 'Works better in your browser',
+          reason: 'There it’s easy to find your match again and start the next one.',
+          telegramInstruction: 'Didn’t open? Tap ⋯ at the top and choose “Open in browser”.',
+          whatsappInstruction: 'Didn’t open? Look for “Open in browser” in WhatsApp’s menu.',
+          instagramInstruction: 'Didn’t open? Look for “Open in browser” in Instagram’s menu.',
+          genericInstruction: 'Didn’t open? Look for “Open in browser” in the app’s menu.',
+          openSafari: 'Open in Safari',
+          openChrome: 'Open in Chrome',
+          openBrowser: 'Open in browser',
+          copyLink: 'Copy link',
+          copied: 'Copied. Paste the link into Safari or Chrome.',
+          copyFailed: 'Could not copy. Select the link below and copy it manually.',
+          link: 'Link',
+        },
         notFound: {
           eyebrow: '404',
           title: 'Not found',

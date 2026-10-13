@@ -6,6 +6,8 @@ import { loadMatchPage, matchAction } from '@/routes/sparring/match/handlers'
 
 import type { Route } from './+types/combined-pyramid-match'
 
+export const handle = { inAppBrowserIntent: 'control' } as const
+
 export function loader(args: Route.LoaderArgs) {
   return loadMatchPage(args, 'combined-pyramid')
 }
