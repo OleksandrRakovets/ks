@@ -3,7 +3,7 @@ import { env } from 'cloudflare:workers'
 import * as v from 'valibot'
 import { expect, test } from 'vitest'
 
-import { initializedRoom, matchEndingCommand } from '../fixtures'
+import { commenceCommand, initializedRoom, matchEndingCommand } from '../fixtures'
 
 function liveRequest(matchId: string, view: 'control' | 'protocol' = 'control'): Request {
   return new Request(`https://match-room/api/sparring-match/${matchId}/live/?contract=1&view=${view}`, {
@@ -93,6 +93,28 @@ test('broadcasts the match-ending acceptance, then live-ended, then closes befor
     { contractVersion: 1, type: 'live-ended' },
   ])
   expect(close.code).toBe(4000)
+  expect((await stub.fetch(liveRequest(matchId))).status).toBe(410)
+})
+
+test('a client-closed socket does not stop fan-out to another socket or match finalization', async () => {
+  const { matchId, stub } = await initializedRoom()
+  const closing = await connect(stub, matchId)
+  await nextMessage(closing)
+  const open = await connect(stub, matchId)
+  await nextMessage(open)
+  closing.close()
+
+  const live = nextMessage(open)
+  expect(await stub.submitCommand(commenceCommand())).toMatchObject({ _tag: 'accepted', acceptedSeq: 1 })
+  expect(await live).toEqual({
+    contractVersion: 1,
+    type: 'update',
+    update: { type: 'command-accepted', acceptedSeq: 1 },
+  })
+
+  const ending = messagesUntilClose(open)
+  expect(await stub.submitCommand(matchEndingCommand())).toMatchObject({ _tag: 'accepted', endsMatch: true })
+  expect((await ending).close.code).toBe(4000)
   expect((await stub.fetch(liveRequest(matchId))).status).toBe(410)
 })
 

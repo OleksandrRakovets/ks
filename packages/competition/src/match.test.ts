@@ -33,6 +33,39 @@ function observables(match: ReturnType<typeof createMatch>) {
 }
 
 describe('Match', () => {
+  test.each([
+    [
+      14,
+      [
+        { rackNumber: 1, scoreBySeat: { A: 14, B: 0 } },
+        { rackNumber: 2, scoreBySeat: { A: 0, B: 0 } },
+      ],
+    ],
+    [15, [{ rackNumber: 1, scoreBySeat: { A: 14, B: 0 } }]],
+  ] as const)('passes the configured rack rollover %i to Long Pyramid gameplay', (rackRollover, racks) => {
+    const match = createMatch({
+      ...config(1),
+      gameKey: 'free-pyramid-long',
+      gameConfiguration: { rackRollover },
+    })
+
+    accept(match, {
+      commandId: newCommandId(),
+      source: 'match',
+      command: { type: 'frame.commence', seat: 'A' },
+    })
+
+    for (const pottedBallCount of [4, 4, 4, 2] as const)
+      accept(match, {
+        commandId: newCommandId(),
+        source: 'game',
+        command: { type: 'pot.record', seat: 'A', pottedBallCount },
+      })
+
+    // Fourteen balls leave the table: only a rollover of 14 starts a second rack.
+    expect(match.gameResult()).toEqual({ gameKey: 'free-pyramid-long', racks })
+  })
+
   test('creation prepares the configured breaker and asymmetric targets without a command', () => {
     const match = createMatch({
       ...config(),

@@ -19,13 +19,16 @@ import {
 } from './sparring.fixtures'
 
 describe('sparring lists and score polling', () => {
-  test('returns unknown-match when any requested score is missing, before reading rooms', async () => {
+  test('returns unknown-match when any requested score is missing or discarded, before reading rooms', async () => {
     const missingId = v.parse(MatchId, '01ARZ3NDEKTSV4RRFFQ69G5FAW')
 
     expect(await sparring(selectedClient()).readMatchScores([matchId, missingId])).toEqual({
       ok: false,
       reason: 'unknown-match',
     })
+    expect(
+      await sparring(selectedClient(), [], { initialStatus: 'discarded' }).readMatchScores([matchId]),
+    ).toEqual({ ok: false, reason: 'unknown-match' })
   })
 
   test('reads compact active scores for list loading and polling', async () => {
