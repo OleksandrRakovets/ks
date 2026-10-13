@@ -1,5 +1,5 @@
 [test]
-pathIgnorePatterns = ["**/*.integration.test.ts", "**/*.e2e.test.ts"]
+pathIgnorePatterns = ["**/*.integration.test.ts"]
 
 [install]
 # Two-day cooldown: skip versions published less than 172800 seconds ago.

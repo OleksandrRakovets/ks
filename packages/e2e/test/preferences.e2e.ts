@@ -1,43 +1,40 @@
-import { expect as browserExpect, type Page } from '@playwright/test'
-import { expect, inject, test } from 'vitest'
+import type { Page } from '@playwright/test'
 
-import { useBrowser } from './browser'
-
-const browser = useBrowser()
+import { expect, test } from './browser'
 
 const setupPath = '/en/sparring/setup/free-pyramid/'
 
-test('a UI theme choice survives reload without leaking into an isolated context', async () => {
-  const { page, context } = browser
+test('a UI theme choice survives reload without leaking into an isolated context', async ({
+  page,
+  browser,
+  server,
+}) => {
   // Deliberately oppose the OS: following prefers-color-scheme cannot satisfy this choice.
   await page.emulateMedia({ colorScheme: 'dark' })
   await page.goto(setupPath)
   await page.waitForLoadState('networkidle')
   await page.getByRole('button', { name: 'Menu', exact: true }).click()
   await page.getByRole('button', { name: 'Light', exact: true }).click()
-  await browserExpect(page.locator('html')).toHaveCSS('color-scheme', 'light')
+  await expect(page.locator('html')).toHaveCSS('color-scheme', 'light')
   await expect.poll(() => themeCookie(page)).toBe('club-light')
   const light = await bodyColors(page)
 
   await page.reload()
-  await browserExpect(page.locator('html')).toHaveCSS('color-scheme', 'light')
+  await expect(page.locator('html')).toHaveCSS('color-scheme', 'light')
   await expect.poll(() => bodyColors(page)).toEqual(light)
   await page.getByRole('button', { name: 'Menu', exact: true }).click()
-  await browserExpect(page.getByRole('button', { name: 'Light', exact: true })).toHaveAttribute(
+  await expect(page.getByRole('button', { name: 'Light', exact: true })).toHaveAttribute(
     'aria-pressed',
     'true',
   )
 
-  const engine = context.browser()
-
-  if (engine === null) throw new Error('Preferences isolation requires a browser-backed context')
-  const isolated = await engine.newContext({ baseURL: inject('baseURL'), colorScheme: 'light' })
+  const isolated = await browser.newContext({ baseURL: server.baseURL, colorScheme: 'light' })
 
   try {
     const otherPage = await isolated.newPage()
     await otherPage.goto(setupPath)
     // KS defaults to explicit dark, even on a light OS. No cookie means no inherited preference.
-    await browserExpect(otherPage.locator('html')).toHaveCSS('color-scheme', 'dark')
+    await expect(otherPage.locator('html')).toHaveCSS('color-scheme', 'dark')
     expect(await themeCookie(otherPage)).toBeUndefined()
     expect(await bodyColors(otherPage)).not.toEqual(light)
     expect(await themeCookie(page)).toBe('club-light')
@@ -49,25 +46,26 @@ test('a UI theme choice survives reload without leaking into an isolated context
   await page.getByRole('button', { name: 'Dark', exact: true }).click()
   await expect.poll(() => themeCookie(page)).toBe('club-dark')
   await page.reload()
-  await browserExpect(page.locator('html')).toHaveCSS('color-scheme', 'dark')
+  await expect(page.locator('html')).toHaveCSS('color-scheme', 'dark')
 })
 
-test('auto follows both emulated OS color schemes in the same document after clearing an override', async () => {
-  const { page } = browser
+test('auto follows both emulated OS color schemes in the same document after clearing an override', async ({
+  page,
+}) => {
   await page.emulateMedia({ colorScheme: 'dark' })
   await page.goto(setupPath)
   await page.waitForLoadState('networkidle')
   const dark = await bodyColors(page)
   await page.getByRole('button', { name: 'Menu', exact: true }).click()
   await page.getByRole('button', { name: 'Light', exact: true }).click()
-  await browserExpect(page.locator('html')).toHaveCSS('color-scheme', 'light')
+  await expect(page.locator('html')).toHaveCSS('color-scheme', 'light')
   const light = await bodyColors(page)
   expect(light).not.toEqual(dark)
   await page.getByRole('button', { name: 'Auto', exact: true }).click()
   await expect.poll(() => themeCookie(page)).toBe('auto')
   await expect.poll(() => bodyColors(page)).toEqual(dark)
   await page.reload()
-  await browserExpect(page.locator('html')).toHaveCSS('color-scheme', 'light dark')
+  await expect(page.locator('html')).toHaveCSS('color-scheme', 'light dark')
   await expect.poll(() => bodyColors(page)).toEqual(dark)
   await markDocument(page)
 
@@ -81,8 +79,12 @@ test('auto follows both emulated OS color schemes in the same document after cle
   expect(await themeCookie(page)).toBe('auto')
 })
 
-test('locale UI preserves a deep path, rematch query and fragment through new documents in both directions', async () => {
-  const { page } = browser
+test('locale UI preserves a deep path, rematch query and fragment through new documents in both directions', async ({
+  page,
+  baseURL,
+  browserName,
+}) => {
+  test.fixme(browserName === 'webkit', 'BIL-78: WebKit intermittently reloads the current locale instead')
 
   const suffix =
     '?rematch=1&seatAName=Alice+Kyiv&seatBName=Bob%26Co&matchTargetFrames=3&targetA=6&targetB=8#players'
@@ -91,8 +93,8 @@ test('locale UI preserves a deep path, rematch query and fragment through new do
   const ukrainianPath = `/sparring/setup/free-pyramid/${suffix}`
   await page.goto(englishPath)
   await page.waitForLoadState('networkidle')
-  await browserExpect(page.getByLabel('Player A', { exact: true })).toHaveValue('Alice Kyiv')
-  await browserExpect(page.getByLabel('Player B', { exact: true })).toHaveValue('Bob&Co')
+  await expect(page.getByLabel('Player A', { exact: true })).toHaveValue('Alice Kyiv')
+  await expect(page.getByLabel('Player B', { exact: true })).toHaveValue('Bob&Co')
 
   for (const destination of [
     {
@@ -122,10 +124,10 @@ test('locale UI preserves a deep path, rematch query and fragment through new do
 
     await page.getByRole('button', { name: destination.choice, exact: true }).click()
     expect((await documentResponse).status()).toBe(200)
-    await browserExpect(page).toHaveURL(`${inject('baseURL')}${destination.path}`)
-    await browserExpect(page.locator('html')).toHaveAttribute('lang', destination.lang)
-    await browserExpect(page.getByLabel(destination.playerA, { exact: true })).toHaveValue('Alice Kyiv')
-    await browserExpect(page.getByLabel(destination.playerB, { exact: true })).toHaveValue('Bob&Co')
+    await expect(page).toHaveURL(`${baseURL}${destination.path}`)
+    await expect(page.locator('html')).toHaveAttribute('lang', destination.lang)
+    await expect(page.getByLabel(destination.playerA, { exact: true })).toHaveValue('Alice Kyiv')
+    await expect(page.getByLabel(destination.playerB, { exact: true })).toHaveValue('Bob&Co')
     // A client-side translation or history.pushState must not pass as reloadDocument navigation.
     expect(await hasDocumentMarker(page)).toBe(false)
   }

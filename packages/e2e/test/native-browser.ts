@@ -4,8 +4,7 @@ import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 
-import { type Browser, chromium } from '@playwright/test'
-import { expect } from 'vitest'
+import { type Browser, chromium, expect } from '@playwright/test'
 
 declare global {
   interface Window {

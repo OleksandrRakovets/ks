@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test:e2e": "vitest run",
-    "install:browsers": "playwright install chromium webkit"
+    "test:e2e": "node scripts/ensure-browser.ts chromium && playwright test --project='chromium*'",
+    "test:e2e:webkit": "node scripts/ensure-browser.ts webkit && playwright test --project='webkit*'"
   },
   "devDependencies": {
     "@ks/core": "workspace:*",
@@ -14,7 +14,6 @@
     "@types/node": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
-    "vitest": "catalog:",
     "wrangler": "catalog:"
   }
 }
