@@ -35,21 +35,12 @@ function frameAwardEvent(event: PyramidCommand): FrameAwardEvent {
   return event
 }
 
-function clamp(value: number, allowNegative: boolean): number {
-  return allowNegative ? value : Math.max(0, value)
-}
-
 function setSeat(score: BySeatNumber, seat: Seat, value: number): BySeatNumber {
   return seat === 'A' ? { A: value, B: score.B } : { A: score.A, B: value }
 }
 
-function applyShot(
-  score: BySeatNumber,
-  seat: Seat,
-  pottedBallCount: number,
-  allowNegative: boolean,
-): BySeatNumber {
-  return setSeat(score, seat, clamp(score[seat] + pottedBallCount, allowNegative))
+function applyShot(score: BySeatNumber, seat: Seat, pottedBallCount: number): BySeatNumber {
+  return setSeat(score, seat, score[seat] + pottedBallCount)
 }
 
 function applyFoul(score: BySeatNumber, offender: Seat, rules: PyramidRules): BySeatNumber {
@@ -59,7 +50,7 @@ function applyFoul(score: BySeatNumber, offender: Seat, rules: PyramidRules): By
     return setSeat(score, target, score[target] + 1)
   }
 
-  return setSeat(score, offender, clamp(score[offender] - 1, rules.allowNegative))
+  return setSeat(score, offender, score[offender] - 1)
 }
 
 function targetReached(score: BySeatNumber, target: BySeatNumber): Seat | null {
@@ -95,7 +86,7 @@ export const PyramidFrameMachine = setup({
       const e = potEvent(event)
 
       if (!context.rules.shotPointOptions.includes(e.pottedBallCount)) return false
-      const next = applyShot(context.score, e.seat, e.pottedBallCount, context.rules.allowNegative)
+      const next = applyShot(context.score, e.seat, e.pottedBallCount)
 
       return targetReached(next, context.targetPoints) !== null
     },
@@ -129,12 +120,12 @@ export const PyramidFrameMachine = setup({
       const e = potEvent(event)
 
       return {
-        score: applyShot(context.score, e.seat, e.pottedBallCount, context.rules.allowNegative),
+        score: applyShot(context.score, e.seat, e.pottedBallCount),
       }
     }),
     applyPotAndSetWinner: assign(({ context, event }) => {
       const e = potEvent(event)
-      const score = applyShot(context.score, e.seat, e.pottedBallCount, context.rules.allowNegative)
+      const score = applyShot(context.score, e.seat, e.pottedBallCount)
       const winner = targetReached(score, context.targetPoints)
       invariant(winner !== null, 'Pot did not reach target')
 

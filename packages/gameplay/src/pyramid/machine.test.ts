@@ -164,22 +164,6 @@ describe('PyramidFrameMachine: foul handling', () => {
     expect(snap.context.score).toEqual({ A: 1, B: 0 })
     expect(getPhase(snap)).toBe('open-play')
   })
-
-  test('allowNegative=false clamps offender-minus-one foul at zero', () => {
-    const clampRules: PyramidRules = {
-      gameKey: 'combined-pyramid',
-      allowNegative: false,
-      foulPenalty: 'offender-minus-one',
-      shotPointOptions: [1, 2],
-    }
-
-    let snap = start(clampRules)
-    snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
-    snap = sendEvent(snap, { type: 'foul.commit', seat: 'A' })
-
-    expect(snap.context.score).toEqual({ A: 0, B: 0 })
-    expect(getPhase(snap)).toBe('open-play')
-  })
 })
 
 describe('PyramidFrameMachine: rules selection', () => {

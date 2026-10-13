@@ -117,7 +117,6 @@ describe('GameplaySession', () => {
 
     for (const change of [
       { gameKey: 'combined-pyramid' },
-      { allowNegative: true },
       { foulPenalty: 'offender-minus-one' },
       { shotPointOptions: [1, 2] },
       { shotPointOptions: [1, 2, 4, 8] },

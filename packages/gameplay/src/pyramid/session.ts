@@ -137,7 +137,6 @@ export function restorePyramidGameplaySession<K extends PyramidGameKey>(
     'Pyramid winner must match phase',
   )
   invariant(storedRules.gameKey === gameKey, 'Pyramid rules must match game')
-  invariant(storedRules.allowNegative === rules.allowNegative, 'Pyramid negative-score rule must match game')
   invariant(storedRules.foulPenalty === rules.foulPenalty, 'Pyramid foul penalty must match game')
   invariant(
     storedRules.shotPointOptions.length === rules.shotPointOptions.length &&

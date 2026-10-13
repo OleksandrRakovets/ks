@@ -305,7 +305,7 @@ test.each(['free-pyramid', 'combined-pyramid'] as const)('%s restores an active 
   expect(restored.execute(command)).toEqual(match.execute(command))
 })
 
-test('rejects inconsistent persisted aggregates and corrupted hidden rule context', () => {
+test('rejects inconsistent persisted aggregates and an unknown gameplay phase', () => {
   const match = createMatch(config('combined-pyramid'))
   // SAFETY: JSON parsing yields an untrusted value that the checkpoint schema validates.
   const checkpoint = v.parse(MatchCheckpoint, JSON.parse(JSON.stringify(match.exportCheckpoint())) as unknown)
@@ -329,21 +329,6 @@ test('rejects inconsistent persisted aggregates and corrupted hidden rule contex
     restoreMatchCheckpoint({
       ...checkpoint,
       lifecycle: { ...checkpoint.lifecycle, context: { ...checkpoint.lifecycle.context, nextFrameIndex: 3 } },
-    }),
-  ).toThrow()
-  expect(() =>
-    restoreMatchCheckpoint({
-      ...checkpoint,
-      gameplay: {
-        ...gameplay,
-        state: {
-          ...gameplay.state,
-          context: {
-            ...gameplay.state.context,
-            rules: { ...gameplay.state.context.rules, allowNegative: true },
-          },
-        },
-      },
     }),
   ).toThrow()
 
