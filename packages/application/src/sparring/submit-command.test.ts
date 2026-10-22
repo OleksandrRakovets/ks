@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 
 import { newCommandId } from '@ks/core'
 
+import type { MatchRoomClient } from '../match/match-room'
 import {
   createdAt,
   matchId,
@@ -152,31 +153,90 @@ describe('sparring commands and finalization', () => {
     }
   })
 
-  test('retries a retryable MatchRoom failure and returns the stored acceptance', async () => {
-    const reset = Object.assign(
-      new Error('Internal error in Durable Object storage caused object to be reset'),
-      { retryable: true },
-    )
+  test('retries a reset MatchRoom with a fresh client and returns the stored acceptance', async () => {
+    // A storage reset can surface with only `durableObjectReset`, after the room committed.
+    const reset = Object.assign(new Error('Durable Object storage reset'), { durableObjectReset: true })
+    const clients: MatchRoomClient[] = []
 
-    let calls = 0
+    const app = sparring(selectedClient(), [], {
+      overrides: {
+        matchRoomClient: () => {
+          const client = selectedClient({
+            submitCommand: async () => {
+              if (clients.length === 1) throw reset
 
-    const room = selectedClient({
-      submitCommand: async () => {
-        calls += 1
+              return { _tag: 'accepted', acceptedSeq: 27, endsMatch: false }
+            },
+          })
 
-        if (calls === 1) throw reset
+          clients.push(client)
 
-        return { _tag: 'accepted', acceptedSeq: 27, endsMatch: false }
+          return client
+        },
       },
     })
 
     expect(
-      await sparring(room).submitMatchCommand(
+      await app.submitMatchCommand(
         matchId,
         { commandId: newCommandId(), source: 'match', command: { type: 'frame.concede', seat: 'B' } },
         'free-pyramid',
       ),
     ).toEqual({ ok: true, outcome: { _tag: 'accepted', acceptedSeq: 27 } })
+    expect(new Set(clients).size).toBe(2)
+  })
+
+  test('gives up after three transient MatchRoom failures', async () => {
+    const reset = Object.assign(new Error('still resetting'), { retryable: true })
+    let calls = 0
+
+    const room = selectedClient({
+      submitCommand: () => {
+        calls += 1
+
+        return Promise.reject(reset)
+      },
+    })
+
+    let error: unknown
+
+    try {
+      await sparring(room).submitMatchCommand(
+        matchId,
+        { commandId: newCommandId(), source: 'match', command: { type: 'frame.concede', seat: 'B' } },
+        'free-pyramid',
+      )
+    } catch (reason) {
+      error = reason
+    }
+
+    expect(error).toBe(reset)
+    expect(calls).toBe(3)
+  })
+
+  test('finishes a match-ending Command after a transient archive transfer failure', async () => {
+    const events: string[] = []
+    let transfers = 0
+
+    const room = selectedClient({
+      submitCommand: async () => ({ _tag: 'accepted', acceptedSeq: 1, endsMatch: true }),
+      prepareArchive: async () => {
+        transfers += 1
+
+        if (transfers === 1) throw Object.assign(new Error('reset'), { retryable: true })
+
+        return transfer
+      },
+    })
+
+    expect(
+      await sparring(room, events).submitMatchCommand(
+        matchId,
+        { commandId: newCommandId(), source: 'match', command: { type: 'frame.concede', seat: 'B' } },
+        'free-pyramid',
+      ),
+    ).toEqual({ ok: true, outcome: { _tag: 'accepted', acceptedSeq: 1 } })
+    expect(events).toEqual(['archive', 'finish'])
   })
 
   test('does not finish when archival fails before persistence', async () => {
