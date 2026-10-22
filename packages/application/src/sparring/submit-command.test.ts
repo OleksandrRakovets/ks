@@ -119,23 +119,64 @@ describe('sparring commands and finalization', () => {
     ).toEqual({ ok: false, reason: 'invalid-command' })
   })
 
-  test('does not synthesize transport failures for thrown MatchRoom defects', async () => {
-    const defect = new Error('room defect')
-    const room = selectedClient({ submitCommand: () => Promise.reject(defect) })
-    let error: Error | undefined
+  test('rethrows MatchRoom defects and overloads without retrying', async () => {
+    for (const defect of [
+      new Error('room defect'),
+      Object.assign(new Error('room overloaded'), { retryable: true, overloaded: true }),
+    ]) {
+      let calls = 0
 
-    try {
+      const room = selectedClient({
+        submitCommand: () => {
+          calls += 1
+
+          return Promise.reject(defect)
+        },
+      })
+
+      let error: Error | undefined
+
+      try {
+        await sparring(room).submitMatchCommand(
+          matchId,
+          { commandId: newCommandId(), source: 'match', command: { type: 'frame.concede', seat: 'B' } },
+          'free-pyramid',
+        )
+      } catch (reason) {
+        if (!(reason instanceof Error)) throw reason
+        error = reason
+      }
+
+      expect(error).toBe(defect)
+      expect(calls).toBe(1)
+    }
+  })
+
+  test('retries a retryable MatchRoom failure and returns the stored acceptance', async () => {
+    const reset = Object.assign(
+      new Error('Internal error in Durable Object storage caused object to be reset'),
+      { retryable: true },
+    )
+
+    let calls = 0
+
+    const room = selectedClient({
+      submitCommand: async () => {
+        calls += 1
+
+        if (calls === 1) throw reset
+
+        return { _tag: 'accepted', acceptedSeq: 27, endsMatch: false }
+      },
+    })
+
+    expect(
       await sparring(room).submitMatchCommand(
         matchId,
         { commandId: newCommandId(), source: 'match', command: { type: 'frame.concede', seat: 'B' } },
         'free-pyramid',
-      )
-    } catch (reason) {
-      if (!(reason instanceof Error)) throw reason
-      error = reason
-    }
-
-    expect(error).toBe(defect)
+      ),
+    ).toEqual({ ok: true, outcome: { _tag: 'accepted', acceptedSeq: 27 } })
   })
 
   test('does not finish when archival fails before persistence', async () => {
