@@ -5,6 +5,12 @@ import { type E2EServer, startServer } from './server'
 
 export { expect }
 
+declare global {
+  interface Window {
+    e2eSockets: WebSocket[]
+  }
+}
+
 export const listPath = '/en/sparring/matches/'
 
 /**
@@ -126,6 +132,30 @@ export function traffic(page: Page) {
       expect
         .poll(() => inFlight.size === 0 && Date.now() - lastActivity >= QUIET_PERIOD_MS, { intervals: [50] })
         .toBe(true),
+  }
+}
+
+/**
+ * Records the page's own WebSocket objects. A page releases a socket by calling `close()`, which
+ * moves it to CLOSING at once; Playwright's `isClosed()` instead waits for the closing handshake
+ * and TCP teardown, which local workerd can hold open for seconds (workerd#7566).
+ */
+export async function pageSockets(page: Page) {
+  await page.addInitScript(() => {
+    const Native = window.WebSocket
+    const opened: WebSocket[] = []
+    window.e2eSockets = opened
+    window.WebSocket = class extends Native {
+      constructor(...args: ConstructorParameters<typeof Native>) {
+        super(...args)
+        opened.push(this)
+      }
+    }
+  })
+
+  return {
+    /** Ready states of every socket the page has opened, in creation order. */
+    states: async () => page.evaluate(() => window.e2eSockets.map((socket) => socket.readyState)),
   }
 }
 

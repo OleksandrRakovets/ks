@@ -1,99 +1,157 @@
-import { execFile } from 'node:child_process'
+import { type ChildProcess, execFile, spawn } from 'node:child_process'
 import { mkdtemp, rm } from 'node:fs/promises'
+import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
-
-import { preview, type PreviewServer } from 'vite'
+import { setTimeout as delay } from 'node:timers/promises'
 
 export interface E2EServer {
   readonly baseURL: string
   close(): Promise<void>
 }
 
+const wrangler = resolve(import.meta.dirname, '../node_modules/wrangler/bin/wrangler.js')
+
+// Play's build emits the deploy configuration next to its bundle; Turbo builds Play first.
+const buildConfig = resolve(import.meta.dirname, '../../../worker/play/build/server/wrangler.json')
+
 /**
- * Serves the actual production Worker, assets, D1 adapters, and MatchRoom from Play's current
- * build. Only local migrations run, against a fresh OS temp directory with no seeded matches.
- * Wrangler and the Cloudflare Vite plugin both append /v3 to this same persistence base, so
- * the developer's `.wrangler` state is never read or written.
- *
- * Play's Vite config reads KS_E2E_STATE_PATH while preview loads it; the variable is restored
- * once the server listens, so several servers may run in one process. Closing preview disposes
- * Miniflare before deleting SQLite files; failure during startup follows the same cleanup path.
+ * Serves Play's built bundle and assets with `wrangler dev`, exactly as a deploy uploads them,
+ * including D1 adapters, MatchRoom, and WebSockets. Migrations and the server share one fresh
+ * OS temp directory through `--persist-to`, so the developer's `.wrangler` state is never read
+ * or written. Each server is its own process group; closing it stops Wrangler and its workerd
+ * children before deleting their SQLite files.
  */
 export async function startServer(): Promise<E2EServer> {
-  const appRoot = resolve(import.meta.dirname, '../../../worker/play')
   const statePath = await mkdtemp(resolve(tmpdir(), 'ks-e2e-'))
-  let server: PreviewServer | undefined
+  let server: ChildProcess | undefined
 
   const close = async () => {
-    await server?.close()
-    // A failed shutdown deliberately leaves the store intact: deleting files underneath
-    // an open Miniflare instance would turn a cleanup failure into data corruption.
+    if (server !== undefined) await stop(server)
     await rm(statePath, { recursive: true, force: true })
   }
 
   try {
-    await migrate(appRoot, statePath)
-    server = await withStatePath(statePath, async () =>
-      preview({
-        root: appRoot,
-        configFile: resolve(appRoot, 'vite.config.ts'),
-        logLevel: 'silent',
-        preview: { host: '127.0.0.1', port: 0, strictPort: false },
-      }),
+    await run([
+      'd1',
+      'migrations',
+      'apply',
+      'DB',
+      '--local',
+      '--persist-to',
+      statePath,
+      '--config',
+      buildConfig,
+    ])
+    const port = await freePort()
+    const output: string[] = []
+    // Detached: the group id lets teardown stop workerd children that Wrangler spawns.
+    server = spawn(
+      'node',
+      [
+        wrangler,
+        'dev',
+        '--config',
+        buildConfig,
+        '--no-bundle',
+        '--local',
+        '--persist-to',
+        statePath,
+        '--ip',
+        '127.0.0.1',
+        '--port',
+        String(port),
+        '--inspector-port',
+        '0',
+        '--show-interactive-dev-session=false',
+      ],
+      {
+        cwd: statePath,
+        detached: true,
+        env: { ...process.env, CI: 'true' },
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
     )
-    const address = server.httpServer.address()
 
-    // Node exposes a Unix-socket/string alternative; this preview explicitly binds TCP.
-    // eslint-disable-next-line anti-slop/no-runtime-typeof
-    if (address === null || typeof address === 'string') throw new Error('E2E preview has no TCP address')
+    const record = (chunk: Buffer) => {
+      output.push(chunk.toString())
+    }
 
-    return { baseURL: `http://127.0.0.1:${address.port}`, close }
+    server.stdout?.on('data', record)
+    server.stderr?.on('data', record)
+    const baseURL = `http://127.0.0.1:${port}`
+    await ready(server, baseURL, output)
+
+    return { baseURL, close }
   } catch (error) {
     try {
       await close()
     } catch (cleanupError) {
-      throw new AggregateError([error, cleanupError], 'E2E preview startup and cleanup failed')
+      throw new AggregateError([error, cleanupError], 'E2E server startup and cleanup failed')
     }
 
     throw error
   }
 }
 
-async function migrate(appRoot: string, statePath: string) {
+async function run(args: string[]) {
   await new Promise<void>((complete, reject) => {
-    execFile(
-      'node',
-      [
-        resolve(import.meta.dirname, '../node_modules/wrangler/bin/wrangler.js'),
-        'd1',
-        'migrations',
-        'apply',
-        'DB',
-        '--local',
-        '--persist-to',
-        statePath,
-        '--config',
-        resolve(appRoot, 'build/server/wrangler.json'),
-      ],
-      { env: { ...process.env, CI: 'true' } },
-      (error, stdout, stderr) => {
-        if (error !== null)
-          reject(new Error(`Local E2E migrations failed: ${stdout}\n${stderr}`, { cause: error }))
-        else complete()
-      },
-    )
+    execFile('node', [wrangler, ...args], { env: { ...process.env, CI: 'true' } }, (error, stdout, stderr) => {
+      if (error !== null)
+        reject(new Error(`wrangler ${args[0]} failed: ${stdout}\n${stderr}`, { cause: error }))
+      else complete()
+    })
   })
 }
 
-async function withStatePath<T>(statePath: string, start: () => Promise<T>) {
-  const previous = process.env.KS_E2E_STATE_PATH
-  process.env.KS_E2E_STATE_PATH = statePath
+/** Lets the OS choose a free loopback port. Wrangler binds it moments later. */
+async function freePort() {
+  return new Promise<number>((complete, reject) => {
+    const probe = createServer()
+    probe.once('error', reject)
+    probe.listen(0, '127.0.0.1', () => {
+      const address = probe.address()
+      // Node exposes a Unix-socket/string alternative; this probe explicitly binds TCP.
+      // eslint-disable-next-line anti-slop/no-runtime-typeof
+      const port = address !== null && typeof address === 'object' ? address.port : undefined
+      probe.close(() =>
+        port === undefined ? reject(new Error('Port probe has no TCP address')) : complete(port),
+      )
+    })
+  })
+}
 
-  try {
-    return await start()
-  } finally {
-    if (previous === undefined) delete process.env.KS_E2E_STATE_PATH
-    else process.env.KS_E2E_STATE_PATH = previous
+/** Waits until the Worker answers a real route, failing early if Wrangler exits. */
+async function ready(server: ChildProcess, baseURL: string, output: readonly string[]) {
+  const deadline = Date.now() + 60_000
+
+  while (Date.now() < deadline) {
+    if (server.exitCode !== null || server.signalCode !== null)
+      throw new Error(`wrangler dev exited before serving:\n${output.join('')}`)
+
+    try {
+      if ((await fetch(`${baseURL}/en/`)).ok) return
+    } catch {
+      // Not listening yet.
+    }
+
+    await delay(100)
+  }
+
+  throw new Error(`wrangler dev did not serve ${baseURL} within 60s:\n${output.join('')}`)
+}
+
+async function stop(server: ChildProcess) {
+  if (server.pid === undefined || server.exitCode !== null || server.signalCode !== null) return
+
+  const exited = new Promise<void>((complete) => {
+    server.once('exit', () => complete())
+  })
+
+  process.kill(-server.pid, 'SIGTERM')
+
+  if (!(await Promise.race([exited.then(() => true), delay(5_000, false)]))) {
+    process.kill(-server.pid, 'SIGKILL')
+    await exited
   }
 }

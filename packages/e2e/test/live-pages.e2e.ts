@@ -1,8 +1,16 @@
 import { setTimeout as delay } from 'node:timers/promises'
 
-import type { WebSocket } from '@playwright/test'
-
-import { command, createMatch, expect, listPath, openPage, returnHints, test, traffic } from './browser'
+import {
+  command,
+  createMatch,
+  expect,
+  listPath,
+  openPage,
+  pageSockets,
+  returnHints,
+  test,
+  traffic,
+} from './browser'
 import { nativeBrowser } from './native-browser'
 
 test('an open list keeps re-arming separate score and membership deadlines', async ({ page, request }) => {
@@ -120,15 +128,18 @@ for (const view of ['control', 'protocol']) {
       source: 'game',
       command: { type: 'pot.record', seat: 'A', pottedBallCount: 4 },
     })
-    const sockets: WebSocket[] = []
-    page.on('websocket', (socket) => sockets.push(socket))
+    const sockets = await pageSockets(page)
     const reads = traffic(page)
     await openPage(page, view === 'protocol' ? `${path}protocol/` : path)
     await command(request, path, { source: 'game', command: { type: 'frame.award', seat: 'A' } })
     await expect(page.getByText(`End ${view} Alice won`, { exact: true })).toBeVisible()
     await expect(page.getByRole('link', { name: 'Result', exact: true })).toBeVisible()
     expect(reads.loaders()).toHaveLength(1)
-    expect(sockets).toHaveLength(1)
+    // The page itself released its only socket (CLOSING or CLOSED); when the close event then
+    // arrives is transport timing.
+    const [state, ...others] = await sockets.states()
+    expect(others).toHaveLength(0)
+    expect(state).toBeGreaterThanOrEqual(WebSocket.CLOSING)
 
     // Deliberately no settling tick: Result's DOM commit must already release the controller.
     // Return hints must not reach active listeners waiting for deferred passive cleanup.
@@ -137,8 +148,7 @@ for (const view of ['control', 'protocol']) {
     await reads.quiet()
     expect(reads.loaders()).toHaveLength(1)
     expect(reads.posts()).toHaveLength(0)
-    expect(sockets).toHaveLength(1)
-    await expect.poll(() => sockets[0]?.isClosed()).toBe(true)
+    expect((await sockets.states()).length).toBe(1)
   })
 }
 

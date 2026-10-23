@@ -1,9 +1,10 @@
 # Browser E2E tests
 
 Playwright Test drives real browsers against the built Play Worker. Each Playwright worker
-serves one `vite preview` of Play's normal build with its own disposable D1 and MatchRoom
-store, so the real routes, D1 adapters, MatchRoom, WebSockets, and React Router run with no
-application/repository mocks.
+runs `wrangler dev --no-bundle` on Play's build output (`worker/play/build/server/wrangler.json`,
+the bundle and configuration a deploy uploads) with its own disposable D1 and MatchRoom store,
+so the real routes, D1 adapters, MatchRoom, WebSockets, and React Router run with no
+application/repository mocks. Play's own Vite config has no test-specific options.
 
 ## Run
 
@@ -23,7 +24,7 @@ For a focused rerun against an **already current build**:
 
 ```sh
 cd packages/e2e
-./node_modules/.bin/playwright test --project='chromium*' -g 'BFCache'
+./node_modules/.bin/playwright test --project=chromium -g 'BFCache'
 ```
 
 A failing case keeps its trace under `test-results/`; open it with
@@ -36,14 +37,15 @@ report. Both directories are ignored by Git.
   and a `page` whose clock is installed before page code runs. Every test still gets a new
   context and page; tests use distinct matches and share their worker's store.
 - `*.e2e.ts` files are Playwright tests; Bun's unit runner does not collect them.
-- `empty-list.e2e.ts` runs as its own `<browser>-empty-store` project, hence its own worker
-  and store, because the list's empty state is unreachable once other files create matches.
-  Two previews cannot share one process: the Cloudflare Vite plugin's Miniflare is global.
+- `startServer()` (test/server.ts) applies migrations and starts Wrangler with the same
+  `--persist-to` temp directory, on an OS-chosen loopback port, as its own process group.
+  Teardown stops Wrangler and its workerd children, then deletes the store; the developer's
+  `.wrangler` state is never used.
+- `empty-list.e2e.ts` starts a second server for its own empty store, because the list's
+  empty state is unreachable once other files create matches.
 - `http.e2e.ts` uses only Playwright's `request` fixture for HTTP contracts that need no page.
 - Fixtures create matches and submit unique Commands through the real HTTP routes. They do
   not write D1 or MatchRoom storage directly.
-- Play's Vite config reads `KS_E2E_STATE_PATH` only to redirect persistence and disable the
-  inspector for these runs; normal dev and preview keep the plugin defaults.
 
 ## What the tests prove
 
@@ -89,7 +91,9 @@ WebKit.
 
 Most long-schedule cases accelerate the page clock and dispatch **synthetic** return hints,
 which makes coalescing deterministic but does not reproduce OS app switching. D1 and MatchRoom
-always run on real time; the page clock moves only the browser. Request-count assertions wait
+always run on real time; the page clock moves only the browser. Local workerd can hold a socket's TCP
+connection open for seconds after its closing handshake (workerd#7566), so tests assert that
+the page released its socket (`pageSockets`), not when the browser reports the close. Request-count assertions wait
 for a short real-time network quiet period, because absence cannot be awaited directly.
 
 Playwright's Linux WebKit is **not Safari on iOS**. Neither engine proves Safari's suggested-URL
