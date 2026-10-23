@@ -6,7 +6,7 @@ Read this before changing dependency versions, package-manager metadata, or the 
 
 - Audit all workspaces with `bun outdated --recursive`.
 - Shared versions belong in root `workspaces.catalog`; consumers use `"catalog:"`.
-- Change the owning manifest, then run `bun install` to regenerate `bun.lock`. Do not bypass the two-day release cooldown (`minimumReleaseAge` in root `bunfig.toml`).
+- Change the owning manifest, then run `bun install` to regenerate `bun.lock`. Do not bypass the two-day release cooldown (`minimumReleaseAge` in root `bunfig.toml`) unless the owner approves a specific release, such as a security fix; then exclude only that exact version for one install with `bun install --minimum-release-age-excludes name@version` instead of committing an exclusion.
 - Use caret ranges, including for dev tools; `bun.lock` pins installs. Pin exact versions only with a reason: `typescript`, `oxlint`, `@oxlint/plugins`, and `oxlint-tsgolint` so diagnostic changes are deliberate, `bun-types` to match the declared Bun version, and prereleases such as drizzle RCs, where a caret admits later prereleases.
 - Match TypeScript to the TypeScript-Go release embedded by `oxlint-tsgolint`. Upgrade them together, update Oxlint and its plugin API deliberately, then run `bun install` and `bun run check:full`.
 

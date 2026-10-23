@@ -10,7 +10,7 @@
   "devDependencies": {
     "@ks/core": "workspace:*",
     "@ks/play": "workspace:*",
-    "@playwright/test": "^1.63.0",
+    "@playwright/test": "^1.64.1",
     "@types/node": "catalog:",
     "typescript": "catalog:",
     "wrangler": "catalog:"
