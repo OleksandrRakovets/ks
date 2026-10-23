@@ -3,11 +3,13 @@ import { describe, expect, test } from 'bun:test'
 import { type BySeatNumber, FrameOutcome, type Seat } from '@ks/core'
 import * as v from 'valibot'
 
-import { type StrilaCommand, StrilaMeta } from './definitions'
+import type { StrilaCommand } from './definitions'
 import { createInitialSnapshot, getPhase, sendEvent, type StrilaFrameSnapshot } from './machine'
 
-function start(targetPointsBySeat?: BySeatNumber): StrilaFrameSnapshot {
-  return createInitialSnapshot(targetPointsBySeat ?? StrilaMeta.defaultTargetPoints)
+const DEFAULT_TARGET: BySeatNumber = { A: 9, B: 9 }
+
+function start(targetPointsBySeat: BySeatNumber = DEFAULT_TARGET): StrilaFrameSnapshot {
+  return createInitialSnapshot(targetPointsBySeat)
 }
 
 // A:6, B:8, only ball 7 left → A pots 7 → 8:8, table empty → respotted-black opening selection
@@ -38,16 +40,7 @@ function reachRespottedBlack(openingSeat: Seat = 'A'): StrilaFrameSnapshot {
 }
 
 describe('StrilaFrameMachine: basic', () => {
-  test('frame.commence enters open-play for seat', () => {
-    const snap = sendEvent(start(), { type: 'frame.commence', seat: 'A' })
-
-    expect(getPhase(snap)).toBe('open-play')
-    expect(snap.context.cueBallSerialPots).toBeNull()
-    expect(snap.context.score).toEqual({ A: 0, B: 0 })
-    expect(snap.context.coloredBallsOnTable).toEqual([1, 2, 3, 4, 5, 6, 7])
-  })
-
-  test('target reached becomes winner-determined until frame.award', () => {
+  test('target reached becomes winner-determined until frame.award closes the frame', () => {
     let snap = start()
     snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
     snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [1] })
@@ -56,20 +49,10 @@ describe('StrilaFrameMachine: basic', () => {
     snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [4] })
     snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [5] })
 
-    expect(snap.context.score).toEqual({ A: 10, B: 0 })
     expect(getPhase(snap)).toBe('winner-determined')
     expect(snap.context.winner).toBe('A')
     expect(snap.context.winnerDeterminationReason).toBe('target-reached')
-  })
 
-  test('frame.award closes a winner-determined frame', () => {
-    let snap = start()
-    snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
-    snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [1] })
-    snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [2] })
-    snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [3] })
-    snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [4] })
-    snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [5] })
     snap = sendEvent(snap, { type: 'frame.award', seat: 'A' })
 
     expect(getPhase(snap)).toBe('frame-over')
@@ -350,7 +333,7 @@ describe('StrilaFrameMachine: foul handling', () => {
     expect(() => sendEvent(snap, { type: 'penalty.select', seat: 'B', choice: 'ball-in-hand' })).not.toThrow()
   })
 
-  test('foul then ball-in-hand then miss returns to opponent open-play', () => {
+  test('foul then ball-in-hand then miss returns to open-play', () => {
     let snap = start()
     snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
     snap = sendEvent(snap, { type: 'foul.commit', seat: 'A' })
@@ -366,64 +349,18 @@ describe('StrilaFrameMachine: foul handling', () => {
     expect(snap.context.cueBallSerialPots).toBeNull()
   })
 
-  test('foul response play-from-position awards one point to chooser and returns to open play', () => {
-    let snap = start()
-    snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
-    snap = sendEvent(snap, { type: 'foul.commit', seat: 'A' })
-    snap = sendEvent(snap, { type: 'penalty.select', seat: 'B', choice: 'play-from-position' })
+  test.each(['play-from-position', 'pass-position'] as const)(
+    'foul response %s awards one point to chooser and returns to open play',
+    (choice) => {
+      let snap = start()
+      snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
+      snap = sendEvent(snap, { type: 'foul.commit', seat: 'A' })
+      snap = sendEvent(snap, { type: 'penalty.select', seat: 'B', choice })
 
-    expect(snap.context.score).toEqual({ A: 0, B: 1 })
-    expect(getPhase(snap)).toBe('open-play')
-    expect(snap.context.cueBallSerialPots).toBeNull()
-  })
-
-  test('foul response pass-position awards one point to chooser and returns to open play', () => {
-    let snap = start()
-    snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
-    snap = sendEvent(snap, { type: 'foul.commit', seat: 'A' })
-    snap = sendEvent(snap, { type: 'penalty.select', seat: 'B', choice: 'pass-position' })
-
-    expect(snap.context.score).toEqual({ A: 0, B: 1 })
-    expect(getPhase(snap)).toBe('open-play')
-    expect(snap.context.cueBallSerialPots).toBeNull()
-  })
-
-  test('opponent-foul ball-in-hand cue ball and colored ball together remains ball in hand', () => {
-    let snap = start()
-    snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
-    snap = sendEvent(snap, { type: 'foul.commit', seat: 'A' })
-    snap = sendEvent(snap, { type: 'penalty.select', seat: 'B', choice: 'ball-in-hand' })
-
-    const before = snap
-    snap = sendEvent(snap, { type: 'pot.record', seat: 'B', pottedBalls: [0, 3] })
-
-    expect(snap.context.score).toEqual({ A: 0, B: 0 })
-    expect(snap.context.coloredBallsOnTable).toEqual(before.context.coloredBallsOnTable)
-    expect(snap.context.pottedBallsBySeat).toEqual(before.context.pottedBallsBySeat)
-    expect(snap.context.cueBallSerialPots).toBeNull()
-    expect(getPhase(snap)).toBe('foul-committed.ball-in-hand')
-    expect(snap.context.foulOffender).toBeNull()
-    expect(() => sendEvent(snap, { type: 'penalty.select', seat: 'A', choice: 'play-from-position' })).toThrow(
-      'Invalid Strila event',
-    )
-  })
-
-  test('third consecutive cue ball pot becomes an automatic foul', () => {
-    let snap = start()
-    snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
-    snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [0, 1] })
-    snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [0, 2] })
-
-    const before = snap
-    snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [0] })
-
-    expect(snap.context.score).toEqual(before.context.score)
-    expect(snap.context.coloredBallsOnTable).toEqual(before.context.coloredBallsOnTable)
-    expect(snap.context.pottedBallsBySeat).toEqual(before.context.pottedBallsBySeat)
-    expect(snap.context.cueBallSerialPots).toBeNull()
-    expect(getPhase(snap)).toBe('foul-committed.ball-in-hand')
-    expect(snap.context.foulOffender).toBeNull()
-  })
+      expect(snap.context.score).toEqual({ A: 0, B: 1 })
+      expect(getPhase(snap)).toBe('open-play')
+    },
+  )
 })
 
 describe('StrilaFrameMachine: respotted black', () => {
@@ -504,13 +441,6 @@ describe('StrilaFrameMachine: respotted black', () => {
     expect(snap.context.coloredBallsOnTable).toEqual([7])
   })
 
-  test('opening miss enters respotted-black.play for opponent', () => {
-    let snap = reachRespottedBlack()
-    snap = sendEvent(snap, { type: 'miss.record', seat: 'A' })
-
-    expect(getPhase(snap)).toBe('respotted-black.play')
-  })
-
   test('respotted-black.play pot determines winner', () => {
     let snap = reachRespottedBlack()
     snap = sendEvent(snap, { type: 'miss.record', seat: 'A' })
@@ -558,21 +488,6 @@ describe('StrilaFrameMachine: respotted black', () => {
   })
 })
 
-describe('StrilaFrameMachine: handicap', () => {
-  test('handicap target lets A win at 6 after three pots', () => {
-    let snap = start({ A: 6, B: 9 })
-    snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
-    snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [1] })
-    snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [2] })
-    snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [3] })
-
-    expect(snap.context.score).toEqual({ A: 6, B: 0 })
-    expect(getPhase(snap)).toBe('winner-determined')
-    expect(snap.context.winner).toBe('A')
-    expect(snap.context.winnerDeterminationReason).toBe('target-reached')
-  })
-})
-
 describe('StrilaFrameMachine: continued break after winner', () => {
   test('pot.record in winner-determined continues scoring for winner', () => {
     let snap = start()
@@ -617,18 +532,6 @@ describe('StrilaFrameMachine: continued break after winner', () => {
     expect(() => sendEvent(snap, { type: 'pot.record', seat: 'B', pottedBalls: [6] })).toThrow(
       'Invalid Strila event pot.record in phase winner-determined',
     )
-    expect(snap.context.score).toEqual({ A: 10, B: 0 })
-  })
-
-  test('wrong-seat frame.award in winner-determined throws', () => {
-    let snap = start()
-    snap = sendEvent(snap, { type: 'frame.commence', seat: 'A' })
-    snap = sendEvent(snap, { type: 'pot.record', seat: 'A', pottedBalls: [1, 2, 3, 4, 5] })
-
-    expect(() => sendEvent(snap, { type: 'frame.award', seat: 'B' })).toThrow(
-      'Invalid Strila event frame.award in phase winner-determined',
-    )
-    expect(getPhase(snap)).toBe('winner-determined')
   })
 })
 

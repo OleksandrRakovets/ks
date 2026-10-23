@@ -163,14 +163,3 @@ export type GameCommandFor<K extends GameKey> = v.InferOutput<(typeof registry)[
 export function isGameKey(value: string): value is GameKey {
   return v.is(GameKey, value)
 }
-
-/** @internal Enumerates registered games for command-boundary tests. */
-export function listGameKeys(): GameKey[] {
-  const keys: GameKey[] = []
-
-  for (const key of Object.keys(registry)) {
-    if (isGameKey(key)) keys.push(key)
-  }
-
-  return keys
-}

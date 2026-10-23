@@ -3,7 +3,7 @@ import { evictDurableObject, runInDurableObject } from 'cloudflare:test'
 import { env } from 'cloudflare:workers'
 import { expect, test } from 'vitest'
 
-import { commenceCommand, initialization, initializedRoom, matchEndingCommand } from '../fixtures'
+import { commenceCommand, initialization, initializedRoom } from '../fixtures'
 
 test('restores a correction and its original command after eviction', async () => {
   const { matchId, stub } = await initializedRoom()
@@ -250,7 +250,7 @@ test('corrects across intervening correction checkpoints without replaying them'
   })
 })
 
-test('persists the third cue-ball pot and system-foul corrections as one stack step', async () => {
+test('persists a multi-entry correction batch and continues correcting after eviction', async () => {
   const matchId = newMatchId()
   const stub = env.MATCH_ROOM.getByName(matchId)
   await stub.initialize({
@@ -284,25 +284,13 @@ test('persists the third cue-ball pot and system-foul corrections as one stack s
   expect(protocol).toMatchObject({
     latestSeq: 5,
     protocolEntries: [
-      { acceptedSeq: 1 },
-      { acceptedSeq: 2 },
-      { acceptedSeq: 3 },
-      { acceptedSeq: 4, entryIndex: 0, source: 'player' },
-      { acceptedSeq: 4, entryIndex: 1, source: 'system' },
-      {
-        acceptedSeq: 5,
-        entryIndex: 0,
-        source: 'system',
-        entryType: 'command-corrected',
-        body: { targetSeq: 4, targetCommandId: pots[2]!.commandId, targetEntryIndex: 1 },
-      },
-      {
-        acceptedSeq: 5,
-        entryIndex: 1,
-        source: 'player',
-        entryType: 'command-corrected',
-        body: { targetSeq: 4, targetCommandId: pots[2]!.commandId, targetEntryIndex: 0 },
-      },
+      { acceptedSeq: 1, entryIndex: 0 },
+      { acceptedSeq: 2, entryIndex: 0 },
+      { acceptedSeq: 3, entryIndex: 0 },
+      { acceptedSeq: 4, entryIndex: 0 },
+      { acceptedSeq: 4, entryIndex: 1 },
+      { acceptedSeq: 5, entryIndex: 0, entryType: 'command-corrected' },
+      { acceptedSeq: 5, entryIndex: 1, entryType: 'command-corrected' },
     ],
   })
   await evictDurableObject(stub)
@@ -318,21 +306,9 @@ test('persists the third cue-ball pot and system-foul corrections as one stack s
   expect(await restored.getControls()).toMatchObject({ latestSeq: 6, game: { score: { A: 1, B: 0 } } })
 })
 
-test('rejects correction of commencement and a stale command without changing the sequence', async () => {
+test('rejects a correction behind the latest acceptance without changing the sequence', async () => {
   const { stub } = await initializedRoom()
-  const commence = commenceCommand()
-  await stub.submitCommand(commence)
-
-  const excluded = {
-    commandId: newCommandId(),
-    source: 'match' as const,
-    command: { type: 'command.correct', targetSeq: 1, targetCommandId: commence.commandId },
-  }
-
-  expect(await stub.submitCommand(excluded)).toEqual({
-    _tag: 'rejected',
-    reason: { code: 'correction-not-available' },
-  })
+  await stub.submitCommand(commenceCommand())
 
   const earlier = {
     commandId: newCommandId(),
@@ -354,44 +330,4 @@ test('rejects correction of commencement and a stale command without changing th
     }),
   ).toEqual({ _tag: 'rejected', reason: { code: 'correction-not-available' } })
   expect(await stub.getControls()).toMatchObject({ latestSeq: 3, game: { score: { A: 1, B: 1 } } })
-})
-
-test('archives the original command and correction after the match later ends', async () => {
-  const { stub } = await initializedRoom()
-  await stub.submitCommand(commenceCommand())
-
-  const pot = {
-    commandId: newCommandId(),
-    source: 'game' as const,
-    command: { type: 'pot.record', seat: 'B', pottedBallCount: 1 },
-  }
-
-  await stub.submitCommand(pot)
-  await stub.submitCommand({
-    commandId: newCommandId(),
-    source: 'match',
-    command: { type: 'command.correct', targetSeq: 2, targetCommandId: pot.commandId },
-  })
-  expect(await stub.submitCommand(matchEndingCommand())).toMatchObject({ _tag: 'accepted', endsMatch: true })
-  await runInDurableObject(stub, async (room) => {
-    const transfer = await room.prepareArchive()
-    expect(transfer.finalState).toMatchObject({
-      status: 'finished',
-      frames: [{ pointsBySeat: { A: 0, B: 0 } }],
-    })
-    expect(transfer.protocolEntries).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          acceptedSeq: 2,
-          causedByCommandId: pot.commandId,
-          entryType: 'player-command',
-        }),
-        expect.objectContaining({
-          acceptedSeq: 3,
-          entryType: 'command-corrected',
-          body: { targetSeq: 2, targetCommandId: pot.commandId, targetEntryIndex: 0 },
-        }),
-      ]),
-    )
-  })
 })

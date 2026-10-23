@@ -2,27 +2,14 @@ import { describe, expect, test } from 'bun:test'
 
 import * as v from 'valibot'
 
-import {
-  formatPlayerRef,
-  GuestPlayerId,
-  MatchId,
-  newGuestPlayerId,
-  newMatchId,
-  newVerifiedPlayerId,
-  PlayerRef,
-  VerifiedPlayerId,
-} from './ids'
+import { formatPlayerRef } from './ids'
 
-describe('ID generation', () => {
-  test('npm ULIDs satisfy every public generated ID schema', () => {
-    expect(v.is(GuestPlayerId, newGuestPlayerId())).toBe(true)
-    expect(v.is(VerifiedPlayerId, newVerifiedPlayerId())).toBe(true)
-    expect(v.is(MatchId, newMatchId())).toBe(true)
+describe('player refs', () => {
+  test('formats a player ref as the kind prefix joined to the id', () => {
+    expect<string>(formatPlayerRef('gp', '01ARZ3NDEKTSV4RRFFQ69G5FAV')).toBe('gp_01ARZ3NDEKTSV4RRFFQ69G5FAV')
   })
 
-  test('formats player refs', () => {
-    const id = '01ARZ3NDEKTSV4RRFFQ69G5FAV'
-
-    expect(formatPlayerRef('gp', id)).toBe(v.parse(PlayerRef, `gp_${id}`))
+  test('rejects a malformed player ref', () => {
+    expect(() => formatPlayerRef('gp', 'not-a-ulid')).toThrow(v.ValiError)
   })
 })

@@ -68,3 +68,26 @@ test('projects presentation and limits selectable pots to balls remaining', () =
   historicalScore.A = 99
   expect(deriveLongFreePyramidControlProjection(snapshot).game.details.rackHistory[0]!.scoreBySeat.A).toBe(14)
 })
+
+test('projects rack history and the rack-started message after a rollover', () => {
+  let snapshot = sendEvent(createInitialSnapshot({ targetPointsBySeat: { A: 30, B: 30 }, rackRollover: 14 }), {
+    type: 'frame.commence',
+    seat: 'A',
+  })
+
+  for (const pottedBallCount of [4, 4, 4, 2] as const) {
+    snapshot = sendEvent(snapshot, { type: 'pot.record', seat: 'A', pottedBallCount })
+  }
+
+  expect(deriveLongFreePyramidControlProjection(snapshot).game).toMatchObject({
+    score: { A: 14, B: 0 },
+    details: {
+      ballsOnTable: 16,
+      rackHistory: [
+        { rackNumber: 1, scoreBySeat: { A: 14, B: 0 } },
+        { rackNumber: 2, scoreBySeat: { A: 0, B: 0 } },
+      ],
+      messages: [{ code: 'rack-started', rackNumber: 2 }],
+    },
+  })
+})

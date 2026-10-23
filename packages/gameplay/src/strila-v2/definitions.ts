@@ -42,7 +42,6 @@ export const StrilaMeta = {
   allBalls: BALLS,
   coloredBalls: COLORED_BALLS,
   cueBall: CueBall.literal,
-  defaultTargetPoints: { A: 9, B: 9 },
 } as const
 
 const FoulResponseChoice = v.picklist(['play-from-position', 'pass-position', 'ball-in-hand'])

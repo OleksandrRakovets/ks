@@ -93,9 +93,6 @@ describe('GameplaySession', () => {
 
       if (frameCompletion._tag === 'accepted') expect(v.is(FrameOutcome, frameCompletion.outcome)).toBe(true)
 
-      expect(session.deriveControls()).not.toBe(session.deriveControls())
-      expect(session.getScore()).not.toBe(session.getScore())
-
       const replay = scenario.create()
       expect(replay.execute({ type: 'frame.commence', seat: 'A' })).toEqual(commenced)
       // SAFETY: each scenario creates the replay session and score command for the same literal game key.
@@ -110,6 +107,7 @@ describe('GameplaySession', () => {
     const session = createGameplaySession('free-pyramid', { targetPointsBySeat: { A: 8, B: 9 } })
     expect(session.execute({ type: 'frame.commence', seat: 'B' })._tag).toBe('accepted')
     const checkpoint = v.parse(PyramidCheckpoint, session.exportCheckpoint())
+    expect(v.is(PyramidCheckpoint, { ...checkpoint, value: 'unknown-phase' })).toBe(false)
     const restored = restorePyramidGameplaySession('free-pyramid', checkpoint)
     expect(restored.exportCheckpoint()).toEqual(checkpoint)
     expect(restored.execute({ type: 'pot.record', seat: 'B', pottedBallCount: 4 })._tag).toBe('accepted')
@@ -138,6 +136,7 @@ describe('GameplaySession', () => {
     })
 
     expect(session.execute({ type: 'frame.commence', seat: 'A' })._tag).toBe('accepted')
+    expect(session.exportCheckpoint().context.rackRollover).toBe(14)
 
     const checkpoint = v.parse(LongFreePyramidCheckpoint, {
       ...session.exportCheckpoint(),

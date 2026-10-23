@@ -1,10 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
-import { Seat } from '@ks/core'
-import * as v from 'valibot'
-
 import { parseGameCommand } from './parse-game-command'
-import { type GameKey, listGameKeys } from './registry'
+import type { GameKey } from './registry'
 
 const strilaValidCommands = [
   { type: 'frame.commence', seat: 'A' },
@@ -23,20 +20,16 @@ const pyramidValidCommands = [
   { type: 'frame.award', seat: 'A' },
 ] as const
 
-const longValidCommands = [
-  { type: 'frame.commence', seat: 'A' },
-  { type: 'pot.record', seat: 'A', pottedBallCount: 1 },
-  { type: 'foul.commit', seat: 'A' },
-  { type: 'frame.award', seat: 'A' },
-] as const
-
 const validCommandsByKey = {
   'strila-v2': strilaValidCommands,
   'free-pyramid': pyramidValidCommands,
   'combined-pyramid': pyramidValidCommands,
   'combined-pyramid-old': pyramidValidCommands,
-  'free-pyramid-long': longValidCommands,
+  'free-pyramid-long': pyramidValidCommands,
 } as const satisfies Record<GameKey, readonly { type: string }[]>
+
+// SAFETY: validCommandsByKey is exhaustively keyed by GameKey above.
+const gameKeys = Object.keys(validCommandsByKey) as GameKey[]
 
 function representativePotCommand(gameKey: GameKey) {
   if (gameKey === 'strila-v2') return { type: 'pot.record', seat: 'A', pottedBalls: [1] }
@@ -47,33 +40,30 @@ function representativePotCommand(gameKey: GameKey) {
 }
 
 describe('parseGameCommand', () => {
-  // SAFETY: validCommandsByKey is exhaustively keyed by GameKey above.
-  const gameKeys = Object.keys(validCommandsByKey) as GameKey[]
   test.each(gameKeys)('%s parses every valid command without changing its shape', (gameKey) => {
     for (const input of validCommandsByKey[gameKey]) {
       const parsed = parseGameCommand(gameKey, input)
-      expect(parsed).toMatchObject({ _tag: 'parsed', command: input })
+      expect(parsed).toEqual({ _tag: 'parsed', command: input })
     }
   })
 
-  test.each(listGameKeys())('%s rejects unknown command type', (gameKey) => {
+  test.each(gameKeys)('%s rejects unknown command type', (gameKey) => {
     expect(parseGameCommand(gameKey, { type: 'match.end' })._tag).toBe('game-command-parse-failure')
   })
 
-  test.each(listGameKeys())('%s rejects unknown fields', (gameKey) => {
+  test.each(gameKeys)('%s rejects unknown fields', (gameKey) => {
     expect(parseGameCommand(gameKey, { ...representativePotCommand(gameKey), extra: true })._tag).toBe(
       'game-command-parse-failure',
     )
   })
 
-  test.each(listGameKeys())('%s rejects missing required fields', (gameKey) => {
+  test.each(gameKeys)('%s rejects missing required fields', (gameKey) => {
     expect(parseGameCommand(gameKey, { type: 'pot.record' })._tag).toBe('game-command-parse-failure')
   })
 
-  test.each(listGameKeys())('%s rejects invalid seat', (gameKey) => {
+  test.each(gameKeys)('%s rejects invalid seat', (gameKey) => {
     const result = parseGameCommand(gameKey, { ...representativePotCommand(gameKey), seat: 'C' })
     expect(result._tag).toBe('game-command-parse-failure')
-    expect(v.safeParse(Seat, 'C').success).toBe(false)
   })
 
   test('Strila rejects duplicate, out-of-range, and empty ball selections', () => {

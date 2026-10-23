@@ -55,10 +55,23 @@ test('rejects routed identity mismatch and conflicting initialization', async ()
   })
 })
 
-test('reconstructs after eviction without reinitializing', async () => {
+test('reconstructs active Controls after eviction without reinitializing', async () => {
   const { matchId, stub } = await initializedRoom()
   await evictDurableObject(stub)
   const restored = env.MATCH_ROOM.getByName(matchId)
-  expect(await restored.getControls()).toMatchObject({ _tag: 'active', latestSeq: 0 })
+  const controls = await restored.getControls()
+  expect(controls).toMatchObject({
+    _tag: 'active',
+    latestSeq: 0,
+    state: {
+      status: 'active',
+      currentFrameIndex: 1,
+      frames: [{ frameIndex: 1, breakerSeat: 'A', pointsBySeat: { A: 0, B: 0 } }],
+    },
+    game: { gameKey: 'free-pyramid', score: { A: 0, B: 0 }, details: { phase: 'not-started' } },
+    controls: [{ source: 'match', type: 'frame.commence', seat: 'A' }],
+  })
+  expect(controls).not.toHaveProperty('controlPhase')
+  expect(controls).not.toHaveProperty('protocolEntries')
   expect(await restored.initialize(initialization(matchId))).toEqual({ _tag: 'initialized', matchId })
 })
