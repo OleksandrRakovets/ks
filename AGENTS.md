@@ -54,6 +54,8 @@ Before opening a PR or shipping to dev, run `bun run test:e2e` (Chromium browser
 
 The owner runs deployments, and only when no Active Matches and no finalization/archival are pending; if asked to deploy, verify that first. Storage changes may rely on this precondition: no deployment interrupts an Active Match or pending archival, so retained MatchRoom state needs no legacy runtime compatibility (see [MatchRoom](do/match-room/AGENTS.md)).
 
+- Annotated Git tags `deploy-001`, `deploy-002`, … record actual, owner-confirmed production deployments in sequence, not planned releases or every commit on `dev`. Tag the exact deployed commit, normally on `dev`; historical deployments may point outside its ancestry. Include the Cloudflare deployment timestamp (UTC) and Worker version ID in the annotation. Never move or reuse an existing deployment tag.
+- Agents use these tags as read-only reference points for production comparisons and investigations. They are not deployment triggers or authorization to deploy, roll back, or apply remote migrations; deployments remain owner-run. Do not create or push deployment tags unless explicitly requested. The highest tag is the latest recorded deployment, not proof of the currently running Cloudflare version.
 - Prefer explicit D1 schema/data migrations over legacy runtime branches. State migration/deployment ordering against the running Worker; report every added migration and its ordering to the user and in PR descriptions. Remote migrations require explicit authorization.
 - Do not rewrite applied migration history. If migrations cannot safely resolve compatibility, explain the limitation, scope, and removal condition before adding legacy code.
 
