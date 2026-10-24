@@ -39,6 +39,14 @@ export const resources = {
         live: 'Live',
         finished: 'Завершено',
       },
+      scoreboard: {
+        tips: {
+          frameBall: '{{ball}} — партійна куля',
+          potRespotsBlack: 'Забита {{ball}} — додаткова чорна',
+          potLosesFrame: 'Забита {{ball}} віддає партію',
+          thirdCueBallPot: 'Ще одне падіння битка — фол',
+        },
+      },
       match: {
         control: {
           invalidCommandPayload: 'Некоректні дані команди',
@@ -330,6 +338,14 @@ export const resources = {
       status: {
         live: 'Live',
         finished: 'Finished',
+      },
+      scoreboard: {
+        tips: {
+          frameBall: '{{ball}} is the frame ball',
+          potRespotsBlack: 'Potting {{ball}} respots the black',
+          potLosesFrame: 'Potting {{ball}} loses the frame',
+          thirdCueBallPot: 'Another cue-ball pot is a foul',
+        },
       },
       match: {
         control: {

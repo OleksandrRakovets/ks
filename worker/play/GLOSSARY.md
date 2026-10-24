@@ -51,6 +51,10 @@ _Avoid_: View
 The game-specific descriptive portion of a projection, such as score, phase, ball state, messages, or situation copy. It describes what the user interface presents but excludes Controls, which remain sibling capabilities in the containing projection.
 _Avoid_: Game view, Control projection when naming only the descriptive portion
 
+**Scoreboard**:
+The public, read-only score display of one match for a live-stream audience: self-contained artwork composited over the camera picture. It is not the in-app Board at the top of Match pages, whose copy uses the older `match.scoreboard.*` keys. The Streamer's rasterized image of the same artwork is a *scorebug*.
+_Avoid_: Overlay; scorebug outside the Streamer
+
 **Control**:
 A description of an interaction that the current match projection permits the user interface to present. A control may contain fixed input and may require additional user input before the renderer produces a Command. Controls are disposable presentation guidance; they are not submitted, accepted, or retained as match history.
 _Avoid_: Available command, command preset

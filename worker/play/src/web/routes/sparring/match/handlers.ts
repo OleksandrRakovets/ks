@@ -1,5 +1,5 @@
 import { MatchCommand, MatchId } from '@ks/core'
-import { type GameKey, registry } from '@ks/gameplay/definitions'
+import { GameKey, registry } from '@ks/gameplay/definitions'
 import { keys } from '@ks/i18n'
 import { redirect } from 'react-router'
 import * as v from 'valibot'
@@ -54,6 +54,34 @@ export async function loadMatchProtocolPage<K extends GameKey>(
   const protocol = await loadMatchProtocol(args, expectedGameKey)
 
   return decideMatchPage(protocol)
+}
+
+const ScoreboardQuery = v.object({
+  layout: v.optional(v.picklist(['compact', 'wide']), 'compact'),
+  theme: v.optional(v.picklist(['default']), 'default'),
+})
+
+/**
+ * Scoreboard page loader. A missing or discarded match is a successful empty read, so a stream
+ * source renders nothing instead of an error page; malformed URLs remain HTTP failures.
+ */
+export async function loadMatchScoreboard(args: RouteArgs & { params: { gameKey?: string } }) {
+  const gameKey = v.safeParse(GameKey, args.params.gameKey)
+
+  if (!gameKey.success) throw new Response('Unknown game', { status: 404 })
+
+  const matchId = matchIdFromParams(args.params)
+  const query = v.safeParse(ScoreboardQuery, Object.fromEntries(new URL(args.request.url).searchParams))
+
+  if (!query.success) throw new Response('Invalid scoreboard options', { status: 400 })
+
+  const read = await requireApplication(args.context).sparring.readMatch(
+    matchId,
+    localeFromContext(args.context),
+    gameKey.output,
+  )
+
+  return { matchId, read, ...query.output }
 }
 
 /** Match page action: a single `intent=discard` field selects discard; otherwise the form carries one Command. */
