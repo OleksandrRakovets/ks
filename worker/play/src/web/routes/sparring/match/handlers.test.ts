@@ -5,7 +5,12 @@ import { newCommandId, newMatchId } from '@ks/core'
 import { keys } from '@ks/i18n'
 import { RouterContextProvider } from 'react-router'
 
-import { loadMatchPage, loadMatchProtocolPage, matchAction } from '@/routes/sparring/match/handlers'
+import {
+  loadMatchPage,
+  loadMatchProtocolPage,
+  loadMatchScoreboard,
+  matchAction,
+} from '@/routes/sparring/match/handlers'
 import { type AppLoadContext, cloudflareContext } from '@/server/context.server'
 import { consumeNotice } from '@/server/notice.server'
 
@@ -219,6 +224,33 @@ function commandRequest(): Request {
 
   return new Request('http://localhost', { method: 'POST', body: form })
 }
+
+describe('loadMatchScoreboard HTTP contract', () => {
+  const unknownMatch = makeContext({ readMatch: async () => ({ ok: false, reason: 'unknown-match' }) })
+
+  const load = (gameKey: string, search = '') =>
+    loadMatchScoreboard({
+      params: { gameKey, matchId: newMatchId() },
+      request: new Request(`http://localhost/sparring/match/${gameKey}/x/scoreboard/${search}`),
+      context: unknownMatch,
+    })
+
+  test.each(['?layout=banner', '?theme=neon'])('rejects %s with 400', async (search) => {
+    expect(await handlerFailure(() => load('strila-v2', search))).toMatchObject({ status: 400 })
+  })
+
+  test('rejects an unknown game with 404', async () => {
+    expect(await handlerFailure(() => load('snooker'))).toMatchObject({ status: 404 })
+  })
+
+  test('a missing match is a successful empty read with default options', async () => {
+    expect(await load('strila-v2')).toMatchObject({
+      read: { ok: false, reason: 'unknown-match' },
+      layout: 'compact',
+      theme: 'default',
+    })
+  })
+})
 
 async function handlerFailure(operation: () => Promise<object>): Promise<Error | Response> {
   try {

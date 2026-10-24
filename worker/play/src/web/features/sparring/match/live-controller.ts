@@ -194,9 +194,9 @@ export class MatchLiveController {
 
     if (succeeded) this.#drain()
     else {
-      // Router loader errors use its error boundary, not this controller's last-data UI. If this
-      // owner remains mounted, retry at the watchdog deadline instead of spinning on a target
-      // cursor which the failed read could not reach.
+      // Control and Protocol loader errors reach Router's error boundary, which unmounts this owner;
+      // the scoreboard's read resolves failures and keeps its last state. Whenever the owner stays
+      // mounted, retry at the watchdog deadline instead of spinning on an unreachable cursor.
       this.#forced = true
       this.#schedule()
     }
