@@ -35,6 +35,14 @@ export const keys = {
     live: 'status.live',
     finished: 'status.finished',
   },
+  scoreboard: {
+    tips: {
+      frameBall: 'scoreboard.tips.frameBall',
+      potRespotsBlack: 'scoreboard.tips.potRespotsBlack',
+      potLosesFrame: 'scoreboard.tips.potLosesFrame',
+      thirdCueBallPot: 'scoreboard.tips.thirdCueBallPot',
+    },
+  },
   match: {
     control: {
       invalidCommandPayload: 'match.control.invalidCommandPayload',

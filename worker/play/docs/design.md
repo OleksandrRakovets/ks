@@ -108,6 +108,21 @@ must be independently editable; Setup uses registry names. Play guidance identif
 - Winner and loser styling on list rows and Result echoes the Board so the surfaces read as one
   product.
 
+## Stream scoreboard
+
+- The scoreboard is one self-contained `<svg>` per layout with inline presentation attributes only:
+  no stylesheet classes, `foreignObject`, external images, or web fonts. The Streamer rasterizes
+  the same artwork, so the page may only position and scale it on the 1920×1080 stage.
+- Each layout keeps a fixed box and anchor in every state, including the ball row and the space
+  reserved for the secondary row. A missing or discarded match renders the same box empty.
+- Rows keep one purpose: the ball row above the bar, the primary row (names, points, `1 (3) 2`),
+  and a secondary row of per-player tips that appears only with content. Its centre and a slot
+  between each name and its points stay reserved for frame history and a breaker/shooter marker.
+- Show the last good state; never a stale or error indicator. Tips come from a viewer whitelist;
+  operator instructions stay off stream.
+- Sizes are stage pixels: a 720p source shows them at two thirds. The 16px minimum applies to the
+  app, not the stream.
+
 ## Colour and type
 
 - Green commits, amber marks a pending unrecorded selection, red is failure or foul, and blue-dim

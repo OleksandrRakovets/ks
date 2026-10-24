@@ -25,7 +25,8 @@ export function StrilaBall(props: { ball: StrilaBallValue; selected?: boolean; c
   )
 }
 
-const STRILA_BALL_PALETTE = {
+/** Ball colours shared by the in-app balls and the self-contained scoreboard artwork. */
+export const STRILA_BALL_PALETTE = {
   0: { highlight: '#FFFDF7', base: '#F0E8D8', shade: '#C9B995' },
   1: { highlight: '#F44A59', base: '#D51F36', shade: '#8F0D21' },
   2: { highlight: '#FFC557', base: '#EFA51B', shade: '#A85B06' },

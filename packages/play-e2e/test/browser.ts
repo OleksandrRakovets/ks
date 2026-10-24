@@ -53,9 +53,13 @@ export async function openPage(page: Page, path: string) {
 export async function createMatch(
   request: APIRequestContext,
   name: string,
-  { frames = 1, targets = [8, 8] }: { frames?: number; targets?: readonly [number, number] } = {},
+  {
+    frames = 1,
+    targets = [8, 8],
+    game = 'free-pyramid',
+  }: { frames?: number; targets?: readonly [number, number]; game?: 'free-pyramid' | 'strila-v2' } = {},
 ) {
-  const response = await request.post('/en/sparring/setup/free-pyramid/', {
+  const response = await request.post(`/en/sparring/setup/${game}/`, {
     form: {
       seatAName: `Test-${name} Alice`,
       seatBName: `Test-${name} Bob`,
