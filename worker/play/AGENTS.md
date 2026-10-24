@@ -45,6 +45,12 @@ The `worker/play` workspace is Play's single Cloudflare Worker deployable. It ow
 - A completed Router request is not a committed React projection: acknowledge match reads after the commit, and release live listeners, timers, and sockets at the Result commit, not in a passive effect.
 - Hide handlers do brief synchronous cleanup only; nothing may depend on hide events firing. The root error boundary retries failed GETs, excluding genuine 404s; single fetch assigns a failed request to root, so route-level boundaries cannot own network recovery. Finished pages have no live subscriptions or polling. Browser `offline` estimates must not disable controls or stop retries: they do not establish server reachability.
 
+## Superadmin Gate
+
+- `src/superadmin-access.ts` gates every `/superadmin` and `/en/superadmin` request, including Router data, on a valid Cloudflare Access token before React Router runs. It fails closed when configuration, the token, or certs are missing. It does not trust Access to intercept the path.
+- React Router also matches path variants the gate does not, such as percent-encoded segments. Every superadmin loader must therefore require `superadminContext` and 404 without it.
+- `SUPERADMIN_ACCESS_TEAM_DOMAIN` and `SUPERADMIN_ACCESS_AUD` are committed `vars` in `wrangler.jsonc`. The local bypass is `SUPERADMIN_ACCESS_BYPASS=local` in the untracked `.dev.vars`, and only Vite dev builds honor it: production builds compile the branch away, so the bypass cannot be enabled through config.
+
 ## UI Ownership
 
 - Import `web` modules through the `@/` alias, never relative paths; only React Router's generated `./+types/*` imports stay relative. Oxlint enforces this.

@@ -3,9 +3,15 @@ import { SystemClock } from '@ks/core'
 import { createRequestHandler, RouterContextProvider } from 'react-router'
 import * as v from 'valibot'
 
-import { assetsContext, cloudflareContext, type CloudflareLoadContext } from '@/server/context.server'
+import {
+  assetsContext,
+  cloudflareContext,
+  type CloudflareLoadContext,
+  superadminContext,
+} from '@/server/context.server'
 
 import { handleSparringMatchLiveRequest } from './sparring-match-live'
+import { checkSuperadminAccess } from './superadmin-access'
 
 export { MatchRoom } from '@ks/match-room'
 
@@ -26,6 +32,10 @@ export default {
 
     if (liveResponse) return liveResponse
 
+    const superadminAccess = await checkSuperadminAccess(request, env)
+
+    if (superadminAccess._tag === 'denied') return superadminAccess.response
+
     // All remaining requests are handed to React Router.
     const context = new RouterContextProvider()
 
@@ -36,6 +46,8 @@ export default {
 
     context.set(assetsContext, env.ASSETS)
     context.set(cloudflareContext, loadContext)
+
+    if (superadminAccess._tag === 'granted') context.set(superadminContext, superadminAccess.superadmin)
 
     return requestHandler(request, context)
   },

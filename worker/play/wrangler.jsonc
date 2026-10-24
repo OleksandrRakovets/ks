@@ -19,6 +19,13 @@
       "persist": true,
     },
   },
+  // Superadmin gate (src/superadmin-access.ts). Cloudflare Access team domain, e.g.
+  // "https://<team>.cloudflareaccess.com", and the Access application's Audience (AUD) tag.
+  // Empty values reject every /superadmin/ request.
+  "vars": {
+    "SUPERADMIN_ACCESS_TEAM_DOMAIN": "",
+    "SUPERADMIN_ACCESS_AUD": "",
+  },
   "routes": [
     {
       "pattern": "play.ks.ua",

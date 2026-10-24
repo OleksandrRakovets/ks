@@ -40,6 +40,7 @@ export default [
       'sparring/match/combined-pyramid-old/:matchId/protocol/',
       'routes/sparring/match/combined-pyramid-old-protocol.tsx',
     ),
+    route('superadmin/', 'routes/superadmin/index.tsx'),
     route('top-secret/preview/', 'routes/preview/index.tsx'),
     route('top-secret/preview/ui/', 'routes/preview/ui.tsx'),
     route('top-secret/preview/coin/', 'routes/preview/coin.tsx'),

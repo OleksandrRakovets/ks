@@ -16,3 +16,15 @@ test('successful HTML and Router data are no-store while built CSS is not no-sto
   expect(asset.ok()).toBe(true)
   expect(asset.headers()['cache-control'] ?? '').not.toContain('no-store')
 })
+
+// The built Worker has no development bypass, and its committed Access configuration is empty or
+// real, so unauthenticated superadmin pages and data fail closed; an unverified route match is 404.
+test('superadmin pages and Router data reject requests without a valid Access token', async ({ request }) => {
+  for (const path of ['/superadmin/', '/en/superadmin/', '/superadmin/_.data', '/SUPERADMIN/'])
+    expect((await request.get(path, { maxRedirects: 0 })).status(), path).toBe(403)
+
+  expect(
+    (await request.get('/superadmin/', { headers: { 'Cf-Access-Jwt-Assertion': 'a.b.c' } })).status(),
+  ).toBe(403)
+  expect((await request.get('/%73uperadmin/', { maxRedirects: 0 })).status()).toBe(404)
+})

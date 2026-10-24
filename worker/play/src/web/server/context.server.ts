@@ -19,3 +19,9 @@ export function requireApplication(context: AppLoadContext): Application {
 
   return application
 }
+
+/** Who passed the Worker's superadmin gate. */
+export type Superadmin = { readonly email: string }
+
+/** Set by the Worker only after it verified a superadmin request; every superadmin loader must require it. */
+export const superadminContext = createContext<Superadmin | null>(null)
