@@ -50,6 +50,7 @@ The `worker/play` workspace is Play's single Cloudflare Worker deployable. It ow
 - `src/superadmin-access.ts` gates every request whose decoded path is `/superadmin`, including Router data, on a valid Cloudflare Access token before React Router runs. It fails closed when configuration, the token, certs, or path decoding fail, and does not trust Access to intercept the path. Only people pass: Access service tokens carry no email and are denied.
 - Superadmin is not localized: there is no `/en/superadmin/` route, and its copy is Ukrainian JSX. Every superadmin loader still requires `superadminContext` and 404s without it, as defense in depth against path variants the gate misses.
 - `SUPERADMIN_ACCESS_TEAM_DOMAIN` and `SUPERADMIN_ACCESS_AUD` are committed `vars` in `wrangler.jsonc`. Code compiled by the Vite dev server skips the check (the `import.meta.env.KS_DEV_SERVER` define); every build compiles it away regardless of `NODE_ENV` or mode, and a `vite.config.ts` build hook fails a build that keeps it. Never gate the bypass on runtime config or `isProduction`, which is hostname-derived and cosmetic.
+- The production preview (`vite preview`, the play-preview portal) serves a build, so superadmin returns 403 there by design; use the dev server (`bun run dev`, the `play-dev` portal) for superadmin work.
 
 ## UI Ownership
 
