@@ -26,6 +26,9 @@
     "SUPERADMIN_ACCESS_TEAM_DOMAIN": "",
     "SUPERADMIN_ACCESS_AUD": "",
   },
+  // Serve only play.ks.ua, behind the superadmin Access application; both are also off in the dashboard.
+  "workers_dev": false,
+  "preview_urls": false,
   "routes": [
     {
       "pattern": "play.ks.ua",

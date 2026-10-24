@@ -13,10 +13,6 @@ export const resources = {
           title: 'Щось пішло не так',
         },
       },
-      superadmin: {
-        title: 'Суперадмін',
-        signedInAs: 'Ви увійшли як {{email}}',
-      },
       nav: {
         menu: 'Меню',
         close: 'Закрити',
@@ -306,10 +302,6 @@ export const resources = {
           eyebrow: 'Error',
           title: 'Something went wrong',
         },
-      },
-      superadmin: {
-        title: 'Superadmin',
-        signedInAs: 'Signed in as {{email}}',
       },
       nav: {
         menu: 'Menu',

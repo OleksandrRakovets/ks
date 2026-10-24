@@ -17,14 +17,20 @@ test('successful HTML and Router data are no-store while built CSS is not no-sto
   expect(asset.headers()['cache-control'] ?? '').not.toContain('no-store')
 })
 
-// The built Worker has no development bypass, and its committed Access configuration is empty or
-// real, so unauthenticated superadmin pages and data fail closed; an unverified route match is 404.
+// Builds contain no superadmin bypass and the committed Access configuration is empty, so every
+// superadmin request fails closed at the Worker, including encoded paths and filtered data requests.
 test('superadmin pages and Router data reject requests without a valid Access token', async ({ request }) => {
-  for (const path of ['/superadmin/', '/en/superadmin/', '/superadmin/_.data', '/SUPERADMIN/'])
+  for (const path of [
+    '/superadmin/',
+    '/superadmin/_.data',
+    '/SUPERADMIN/',
+    '/%73uperadmin/',
+    '/super%61dmin/_.data',
+    '/%73uperadmin/_.data?_routes=root',
+  ])
     expect((await request.get(path, { maxRedirects: 0 })).status(), path).toBe(403)
 
-  expect(
-    (await request.get('/superadmin/', { headers: { 'Cf-Access-Jwt-Assertion': 'a.b.c' } })).status(),
-  ).toBe(403)
-  expect((await request.get('/%73uperadmin/', { maxRedirects: 0 })).status()).toBe(404)
+  // Superadmin is not localized: the English path is an ordinary 404, never the superadmin page.
+  for (const path of ['/en/superadmin/', '/%65n/superadmin/', '/en/superadmin/_.data'])
+    expect((await request.get(path, { maxRedirects: 0 })).status(), path).toBe(404)
 })

@@ -1,26 +1,26 @@
 import * as v from 'valibot'
 
-import type { Superadmin } from '@/server/context.server'
+/**
+ * Superadmin pages and their Router data requests, matched on the decoded path case-insensitively
+ * because React Router decodes and matches paths that way.
+ */
+const superadminPath = /^\/+superadmin(?![a-z\d])/i
 
-/** Superadmin pages and their Router data requests, in either locale; matched case-insensitively like routes. */
-const superadminPath = /^\/(?:en\/)?superadmin(?:[/.]|$)/i
-
-/** Worker configuration for the superadmin gate; see `wrangler.jsonc` and `.dev.vars`. */
+/** Worker configuration for the superadmin gate; see `wrangler.jsonc`. */
 export type SuperadminAccessEnv = {
   readonly SUPERADMIN_ACCESS_TEAM_DOMAIN: string
   readonly SUPERADMIN_ACCESS_AUD: string
-  /** Honored only by Vite dev builds; production bundles drop the branch at build time. */
-  readonly SUPERADMIN_ACCESS_BYPASS?: string
 }
 
 export type SuperadminAccess =
   | { readonly _tag: 'public' }
-  | { readonly _tag: 'granted'; readonly superadmin: Superadmin }
+  | { readonly _tag: 'granted' }
   | { readonly _tag: 'denied'; readonly response: Response }
 
 /**
  * Gates superadmin requests on a valid Cloudflare Access token, independently of whether Access
- * itself is configured to intercept the path. Fails closed on missing configuration, tokens, or certs.
+ * itself is configured to intercept the path. Fails closed on missing configuration, tokens, or certs,
+ * and on paths that cannot be decoded. Only code compiled by the Vite dev server skips the check.
  */
 export async function checkSuperadminAccess(
   request: Request,
@@ -28,10 +28,22 @@ export async function checkSuperadminAccess(
   now = Date.now(),
   fetchCerts: FetchCerts = fetch,
 ): Promise<SuperadminAccess> {
-  if (!superadminPath.test(new URL(request.url).pathname)) return { _tag: 'public' }
+  let path: string
 
-  if (import.meta.env.DEV && env.SUPERADMIN_ACCESS_BYPASS === 'local')
-    return { _tag: 'granted', superadmin: { email: 'local-development' } }
+  try {
+    path = decodeURI(new URL(request.url).pathname)
+  } catch {
+    return denied()
+  }
+
+  if (!superadminPath.test(path)) return { _tag: 'public' }
+
+  // Builds compile this branch away; vite.config.ts fails a build that keeps this message.
+  if (import.meta.env.KS_DEV_SERVER === true) {
+    console.warn('Superadmin Access bypassed by the Vite dev server')
+
+    return { _tag: 'granted' }
+  }
 
   const config = v.safeParse(AccessConfig, {
     teamDomain: env.SUPERADMIN_ACCESS_TEAM_DOMAIN,
@@ -49,9 +61,7 @@ export async function checkSuperadminAccess(
   if (token === null) return denied()
 
   try {
-    const superadmin = await verifyAccessToken(token, config.output, now, fetchCerts)
-
-    if (superadmin) return { _tag: 'granted', superadmin }
+    if (await verifyAccessToken(token, config.output, now, fetchCerts)) return { _tag: 'granted' }
   } catch (error) {
     console.error('Superadmin Access token verification failed', error)
   }
@@ -75,6 +85,7 @@ const TokenClaims = v.object({
   iss: v.string(),
   exp: v.number(),
   nbf: v.optional(v.number()),
+  // Only people sign in to superadmin: Access service tokens carry no email and are denied by design.
   email: v.pipe(v.string(), v.nonEmpty()),
 })
 
@@ -96,17 +107,17 @@ async function verifyAccessToken(
   config: AccessConfig,
   now: number,
   fetchCerts: FetchCerts,
-): Promise<Superadmin | null> {
+): Promise<boolean> {
   const segments = /^([\w-]+)\.([\w-]+)\.([\w-]+)$/.exec(token)
 
-  if (!segments) return null
+  if (!segments) return false
   const [, encodedHeader, encodedClaims, encodedSignature] = segments
   const header = parseSegment(TokenHeader, encodedHeader)
 
-  if (!header) return null
+  if (!header) return false
   const jwk = await signingKey(config.teamDomain, header.kid, now, fetchCerts)
 
-  if (!jwk) return null
+  if (!jwk) return false
 
   const key = await crypto.subtle.importKey(
     'jwk',
@@ -119,25 +130,35 @@ async function verifyAccessToken(
   const signed = new TextEncoder().encode(`${encodedHeader}.${encodedClaims}`)
 
   if (!(await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, decodeBase64Url(encodedSignature), signed)))
-    return null
+    return false
 
   const claims = parseSegment(TokenClaims, encodedClaims)
 
-  if (!claims) return null
-  const { aud, iss, exp, nbf, email } = claims
+  if (!claims) return false
+  const { aud, iss, exp, nbf } = claims
   const seconds = now / 1000
 
-  if (iss !== config.teamDomain || exp <= seconds || (nbf !== undefined && nbf > seconds)) return null
+  if (iss !== config.teamDomain || exp <= seconds || (nbf !== undefined && nbf > seconds)) return false
 
-  if (!(Array.isArray(aud) ? aud : [aud]).includes(config.audience)) return null
-
-  return { email }
+  return (Array.isArray(aud) ? aud : [aud]).includes(config.audience)
 }
 
-/** Per-isolate certs. A token naming an unknown key refetches them (Access rotates keys), at most every few minutes. */
-const certsByTeamDomain = new Map<string, { readonly certs: Certs; readonly fetchedAt: number }>()
+/**
+ * Per-isolate certs fetches, shared by concurrent requests. Keys expire after an hour so a key
+ * Access removed stops being trusted. A token naming an unknown key refetches at most every five
+ * minutes, so a key rotated sooner after a fetch is rejected until then; a failed fetch retries
+ * after 30 seconds and rejects meanwhile.
+ */
+const certsByTeamDomain = new Map<string, CertsFetch>()
+
+const certsMaxAge = 60 * 60 * 1000
 
 const certsRefetchInterval = 5 * 60 * 1000
+
+const certsRetryInterval = 30 * 1000
+
+/** `certs` resolves to null when the fetch failed. */
+type CertsFetch = { readonly startedAt: number; readonly certs: Promise<Certs | null> }
 
 async function signingKey(
   teamDomain: string,
@@ -145,19 +166,54 @@ async function signingKey(
   now: number,
   fetchCerts: FetchCerts,
 ): Promise<JsonWebKey | null> {
-  const cached = certsByTeamDomain.get(teamDomain)
-  const cachedKey = cached?.certs.keys.find((key) => key.kid === kid)
+  let latest = certsByTeamDomain.get(teamDomain)
 
-  if (cachedKey) return cachedKey
+  if (latest === undefined || now - latest.startedAt >= certsMaxAge)
+    latest = refreshCerts(teamDomain, latest, now, fetchCerts)
+  let certs = await latest.certs
+  const key = certs?.keys.find((candidate) => candidate.kid === kid)
 
-  if (cached && now - cached.fetchedAt < certsRefetchInterval) return null
-  const response = await fetchCerts(`${teamDomain}/cdn-cgi/access/certs`)
+  if (key) return key
 
-  if (!response.ok) throw new Error(`Access certs request failed with ${response.status}`)
-  const certs = v.parse(Certs, await response.json())
-  certsByTeamDomain.set(teamDomain, { certs, fetchedAt: now })
+  if (now - latest.startedAt >= (certs === null ? certsRetryInterval : certsRefetchInterval)) {
+    latest = refreshCerts(teamDomain, latest, now, fetchCerts)
+    certs = await latest.certs
+  }
 
-  return certs.keys.find((key) => key.kid === kid) ?? null
+  if (certs === null) throw new Error('Access certs are unavailable')
+
+  return certs.keys.find((candidate) => candidate.kid === kid) ?? null
+}
+
+/** Starts a fetch unless a concurrent request already replaced `stale`, whose fetch is then reused. */
+function refreshCerts(
+  teamDomain: string,
+  stale: CertsFetch | undefined,
+  now: number,
+  fetchCerts: FetchCerts,
+): CertsFetch {
+  const current = certsByTeamDomain.get(teamDomain)
+
+  if (current !== undefined && current !== stale) return current
+
+  const certs = (async () => {
+    try {
+      const response = await fetchCerts(`${teamDomain}/cdn-cgi/access/certs`)
+
+      if (!response.ok) throw new Error(`Access certs request failed with ${response.status}`)
+
+      return v.parse(Certs, await response.json())
+    } catch (error) {
+      console.error('Superadmin Access certs fetch failed', error)
+
+      return null
+    }
+  })()
+
+  const started = { startedAt: now, certs }
+  certsByTeamDomain.set(teamDomain, started)
+
+  return started
 }
 
 function parseSegment<const Schema extends v.GenericSchema>(

@@ -11,10 +11,6 @@ export const keys = {
       title: 'app.error.title',
     },
   },
-  superadmin: {
-    title: 'superadmin.title',
-    signedInAs: 'superadmin.signedInAs',
-  },
   nav: {
     menu: 'nav.menu',
     close: 'nav.close',

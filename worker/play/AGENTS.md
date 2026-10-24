@@ -47,9 +47,9 @@ The `worker/play` workspace is Play's single Cloudflare Worker deployable. It ow
 
 ## Superadmin Gate
 
-- `src/superadmin-access.ts` gates every `/superadmin` and `/en/superadmin` request, including Router data, on a valid Cloudflare Access token before React Router runs. It fails closed when configuration, the token, or certs are missing. It does not trust Access to intercept the path.
-- React Router also matches path variants the gate does not, such as percent-encoded segments. Every superadmin loader must therefore require `superadminContext` and 404 without it.
-- `SUPERADMIN_ACCESS_TEAM_DOMAIN` and `SUPERADMIN_ACCESS_AUD` are committed `vars` in `wrangler.jsonc`. The local bypass is `SUPERADMIN_ACCESS_BYPASS=local` in the untracked `.dev.vars`, and only Vite dev builds honor it: production builds compile the branch away, so the bypass cannot be enabled through config.
+- `src/superadmin-access.ts` gates every request whose decoded path is `/superadmin`, including Router data, on a valid Cloudflare Access token before React Router runs. It fails closed when configuration, the token, certs, or path decoding fail, and does not trust Access to intercept the path. Only people pass: Access service tokens carry no email and are denied.
+- Superadmin is not localized: there is no `/en/superadmin/` route, and its copy is Ukrainian JSX. Every superadmin loader still requires `superadminContext` and 404s without it, as defense in depth against path variants the gate misses.
+- `SUPERADMIN_ACCESS_TEAM_DOMAIN` and `SUPERADMIN_ACCESS_AUD` are committed `vars` in `wrangler.jsonc`. Code compiled by the Vite dev server skips the check (the `import.meta.env.KS_DEV_SERVER` define); every build compiles it away regardless of `NODE_ENV` or mode, and a `vite.config.ts` build hook fails a build that keeps it. Never gate the bypass on runtime config or `isProduction`, which is hostname-derived and cosmetic.
 
 ## UI Ownership
 

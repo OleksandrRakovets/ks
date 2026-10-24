@@ -47,7 +47,7 @@ export default {
     context.set(assetsContext, env.ASSETS)
     context.set(cloudflareContext, loadContext)
 
-    if (superadminAccess._tag === 'granted') context.set(superadminContext, superadminAccess.superadmin)
+    if (superadminAccess._tag === 'granted') context.set(superadminContext, true)
 
     return requestHandler(request, context)
   },
