@@ -14,6 +14,8 @@ type BallStatus = StrilaGamePresentation['details']['ballStatuses'][StrilaBall]
 
 type StrilaRuleNote = StrilaGamePresentation['details']['ruleNotes'][number]
 
+type LastColoredBall = Extract<StrilaRuleNote, { code: 'last-colored-ball-pot-outcomes' }>['ball']
+
 /** Resolved values for the scoreboard artwork; the artwork derives nothing from a match read. */
 export type ScoreboardValues =
   | { readonly kind: 'empty'; readonly matchId: MatchId }
@@ -33,8 +35,14 @@ export type ScoreboardValues =
       /** Strila's ball row in table order, or null when there is no ball row to show. */
       readonly balls: readonly { readonly ball: StrilaBall; readonly status: BallStatus }[] | null
       /** One viewer tip under the player it concerns; a frame-deciding last-ball outcome wins. */
-      readonly tips: { readonly A: string | null; readonly B: string | null }
+      readonly tips: { readonly A: ScoreboardTip | null; readonly B: ScoreboardTip | null }
     }
+
+/** A viewer tip: its kind and ball drive the copy, which is resolved here for the artwork. */
+type ScoreboardTip = Readonly<
+  | { kind: 'third-cue-ball-pot'; text: string }
+  | { kind: 'frame-ball' | 'pot-ties-frame' | 'pot-loses-frame'; ball: LastColoredBall; text: string }
+>
 
 /**
  * Projects a match read into scoreboard values. A missing or discarded match is empty, not an
@@ -84,34 +92,40 @@ function viewerTips(notes: readonly StrilaRuleNote[], t: TFunction) {
   // third-cue-ball warning.
   const tips = notes
     .flatMap((note) => seatTips(note, t))
-    .sort((a, b) => Number(b.lastBall) - Number(a.lastBall))
+    .sort((a, b) => Number(b.tip.kind !== 'third-cue-ball-pot') - Number(a.tip.kind !== 'third-cue-ball-pot'))
 
-  const first = (seat: Seat) => tips.find((tip) => tip.seat === seat)?.text ?? null
+  const first = (seat: Seat) => tips.find((entry) => entry.seat === seat)?.tip ?? null
 
   return { A: first('A'), B: first('B') }
 }
 
-function seatTips(
-  note: StrilaRuleNote,
-  t: TFunction,
-): readonly { seat: Seat; text: string; lastBall: boolean }[] {
+function seatTips(note: StrilaRuleNote, t: TFunction): readonly { seat: Seat; tip: ScoreboardTip }[] {
   switch (note.code) {
     case 'third-consecutive-cue-ball-pot':
-      return [{ seat: note.seat, text: t(keys.scoreboard.tips.thirdCueBallPot), lastBall: false }]
+      return [
+        {
+          seat: note.seat,
+          tip: { kind: 'third-cue-ball-pot', text: t(keys.scoreboard.tips.thirdCueBallPot) },
+        },
+      ]
     case 'last-colored-ball-pot-outcomes':
-      return note.outcomes.map(({ seat, result }) => ({
-        seat,
-        lastBall: true,
-        text:
-          result.type === 'winner-determined' && result.winnerSeat === seat
-            ? t(keys.scoreboard.tips.frameBall, { ball: t(`match.control.strila.balls.${note.ball}`) })
-            : t(
-                result.type === 'respotted-black'
-                  ? keys.scoreboard.tips.potRespotsBlack
-                  : keys.scoreboard.tips.potLosesFrame,
-                { ball: t(`match.protocol.balls.${note.ball}`) },
-              ),
-      }))
+      return note.outcomes.map(({ seat, result }) => {
+        const kind =
+          result.type === 'respotted-black'
+            ? 'pot-ties-frame'
+            : result.winnerSeat === seat
+              ? 'frame-ball'
+              : 'pot-loses-frame'
+
+        return {
+          seat,
+          tip: {
+            kind,
+            ball: note.ball,
+            text: t(TIP_COPY[kind], { ball: t(`scoreboard.balls.${note.ball}`) }),
+          },
+        }
+      })
     case 'manual-foul-cue-ball-response':
     case 'cue-ball-and-colored-is-foul':
     case 'respotted-black-opening-toss':
@@ -121,3 +135,9 @@ function seatTips(
 
   return []
 }
+
+const TIP_COPY = {
+  'frame-ball': keys.scoreboard.tips.frameBall,
+  'pot-ties-frame': keys.scoreboard.tips.potTiesFrame,
+  'pot-loses-frame': keys.scoreboard.tips.potLosesFrame,
+} as const

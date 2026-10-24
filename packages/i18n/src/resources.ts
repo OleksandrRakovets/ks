@@ -39,10 +39,19 @@ export const resources = {
       },
       scoreboard: {
         tips: {
-          frameBall: '{{ball}} — партійна куля',
-          potRespotsBlack: 'Забита {{ball}} — додаткова чорна',
+          frameBall: 'Партійна куля: {{ball}}',
+          potTiesFrame: 'Забита {{ball}} — нічия, додаткова чорна',
           potLosesFrame: 'Забита {{ball}} віддає партію',
           thirdCueBallPot: 'Ще одне падіння битка — фол',
+        },
+        balls: {
+          1: 'червона',
+          2: 'жовта',
+          3: 'зелена',
+          4: 'коричнева',
+          5: 'синя',
+          6: 'рожева',
+          7: 'чорна',
         },
       },
       match: {
@@ -337,10 +346,19 @@ export const resources = {
       },
       scoreboard: {
         tips: {
-          frameBall: '{{ball}} is the frame ball',
-          potRespotsBlack: 'Potting {{ball}} respots the black',
+          frameBall: 'Frame ball: {{ball}}',
+          potTiesFrame: 'Potting {{ball}} ties the frame',
           potLosesFrame: 'Potting {{ball}} loses the frame',
           thirdCueBallPot: 'Another cue-ball pot is a foul',
+        },
+        balls: {
+          1: 'red',
+          2: 'yellow',
+          3: 'green',
+          4: 'brown',
+          5: 'blue',
+          6: 'pink',
+          7: 'black',
         },
       },
       match: {

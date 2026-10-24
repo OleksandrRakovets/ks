@@ -44,6 +44,7 @@ The `worker/play` workspace is Play's single Cloudflare Worker deployable. It ow
 - Active pages catch up on reconnect, browser return (visible, persisted `pageshow`, focus, online), and independent HTTP deadlines that recover silent sockets and list membership. Never replay a Command POST during freshness recovery; gate background match reads across a local submission or discard and its loader refresh.
 - A completed Router request is not a committed React projection: acknowledge match reads after the commit, and release live listeners, timers, and sockets at the Result commit, not in a passive effect.
 - Hide handlers do brief synchronous cleanup only; nothing may depend on hide events firing. The root error boundary retries failed GETs, excluding genuine 404s; single fetch assigns a failed request to root, so route-level boundaries cannot own network recovery. Finished pages have no live subscriptions or polling. Browser `offline` estimates must not disable controls or stop retries: they do not establish server reachability.
+- Exception: the stream scoreboard reads through a fetcher of its own route whose `clientLoader` turns every failed read into a marker, so it keeps its last good state and never reaches the root boundary; its own ErrorBoundary covers a failed document load.
 
 ## UI Ownership
 

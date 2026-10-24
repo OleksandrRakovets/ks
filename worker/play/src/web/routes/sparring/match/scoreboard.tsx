@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { isRouteErrorResponse, useFetcher, useLoaderData } from 'react-router'
+import { isRouteErrorResponse, useFetcher, useRouteError } from 'react-router'
 
+import { ReadRecovery } from '@/features/freshness/read-recovery'
 import { useScoreboardLiveRevalidation } from '@/features/sparring/match/live'
 import { presentScoreboard } from '@/features/sparring/scoreboard/presentation'
 import {
@@ -19,17 +20,16 @@ export function loader(args: Route.LoaderArgs) {
 }
 
 /**
- * Background reads must never replace the stream with an error page: a failed read resolves to a
- * marker, and the page keeps its last good state. Only a client error (bad URL) stays an error.
+ * Background reads never replace the stream with an error page. Once the page has rendered, its
+ * URL cannot change, so every failed read is transient: it resolves to a marker and the page keeps
+ * its last good state.
  */
 export async function clientLoader({
   serverLoader,
 }: Route.ClientLoaderArgs): Promise<ScoreboardData | { readonly readFailed: true }> {
   try {
     return await serverLoader()
-  } catch (error) {
-    if (isRouteErrorResponse(error) && error.status < 500) throw error
-
+  } catch {
     return { readFailed: true }
   }
 }
@@ -40,33 +40,32 @@ type ScoreboardData = Awaited<ReturnType<typeof loader>>
  * OBS browser-source page: a transparent 1920×1080 stage scaled to the viewport, holding only the
  * scoreboard artwork at its layout's fixed box. No app chrome, notices, or wake lock.
  */
-export default function ScoreboardRoute() {
-  const { t } = useTranslation()
-  const locale = useRootLocale()
-  const loaderData: ScoreboardData = useLoaderData<typeof loader>()
-  // Reads go through a fetcher of this route only, so the root loader is not re-read and cannot
-  // surface a transient network failure in the root error boundary.
-  const fetcher = useFetcher<typeof clientLoader>()
-  const latest = fetcher.data ?? loaderData
-  const [shown, setShown] = useState(loaderData)
+export default function ScoreboardRoute({ loaderData }: Route.ComponentProps) {
+  return <ScoreboardPage initial={'readFailed' in loaderData ? null : loaderData} recover />
+}
 
-  if (!('readFailed' in latest) && latest !== shown) setShown(latest)
+/**
+ * A failed document load (OBS start or scene activation during a storage hiccup) stays transparent
+ * and recovers through the same route read. A malformed URL (400/404) is final.
+ */
+export function ErrorBoundary() {
+  const error = useRouteError()
+
+  return <ScoreboardPage initial={null} recover={!(isRouteErrorResponse(error) && error.status < 500)} />
+}
+
+/**
+ * Reads go through a fetcher of this route only, so the root loader is never re-read and a failed
+ * read cannot reach the root error boundary. Until the first good read the stage stays empty.
+ */
+function ScoreboardPage(props: { initial: ScoreboardData | null; recover: boolean }) {
+  const fetcher = useFetcher<typeof clientLoader>()
+  const [shown, setShown] = useState(props.initial)
+  const latest = fetcher.data
+
+  if (latest !== undefined && !('readFailed' in latest) && latest !== shown) setShown(latest)
 
   const read = () => fetcher.load(`${window.location.pathname}${window.location.search}`)
-
-  const facts = useMemo(
-    () => ({
-      matchId: shown.matchId,
-      lifecycle: shown.read.ok ? shown.read.lifecycle : ('missing' as const),
-      latestSeq: shown.read.ok ? shown.read.latestSeq : 0,
-      readFailed: 'readFailed' in latest,
-    }),
-    // A new object per committed read, including failed and equal-cursor reads.
-    [latest, shown],
-  )
-
-  useScoreboardLiveRevalidation(facts, read)
-  const box = SCOREBOARD_BOXES[shown.layout]
 
   return (
     <>
@@ -81,15 +80,67 @@ export default function ScoreboardRoute() {
         preserveAspectRatio="xMidYMax meet"
         style={{ position: 'fixed', inset: 0, width: '100%', height: '100%' }}
       >
-        <g transform={`translate(${box.x} ${box.y})`}>
-          <ScoreboardSvg
-            values={presentScoreboard(shown.matchId, shown.read, t)}
-            layout={shown.layout}
-            theme={shown.theme}
-            locale={locale}
-          />
-        </g>
+        {shown === null ? (
+          props.recover ? (
+            <Recovery read={read} />
+          ) : null
+        ) : (
+          <LiveScoreboard shown={shown} latest={latest} read={read} />
+        )}
       </svg>
     </>
+  )
+}
+
+function Recovery(props: { read: () => Promise<void> }) {
+  // Starts once: restarting on each render (read is a new closure) would reset the deadline.
+  const read = useRef(props.read)
+
+  useLayoutEffect(() => {
+    read.current = props.read
+  })
+
+  useEffect(() => {
+    const recovery = new ReadRecovery(() => read.current())
+    recovery.start()
+
+    return () => recovery.dispose()
+  }, [])
+
+  return null
+}
+
+function LiveScoreboard(props: {
+  shown: ScoreboardData
+  latest: ScoreboardData | { readonly readFailed: true } | undefined
+  read: () => Promise<void>
+}) {
+  const { t } = useTranslation()
+  const locale = useRootLocale()
+  const { shown, latest } = props
+
+  const facts = useMemo(
+    () => ({
+      matchId: shown.matchId,
+      lifecycle: shown.read.ok ? shown.read.lifecycle : ('missing' as const),
+      latestSeq: shown.read.ok ? shown.read.latestSeq : 0,
+      readFailed: latest !== undefined && 'readFailed' in latest,
+    }),
+    // A new object per completed read, including failed and equal-cursor reads.
+    [latest, shown],
+  )
+
+  useScoreboardLiveRevalidation(facts, props.read)
+  const box = SCOREBOARD_BOXES[shown.layout]
+
+  return (
+    <g transform={`translate(${box.x} ${box.y})`}>
+      <ScoreboardSvg
+        values={presentScoreboard(shown.matchId, shown.read, t)}
+        layout={shown.layout}
+        theme={shown.theme}
+        locale={locale}
+      />
+    </g>
   )
 }

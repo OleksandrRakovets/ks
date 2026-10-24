@@ -18,7 +18,7 @@ export const SCOREBOARD_STAGE = { width: 1920, height: 1080 } as const
  * ≈14% of the frame, below the near cushion and pockets in the club camera views.
  */
 export const SCOREBOARD_BOXES = {
-  compact: { x: 320, y: 930, width: 1280, height: 150 },
+  compact: { x: 280, y: 930, width: 1360, height: 150 },
   wide: { x: 0, y: 930, width: 1920, height: 150 },
 } as const satisfies Record<ScoreboardLayout, { x: number; y: number; width: number; height: number }>
 
@@ -85,36 +85,37 @@ const BALL = { radius: 15, pitch: 40, rowHeight: 44 } as const
 
 /**
  * Per-layout positions. Each name ends before a reserved breaker/shooter slot beside the points,
- * with a fixed slot for a non-default target. Tips sit under their player and stop short of the
- * centre, which stays free for later frame history.
+ * with a fixed slot for a non-default target. Names and tips start at a fixed edge and are clipped
+ * at their end, never fitted. Tips stop short of the centre, which stays free for frame history.
+ * The wide band's secondary row is painted only while a tip shows.
  */
 const GEOMETRY = {
   compact: {
-    width: 1280,
-    bar: { y: 50, height: 60, radius: 12 },
+    width: 1360,
+    bar: { y: 50, radius: 12, tipsHeight: 60 },
     primaryHeight: 60,
-    fonts: { name: 27, target: 22, points: 40, count: 36, race: 24, tip: 20 },
-    names: { A: { from: 20, to: 422 }, B: { from: 858, to: 1260 } },
-    targetSlot: 56,
-    points: { A: { x: 450, width: 80 }, B: { x: 750, width: 80 } },
-    centre: { x: 530, width: 220, inset: 0 },
+    fonts: { name: 26, target: 22, points: 40, count: 36, race: 24, tip: 20 },
+    names: { A: { from: 20, to: 488 }, B: { from: 872, to: 1340 } },
+    targetSlot: 54,
+    points: { A: { x: 516, width: 64 }, B: { x: 780, width: 64 } },
+    centre: { x: 580, width: 200, inset: 0 },
     tips: {
       baseline: 133,
-      A: { from: 20, to: 518 },
-      B: { from: 762, to: 1260 },
-      tab: { y: 110, height: 32, A: { x: 8, width: 522 }, B: { x: 750, width: 522 } },
+      A: { from: 20, to: 568 },
+      B: { from: 872, to: 1340 },
+      tab: { y: 110, height: 32, A: { x: 8, width: 572 }, B: { x: 780, width: 572 } },
     },
   },
   wide: {
     width: 1920,
-    bar: { y: 54, height: 96, radius: 0 },
+    bar: { y: 54, radius: 0, tipsHeight: 96 },
     primaryHeight: 62,
     fonts: { name: 34, target: 26, points: 44, count: 38, race: 26, tip: 24 },
-    names: { A: { from: 48, to: 706 }, B: { from: 1214, to: 1872 } },
+    names: { A: { from: 48, to: 714 }, B: { from: 1206, to: 1872 } },
     targetSlot: 64,
     points: { A: { x: 750, width: 92 }, B: { x: 1078, width: 92 } },
     centre: { x: 850, width: 220, inset: 6 },
-    tips: { baseline: 140, A: { from: 48, to: 840 }, B: { from: 1080, to: 1872 }, tab: null },
+    tips: { baseline: 140, A: { from: 48, to: 840 }, B: { from: 1206, to: 1872 }, tab: null },
   },
 } as const
 
@@ -124,7 +125,7 @@ function MatchArtwork(props: { values: MatchValues; geometry: Geometry; colors: 
   const loser = values.winnerSeat === null ? null : opponentOf(values.winnerSeat)
   const fade = (seat: Seat) => (seat === loser ? 0.5 : 1)
   const slot = values.targets ? g.targetSlot : 0
-  // Name overflow is clipped, never fitted; a shown target keeps its own slot.
+  const hasTips = values.tips.A !== null || values.tips.B !== null
 
   const nameRegion = {
     A: { from: g.names.A.from, to: g.names.A.to - slot },
@@ -180,7 +181,7 @@ function MatchArtwork(props: { values: MatchValues; geometry: Geometry; colors: 
         x={0}
         y={g.bar.y}
         width={g.width}
-        height={g.bar.height}
+        height={hasTips && !g.tips.tab ? g.bar.tipsHeight : g.primaryHeight}
         rx={g.bar.radius}
         fill={c.band}
         fillOpacity={c.bandOpacity}
@@ -189,9 +190,8 @@ function MatchArtwork(props: { values: MatchValues; geometry: Geometry; colors: 
       {SEATS.map((seat) => (
         <g key={seat} opacity={fade(seat)}>
           <text
-            x={seat === 'A' ? g.names.A.from : g.names.B.to}
+            x={nameRegion[seat].from}
             y={baseline(mid, g.fonts.name)}
-            textAnchor={seat === 'A' ? 'start' : 'end'}
             clipPath={`url(#${clipId('name', seat)})`}
             fill={c.text}
             fontSize={g.fonts.name}
@@ -234,15 +234,14 @@ function MatchArtwork(props: { values: MatchValues; geometry: Geometry; colors: 
           ) : null}
           {values.tips[seat] === null ? null : (
             <text
-              x={seat === 'A' ? g.tips.A.from : g.tips.B.to}
+              x={g.tips[seat].from}
               y={g.tips.baseline}
-              textAnchor={seat === 'A' ? 'start' : 'end'}
               clipPath={`url(#${clipId('tip', seat)})`}
               fill={c.amber}
               fontSize={g.fonts.tip}
               fontWeight={600}
             >
-              {values.tips[seat]}
+              {values.tips[seat].text}
             </text>
           )}
         </g>

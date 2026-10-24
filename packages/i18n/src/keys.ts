@@ -38,7 +38,7 @@ export const keys = {
   scoreboard: {
     tips: {
       frameBall: 'scoreboard.tips.frameBall',
-      potRespotsBlack: 'scoreboard.tips.potRespotsBlack',
+      potTiesFrame: 'scoreboard.tips.potTiesFrame',
       potLosesFrame: 'scoreboard.tips.potLosesFrame',
       thirdCueBallPot: 'scoreboard.tips.thirdCueBallPot',
     },

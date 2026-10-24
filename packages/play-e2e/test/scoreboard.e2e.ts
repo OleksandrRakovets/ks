@@ -60,6 +60,59 @@ test('the scoreboard follows live play, keeps its last state through failed read
   await expect(page.getByRole('heading')).toHaveCount(0)
 })
 
+for (const status of [408, 429]) {
+  test(`a background ${status} keeps the last state and recovers without a refresh`, async ({
+    page,
+    request,
+  }) => {
+    const path = await createMatch(request, `Status ${status}`, {
+      game: 'strila-v2',
+      frames: 3,
+      targets: [9, 9],
+    })
+
+    await command(request, path, { source: 'match', command: { type: 'frame.commence', seat: 'A' } })
+    await openPage(page, `${path}scoreboard/?layout=compact`)
+    const artwork = page.locator('svg[data-match-id]')
+    await expect(artwork).toContainText(`Status ${status} Alice`)
+    const seq = await artwork.getAttribute('data-seq')
+
+    // Once rendered, the URL cannot change, so even a client-error status is transient.
+    let failed = 0
+    const isRead = (url: URL) => url.pathname.endsWith('.data')
+    await page.route(isRead, async (route) => {
+      failed++
+      await route.fulfill({ status, body: 'Unavailable' })
+    })
+    await returnHints(page)
+    await expect.poll(() => failed).toBeGreaterThan(0)
+    await expect(page.getByRole('heading')).toHaveCount(0)
+    await expect(artwork).toHaveAttribute('data-seq', String(seq))
+    await expect(artwork).toContainText(`Status ${status} Alice`)
+
+    await page.unroute(isRead)
+    await command(request, path, {
+      source: 'game',
+      command: { type: 'pot.record', seat: 'A', pottedBalls: [1] },
+    })
+    await page.clock.runFor(60_000)
+    await expect(artwork).toHaveAttribute('data-seq', String(Number(seq) + 1))
+    await expect(artwork).toContainText(`Status ${status} Alice2`)
+  })
+}
+
+test('an invalid scoreboard URL renders a transparent empty stage, not the app error page', async ({
+  page,
+  request,
+}) => {
+  const path = await createMatch(request, 'Invalid', { game: 'strila-v2' })
+  const response = await page.goto(`${path}scoreboard/?layout=banner`)
+  expect(response?.status()).toBe(400)
+  await expect(page.getByRole('heading')).toHaveCount(0)
+  await expect(page.locator('svg[data-match-id]')).toHaveCount(0)
+  expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe('rgba(0, 0, 0, 0)')
+})
+
 for (const layout of ['compact', 'wide'] as const) {
   test(`the ${layout} artwork rasterizes standalone exactly as the page renders it`, async ({
     page,

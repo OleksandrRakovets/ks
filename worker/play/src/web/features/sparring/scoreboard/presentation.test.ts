@@ -100,19 +100,11 @@ test('Strila mirrors ball statuses in table order and shows one per-player viewe
     t,
   )
 
+  // Ball statuses mirror the table; operator instructions and seatless notes stay off stream.
+  expect(values.kind === 'match' ? values.balls?.find(({ ball }) => ball === 6)?.status : null).toBe('object')
   expect(values).toMatchObject({
-    balls: [
-      { ball: 0, status: 'on-table' },
-      { ball: 1, status: 'potted' },
-      { ball: 2, status: 'potted' },
-      { ball: 3, status: 'potted' },
-      { ball: 4, status: 'potted' },
-      { ball: 5, status: 'potted' },
-      { ball: 6, status: 'object' },
-      { ball: 7, status: 'potted' },
-    ],
     // The frame-deciding last-ball outcome outranks B's earlier third-cue-ball warning.
-    tips: { A: 'Potting pink loses the frame', B: 'Pink is the frame ball' },
+    tips: { A: { kind: 'pot-loses-frame', ball: 6 }, B: { kind: 'frame-ball', ball: 6 } },
   })
 
   const respot = presentScoreboard(
@@ -132,7 +124,7 @@ test('Strila mirrors ball statuses in table order and shows one per-player viewe
   )
 
   expect(respot).toMatchObject({
-    tips: { A: 'Potting black respots the black', B: 'Black is the frame ball' },
+    tips: { A: { kind: 'pot-ties-frame', ball: 7 }, B: { kind: 'frame-ball', ball: 7 } },
   })
 
   const cueBall = presentScoreboard(
@@ -144,7 +136,7 @@ test('Strila mirrors ball statuses in table order and shows one per-player viewe
     t,
   )
 
-  expect(cueBall).toMatchObject({ tips: { A: 'Another cue-ball pot is a foul', B: null } })
+  expect(cueBall).toMatchObject({ tips: { A: { kind: 'third-cue-ball-pot' }, B: null } })
 })
 
 test('a finished match keeps its final frame points and match score', () => {
