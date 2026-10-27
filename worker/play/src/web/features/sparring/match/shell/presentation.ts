@@ -52,10 +52,10 @@ export function presentActiveSurface<K extends GameKey>(
 
   return {
     header: {
-      title: t(keys.match.scoreboard.frameWithNumber, {
+      title: t(keys.match.frameWithNumber, {
         frameIndex: Math.max(1, data.representedFrame?.frameIndex ?? 0),
       }),
-      rule: t(keys.match.scoreboard.raceToWins, { count: data.targets.matchTargetFrames }),
+      rule: t(keys.match.raceToWins, { count: data.targets.matchTargetFrames }),
     },
     board,
   }
@@ -70,7 +70,7 @@ export function presentFinishedBoard(data: FinishedSurfaceData, t: TFunction): B
   board.caption =
     data.gameKey === 'free-pyramid-long'
       ? data.gameTitle
-      : `${data.gameTitle} · ${t(keys.match.scoreboard.raceToWins, { count: data.targets.matchTargetFrames })}`
+      : `${data.gameTitle} · ${t(keys.match.raceToWins, { count: data.targets.matchTargetFrames })}`
 
   return board
 }

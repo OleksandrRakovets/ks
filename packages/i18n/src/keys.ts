@@ -82,12 +82,9 @@ export const keys = {
       discardWarning: 'match.control.discardWarning',
       discardKeep: 'match.control.discardKeep',
     },
-    scoreboard: {
-      frame: 'match.scoreboard.frame',
-      frameWithNumber: 'match.scoreboard.frameWithNumber',
-      raceToWins: 'match.scoreboard.raceToWins',
-      target: 'match.scoreboard.target',
-    },
+    frameWithNumber: 'match.frameWithNumber',
+    raceToWins: 'match.raceToWins',
+    target: 'match.target',
     result: {
       tabResult: 'match.result.tabResult',
       winner: 'match.result.winner',
