@@ -107,7 +107,7 @@ const CENTRE_GAP = 16
 
 /**
  * Fixed per-layout measures. Each name ends before a reserved breaker/shooter slot beside the
- * points. Names and tips start at the name's edge and clip at their end, never fitted. A tip
+ * points. Names and tips align towards the centre, mirrored, and are clipped, never fitted. A tip
  * extends its player's name box down; per-seat targets extend the points and centre down.
  */
 const LAYOUTS = {
@@ -201,6 +201,8 @@ function MatchArtwork(props: { values: MatchValues; geometry: Geometry; colors: 
   const fade = (seat: Seat) => (seat === loser ? 0.5 : 1)
   const centre = values.centre
   const band = bandPath(g, { A: values.tips.A !== null, B: values.tips.B !== null }, values.targets !== null)
+  // Names and tips hug the centre on both sides, mirrored like a broadcast scoreboard.
+  const inner = { A: g.names.A.to, B: g.names.B.from }
   const clipId = (kind: 'name' | 'tip', seat: Seat) => `${props.idPrefix}-${kind}-${seat}`
 
   return (
@@ -244,8 +246,9 @@ function MatchArtwork(props: { values: MatchValues; geometry: Geometry; colors: 
       {SEATS.map((seat) => (
         <g key={seat} opacity={fade(seat)} clipPath={`url(#${props.idPrefix}-band)`}>
           <text
-            x={g.names[seat].from}
+            x={inner[seat]}
             y={baseline(mid, g.fonts.name)}
+            textAnchor={seat === 'A' ? 'end' : 'start'}
             clipPath={`url(#${clipId('name', seat)})`}
             fill={c.text}
             fontSize={g.fonts.name}
@@ -284,8 +287,9 @@ function MatchArtwork(props: { values: MatchValues; geometry: Geometry; colors: 
           ) : null}
           {values.tips[seat] === null ? null : (
             <text
-              x={g.names[seat].from}
+              x={inner[seat]}
               y={g.top + g.tipBaseline}
+              textAnchor={seat === 'A' ? 'end' : 'start'}
               clipPath={`url(#${clipId('tip', seat)})`}
               fill={c.amber}
               fontSize={g.fonts.tip}

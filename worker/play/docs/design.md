@@ -122,11 +122,12 @@ must be independently editable; Setup uses registry names. Play guidance identif
   long pyramid centres its bare target, or a colon when targets are per seat.
 - Non-default targets show in boxes under the points, with no parentheses. Frame games label them
   "Handicap" under the centre; the stream shows that word, not a separate Setup concept.
-- Long names are not fitted: the font and layout stay fixed, names clip at their end, and the
+- Names and tips align towards the centre on both sides, mirrored as on TV broadcasts.
+- Long names are not fitted: the font and layout stay fixed, names are clipped at their box, and the
   short-name view replaces first names with initials.
 - Rows keep one purpose: the ball row above the bar, the primary row (names, points, centre), and a
   secondary row that appears only with content: per-player tips extending that player's name box
-  down from its edge, and targets extending the points and centre. Otherwise the centre of that row
+  down, and targets extending the points and centre. Otherwise the centre of that row
   stays free for frame history, and a slot between each name and its points for a breaker/shooter
   marker.
 - Compact rounds only the bar's outer corners, including those of the boxes it extends down; inner
