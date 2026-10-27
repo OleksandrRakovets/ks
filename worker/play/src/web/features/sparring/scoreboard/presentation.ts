@@ -22,9 +22,9 @@ type LastColoredBall = Extract<StrilaRuleNote, { code: 'last-colored-ball-pot-ou
  */
 export type ScoreboardSize = Readonly<{
   ballRow: boolean
-  /** Digits in the per-seat points boxes, or null when the centre shows the points. */
-  pointDigits: number | null
-  /** Digits of each side of the centre group and of its parenthesised race. */
+  /** Characters in the per-seat points boxes, minus sign included, or null when the centre shows the points. */
+  pointChars: number | null
+  /** The widest centre group the game can show: digits of each side and of its parenthesised race. */
   countDigits: number
   raceDigits: number
 }>
@@ -40,12 +40,21 @@ export type ScoreboardValues =
       readonly names: { readonly A: string; readonly B: string }
       /** Set once the match is finished; the artwork keeps showing the final state. */
       readonly winnerSeat: Seat | null
-      /** Current frame points, or null when the centre already shows them (a match to points). */
-      readonly points: BySeatNumber | null
+      /** Current frame points with a typographic minus, or null when the centre already shows them. */
+      readonly points: { readonly A: string; readonly B: string } | null
       /** Per-seat point targets, shown only when the configured pair is not the game's default. */
       readonly targets: BySeatNumber | null
-      /** The centre group, read as `A (race) B`. A null race omits the parenthesised target. */
-      readonly centre: { readonly A: number; readonly B: number; readonly race: number | null }
+      /**
+       * The centre group, read as `A (race) B`. A null race omits the parenthesised target. Its
+       * width follows `countDigits`, the widest side this match can show now: fixed by the race in
+       * frame games, growing with the points in a match to points.
+       */
+      readonly centre: {
+        readonly A: number
+        readonly B: number
+        readonly race: number | null
+        readonly countDigits: number
+      }
       /** Strila's ball row in table order, or null when there is no ball row to show. */
       readonly balls: readonly { readonly ball: StrilaBall; readonly status: BallStatus }[] | null
       /** One viewer tip under the player it concerns; a frame-deciding last-ball outcome wins. */
@@ -100,11 +109,20 @@ export function presentScoreboard(
     seq: read.latestSeq,
     names: { A: name('A'), B: name('B') },
     winnerSeat: read.winnerSeat,
-    points: toPoints ? null : framePoints,
+    points: toPoints ? null : { A: signed(framePoints.A), B: signed(framePoints.B) },
     targets: isDefaultTarget || (toPoints && equalTargets) ? null : configured,
     centre: toPoints
-      ? { ...framePoints, race: equalTargets ? configured.A : null }
-      : { ...read.framesWonBySeat, race: read.targets.matchTargetFrames },
+      ? {
+          ...framePoints,
+          race: equalTargets ? configured.A : null,
+          countDigits: Math.max(digits(framePoints.A), digits(framePoints.B)),
+        }
+      : {
+          ...read.framesWonBySeat,
+          race: read.targets.matchTargetFrames,
+          // Frames won never exceed the race, so the group keeps one width all match.
+          countDigits: digits(read.targets.matchTargetFrames),
+        },
     balls: strila ? StrilaMeta.allBalls.map((ball) => ({ ball, status: strila.ballStatuses[ball] })) : null,
     tips: strila ? viewerTips(strila.ruleNotes, t) : { A: null, B: null },
   }
@@ -115,12 +133,27 @@ const RACE_DIGITS = 2
 
 function scoreboardSize(gameKey: GameKey): ScoreboardSize {
   // A frame can end on a pot past its target, so allow points up to twice the largest setup target.
-  const pointDigits = String(2 * registry[gameKey].meta.maxFrameTargetPoints).length
+  const pointDigits = digits(2 * registry[gameKey].meta.maxFrameTargetPoints)
 
-  // Long pyramid is one frame to points: the centre holds points and the target race.
+  // Long pyramid is one frame to points: the centre holds points and the target race. Old-rules
+  // fouls can take a player below zero, so its points boxes also fit a minus sign.
   return gameKey === 'free-pyramid-long'
-    ? { ballRow: false, pointDigits: null, countDigits: pointDigits, raceDigits: pointDigits }
-    : { ballRow: gameKey === 'strila-v2', pointDigits, countDigits: RACE_DIGITS, raceDigits: RACE_DIGITS }
+    ? { ballRow: false, pointChars: null, countDigits: pointDigits, raceDigits: pointDigits }
+    : {
+        ballRow: gameKey === 'strila-v2',
+        pointChars: pointDigits + (gameKey === 'combined-pyramid-old' ? 1 : 0),
+        countDigits: RACE_DIGITS,
+        raceDigits: RACE_DIGITS,
+      }
+}
+
+function digits(value: number) {
+  return String(Math.abs(value)).length
+}
+
+/** U+2212 MINUS SIGN, which matches the digits' width and height unlike a hyphen. */
+function signed(points: number) {
+  return points < 0 ? `\u2212${-points}` : String(points)
 }
 
 /**

@@ -24,16 +24,20 @@ test('a missing or discarded match is an empty scoreboard for the same match', (
   expect(present({ ok: false, reason: 'unknown-match' })).toMatchObject({ kind: 'empty', matchId })
 })
 
-test('the artwork size depends on the game: Strila has a ball row and long pyramid 3-digit points', () => {
-  const strila = present({ ok: false, reason: 'unknown-match' }).size
+test('the artwork size depends on the game: Strila has a ball row, long pyramid 3-digit points', () => {
+  const size = (gameKey: GameKey) =>
+    presentScoreboard({ gameKey, matchId, read: { ok: false, reason: 'unknown-match' }, names: 'full' }, t)
+      .size
 
-  const long = presentScoreboard(
-    { gameKey: 'free-pyramid-long', matchId, read: { ok: false, reason: 'unknown-match' }, names: 'full' },
-    t,
-  ).size
-
-  expect(strila).toEqual({ ballRow: true, pointDigits: 2, countDigits: 2, raceDigits: 2 })
-  expect(long).toEqual({ ballRow: false, pointDigits: null, countDigits: 3, raceDigits: 3 })
+  expect(size('strila-v2')).toEqual({ ballRow: true, pointChars: 2, countDigits: 2, raceDigits: 2 })
+  expect(size('free-pyramid-long')).toEqual({
+    ballRow: false,
+    pointChars: null,
+    countDigits: 3,
+    raceDigits: 3,
+  })
+  // Old-rules points can go negative, so the points boxes fit a minus sign.
+  expect(size('combined-pyramid-old')).toMatchObject({ pointChars: 3 })
 })
 
 test('short names replace the first name with its initial', () => {
@@ -55,11 +59,27 @@ test('frame games group frames won around the race, apart from the current frame
   expect(values).toMatchObject({
     seq: 9,
     centre: { A: 1, B: 2, race: 3 },
-    points: { A: 5, B: 7 },
+    points: { A: '5', B: '7' },
     targets: null,
     balls: null,
     winnerSeat: null,
   })
+})
+
+test('negative points use a minus sign, not a hyphen', () => {
+  expect(present(active('combined-pyramid-old', { points: { A: -2, B: 3 } }))).toMatchObject({
+    points: { A: '\u22122', B: '3' },
+  })
+})
+
+test('the centre fits the race all frame match, but grows with the points in a match to points', () => {
+  const frames = present(active('strila-v2', { frames: 12, framesWon: { A: 1, B: 0 } }))
+  const early = present(active('free-pyramid-long', { targets: { A: 60, B: 60 }, points: { A: 9, B: 7 } }))
+  const later = present(active('free-pyramid-long', { targets: { A: 60, B: 60 }, points: { A: 9, B: 10 } }))
+
+  expect(frames).toMatchObject({ centre: { countDigits: 2 } })
+  expect(early).toMatchObject({ centre: { countDigits: 1 } })
+  expect(later).toMatchObject({ centre: { countDigits: 2 } })
 })
 
 test.each([
@@ -162,7 +182,7 @@ test('a finished match keeps its final frame points and match score', () => {
   expect(present(read)).toMatchObject({
     winnerSeat: 'B',
     centre: { A: 1, B: 2, race: 2 },
-    points: { A: 4, B: 10 },
+    points: { A: '4', B: '10' },
     balls: null,
     tips: { A: null, B: null },
   })
