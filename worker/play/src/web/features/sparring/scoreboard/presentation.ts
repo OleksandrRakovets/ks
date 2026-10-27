@@ -128,7 +128,7 @@ export function presentScoreboard(
 /** Setup allows races up to 20 frames. */
 const RACE_DIGITS = 2
 
-function scoreboardSize(gameKey: GameKey): ScoreboardSize {
+export function scoreboardSize(gameKey: GameKey): ScoreboardSize {
   // A frame can end on a pot past its target, so allow points up to twice the largest setup target.
   const pointDigits = digits(2 * registry[gameKey].meta.maxFrameTargetPoints)
 

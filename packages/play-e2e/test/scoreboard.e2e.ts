@@ -129,6 +129,10 @@ for (const layout of ['compact', 'wide'] as const) {
       source: 'game',
       command: { type: 'pot.record', seat: 'A', pottedBalls: [1] },
     })
+    // The OBS source is sized to the layout's frame, so the artwork renders at stage scale.
+    await page.setViewportSize(
+      layout === 'compact' ? { width: 1272, height: 192 } : { width: 1920, height: 192 },
+    )
     await openPage(page, `${path}scoreboard/?layout=${layout}`)
     const artwork = page.locator('svg[data-match-id]')
     await expect(artwork).toContainText(`Canvas ${layout} Alice`)
