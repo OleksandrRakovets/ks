@@ -114,12 +114,15 @@ must be independently editable; Setup uses registry names. Play guidance identif
   no stylesheet classes, `foreignObject`, external images, or web fonts. The Streamer rasterizes
   the same artwork, so the page may only position and scale it on the 1920×1080 stage.
 - Each layout and game keeps a fixed box and anchor in every state, including the ball row and
-  the space reserved for the secondary row. The centre group is sized from the widest numbers the
-  game can show. A missing or discarded match renders the same box empty.
+  the space reserved for the secondary row, sized from the widest numbers the game can show. Inside
+  it, the amber centre group hugs the match's numbers with equal gaps: fixed by the race all frame
+  match, widening with points in a match to points. Negative points use a minus sign (U+2212). A
+  missing or discarded match renders the same box empty.
 - Long names are not fitted: the font and layout stay fixed, names clip at their end, and the
   short-name view replaces first names with initials.
 - Rows keep one purpose: the ball row above the bar, the primary row (names, points, `1 (3) 2`),
-  and a secondary row of per-player tips that appears only with content. Its centre and a slot
+  and a secondary row of per-player tips that appears only with content, extending that player's
+  name box down from its edge. Its centre and a slot
   between each name and its points stay reserved for frame history and a breaker/shooter marker.
 - Show the last good state; never a stale or error indicator. Tips come from a viewer whitelist;
   operator instructions stay off stream.

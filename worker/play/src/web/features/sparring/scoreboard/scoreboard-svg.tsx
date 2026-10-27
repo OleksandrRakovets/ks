@@ -18,7 +18,7 @@ export const SCOREBOARD_STAGE = { width: 1920, height: 1080 } as const
  * image at a known position. It includes the ball row and the reserved secondary row.
  */
 export function scoreboardBox(layout: ScoreboardLayout, size: ScoreboardSize) {
-  const { width, height } = geometry(layout, size)
+  const { width, height } = geometry(layout, size, null)
 
   return { x: (SCOREBOARD_STAGE.width - width) / 2, y: SCOREBOARD_STAGE.height - height, width, height }
 }
@@ -35,7 +35,7 @@ export function ScoreboardSvg(props: {
   locale: SupportedLocale
 }) {
   const values = props.values
-  const g = geometry(props.layout, values.size)
+  const g = geometry(props.layout, values.size, values.kind === 'match' ? values.centre : null)
   const { width, height } = g
 
   return (
@@ -74,7 +74,6 @@ const THEMES = {
     band: '#0B1510',
     bandOpacity: 0.92,
     raised: '#1B2B22',
-    tab: '#07100B',
     text: '#FFFFFF',
     dim: '#A7B3AC',
     amber: '#F4B740',
@@ -92,13 +91,19 @@ const BALL = { radius: 36, objectRadius: 46, pitch: 120, rowHeight: 96 } as cons
 /** Bar plus the reserved secondary row, below the ball row when the game has one. */
 const ROWS_HEIGHT = 96
 
-/** Glyph advance of the system UI fonts' tabular digits, as a share of the font size. */
+/** Glyph advances of the system UI fonts' tabular digits and parentheses, as a share of the font size. */
 const DIGIT = 0.58
+
+const PAREN = 0.33
+
+/** Equal space around each number of the amber centre group: `_1_(3)_0_`. */
+const CENTRE_GAP = 16
 
 /**
  * Fixed per-layout measures. Each name ends before a reserved breaker/shooter slot beside the
  * points, with a fixed slot for a non-default target. Names and tips start at the name's edge and
- * clip at their end, never fitted. Tips stop short of the centre, kept free for frame history.
+ * clip at their end, never fitted. A tip extends its player's name box down; the points and centre
+ * stay one row, kept free for frame history.
  */
 const LAYOUTS = {
   compact: {
@@ -111,7 +116,6 @@ const LAYOUTS = {
     primaryHeight: 60,
     fonts: { name: 28, target: 22, points: 40, count: 36, race: 24, tip: 20 },
     tipBaseline: 83,
-    tabHeight: 32,
     centreInset: 0,
   },
   wide: {
@@ -123,25 +127,48 @@ const LAYOUTS = {
     primaryHeight: 62,
     fonts: { name: 34, target: 26, points: 44, count: 38, race: 26, tip: 24 },
     tipBaseline: 86,
-    tabHeight: null,
     centreInset: 6,
   },
 } as const
 
 /**
- * Positions for one layout and game. The centre group is sized from the widest numbers the game
- * can show; the compact bar narrows with it, while the wide band always spans the stage.
+ * Positions for one layout and game. The box fits the widest centre group the game can show, so it
+ * never changes with state. Given a match's centre, the amber group hugs that match's numbers: the
+ * compact bar narrows with it and stays centred in the box, while the wide band always spans the
+ * stage and its name boxes take the space.
  */
-function geometry(layout: ScoreboardLayout, size: ScoreboardSize) {
+function geometry(
+  layout: ScoreboardLayout,
+  size: ScoreboardSize,
+  centre: { countDigits: number; race: number | null } | null,
+) {
   const l = LAYOUTS[layout]
   const even = (value: number) => 2 * Math.ceil(value / 2)
-  const points = size.pointDigits === null ? 0 : even(size.pointDigits * DIGIT * l.fonts.points + 20)
-  const countWidth = size.countDigits * DIGIT * l.fonts.count
-  const raceWidth = (size.raceDigits + 2) * DIGIT * l.fonts.race
-  const amber = even(2 * countWidth + raceWidth + 2 * 14 + 2 * 12)
-  const group = 2 * points + amber
-  const width = l.side === null ? SCOREBOARD_STAGE.width : 2 * l.side + group
-  const side = (width - group) / 2
+  const points = size.pointChars === null ? 0 : even(size.pointChars * DIGIT * l.fonts.points + 20)
+  const countWidth = (countDigits: number) => countDigits * DIGIT * l.fonts.count
+  const raceWidth = (raceDigits: number) => (raceDigits * DIGIT + 2 * PAREN) * l.fonts.race
+
+  const amberWidth = (countDigits: number, raceDigits: number | null) =>
+    even(
+      2 * countWidth(countDigits) +
+        (raceDigits === null ? 3 * CENTRE_GAP : raceWidth(raceDigits) + 4 * CENTRE_GAP),
+    )
+
+  const boxAmber = amberWidth(size.countDigits, size.raceDigits)
+  const width = l.side === null ? SCOREBOARD_STAGE.width : 2 * l.side + 2 * points + boxAmber
+
+  const countDigits = centre?.countDigits ?? size.countDigits
+
+  const raceDigits =
+    centre === null ? size.raceDigits : centre.race === null ? null : String(centre.race).length
+
+  const amber = amberWidth(countDigits, raceDigits)
+
+  const bar =
+    l.side === null ? { x: 0, width } : { x: (boxAmber - amber) / 2, width: width - boxAmber + amber }
+
+  const side = (bar.width - 2 * points - amber) / 2
+  const right = bar.x + bar.width
   const top = size.ballRow ? BALL.rowHeight : 0
 
   return {
@@ -149,14 +176,13 @@ function geometry(layout: ScoreboardLayout, size: ScoreboardSize) {
     width,
     height: top + ROWS_HEIGHT,
     top,
+    bar: { ...bar, side },
     names: {
-      A: { from: l.edge, to: side - l.breakerSlot },
-      B: { from: width - side + l.breakerSlot, to: width - l.edge },
+      A: { from: bar.x + l.edge, to: bar.x + side - l.breakerSlot },
+      B: { from: right - side + l.breakerSlot, to: right - l.edge },
     },
-    points: { A: { x: side, width: points }, B: { x: width - side - points, width: points } },
-    centre: { x: side + points, width: amber, countWidth, pad: 14 },
-    tipEnds: { A: side + points, B: width - l.edge },
-    tabs: { A: { x: 8, width: side + points - 8 }, B: { x: width - side - points, width: side + points - 8 } },
+    points: { A: { x: bar.x + side, width: points }, B: { x: right - side - points, width: points } },
+    centre: { x: bar.x + side + points, width: amber, countWidth: countWidth(countDigits), pad: CENTRE_GAP },
   }
 }
 
@@ -166,7 +192,6 @@ function MatchArtwork(props: { values: MatchValues; geometry: Geometry; colors: 
   const loser = values.winnerSeat === null ? null : opponentOf(values.winnerSeat)
   const fade = (seat: Seat) => (seat === loser ? 0.5 : 1)
   const slot = values.targets ? g.targetSlot : 0
-  const hasTips = values.tips.A !== null || values.tips.B !== null
 
   const nameRegion = {
     A: { from: g.names.A.from, to: g.names.A.to - slot },
@@ -184,7 +209,7 @@ function MatchArtwork(props: { values: MatchValues; geometry: Geometry; colors: 
           </clipPath>,
           <clipPath key={`tip-${seat}`} id={clipId('tip', seat)}>
             <ClipRect
-              region={{ from: nameRegion[seat].from, to: g.tipEnds[seat] }}
+              region={g.names[seat]}
               y={g.top + g.primaryHeight}
               height={ROWS_HEIGHT - g.primaryHeight}
             />
@@ -211,23 +236,8 @@ function MatchArtwork(props: { values: MatchValues; geometry: Geometry; colors: 
         <BallRow balls={values.balls} centreX={g.width / 2} colors={c} idPrefix={props.idPrefix} />
       ) : null}
 
-      {SEATS.map((seat) =>
-        values.tips[seat] !== null && g.tabHeight !== null ? (
-          <path
-            key={seat}
-            d={tabPath(g.tabs[seat].x, g.top + g.primaryHeight, g.tabs[seat].width, g.tabHeight, 10)}
-            fill={c.tab}
-            fillOpacity={c.bandOpacity}
-          />
-        ) : null,
-      )}
-
-      <rect
-        x={0}
-        y={g.top}
-        width={g.width}
-        height={hasTips && g.tabHeight === null ? ROWS_HEIGHT : g.primaryHeight}
-        rx={g.radius}
+      <path
+        d={bandPath(g, { A: values.tips.A !== null, B: values.tips.B !== null })}
         fill={c.band}
         fillOpacity={c.bandOpacity}
       />
@@ -279,7 +289,7 @@ function MatchArtwork(props: { values: MatchValues; geometry: Geometry; colors: 
           ) : null}
           {values.tips[seat] === null ? null : (
             <text
-              x={nameRegion[seat].from}
+              x={g.names[seat].from}
               y={g.top + g.tipBaseline}
               clipPath={`url(#${clipId('tip', seat)})`}
               fill={c.amber}
@@ -405,15 +415,44 @@ function baseline(mid: number, fontSize: number) {
   return Math.round(mid + fontSize * 0.36)
 }
 
-/** A tab hanging under the bar: square top corners against the bar, rounded bottom corners. */
-function tabPath(x: number, y: number, width: number, height: number, radius: number) {
+/**
+ * The bar's outline: one row, extended down under each player's name box while that player has a
+ * tip. One path keeps the translucent fill even where the rows meet.
+ */
+function bandPath(g: Geometry, tips: { A: boolean; B: boolean }) {
+  const { x, width, side } = g.bar
+  const r = g.radius
+  const y = g.top
+  const row = y + g.primaryHeight
+  const bottom = y + ROWS_HEIGHT
+  const right = x + width
+  const inner = { A: x + side, B: right - side }
+
   return [
-    `M${x} ${y}`,
-    `H${x + width}`,
-    `V${y + height - radius}`,
-    `Q${x + width} ${y + height} ${x + width - radius} ${y + height}`,
-    `H${x + radius}`,
-    `Q${x} ${y + height} ${x} ${y + height - radius}`,
+    `M${x} ${y + r}`,
+    `Q${x} ${y} ${x + r} ${y}`,
+    `H${right - r}`,
+    `Q${right} ${y} ${right} ${y + r}`,
+    ...(tips.B
+      ? [
+          `V${bottom - r}`,
+          `Q${right} ${bottom} ${right - r} ${bottom}`,
+          `H${inner.B + r}`,
+          `Q${inner.B} ${bottom} ${inner.B} ${bottom - r}`,
+          `V${row + r}`,
+          `Q${inner.B} ${row} ${inner.B - r} ${row}`,
+        ]
+      : [`V${row - r}`, `Q${right} ${row} ${right - r} ${row}`]),
+    ...(tips.A
+      ? [
+          `H${inner.A + r}`,
+          `Q${inner.A} ${row} ${inner.A} ${row + r}`,
+          `V${bottom - r}`,
+          `Q${inner.A} ${bottom} ${inner.A - r} ${bottom}`,
+          `H${x + r}`,
+          `Q${x} ${bottom} ${x} ${bottom - r}`,
+        ]
+      : [`H${x + r}`, `Q${x} ${row} ${x} ${row - r}`]),
     'Z',
   ].join(' ')
 }
