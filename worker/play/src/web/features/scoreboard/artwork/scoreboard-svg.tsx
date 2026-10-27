@@ -8,7 +8,7 @@ import {
   type ScoreboardSize,
   scoreboardSize,
   type ScoreboardValues,
-} from '@/features/sparring/scoreboard/presentation'
+} from '@/features/scoreboard/present/present'
 
 export type ScoreboardLayout = 'compact' | 'wide'
 

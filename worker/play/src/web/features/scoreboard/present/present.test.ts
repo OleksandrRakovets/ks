@@ -6,7 +6,7 @@ import type { GameKey, StrilaGamePresentation } from '@ks/gameplay/definitions'
 import { resources } from '@ks/i18n'
 import { createInstance } from 'i18next'
 
-import { presentScoreboard } from '@/features/sparring/scoreboard/presentation'
+import { presentScoreboard } from '@/features/scoreboard/present/present'
 
 const i18n = createInstance()
 
