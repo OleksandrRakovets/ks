@@ -110,11 +110,15 @@ must be independently editable; Setup uses registry names. Play guidance identif
 
 ## Stream scoreboard
 
+Part names below follow the scoreboard vocabulary in
+`worker/play/src/web/features/scoreboard/AGENTS.md`.
+
 - The scoreboard is one self-contained `<svg>` per layout with inline presentation attributes only:
   no stylesheet classes, `foreignObject`, external images, or web fonts. The Streamer rasterizes
   the same artwork, so the page may only position and scale it on the 1920×1080 stage.
-- The page shows only its layout's frame of that stage, the union of the layout's boxes across
-  games, so an OBS source is sized to the scoreboard (one size per layout), never the full frame.
+- The page shows only its layout's source area of that stage, the union of the layout's boxes
+  across games, so an OBS source is sized to the scoreboard (one size per layout), never the full
+  stage.
 - Each layout and game keeps a fixed box and anchor in every state, including the ball row and
   the space reserved for the secondary row, sized from the widest numbers the game can show. Inside
   it, the centre hugs the match's numbers with equal gaps, so the compact bar narrows with it; frames
@@ -122,21 +126,20 @@ must be independently editable; Setup uses registry names. Play guidance identif
   (U+2212). A missing or discarded match renders the same box empty.
 - Every game shows current points in the boxes beside the centre. Frame games centre `1 (3) 2`;
   long pyramid centres its bare target, or a colon when targets are per seat.
-- Non-default targets show in boxes under the points, with no parentheses. Frame games label them
+- Non-default targets show in the target row under the points boxes, with no parentheses. Frame games label them
   "Handicap" under the centre; the stream shows that word, not a separate Setup concept.
 - Names and tips align towards the centre on both sides, mirrored as on TV broadcasts.
 - Long names are not fitted: the font and layout stay fixed, names are clipped at their box, and the
-  short-name view replaces first names with initials.
+  `names=short` replaces first names with initials.
 - Rows keep one purpose: the ball row above the bar, the primary row (names, points, centre), and a
-  secondary row that appears only with content: per-player tips extending that player's name box
-  down, and targets extending the points and centre. Otherwise the centre of that row
-  stays free for frame history, and a slot between each name and its points for a breaker/shooter
-  marker.
+  secondary row that appears only with content: tips extending that player's name plate down, and
+  the target row extending the points boxes and centre. Otherwise the centre of that row stays
+  free (history slot), and so does a breaker slot between each name plate and its points box.
 - Compact rounds only the bar's outer corners, including those of the boxes it extends down; inner
   corners stay square. Wide has no radii, and its boxes fill the bar's height with no inset.
 - Show the last good state; never a stale or error indicator. Tips come from a viewer whitelist;
   operator instructions stay off stream.
-- Sizes are stage pixels: a 720p source shows them at two thirds. The 16px minimum applies to the
+- Sizes are stage pixels, designed for a 1080p canvas. The 16px minimum applies to the
   app, not the stream.
 
 ## Colour and type
