@@ -55,6 +55,7 @@ The `worker/play` workspace is Play's single Cloudflare Worker deployable. It ow
 - Give each game an explicit Match route and Protocol route. The Match loader selects Control or Result from lifecycle; the stable URL does not encode lifecycle state.
 - Preserve distinct scoring and Protocol contracts. Play groups flat scoring controls into layout sections; game semantics remain in gameplay.
 - Share Active/Finished surface compositions between Match and Protocol pages. Feature-local presentation functions derive copy and emphasis; Shell and Board render resolved props. Page controllers own submission and live revalidation.
+- `src/web/features/scoreboard` owns the stream scoreboard for every consumer; read its `AGENTS.md` before changing it. Its pages use their own document layout without app CSS.
 - The curated game shelf's localized JSX copy belongs in `src/web/routes/sparring/index.tsx`, independently of registry names used by Setup. Adding a game also requires its card and routes.
 
 ## Installed App Launch
