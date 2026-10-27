@@ -52,12 +52,8 @@ export function ScoreboardPage(props: { initial: ScoreboardSource | null; recove
 
   return (
     <>
-      {/* A dark color-scheme would paint Chromium's canvas dark behind a transparent root. */}
-      <style>
-        {
-          'html, body { background: transparent !important; color-scheme: normal !important; overflow: hidden; }'
-        }
-      </style>
+      {/* The page loads no app stylesheet; this is its whole document CSS. */}
+      <style>{'html, body { margin: 0; background: transparent; overflow: hidden; }'}</style>
       <svg
         viewBox={`${area.x} ${area.y} ${area.width} ${area.height}`}
         preserveAspectRatio="xMidYMax meet"

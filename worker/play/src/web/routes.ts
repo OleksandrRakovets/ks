@@ -9,6 +9,10 @@ export default [
   route('start/', 'routes/pwa/start.ts'),
   route('ui-preferences/theme/', 'routes/ui-preferences.ts'),
   route('api/sparring-matches/live-scores/', 'routes/sparring/matches/api-live-scores.ts'),
+  // Stream pages own their document: no app stylesheet, theme, or chrome.
+  route('en?', 'routes/layout-scoreboard.tsx', { id: 'layout-scoreboard' }, [
+    route('sparring/match/:gameKey/:matchId/scoreboard/', 'routes/sparring/match/scoreboard.tsx'),
+  ]),
   route('en?', 'routes/layout-base.tsx', [
     index('routes/index.tsx'),
     route('now/', 'routes/now.ts'),
@@ -40,7 +44,6 @@ export default [
       'sparring/match/combined-pyramid-old/:matchId/protocol/',
       'routes/sparring/match/combined-pyramid-old-protocol.tsx',
     ),
-    route('sparring/match/:gameKey/:matchId/scoreboard/', 'routes/sparring/match/scoreboard.tsx'),
     route('top-secret/preview/', 'routes/preview/index.tsx'),
     route('top-secret/preview/ui/', 'routes/preview/ui.tsx'),
     route('top-secret/preview/coin/', 'routes/preview/coin.tsx'),

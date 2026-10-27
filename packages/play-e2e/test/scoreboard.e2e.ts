@@ -13,6 +13,9 @@ test('the scoreboard follows live play, keeps its last state through failed read
   await openPage(page, `${path}scoreboard/?layout=wide`)
   const artwork = page.locator('svg[data-match-id]')
   await expect(artwork).toContainText('Board Alice0')
+  // The stream document is built from scratch: no app stylesheet, theme, or colour scheme.
+  await expect(page.locator('link[rel="stylesheet"]')).toHaveCount(0)
+  expect(await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme)).toBe('normal')
   const seq = Number(await artwork.getAttribute('data-seq'))
 
   await command(request, path, {
@@ -129,7 +132,7 @@ for (const layout of ['compact', 'wide'] as const) {
       source: 'game',
       command: { type: 'pot.record', seat: 'A', pottedBalls: [1] },
     })
-    // The OBS source is sized to the layout's frame, so the artwork renders at stage scale.
+    // The OBS source is sized to the layout's source area, so the artwork renders at stage scale.
     await page.setViewportSize(
       layout === 'compact' ? { width: 1272, height: 192 } : { width: 1920, height: 192 },
     )
