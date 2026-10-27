@@ -4,6 +4,10 @@ import { keys } from '@ks/i18n'
 import { redirect } from 'react-router'
 import * as v from 'valibot'
 
+import { ScoreboardLayout } from '@/features/scoreboard/artwork/geometry'
+import type { ScoreboardSource } from '@/features/scoreboard/page/scoreboard-page'
+import { ScoreboardTheme } from '@/features/scoreboard/themes/themes'
+import { ScoreboardNames } from '@/features/scoreboard/values'
 import type {
   ControlActionData,
   MatchPageData,
@@ -57,16 +61,18 @@ export async function loadMatchProtocolPage<K extends GameKey>(
 }
 
 const ScoreboardQuery = v.object({
-  layout: v.optional(v.picklist(['compact', 'wide']), 'compact'),
-  theme: v.optional(v.picklist(['default']), 'default'),
-  names: v.optional(v.picklist(['full', 'short']), 'full'),
+  layout: v.optional(ScoreboardLayout, 'compact'),
+  theme: v.optional(ScoreboardTheme, 'default'),
+  names: v.optional(ScoreboardNames, 'full'),
 })
 
 /**
  * Scoreboard page loader. A missing or discarded match is a successful empty read, so a stream
  * source renders nothing instead of an error page; malformed URLs remain HTTP failures.
  */
-export async function loadMatchScoreboard(args: RouteArgs & { params: { gameKey?: string } }) {
+export async function loadMatchScoreboard(
+  args: RouteArgs & { params: { gameKey?: string } },
+): Promise<ScoreboardSource> {
   const gameKey = v.safeParse(GameKey, args.params.gameKey)
 
   if (!gameKey.success) throw new Response('Unknown game', { status: 404 })
