@@ -1,5 +1,5 @@
 import type { ReadMatchResult } from '@ks/application'
-import type { BySeatNumber, MatchId, Seat } from '@ks/core'
+import type { MatchId, Seat } from '@ks/core'
 import {
   type GameKey,
   registry,
@@ -22,12 +22,21 @@ type LastColoredBall = Extract<StrilaRuleNote, { code: 'last-colored-ball-pot-ou
  */
 export type ScoreboardSize = Readonly<{
   ballRow: boolean
-  /** Characters in the per-seat points boxes, minus sign included, or null when the centre shows the points. */
-  pointChars: number | null
-  /** The widest centre group the game can show: digits of each side and of its parenthesised race. */
-  countDigits: number
-  raceDigits: number
+  /** Characters in the per-seat points boxes, minus sign included. */
+  pointChars: number
+  /** The widest centre the game can show: its kind and the digits of its race or target. */
+  centre: Readonly<{ kind: 'frames' | 'target'; digits: number }>
 }>
+
+/**
+ * The centre between the points boxes: frames won around the race (`1 (3) 2`), a match to points'
+ * bare target, or a separator (`8 : 4`) when per-seat targets leave no single target to show.
+ */
+export type ScoreboardCentre = Readonly<
+  | { kind: 'frames'; A: number; B: number; race: number }
+  | { kind: 'target'; target: number }
+  | { kind: 'separator' }
+>
 
 /** Resolved values for the scoreboard artwork; the artwork derives nothing from a match read. */
 export type ScoreboardValues =
@@ -40,21 +49,14 @@ export type ScoreboardValues =
       readonly names: { readonly A: string; readonly B: string }
       /** Set once the match is finished; the artwork keeps showing the final state. */
       readonly winnerSeat: Seat | null
-      /** Current frame points with a typographic minus, or null when the centre already shows them. */
-      readonly points: { readonly A: string; readonly B: string } | null
-      /** Per-seat point targets, shown only when the configured pair is not the game's default. */
-      readonly targets: BySeatNumber | null
+      /** Current points with a typographic minus: frame points, or the match score in a match to points. */
+      readonly points: { readonly A: string; readonly B: string }
       /**
-       * The centre group, read as `A (race) B`. A null race omits the parenthesised target. Its
-       * width follows `countDigits`, the widest side this match can show now: fixed by the race in
-       * frame games, growing with the points in a match to points.
+       * Per-seat point targets, shown under the points when they differ from the game's default,
+       * with a label under a frames centre.
        */
-      readonly centre: {
-        readonly A: number
-        readonly B: number
-        readonly race: number | null
-        readonly countDigits: number
-      }
+      readonly targets: { readonly A: number; readonly B: number; readonly label: string | null } | null
+      readonly centre: ScoreboardCentre
       /** Strila's ball row in table order, or null when there is no ball row to show. */
       readonly balls: readonly { readonly ball: StrilaBall; readonly status: BallStatus }[] | null
       /** One viewer tip under the player it concerns; a frame-deciding last-ball outcome wins. */
@@ -98,9 +100,10 @@ export function presentScoreboard(
   const strila = read.lifecycle === 'active' && read.game?.gameKey === 'strila-v2' ? read.game.details : null
 
   // Long pyramid is a single frame to points: its points are the match score, and an equal target
-  // is the race. Lopsided targets cannot be one race, so they keep their per-seat slots instead.
+  // shows alone in the centre, even the default. Lopsided targets go under the points instead.
   const toPoints = read.gameKey === 'free-pyramid-long'
   const equalTargets = configured.A === configured.B
+  const showTargets = toPoints ? !equalTargets : !isDefaultTarget
 
   return {
     kind: 'match',
@@ -109,20 +112,14 @@ export function presentScoreboard(
     seq: read.latestSeq,
     names: { A: name('A'), B: name('B') },
     winnerSeat: read.winnerSeat,
-    points: toPoints ? null : { A: signed(framePoints.A), B: signed(framePoints.B) },
-    targets: isDefaultTarget || (toPoints && equalTargets) ? null : configured,
+    points: { A: signed(framePoints.A), B: signed(framePoints.B) },
+    // A separator centre spans both rows, leaving no room for the label.
+    targets: showTargets ? { ...configured, label: toPoints ? null : t(keys.scoreboard.handicap) } : null,
     centre: toPoints
-      ? {
-          ...framePoints,
-          race: equalTargets ? configured.A : null,
-          countDigits: Math.max(digits(framePoints.A), digits(framePoints.B)),
-        }
-      : {
-          ...read.framesWonBySeat,
-          race: read.targets.matchTargetFrames,
-          // Frames won never exceed the race, so the group keeps one width all match.
-          countDigits: digits(read.targets.matchTargetFrames),
-        },
+      ? equalTargets
+        ? { kind: 'target', target: configured.A }
+        : { kind: 'separator' }
+      : { kind: 'frames', ...read.framesWonBySeat, race: read.targets.matchTargetFrames },
     balls: strila ? StrilaMeta.allBalls.map((ball) => ({ ball, status: strila.ballStatuses[ball] })) : null,
     tips: strila ? viewerTips(strila.ruleNotes, t) : { A: null, B: null },
   }
@@ -135,15 +132,14 @@ function scoreboardSize(gameKey: GameKey): ScoreboardSize {
   // A frame can end on a pot past its target, so allow points up to twice the largest setup target.
   const pointDigits = digits(2 * registry[gameKey].meta.maxFrameTargetPoints)
 
-  // Long pyramid is one frame to points: the centre holds points and the target race. Old-rules
-  // fouls can take a player below zero, so its points boxes also fit a minus sign.
+  // Long pyramid's centre holds at most its target, as wide as its points. Old-rules fouls can take
+  // a player below zero, so its points boxes also fit a minus sign.
   return gameKey === 'free-pyramid-long'
-    ? { ballRow: false, pointChars: null, countDigits: pointDigits, raceDigits: pointDigits }
+    ? { ballRow: false, pointChars: pointDigits, centre: { kind: 'target', digits: pointDigits } }
     : {
         ballRow: gameKey === 'strila-v2',
         pointChars: pointDigits + (gameKey === 'combined-pyramid-old' ? 1 : 0),
-        countDigits: RACE_DIGITS,
-        raceDigits: RACE_DIGITS,
+        centre: { kind: 'frames', digits: RACE_DIGITS },
       }
 }
 

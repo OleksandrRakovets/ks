@@ -40,6 +40,7 @@ export const resources = {
         finished: 'Завершено',
       },
       scoreboard: {
+        handicap: 'Гандикап',
         tips: {
           frameBall: 'Партійна куля: {{ball}}',
           potTiesFrame: 'Забита {{ball}} — нічия, додаткова чорна',
@@ -349,6 +350,7 @@ export const resources = {
         finished: 'Finished',
       },
       scoreboard: {
+        handicap: 'Handicap',
         tips: {
           frameBall: 'Frame ball: {{ball}}',
           potTiesFrame: 'Potting {{ball}} ties the frame',

@@ -38,6 +38,7 @@ export const keys = {
     finished: 'status.finished',
   },
   scoreboard: {
+    handicap: 'scoreboard.handicap',
     tips: {
       frameBall: 'scoreboard.tips.frameBall',
       potTiesFrame: 'scoreboard.tips.potTiesFrame',
