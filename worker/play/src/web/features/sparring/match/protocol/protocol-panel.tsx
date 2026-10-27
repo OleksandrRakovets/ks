@@ -45,7 +45,7 @@ export function ProtocolPanel(props: {
           if (item.kind === 'frame-header')
             return (
               <li key={item.key} className="col-span-5 px-4 pt-5 pb-1 text-center text-base font-semibold">
-                {t(keys.match.scoreboard.frameWithNumber, { frameIndex: item.frameIndex })}
+                {t(keys.match.frameWithNumber, { frameIndex: item.frameIndex })}
               </li>
             )
 

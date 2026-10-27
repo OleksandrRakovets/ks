@@ -52,7 +52,7 @@ The game-specific descriptive portion of a projection, such as score, phase, bal
 _Avoid_: Game view, Control projection when naming only the descriptive portion
 
 **Scoreboard**:
-The public, read-only score display of one match for a live-stream audience: self-contained artwork composited over the camera picture. It is not the in-app Board at the top of Match pages, whose copy uses the older `match.scoreboard.*` keys. The Streamer's rasterized image of the same artwork is a *scorebug*.
+The public, read-only score display of one match for a live-stream audience: self-contained artwork composited over the camera picture. The Streamer's rasterized image of the same artwork is a *scorebug*.
 _Avoid_: Overlay; scorebug outside the Streamer
 
 **Control**:
