@@ -235,7 +235,7 @@ describe('loadMatchScoreboard HTTP contract', () => {
       context: unknownMatch,
     })
 
-  test.each(['?layout=banner', '?theme=neon'])('rejects %s with 400', async (search) => {
+  test.each(['?layout=banner', '?theme=neon', '?names=initials'])('rejects %s with 400', async (search) => {
     expect(await handlerFailure(() => load('strila-v2', search))).toMatchObject({ status: 400 })
   })
 
@@ -246,8 +246,10 @@ describe('loadMatchScoreboard HTTP contract', () => {
   test('a missing match is a successful empty read with default options', async () => {
     expect(await load('strila-v2')).toMatchObject({
       read: { ok: false, reason: 'unknown-match' },
+      gameKey: 'strila-v2',
       layout: 'compact',
       theme: 'default',
+      names: 'full',
     })
   })
 })

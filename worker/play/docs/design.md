@@ -113,8 +113,11 @@ must be independently editable; Setup uses registry names. Play guidance identif
 - The scoreboard is one self-contained `<svg>` per layout with inline presentation attributes only:
   no stylesheet classes, `foreignObject`, external images, or web fonts. The Streamer rasterizes
   the same artwork, so the page may only position and scale it on the 1920×1080 stage.
-- Each layout keeps a fixed box and anchor in every state, including the ball row and the space
-  reserved for the secondary row. A missing or discarded match renders the same box empty.
+- Each layout and game keeps a fixed box and anchor in every state, including the ball row and
+  the space reserved for the secondary row. The centre group is sized from the widest numbers the
+  game can show. A missing or discarded match renders the same box empty.
+- Long names are not fitted: the font and layout stay fixed, names clip at their end, and the
+  short-name view replaces first names with initials.
 - Rows keep one purpose: the ball row above the bar, the primary row (names, points, `1 (3) 2`),
   and a secondary row of per-player tips that appears only with content. Its centre and a slot
   between each name and its points stay reserved for frame history and a breaker/shooter marker.
