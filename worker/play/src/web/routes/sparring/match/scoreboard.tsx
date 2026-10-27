@@ -3,14 +3,14 @@ import { useTranslation } from 'react-i18next'
 import { isRouteErrorResponse, useFetcher, useRouteError } from 'react-router'
 
 import { ReadRecovery } from '@/features/freshness/read-recovery'
-import { useScoreboardLiveRevalidation } from '@/features/sparring/match/live'
-import { presentScoreboard } from '@/features/sparring/scoreboard/presentation'
 import {
   SCOREBOARD_STAGE,
   scoreboardBox,
   scoreboardFrame,
   ScoreboardSvg,
-} from '@/features/sparring/scoreboard/scoreboard-svg'
+} from '@/features/scoreboard/artwork/scoreboard-svg'
+import { presentScoreboard } from '@/features/scoreboard/present/present'
+import { useScoreboardLiveRevalidation } from '@/features/sparring/match/live'
 import { useRootLocale } from '@/root'
 import { loadMatchScoreboard } from '@/routes/sparring/match/handlers'
 
