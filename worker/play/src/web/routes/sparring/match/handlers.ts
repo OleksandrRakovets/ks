@@ -59,6 +59,7 @@ export async function loadMatchProtocolPage<K extends GameKey>(
 const ScoreboardQuery = v.object({
   layout: v.optional(v.picklist(['compact', 'wide']), 'compact'),
   theme: v.optional(v.picklist(['default']), 'default'),
+  names: v.optional(v.picklist(['full', 'short']), 'full'),
 })
 
 /**
@@ -81,7 +82,7 @@ export async function loadMatchScoreboard(args: RouteArgs & { params: { gameKey?
     gameKey.output,
   )
 
-  return { matchId, read, ...query.output }
+  return { gameKey: gameKey.output, matchId, read, ...query.output }
 }
 
 /** Match page action: a single `intent=discard` field selects discard; otherwise the form carries one Command. */

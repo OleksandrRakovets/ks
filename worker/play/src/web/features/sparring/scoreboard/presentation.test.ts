@@ -16,23 +16,40 @@ const t = i18n.getFixedT('en')
 
 const matchId = newMatchId()
 
+function present(read: ReadMatchResult<GameKey>, names: 'full' | 'short' = 'full') {
+  return presentScoreboard({ gameKey: read.ok ? read.gameKey : 'strila-v2', matchId, read, names }, t)
+}
+
 test('a missing or discarded match is an empty scoreboard for the same match', () => {
-  expect(presentScoreboard(matchId, { ok: false, reason: 'unknown-match' }, t)).toEqual({
-    kind: 'empty',
-    matchId,
+  expect(present({ ok: false, reason: 'unknown-match' })).toMatchObject({ kind: 'empty', matchId })
+})
+
+test('the artwork size depends on the game: Strila has a ball row and long pyramid 3-digit points', () => {
+  const strila = present({ ok: false, reason: 'unknown-match' }).size
+
+  const long = presentScoreboard(
+    { gameKey: 'free-pyramid-long', matchId, read: { ok: false, reason: 'unknown-match' }, names: 'full' },
+    t,
+  ).size
+
+  expect(strila).toEqual({ ballRow: true, pointDigits: 2, countDigits: 2, raceDigits: 2 })
+  expect(long).toEqual({ ballRow: false, pointDigits: null, countDigits: 3, raceDigits: 3 })
+})
+
+test('short names replace the first name with its initial', () => {
+  expect(present(active('free-pyramid', {}), 'short')).toMatchObject({
+    names: { A: 'O. Rakovets', B: 'B. Kovalchuk' },
   })
 })
 
 test('frame games group frames won around the race, apart from the current frame points', () => {
-  const values = presentScoreboard(
-    matchId,
+  const values = present(
     active('free-pyramid', {
       frames: 3,
       targets: { A: 8, B: 8 },
       framesWon: { A: 1, B: 2 },
       points: { A: 5, B: 7 },
     }),
-    t,
   )
 
   expect(values).toMatchObject({
@@ -51,22 +68,16 @@ test.each([
   ['strila-v2', { A: 12, B: 12 }, { A: 12, B: 12 }],
   ['free-pyramid', { A: 9, B: 9 }, { A: 9, B: 9 }],
 ] as const)('%s targets %o are shown per seat only when not the default pair', (gameKey, targets, shown) => {
-  expect(presentScoreboard(matchId, active(gameKey, { targets }), t)).toMatchObject({ targets: shown })
+  expect(present(active(gameKey, { targets }))).toMatchObject({ targets: shown })
 })
 
 test('long pyramid is a match to points: points form the centre and an equal target is the race', () => {
-  const equal = presentScoreboard(
-    matchId,
-    active('free-pyramid-long', { targets: { A: 60, B: 60 }, points: { A: 41, B: 17 } }),
-    t,
-  )
+  const equal = present(active('free-pyramid-long', { targets: { A: 60, B: 60 }, points: { A: 41, B: 17 } }))
 
   expect(equal).toMatchObject({ points: null, targets: null, centre: { A: 41, B: 17, race: 60 } })
 
-  const lopsided = presentScoreboard(
-    matchId,
+  const lopsided = present(
     active('free-pyramid-long', { targets: { A: 50, B: 15 }, points: { A: 41, B: 12 } }),
-    t,
   )
 
   expect(lopsided).toMatchObject({
@@ -77,8 +88,7 @@ test('long pyramid is a match to points: points form the centre and an equal tar
 })
 
 test('Strila mirrors ball statuses in table order and shows one per-player viewer tip', () => {
-  const values = presentScoreboard(
-    matchId,
+  const values = present(
     strila([
       { severity: 'warning', code: 'manual-foul-cue-ball-response' },
       { severity: 'warning', code: 'cue-ball-and-colored-is-foul' },
@@ -97,7 +107,6 @@ test('Strila mirrors ball statuses in table order and shows one per-player viewe
         outcomes: [{ seat: 'B', result: { type: 'winner-determined', winnerSeat: 'B' } }],
       },
     ]),
-    t,
   )
 
   // Ball statuses mirror the table; operator instructions and seatless notes stay off stream.
@@ -107,8 +116,7 @@ test('Strila mirrors ball statuses in table order and shows one per-player viewe
     tips: { A: { kind: 'pot-loses-frame', ball: 6 }, B: { kind: 'frame-ball', ball: 6 } },
   })
 
-  const respot = presentScoreboard(
-    matchId,
+  const respot = present(
     strila([
       {
         severity: 'info',
@@ -120,20 +128,17 @@ test('Strila mirrors ball statuses in table order and shows one per-player viewe
         ],
       },
     ]),
-    t,
   )
 
   expect(respot).toMatchObject({
     tips: { A: { kind: 'pot-ties-frame', ball: 7 }, B: { kind: 'frame-ball', ball: 7 } },
   })
 
-  const cueBall = presentScoreboard(
-    matchId,
+  const cueBall = present(
     strila([
       { severity: 'warning', code: 'manual-foul-cue-ball-response' },
       { severity: 'warning', code: 'third-consecutive-cue-ball-pot', seat: 'A' },
     ]),
-    t,
   )
 
   expect(cueBall).toMatchObject({ tips: { A: { kind: 'third-cue-ball-pot' }, B: null } })
@@ -154,7 +159,7 @@ test('a finished match keeps its final frame points and match score', () => {
     endedAtIsToday: true,
   }
 
-  expect(presentScoreboard(matchId, read, t)).toMatchObject({
+  expect(present(read)).toMatchObject({
     winnerSeat: 'B',
     centre: { A: 1, B: 2, race: 2 },
     points: { A: 4, B: 10 },
@@ -172,10 +177,14 @@ function facts(gameKey: GameKey, id: MatchId) {
     participants: {
       A: {
         playerRef: formatPlayerRef('gp', newMatchId()),
-        displayName: 'Oleksandr',
-        shortDisplayName: 'Oleksandr',
+        displayName: 'Oleksandr Rakovets',
+        shortDisplayName: 'O. Rakovets',
       },
-      B: { playerRef: formatPlayerRef('gp', newMatchId()), displayName: 'Bohdan', shortDisplayName: 'Bohdan' },
+      B: {
+        playerRef: formatPlayerRef('gp', newMatchId()),
+        displayName: 'Bohdan Kovalchuk',
+        shortDisplayName: 'B. Kovalchuk',
+      },
     },
   }
 }

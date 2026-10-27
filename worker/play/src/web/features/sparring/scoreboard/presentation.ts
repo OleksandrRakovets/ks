@@ -16,12 +16,26 @@ type StrilaRuleNote = StrilaGamePresentation['details']['ruleNotes'][number]
 
 type LastColoredBall = Extract<StrilaRuleNote, { code: 'last-colored-ball-pot-outcomes' }>['ball']
 
+/**
+ * A game's fixed artwork size: whether it has a ball row and the widest numbers it can show.
+ * It depends only on the game, so each layout and game keep one box in every state.
+ */
+export type ScoreboardSize = Readonly<{
+  ballRow: boolean
+  /** Digits in the per-seat points boxes, or null when the centre shows the points. */
+  pointDigits: number | null
+  /** Digits of each side of the centre group and of its parenthesised race. */
+  countDigits: number
+  raceDigits: number
+}>
+
 /** Resolved values for the scoreboard artwork; the artwork derives nothing from a match read. */
 export type ScoreboardValues =
-  | { readonly kind: 'empty'; readonly matchId: MatchId }
+  | { readonly kind: 'empty'; readonly matchId: MatchId; readonly size: ScoreboardSize }
   | {
       readonly kind: 'match'
       readonly matchId: MatchId
+      readonly size: ScoreboardSize
       readonly seq: number
       readonly names: { readonly A: string; readonly B: string }
       /** Set once the match is finished; the artwork keeps showing the final state. */
@@ -49,11 +63,24 @@ type ScoreboardTip = Readonly<
  * error: the stream shows nothing until the URL points at a real match.
  */
 export function presentScoreboard(
-  matchId: MatchId,
-  read: ReadMatchResult<GameKey>,
+  scoreboard: {
+    gameKey: GameKey
+    matchId: MatchId
+    read: ReadMatchResult<GameKey>
+    /** `short` replaces each first name with its initial. */
+    names: 'full' | 'short'
+  },
   t: TFunction,
 ): ScoreboardValues {
-  if (!read.ok) return { kind: 'empty', matchId }
+  const { matchId, read } = scoreboard
+  const size = scoreboardSize(scoreboard.gameKey)
+
+  if (!read.ok) return { kind: 'empty', matchId, size }
+
+  const name = (seat: Seat) =>
+    scoreboard.names === 'short'
+      ? read.participants[seat].shortDisplayName
+      : read.participants[seat].displayName
 
   const defaults = registry[read.gameKey].meta.defaultFrameTargetPointsBySeat
   const configured = read.targets.frameTargetPointsBySeat
@@ -69,8 +96,9 @@ export function presentScoreboard(
   return {
     kind: 'match',
     matchId,
+    size,
     seq: read.latestSeq,
-    names: { A: read.participants.A.displayName, B: read.participants.B.displayName },
+    names: { A: name('A'), B: name('B') },
     winnerSeat: read.winnerSeat,
     points: toPoints ? null : framePoints,
     targets: isDefaultTarget || (toPoints && equalTargets) ? null : configured,
@@ -80,6 +108,19 @@ export function presentScoreboard(
     balls: strila ? StrilaMeta.allBalls.map((ball) => ({ ball, status: strila.ballStatuses[ball] })) : null,
     tips: strila ? viewerTips(strila.ruleNotes, t) : { A: null, B: null },
   }
+}
+
+/** Setup allows races up to 20 frames. */
+const RACE_DIGITS = 2
+
+function scoreboardSize(gameKey: GameKey): ScoreboardSize {
+  // A frame can end on a pot past its target, so allow points up to twice the largest setup target.
+  const pointDigits = String(2 * registry[gameKey].meta.maxFrameTargetPoints).length
+
+  // Long pyramid is one frame to points: the centre holds points and the target race.
+  return gameKey === 'free-pyramid-long'
+    ? { ballRow: false, pointDigits: null, countDigits: pointDigits, raceDigits: pointDigits }
+    : { ballRow: gameKey === 'strila-v2', pointDigits, countDigits: RACE_DIGITS, raceDigits: RACE_DIGITS }
 }
 
 /**

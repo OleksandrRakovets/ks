@@ -5,11 +5,7 @@ import { isRouteErrorResponse, useFetcher, useRouteError } from 'react-router'
 import { ReadRecovery } from '@/features/freshness/read-recovery'
 import { useScoreboardLiveRevalidation } from '@/features/sparring/match/live'
 import { presentScoreboard } from '@/features/sparring/scoreboard/presentation'
-import {
-  SCOREBOARD_BOXES,
-  SCOREBOARD_STAGE,
-  ScoreboardSvg,
-} from '@/features/sparring/scoreboard/scoreboard-svg'
+import { SCOREBOARD_STAGE, scoreboardBox, ScoreboardSvg } from '@/features/sparring/scoreboard/scoreboard-svg'
 import { useRootLocale } from '@/root'
 import { loadMatchScoreboard } from '@/routes/sparring/match/handlers'
 
@@ -131,16 +127,12 @@ function LiveScoreboard(props: {
   )
 
   useScoreboardLiveRevalidation(facts, props.read)
-  const box = SCOREBOARD_BOXES[shown.layout]
+  const values = presentScoreboard(shown, t)
+  const box = scoreboardBox(shown.layout, values.size)
 
   return (
     <g transform={`translate(${box.x} ${box.y})`}>
-      <ScoreboardSvg
-        values={presentScoreboard(shown.matchId, shown.read, t)}
-        layout={shown.layout}
-        theme={shown.theme}
-        locale={locale}
-      />
+      <ScoreboardSvg values={values} layout={shown.layout} theme={shown.theme} locale={locale} />
     </g>
   )
 }

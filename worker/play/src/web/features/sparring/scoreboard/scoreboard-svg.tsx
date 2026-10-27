@@ -3,7 +3,7 @@ import type { StrilaBall } from '@ks/gameplay/definitions'
 import type { SupportedLocale } from '@ks/i18n'
 
 import { STRILA_BALL_PALETTE } from '@/components/strila-ball'
-import type { ScoreboardValues } from '@/features/sparring/scoreboard/presentation'
+import type { ScoreboardSize, ScoreboardValues } from '@/features/sparring/scoreboard/presentation'
 
 export type ScoreboardLayout = 'compact' | 'wide'
 
@@ -13,14 +13,15 @@ export type ScoreboardTheme = 'default'
 export const SCOREBOARD_STAGE = { width: 1920, height: 1080 } as const
 
 /**
- * Fixed box and anchor of each layout on the stage. The box is constant across every state, so a
- * consumer can composite the artwork as one image at a known position. Both stay inside the bottom
- * ≈14% of the frame, below the near cushion and pockets in the club camera views.
+ * Fixed box of a layout for one game, bottom-anchored and centred on the stage. It depends only on
+ * the layout and the game's size, never on state, so a consumer can composite the artwork as one
+ * image at a known position. It includes the ball row and the reserved secondary row.
  */
-export const SCOREBOARD_BOXES = {
-  compact: { x: 280, y: 930, width: 1360, height: 150 },
-  wide: { x: 0, y: 930, width: 1920, height: 150 },
-} as const satisfies Record<ScoreboardLayout, { x: number; y: number; width: number; height: number }>
+export function scoreboardBox(layout: ScoreboardLayout, size: ScoreboardSize) {
+  const { width, height } = geometry(layout, size)
+
+  return { x: (SCOREBOARD_STAGE.width - width) / 2, y: SCOREBOARD_STAGE.height - height, width, height }
+}
 
 /**
  * The scoreboard artwork: one self-contained SVG using inline presentation attributes only, with
@@ -33,8 +34,9 @@ export function ScoreboardSvg(props: {
   theme: ScoreboardTheme
   locale: SupportedLocale
 }) {
-  const { width, height } = SCOREBOARD_BOXES[props.layout]
   const values = props.values
+  const g = geometry(props.layout, values.size)
+  const { width, height } = g
 
   return (
     <svg
@@ -50,7 +52,7 @@ export function ScoreboardSvg(props: {
       {values.kind === 'match' ? (
         <MatchArtwork
           values={values}
-          geometry={GEOMETRY[props.layout]}
+          geometry={g}
           colors={THEMES[props.theme]}
           idPrefix={`scoreboard-${props.layout}`}
         />
@@ -63,7 +65,7 @@ type MatchValues = Extract<ScoreboardValues, { kind: 'match' }>
 
 type Colors = (typeof THEMES)[ScoreboardTheme]
 
-type Geometry = (typeof GEOMETRY)[ScoreboardLayout]
+type Geometry = ReturnType<typeof geometry>
 
 const FONT_FAMILY = '-apple-system, BlinkMacSystemFont, system-ui, sans-serif'
 
@@ -81,47 +83,86 @@ const THEMES = {
   },
 } as const
 
-const BALL = { radius: 15, pitch: 40, rowHeight: 44 } as const
+/**
+ * Strila's ball row spans about half the stage, like the club's previous scoreboard. The ball(s)
+ * on are larger; potted balls are dimmed.
+ */
+const BALL = { radius: 36, objectRadius: 46, pitch: 120, rowHeight: 96 } as const
+
+/** Bar plus the reserved secondary row, below the ball row when the game has one. */
+const ROWS_HEIGHT = 96
+
+/** Glyph advance of the system UI fonts' tabular digits, as a share of the font size. */
+const DIGIT = 0.58
 
 /**
- * Per-layout positions. Each name ends before a reserved breaker/shooter slot beside the points,
- * with a fixed slot for a non-default target. Names and tips start at a fixed edge and are clipped
- * at their end, never fitted. Tips stop short of the centre, which stays free for frame history.
- * The wide band's secondary row is painted only while a tip shows.
+ * Fixed per-layout measures. Each name ends before a reserved breaker/shooter slot beside the
+ * points, with a fixed slot for a non-default target. Names and tips start at the name's edge and
+ * clip at their end, never fitted. Tips stop short of the centre, kept free for frame history.
  */
-const GEOMETRY = {
+const LAYOUTS = {
   compact: {
-    width: 1360,
-    bar: { y: 50, radius: 12, tipsHeight: 60 },
+    /** Name side of the bar, including its edge padding and breaker slot. */
+    side: 450,
+    edge: 20,
+    breakerSlot: 28,
+    targetSlot: 56,
+    radius: 12,
     primaryHeight: 60,
-    fonts: { name: 26, target: 22, points: 40, count: 36, race: 24, tip: 20 },
-    names: { A: { from: 20, to: 488 }, B: { from: 872, to: 1340 } },
-    targetSlot: 54,
-    points: { A: { x: 516, width: 64 }, B: { x: 780, width: 64 } },
-    centre: { x: 580, width: 200, inset: 0 },
-    tips: {
-      baseline: 133,
-      A: { from: 20, to: 568 },
-      B: { from: 872, to: 1340 },
-      tab: { y: 110, height: 32, A: { x: 8, width: 572 }, B: { x: 780, width: 572 } },
-    },
+    fonts: { name: 28, target: 22, points: 40, count: 36, race: 24, tip: 20 },
+    tipBaseline: 83,
+    tabHeight: 32,
+    centreInset: 0,
   },
   wide: {
-    width: 1920,
-    bar: { y: 54, radius: 0, tipsHeight: 96 },
+    side: null,
+    edge: 48,
+    breakerSlot: 36,
+    targetSlot: 64,
+    radius: 0,
     primaryHeight: 62,
     fonts: { name: 34, target: 26, points: 44, count: 38, race: 26, tip: 24 },
-    names: { A: { from: 48, to: 714 }, B: { from: 1206, to: 1872 } },
-    targetSlot: 64,
-    points: { A: { x: 750, width: 92 }, B: { x: 1078, width: 92 } },
-    centre: { x: 850, width: 220, inset: 6 },
-    tips: { baseline: 140, A: { from: 48, to: 840 }, B: { from: 1206, to: 1872 }, tab: null },
+    tipBaseline: 86,
+    tabHeight: null,
+    centreInset: 6,
   },
 } as const
 
+/**
+ * Positions for one layout and game. The centre group is sized from the widest numbers the game
+ * can show; the compact bar narrows with it, while the wide band always spans the stage.
+ */
+function geometry(layout: ScoreboardLayout, size: ScoreboardSize) {
+  const l = LAYOUTS[layout]
+  const even = (value: number) => 2 * Math.ceil(value / 2)
+  const points = size.pointDigits === null ? 0 : even(size.pointDigits * DIGIT * l.fonts.points + 20)
+  const countWidth = size.countDigits * DIGIT * l.fonts.count
+  const raceWidth = (size.raceDigits + 2) * DIGIT * l.fonts.race
+  const amber = even(2 * countWidth + raceWidth + 2 * 14 + 2 * 12)
+  const group = 2 * points + amber
+  const width = l.side === null ? SCOREBOARD_STAGE.width : 2 * l.side + group
+  const side = (width - group) / 2
+  const top = size.ballRow ? BALL.rowHeight : 0
+
+  return {
+    ...l,
+    width,
+    height: top + ROWS_HEIGHT,
+    top,
+    names: {
+      A: { from: l.edge, to: side - l.breakerSlot },
+      B: { from: width - side + l.breakerSlot, to: width - l.edge },
+    },
+    points: { A: { x: side, width: points }, B: { x: width - side - points, width: points } },
+    centre: { x: side + points, width: amber, countWidth, pad: 14 },
+    tipEnds: { A: side + points, B: width - l.edge },
+    tabs: { A: { x: 8, width: side + points - 8 }, B: { x: width - side - points, width: side + points - 8 } },
+  }
+}
+
 function MatchArtwork(props: { values: MatchValues; geometry: Geometry; colors: Colors; idPrefix: string }) {
   const { values, geometry: g, colors: c } = props
-  const mid = g.bar.y + g.primaryHeight / 2
+  const mid = g.top + g.primaryHeight / 2
   const loser = values.winnerSeat === null ? null : opponentOf(values.winnerSeat)
   const fade = (seat: Seat) => (seat === loser ? 0.5 : 1)
   const slot = values.targets ? g.targetSlot : 0
@@ -139,10 +180,14 @@ function MatchArtwork(props: { values: MatchValues; geometry: Geometry; colors: 
       <defs>
         {SEATS.flatMap((seat) => [
           <clipPath key={`name-${seat}`} id={clipId('name', seat)}>
-            <ClipRect region={nameRegion[seat]} y={g.bar.y} height={g.primaryHeight} />
+            <ClipRect region={nameRegion[seat]} y={g.top} height={g.primaryHeight} />
           </clipPath>,
           <clipPath key={`tip-${seat}`} id={clipId('tip', seat)}>
-            <ClipRect region={g.tips[seat]} y={g.bar.y + g.primaryHeight} height={SECONDARY_CLIP_HEIGHT} />
+            <ClipRect
+              region={{ from: nameRegion[seat].from, to: g.tipEnds[seat] }}
+              y={g.top + g.primaryHeight}
+              height={ROWS_HEIGHT - g.primaryHeight}
+            />
           </clipPath>,
         ])}
         {values.balls?.map(({ ball }) => (
@@ -167,10 +212,10 @@ function MatchArtwork(props: { values: MatchValues; geometry: Geometry; colors: 
       ) : null}
 
       {SEATS.map((seat) =>
-        values.tips[seat] !== null && g.tips.tab ? (
+        values.tips[seat] !== null && g.tabHeight !== null ? (
           <path
             key={seat}
-            d={tabPath(g.tips.tab[seat].x, g.tips.tab.y, g.tips.tab[seat].width, g.tips.tab.height, 10)}
+            d={tabPath(g.tabs[seat].x, g.top + g.primaryHeight, g.tabs[seat].width, g.tabHeight, 10)}
             fill={c.tab}
             fillOpacity={c.bandOpacity}
           />
@@ -179,10 +224,10 @@ function MatchArtwork(props: { values: MatchValues; geometry: Geometry; colors: 
 
       <rect
         x={0}
-        y={g.bar.y}
+        y={g.top}
         width={g.width}
-        height={hasTips && !g.tips.tab ? g.bar.tipsHeight : g.primaryHeight}
-        rx={g.bar.radius}
+        height={hasTips && g.tabHeight === null ? ROWS_HEIGHT : g.primaryHeight}
+        rx={g.radius}
         fill={c.band}
         fillOpacity={c.bandOpacity}
       />
@@ -215,9 +260,9 @@ function MatchArtwork(props: { values: MatchValues; geometry: Geometry; colors: 
             <>
               <rect
                 x={g.points[seat].x}
-                y={g.bar.y + g.centre.inset}
+                y={g.top + g.centreInset}
                 width={g.points[seat].width}
-                height={g.primaryHeight - 2 * g.centre.inset}
+                height={g.primaryHeight - 2 * g.centreInset}
                 fill={c.raised}
               />
               <text
@@ -234,8 +279,8 @@ function MatchArtwork(props: { values: MatchValues; geometry: Geometry; colors: 
           ) : null}
           {values.tips[seat] === null ? null : (
             <text
-              x={g.tips[seat].from}
-              y={g.tips.baseline}
+              x={nameRegion[seat].from}
+              y={g.top + g.tipBaseline}
               clipPath={`url(#${clipId('tip', seat)})`}
               fill={c.amber}
               fontSize={g.fonts.tip}
@@ -249,16 +294,20 @@ function MatchArtwork(props: { values: MatchValues; geometry: Geometry; colors: 
 
       <rect
         x={g.centre.x}
-        y={g.bar.y + g.centre.inset}
+        y={g.top + g.centreInset}
         width={g.centre.width}
-        height={g.primaryHeight - 2 * g.centre.inset}
-        rx={g.centre.inset}
+        height={g.primaryHeight - 2 * g.centreInset}
+        rx={g.centreInset}
         fill={c.amber}
       />
       {SEATS.map((seat) => (
         <text
           key={seat}
-          x={g.centre.x + g.centre.width * (seat === 'A' ? 0.2 : 0.8)}
+          x={
+            seat === 'A'
+              ? g.centre.x + g.centre.pad + g.centre.countWidth / 2
+              : g.centre.x + g.centre.width - g.centre.pad - g.centre.countWidth / 2
+          }
           y={baseline(mid, g.fonts.count)}
           textAnchor="middle"
           fill={c.onAmber}
@@ -287,9 +336,6 @@ function MatchArtwork(props: { values: MatchValues; geometry: Geometry; colors: 
 
 const SEATS = ['A', 'B'] as const
 
-/** Tall enough for the secondary row in every layout; the box itself bounds the rest. */
-const SECONDARY_CLIP_HEIGHT = 60
-
 function ClipRect(props: { region: { from: number; to: number }; y: number; height: number }) {
   return (
     <rect
@@ -301,14 +347,14 @@ function ClipRect(props: { region: { from: number; to: number }; y: number; heig
   )
 }
 
-/** Mirrors the table: the object ball is ringed in amber and potted balls are dimmed. */
+/** Mirrors the table: the ball(s) on are larger and potted balls are dimmed. */
 function BallRow(props: {
   balls: NonNullable<MatchValues['balls']>
   centreX: number
   colors: Colors
   idPrefix: string
 }) {
-  const width = props.balls.length * BALL.pitch + 8
+  const width = props.balls.length * BALL.pitch
   const left = props.centreX - width / 2
   const cy = BALL.rowHeight / 2
 
@@ -327,10 +373,9 @@ function BallRow(props: {
         <Ball
           key={ball}
           ball={ball}
-          cx={left + 4 + BALL.pitch / 2 + index * BALL.pitch}
+          cx={left + BALL.pitch / 2 + index * BALL.pitch}
           cy={cy}
           status={status}
-          colors={props.colors}
           idPrefix={props.idPrefix}
         />
       ))}
@@ -343,28 +388,14 @@ function Ball(props: {
   cx: number
   cy: number
   status: NonNullable<MatchValues['balls']>[number]['status']
-  colors: Colors
   idPrefix: string
 }) {
+  const r = props.status === 'object' ? BALL.objectRadius : BALL.radius
+
   return (
     <g opacity={props.status === 'potted' ? 0.22 : 1}>
-      {props.status === 'object' ? (
-        <circle
-          cx={props.cx}
-          cy={props.cy}
-          r={BALL.radius + 3.5}
-          fill="none"
-          stroke={props.colors.amber}
-          strokeWidth={3}
-        />
-      ) : null}
-      <circle
-        cx={props.cx}
-        cy={props.cy}
-        r={BALL.radius}
-        fill={`url(#${props.idPrefix}-ball-${props.ball})`}
-      />
-      <circle cx={props.cx} cy={props.cy} r={BALL.radius} fill={`url(#${props.idPrefix}-shine)`} />
+      <circle cx={props.cx} cy={props.cy} r={r} fill={`url(#${props.idPrefix}-ball-${props.ball})`} />
+      <circle cx={props.cx} cy={props.cy} r={r} fill={`url(#${props.idPrefix}-shine)`} />
     </g>
   )
 }
