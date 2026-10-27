@@ -29,12 +29,11 @@ test('the artwork size depends on the game: Strila has a ball row, long pyramid 
     presentScoreboard({ gameKey, matchId, read: { ok: false, reason: 'unknown-match' }, names: 'full' }, t)
       .size
 
-  expect(size('strila-v2')).toEqual({ ballRow: true, pointChars: 2, countDigits: 2, raceDigits: 2 })
+  expect(size('strila-v2')).toEqual({ ballRow: true, pointChars: 2, centre: { kind: 'frames', digits: 2 } })
   expect(size('free-pyramid-long')).toEqual({
     ballRow: false,
-    pointChars: null,
-    countDigits: 3,
-    raceDigits: 3,
+    pointChars: 3,
+    centre: { kind: 'target', digits: 3 },
   })
   // Old-rules points can go negative, so the points boxes fit a minus sign.
   expect(size('combined-pyramid-old')).toMatchObject({ pointChars: 3 })
@@ -58,7 +57,7 @@ test('frame games group frames won around the race, apart from the current frame
 
   expect(values).toMatchObject({
     seq: 9,
-    centre: { A: 1, B: 2, race: 3 },
+    centre: { kind: 'frames', A: 1, B: 2, race: 3 },
     points: { A: '5', B: '7' },
     targets: null,
     balls: null,
@@ -72,38 +71,38 @@ test('negative points use a minus sign, not a hyphen', () => {
   })
 })
 
-test('the centre fits the race all frame match, but grows with the points in a match to points', () => {
-  const frames = present(active('strila-v2', { frames: 12, framesWon: { A: 1, B: 0 } }))
-  const early = present(active('free-pyramid-long', { targets: { A: 60, B: 60 }, points: { A: 9, B: 7 } }))
-  const later = present(active('free-pyramid-long', { targets: { A: 60, B: 60 }, points: { A: 9, B: 10 } }))
-
-  expect(frames).toMatchObject({ centre: { countDigits: 2 } })
-  expect(early).toMatchObject({ centre: { countDigits: 1 } })
-  expect(later).toMatchObject({ centre: { countDigits: 2 } })
-})
-
 test.each([
   ['strila-v2', { A: 9, B: 9 }, null],
   ['strila-v2', { A: 12, B: 9 }, { A: 12, B: 9 }],
   ['strila-v2', { A: 12, B: 12 }, { A: 12, B: 12 }],
   ['free-pyramid', { A: 9, B: 9 }, { A: 9, B: 9 }],
 ] as const)('%s targets %o are shown per seat only when not the default pair', (gameKey, targets, shown) => {
-  expect(present(active(gameKey, { targets }))).toMatchObject({ targets: shown })
+  const values = present(active(gameKey, { targets }))
+
+  expect(values).toMatchObject({ targets: shown })
+  // A frames centre labels the targets beneath it.
+  expect(values.kind === 'match' && values.targets !== null && values.targets.label !== null).toBe(
+    shown !== null,
+  )
 })
 
-test('long pyramid is a match to points: points form the centre and an equal target is the race', () => {
-  const equal = present(active('free-pyramid-long', { targets: { A: 60, B: 60 }, points: { A: 41, B: 17 } }))
+test('long pyramid shows its score as points, an equal target in the centre, lopsided targets beneath', () => {
+  const equal = present(active('free-pyramid-long', { targets: { A: 30, B: 30 }, points: { A: 41, B: 17 } }))
 
-  expect(equal).toMatchObject({ points: null, targets: null, centre: { A: 41, B: 17, race: 60 } })
+  expect(equal).toMatchObject({
+    points: { A: '41', B: '17' },
+    targets: null,
+    centre: { kind: 'target', target: 30 },
+  })
 
   const lopsided = present(
     active('free-pyramid-long', { targets: { A: 50, B: 15 }, points: { A: 41, B: 12 } }),
   )
 
   expect(lopsided).toMatchObject({
-    points: null,
-    targets: { A: 50, B: 15 },
-    centre: { A: 41, B: 12, race: null },
+    points: { A: '41', B: '12' },
+    targets: { A: 50, B: 15, label: null },
+    centre: { kind: 'separator' },
   })
 })
 
@@ -181,7 +180,7 @@ test('a finished match keeps its final frame points and match score', () => {
 
   expect(present(read)).toMatchObject({
     winnerSeat: 'B',
-    centre: { A: 1, B: 2, race: 2 },
+    centre: { kind: 'frames', A: 1, B: 2, race: 2 },
     points: { A: '4', B: '10' },
     balls: null,
     tips: { A: null, B: null },

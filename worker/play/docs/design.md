@@ -115,15 +115,22 @@ must be independently editable; Setup uses registry names. Play guidance identif
   the same artwork, so the page may only position and scale it on the 1920×1080 stage.
 - Each layout and game keeps a fixed box and anchor in every state, including the ball row and
   the space reserved for the secondary row, sized from the widest numbers the game can show. Inside
-  it, the amber centre group hugs the match's numbers with equal gaps: fixed by the race all frame
-  match, widening with points in a match to points. Negative points use a minus sign (U+2212). A
-  missing or discarded match renders the same box empty.
+  it, the centre hugs the match's numbers with equal gaps, so the compact bar narrows with it; frames
+  won never exceed the race, so it keeps one width all match. Negative points use a minus sign
+  (U+2212). A missing or discarded match renders the same box empty.
+- Every game shows current points in the boxes beside the centre. Frame games centre `1 (3) 2`;
+  long pyramid centres its bare target, or a colon when targets are per seat.
+- Non-default targets show in boxes under the points, with no parentheses. Frame games label them
+  "Handicap" under the centre; the stream shows that word, not a separate Setup concept.
 - Long names are not fitted: the font and layout stay fixed, names clip at their end, and the
   short-name view replaces first names with initials.
-- Rows keep one purpose: the ball row above the bar, the primary row (names, points, `1 (3) 2`),
-  and a secondary row of per-player tips that appears only with content, extending that player's
-  name box down from its edge. Its centre and a slot
-  between each name and its points stay reserved for frame history and a breaker/shooter marker.
+- Rows keep one purpose: the ball row above the bar, the primary row (names, points, centre), and a
+  secondary row that appears only with content: per-player tips extending that player's name box
+  down from its edge, and targets extending the points and centre. Otherwise the centre of that row
+  stays free for frame history, and a slot between each name and its points for a breaker/shooter
+  marker.
+- Compact rounds only the bar's outer corners, including those of the boxes it extends down; inner
+  corners stay square. Wide has no radii, and its boxes fill the bar's height with no inset.
 - Show the last good state; never a stale or error indicator. Tips come from a viewer whitelist;
   operator instructions stay off stream.
 - Sizes are stage pixels: a 720p source shows them at two thirds. The 16px minimum applies to the

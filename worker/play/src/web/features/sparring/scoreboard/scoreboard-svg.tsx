@@ -3,7 +3,11 @@ import type { StrilaBall } from '@ks/gameplay/definitions'
 import type { SupportedLocale } from '@ks/i18n'
 
 import { STRILA_BALL_PALETTE } from '@/components/strila-ball'
-import type { ScoreboardSize, ScoreboardValues } from '@/features/sparring/scoreboard/presentation'
+import type {
+  ScoreboardCentre,
+  ScoreboardSize,
+  ScoreboardValues,
+} from '@/features/sparring/scoreboard/presentation'
 
 export type ScoreboardLayout = 'compact' | 'wide'
 
@@ -91,19 +95,20 @@ const BALL = { radius: 36, objectRadius: 46, pitch: 120, rowHeight: 96 } as cons
 /** Bar plus the reserved secondary row, below the ball row when the game has one. */
 const ROWS_HEIGHT = 96
 
-/** Glyph advances of the system UI fonts' tabular digits and parentheses, as a share of the font size. */
+/** Glyph advances of the system UI fonts' tabular digits, parentheses, and colon, as a share of the font size. */
 const DIGIT = 0.58
 
 const PAREN = 0.33
+
+const COLON = 0.3
 
 /** Equal space around each number of the amber centre group: `_1_(3)_0_`. */
 const CENTRE_GAP = 16
 
 /**
  * Fixed per-layout measures. Each name ends before a reserved breaker/shooter slot beside the
- * points, with a fixed slot for a non-default target. Names and tips start at the name's edge and
- * clip at their end, never fitted. A tip extends its player's name box down; the points and centre
- * stay one row, kept free for frame history.
+ * points. Names and tips start at the name's edge and clip at their end, never fitted. A tip
+ * extends its player's name box down; per-seat targets extend the points and centre down.
  */
 const LAYOUTS = {
   compact: {
@@ -111,63 +116,64 @@ const LAYOUTS = {
     side: 450,
     edge: 20,
     breakerSlot: 28,
-    targetSlot: 56,
     radius: 12,
     primaryHeight: 60,
     fonts: { name: 28, target: 22, points: 40, count: 36, race: 24, tip: 20 },
     tipBaseline: 83,
-    centreInset: 0,
   },
   wide: {
     side: null,
     edge: 48,
     breakerSlot: 36,
-    targetSlot: 64,
     radius: 0,
     primaryHeight: 62,
     fonts: { name: 34, target: 26, points: 44, count: 38, race: 26, tip: 24 },
     tipBaseline: 86,
-    centreInset: 6,
   },
 } as const
 
 /**
- * Positions for one layout and game. The box fits the widest centre group the game can show, so it
- * never changes with state. Given a match's centre, the amber group hugs that match's numbers: the
- * compact bar narrows with it and stays centred in the box, while the wide band always spans the
- * stage and its name boxes take the space.
+ * Positions for one layout and game. The box fits the widest centre the game can show, so it never
+ * changes with state. Given a match's centre, the centre hugs that match's numbers: the compact bar
+ * narrows with it and stays centred in the box, while the wide band always spans the stage and its
+ * name boxes take the space.
  */
-function geometry(
-  layout: ScoreboardLayout,
-  size: ScoreboardSize,
-  centre: { countDigits: number; race: number | null } | null,
-) {
+function geometry(layout: ScoreboardLayout, size: ScoreboardSize, centre: ScoreboardCentre | null) {
   const l = LAYOUTS[layout]
   const even = (value: number) => 2 * Math.ceil(value / 2)
-  const points = size.pointChars === null ? 0 : even(size.pointChars * DIGIT * l.fonts.points + 20)
-  const countWidth = (countDigits: number) => countDigits * DIGIT * l.fonts.count
-  const raceWidth = (raceDigits: number) => (raceDigits * DIGIT + 2 * PAREN) * l.fonts.race
+  const points = even(size.pointChars * DIGIT * l.fonts.points + 20)
+  const countWidth = (digits: number) => digits * DIGIT * l.fonts.count
 
-  const amberWidth = (countDigits: number, raceDigits: number | null) =>
+  // Equal gaps around each number (`_1_(3)_0_`). The colon has no padding of its own: the points
+  // boxes' inner space separates it.
+  const centreWidth = (kind: ScoreboardCentre['kind'], digits: number) =>
     even(
-      2 * countWidth(countDigits) +
-        (raceDigits === null ? 3 * CENTRE_GAP : raceWidth(raceDigits) + 4 * CENTRE_GAP),
+      kind === 'frames'
+        ? 2 * countWidth(digits) + (digits * DIGIT + 2 * PAREN) * l.fonts.race + 4 * CENTRE_GAP
+        : kind === 'target'
+          ? countWidth(digits) + 2 * CENTRE_GAP
+          : COLON * l.fonts.points,
     )
 
-  const boxAmber = amberWidth(size.countDigits, size.raceDigits)
-  const width = l.side === null ? SCOREBOARD_STAGE.width : 2 * l.side + 2 * points + boxAmber
+  const boxCentre = centreWidth(size.centre.kind, size.centre.digits)
+  const width = l.side === null ? SCOREBOARD_STAGE.width : 2 * l.side + 2 * points + boxCentre
 
-  const countDigits = centre?.countDigits ?? size.countDigits
+  // Frames won never exceed the race, so a frames centre keeps one width all match.
+  const digits =
+    centre === null
+      ? size.centre.digits
+      : centre.kind === 'frames'
+        ? String(centre.race).length
+        : centre.kind === 'target'
+          ? String(centre.target).length
+          : 0
 
-  const raceDigits =
-    centre === null ? size.raceDigits : centre.race === null ? null : String(centre.race).length
-
-  const amber = amberWidth(countDigits, raceDigits)
+  const inner = centreWidth(centre?.kind ?? size.centre.kind, digits)
 
   const bar =
-    l.side === null ? { x: 0, width } : { x: (boxAmber - amber) / 2, width: width - boxAmber + amber }
+    l.side === null ? { x: 0, width } : { x: (boxCentre - inner) / 2, width: width - boxCentre + inner }
 
-  const side = (bar.width - 2 * points - amber) / 2
+  const side = (bar.width - 2 * points - inner) / 2
   const right = bar.x + bar.width
   const top = size.ballRow ? BALL.rowHeight : 0
 
@@ -182,22 +188,19 @@ function geometry(
       B: { from: right - side + l.breakerSlot, to: right - l.edge },
     },
     points: { A: { x: bar.x + side, width: points }, B: { x: right - side - points, width: points } },
-    centre: { x: bar.x + side + points, width: amber, countWidth: countWidth(countDigits), pad: CENTRE_GAP },
+    centre: { x: bar.x + side + points, width: inner, countWidth: countWidth(digits) },
   }
 }
 
 function MatchArtwork(props: { values: MatchValues; geometry: Geometry; colors: Colors; idPrefix: string }) {
   const { values, geometry: g, colors: c } = props
   const mid = g.top + g.primaryHeight / 2
+  const row = g.top + g.primaryHeight
+  const rowMid = (row + g.top + ROWS_HEIGHT) / 2
   const loser = values.winnerSeat === null ? null : opponentOf(values.winnerSeat)
   const fade = (seat: Seat) => (seat === loser ? 0.5 : 1)
-  const slot = values.targets ? g.targetSlot : 0
-
-  const nameRegion = {
-    A: { from: g.names.A.from, to: g.names.A.to - slot },
-    B: { from: g.names.B.from + slot, to: g.names.B.to },
-  }
-
+  const centre = values.centre
+  const band = bandPath(g, { A: values.tips.A !== null, B: values.tips.B !== null }, values.targets !== null)
   const clipId = (kind: 'name' | 'tip', seat: Seat) => `${props.idPrefix}-${kind}-${seat}`
 
   return (
@@ -205,16 +208,15 @@ function MatchArtwork(props: { values: MatchValues; geometry: Geometry; colors: 
       <defs>
         {SEATS.flatMap((seat) => [
           <clipPath key={`name-${seat}`} id={clipId('name', seat)}>
-            <ClipRect region={nameRegion[seat]} y={g.top} height={g.primaryHeight} />
+            <ClipRect region={g.names[seat]} y={g.top} height={g.primaryHeight} />
           </clipPath>,
           <clipPath key={`tip-${seat}`} id={clipId('tip', seat)}>
-            <ClipRect
-              region={g.names[seat]}
-              y={g.top + g.primaryHeight}
-              height={ROWS_HEIGHT - g.primaryHeight}
-            />
+            <ClipRect region={g.names[seat]} y={row} height={ROWS_HEIGHT - g.primaryHeight} />
           </clipPath>,
         ])}
+        <clipPath id={`${props.idPrefix}-band`}>
+          <path d={band} />
+        </clipPath>
         {values.balls?.map(({ ball }) => (
           <radialGradient key={ball} id={`${props.idPrefix}-ball-${ball}`} cx="42%" cy="38%" r="62%">
             <stop offset="0%" stopColor={STRILA_BALL_PALETTE[ball].highlight} />
@@ -236,16 +238,13 @@ function MatchArtwork(props: { values: MatchValues; geometry: Geometry; colors: 
         <BallRow balls={values.balls} centreX={g.width / 2} colors={c} idPrefix={props.idPrefix} />
       ) : null}
 
-      <path
-        d={bandPath(g, { A: values.tips.A !== null, B: values.tips.B !== null })}
-        fill={c.band}
-        fillOpacity={c.bandOpacity}
-      />
+      <path d={band} fill={c.band} fillOpacity={c.bandOpacity} />
 
+      {/* Clipped to the band, so the raised boxes take its rounded outer corners. */}
       {SEATS.map((seat) => (
-        <g key={seat} opacity={fade(seat)}>
+        <g key={seat} opacity={fade(seat)} clipPath={`url(#${props.idPrefix}-band)`}>
           <text
-            x={nameRegion[seat].from}
+            x={g.names[seat].from}
             y={baseline(mid, g.fonts.name)}
             clipPath={`url(#${clipId('name', seat)})`}
             fill={c.text}
@@ -254,38 +253,34 @@ function MatchArtwork(props: { values: MatchValues; geometry: Geometry; colors: 
           >
             {values.names[seat]}
           </text>
+          <rect
+            x={g.points[seat].x}
+            y={g.top}
+            width={g.points[seat].width}
+            height={values.targets ? ROWS_HEIGHT : g.primaryHeight}
+            fill={c.raised}
+          />
+          <text
+            x={g.points[seat].x + g.points[seat].width / 2}
+            y={baseline(mid, g.fonts.points)}
+            textAnchor="middle"
+            fill={c.text}
+            fontSize={g.fonts.points}
+            fontWeight={700}
+          >
+            {values.points[seat]}
+          </text>
           {values.targets ? (
             <text
-              x={seat === 'A' ? g.names.A.to : g.names.B.from}
-              y={baseline(mid, g.fonts.name)}
-              textAnchor={seat === 'A' ? 'end' : 'start'}
+              x={g.points[seat].x + g.points[seat].width / 2}
+              y={baseline(rowMid, g.fonts.target)}
+              textAnchor="middle"
               fill={c.dim}
               fontSize={g.fonts.target}
-              fontWeight={500}
+              fontWeight={600}
             >
-              ({values.targets[seat]})
+              {values.targets[seat]}
             </text>
-          ) : null}
-          {values.points ? (
-            <>
-              <rect
-                x={g.points[seat].x}
-                y={g.top + g.centreInset}
-                width={g.points[seat].width}
-                height={g.primaryHeight - 2 * g.centreInset}
-                fill={c.raised}
-              />
-              <text
-                x={g.points[seat].x + g.points[seat].width / 2}
-                y={baseline(mid, g.fonts.points)}
-                textAnchor="middle"
-                fill={c.text}
-                fontSize={g.fonts.points}
-                fontWeight={700}
-              >
-                {values.points[seat]}
-              </text>
-            </>
           ) : null}
           {values.tips[seat] === null ? null : (
             <text
@@ -302,42 +297,84 @@ function MatchArtwork(props: { values: MatchValues; geometry: Geometry; colors: 
         </g>
       ))}
 
-      <rect
-        x={g.centre.x}
-        y={g.top + g.centreInset}
-        width={g.centre.width}
-        height={g.primaryHeight - 2 * g.centreInset}
-        rx={g.centreInset}
-        fill={c.amber}
-      />
-      {SEATS.map((seat) => (
+      {centre.kind === 'separator' ? (
+        <>
+          <rect
+            x={g.centre.x}
+            y={g.top}
+            width={g.centre.width}
+            height={values.targets ? ROWS_HEIGHT : g.primaryHeight}
+            fill={c.raised}
+          />
+          {/* The colon sits low against the digits' cap height. */}
+          <text
+            x={g.centre.x + g.centre.width / 2}
+            y={baseline(mid, g.fonts.points) - 3}
+            textAnchor="middle"
+            fill={c.text}
+            fontSize={g.fonts.points}
+            fontWeight={700}
+          >
+            :
+          </text>
+        </>
+      ) : (
+        <rect x={g.centre.x} y={g.top} width={g.centre.width} height={g.primaryHeight} fill={c.amber} />
+      )}
+      {centre.kind === 'target' ? (
         <text
-          key={seat}
-          x={
-            seat === 'A'
-              ? g.centre.x + g.centre.pad + g.centre.countWidth / 2
-              : g.centre.x + g.centre.width - g.centre.pad - g.centre.countWidth / 2
-          }
+          x={g.centre.x + g.centre.width / 2}
           y={baseline(mid, g.fonts.count)}
           textAnchor="middle"
           fill={c.onAmber}
           fontSize={g.fonts.count}
           fontWeight={700}
-          opacity={fade(seat)}
         >
-          {values.centre[seat]}
+          {centre.target}
         </text>
-      ))}
-      {values.centre.race === null ? null : (
+      ) : null}
+      {centre.kind === 'frames' ? (
+        <>
+          {SEATS.map((seat) => (
+            <text
+              key={seat}
+              x={
+                seat === 'A'
+                  ? g.centre.x + CENTRE_GAP + g.centre.countWidth / 2
+                  : g.centre.x + g.centre.width - CENTRE_GAP - g.centre.countWidth / 2
+              }
+              y={baseline(mid, g.fonts.count)}
+              textAnchor="middle"
+              fill={c.onAmber}
+              fontSize={g.fonts.count}
+              fontWeight={700}
+              opacity={fade(seat)}
+            >
+              {centre[seat]}
+            </text>
+          ))}
+          <text
+            x={g.centre.x + g.centre.width / 2}
+            y={baseline(mid, g.fonts.race)}
+            textAnchor="middle"
+            fill={c.onAmberDim}
+            fontSize={g.fonts.race}
+            fontWeight={600}
+          >
+            ({centre.race})
+          </text>
+        </>
+      ) : null}
+      {values.targets === null || values.targets.label === null ? null : (
         <text
           x={g.centre.x + g.centre.width / 2}
-          y={baseline(mid, g.fonts.race)}
+          y={baseline(rowMid, g.fonts.tip)}
           textAnchor="middle"
-          fill={c.onAmberDim}
-          fontSize={g.fonts.race}
+          fill={c.dim}
+          fontSize={g.fonts.tip}
           fontWeight={600}
         >
-          ({values.centre.race})
+          {values.targets.label}
         </text>
       )}
     </>
@@ -417,9 +454,10 @@ function baseline(mid: number, fontSize: number) {
 
 /**
  * The bar's outline: one row, extended down under each player's name box while that player has a
- * tip. One path keeps the translucent fill even where the rows meet.
+ * tip, and under the points and centre while per-seat targets show. One path keeps the translucent
+ * fill even where the rows meet.
  */
-function bandPath(g: Geometry, tips: { A: boolean; B: boolean }) {
+function bandPath(g: Geometry, tips: { A: boolean; B: boolean }, targets: boolean) {
   const { x, width, side } = g.bar
   const r = g.radius
   const y = g.top
@@ -427,32 +465,51 @@ function bandPath(g: Geometry, tips: { A: boolean; B: boolean }) {
   const bottom = y + ROWS_HEIGHT
   const right = x + width
   const inner = { A: x + side, B: right - side }
+  const depth = (deep: boolean) => (deep ? bottom : row)
 
-  return [
+  // Bottom profile from right to left, merging neighbours of equal depth.
+  const runs: { from: number; to: number; y: number }[] = []
+
+  for (const run of [
+    { from: inner.B, to: right, y: depth(tips.B) },
+    { from: inner.A, to: inner.B, y: depth(targets) },
+    { from: x, to: inner.A, y: depth(tips.A) },
+  ]) {
+    const last = runs.at(-1)
+
+    if (last?.y === run.y) last.from = run.from
+    else runs.push(run)
+  }
+
+  const path = [
     `M${x} ${y + r}`,
     `Q${x} ${y} ${x + r} ${y}`,
     `H${right - r}`,
     `Q${right} ${y} ${right} ${y + r}`,
-    ...(tips.B
-      ? [
-          `V${bottom - r}`,
-          `Q${right} ${bottom} ${right - r} ${bottom}`,
-          `H${inner.B + r}`,
-          `Q${inner.B} ${bottom} ${inner.B} ${bottom - r}`,
-          `V${row + r}`,
-          `Q${inner.B} ${row} ${inner.B - r} ${row}`,
-        ]
-      : [`V${row - r}`, `Q${right} ${row} ${right - r} ${row}`]),
-    ...(tips.A
-      ? [
-          `H${inner.A + r}`,
-          `Q${inner.A} ${row} ${inner.A} ${row + r}`,
-          `V${bottom - r}`,
-          `Q${inner.A} ${bottom} ${inner.A - r} ${bottom}`,
-          `H${x + r}`,
-          `Q${x} ${bottom} ${x} ${bottom - r}`,
-        ]
-      : [`H${x + r}`, `Q${x} ${row} ${x} ${row - r}`]),
-    'Z',
-  ].join(' ')
+  ]
+
+  const first = runs[0]
+
+  path.push(`V${first.y - r}`, `Q${right} ${first.y} ${right - r} ${first.y}`)
+
+  for (const [index, run] of runs.entries()) {
+    if (index === 0) continue
+    const b = run.to
+    const from = runs[index - 1].y
+    const to = run.y
+    const down = to > from ? 1 : -1
+
+    // Only the outer (convex) corners are rounded; inner corners stay square.
+    path.push(
+      ...(down > 0
+        ? [`H${b}`, `V${to - r}`, `Q${b} ${to} ${b - r} ${to}`]
+        : [`H${b + r}`, `Q${b} ${from} ${b} ${from - r}`, `V${to}`]),
+    )
+  }
+
+  const last = runs.at(-1)!
+
+  path.push(`H${x + r}`, `Q${x} ${last.y} ${x} ${last.y - r}`, 'Z')
+
+  return path.join(' ')
 }
