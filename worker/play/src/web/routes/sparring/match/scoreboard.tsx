@@ -5,7 +5,12 @@ import { isRouteErrorResponse, useFetcher, useRouteError } from 'react-router'
 import { ReadRecovery } from '@/features/freshness/read-recovery'
 import { useScoreboardLiveRevalidation } from '@/features/sparring/match/live'
 import { presentScoreboard } from '@/features/sparring/scoreboard/presentation'
-import { SCOREBOARD_STAGE, scoreboardBox, ScoreboardSvg } from '@/features/sparring/scoreboard/scoreboard-svg'
+import {
+  SCOREBOARD_STAGE,
+  scoreboardBox,
+  scoreboardFrame,
+  ScoreboardSvg,
+} from '@/features/sparring/scoreboard/scoreboard-svg'
 import { useRootLocale } from '@/root'
 import { loadMatchScoreboard } from '@/routes/sparring/match/handlers'
 
@@ -33,8 +38,9 @@ export async function clientLoader({
 type ScoreboardData = Awaited<ReturnType<typeof loader>>
 
 /**
- * OBS browser-source page: a transparent 1920×1080 stage scaled to the viewport, holding only the
- * scoreboard artwork at its layout's fixed box. No app chrome, notices, or wake lock.
+ * OBS browser-source page: the layout's frame of the transparent 1920×1080 stage, scaled to the
+ * viewport, holding only the scoreboard artwork at its fixed box. A source sized to the frame
+ * encodes only the scoreboard's rows. No app chrome, notices, or wake lock.
  */
 export default function ScoreboardRoute({ loaderData }: Route.ComponentProps) {
   return <ScoreboardPage initial={'readFailed' in loaderData ? null : loaderData} recover />
@@ -63,6 +69,9 @@ function ScoreboardPage(props: { initial: ScoreboardData | null; recover: boolea
 
   const read = () => fetcher.load(`${window.location.pathname}${window.location.search}`)
 
+  // Nothing paints before the first good read, so the full stage is as good as any frame.
+  const frame = shown === null ? { x: 0, y: 0, ...SCOREBOARD_STAGE } : scoreboardFrame(shown.layout)
+
   return (
     <>
       {/* A dark color-scheme would paint Chromium's canvas dark behind a transparent root. */}
@@ -72,7 +81,7 @@ function ScoreboardPage(props: { initial: ScoreboardData | null; recover: boolea
         }
       </style>
       <svg
-        viewBox={`0 0 ${SCOREBOARD_STAGE.width} ${SCOREBOARD_STAGE.height}`}
+        viewBox={`${frame.x} ${frame.y} ${frame.width} ${frame.height}`}
         preserveAspectRatio="xMidYMax meet"
         style={{ position: 'fixed', inset: 0, width: '100%', height: '100%' }}
       >

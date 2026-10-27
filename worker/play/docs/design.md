@@ -113,6 +113,8 @@ must be independently editable; Setup uses registry names. Play guidance identif
 - The scoreboard is one self-contained `<svg>` per layout with inline presentation attributes only:
   no stylesheet classes, `foreignObject`, external images, or web fonts. The Streamer rasterizes
   the same artwork, so the page may only position and scale it on the 1920×1080 stage.
+- The page shows only its layout's frame of that stage, the union of the layout's boxes across
+  games, so an OBS source is sized to the scoreboard (one size per layout), never the full frame.
 - Each layout and game keeps a fixed box and anchor in every state, including the ball row and
   the space reserved for the secondary row, sized from the widest numbers the game can show. Inside
   it, the centre hugs the match's numbers with equal gaps, so the compact bar narrows with it; frames

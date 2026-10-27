@@ -1,12 +1,13 @@
 import { opponentOf, type Seat } from '@ks/core'
-import type { StrilaBall } from '@ks/gameplay/definitions'
+import { GameKey, type StrilaBall } from '@ks/gameplay/definitions'
 import type { SupportedLocale } from '@ks/i18n'
 
 import { STRILA_BALL_PALETTE } from '@/components/strila-ball'
-import type {
-  ScoreboardCentre,
-  ScoreboardSize,
-  ScoreboardValues,
+import {
+  type ScoreboardCentre,
+  type ScoreboardSize,
+  scoreboardSize,
+  type ScoreboardValues,
 } from '@/features/sparring/scoreboard/presentation'
 
 export type ScoreboardLayout = 'compact' | 'wide'
@@ -23,6 +24,18 @@ export const SCOREBOARD_STAGE = { width: 1920, height: 1080 } as const
  */
 export function scoreboardBox(layout: ScoreboardLayout, size: ScoreboardSize) {
   const { width, height } = geometry(layout, size, null)
+
+  return { x: (SCOREBOARD_STAGE.width - width) / 2, y: SCOREBOARD_STAGE.height - height, width, height }
+}
+
+/**
+ * The stage area a layout's page shows, so an OBS source can be sized to it rather than the full
+ * frame: the union of the layout's boxes across games, so one source size fits every match.
+ */
+export function scoreboardFrame(layout: ScoreboardLayout) {
+  const boxes = GameKey.options.map((gameKey) => scoreboardBox(layout, scoreboardSize(gameKey)))
+  const width = Math.max(...boxes.map((box) => box.width))
+  const height = Math.max(...boxes.map((box) => box.height))
 
   return { x: (SCOREBOARD_STAGE.width - width) / 2, y: SCOREBOARD_STAGE.height - height, width, height }
 }
