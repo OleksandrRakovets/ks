@@ -18,7 +18,7 @@ import {
   type LongFreePyramidFrameSnapshot,
 } from './machine'
 import { deriveLongFreePyramidControlProjection } from './projections/control'
-import { createLongFreePyramidProtocolEntries } from './protocol'
+import { createLongFreePyramidFrameEndProtocolEntries, createLongFreePyramidProtocolEntries } from './protocol'
 
 class LongFreePyramidGameplaySession implements GameplaySession<'free-pyramid-long'> {
   readonly gameKey = 'free-pyramid-long' as const
@@ -79,6 +79,9 @@ class LongFreePyramidGameplaySession implements GameplaySession<'free-pyramid-lo
         scoreBySeat: { ...rack.scoreBySeat },
       })),
     }
+  }
+  frameEndProtocolEntries(winnerSeat: Seat) {
+    return createLongFreePyramidFrameEndProtocolEntries(this.#snapshot, winnerSeat)
   }
 }
 

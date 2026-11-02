@@ -164,6 +164,7 @@ test('long pyramid awaiting-award restores a foul-determined winner and retained
     _tag: 'accepted',
     protocolEntryContents: [
       { entryType: 'player-command', body: { commandType: 'frame.award' } },
+      { entryType: 'system-note', body: { rackNumber: 1, scoreBySeat: { A: 0, B: 2 } } },
       { entryType: 'frame-awarded', seat: 'B', scoreAfter: { A: 0, B: 2 }, body: { winReason: 'game-rules' } },
       { entryType: 'match-ended', seat: 'B' },
     ],

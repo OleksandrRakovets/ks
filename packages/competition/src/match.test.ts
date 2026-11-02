@@ -263,6 +263,38 @@ describe('Match', () => {
     expect(match.state().winnerSeat).toBe('B')
   })
 
+  test('a long pyramid concession records the final partial rack before the award', () => {
+    const match = createMatch({
+      ...config(1),
+      gameKey: 'free-pyramid-long',
+      gameConfiguration: { rackRollover: 14 },
+    })
+
+    accept(match, {
+      commandId: newCommandId(),
+      source: 'match',
+      command: { type: 'frame.commence', seat: 'A' },
+    })
+    accept(match, {
+      commandId: newCommandId(),
+      source: 'game',
+      command: { type: 'pot.record', seat: 'B', pottedBallCount: 3 },
+    })
+
+    const result = accept(match, {
+      commandId: newCommandId(),
+      source: 'match',
+      command: { type: 'frame.concede', seat: 'B' },
+    })
+
+    expect(result.protocolEntryContents.map(({ entryType, body }) => [entryType, body])).toEqual([
+      ['frame-conceded', {}],
+      ['system-note', { systemType: 'rack-completed', rackNumber: 1, scoreBySeat: { A: 0, B: 3 } }],
+      ['frame-awarded', { winReason: 'conceded' }],
+      ['match-ended', {}],
+    ])
+  })
+
   test('gameplay-determined winner removes concession controls and rejects either concession', () => {
     const match = createMatch({
       ...config(1),

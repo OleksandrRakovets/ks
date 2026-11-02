@@ -69,6 +69,12 @@ export interface GameplaySession<K extends GameKey> {
 
   /** Returns game-owned result data when this game has a bespoke finished presentation. */
   deriveResult?(): GameResult
+
+  /**
+   * Returns game-owned Protocol entries for a frame that has just ended, by award or concession.
+   * Competition writes them before the frame-awarded entry in the same Accepted Command.
+   */
+  frameEndProtocolEntries?(winnerSeat: Seat): readonly GameProtocolEntry[]
 }
 
 export const commandNotAvailable = (): GameCommandExecution => ({

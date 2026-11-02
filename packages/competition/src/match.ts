@@ -375,6 +375,9 @@ class Match {
 
     if (lifecycle.phase !== 'frame-in-progress') throw new Error('Cannot complete inactive frame')
     const gameKey = gameKeyOf(lifecycle.config.gameKey)
+
+    for (const entry of this.#gameplay?.session.frameEndProtocolEntries?.(outcome.winnerSeat) ?? [])
+      protocolEntryContents.push({ ...entry, frameIndex: lifecycle.activeFrame.frameIndex })
     protocolEntryContents.push({
       gameKey,
       frameIndex: lifecycle.activeFrame.frameIndex,
