@@ -233,7 +233,6 @@ test('replaces the award with a frame result carrying frame wins, points, and du
       winnerSeat: 'B',
       framesWonBySeat: { A: 0, B: 1 },
       pointsBySeat: { A: 0, B: 8 },
-      conceded: false,
       durationMs: 12 * 60_000,
     },
     {
@@ -250,6 +249,7 @@ test('replaces the award with a frame result carrying frame wins, points, and du
       seat: 'B',
       action: 'frame.concede',
       message: { key: 'match.protocol.lane.frame-conceded' },
+      score: { A: 0, B: 0 },
       changedSeats: [],
     },
     {
@@ -258,10 +258,9 @@ test('replaces the award with a frame result carrying frame wins, points, and du
       winnerSeat: 'A',
       framesWonBySeat: { A: 1, B: 1 },
       pointsBySeat: { A: 0, B: 0 },
-      conceded: true,
       durationMs: 5 * 60_000,
     },
-    { kind: 'match-ended', frameIndex: 2, winnerSeat: 'A', effectiveDurationMs: 17 * 60_000 },
+    { kind: 'match-ended', frameIndex: 2, effectiveDurationMs: 17 * 60_000 },
   ])
 })
 

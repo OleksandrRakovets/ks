@@ -50,12 +50,14 @@ export function presentProtocolItems(rows: readonly ProtocolRow[], showsFrames: 
 export function formatProtocolDuration(t: TFunction, durationMs: number): string {
   const totalMinutes = Math.max(1, Math.round(durationMs / 60_000))
 
-  return totalMinutes < 60
-    ? t(keys.match.protocol.durationMinutes, { minutes: totalMinutes })
-    : t(keys.match.protocol.durationHours, {
-        hours: Math.floor(totalMinutes / 60),
-        minutes: totalMinutes % 60,
-      })
+  if (totalMinutes < 60) return t(keys.match.protocol.durationMinutes, { minutes: totalMinutes })
+
+  if (totalMinutes % 60 === 0) return t(keys.match.protocol.durationWholeHours, { hours: totalMinutes / 60 })
+
+  return t(keys.match.protocol.durationHours, {
+    hours: Math.floor(totalMinutes / 60),
+    minutes: totalMinutes % 60,
+  })
 }
 
 /** Formats a score for the spine and bands, with a true minus sign for Owed Balls. */

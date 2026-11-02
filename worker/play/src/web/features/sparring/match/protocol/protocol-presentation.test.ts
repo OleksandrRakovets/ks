@@ -27,7 +27,6 @@ const frameResult = (frameIndex: number): ProtocolRow => ({
   winnerSeat: 'A',
   framesWonBySeat: { A: frameIndex, B: 0 },
   pointsBySeat: { A: 8, B: 0 },
-  conceded: false,
   durationMs: 60_000,
 })
 
@@ -37,7 +36,6 @@ const matchEnded = (frameIndex: number): ProtocolRow => ({
   frameIndex,
   acceptedAtIso: '',
   acceptedAtLabel: '19:30',
-  winnerSeat: 'A',
   effectiveDurationMs: 120_000,
 })
 

@@ -174,6 +174,7 @@ export const resources = {
           effectiveTime: 'Чистий час гри: {{duration}}',
           durationMinutes: '{{minutes}} хв',
           durationHours: '{{hours}} год {{minutes}} хв',
+          durationWholeHours: '{{hours}} год',
           lane: {
             'frame-commence': 'Початковий удар',
             'frame-conceded': 'Визнав поразку',
@@ -457,6 +458,7 @@ export const resources = {
           effectiveTime: 'Playing time: {{duration}}',
           durationMinutes: '{{minutes}} min',
           durationHours: '{{hours}} h {{minutes}} min',
+          durationWholeHours: '{{hours}} h',
           lane: {
             'frame-commence': 'Break-off',
             'frame-conceded': 'Conceded',

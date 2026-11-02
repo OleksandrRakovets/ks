@@ -90,7 +90,7 @@ test('a race to two prepares the next frame, then archives the finished match fo
     /Race Bob: Break-off$/,
   ])
   await expect(rows.filter({ hasText: /Frame \d — / })).toHaveText([
-    /1\s*:\s*0\s*Frame 1 — Race Alice/,
-    /2\s*:\s*0\s*Frame 2 — Race Alice/,
+    /Race Alice 1\s*:\s*Race Bob 0\s*Frame 1 — Race Alice/,
+    /Race Alice 2\s*:\s*Race Bob 0\s*Frame 2 — Race Alice/,
   ])
 })

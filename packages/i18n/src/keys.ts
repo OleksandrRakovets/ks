@@ -95,6 +95,7 @@ export const keys = {
       effectiveTime: 'match.protocol.effectiveTime',
       durationMinutes: 'match.protocol.durationMinutes',
       durationHours: 'match.protocol.durationHours',
+      durationWholeHours: 'match.protocol.durationWholeHours',
     },
     sparring: {
       views: 'match.sparring.views',

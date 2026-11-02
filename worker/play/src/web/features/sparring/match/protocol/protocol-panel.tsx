@@ -32,6 +32,7 @@ export function ProtocolPanel(props: {
   const endRef = useRef<HTMLDivElement>(null)
   const hasRows = props.rows.length > 0
   const { startAtLatest } = props
+  const toggle = (key: string) => () => setOpenKey((current) => (current === key ? null : key))
 
   useEffect(() => {
     if (startAtLatest && hasRows) endRef.current?.scrollIntoView({ block: 'end' })
@@ -67,36 +68,41 @@ export function ProtocolPanel(props: {
                   name={props.names[row.seat]}
                   timeMarker={item.timeMarker}
                   open={openKey === row.key}
-                  onToggle={() => setOpenKey((current) => (current === row.key ? null : row.key))}
+                  onToggle={toggle(row.key)}
                 />
               )
             case 'note':
               return (
-                <li key={row.key} className="col-span-5 flex justify-center px-4 py-2">
+                <TimedItem key={row.key} row={row} open={openKey === row.key} onToggle={toggle(row.key)}>
                   <span className="rounded-full bg-info-dim px-3 py-0.5 text-center text-base text-info">
                     {protocolRowLabel(t, row)}
                   </span>
-                </li>
+                </TimedItem>
               )
             case 'rack':
               return (
-                <li key={row.key} className="col-span-5 px-4 py-1.5">
-                  <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-x-5 rounded-xl bg-info-dim px-4 py-2 text-info">
-                    <ScoreNumber className="text-right text-xl font-bold" points={row.score.A} />
-                    <span className="grid justify-items-center text-base">
-                      {t(keys.match.protocol.rack, { rackNumber: row.rackNumber })}
-                      <span className="text-[14px] opacity-80">
-                        {formatProtocolDuration(t, row.durationMs)}
-                      </span>
-                    </span>
-                    <ScoreNumber className="text-xl font-bold" points={row.score.B} />
-                  </div>
-                </li>
+                <TimedItem key={row.key} row={row} open={openKey === row.key} onToggle={toggle(row.key)}>
+                  <Band
+                    className="bg-info-dim py-2 text-info"
+                    scoreClassName="text-xl"
+                    captionClassName="opacity-80"
+                    score={row.score}
+                    names={props.names}
+                    caption={[
+                      t(keys.match.protocol.rack, { rackNumber: row.rackNumber }),
+                      formatProtocolDuration(t, row.durationMs),
+                    ]}
+                  />
+                </TimedItem>
               )
             case 'frame-result':
               return (
-                <li key={row.key} className="col-span-5 px-4 py-2">
-                  <FrameResultBand
+                <TimedItem key={row.key} row={row} open={openKey === row.key} onToggle={toggle(row.key)}>
+                  <Band
+                    className="bg-raised py-3"
+                    scoreClassName="text-2xl"
+                    captionClassName="text-muted-foreground"
+                    names={props.names}
                     score={props.showsFrames ? row.framesWonBySeat : row.pointsBySeat}
                     caption={[
                       props.showsFrames
@@ -108,7 +114,7 @@ export function ProtocolPanel(props: {
                       formatProtocolDuration(t, row.durationMs),
                     ]}
                   />
-                </li>
+                </TimedItem>
               )
             case 'match-ended':
               return (
@@ -147,7 +153,6 @@ function LaneItem(props: {
         row.seat === 'A' ? 'justify-end pr-2.5 pl-4 text-right' : 'pr-4 pl-2.5',
       )}
     >
-      <span className="sr-only">{`${props.name}: `}</span>
       <LaneLabel row={row} />
       {row.corrected ? (
         <>
@@ -179,6 +184,8 @@ function LaneItem(props: {
           props.open && 'bg-raised',
         )}
       >
+        {/* Out of the grid flow, so both seats read "Name: label score". */}
+        <span className="sr-only">{`${props.name}: `}</span>
         {row.seat === 'A' ? lane : <span />}
         <span className="col-span-3 grid min-h-full grid-cols-subgrid content-center border-x border-divider px-2.5 py-1.5">
           {row.score ? <SpineScore score={row.score} changedSeats={row.changedSeats} /> : null}
@@ -220,11 +227,21 @@ function LaneLabel({ row }: { row: LaneRow }) {
   return (
     <>
       <span className="sr-only">{protocolRowLabel(t, row)}</span>
-      <span aria-hidden className={cn('relative inline-flex gap-1', struck && 'opacity-50')}>
+      {/* Wraps within the lane, so a pot of all eight balls never overflows a narrow phone. */}
+      <span
+        aria-hidden
+        className={cn(
+          'flex max-w-full min-w-0 flex-wrap gap-1',
+          row.seat === 'A' && 'justify-end',
+          struck && 'opacity-50',
+        )}
+      >
         {row.message.pottedBalls.map((ball) => (
-          <StrilaBall key={ball} ball={ball} className="size-5" />
+          <span key={ball} className="relative">
+            <StrilaBall ball={ball} className="size-5" />
+            {struck ? <span className="absolute -inset-x-0.5 top-1/2 h-px bg-muted-foreground" /> : null}
+          </span>
         ))}
-        {struck ? <span className="absolute inset-x-0 top-1/2 h-px bg-muted-foreground" /> : null}
       </span>
     </>
   )
@@ -243,16 +260,74 @@ function SpineScore({ score, changedSeats }: { score: BySeatNumber; changedSeats
   )
 }
 
-function FrameResultBand(props: { score: BySeatNumber; caption: readonly string[] }) {
+/** Bands and notes reveal the stored entry's exact time on tap, like lane rows. */
+function TimedItem(props: {
+  row: Exclude<ProtocolRow, LaneRow>
+  open: boolean
+  onToggle: () => void
+  children: ReactNode
+}) {
   return (
-    <div className="grid justify-items-center gap-0.5 rounded-xl bg-raised px-4 py-3">
-      <span className="grid grid-cols-[1fr_auto_1fr] gap-x-2 self-stretch text-2xl font-bold">
-        <ScoreNumber className="text-right" points={props.score.A} />
-        <span>:</span>
-        <ScoreNumber points={props.score.B} />
+    <li className="col-span-5 px-4 py-1.5">
+      <button
+        type="button"
+        aria-expanded={props.open}
+        onClick={props.onToggle}
+        className={cn(
+          'grid w-full justify-items-center gap-1 rounded-xl py-0.5',
+          props.open && 'bg-raised/60',
+        )}
+      >
+        {props.children}
+        {props.open ? (
+          <time className="text-[14px] text-amber tabular-nums" dateTime={props.row.acceptedAtIso}>
+            {props.row.acceptedAtLabel}
+          </time>
+        ) : null}
+      </button>
+    </li>
+  )
+}
+
+/**
+ * A raised band with a fixed-colon score above a muted caption. Like the Board, the leader is bold and the
+ * trailer muted; seat names are announced because the band itself has no lanes.
+ */
+function Band(props: {
+  score: BySeatNumber
+  names: BySeatNames
+  caption: readonly string[]
+  className: string
+  scoreClassName: string
+  captionClassName: string
+}) {
+  const { A, B } = props.score
+  const tone = (points: number, other: number) => (points < other ? 'text-muted-foreground' : 'font-bold')
+
+  return (
+    <span
+      className={cn(
+        'grid w-full min-w-0 grid-cols-[minmax(0,1fr)] justify-items-center gap-0.5 rounded-xl px-4',
+        props.className,
+      )}
+    >
+      <span className={cn('grid grid-cols-[1fr_auto_1fr] gap-x-2 self-stretch', props.scoreClassName)}>
+        <span className={cn('text-right', tone(A, B))}>
+          <span className="sr-only">{`${props.names.A} `}</span>
+          <ScoreNumber points={A} />
+        </span>
+        <span className="opacity-70">:</span>
+        <span className={tone(B, A)}>
+          <span className="sr-only">{`${props.names.B} `}</span>
+          <ScoreNumber points={B} />
+        </span>
       </span>
-      <span className="text-center text-base text-muted-foreground">{props.caption.join(' · ')}</span>
-    </div>
+      <span
+        className={cn('max-w-full text-center text-base [overflow-wrap:anywhere]', props.captionClassName)}
+      >
+        {props.caption.join(' · ')}
+      </span>
+    </span>
   )
 }
 

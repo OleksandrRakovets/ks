@@ -511,7 +511,7 @@ describe('sparring match and Protocol reads', () => {
       lifecycle: 'finished',
       winnerSeat: 'A',
       latestSeq: 2,
-      protocolRows: [{ key: 'protocol-2-0', kind: 'match-ended', winnerSeat: 'A' }],
+      protocolRows: [{ key: 'protocol-2-0', kind: 'match-ended' }],
     })
 
     for (const field of ['state', 'gameResult', 'resultScores', 'gameConfiguration', 'endedAtIso'])

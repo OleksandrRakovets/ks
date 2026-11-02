@@ -60,14 +60,12 @@ export type ProtocolRow =
         framesWonBySeat: BySeatNumber
         /** Final frame points by seat. */
         pointsBySeat: BySeatNumber
-        conceded: boolean
         /** From commencement to award. */
         durationMs: number
       }>)
   | (RowBase &
       Readonly<{
         kind: 'match-ended'
-        winnerSeat: Seat
         /** Sum of frame durations, excluding the gaps between frames. */
         effectiveDurationMs: number
       }>)
@@ -178,14 +176,17 @@ export function renderProtocolRows(entries: readonly ProtocolEntry[], clock: Clo
     }
 
     if (entry.entryType === 'frame-conceded') {
-      rows.push({
+      const concession = {
         ...base,
         kind: 'lane',
         seat: entry.seat,
         action: 'frame.concede',
         message: { key: 'match.protocol.lane.frame-conceded' },
-        changedSeats: [],
-      })
+        changedSeats,
+      } as const
+
+      // The final points stay in the spine even when no Command scored before the concession.
+      rows.push(entry.scoreAfter ? { ...concession, score: entry.scoreAfter } : concession)
       continue
     }
 
@@ -223,14 +224,13 @@ export function renderProtocolRows(entries: readonly ProtocolEntry[], clock: Clo
           winnerSeat: entry.seat,
           framesWonBySeat: { ...framesWon },
           pointsBySeat: entry.scoreAfter ?? previousScore,
-          conceded: entry.body.winReason === 'conceded',
           durationMs,
         })
         break
       }
 
       case 'match-ended':
-        rows.push({ ...base, kind: 'match-ended', winnerSeat: entry.seat, effectiveDurationMs })
+        rows.push({ ...base, kind: 'match-ended', effectiveDurationMs })
         break
       case 'frame-prepared':
       case 'command-corrected':
