@@ -102,8 +102,7 @@ export async function readMatchProtocol<K extends GameKey>(
   if (!result.ok) return result
   const { record, match } = result
   const participants = await hydrateParticipants(deps, record, locale)
-  const seatNames = { A: participants.A.displayName, B: participants.B.displayName }
-  const protocolRows = renderProtocolRows(match.protocolEntries, seatNames, deps.clock)
+  const protocolRows = renderProtocolRows(match.protocolEntries, deps.clock)
 
   if (match._tag === 'ended') {
     return {
@@ -118,7 +117,7 @@ export async function readMatchProtocol<K extends GameKey>(
     ...projectMatchFacts(match.state, match.latestSeq, participants),
     lifecycle: 'active' as const,
     winnerSeat: null,
-    protocolRows: protocolRows.reverse(),
+    protocolRows,
   }
 
   return match.game === undefined

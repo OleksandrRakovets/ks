@@ -80,7 +80,7 @@ export function presentFinishedBoard(data: FinishedSurfaceData, t: TFunction): B
  * @internal Exported for board-score contract tests.
  */
 export function presentBoardScore(data: MatchReadFacts) {
-  const frameWinsArePrimary = data.lifecycle === 'finished' && data.gameKey !== 'free-pyramid-long'
+  const frameWinsArePrimary = data.lifecycle === 'finished' && gameShowsFrames(data.gameKey)
 
   const primary = frameWinsArePrimary
     ? data.framesWonBySeat
@@ -100,6 +100,11 @@ export function presentBoardScore(data: MatchReadFacts) {
     winnerSeat: data.winnerSeat,
     compactScore: Math.max(primary.A, primary.B, targets.A ?? 0, targets.B ?? 0) >= 100,
   }
+}
+
+/** Long pyramid is one long frame scored in points, so no surface presents its frames. */
+export function gameShowsFrames(gameKey: GameKey): boolean {
+  return gameKey !== 'free-pyramid-long'
 }
 
 function presentBoard(

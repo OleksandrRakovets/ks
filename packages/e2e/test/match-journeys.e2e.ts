@@ -37,11 +37,14 @@ test('an accepted undo reaches another observer, exposes the effective last comm
   expect(observerReads.posts()).toHaveLength(0)
 
   await page.goto(`${path}protocol/`)
-  const entries = page.getByRole('article')
-  await expect(entries).toHaveCount(3)
-  await expect(entries.nth(0)).toContainText(/Corrected: Pot \+4\s*0:0/)
-  await expect(entries.nth(1)).toContainText(/Pot \+4\s*4:0/)
-  await expect(entries.nth(2)).toContainText('Frame commenced')
+  // The Correction joins its Command: one struck row without a score, no separate correction row.
+  const rows = page.getByRole('listitem')
+  // Lane rows may also carry an aria-hidden five-minute time marker.
+  await expect(rows).toHaveText([/^Frame\s1$/, /Undo Alice: Break-off$/, /Undo Alice: \+4↶Corrected$/])
+  const corrected = rows.nth(2).getByRole('button')
+  await corrected.click()
+  await expect(corrected).toHaveAttribute('aria-expanded', 'true')
+  await expect(corrected).toContainText(/corrected at \d\d:\d\d/)
 })
 
 test('a race to two prepares the next frame, then archives the finished match for D1 reads', async ({
@@ -80,7 +83,14 @@ test('a race to two prepares the next frame, then archives the finished match fo
   )
 
   await page.goto(`${path}protocol/`)
-  const prepared = page.getByRole('article').filter({ hasText: 'Frame 2 prepared' })
-  await expect(prepared).toContainText('Race Bob')
-  await expect(page.getByRole('article').filter({ hasText: 'Frame awarded' })).toHaveCount(2)
+  // Each frame opens with its breaker's Break-off and closes with the match score after it.
+  const rows = page.getByRole('listitem')
+  await expect(rows.filter({ hasText: 'Break-off' })).toHaveText([
+    /Race Alice: Break-off$/,
+    /Race Bob: Break-off$/,
+  ])
+  await expect(rows.filter({ hasText: /Frame \d — / })).toHaveText([
+    /1\s*:\s*0\s*Frame 1 — Race Alice/,
+    /2\s*:\s*0\s*Frame 2 — Race Alice/,
+  ])
 })
