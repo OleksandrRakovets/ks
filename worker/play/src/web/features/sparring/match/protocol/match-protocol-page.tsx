@@ -20,7 +20,7 @@ export function MatchProtocolPage<K extends GameKey>(props: { data: ProtocolPage
       names={{ A: match.participants.A.displayName, B: match.participants.B.displayName }}
       showsFrames={gameShowsFrames(match.gameKey)}
       emptyLabel={t(keys.match.sparring.protocolEmpty)}
-      startAtLatest={props.data.page !== 'result'}
+      newestFirst={props.data.page !== 'result'}
     />
   )
 

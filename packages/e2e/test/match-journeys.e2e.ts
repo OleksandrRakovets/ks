@@ -40,8 +40,9 @@ test('an accepted undo reaches another observer, exposes the effective last comm
   // The Correction joins its Command: one struck row without a score, no separate correction row.
   const rows = page.getByRole('listitem')
   // Lane rows may also carry an aria-hidden five-minute time marker.
-  await expect(rows).toHaveText([/^Frame\s1$/, /Undo Alice: Break-off$/, /Undo Alice: \+4↶Corrected$/])
-  const corrected = rows.nth(2).getByRole('button')
+  // Active Protocol reads newest first under its frame header.
+  await expect(rows).toHaveText([/^Frame\s1$/, /Undo Alice: \+4↶Corrected$/, /Undo Alice: Break-off$/])
+  const corrected = rows.nth(1).getByRole('button')
   await corrected.click()
   await expect(corrected).toHaveAttribute('aria-expanded', 'true')
   await expect(corrected).toContainText(/corrected at \d\d:\d\d/)

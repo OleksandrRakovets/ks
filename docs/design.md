@@ -66,7 +66,8 @@ The app has two chrome types. Do not add a third.
 
 ## Protocol
 
-- Rows read oldest first on active and finished pages. Seat A's lane, the score spine, and seat B's
+- Active pages read newest first, because observers keep the page at the top for the latest action;
+  finished pages read oldest first. Each frame's rows stay grouped under its header. Seat A's lane, the score spine, and seat B's
   lane share one grid; names appear once above the lanes, never in rows. The spine colon stays in a
   fixed column with negative and two-digit scores, and the seat whose points changed is emphasized.
 - Labels stay short and wrap rather than truncate: `+N`, Strila ball visuals, and plain `Фол` in every

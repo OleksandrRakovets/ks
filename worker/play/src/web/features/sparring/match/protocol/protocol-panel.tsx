@@ -1,7 +1,7 @@
 import type { ProtocolRow } from '@ks/application'
 import type { BySeatNumber, Seat } from '@ks/core'
 import { keys } from '@ks/i18n'
-import { type ReactNode, useEffect, useRef, useState } from 'react'
+import { type ReactNode, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { StrilaBall } from '@/components/strila-ball'
@@ -24,20 +24,13 @@ export function ProtocolPanel(props: {
   names: BySeatNames
   showsFrames: boolean
   emptyLabel: string
-  /** Active matches open at the latest row, because new rows arrive at the end. */
-  startAtLatest: boolean
+  /** Active matches put the latest action at the top, where observers keep the page. */
+  newestFirst: boolean
 }) {
   const { t } = useTranslation()
   const [openKey, setOpenKey] = useState<string | null>(null)
-  const endRef = useRef<HTMLDivElement>(null)
   const hasRows = props.rows.length > 0
-  const { startAtLatest } = props
   const toggle = (key: string) => () => setOpenKey((current) => (current === key ? null : key))
-
-  useEffect(() => {
-    if (startAtLatest && hasRows) endRef.current?.scrollIntoView({ block: 'end' })
-    // Only on arrival: live updates must not pull a reader away from earlier rows.
-  }, [startAtLatest, hasRows])
 
   if (!hasRows) return <p className="px-4 py-3 text-base text-muted-foreground">{props.emptyLabel}</p>
 
@@ -49,7 +42,10 @@ export function ProtocolPanel(props: {
         <span className="min-w-0 text-right break-words">{props.names.B}</span>
       </div>
       <ol className="col-span-5 grid grid-cols-subgrid">
-        {presentProtocolItems(props.rows, props.showsFrames).map((item) => {
+        {presentProtocolItems(props.rows, {
+          showsFrames: props.showsFrames,
+          newestFirst: props.newestFirst,
+        }).map((item) => {
           if (item.kind === 'frame-header')
             return (
               <li key={item.key} className="col-span-5 px-4 pt-5 pb-1 text-center text-base font-semibold">
@@ -129,7 +125,6 @@ export function ProtocolPanel(props: {
           return null
         })}
       </ol>
-      <div ref={endRef} className="scroll-mb-24" />
     </section>
   )
 }

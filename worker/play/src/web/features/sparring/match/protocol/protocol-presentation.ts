@@ -7,40 +7,52 @@ export type ProtocolItem =
   | { kind: 'row'; row: ProtocolRow; timeMarker?: string }
 
 /**
- * Orders Protocol rows for the spine: a header opens each frame of frame-based games, and a lane row starts
- * a new five-minute time marker when its bucket differs from the last marker or it opens a frame.
- * The effective match time appears only when it differs from the single frame's own duration.
+ * Orders Protocol rows for the spine. Active matches read newest first, so observers at the top see the latest
+ * action; finished matches read oldest first. Either way a header opens each frame's group in frame-based games,
+ * and a lane row carries a five-minute time marker when its bucket differs from the previous marker in display
+ * order or it is its frame's first lane row. The effective match time appears only for two or more frames.
  */
-export function presentProtocolItems(rows: readonly ProtocolRow[], showsFrames: boolean): ProtocolItem[] {
-  const items: ProtocolItem[] = []
+export function presentProtocolItems(
+  rows: readonly ProtocolRow[],
+  options: { showsFrames: boolean; newestFirst: boolean },
+): ProtocolItem[] {
   const frameCount = rows.filter((row) => row.kind === 'frame-result').length
-  let frameIndex = 0
-  let markedBucket: string | undefined
+  const frames: ProtocolRow[][] = []
 
   for (const row of rows) {
-    if (row.frameIndex !== frameIndex) {
-      frameIndex = row.frameIndex
-      markedBucket = undefined
-
-      if (showsFrames) items.push({ kind: 'frame-header', key: `frame-${frameIndex}`, frameIndex })
-    }
-
     if (row.kind === 'match-ended' && frameCount < 2) continue
 
-    if (row.kind !== 'lane') {
-      items.push({ kind: 'row', row })
-      continue
+    const current = frames.at(-1)
+
+    if (current?.[0]?.frameIndex === row.frameIndex) current.push(row)
+    else frames.push([row])
+  }
+
+  if (options.newestFirst) {
+    frames.reverse()
+
+    for (const frame of frames) frame.reverse()
+  }
+
+  const items: ProtocolItem[] = []
+
+  for (const frame of frames) {
+    const frameIndex = frame[0]?.frameIndex ?? 0
+    let markedBucket: string | undefined
+
+    if (options.showsFrames) items.push({ kind: 'frame-header', key: `frame-${frameIndex}`, frameIndex })
+
+    for (const row of frame) {
+      const bucket = row.kind === 'lane' ? fiveMinuteBucket(row.acceptedAtLabel) : undefined
+
+      if (bucket === undefined || bucket === markedBucket) {
+        items.push({ kind: 'row', row })
+        continue
+      }
+
+      markedBucket = bucket
+      items.push({ kind: 'row', row, timeMarker: bucket })
     }
-
-    const bucket = fiveMinuteBucket(row.acceptedAtLabel)
-
-    if (bucket === markedBucket) {
-      items.push({ kind: 'row', row })
-      continue
-    }
-
-    markedBucket = bucket
-    items.push({ kind: 'row', row, timeMarker: bucket })
   }
 
   return items

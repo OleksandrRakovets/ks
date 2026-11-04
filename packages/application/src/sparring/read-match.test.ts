@@ -319,7 +319,7 @@ describe('sparring match and Protocol reads', () => {
       latestSeq: 2,
       representedFrame: { frameIndex: 1, pointsBySeat: { A: 0, B: 0 } },
       game: { gameKey: 'free-pyramid', details: { phase: 'not-started' } },
-      // Active rows read in the same chronological order as finished ones: the spine runs top to bottom.
+      // The projection is chronological for every lifecycle; Play chooses the display order.
       protocolRows: [{ key: 'protocol-1-0' }, { key: 'protocol-2-0' }],
     })
     expect(result).not.toHaveProperty('controls')
