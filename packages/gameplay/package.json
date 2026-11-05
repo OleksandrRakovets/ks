@@ -6,6 +6,9 @@
     "./definitions": "./contract/definitions.ts",
     "./server": "./contract/server.ts"
   },
+  "scripts": {
+    "test": "bun test --config=../../bunfig.toml"
+  },
   "dependencies": {
     "@ks/core": "workspace:*",
     "tiny-invariant": "^1.3.3",

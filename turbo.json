@@ -13,6 +13,12 @@
       "dependsOn": ["^build"],
       "outputs": ["build/**"]
     },
+    "test": {
+      "description": "^test chains dependency hashes, so a change in a dependency reruns its consumers' unit tests.",
+      "dependsOn": ["^test"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/bunfig.toml"],
+      "outputs": []
+    },
     "test:integration": {
       "dependsOn": ["^test:integration"],
       "outputs": []

@@ -31,23 +31,23 @@
   "type": "module",
   "scripts": {
     "check": "bun run check:fast",
-    "check:fast": "bun run format && bun run typecheck && bun run lint && bun run check:boundaries && bun test",
-    "check:full": "bun run check:fast && bun run test:integration && bun run build",
+    "check:fast": "bun run format && bun run typecheck && bun run lint && bun run check:boundaries && bun run test",
     "check:boundaries": "node ./tools/check-boundaries.mjs",
-    "build": "turbo run build --log-order=grouped",
-    "db:reset:local": "bun ./tools/reset-local.mjs",
-    "dev": "BUN_OPTIONS=--silent turbo watch @ks/play#dev",
-    "dev:human": "BUN_OPTIONS=--silent turbo watch @ks/play#dev --ui=tui",
     "format": "oxfmt .",
     "lint": "oxlint .",
     "lint:fix": "oxlint --fix .",
-    "preview": "BUN_OPTIONS=--silent turbo run @ks/play#preview",
-    "test": "bun test",
-    "test:integration": "turbo run test:integration --log-order=grouped",
-    "test:e2e": "turbo run test:e2e --log-order=grouped",
-    "test:e2e:webkit": "turbo run test:e2e:webkit --log-order=grouped",
+    "test": "turbo run test --log-order=grouped --output-logs=errors-only",
     "typecheck": "bun run typegen && tsc --build",
-    "typegen": "bun run --filter '@ks/play' typegen"
+    "typegen": "bun run --filter '*' typegen",
+    "play:check:full": "bun run check:fast && turbo run test:integration build --filter=@ks/play... --log-order=grouped",
+    "play:build": "turbo run build --filter=@ks/play... --log-order=grouped",
+    "play:dev": "BUN_OPTIONS=--silent turbo watch @ks/play#dev",
+    "play:dev:human": "BUN_OPTIONS=--silent turbo watch @ks/play#dev --ui=tui",
+    "play:preview": "BUN_OPTIONS=--silent turbo run @ks/play#preview",
+    "play:db:reset:local": "bun ./tools/reset-local.mjs",
+    "play:test:integration": "turbo run test:integration --filter=@ks/play... --log-order=grouped",
+    "play:test:e2e": "turbo run test:e2e --filter=@ks/play-e2e --log-order=grouped",
+    "play:test:e2e:webkit": "turbo run test:e2e:webkit --filter=@ks/play-e2e --log-order=grouped"
   },
   "devDependencies": {
     "@oxlint/plugins": "1.90.0",
@@ -75,7 +75,7 @@
           "!src/web/features/freshness/test-browser.ts!"
         ]
       },
-      "packages/e2e": {
+      "packages/play-e2e": {
         "project": [
           "**/*.{js,mjs,cjs,jsx,ts,tsx,mts,cts}!",
           "!scripts/ensure-browser.ts!",

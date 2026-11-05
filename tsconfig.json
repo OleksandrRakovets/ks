@@ -8,6 +8,6 @@
     { "path": "packages/application" },
     { "path": "do/match-room" },
     { "path": "worker/play" },
-    { "path": "packages/e2e" }
+    { "path": "packages/play-e2e" }
   ]
 }

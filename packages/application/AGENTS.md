@@ -31,4 +31,4 @@ Application is the framework-independent use-case layer. It owns D1 access, play
 ## Checks And Migrations
 
 - Keep workflow unit tests adjacent to workflows and Workerd tests for D1 storage and composition boundaries in `test/`. Optional diagnostic shortcut from the repository root: `bun run --filter '@ks/application' test:integration`; the root full gate already includes it.
-- For schema/data changes, follow the repository-root `docs/db.md`. D1 tooling uses Play's Wrangler configuration and local state; Studio can mutate that database. Do not hand-format generated snapshots.
+- For schema/data changes, follow Play's [database operations](../../worker/play/docs/db.md). D1 tooling uses Play's Wrangler configuration and local state; Studio can mutate that database. Do not hand-format generated snapshots.

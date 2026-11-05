@@ -6,6 +6,9 @@
     ".": "./src/index.ts",
     "./definitions": "./src/definitions.ts"
   },
+  "scripts": {
+    "test": "bun test --config=../../bunfig.toml"
+  },
   "dependencies": {
     "@ks/core": "workspace:*",
     "@ks/gameplay": "workspace:*",

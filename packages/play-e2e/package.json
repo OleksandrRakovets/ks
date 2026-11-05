@@ -1,5 +1,5 @@
 {
-  "name": "@ks/e2e",
+  "name": "@ks/play-e2e",
   "version": "0.0.0",
   "private": true,
   "type": "module",

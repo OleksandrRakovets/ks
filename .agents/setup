@@ -239,4 +239,4 @@ CI=1 bun run --cwd packages/application db:migrate:local
 setup_checksum="$(sha256sum "${repo_root}/.agents/setup")"
 printf '%s\n' "${setup_checksum%% *}" > "$setup_marker"
 
-echo "Orb setup complete. Start development with: bun run dev"
+echo "Orb setup complete. Start development with: bun run play:dev"
