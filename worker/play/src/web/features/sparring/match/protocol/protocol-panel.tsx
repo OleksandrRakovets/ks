@@ -308,16 +308,12 @@ function Band(props: {
         props.className,
       )}
     >
-      <span className={cn('grid grid-cols-[1fr_auto_1fr] self-stretch', props.scoreClassName)}>
-        <span className={cn('pr-2 text-right', tone(A, B))}>
-          <span className="sr-only">{`${props.names.A} `}</span>
-          <ScoreNumber points={A} />
-        </span>
+      {/* Names stay outside the score cells, so nothing but the numbers sits beside the colon. */}
+      <span className="sr-only">{`${props.names.A} ${formatProtocolPoints(A)} : ${props.names.B} ${formatProtocolPoints(B)}`}</span>
+      <span aria-hidden className={cn('grid grid-cols-[1fr_auto_1fr] self-stretch', props.scoreClassName)}>
+        <ScoreNumber className={cn('pr-2 text-right', tone(A, B))} points={A} />
         <span className="opacity-70">:</span>
-        <span className={cn('pl-2', tone(B, A))}>
-          <span className="sr-only">{`${props.names.B} `}</span>
-          <ScoreNumber points={B} />
-        </span>
+        <ScoreNumber className={cn('pl-2 text-left', tone(B, A))} points={B} />
       </span>
       <span
         className={cn('max-w-full text-center text-base [overflow-wrap:anywhere]', props.captionClassName)}
