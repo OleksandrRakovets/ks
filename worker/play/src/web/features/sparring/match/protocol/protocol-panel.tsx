@@ -36,7 +36,7 @@ export function ProtocolPanel(props: {
   if (!hasRows) return <p className="px-4 py-3 text-base text-muted-foreground">{props.emptyLabel}</p>
 
   return (
-    <section className="grid grid-cols-[minmax(0,1fr)_3.5rem_auto_3.5rem_minmax(0,1fr)] pt-3 pb-6">
+    <section className="relative grid grid-cols-[minmax(0,1fr)_3.5rem_auto_3.5rem_minmax(0,1fr)] pt-3 pb-6">
       <ol className="col-span-5 grid grid-cols-subgrid">
         {presentProtocolItems(props.rows, {
           showsFrames: props.showsFrames,

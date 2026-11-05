@@ -24,7 +24,10 @@ export type ShellHeader =
     }
   | { kind: 'app' }
 
-/** Reading pages scroll the board, body, and footer together; fixed Control pages keep all three in the viewport. */
+/**
+ * Reading pages scroll the window, so the board, body, and footer move together under sticky headers and tabs;
+ * fixed Control pages keep all three in the viewport.
+ */
 export function Shell(props: {
   active: 'primary' | 'protocol'
   layout: 'fixed' | 'reading'
@@ -34,30 +37,31 @@ export function Shell(props: {
   footer?: ReactNode
   children: ReactNode
 }) {
+  const isReadingLayout = props.layout === 'reading'
+
+  // Sticky headers and tabs need the window as their scroll container, so reading pages clip no overflow.
   const surface = (
     <main
       className={cn(
-        'mx-auto flex w-full max-w-match flex-col overflow-hidden bg-background text-foreground',
-        props.header.kind === 'app' ? 'min-h-0 flex-1' : 'h-dvh',
+        'mx-auto flex w-full max-w-match flex-col bg-background text-foreground',
+        isReadingLayout
+          ? cn('flex-1', props.header.kind === 'match' && 'min-h-dvh')
+          : cn('overflow-hidden', props.header.kind === 'app' ? 'min-h-0 flex-1' : 'h-dvh'),
       )}
     >
       {props.header.kind === 'match' ? <MatchHeader {...props.header} /> : null}
 
-      <div
-        className={cn(
-          'min-h-0 flex-1',
-          props.layout === 'fixed' ? 'flex flex-col overflow-hidden' : 'overflow-y-auto overscroll-contain',
-        )}
-      >
+      <div className={isReadingLayout ? 'flex-1' : 'flex min-h-0 flex-1 flex-col overflow-hidden'}>
         {props.board}
-        <div className={props.layout === 'fixed' ? 'flex min-h-0 flex-1 flex-col' : undefined}>
-          {props.children}
-        </div>
+        <div className={isReadingLayout ? undefined : 'flex min-h-0 flex-1 flex-col'}>{props.children}</div>
         {props.footer}
       </div>
 
       <nav
-        className="grid h-14 shrink-0 grid-cols-2 gap-1 bg-background px-2 py-1.5"
+        className={cn(
+          'grid h-14 shrink-0 grid-cols-2 gap-1 bg-background px-2 py-1.5',
+          isReadingLayout && 'sticky bottom-0 z-40',
+        )}
         aria-label={props.navigation.label}
       >
         <Tab active={props.active === 'primary'} to={props.navigation.primary.to}>
@@ -73,7 +77,7 @@ export function Shell(props: {
   if (props.header.kind === 'match') return surface
 
   return (
-    <div className="flex h-dvh flex-col overflow-hidden">
+    <div className={cn('flex flex-col', isReadingLayout ? 'min-h-dvh' : 'h-dvh overflow-hidden')}>
       <AppShell />
       {surface}
     </div>
