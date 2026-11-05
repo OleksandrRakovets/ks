@@ -46,6 +46,8 @@ For dependency or toolchain changes, read [maintenance](docs/maintenance.md); Bu
 - Fast gate: `bun run check` (format, types, lint, and unit tests for every app). Unit tests are a cached per-workspace Turbo `test` task, so workspaces unaffected by a change are cache hits.
 - Each app's guidance names its dev server, full gate, and delivery review.
 
+The repository has no GitHub CI: these local checks are the only ones, so do not subscribe to CI results after pushing. Run the applicable gate on the final code before every push, including after review fixes.
+
 For code changes, use the fast gate by default before reporting completion; use the app's full gate for changes affecting Workerd integration or its deployable build. Focused tests are optional development feedback, not an additional completion requirement. Both gates apply formatting. Do not run the fast gate separately before a full gate or rerun constituent checks on unchanged code.
 
 Before opening a PR or shipping to dev, run the affected app's delivery review, then `bunx knip` and `bunx knip --production` from the repository root. Review both Knip reports: fix genuine unused code/dependencies within scope, narrowly allowlist confirmed false positives with a reason, and report deferred findings rather than silently suppressing them. Keep the delivery review outside the gates; rerun after relevant code, dependency, or Knip configuration changes, not on unchanged code.
