@@ -12,8 +12,8 @@ const baseInput = {
 }
 
 describe('application match creation input', () => {
-  test('accepts a 127-character normalized name whose generated short form reaches the canonical 128 limit', () => {
-    const name = `A ${'x'.repeat(125)}`
+  test('accepts a 36-character normalized name', () => {
+    const name = `A ${'x'.repeat(34)}`
 
     const parsed = v.parse(CreateSparringMatchInput, {
       ...baseInput,
@@ -21,17 +21,17 @@ describe('application match creation input', () => {
     })
 
     expect(parsed.playerNames.A).toBe(name)
-    expect(parsed.playerNames.A.length).toBe(127)
+    expect(parsed.playerNames.A.length).toBe(36)
   })
 
-  test('rejects empty and 128-character normalized creation names', () => {
+  test('rejects empty and 37-character normalized creation names', () => {
     expect(
       v.safeParse(CreateSparringMatchInput, { ...baseInput, playerNames: { A: ' ', B: 'Bob' } }).success,
     ).toBe(false)
     expect(
       v.safeParse(CreateSparringMatchInput, {
         ...baseInput,
-        playerNames: { A: `A ${'x'.repeat(126)}`, B: 'Bob' },
+        playerNames: { A: `A ${'x'.repeat(35)}`, B: 'Bob' },
       }).success,
     ).toBe(false)
   })

@@ -92,6 +92,8 @@ export function SparringSetupPage(props: {
           suggestionsB={suggestionsB}
           onSeatANameChange={handleSeatANameChange}
           onSeatBNameChange={handleSeatBNameChange}
+          isSeatANameInvalid={seatAName.trim() !== '' && normalizedSeatAName == null}
+          isSeatBNameInvalid={seatBName.trim() !== '' && normalizedSeatBName == null}
         />
 
         {canShowSettings ? (
