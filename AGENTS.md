@@ -42,15 +42,16 @@ For dependency or toolchain changes, read [maintenance](docs/maintenance.md); Bu
 
 ## Verification
 
-- Install: `bun install`.
-- Fast gate: `bun run check` (format, types, lint, and unit tests for every app). Unit tests are a cached per-workspace Turbo `test` task, so workspaces unaffected by a change are cache hits.
-- Each app's guidance names its dev server, full gate, and delivery review.
+Install with `bun install`. Two gates check code changes; both apply formatting:
 
-The repository has no GitHub CI: these local checks are the only ones, so do not subscribe to CI results after pushing. Run the applicable gate on the final code before every push, including after review fixes.
+- Fast gate: `bun run check` runs format, types, lint, and unit tests for every app. Unit tests are a cached per-workspace Turbo task, so workspaces a change does not affect are cache hits.
+- Full gate: the app's `<app>:check:full` (Play: `bun run play:check:full`) runs the fast gate plus Workerd integration and the app's build. Use it instead of the fast gate for changes affecting Workerd integration or the deployable build; do not run the fast gate separately first.
 
-For code changes, use the fast gate by default before reporting completion; use the app's full gate for changes affecting Workerd integration or its deployable build. Focused tests are optional development feedback, not an additional completion requirement. Both gates apply formatting. Do not run the fast gate separately before a full gate or rerun constituent checks on unchanged code.
+Run the applicable gate on the final code before reporting completion and before every push, including after review fixes. Do not rerun checks on unchanged code. Focused tests are optional development feedback, not an additional requirement.
 
-Before opening a PR or shipping to dev, run the affected app's delivery review, then `bunx knip` and `bunx knip --production` from the repository root. Review both Knip reports: fix genuine unused code/dependencies within scope, narrowly allowlist confirmed false positives with a reason, and report deferred findings rather than silently suppressing them. Keep the delivery review outside the gates; rerun after relevant code, dependency, or Knip configuration changes, not on unchanged code.
+Before opening a PR or shipping to dev, also run the delivery review, which is not part of the gates: the app's browser E2E (named in its guidance), then `bunx knip` and `bunx knip --production` from the repository root. Review both Knip reports: fix genuine unused code/dependencies within scope, narrowly allowlist confirmed false positives with a reason, and report deferred findings rather than silently suppressing them. Rerun the delivery review after relevant code, dependency, or Knip configuration changes.
+
+The repository has no GitHub CI, so these local checks are the only ones: do not subscribe to CI results after pushing. Subscribe to PR comments and reviews as usual.
 
 ## Deployment
 
