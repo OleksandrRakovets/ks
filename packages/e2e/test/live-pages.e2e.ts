@@ -34,7 +34,7 @@ test('an open list keeps re-arming separate score and membership deadlines', asy
     await page.clock.runFor(30_000)
     // A new row proves the loader projection committed, unlike networkidle (which can already
     // be satisfied from initial navigation) or a response event (which precedes React's commit).
-    await expect(page.getByRole('link', { name: new RegExp(`Membership ${minute} Alice`) })).toBeVisible()
+    await expect(page.getByRole('link', { name: new RegExp(`Test-Membership ${minute} Alice`) })).toBeVisible()
     await expect.poll(() => reads.loaders().length).toBe(minute + 1)
     await page.clock.runFor(50)
   }
@@ -103,7 +103,7 @@ test('a local command uses one POST and its automatic loader, without a WS-echo 
   await command(request, path, { source: 'match', command: { type: 'frame.commence', seat: 'A' } })
   const reads = traffic(page)
   await openPage(page, path)
-  await page.getByRole('button', { name: 'Record 4 potted balls for Submit Alice', exact: true }).click()
+  await page.getByRole('button', { name: 'Record 4 potted balls for Test-Submit Alice', exact: true }).click()
   await expect(page.getByRole('region', { name: 'Per-game control container' })).toContainText(/4\s*\/8/)
   await reads.quiet()
   expect(reads.posts()).toHaveLength(1)
@@ -132,7 +132,7 @@ for (const view of ['control', 'protocol']) {
     const reads = traffic(page)
     await openPage(page, view === 'protocol' ? `${path}protocol/` : path)
     await command(request, path, { source: 'game', command: { type: 'frame.award', seat: 'A' } })
-    await expect(page.getByText(`End ${view} Alice won`, { exact: true })).toBeVisible()
+    await expect(page.getByText(`Test-End ${view} Alice won`, { exact: true })).toBeVisible()
     await expect(page.getByRole('link', { name: 'Result', exact: true })).toBeVisible()
     expect(reads.loaders()).toHaveLength(1)
     // The page itself released its only socket (CLOSING or CLOSED); when the close event then
@@ -226,7 +226,7 @@ test('hide aborts slow score I/O; return replaces the cancelled request with one
 
   try {
     await openPage(page, listPath)
-    const row = page.getByRole('link', { name: /Delayed Alice/ })
+    const row = page.getByRole('link', { name: /Test-Delayed Alice/ })
     await page.clock.runFor(30_000)
     await expect.poll(() => captured).toBe(true)
     const aborted = page.waitForEvent('requestfailed', (request) => request.url().includes('/live-scores/'))
@@ -239,7 +239,7 @@ test('hide aborts slow score I/O; return replaces the cancelled request with one
     await page.clock.fastForward(1_800_000)
     expect(reads.loaders()).toHaveLength(0)
     await returnHints(page)
-    await expect(row).toContainText(/Delayed Alice\s*5\s*0\s*Delayed Bob\s*0\s*0/)
+    await expect(row).toContainText(/Test-Delayed Alice\s*5\s*0\s*Test-Delayed Bob\s*0\s*0/)
     await reads.quiet()
     expect(reads.scores()).toHaveLength(1)
     expect(reads.loaders()).toHaveLength(1)
@@ -355,7 +355,7 @@ test.describe('native Chromium', () => {
       await createMatch(request, 'Back cacheable')
       const reads = traffic(page)
       await page.goBack({ waitUntil: 'commit' })
-      await expect(page.getByRole('link', { name: /Back cacheable Alice/ })).toBeVisible()
+      await expect(page.getByRole('link', { name: /Test-Back cacheable Alice/ })).toBeVisible()
       // A reload must never pass as successful BFCache: require the same document and a
       // trusted persisted pageshow, then exactly one authoritative read.
       expect(await page.evaluate(() => window.e2eLifecycle.token)).toBe(token)
