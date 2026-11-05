@@ -26,6 +26,8 @@ export function PlayerNameFields(props: {
   suggestionsB: readonly string[]
   onSeatANameChange: (value: string) => void
   onSeatBNameChange: (value: string) => void
+  isSeatANameInvalid: boolean
+  isSeatBNameInvalid: boolean
 }) {
   const { t } = useTranslation()
 
@@ -47,6 +49,7 @@ export function PlayerNameFields(props: {
             autoComplete="off"
             value={props.seatAName}
             onChange={(event) => props.onSeatANameChange(event.currentTarget.value)}
+            aria-invalid={props.isSeatANameInvalid || undefined}
             className="h-[54px] text-lg"
             required
           />
@@ -64,6 +67,7 @@ export function PlayerNameFields(props: {
             autoComplete="off"
             value={props.seatBName}
             onChange={(event) => props.onSeatBNameChange(event.currentTarget.value)}
+            aria-invalid={props.isSeatBNameInvalid || undefined}
             className="h-[54px] text-lg"
             required
           />

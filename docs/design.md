@@ -46,6 +46,9 @@ The app has two chrome types. Do not add a third.
 - Sizing is deterministic: no text auto-fitting and no measured fallbacks. Labels wrap to two lines.
   Participant names always wrap and never truncate or collapse to initials. The only size change is
   the one numeral step-down for three-digit scores.
+- Check layouts with realistic content at 390px: hyphenated two-part surnames (~25 characters),
+  three-digit scores, and Owed Balls. Names wrap at spaces and hyphens; do not test unbroken strings
+  or names beyond Setup's 36-character cap, and do not ask reviewers to.
 - Surfaces carry structure; lines almost never do. The lane spine is the only rule on the screen.
   Do not add dividers between the Board, Zones, Last Command Bar, or top bar. Keep the tonal steps
   far enough apart to read on a dim phone at an angle. The owner checks tonal changes on a real
