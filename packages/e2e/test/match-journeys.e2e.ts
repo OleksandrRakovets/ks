@@ -41,7 +41,7 @@ test('an accepted undo reaches another observer, exposes the effective last comm
   const rows = page.getByRole('listitem')
   // Lane rows may also carry an aria-hidden five-minute time marker.
   // Active Protocol reads newest first under its frame header.
-  await expect(rows).toHaveText([/^Frame\s1$/, /Undo Alice: \+4↶Corrected$/, /Undo Alice: Break-off$/])
+  await expect(rows).toHaveText([/^Frame\s1$/, /Undo Alice: \+4Corrected$/, /Undo Alice: Break-off$/])
   const corrected = rows.nth(1).getByRole('button')
   await corrected.click()
   await expect(corrected).toHaveAttribute('aria-expanded', 'true')
@@ -84,14 +84,14 @@ test('a race to two prepares the next frame, then archives the finished match fo
   )
 
   await page.goto(`${path}protocol/`)
-  // Each frame opens with its breaker's Break-off and closes with the match score after it.
+  // Each frame opens with its breaker's Break-off and closes with a band showing frame wins, read with seat names.
   const rows = page.getByRole('listitem')
   await expect(rows.filter({ hasText: 'Break-off' })).toHaveText([
     /Race Alice: Break-off$/,
     /Race Bob: Break-off$/,
   ])
   await expect(rows.filter({ hasText: /Frame \d — / })).toHaveText([
-    /Race Alice 1\s*:\s*Race Bob 0\s*Frame 1 — Race Alice/,
-    /Race Alice 2\s*:\s*Race Bob 0\s*Frame 2 — Race Alice/,
+    /Race Alice 1\s*:\s*Race Bob 0\s*1\s*:\s*0\s*Frame 1 — Race Alice/,
+    /Race Alice 2\s*:\s*Race Bob 0\s*2\s*:\s*0\s*Frame 2 — Race Alice/,
   ])
 })
