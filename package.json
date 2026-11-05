@@ -37,7 +37,7 @@
     "lint:fix": "oxlint --fix .",
     "test": "turbo run test --continue --log-order=grouped --output-logs=errors-only",
     "typecheck": "bun run typegen && tsc --build",
-    "typegen": "bun run --filter '*' typegen",
+    "typegen": "turbo run typegen --output-logs=errors-only",
     "play:check:full": "bun run check:fast && turbo run test:integration build --filter=@ks/play... --log-order=grouped",
     "play:build": "turbo run build --filter=@ks/play... --log-order=grouped",
     "play:dev": "BUN_OPTIONS=--silent turbo watch @ks/play#dev",

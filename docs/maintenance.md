@@ -12,7 +12,7 @@ Read this before changing dependency versions, package-manager metadata, or the 
 
 ## Build And Provisioning
 
-- Keep `typegen` directly before the single root `tsc --build`; it runs every workspace's own `typegen` script (Wrangler bindings, framework route types). There are no per-package typecheck tasks; move generation into Turbo only if generated-output caching provides measured value.
+- Keep `typegen` directly before the single root `tsc --build`; it runs each workspace's `typegen` script (Wrangler bindings, framework route types) as a cached Turbo task. Declare a new generator's output files in the `typegen` task's `outputs`, or cache hits will not restore them. There are no per-package typecheck tasks.
 - Bun metadata has consumers outside manifests. Before changing its version, `devEngines.packageManager`, or its representation, read [provisioning guidance](../.agents/AGENTS.md) and inspect `.agents/setup`, `.agents/resume`, and CI/tooling references. Update affected consumers in the same change.
 - Provisioning verification is separate from the full code gate; follow the setup/resume checks in that guidance.
 

@@ -9,6 +9,11 @@
       "dependsOn": ["^build"],
       "outputs": ["build/**", "dist/**"]
     },
+    "typegen": {
+      "description": "Wrangler reads .dev.vars and .env files for secret types; Turbo skips gitignored files unless listed.",
+      "inputs": ["$TURBO_DEFAULT$", ".dev.vars*", ".env*"],
+      "outputs": ["worker-configuration.d.ts", ".react-router/types/**"]
+    },
     "transit": {
       "description": "Dependency hashes for tasks that must not wait on dependencies' runs.",
       "dependsOn": ["^transit"]
