@@ -5,7 +5,7 @@ export function pwaManifest(variant: IconVariant) {
 
   return {
     name: 'Play & Keep Score',
-    short_name: 'Play! KS',
+    short_name: 'Play & Keep Score',
     // Preserve the identity originally inferred from start_url: '/'.
     id: '/',
     start_url: '/start/',

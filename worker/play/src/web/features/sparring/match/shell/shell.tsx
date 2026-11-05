@@ -81,8 +81,10 @@ export function Shell(props: {
 }
 
 function MatchHeader(props: Extract<ShellHeader, { kind: 'match' }>) {
+  // iOS Home Screen apps tint the status bar from an opaque sticky or fixed element at the top edge;
+  // without one, the system blur spreads over this header.
   return (
-    <header className="flex h-[52px] shrink-0 items-center gap-3 px-1.5">
+    <header className="sticky top-0 z-40 flex h-[52px] shrink-0 items-center gap-3 bg-background px-1.5">
       <Link
         to={props.exit.to}
         aria-label={props.exit.label}
