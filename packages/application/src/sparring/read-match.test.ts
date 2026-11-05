@@ -319,7 +319,8 @@ describe('sparring match and Protocol reads', () => {
       latestSeq: 2,
       representedFrame: { frameIndex: 1, pointsBySeat: { A: 0, B: 0 } },
       game: { gameKey: 'free-pyramid', details: { phase: 'not-started' } },
-      protocolRows: [{ key: 'protocol-2-0' }, { key: 'protocol-1-0' }],
+      // The projection is chronological for every lifecycle; Play chooses the display order.
+      protocolRows: [{ key: 'protocol-1-0' }, { key: 'protocol-2-0' }],
     })
     expect(result).not.toHaveProperty('controls')
     expect(result).not.toHaveProperty('lastCommand')
@@ -510,7 +511,7 @@ describe('sparring match and Protocol reads', () => {
       lifecycle: 'finished',
       winnerSeat: 'A',
       latestSeq: 2,
-      protocolRows: [{ key: 'protocol-2-0', message: { key: 'match.protocol.system.match-ended' } }],
+      protocolRows: [{ key: 'protocol-2-0', kind: 'match-ended' }],
     })
 
     for (const field of ['state', 'gameResult', 'resultScores', 'gameConfiguration', 'endedAtIso'])

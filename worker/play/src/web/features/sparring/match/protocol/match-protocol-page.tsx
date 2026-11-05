@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 
 import { useProtocolLiveRevalidation } from '@/features/sparring/match/live'
 import { ProtocolPanel } from '@/features/sparring/match/protocol/protocol-panel'
+import { gameShowsFrames } from '@/features/sparring/match/shell/presentation'
 import { ActiveSurface, FinishedSurface } from '@/features/sparring/match/shell/surfaces'
 import type { ProtocolPageData } from '@/features/sparring/match/types'
 
@@ -11,8 +12,16 @@ export function MatchProtocolPage<K extends GameKey>(props: { data: ProtocolPage
   const { t } = useTranslation()
   useProtocolLiveRevalidation(props.data.match)
 
+  const { match } = props.data
+
   const content = (
-    <ProtocolPanel rows={props.data.match.protocolRows} emptyLabel={t(keys.match.sparring.protocolEmpty)} />
+    <ProtocolPanel
+      rows={match.protocolRows}
+      names={{ A: match.participants.A.displayName, B: match.participants.B.displayName }}
+      showsFrames={gameShowsFrames(match.gameKey)}
+      emptyLabel={t(keys.match.sparring.protocolEmpty)}
+      newestFirst={props.data.page !== 'result'}
+    />
   )
 
   if (props.data.page === 'result') {

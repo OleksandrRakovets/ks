@@ -23,4 +23,4 @@ export {
 
 export type { LastCommandPresentation } from './match/last-command-projection'
 
-export type { ProtocolRow } from './match/protocol-projection'
+export type { ProtocolMessage, ProtocolRow } from './match/protocol-projection'

@@ -69,7 +69,7 @@ for (const view of ['control', 'protocol']) {
     await expect(board).toContainText(/4\s*\/8/)
 
     if (view === 'protocol')
-      await expect(page.getByRole('article').filter({ hasText: 'Pot +4' })).toContainText('4:0')
+      await expect(page.getByRole('listitem').filter({ hasText: '+4' })).toContainText('4:0')
     await reads.quiet()
     // This fails if Router promise completion is mistaken for React's committed latestSeq.
     expect(reads.loaders()).toHaveLength(1)
@@ -88,7 +88,7 @@ for (const view of ['control', 'protocol']) {
     await expect(board).toContainText(/4\s*\/8\s*8\/\s*1/)
 
     if (view === 'protocol')
-      await expect(page.getByRole('article').filter({ hasText: 'Pot +1' })).toContainText('4:1')
+      await expect(page.getByRole('listitem').filter({ hasText: '+1' })).toContainText('4:1')
     await page.clock.runFor(50)
     await reads.quiet()
     expect(reads.loaders()).toHaveLength(2)

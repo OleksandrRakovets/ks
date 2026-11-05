@@ -1,5 +1,13 @@
-import type { ProtocolRow } from '@ks/application'
+import type { ProtocolMessage } from '@ks/application'
 import type { TFunction } from 'i18next'
+
+export function protocolRowLabel(t: TFunction, row: { message: ProtocolMessage }): string {
+  return t(row.message.key, { ...row.message.params, balls: protocolBallsLabel(t, row.message.pottedBalls) })
+}
+
+function protocolBallsLabel(t: TFunction, balls: readonly number[] | undefined): string {
+  return balls ? balls.map((ball) => protocolBallLabel(t, ball)).join(', ') : t('match.protocol.balls.none')
+}
 
 function protocolBallLabel(t: TFunction, ball: number): string {
   switch (ball) {
@@ -22,16 +30,4 @@ function protocolBallLabel(t: TFunction, ball: number): string {
     default:
       return t('match.protocol.balls.none')
   }
-}
-
-export function protocolRowLabel(t: TFunction, row: Pick<ProtocolRow, 'message'>): string {
-  const balls = row.message.pottedBalls
-    ? row.message.pottedBalls.map((ball) => protocolBallLabel(t, ball)).join(', ')
-    : t('match.protocol.balls.none')
-
-  const entry = row.message.correctedEntry
-    ? protocolRowLabel(t, { message: row.message.correctedEntry })
-    : undefined
-
-  return t(row.message.key, { ...row.message.params, balls, entry })
 }

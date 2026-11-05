@@ -64,6 +64,21 @@ The app has two chrome types. Do not add a third.
   Command and its system outcomes with linked correction entries, following the domain's Correction
   semantics. Present them as one atomic Undo step, not separate correction targets.
 
+## Protocol
+
+- Active pages read newest first, because observers keep the page at the top for the latest action;
+  finished pages read oldest first. Each frame's rows stay grouped under its header.
+- Seat A's lane, the score spine, and seat B's lane share one grid in the Board's seat order. Names
+  appear only on the Board directly above, never in rows or in a second header. The spine colon stays
+  in a fixed centre column with negative and three-digit scores, in spine rows and bands alike, and
+  the seat whose points changed is emphasized.
+- Labels stay short and wrap rather than truncate: `+N`, Strila ball visuals, and plain `Фол` in every
+  game, because the next score already shows the penalty.
+- A corrected Command stays in its lane, struck through with the Undo icon from the Last Command Bar; its system outcomes disappear. Tapping a
+  row reveals its exact time and any correction time. Five-minute markers sit in the gaps between rows.
+- One band closes each frame with the match score as the Board shows it, at 24px, not larger. Long
+  pyramid never presents frames: its band shows final points, and blue bands list its racks.
+
 ## Setup
 
 - The coin toss is mandatory and has two steps: the coin decides who chooses, and the winner may
