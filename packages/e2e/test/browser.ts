@@ -57,8 +57,8 @@ export async function createMatch(
 ) {
   const response = await request.post('/en/sparring/setup/free-pyramid/', {
     form: {
-      seatAName: `${name} Alice`,
-      seatBName: `${name} Bob`,
+      seatAName: `Test-${name} Alice`,
+      seatBName: `Test-${name} Bob`,
       matchTargetFrames: String(frames),
       targetA: String(targets[0]),
       targetB: String(targets[1]),

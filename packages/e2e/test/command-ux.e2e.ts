@@ -74,14 +74,14 @@ for (const viewport of viewports) {
       await expect(menu).toBeVisible()
       await menu
         .locator('section')
-        .filter({ has: page.getByRole('heading', { name: `${name} Alice`, exact: true }) })
+        .filter({ has: page.getByRole('heading', { name: `Test-${name} Alice`, exact: true }) })
         .getByRole('button', { name: 'Concede frame', exact: true })
         .click()
       await expect(menu).toBeHidden()
       await expect(page.getByRole('region', { name: 'Per-game control container' })).toBeVisible()
       expect(reads.posts()).toHaveLength(1)
       release()
-      await expect(page.getByText(`${name} Bob won`, { exact: true })).toBeVisible()
+      await expect(page.getByText(`Test-${name} Bob won`, { exact: true })).toBeVisible()
       await expect(page.getByRole('link', { name: 'Result', exact: true })).toBeVisible()
       await reads.quiet()
       expect(reads.posts()).toHaveLength(1)
@@ -133,7 +133,7 @@ test('a stale last-command correction is rejected, catches up both scores, and i
   const board = page.getByRole('region', { name: 'Per-game control container' })
   // The right-hand target precedes its score. Assert both seats, not a symmetric total or
   // merely the absence of an error: undoing either the old or new pot must fail this check.
-  await expect(board).toContainText(/Stale Alice\s*Stale Bob\s*4\s*\/8\s*8\/\s*1/)
+  await expect(board).toContainText(/Test-Stale Alice\s*Test-Stale Bob\s*4\s*\/8\s*8\/\s*1/)
   await expect(page.getByText('Pot +1', { exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Undo', exact: true })).toBeEnabled()
   await command(request, path, {
@@ -146,7 +146,7 @@ test('a stale last-command correction is rejected, catches up both scores, and i
   await page.getByRole('button', { name: 'Undo', exact: true }).click()
   await expect(page.getByRole('alert')).toHaveText('This action can no longer be undone. Refresh the match.')
   await page.clock.runFor(50)
-  await expect(board).toContainText(/Stale Alice\s*Stale Bob\s*4\s*\/8\s*8\/\s*3/)
+  await expect(board).toContainText(/Test-Stale Alice\s*Test-Stale Bob\s*4\s*\/8\s*8\/\s*3/)
   await expect(page.getByText('Pot +2', { exact: true })).toBeVisible()
   await reads.quiet()
   // Router's post-action read plus the controller's forced catch-up for the stale correction.
