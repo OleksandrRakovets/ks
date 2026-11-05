@@ -67,9 +67,11 @@ The app has two chrome types. Do not add a third.
 ## Protocol
 
 - Active pages read newest first, because observers keep the page at the top for the latest action;
-  finished pages read oldest first. Each frame's rows stay grouped under its header. Seat A's lane, the score spine, and seat B's
-  lane share one grid; names appear once above the lanes, never in rows. The spine colon stays in a
-  fixed centre column with negative and three-digit scores, in spine rows and bands alike, and the seat whose points changed is emphasized.
+  finished pages read oldest first. Each frame's rows stay grouped under its header.
+- Seat A's lane, the score spine, and seat B's lane share one grid in the Board's seat order. Names
+  appear only on the Board directly above, never in rows or in a second header. The spine colon stays
+  in a fixed centre column with negative and three-digit scores, in spine rows and bands alike, and
+  the seat whose points changed is emphasized.
 - Labels stay short and wrap rather than truncate: `+N`, Strila ball visuals, and plain `Фол` in every
   game, because the next score already shows the penalty.
 - A corrected Command stays in its lane, struck through with the Undo icon from the Last Command Bar; its system outcomes disappear. Tapping a

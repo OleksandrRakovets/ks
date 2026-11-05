@@ -37,11 +37,6 @@ export function ProtocolPanel(props: {
 
   return (
     <section className="grid grid-cols-[minmax(0,1fr)_3.5rem_auto_3.5rem_minmax(0,1fr)] pt-3 pb-6">
-      <div className="col-span-5 grid grid-cols-subgrid px-4 pb-3 text-base text-muted-foreground">
-        <span className="min-w-0 break-words">{props.names.A}</span>
-        <span className="col-span-3" />
-        <span className="min-w-0 text-right break-words">{props.names.B}</span>
-      </div>
       <ol className="col-span-5 grid grid-cols-subgrid">
         {presentProtocolItems(props.rows, {
           showsFrames: props.showsFrames,
