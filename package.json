@@ -43,7 +43,7 @@
     "play:dev": "BUN_OPTIONS=--silent turbo watch @ks/play#dev",
     "play:dev:human": "BUN_OPTIONS=--silent turbo watch @ks/play#dev --ui=tui",
     "play:preview": "BUN_OPTIONS=--silent turbo run @ks/play#preview",
-    "play:db:reset:local": "bun ./tools/reset-local.mjs",
+    "play:db:reset:local": "bun ./tools/reset-play-local.mjs",
     "play:test:integration": "turbo run test:integration --filter=@ks/play... --log-order=grouped",
     "play:test:e2e": "turbo run test:e2e --filter=@ks/play-e2e --log-order=grouped",
     "play:test:e2e:webkit": "turbo run test:e2e:webkit --filter=@ks/play-e2e --log-order=grouped"
