@@ -19,8 +19,8 @@ The app has two chrome types. Do not add a third.
   because it is a phone-shaped surface used at the table. A wide desktop variant needs its own
   interaction study first.
 - Control uses a fixed viewport layout. Result and both active and finished Protocol pages share a
-  reading layout: the Board, page content, and any page action scroll together between the fixed
-  header and bottom tabs. Do not give Protocol rows their own scroll region.
+  reading layout: the window scrolls the Board, page content, and any page action together under a
+  sticky header and above sticky bottom tabs, like App Shell pages. Do not add an inner scroll region.
 - App Shell list and form pages compose `Page`. The page owns its title from its own loader data.
   `Page` has no subtitle slot: a line under a heading either restates it or makes claims the data
   cannot back.
