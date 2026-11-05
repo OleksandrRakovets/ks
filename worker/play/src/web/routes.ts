@@ -9,6 +9,10 @@ export default [
   route('start/', 'routes/pwa/start.ts'),
   route('ui-preferences/theme/', 'routes/ui-preferences.ts'),
   route('api/sparring-matches/live-scores/', 'routes/sparring/matches/api-live-scores.ts'),
+  // Stream pages own their document: no app stylesheet, theme, or chrome.
+  route('en?', 'routes/layout-scoreboard.tsx', { id: 'layout-scoreboard' }, [
+    route('sparring/match/:gameKey/:matchId/scoreboard/', 'routes/sparring/match/scoreboard.tsx'),
+  ]),
   route('en?', 'routes/layout-base.tsx', [
     index('routes/index.tsx'),
     route('now/', 'routes/now.ts'),

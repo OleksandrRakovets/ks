@@ -1,5 +1,5 @@
 import type { MatchReadFacts } from '@ks/application'
-import type { MatchCommand } from '@ks/core'
+import type { MatchCommand, MatchId } from '@ks/core'
 import { keys } from '@ks/i18n'
 import { useEffect, useLayoutEffect, useRef } from 'react'
 import { useRevalidator } from 'react-router'
@@ -41,19 +41,37 @@ export function useProtocolLiveRevalidation(
   useMatchLiveController(facts, 'protocol', false)
 }
 
+/**
+ * Wires the read-only scoreboard to the same freshness rules. Its `read` must keep loader errors
+ * out of Router boundaries: a failed read commits facts with `readFailed`, the page keeps showing
+ * its last good state, and the controller retries at its watchdog deadline or on the next hint.
+ * A missing (discarded) match has no live work. Uses the socket's read-only `protocol` view.
+ */
+export function useScoreboardLiveRevalidation(facts: LiveFacts, read: () => Promise<void>): void {
+  useMatchLiveController(facts, 'protocol', false, read)
+}
+
+type LiveFacts = {
+  readonly matchId: MatchId
+  readonly lifecycle: MatchReadFacts['lifecycle'] | 'missing'
+  readonly latestSeq: number
+  readonly readFailed?: boolean
+}
+
 function useMatchLiveController(
-  facts: Pick<MatchReadFacts, 'matchId' | 'lifecycle' | 'latestSeq'>,
+  facts: LiveFacts,
   pageKind: 'control' | 'protocol',
   submitting: boolean,
+  read?: () => Promise<void>,
 ) {
   const { matchId, lifecycle, latestSeq } = facts
   const { revalidate } = useRevalidator()
-  const current = useRef({ revalidate, facts, submitting })
+  const current = useRef({ read: read ?? revalidate, facts, submitting })
   const committedReads = useRef(new Set<() => void>())
 
   useLayoutEffect(() => {
-    current.current = { revalidate, facts, submitting }
-  }, [revalidate, facts, submitting])
+    current.current = { read: read ?? revalidate, facts, submitting }
+  }, [read, revalidate, facts, submitting])
 
   useLayoutEffect(() => {
     // Router's revalidate promise means its state was updated, not that React has committed the
@@ -75,7 +93,7 @@ function useMatchLiveController(
 
     const live = new MatchLiveController(matchId, pageKind, current.current.facts.latestSeq, async () => {
       const previousFacts = current.current.facts
-      await current.current.revalidate()
+      await current.current.read()
 
       if (disposed) return
 
@@ -84,6 +102,8 @@ function useMatchLiveController(
           completions.add(resolve)
         })
       }
+
+      if (current.current.facts.readFailed === true) throw new Error('Match read failed')
 
       live.snapshot(current.current.facts.latestSeq)
     })

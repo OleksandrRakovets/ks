@@ -246,13 +246,13 @@ function MatchRow({ match, locale }: { match: MatchListEntry; locale: 'uk' | 'en
           {card.raceToWins === null ? null : (
             <>
               {' · '}
-              <span>{t(keys.match.scoreboard.target, { target: card.raceToWins })}</span>
+              <span>{t(keys.match.target, { target: card.raceToWins })}</span>
             </>
           )}
           {card.frameIndex === null ? null : (
             <>
               {' · '}
-              <span>{t(keys.match.scoreboard.frameWithNumber, { frameIndex: card.frameIndex })}</span>
+              <span>{t(keys.match.frameWithNumber, { frameIndex: card.frameIndex })}</span>
             </>
           )}
           {' · '}

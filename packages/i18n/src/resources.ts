@@ -37,6 +37,24 @@ export const resources = {
         live: 'Live',
         finished: 'Завершено',
       },
+      scoreboard: {
+        handicap: 'Гандикап',
+        tips: {
+          frameBall: 'Партійна куля: {{ball}}',
+          potTiesFrame: 'Забита {{ball}} — нічия, додаткова чорна',
+          potLosesFrame: 'Забита {{ball}} віддає партію',
+          thirdCueBallPot: 'Ще одне падіння битка — фол',
+        },
+        balls: {
+          1: 'червона',
+          2: 'жовта',
+          3: 'зелена',
+          4: 'коричнева',
+          5: 'синя',
+          6: 'рожева',
+          7: 'чорна',
+        },
+      },
       match: {
         control: {
           invalidCommandPayload: 'Некоректні дані команди',
@@ -149,15 +167,12 @@ export const resources = {
             foulChooser: '{{player}} обирає продовження.',
           },
         },
-        scoreboard: {
-          frame: 'Фрейм',
-          frameWithNumber: 'Партія\u00a0{{frameIndex}}',
-          raceToWins_one: 'до {{count}} перемоги',
-          raceToWins_few: 'до {{count}} перемог',
-          raceToWins_many: 'до {{count}} перемог',
-          raceToWins_other: 'до {{count}} перемоги',
-          target: 'до\u00a0{{target}}',
-        },
+        frameWithNumber: 'Партія\u00a0{{frameIndex}}',
+        raceToWins_one: 'до {{count}} перемоги',
+        raceToWins_few: 'до {{count}} перемог',
+        raceToWins_many: 'до {{count}} перемог',
+        raceToWins_other: 'до {{count}} перемоги',
+        target: 'до\u00a0{{target}}',
         result: {
           tabResult: 'Результат',
           winner: 'Переможець: {{name}}',
@@ -327,6 +342,24 @@ export const resources = {
         live: 'Live',
         finished: 'Finished',
       },
+      scoreboard: {
+        handicap: 'Handicap',
+        tips: {
+          frameBall: 'Frame ball: {{ball}}',
+          potTiesFrame: 'Potting {{ball}} ties the frame',
+          potLosesFrame: 'Potting {{ball}} loses the frame',
+          thirdCueBallPot: 'Another cue-ball pot is a foul',
+        },
+        balls: {
+          1: 'red',
+          2: 'yellow',
+          3: 'green',
+          4: 'brown',
+          5: 'blue',
+          6: 'pink',
+          7: 'black',
+        },
+      },
       match: {
         control: {
           invalidCommandPayload: 'Invalid command payload',
@@ -435,13 +468,10 @@ export const resources = {
             foulChooser: '{{player}} chooses.',
           },
         },
-        scoreboard: {
-          frame: 'Frame',
-          frameWithNumber: 'Frame\u00a0{{frameIndex}}',
-          raceToWins_one: 'race to {{count}} win',
-          raceToWins_other: 'race to {{count}} wins',
-          target: 'to\u00a0{{target}}',
-        },
+        frameWithNumber: 'Frame\u00a0{{frameIndex}}',
+        raceToWins_one: 'race to {{count}} win',
+        raceToWins_other: 'race to {{count}} wins',
+        target: 'to\u00a0{{target}}',
         result: {
           tabResult: 'Result',
           winner: '{{name}} won',

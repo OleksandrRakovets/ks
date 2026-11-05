@@ -35,6 +35,15 @@ export const keys = {
     live: 'status.live',
     finished: 'status.finished',
   },
+  scoreboard: {
+    handicap: 'scoreboard.handicap',
+    tips: {
+      frameBall: 'scoreboard.tips.frameBall',
+      potTiesFrame: 'scoreboard.tips.potTiesFrame',
+      potLosesFrame: 'scoreboard.tips.potLosesFrame',
+      thirdCueBallPot: 'scoreboard.tips.thirdCueBallPot',
+    },
+  },
   match: {
     control: {
       invalidCommandPayload: 'match.control.invalidCommandPayload',
@@ -73,12 +82,9 @@ export const keys = {
       discardWarning: 'match.control.discardWarning',
       discardKeep: 'match.control.discardKeep',
     },
-    scoreboard: {
-      frame: 'match.scoreboard.frame',
-      frameWithNumber: 'match.scoreboard.frameWithNumber',
-      raceToWins: 'match.scoreboard.raceToWins',
-      target: 'match.scoreboard.target',
-    },
+    frameWithNumber: 'match.frameWithNumber',
+    raceToWins: 'match.raceToWins',
+    target: 'match.target',
     result: {
       tabResult: 'match.result.tabResult',
       winner: 'match.result.winner',
