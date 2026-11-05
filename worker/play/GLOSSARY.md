@@ -1,6 +1,6 @@
-# KS Domain
+# Play Domain
 
-KS records and presents cue-sports matches. Its current match mode is optimized for two players scoring without a dedicated referee or secretary.
+Play records and presents cue-sports matches. Its current match mode is optimized for two players scoring without a dedicated referee or secretary.
 
 ## Competition
 

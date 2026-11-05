@@ -1,6 +1,38 @@
 # Play
 
-Play is the single Cloudflare Worker deployable. It owns HTTP and presentation, not domain execution or persistence. Read the repository-root `docs/design.md` before changing UI appearance or interaction.
+Play is a two-player billiards scorekeeper with public live scoring, served at `https://play.ks.ua`. Matches are races across frames; seats are `A` and `B`. Consult [GLOSSARY.md](GLOSSARY.md) before naming domain concepts in code or user-facing copy, and when changing domain terminology.
+
+## Components
+
+Domain dependencies flow `core <- gameplay <- competition`. The Worker owns HTTP and presentation; application owns use-case orchestration and D1; MatchRoom owns serialized active/finalizing execution and per-match SQLite. Finished reads use D1 only. Never mirror the active command ledger into D1. Reuse core seat contracts (`Seat`, `BySeatNumber`, `opponentOf`).
+
+Read the owning component's `AGENTS.md` before changing it:
+
+- Worker (this file, below): routes, browser UI, localized copy, Worker deployment.
+- [Gameplay](../../packages/gameplay/AGENTS.md): game semantics and frame execution.
+- [Competition](../../packages/competition/AGENTS.md): Match lifecycle, restoration, and Correction.
+- [Application](../../packages/application/AGENTS.md): workflows, projections, and D1.
+- [MatchRoom](../../do/match-room/AGENTS.md): active/finalizing execution, receipts, SQLite, checkpoints, Protocol persistence, and socket fan-out—even when changing a caller outside that directory.
+- [Browser E2E](../../packages/play-e2e/README.md): Playwright journeys against the built Worker.
+
+For cross-component changes, read the [architecture map](docs/decisions/current-architecture.md). For schema/data migrations, read [database operations](docs/db.md). Read [design rules](docs/design.md) before changing UI appearance or interaction.
+
+## Commands
+
+Run from the repository root:
+
+- Dev server on strict port `7529`: `bun run play:dev` (`play:dev:human` for the Turbo TUI).
+- Full gate: `bun run play:check:full` (the root fast gate plus Workerd integration and the Play build).
+- Delivery review: `bun run play:test:e2e` (Chromium), then the root Knip review. The first E2E run on a machine installs its browser; agents should not install it earlier. Fix E2E failures or report them with the failing trace.
+- Reset local D1 and MatchRoom state: `bun run play:db:reset:local`.
+
+## Deployment Safety
+
+The owner deploys Play only when no Active Matches and no finalization/archival are pending; if asked to deploy, verify that first. Storage changes may rely on this precondition: no deployment interrupts an Active Match or pending archival, so retained MatchRoom state needs no legacy runtime compatibility (see [MatchRoom](../../do/match-room/AGENTS.md)). Production deployments are tagged `play-deploy-NNN` under the root deployment rules. The Cloudflare Worker is named `ks`; renaming it would create a new Worker and Durable Object namespace.
+
+## Worker
+
+The `worker/play` workspace is Play's single Cloudflare Worker deployable. It owns HTTP and presentation, not domain execution or persistence.
 
 ## Server And Transport
 
@@ -37,10 +69,10 @@ Play is the single Cloudflare Worker deployable. It owns HTTP and presentation, 
 - Do not unit-test JSX output, rendered markup, component trees, snapshots, class names, or component/prop composition. Rendering, accessibility, styling, and user interactions belong in browser checks. Test presentation decisions through semantic values, not their JSX encoding.
 - Skip assertions that merely restate construction or wiring: a factory returns its supplied/newly defined function, a wrapper forwards unchanged arguments or props, or a helper reproduces a literal object. Assert identity, invocation order, or call counts only when they are themselves required observable behavior, not incidental implementation choices. Route tests should assert the HTTP contract rather than just mocked calls.
 - Do not extract helpers, widen exports, or add `@internal` tags solely to make trivial wiring unit-testable. Prefer an existing behavioral entrypoint; a small pure decision function is appropriate when it also clarifies production code.
-- `packages/e2e` checks browser wiring against the built Worker with disposable persistence; see its README for setup, focused runs, and simulation limits. It runs in the delivery review, not the root gates; also run `bun run test:e2e:webkit` for freshness or lifecycle changes. Add browser journeys there for rendering, interaction, and cross-component wiring instead of JSX unit tests. For UI changes, also exercise affected states in the browser, inspect them against the design rules, and report any gaps; browser tests do not replace visual inspection or real-device Safari checks.
+- `packages/play-e2e` checks browser wiring against the built Worker with disposable persistence; see its README for setup, focused runs, and simulation limits. It runs in the delivery review, not the root gates; also run `bun run play:test:e2e:webkit` for freshness or lifecycle changes. Add browser journeys there for rendering, interaction, and cross-component wiring instead of JSX unit tests. For UI changes, also exercise affected states in the browser, inspect them against the design rules, and report any gaps; browser tests do not replace visual inspection or real-device Safari checks.
 
 ## Deployment And Checks
 
-- `wrangler.jsonc` owns Worker bindings and MatchRoom class migrations. Per-room SQL migrations are separate; follow the repository-root `docs/db.md` and root deployment policy. Production is `https://play.ks.ua`.
+- `wrangler.jsonc` owns Worker bindings and MatchRoom class migrations. Per-room SQL migrations are separate; follow [database operations](docs/db.md) and Deployment Safety above.
 - Do not hand-reformat generated `.react-router/` or `worker-configuration.d.ts` files.
-- Use the root fast gate for ordinary code changes and full gate for Worker/build/integration changes.
+- Use the root fast gate for ordinary code changes and `play:check:full` for Worker/build/integration changes.

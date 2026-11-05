@@ -5,6 +5,9 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "scripts": {
+    "test": "bun test --path-ignore-patterns='**/*.integration.test.ts'"
+  },
   "dependencies": {
     "ulid": "^3.0.2",
     "valibot": "catalog:"

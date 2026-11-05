@@ -5,5 +5,5 @@ services:
     cwd: .
     health: /
     portal:
-      title: KS dev
+      title: Play dev
       description: Development server with the colocated MatchRoom Durable Object.

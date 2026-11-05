@@ -1,6 +1,6 @@
 # MatchRoom
 
-MatchRoom owns serialized active/finalizing execution and per-match SQLite. For cross-store creation and archival ordering, see the repository-root `docs/decisions/current-architecture.md`.
+MatchRoom owns serialized active/finalizing execution and per-match SQLite. For cross-store creation and archival ordering, see Play's [architecture map](../../worker/play/docs/decisions/current-architecture.md).
 
 ## Runtime Shape
 
@@ -49,7 +49,7 @@ MatchRoom owns serialized active/finalizing execution and per-match SQLite. For 
 
 ## Migrations And Checks
 
-- MatchRoom SQLite has a migration history independent from D1. Follow the repository-root `docs/db.md` for schema changes.
+- MatchRoom SQLite has a migration history independent from D1. Follow Play's [database operations](../../worker/play/docs/db.md) for schema changes.
 - Under the root deployment policy, retained rooms need no historical backfills, checkpoint-version router, or replay fallback. New rooms still require schema initialization through the runtime migrator.
 - Drizzle generates migration SQL and snapshots. Maintain `drizzle/migrations.js` manually when generating a migration, and do not hand-format generated files.
 - Storage, lifecycle, RPC, and disposal behavior belong in Workerd integration tests. Optional diagnostic shortcut from the repository root: `bun run --filter '@ks/match-room' test:integration`; the root full gate already includes it. Play's build owns the deployable boundary.

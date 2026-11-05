@@ -11,8 +11,8 @@ application/repository mocks. Play's own Vite config has no test-specific option
 From the repository root:
 
 ```sh
-bun run test:e2e          # Chromium: the delivery-review run
-bun run test:e2e:webkit   # WebKit: when changing freshness or lifecycle wiring
+bun run play:test:e2e          # Chromium: the delivery-review run
+bun run play:test:e2e:webkit   # WebKit: when changing freshness or lifecycle wiring
 ```
 
 Both commands build Play through Turbo first. On first use they install the lockfile's
@@ -23,7 +23,7 @@ browsers, so agents start without that cost.
 For a focused rerun against an **already current build**:
 
 ```sh
-cd packages/e2e
+cd packages/play-e2e
 ./node_modules/.bin/playwright test --project=chromium -g 'BFCache'
 ```
 

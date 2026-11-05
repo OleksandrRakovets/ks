@@ -11,7 +11,8 @@
     "db:migrate:local": "wrangler d1 migrations apply DB --local --config ../../worker/play/wrangler.jsonc",
     "db:seed:local": "wrangler d1 execute DB --local --config ../../worker/play/wrangler.jsonc --file ./seeds/local-players.sql",
     "db:studio:local": "KS_D1_LOCAL_URL=$(find ../../worker/play/.wrangler/state/v3/d1/miniflare-D1DatabaseObject -maxdepth 1 -type f -name '*.sqlite' ! -name 'metadata.sqlite' -print -quit) drizzle-kit studio --config drizzle.config.ts --host ${KS_DB_STUDIO_HOST:-127.0.0.1}",
-    "test:integration": "vitest run --config vitest.config.ts"
+    "test:integration": "vitest run --config vitest.config.ts",
+    "test": "bun test --path-ignore-patterns='**/*.integration.test.ts'"
   },
   "dependencies": {
     "@ks/competition": "workspace:*",

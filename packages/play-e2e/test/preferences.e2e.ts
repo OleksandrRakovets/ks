@@ -33,7 +33,7 @@ test('a UI theme choice survives reload without leaking into an isolated context
   try {
     const otherPage = await isolated.newPage()
     await otherPage.goto(setupPath)
-    // KS defaults to explicit dark, even on a light OS. No cookie means no inherited preference.
+    // Play defaults to explicit dark, even on a light OS. No cookie means no inherited preference.
     await expect(otherPage.locator('html')).toHaveCSS('color-scheme', 'dark')
     expect(await themeCookie(otherPage)).toBeUndefined()
     expect(await bodyColors(otherPage)).not.toEqual(light)

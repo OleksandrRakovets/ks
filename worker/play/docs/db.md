@@ -55,7 +55,7 @@ Replace `--local` with `--remote` only intentionally. `wrangler d1 execute` is n
 2. Generate SQL: `bun run --cwd packages/application db:generate --name <short-name>`.
 3. Review the generated SQL and snapshot under `packages/application/drizzle/`.
 4. From `packages/application`, validate with `bunx drizzle-kit check --config drizzle.config.ts`.
-5. Apply locally with `bun run --cwd packages/application db:migrate:local` and run `bun run check:full`.
+5. Apply locally with `bun run --cwd packages/application db:migrate:local` and run `bun run play:check:full`.
 6. Apply remotely only as an explicit deployment operation:
 
 ```sh
@@ -75,7 +75,7 @@ Generation commands minify Drizzle's `snapshot.json` metadata without changing i
 2. Generate SQL: `bun run --cwd do/match-room db:generate --name <short-name>`.
 3. Review the generated SQL and snapshot under `do/match-room/drizzle/`.
 4. Add the SQL import and migration key to `do/match-room/drizzle/migrations.js`.
-5. From `do/match-room`, run `bunx drizzle-kit check --config drizzle.config.ts`, then run `bun run check:full` from the repository root.
+5. From `do/match-room`, run `bunx drizzle-kit check --config drizzle.config.ts`, then run `bun run play:check:full` from the repository root.
 
 The `migrations` entry in `worker/play/wrangler.jsonc` manages Durable Object classes, not each object's SQLite schema. MatchRoom's Workerd integration configuration reads that class setup from Play's configuration.
 
@@ -84,7 +84,7 @@ The `migrations` entry in `worker/play/wrangler.jsonc` manages Durable Object cl
 Stop the dev server, then run:
 
 ```sh
-bun run db:reset:local
+bun run play:db:reset:local
 ```
 
-This removes the Play and MatchRoom workspace `.wrangler` directories, including local D1 and MatchRoom Durable Object SQLite state, then reapplies D1 migrations and the local player seed. It does not affect remote data.
+This removes only Play's local D1 state and the MatchRoom Durable Object SQLite state under `worker/play/.wrangler/state/v3`, keeping Wrangler cache, logs, and other apps' state, then reapplies D1 migrations and the local player seed. It does not affect remote data.

@@ -2,5 +2,7 @@
 pathIgnorePatterns = ["**/*.integration.test.ts"]
 
 [install]
+# Each workspace resolves only the packages it declares; this enforces workspace dependency direction.
+linker = "isolated"
 # Two-day cooldown: skip versions published less than 172800 seconds ago.
 minimumReleaseAge = 172800

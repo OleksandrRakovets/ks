@@ -4,9 +4,14 @@ import { join } from 'node:path'
 
 const ROOT = process.cwd()
 
-const WRANGLER_DIRECTORIES = ['worker/play/.wrangler', 'do/match-room/.wrangler']
+// Play's local data only: its D1 databases and the MatchRoom namespace (Miniflare names it
+// `<worker>-<class>`; the Worker is `ks`). Cache, logs, traces, and other apps' state stay.
+const PLAY_STORAGE_DIRECTORIES = [
+  'worker/play/.wrangler/state/v3/d1',
+  'worker/play/.wrangler/state/v3/do/ks-MatchRoom',
+]
 
-for (const directory of WRANGLER_DIRECTORIES) {
+for (const directory of PLAY_STORAGE_DIRECTORIES) {
   rmSync(join(ROOT, directory), { force: true, recursive: true })
 }
 

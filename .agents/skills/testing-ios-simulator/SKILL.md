@@ -16,7 +16,7 @@ Runs on the Amp runner `oleksandrs-macbook-air-amp-app`, in a new worktree of `/
 
 ## Workflow
 
-1. **Set up the worktree.** Run `bun install`, then `bun run --cwd packages/application db:migrate:local`. A new worktree has no local D1 tables, and starting a match then fails with `no such table`. Start `bun run dev`, which serves on strict port 7529. The Simulator reaches it at `http://localhost:7529`.
+1. **Set up the worktree.** Run `bun install`, then `bun run --cwd packages/application db:migrate:local`. A new worktree has no local D1 tables, and starting a match then fails with `no such table`. Start `bun run play:dev`, which serves on strict port 7529. The Simulator reaches it at `http://localhost:7529`.
 2. **Boot every device up front, in parallel.** Run `xcrun simctl boot <udid>`, then `xcrun simctl bootstatus <udid> -b`. Booting takes about 45 s per device.
 3. **Make captures comparable.** Run `xcrun simctl status_bar <udid> override --time 9:41 --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3`, then `xcrun simctl ui <udid> appearance dark` (or `light`).
 4. **Seed state over HTTP, never through the Simulator UI.** The owner's rule: the Simulator only opens pages. For a Strila match:

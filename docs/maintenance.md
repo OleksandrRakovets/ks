@@ -8,11 +8,11 @@ Read this before changing dependency versions, package-manager metadata, or the 
 - Shared versions belong in root `workspaces.catalog`; consumers use `"catalog:"`.
 - Change the owning manifest, then run `bun install` to regenerate `bun.lock`. Do not bypass the two-day release cooldown (`minimumReleaseAge` in root `bunfig.toml`) unless the owner approves a specific release, such as a security fix; then exclude only that exact version for one install with `bun install --minimum-release-age-excludes name@version` instead of committing an exclusion.
 - Use caret ranges, including for dev tools; `bun.lock` pins installs. Pin exact versions only with a reason: `typescript`, `oxlint`, `@oxlint/plugins`, and `oxlint-tsgolint` so diagnostic changes are deliberate, `bun-types` to match the declared Bun version, and prereleases such as drizzle RCs, where a caret admits later prereleases.
-- Match TypeScript to the TypeScript-Go release embedded by `oxlint-tsgolint`. Upgrade them together, update Oxlint and its plugin API deliberately, then run `bun install` and `bun run check:full`.
+- Match TypeScript to the TypeScript-Go release embedded by `oxlint-tsgolint`. Upgrade them together, update Oxlint and its plugin API deliberately, then run `bun install` and each app's full gate (`bun run play:check:full`).
 
 ## Build And Provisioning
 
-- Keep `typegen` directly before the single root `tsc --build`. There are no per-package typecheck tasks; move generation into Turbo only if generated-output caching provides measured value.
+- Keep `typegen` directly before the single root `tsc --build`; it runs every workspace's own `typegen` script (Wrangler bindings, framework route types). There are no per-package typecheck tasks; move generation into Turbo only if generated-output caching provides measured value.
 - Bun metadata has consumers outside manifests. Before changing its version, `devEngines.packageManager`, or its representation, read [provisioning guidance](../.agents/AGENTS.md) and inspect `.agents/setup`, `.agents/resume`, and CI/tooling references. Update affected consumers in the same change.
 - Provisioning verification is separate from the full code gate; follow the setup/resume checks in that guidance.
 
