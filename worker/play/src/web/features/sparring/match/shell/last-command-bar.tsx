@@ -3,6 +3,7 @@ import type { MatchCommand } from '@ks/core'
 import { keys } from '@ks/i18n'
 import { useTranslation } from 'react-i18next'
 
+import { CorrectionIcon } from '@/components/correction-icon'
 import { StrilaBall } from '@/components/strila-ball'
 import { protocolRowLabel } from '@/features/sparring/match/protocol/protocol-copy'
 import { matchCommandFromControl } from '@/features/sparring/match/renderers/types'
@@ -48,24 +49,10 @@ export function LastCommandBar(props: {
           onClick={() => props.onSubmit(matchCommandFromControl(correction))}
           className="flex min-h-11 shrink-0 items-center gap-2 rounded-lg bg-overlay px-4 text-base font-medium disabled:opacity-100"
         >
-          <CorrectionIcon />
+          <CorrectionIcon className="size-5" />
           {t(keys.match.control.correction)}
         </button>
       ) : null}
     </section>
-  )
-}
-
-function CorrectionIcon() {
-  return (
-    <svg aria-hidden className="size-5" viewBox="0 0 24 24" fill="none">
-      <path
-        d="M5 8H2.5V3.5M3 8a9 9 0 1 1-.25 7"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
   )
 }

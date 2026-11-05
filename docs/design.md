@@ -69,10 +69,10 @@ The app has two chrome types. Do not add a third.
 - Active pages read newest first, because observers keep the page at the top for the latest action;
   finished pages read oldest first. Each frame's rows stay grouped under its header. Seat A's lane, the score spine, and seat B's
   lane share one grid; names appear once above the lanes, never in rows. The spine colon stays in a
-  fixed column with negative and two-digit scores, and the seat whose points changed is emphasized.
+  fixed centre column with negative and three-digit scores, in spine rows and bands alike, and the seat whose points changed is emphasized.
 - Labels stay short and wrap rather than truncate: `+N`, Strila ball visuals, and plain `Фол` in every
   game, because the next score already shows the penalty.
-- A corrected Command stays in its lane, struck through with ↶; its system outcomes disappear. Tapping a
+- A corrected Command stays in its lane, struck through with the Undo icon from the Last Command Bar; its system outcomes disappear. Tapping a
   row reveals its exact time and any correction time. Five-minute markers sit in the gaps between rows.
 - One band closes each frame with the match score as the Board shows it, at 24px, not larger. Long
   pyramid never presents frames: its band shows final points, and blue bands list its racks.

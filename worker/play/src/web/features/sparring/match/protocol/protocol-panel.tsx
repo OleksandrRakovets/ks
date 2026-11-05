@@ -4,6 +4,7 @@ import { keys } from '@ks/i18n'
 import { type ReactNode, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { CorrectionIcon } from '@/components/correction-icon'
 import { StrilaBall } from '@/components/strila-ball'
 import { cn } from '@/components/ui/utils'
 import { protocolRowLabel } from '@/features/sparring/match/protocol/protocol-copy'
@@ -16,8 +17,8 @@ import {
 type LaneRow = Extract<ProtocolRow, { kind: 'lane' }>
 
 /**
- * Seat A's lane, the score spine, and seat B's lane share one five-column grid, so every row keeps the
- * colon in the same place: A's points right-aligned, the colon, then B's points left-aligned.
+ * Seat A's lane, the score spine, and seat B's lane share one five-column grid. The two score tracks have the
+ * same fixed width, so the colon sits on the panel's centre line in every row, as it does in the centred bands.
  */
 export function ProtocolPanel(props: {
   rows: readonly ProtocolRow[]
@@ -35,7 +36,7 @@ export function ProtocolPanel(props: {
   if (!hasRows) return <p className="px-4 py-3 text-base text-muted-foreground">{props.emptyLabel}</p>
 
   return (
-    <section className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto_minmax(0,1fr)] pt-3 pb-6">
+    <section className="grid grid-cols-[minmax(0,1fr)_3.5rem_auto_3.5rem_minmax(0,1fr)] pt-3 pb-6">
       <div className="col-span-5 grid grid-cols-subgrid px-4 pb-3 text-base text-muted-foreground">
         <span className="min-w-0 break-words">{props.names.A}</span>
         <span className="col-span-3" />
@@ -151,9 +152,7 @@ function LaneItem(props: {
       <LaneLabel row={row} />
       {row.corrected ? (
         <>
-          <span aria-hidden className="text-muted-foreground">
-            ↶
-          </span>
+          <CorrectionIcon className="size-4 shrink-0 text-muted-foreground" />
           <span className="sr-only">{t(keys.match.protocol.corrected)}</span>
         </>
       ) : null}
@@ -182,7 +181,7 @@ function LaneItem(props: {
         {/* Out of the grid flow, so both seats read "Name: label score". */}
         <span className="sr-only">{`${props.name}: `}</span>
         {row.seat === 'A' ? lane : <span />}
-        <span className="col-span-3 grid min-h-full grid-cols-subgrid content-center border-x border-divider px-2.5 py-1.5">
+        <span className="col-span-3 grid min-h-full grid-cols-subgrid content-center border-x border-divider py-1.5">
           {row.score ? <SpineScore score={row.score} changedSeats={row.changedSeats} /> : null}
           {props.open ? (
             // Out of flow horizontally, so revealed times never widen the spine columns of other rows.
@@ -191,7 +190,10 @@ function LaneItem(props: {
                 <time dateTime={row.acceptedAtIso}>{row.acceptedAtLabel}</time>
                 {row.corrected ? (
                   <time dateTime={row.corrected.acceptedAtIso}>
-                    <span aria-hidden>{`↶ ${row.corrected.acceptedAtLabel}`}</span>
+                    <span aria-hidden className="inline-flex items-center gap-1">
+                      <CorrectionIcon className="size-3.5" />
+                      {row.corrected.acceptedAtLabel}
+                    </span>
                     <span className="sr-only">
                       {t(keys.match.protocol.correctedAt, { time: row.corrected.acceptedAtLabel })}
                     </span>
@@ -248,9 +250,9 @@ function SpineScore({ score, changedSeats }: { score: BySeatNumber; changedSeats
 
   return (
     <>
-      <ScoreNumber className={cn('text-right text-xl', tone('A'))} points={score.A} />
-      <span className="px-0.5 text-xl text-muted-foreground">:</span>
-      <ScoreNumber className={cn('text-xl', tone('B'))} points={score.B} />
+      <ScoreNumber className={cn('pr-1.5 text-right text-xl', tone('A'))} points={score.A} />
+      <span className="text-xl text-muted-foreground">:</span>
+      <ScoreNumber className={cn('pl-1.5 text-xl', tone('B'))} points={score.B} />
     </>
   )
 }
@@ -306,13 +308,13 @@ function Band(props: {
         props.className,
       )}
     >
-      <span className={cn('grid grid-cols-[1fr_auto_1fr] gap-x-2 self-stretch', props.scoreClassName)}>
-        <span className={cn('text-right', tone(A, B))}>
+      <span className={cn('grid grid-cols-[1fr_auto_1fr] self-stretch', props.scoreClassName)}>
+        <span className={cn('pr-2 text-right', tone(A, B))}>
           <span className="sr-only">{`${props.names.A} `}</span>
           <ScoreNumber points={A} />
         </span>
         <span className="opacity-70">:</span>
-        <span className={tone(B, A)}>
+        <span className={cn('pl-2', tone(B, A))}>
           <span className="sr-only">{`${props.names.B} `}</span>
           <ScoreNumber points={B} />
         </span>
