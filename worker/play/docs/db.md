@@ -87,4 +87,4 @@ Stop the dev server, then run:
 bun run play:db:reset:local
 ```
 
-This removes the Play and MatchRoom workspace `.wrangler` directories, including local D1 and MatchRoom Durable Object SQLite state, then reapplies D1 migrations and the local player seed. It does not affect remote data.
+This removes only Play's local D1 state and the MatchRoom Durable Object SQLite state under `worker/play/.wrangler/state/v3`, keeping Wrangler cache, logs, and other apps' state, then reapplies D1 migrations and the local player seed. It does not affect remote data.
