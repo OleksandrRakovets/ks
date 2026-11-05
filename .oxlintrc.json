@@ -122,8 +122,9 @@
   },
   "overrides": [
     {
-      // These Node/Drizzle files remain syntax-linted but are outside checked TypeScript projects.
-      "files": ["tools/check-boundaries.mjs", "do/match-room/drizzle/migrations.js"],
+      // MatchRoom bundles its SQL migrations for the runtime migrator; D1 migrations are plain SQL
+      // applied by Wrangler. The bundle stays syntax-linted but is outside checked TypeScript projects.
+      "files": ["do/match-room/drizzle/migrations.js"],
       "rules": {
         "typescript/no-unsafe-argument": "off",
         "typescript/no-unsafe-assignment": "off",

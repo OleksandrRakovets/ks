@@ -15,6 +15,7 @@ An app owns its root scripts, prefixed with its name (`play:dev`, `play:check:fu
 ## Working Agreements
 
 - Prefer architectural clarity and small, reviewable changes. Ask before adding dependencies, workspace packages, or architectural layers; small internal extractions need no approval.
+- Workspace `package.json` dependencies are the dependency graph. Bun's isolated installs make undeclared imports unresolvable, so typecheck fails on them, and Turbo rejects cycles; adding a workspace-to-workspace dependency is an architectural change.
 - Allow focused regression tests for the requested change using existing infrastructure. Ask before broad coverage expansion, new test infrastructure, or substantial fixtures.
 - Test behavior at its lowest owning layer. Higher-level tests cover wiring, persistence, transport, and lifecycle boundaries, not repeated domain rule matrices. Assert observable contracts, not implementation shape.
 
@@ -42,7 +43,7 @@ For dependency or toolchain changes, read [maintenance](docs/maintenance.md); Bu
 ## Verification
 
 - Install: `bun install`.
-- Fast gate: `bun run check` (format, types, lint, boundaries, and unit tests for every app). Unit tests are a cached per-workspace Turbo `test` task, so workspaces unaffected by a change are cache hits.
+- Fast gate: `bun run check` (format, types, lint, and unit tests for every app). Unit tests are a cached per-workspace Turbo `test` task, so workspaces unaffected by a change are cache hits.
 - Each app's guidance names its dev server, full gate, and delivery review.
 
 For code changes, use the fast gate by default before reporting completion; use the app's full gate for changes affecting Workerd integration or its deployable build. Focused tests are optional development feedback, not an additional completion requirement. Both gates apply formatting. Do not run the fast gate separately before a full gate or rerun constituent checks on unchanged code.

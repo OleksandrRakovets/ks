@@ -31,8 +31,7 @@
   "type": "module",
   "scripts": {
     "check": "bun run check:fast",
-    "check:fast": "bun run format && bun run typecheck && bun run lint && bun run check:boundaries && bun run test",
-    "check:boundaries": "node ./tools/check-boundaries.mjs",
+    "check:fast": "bun run format && bun run typecheck && bun run lint && bun run test",
     "format": "oxfmt .",
     "lint": "oxlint .",
     "lint:fix": "oxlint --fix .",
