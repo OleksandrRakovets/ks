@@ -6,6 +6,6 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "test": "bun test --config=../../bunfig.toml"
+    "test": "bun test --path-ignore-patterns='**/*.integration.test.ts'"
   }
 }

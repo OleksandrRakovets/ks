@@ -35,7 +35,7 @@
     "format": "oxfmt .",
     "lint": "oxlint .",
     "lint:fix": "oxlint --fix .",
-    "test": "turbo run test --log-order=grouped --output-logs=errors-only",
+    "test": "turbo run test --continue --log-order=grouped --output-logs=errors-only",
     "typecheck": "bun run typegen && tsc --build",
     "typegen": "bun run --filter '*' typegen",
     "play:check:full": "bun run check:fast && turbo run test:integration build --filter=@ks/play... --log-order=grouped",

@@ -5,18 +5,17 @@
   "globalDependencies": ["tsconfig.base.json"],
   "tasks": {
     "build": {
+      "description": "Keep ^build so source-only workspace transit nodes propagate their file hashes without running build scripts.",
       "dependsOn": ["^build"],
-      "outputs": []
+      "outputs": ["build/**", "dist/**"]
     },
-    "@ks/play#build": {
-      "description": "Package-specific tasks replace defaults. Keep ^build so source-only workspace transit nodes propagate their file hashes without running build scripts.",
-      "dependsOn": ["^build"],
-      "outputs": ["build/**"]
+    "transit": {
+      "description": "Dependency hashes for tasks that must not wait on dependencies' runs.",
+      "dependsOn": ["^transit"]
     },
     "test": {
-      "description": "^test chains dependency hashes, so a change in a dependency reruns its consumers' unit tests.",
-      "dependsOn": ["^test"],
-      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/bunfig.toml"],
+      "description": "Reruns when a dependency changes (through transit) without waiting for its tests.",
+      "dependsOn": ["transit"],
       "outputs": []
     },
     "test:integration": {
