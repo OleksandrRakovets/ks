@@ -9,6 +9,10 @@ export default [
   route('start/', 'routes/pwa/start.ts'),
   route('ui-preferences/theme/', 'routes/ui-preferences.ts'),
   route('api/sparring-matches/live-scores/', 'routes/sparring/matches/api-live-scores.ts'),
+  // Superadmin is Ukrainian-only, so it has no `/en/` variant; the locale layout's `*` 404s that path.
+  layout('routes/layout-base.tsx', { id: 'superadmin-layout' }, [
+    route('superadmin/', 'routes/superadmin/index.tsx'),
+  ]),
   route('en?', 'routes/layout-base.tsx', [
     index('routes/index.tsx'),
     route('now/', 'routes/now.ts'),

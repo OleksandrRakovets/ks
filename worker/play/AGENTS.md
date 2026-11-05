@@ -45,6 +45,13 @@ The `worker/play` workspace is Play's single Cloudflare Worker deployable. It ow
 - A completed Router request is not a committed React projection: acknowledge match reads after the commit, and release live listeners, timers, and sockets at the Result commit, not in a passive effect.
 - Hide handlers do brief synchronous cleanup only; nothing may depend on hide events firing. The root error boundary retries failed GETs, excluding genuine 404s; single fetch assigns a failed request to root, so route-level boundaries cannot own network recovery. Finished pages have no live subscriptions or polling. Browser `offline` estimates must not disable controls or stop retries: they do not establish server reachability.
 
+## Superadmin Gate
+
+- `src/superadmin-access.ts` gates every request whose decoded path is `/superadmin`, including Router data, on a valid Cloudflare Access token before React Router runs. It fails closed when configuration, the token, certs, or path decoding fail, and does not trust Access to intercept the path. Only people pass: Access service tokens carry no email and are denied.
+- Superadmin is not localized: there is no `/en/superadmin/` route, and its copy is Ukrainian JSX. Every superadmin loader still requires `superadminContext` and 404s without it, as defense in depth against path variants the gate misses.
+- `SUPERADMIN_ACCESS_TEAM_DOMAIN` and `SUPERADMIN_ACCESS_AUD` are committed `vars` in `wrangler.jsonc`. Code compiled by the Vite dev server skips the check (the `import.meta.env.KS_DEV_SERVER` define); every build compiles it away regardless of `NODE_ENV` or mode, and a `vite.config.ts` build hook fails a build that keeps it. Never gate the bypass on runtime config or `isProduction`, which is hostname-derived and cosmetic.
+- The production preview (`vite preview`, the play-preview portal) serves a build, so superadmin returns 403 there by design; use the dev server (`bun run dev`, the `play-dev` portal) for superadmin work.
+
 ## UI Ownership
 
 - Import `web` modules through the `@/` alias, never relative paths; only React Router's generated `./+types/*` imports stay relative. Oxlint enforces this.
