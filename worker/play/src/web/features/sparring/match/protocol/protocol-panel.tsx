@@ -1,5 +1,5 @@
 import type { ProtocolRow } from '@ks/application'
-import type { BySeatNumber, Seat } from '@ks/core'
+import { type BySeatNumber, opponentOf, type Seat } from '@ks/core'
 import { keys } from '@ks/i18n'
 import { type ReactNode, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -96,6 +96,7 @@ export function ProtocolPanel(props: {
                     captionClassName="text-muted-foreground"
                     names={props.names}
                     score={props.showsFrames ? row.framesWonBySeat : row.pointsBySeat}
+                    emphasizedSeat={row.winnerSeat}
                     caption={[
                       props.showsFrames
                         ? t(keys.match.protocol.frameResult, {
@@ -282,11 +283,13 @@ function TimedItem(props: {
 }
 
 /**
- * A raised band with a fixed-colon score above a muted caption. Like the Board, the leader is bold and the
- * trailer muted; seat names are announced because the band itself has no lanes.
+ * A raised band with a fixed-colon score above a muted caption. Like the Board, the emphasized seat is bold and
+ * the other muted: the frame winner when given, since a handicap or a concession can win on fewer points,
+ * otherwise the leader. Seat names are announced because the band itself has no lanes.
  */
 function Band(props: {
   score: BySeatNumber
+  emphasizedSeat?: Seat
   names: BySeatNames
   caption: readonly string[]
   className: string
@@ -294,7 +297,16 @@ function Band(props: {
   captionClassName: string
 }) {
   const { A, B } = props.score
-  const tone = (points: number, other: number) => (points < other ? 'text-muted-foreground' : 'font-bold')
+  const { emphasizedSeat } = props
+
+  const tone = (seat: Seat) => {
+    const isMuted =
+      emphasizedSeat === undefined
+        ? props.score[seat] < props.score[opponentOf(seat)]
+        : seat !== emphasizedSeat
+
+    return isMuted ? 'text-muted-foreground' : 'font-bold'
+  }
 
   return (
     <span
@@ -306,9 +318,9 @@ function Band(props: {
       {/* Names stay outside the score cells, so nothing but the numbers sits beside the colon. */}
       <span className="sr-only">{`${props.names.A} ${formatProtocolPoints(A)} : ${props.names.B} ${formatProtocolPoints(B)}`}</span>
       <span aria-hidden className={cn('grid grid-cols-[1fr_auto_1fr] self-stretch', props.scoreClassName)}>
-        <ScoreNumber className={cn('pr-2 text-right', tone(A, B))} points={A} />
+        <ScoreNumber className={cn('pr-2 text-right', tone('A'))} points={A} />
         <span className="opacity-70">:</span>
-        <ScoreNumber className={cn('pl-2 text-left', tone(B, A))} points={B} />
+        <ScoreNumber className={cn('pl-2 text-left', tone('B'))} points={B} />
       </span>
       <span
         className={cn('max-w-full text-center text-base [overflow-wrap:anywhere]', props.captionClassName)}
