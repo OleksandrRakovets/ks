@@ -24,6 +24,7 @@ Run from the repository root:
 - Dev server on strict port `7529`: `bun run play:dev` (`play:dev:human` for the Turbo TUI).
 - Full gate: `bun run play:check:full` (the root fast gate plus Workerd integration and the Play build).
 - Delivery review: `bun run play:test:e2e` (Chromium), then the root Knip review. The first E2E run on a machine installs its browser; agents should not install it earlier. Fix E2E failures or report them with the failing trace.
+  - In an orb, first stop the dev server (`amp orb service stop play-dev`), any preview service, and any `agent-browser` session (`agent-browser close`), then restart what you need afterwards. The default orb size fits E2E alone; alongside them, native Chromium lifecycle journeys time out at browser launch.
 - Reset local D1 and MatchRoom state: `bun run play:db:reset:local`.
 
 ## Deployment Safety
