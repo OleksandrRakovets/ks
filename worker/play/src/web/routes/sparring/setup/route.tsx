@@ -5,6 +5,8 @@ import { createSetupMatch, loadSetupPage } from '@/routes/sparring/setup/handler
 
 import type { Route } from './+types/route'
 
+export const handle = { inAppBrowserIntent: 'form' } as const
+
 export function loader(args: Route.LoaderArgs) {
   return loadSetupPage(args)
 }

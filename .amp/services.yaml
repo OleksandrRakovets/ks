@@ -1,7 +1,7 @@
 # Declared services start on every `amp orb services ensure`; see .agents/AGENTS.md for the on-demand preview portal.
 services:
   play-dev:
-    command: ./node_modules/.bin/turbo watch @ks/play#dev -- --port "$PORT"
+    command: sh -c './node_modules/.bin/turbo watch @ks/play#dev -- --port "$PORT"'
     cwd: .
     health: /
     portal:
