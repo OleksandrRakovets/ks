@@ -6,14 +6,9 @@ import { useTranslation } from 'react-i18next'
 import { useFetcher } from 'react-router'
 
 import { ReadRecovery } from '@/features/freshness/read-recovery'
-import {
-  SCOREBOARD_STAGE,
-  scoreboardBox,
-  type ScoreboardLayout,
-  scoreboardSourceArea,
-} from '@/features/scoreboard/artwork/geometry'
+import { SCOREBOARD_STAGE, scoreboardBox, type ScoreboardLayout } from '@/features/scoreboard/artwork/geometry'
 import { ScoreboardSvg } from '@/features/scoreboard/artwork/scoreboard-svg'
-import { presentScoreboard } from '@/features/scoreboard/present/present'
+import { presentScoreboard, scoreboardSize } from '@/features/scoreboard/present/present'
 import type { ScoreboardTheme } from '@/features/scoreboard/themes/themes'
 import type { ScoreboardNames } from '@/features/scoreboard/values'
 import { useScoreboardLiveRevalidation } from '@/features/sparring/match/live'
@@ -33,10 +28,10 @@ export type ScoreboardSource = Readonly<{
 export type ScoreboardReadFailed = { readonly readFailed: true }
 
 /**
- * OBS browser-source page: the layout's source area of the transparent stage, scaled to the
- * viewport, holding only the artwork at its fixed box. Reads go through a fetcher of the page's own
- * route, so the root loader is never re-read and a failed read cannot reach the root error
- * boundary. Until the first good read the stage stays empty.
+ * OBS browser-source page: the box of the match's game and layout, scaled to the viewport. The
+ * artwork paints the whole box solid; the document stays transparent, so a page with no match to
+ * show paints nothing. Reads go through a fetcher of the page's own route, so the root loader is
+ * never re-read and a failed read cannot reach the root error boundary.
  */
 export function ScoreboardPage(props: { initial: ScoreboardSource | null; recover: boolean }) {
   const fetcher = useFetcher<ScoreboardSource | ScoreboardReadFailed>()
@@ -47,19 +42,23 @@ export function ScoreboardPage(props: { initial: ScoreboardSource | null; recove
 
   const read = () => fetcher.load(`${window.location.pathname}${window.location.search}`)
 
-  // Nothing paints before the first good read, so the full stage is as good as any area.
-  const area = shown === null ? { x: 0, y: 0, ...SCOREBOARD_STAGE } : scoreboardSourceArea(shown.layout)
+  // Nothing paints before the first good read, so the full stage is as good as any box.
+  const box =
+    shown === null
+      ? { x: 0, y: 0, ...SCOREBOARD_STAGE }
+      : scoreboardBox(shown.layout, scoreboardSize(shown.gameKey))
 
   return (
     <>
-      {/* A dark color-scheme would paint Chromium's canvas dark behind a transparent root. */}
+      {/* Overrides the app stylesheet's body background and the app theme's dark color-scheme,
+          which would paint Chromium's canvas dark behind a transparent root. */}
       <style>
         {
           'html, body { background: transparent !important; color-scheme: normal !important; overflow: hidden; }'
         }
       </style>
       <svg
-        viewBox={`${area.x} ${area.y} ${area.width} ${area.height}`}
+        viewBox={`${box.x} ${box.y} ${box.width} ${box.height}`}
         preserveAspectRatio="xMidYMax meet"
         style={{ position: 'fixed', inset: 0, width: '100%', height: '100%' }}
       >

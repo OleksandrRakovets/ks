@@ -2,6 +2,7 @@ import type { ThemePalette } from '@/features/scoreboard/themes/themes'
 
 /** Club green-black with an amber centre, close to the app's dark theme. */
 export const DEFAULT_THEME = {
+  background: '#0B1510',
   bar: '#0B1510',
   barOpacity: 0.92,
   raised: '#1B2B22',

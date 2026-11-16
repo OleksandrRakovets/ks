@@ -7,6 +7,8 @@ import { DEFAULT_THEME } from '@/features/scoreboard/themes/default'
  * and radii belong to the layout, because the artwork's sizes are measured against them.
  */
 export type ThemePalette = Readonly<{
+  /** Opaque fill of the whole box behind the artwork. */
+  background: string
   /** The bar and ball tray. */
   bar: string
   barOpacity: number

@@ -1,7 +1,5 @@
-import { GameKey } from '@ks/gameplay/definitions'
 import * as v from 'valibot'
 
-import { scoreboardSize } from '@/features/scoreboard/present/present'
 import type { ScoreboardCentre, ScoreboardSize } from '@/features/scoreboard/values'
 
 /** Add a layout here and in `LAYOUTS`; the page URL validates against this list. */
@@ -15,22 +13,11 @@ export const SCOREBOARD_STAGE = { width: 1920, height: 1080 } as const
 /**
  * Fixed box of a layout for one game, bottom-anchored and centred on the stage. It depends only on
  * the layout and the game's size, never on state, so a consumer can composite the artwork as one
- * image at a known position. It includes the ball row and the reserved secondary row.
+ * image at a known position. It includes the ball row and the reserved secondary row, and it is
+ * all a page shows: an OBS source is sized to the box of its match's game.
  */
 export function scoreboardBox(layout: ScoreboardLayout, size: ScoreboardSize) {
   const { width, height } = artworkGeometry(layout, size, null)
-
-  return { x: (SCOREBOARD_STAGE.width - width) / 2, y: SCOREBOARD_STAGE.height - height, width, height }
-}
-
-/**
- * The stage area a layout's page shows, so an OBS source can be sized to it rather than the full
- * stage: the union of the layout's boxes across games, so one source size fits every match.
- */
-export function scoreboardSourceArea(layout: ScoreboardLayout) {
-  const boxes = GameKey.options.map((gameKey) => scoreboardBox(layout, scoreboardSize(gameKey)))
-  const width = Math.max(...boxes.map((box) => box.width))
-  const height = Math.max(...boxes.map((box) => box.height))
 
   return { x: (SCOREBOARD_STAGE.width - width) / 2, y: SCOREBOARD_STAGE.height - height, width, height }
 }

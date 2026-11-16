@@ -8,7 +8,7 @@ The stream **Scoreboard** (see `worker/play/GLOSSARY.md`) is the public, read-on
 - **Scoreboard entity page** `/scoreboard/<id>/` (BIL-12) reuses `ScoreboardPage` with a different loader.
 - **Streamer** (BIL-100) rasterizes the same artwork from a server-rendered SVG, so the artwork must render without a browser page.
 
-Design for a 1080p canvas: the stage is 1920×1080 and each layout's page shows only its source area of it. Scaling to other canvas sizes is a consumer concern.
+Design for a 1080p canvas: the stage is 1920×1080, and a page shows only the box of its match's game and layout, so the OBS source size depends on the game. Scaling to other canvas sizes is a consumer concern.
 
 ## Structure
 
@@ -17,7 +17,7 @@ values.ts   ScoreboardValues: the only input the artwork accepts
 present/    match read → values; the only place games differ
 artwork/    pure SVG: geometry (layouts, boxes, bar outline) and one module per part
 themes/     palettes and their registry
-page/       document CSS, fetcher reads, recovery, live revalidation, scaling to the source area
+page/       document CSS, fetcher reads, recovery, live revalidation, scaling to the box
 ```
 
 - `present/` has one presenter per gameplay machine, named after it: `strila-v2`, `pyramid` (free, combined, old rules), and `long-free-pyramid`. A presenter resolves a game's size and the values only its games show (targets, centre, balls, tips). `presentScoreboard` resolves the values every game shares and picks the presenter for each game key.
@@ -28,7 +28,9 @@ page/       document CSS, fetcher reads, recovery, live revalidation, scaling to
 
 ## Document
 
-Stream pages are not part of the app's look. `routes/layout-scoreboard.tsx` is a sibling of `layout-base` and imports no app stylesheet, so Tailwind, app themes, and the app's colour scheme never reach the stream document. The page's own `<style>` is its whole document CSS. Keep scoreboard routes under that layout, and never style the scoreboard through app CSS, Tailwind classes, or the theme cookie. The root layout still sets the app theme class on `<html>`, which has no effect without the stylesheet.
+Stream pages load the app stylesheet from root like every other page, and the root layout sets the app theme class on `<html>`. Nothing in the scoreboard depends on them: the artwork uses inline presentation attributes only, so app CSS, Tailwind classes, and the theme cookie never style it. The page's own `<style>` overrides the app's `html`/`body` background and dark `color-scheme` with `!important`, so the document stays transparent wherever the artwork does not paint (before the first good read, a malformed URL, or a missing match).
+
+The artwork paints the whole box with the theme's opaque `background`, so no part of the table shows through the scoreboard.
 
 Reads keep the last good state and never show an error; see the stream scoreboard exception in `worker/play/AGENTS.md`.
 
@@ -39,10 +41,10 @@ Use these names when discussing or changing a part. Rendered parts carry the mat
 | Term | `data-part` | What it is |
 | --- | --- | --- |
 | Stage | | The 1920×1080 design canvas. |
-| Source area | | The part of the stage a layout's page shows: the union of its boxes across games, so one OBS source size fits every match. |
-| Box | | The artwork's fixed size and anchor for one layout and game, the same in every state. |
+| Box | | The artwork's fixed size and anchor for one layout and game, the same in every state. The page shows exactly the box, so it is also the OBS source size. |
+| Background | `background` | The opaque fill of the whole box, behind every other part. |
 | Ball row | `ball-row` | Strila's balls above the bar, on the **ball tray** (`ball-tray`). Each **ball** (`ball`) is enlarged when on and dimmed when potted. |
-| Bar | `bar` | The dark background shape: a centred bar in compact and a full-width band in wide. It extends down under the parts that use the secondary row. |
+| Bar | `bar` | The dark shape behind the rows, the same colour as the background in the default theme: a centred bar in compact and a full-width band in wide. It extends down under the parts that use the secondary row. |
 | Primary row | | The top row of the bar: name plates, points boxes, centre. |
 | Secondary row | | The bottom row of the bar, shown only with content: tips, the target row, and the handicap label. |
 | Seat side | `data-seat` group | One player's name plate, points box, target, and tip. |
@@ -60,4 +62,4 @@ Keep this table in step with the code when adding, renaming, or removing parts.
 ## Tests
 
 - `present/present.test.ts` asserts presentation decisions as semantic values (centre kind, targets, tips, sizes); keep game-rule matrices in gameplay.
-- `packages/play-e2e/test/scoreboard.e2e.ts` covers live wiring, failed-read recovery, the document's lack of app CSS, and standalone rasterization. Inspect visual changes in a browser; do not unit-test JSX.
+- `packages/play-e2e/test/scoreboard.e2e.ts` covers live wiring, failed-read recovery, a transparent document without a match, and standalone rasterization of a fully opaque box. Inspect visual changes in a browser; do not unit-test JSX.

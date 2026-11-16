@@ -53,7 +53,10 @@ export function ScoreboardSvg(props: {
   )
 }
 
-/** Draw order: ball row, bar, both seat sides (clipped to the bar), centre, handicap label. */
+/**
+ * Draw order: the solid background over the whole box, so nothing behind the artwork shows
+ * through; then ball row, bar, both seat sides (clipped to the bar), centre, handicap label.
+ */
 function MatchArtwork(props: {
   values: ScoreboardMatchValues
   geometry: Geometry
@@ -71,6 +74,7 @@ function MatchArtwork(props: {
 
   return (
     <>
+      <rect data-part="background" width={g.width} height={g.height} fill={palette.background} />
       {values.balls ? (
         <BallRow balls={values.balls} centreX={g.width / 2} palette={palette} idPrefix={props.idPrefix} />
       ) : null}

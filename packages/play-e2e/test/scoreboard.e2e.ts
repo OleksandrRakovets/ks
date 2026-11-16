@@ -129,9 +129,9 @@ for (const layout of ['compact', 'wide'] as const) {
       source: 'game',
       command: { type: 'pot.record', seat: 'A', pottedBalls: [1] },
     })
-    // The OBS source is sized to the layout's frame, so the artwork renders at stage scale.
+    // The OBS source is sized to the Strila box of its layout, so the artwork renders at stage scale.
     await page.setViewportSize(
-      layout === 'compact' ? { width: 1272, height: 192 } : { width: 1920, height: 192 },
+      layout === 'compact' ? { width: 1228, height: 192 } : { width: 1920, height: 192 },
     )
     await openPage(page, `${path}scoreboard/?layout=${layout}`)
     const artwork = page.locator('svg[data-match-id]')
@@ -179,7 +179,7 @@ for (const layout of ['compact', 'wide'] as const) {
       let painted = 0
 
       for (let index = 0; index < drawn.length; index += 4) {
-        if ((drawn[index + 3] ?? 0) > 0) painted++
+        if (drawn[index + 3] === 255) painted++
 
         for (let channel = 0; channel < 4; channel++) {
           if (Math.abs((drawn[index + channel] ?? 0) - (page[index + channel] ?? 0)) > 48) {
@@ -192,7 +192,8 @@ for (const layout of ['compact', 'wide'] as const) {
       return { painted: painted / (width * height), different: different / (width * height) }
     }, screenshot.toString('base64'))
 
-    expect(result.painted).toBeGreaterThan(0.3)
+    // The background is solid: nothing behind the source shows through any part of the box.
+    expect(result.painted).toBe(1)
     expect(result.different).toBeLessThan(0.002)
   })
 }
