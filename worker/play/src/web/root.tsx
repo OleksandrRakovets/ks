@@ -3,6 +3,7 @@ import i18next, { type i18n as I18nInstance } from 'i18next'
 import { I18nextProvider, initReactI18next } from 'react-i18next'
 import { Links, Meta, Outlet, Scripts, ScrollRestoration, useRouteLoaderData } from 'react-router'
 
+import '@/base.css'
 import { RouteError } from '@/components/route-error'
 import { useFailedReadRecovery } from '@/features/freshness/use-failed-read-recovery'
 import { iconBasePath, iconThemeColor, type IconVariant } from '@/features/icon-assets'

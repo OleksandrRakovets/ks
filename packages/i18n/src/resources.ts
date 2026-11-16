@@ -11,7 +11,9 @@ export const resources = {
         error: {
           eyebrow: 'Помилка',
           title: 'Щось пішло не так',
+          retry: 'Спробувати ще раз',
         },
+        home: 'На головну',
       },
       nav: {
         menu: 'Меню',
@@ -301,7 +303,9 @@ export const resources = {
         error: {
           eyebrow: 'Error',
           title: 'Something went wrong',
+          retry: 'Try again',
         },
+        home: 'Go home',
       },
       nav: {
         menu: 'Menu',

@@ -1,8 +1,11 @@
 import { keys } from '@ks/i18n'
 import { useTranslation } from 'react-i18next'
-import { isRouteErrorResponse, useRouteError } from 'react-router'
+import { isRouteErrorResponse, Link, useRevalidator, useRouteError } from 'react-router'
 
+import { Button } from '@/components/ui'
 import { cn } from '@/components/ui/utils'
+import { localizedPath } from '@/i18n'
+import { useRootLocale } from '@/root'
 
 /** Whether the nearest route error is a genuine 404 rather than a possibly transient failure. */
 export function useRouteErrorIsNotFound(): boolean {
@@ -11,10 +14,15 @@ export function useRouteErrorIsNotFound(): boolean {
   return isRouteErrorResponse(error) && error.status === 404
 }
 
-/** Not-found or generic failure surface shared by route error boundaries. */
+/**
+ * Not-found or generic failure surface shared by route error boundaries. Retry re-reads loaders only;
+ * it never replays a Command POST.
+ */
 export function RouteError({ className }: { className?: string }) {
   const { t } = useTranslation()
   const notFound = useRouteErrorIsNotFound()
+  const locale = useRootLocale()
+  const { revalidate, state } = useRevalidator()
 
   return (
     <main
@@ -37,6 +45,21 @@ export function RouteError({ className }: { className?: string }) {
             <h1 className="mt-2 text-3xl font-semibold tracking-tight">{t(keys.app.error.title)}</h1>
           </>
         )}
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
+          {notFound ? null : (
+            <Button size="touch" disabled={state === 'loading'} onClick={() => void revalidate()}>
+              {t(keys.app.error.retry)}
+            </Button>
+          )}
+          <Button
+            size="touch"
+            variant={notFound ? 'primary' : 'outline'}
+            nativeButton={false}
+            render={<Link to={localizedPath('/', locale)} />}
+          >
+            {t(keys.app.home)}
+          </Button>
+        </div>
       </div>
     </main>
   )

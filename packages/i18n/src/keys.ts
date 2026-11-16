@@ -9,7 +9,9 @@ export const keys = {
     error: {
       eyebrow: 'app.error.eyebrow',
       title: 'app.error.title',
+      retry: 'app.error.retry',
     },
+    home: 'app.home',
   },
   nav: {
     menu: 'nav.menu',

@@ -2,8 +2,6 @@ import { Outlet, redirect } from 'react-router'
 
 import { localeContext } from '@/i18n'
 
-import '@/base.css'
-
 import type { Route } from './+types/layout-base'
 
 export const middleware: Route.MiddlewareFunction[] = [
