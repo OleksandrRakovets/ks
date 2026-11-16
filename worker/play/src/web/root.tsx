@@ -1,8 +1,9 @@
 import { resources, type SupportedLocale } from '@ks/i18n'
 import i18next, { type i18n as I18nInstance } from 'i18next'
 import { I18nextProvider, initReactI18next } from 'react-i18next'
-import { Links, Meta, Outlet, Scripts, ScrollRestoration, useMatches, useRouteLoaderData } from 'react-router'
+import { Links, Meta, Outlet, Scripts, ScrollRestoration, useRouteLoaderData } from 'react-router'
 
+import '@/base.css'
 import { RouteError } from '@/components/route-error'
 import { useFailedReadRecovery } from '@/features/freshness/use-failed-read-recovery'
 import { iconBasePath, iconThemeColor, type IconVariant } from '@/features/icon-assets'
@@ -11,8 +12,6 @@ import { localeFromContext } from '@/i18n'
 import { type AppLoadContext, cloudflareContext } from '@/server/context.server'
 import { themeFromCookie } from '@/server/theme.server'
 import type { AppTheme } from '@/theme'
-
-import baseStylesheet from '@/base.css?url'
 
 export type RootLoaderData = {
   iconVariant: IconVariant
@@ -54,17 +53,9 @@ export function useRootTheme(): AppTheme {
   return data?.theme ?? 'club-dark'
 }
 
-/**
- * Route `handle` of layouts whose pages use the app stylesheet. Root links it rather than the
- * layout, because the root error boundary replaces every route's links, even when the error occurs
- * offline. Pages outside such a layout, and their errors, get no app CSS.
- */
-export const appStylesheetHandle = { appStylesheet: true } as const
-
 export function Layout({ children }: { children: React.ReactNode }) {
   const data = useRouteLoaderData<RootLoaderData>('root')
   const locale = useRootLocale()
-  const appStyled = useMatches().some(({ handle }) => handle === appStylesheetHandle)
 
   const theme = data?.theme ?? 'club-dark'
   const iconVariant = data?.iconVariant ?? 'amber'
@@ -86,7 +77,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <link rel="manifest" href="/site.webmanifest" />
         <meta name="theme-color" content={iconThemeColor(iconVariant)} />
         <Meta />
-        {appStyled ? <link rel="stylesheet" href={baseStylesheet} /> : null}
         <Links />
       </head>
       <body>

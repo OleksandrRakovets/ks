@@ -1,11 +1,8 @@
 import { Outlet, redirect } from 'react-router'
 
 import { localeContext } from '@/i18n'
-import { appStylesheetHandle } from '@/root'
 
 import type { Route } from './+types/layout-base'
-
-export const handle = appStylesheetHandle
 
 export const middleware: Route.MiddlewareFunction[] = [
   ({ request, context }) => {
