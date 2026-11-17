@@ -77,3 +77,9 @@ _Avoid_: Deletion, rollback
 **Final Match State**:
 The state of a match after it has ended, including its target, frame scores, and frame outcomes.
 _Avoid_: Snapshot, match result, match summary
+
+## Access
+
+**Superadmin**:
+The owner's root access to KS through the `/superadmin/` pages, verified by Cloudflare Access rather than KS user accounts.
+_Avoid_: Admin, which future club roles may need

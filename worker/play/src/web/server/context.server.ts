@@ -19,3 +19,6 @@ export function requireApplication(context: AppLoadContext): Application {
 
   return application
 }
+
+/** True only after the Worker verified a superadmin request; every superadmin loader must require it. */
+export const superadminContext = createContext(false)
