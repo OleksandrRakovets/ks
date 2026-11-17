@@ -6,7 +6,7 @@ export const resources = {
         inAppBrowser: {
           title: 'Краще працює у браузері',
           reason: 'Там матч легко знайти знову й почати наступний.',
-          telegramInstruction: 'Не відкривається? Натисніть ⋯ угорі й виберіть «Відкрити у браузері».',
+          telegramInstruction: 'Не відкривається? Натисніть ••• угорі й виберіть «Відкрити у браузері».',
           whatsappInstruction: 'Не відкривається? Пошукайте «Відкрити у браузері» в меню WhatsApp.',
           instagramInstruction: 'Не відкривається? Пошукайте «Відкрити у браузері» в меню Instagram.',
           genericInstruction: 'Не відкривається? Пошукайте «Відкрити у браузері» в меню застосунку.',
@@ -313,7 +313,7 @@ export const resources = {
         inAppBrowser: {
           title: 'Works better in your browser',
           reason: 'There it’s easy to find your match again and start the next one.',
-          telegramInstruction: 'Didn’t open? Tap ⋯ at the top and choose “Open in browser”.',
+          telegramInstruction: 'Didn’t open? Tap ••• at the top and choose “Open in browser”.',
           whatsappInstruction: 'Didn’t open? Look for “Open in browser” in WhatsApp’s menu.',
           instagramInstruction: 'Didn’t open? Look for “Open in browser” in Instagram’s menu.',
           genericInstruction: 'Didn’t open? Look for “Open in browser” in the app’s menu.',
