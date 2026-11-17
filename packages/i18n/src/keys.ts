@@ -1,6 +1,21 @@
 export const keys = {
   appTitle: 'app.title',
   app: {
+    inAppBrowser: {
+      title: 'app.inAppBrowser.title',
+      reason: 'app.inAppBrowser.reason',
+      telegramInstruction: 'app.inAppBrowser.telegramInstruction',
+      whatsappInstruction: 'app.inAppBrowser.whatsappInstruction',
+      instagramInstruction: 'app.inAppBrowser.instagramInstruction',
+      genericInstruction: 'app.inAppBrowser.genericInstruction',
+      openSafari: 'app.inAppBrowser.openSafari',
+      openChrome: 'app.inAppBrowser.openChrome',
+      openBrowser: 'app.inAppBrowser.openBrowser',
+      copyLink: 'app.inAppBrowser.copyLink',
+      copied: 'app.inAppBrowser.copied',
+      copyFailed: 'app.inAppBrowser.copyFailed',
+      link: 'app.inAppBrowser.link',
+    },
     notFound: {
       eyebrow: 'app.notFound.eyebrow',
       title: 'app.notFound.title',

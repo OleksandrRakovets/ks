@@ -7,6 +7,7 @@ import '@/base.css'
 import { RouteError } from '@/components/route-error'
 import { useFailedReadRecovery } from '@/features/freshness/use-failed-read-recovery'
 import { iconBasePath, iconThemeColor, type IconVariant } from '@/features/icon-assets'
+import { inAppBrowserScript } from '@/features/in-app-browser/detection'
 import { useRememberNavigation } from '@/features/pwa/use-remember-navigation'
 import { localeFromContext } from '@/i18n'
 import { type AppLoadContext, cloudflareContext } from '@/server/context.server'
@@ -64,9 +65,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const htmlClass = theme === 'club-light' ? 'club-light' : theme === 'club-dark' ? 'club-dark' : ''
 
   return (
-    <html lang={locale} className={htmlClass}>
+    // The inline in-app browser script adds data attributes to <html> before hydration.
+    <html lang={locale} className={htmlClass} suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
+        <script dangerouslySetInnerHTML={{ __html: inAppBrowserScript }} />
         <meta
           name="viewport"
           content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"

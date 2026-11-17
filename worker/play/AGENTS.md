@@ -24,7 +24,7 @@ Run from the repository root:
 - Dev server on strict port `7529`: `bun run play:dev` (`play:dev:human` for the Turbo TUI).
 - Full gate: `bun run play:check:full` (the root fast gate plus Workerd integration and the Play build).
 - Delivery review: `bun run play:test:e2e` (Chromium), then the root Knip review. The first E2E run on a machine installs its browser; agents should not install it earlier. Fix E2E failures or report them with the failing trace.
-  - In an orb, first stop the dev server (`amp orb service stop play-dev`), any preview service, and any `agent-browser` session (`agent-browser close`), then restart what you need afterwards. The default orb size fits E2E alone; alongside them, native Chromium lifecycle journeys time out at browser launch.
+  - The project's default a1.medium orb runs E2E alongside the dev and preview services and an idle `agent-browser` session. On a 2-vCPU orb (a1.small or smaller, `nproc` 2), first stop them (`amp orb service stop play-dev`, any preview service, `agent-browser close`) and restart what you need afterwards; otherwise native Chromium lifecycle journeys time out at browser launch.
 - Reset local D1 and MatchRoom state: `bun run play:db:reset:local`.
 
 ## Deployment Safety
@@ -55,7 +55,8 @@ The `worker/play` workspace is Play's single Cloudflare Worker deployable. It ow
 - Give each game an explicit Match route and Protocol route. The Match loader selects Control or Result from lifecycle; the stable URL does not encode lifecycle state.
 - Preserve distinct scoring and Protocol contracts. Play groups flat scoring controls into layout sections; game semantics remain in gameplay.
 - Share Active/Finished surface compositions between Match and Protocol pages. Feature-local presentation functions derive copy and emphasis; Shell and Board render resolved props. Page controllers own submission and live revalidation.
-- The curated game shelf's localized JSX copy belongs in `src/web/routes/sparring/index.tsx`, independently of registry names used by Setup. Adding a game also requires its card and routes.
+- `layout-base` shows the in-app browser notice compact by default. A new page must choose its size with `handle.inAppBrowserIntent`: `'form'` for pages that create something (full height), `'control'` for Match routes (full height only while the loader returns `page: 'control'`). Reading pages omit the handle. Detection is the inline `<head>` script in `features/in-app-browser`, so the notice is server-rendered and revealed by CSS before first paint; do not gate it on React state.
+- The curated game shelf's localized JSX copy belongs in `src/web/routes/sparring/index.tsx`, independently of registry names used by Setup. Adding a game also requires its card and routes, including the Match route's `'control'` intent handle.
 
 ## Installed App Launch
 
